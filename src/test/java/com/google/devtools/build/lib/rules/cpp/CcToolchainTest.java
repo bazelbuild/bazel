@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -272,40 +272,38 @@ public class CcToolchainTest extends BuildViewTestCase {
     assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.FULLY);
 
     // Check an invalid value for disable_dynamic.
-    try {
-      useConfiguration("--dynamic_mode=very");
-      fail("OptionsParsingException not thrown."); // COV_NF_LINE
-    } catch (OptionsParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "While parsing option --dynamic_mode=very: Not a valid dynamic mode: 'very' "
-                  + "(should be off, default or fully)");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> useConfiguration("--dynamic_mode=very"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "While parsing option --dynamic_mode=very: Not a valid dynamic mode: 'very' "
+                + "(should be off, default or fully)");
   }
 
   public void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
       throws Exception {
-    try {
-      scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
-      getAnalysisMock()
-          .ccSupport()
-          .setupCcToolchainConfig(
-              mockToolsConfig, CcToolchainConfig.builder().withCxxBuiltinIncludeDirectories(entry));
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () -> {
+              scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
+              getAnalysisMock()
+                  .ccSupport()
+                  .setupCcToolchainConfig(
+                      mockToolsConfig,
+                      CcToolchainConfig.builder().withCxxBuiltinIncludeDirectories(entry));
 
-      useConfiguration();
-      invalidatePackages();
+              useConfiguration();
+              invalidatePackages();
 
-      ConfiguredTarget target = getConfiguredTarget("//a:b");
-      CcToolchainProvider toolchainProvider =
-          (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-      // Must call this function to actually see if there's an error with the directories.
-      toolchainProvider.getBuiltInIncludeDirectories();
-
-      fail("C++ configuration creation succeeded unexpectedly");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().containsMatch(messageRegex);
-    }
+              ConfiguredTarget target = getConfiguredTarget("//a:b");
+              CcToolchainProvider toolchainProvider =
+                  (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+              // Must call this function to actually see if there's an error with the directories.
+              toolchainProvider.getBuiltInIncludeDirectories();
+            });
+    assertThat(e).hasMessageThat().containsMatch(messageRegex);
   }
 
   @Test

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -749,12 +749,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   private static void assertError(String expectedSubstring, CppLinkActionBuilder builder) {
-    try {
-      builder.build();
-      fail();
-    } catch (Exception e) {
-      assertThat(e).hasMessageThat().contains(expectedSubstring);
-    }
+    Exception e = assertThrows(Exception.class, () -> builder.build());
+    assertThat(e).hasMessageThat().contains(expectedSubstring);
   }
 
   @Test

@@ -15,6 +15,7 @@ package com.google.devtools.build.android.ziputils;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
@@ -49,26 +50,23 @@ public class SplitZipTest {
   }
 
   @Test
-  public void testSetOutput() {
+  public void testSetOutput_null() {
     SplitZip instance = new SplitZip();
-    try {
-      instance.addOutput((String) null);
-      fail("should have failed");
-    } catch (Exception ex) {
-      assertWithMessage("NullPointerException expected")
-          .that(ex instanceof NullPointerException)
-          .isTrue();
-    }
-    try {
+    Exception ex = assertThrows(Exception.class, () -> instance.addOutput((String) null));
+    assertWithMessage("NullPointerException expected")
+        .that(ex instanceof NullPointerException)
+        .isTrue();
+  }
+
+  @Test
+  public void testSetOutput() throws IOException {
+    SplitZip instance = new SplitZip();
       SplitZip result = instance
           .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false),
               "out/shard1.jar"))
           .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard2.jar", false),
               "out/shard2.jar"));
       assertThat(result).isSameAs(instance);
-    } catch (IOException ex) {
-      fail("Unexpected exception: " + ex);
-    }
   }
 
   @Test
@@ -136,30 +134,30 @@ public class SplitZipTest {
 
   @Test
   public void testAddInput() {
-    try {
-      SplitZip instance = new SplitZip();
-      String noexists = "noexists.zip";
-      instance.addInput(noexists);
-      fail("should not be able to add non existing file: " + noexists);
-    } catch (IOException ex) {
-      assertWithMessage("FileNotFoundException expected")
-          .that(ex instanceof FileNotFoundException)
-          .isTrue();
-    }
+    SplitZip instance = new SplitZip();
+    String noexists = "noexists.zip";
+    IOException ex =
+        assertThrows(
+            "should not be able to add non existing file: " + noexists,
+            IOException.class,
+            () -> instance.addInput(noexists));
+    assertWithMessage("FileNotFoundException expected")
+        .that(ex instanceof FileNotFoundException)
+        .isTrue();
   }
 
   @Test
   public void testAddInputs() {
-    try {
-      SplitZip instance = new SplitZip();
-      String noexists = "noexists.zip";
-      instance.addInputs(Arrays.asList(noexists));
-      fail("should not be able to add non existing file: " + noexists);
-    } catch (IOException ex) {
-      assertWithMessage("FileNotFoundException expected")
-          .that(ex instanceof FileNotFoundException)
-          .isTrue();
-    }
+    SplitZip instance = new SplitZip();
+    String noexists = "noexists.zip";
+    IOException ex =
+        assertThrows(
+            "should not be able to add non existing file: " + noexists,
+            IOException.class,
+            () -> instance.addInputs(Arrays.asList(noexists)));
+    assertWithMessage("FileNotFoundException expected")
+        .that(ex instanceof FileNotFoundException)
+        .isTrue();
   }
 
   @Test

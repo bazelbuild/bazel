@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -168,68 +168,46 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void hasCorrectLocationForRuleAttributeError_NativeRuleWithMacro() throws Exception {
     setUpAttributeErrorTest();
-    try {
-      createRuleContext("//test:m_native");
-      fail("Should have failed because of invalid dependency");
-    } catch (Exception ex) {
-      // Macro creates native rule -> location points to the rule and the message contains details
-      // about the macro.
-      assertContainsEvent("misplaced here");
-      // Skip the part of the error message that has details about the allowed deps since the mocks
-      // for the mac tests might have different values for them.
-      assertContainsEvent(". Since this "
-          + "rule was created by the macro 'macro_native_rule', the error might have been caused "
-          + "by the macro implementation in /workspace/test/macros.bzl:10:41");
-    }
+    assertThrows(Exception.class, () -> createRuleContext("//test:m_native"));
+    assertContainsEvent("misplaced here");
+    // Skip the part of the error message that has details about the allowed deps since the mocks
+    // for the mac tests might have different values for them.
+    assertContainsEvent(
+        ". Since this "
+            + "rule was created by the macro 'macro_native_rule', the error might have been caused "
+            + "by the macro implementation in /workspace/test/macros.bzl:10:41");
   }
 
   @Test
   public void hasCorrectLocationForRuleAttributeError_SkylarkRuleWithMacro() throws Exception {
     setUpAttributeErrorTest();
-    try {
-      createRuleContext("//test:m_skylark");
-      fail("Should have failed because of invalid attribute value");
-    } catch (Exception ex) {
-      // Macro creates Skylark rule -> location points to the rule and the message contains details
-      // about the macro.
-      assertContainsEvent(
-          "ERROR /workspace/test/BUILD:4:1: in deps attribute of skylark_rule rule "
-              + "//test:m_skylark: '//test:jlib' does not have mandatory providers:"
-              + " 'some_provider'. "
-              + "Since this rule was created by the macro 'macro_skylark_rule', the error might "
-              + "have been caused by the macro implementation in /workspace/test/macros.bzl:12:36");
-    }
+    assertThrows(Exception.class, () -> createRuleContext("//test:m_skylark"));
+    assertContainsEvent(
+        "ERROR /workspace/test/BUILD:4:1: in deps attribute of skylark_rule rule "
+            + "//test:m_skylark: '//test:jlib' does not have mandatory providers:"
+            + " 'some_provider'. "
+            + "Since this rule was created by the macro 'macro_skylark_rule', the error might "
+            + "have been caused by the macro implementation in /workspace/test/macros.bzl:12:36");
   }
 
   @Test
   public void hasCorrectLocationForRuleAttributeError_NativeRule() throws Exception {
     setUpAttributeErrorTest();
-    try {
-      createRuleContext("//test:cclib");
-      fail("Should have failed because of invalid dependency");
-    } catch (Exception ex) {
-      // Native rule WITHOUT macro -> location points to the attribute and there is no mention of
-      // 'macro' at all.
-      assertContainsEvent("misplaced here");
-      // Skip the part of the error message that has details about the allowed deps since the mocks
-      // for the mac tests might have different values for them.
-      assertDoesNotContainEvent("Since this rule was created by the macro");
-    }
+    assertThrows(Exception.class, () -> createRuleContext("//test:cclib"));
+    assertContainsEvent("misplaced here");
+    // Skip the part of the error message that has details about the allowed deps since the mocks
+    // for the mac tests might have different values for them.
+    assertDoesNotContainEvent("Since this rule was created by the macro");
   }
 
   @Test
   public void hasCorrectLocationForRuleAttributeError_SkylarkRule() throws Exception {
     setUpAttributeErrorTest();
-    try {
-      createRuleContext("//test:skyrule");
-      fail("Should have failed because of invalid dependency");
-    } catch (Exception ex) {
-      // Skylark rule WITHOUT macro -> location points to the attribute and there is no mention of
-      // 'macro' at all.
-      assertContainsEvent("ERROR /workspace/test/BUILD:11:10: in deps attribute of "
-          + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
-          + "'some_provider'");
-    }
+    assertThrows(Exception.class, () -> createRuleContext("//test:skyrule"));
+    assertContainsEvent(
+        "ERROR /workspace/test/BUILD:11:10: in deps attribute of "
+            + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
+            + "'some_provider'");
   }
 
   @Test
@@ -266,14 +244,11 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:skyrule1")).isNotNull();
 
-    try {
-      createRuleContext("//test:skyrule2");
-      fail("Should have failed because of wrong mandatory providers");
-    } catch (Exception ex) {
-      assertContainsEvent("ERROR /workspace/test/BUILD:9:10: in deps attribute of "
-              + "skylark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
-              + "mandatory providers: 'a' or 'c'");
-    }
+    assertThrows(Exception.class, () -> createRuleContext("//test:skyrule2"));
+    assertContainsEvent(
+        "ERROR /workspace/test/BUILD:9:10: in deps attribute of "
+            + "skylark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
+            + "mandatory providers: 'a' or 'c'");
   }
 
   @Test
@@ -301,14 +276,11 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:skyrule1")).isNotNull();
 
-    try {
-      createRuleContext("//test:skyrule2");
-      fail("Should have failed because of wrong mandatory providers");
-    } catch (Exception ex) {
-      assertContainsEvent("ERROR /workspace/test/BUILD:9:10: in deps attribute of "
-              + "testing_rule_for_mandatory_providers rule //test:skyrule2: '//test:my_other_lib' "
-              + "does not have mandatory providers: 'a' or 'c'");
-    }
+    assertThrows(Exception.class, () -> createRuleContext("//test:skyrule2"));
+    assertContainsEvent(
+        "ERROR /workspace/test/BUILD:9:10: in deps attribute of "
+            + "testing_rule_for_mandatory_providers rule //test:skyrule2: '//test:my_other_lib' "
+            + "does not have mandatory providers: 'a' or 'c'");
   }
 
   /* Sharing setup code between the testPackageBoundaryError*() methods is not possible since the
@@ -1524,15 +1496,16 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             .add("local_repository(name = 'foo', path = '/baz')")
             .build());
 
-    try {
-      invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchains.
-      createRuleContext("@foo//:baz");
-      fail("Should have failed because repository 'foo' is overloading after a load!");
-    } catch (Exception ex) {
-      assertContainsEvent(
-          "Cannot redefine repository after any load statement in the WORKSPACE file "
-              + "(for repository 'foo')");
-    }
+    assertThrows(
+        Exception.class,
+        () -> {
+          invalidatePackages(
+              /*alsoConfigs=*/ false); // Repository shuffling messes with toolchains.
+          createRuleContext("@foo//:baz");
+        });
+    assertContainsEvent(
+        "Cannot redefine repository after any load statement in the WORKSPACE file "
+            + "(for repository 'foo')");
   }
 
   @Test
@@ -1898,15 +1871,15 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         simpleBuildDefinition);
     SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
 
-    try {
-      evalRuleContextCode(ruleContext, "ruleContext.attr.dep[Actions]");
-      fail("Should have failed due to trying to access actions of a rule not marked "
-          + "_skylark_testable");
-    } catch (Exception e) {
-      assertThat(e).hasMessageThat().contains(
-          "<target //test:undertest> (rule 'undertest_rule') doesn't contain "
-              + "declared provider 'Actions'");
-    }
+    Exception e =
+        assertThrows(
+            Exception.class,
+            () -> evalRuleContextCode(ruleContext, "ruleContext.attr.dep[Actions]"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "<target //test:undertest> (rule 'undertest_rule') doesn't contain "
+                + "declared provider 'Actions'");
   }
 
   @Test
@@ -2332,18 +2305,18 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
           "  return MyInfo(dep_ctx = ctx)",
           "dep_rule = rule(implementation = _dep_impl)");
       invalidatePackages();
-      try {
-        getConfiguredTarget("//test:main");
-        fail("Should have been unable to access dep_ctx." + attribute);
-      } catch (AssertionError e) {
-        assertThat(e)
-            .hasMessageThat()
-            .contains(
-                "cannot access field or method '"
-                    + Iterables.get(Splitter.on('(').split(attribute), 0)
-                    + "' of rule context for '//test:dep' outside of its own rule implementation "
-                    + "function");
-      }
+      AssertionError e =
+          assertThrows(
+              "Should have been unable to access dep_ctx." + attribute,
+              AssertionError.class,
+              () -> getConfiguredTarget("//test:main"));
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "cannot access field or method '"
+                  + Iterables.get(Splitter.on('(').split(attribute), 0)
+                  + "' of rule context for '//test:dep' outside of its own rule implementation "
+                  + "function");
     }
   }
 
@@ -2381,18 +2354,18 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
           "  },",
           ")");
       invalidatePackages();
-      try {
-        getConfiguredTarget("//test:main");
-        fail("Should have been unable to access dep." + attribute);
-      } catch (AssertionError e) {
-        assertThat(e)
-            .hasMessageThat()
-            .contains(
-                "cannot access field or method '"
-                    + Iterables.get(Splitter.on('(').split(attribute), 0)
-                    + "' of rule context for '//test:dep' outside of its own rule implementation "
-                    + "function");
-      }
+      AssertionError e =
+          assertThrows(
+              "Should have been unable to access dep." + attribute,
+              AssertionError.class,
+              () -> getConfiguredTarget("//test:main"));
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "cannot access field or method '"
+                  + Iterables.get(Splitter.on('(').split(attribute), 0)
+                  + "' of rule context for '//test:dep' outside of its own rule implementation "
+                  + "function");
     }
   }
 
@@ -2430,14 +2403,15 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       );
       setSkylarkSemanticsOptions("--incompatible_new_actions_api=true");
       invalidatePackages();
-      try {
-        getConfiguredTarget("//test:main");
-        fail("Should have reported deprecation error for: " + actionApi);
-      } catch (AssertionError e) {
-        assertWithMessage(actionApi + " reported wrong error").that(e)
-            .hasMessageThat()
-            .contains("Use --incompatible_new_actions_api=false");
-      }
+      AssertionError e =
+          assertThrows(
+              "Should have reported deprecation error for: " + actionApi,
+              AssertionError.class,
+              () -> getConfiguredTarget("//test:main"));
+      assertWithMessage(actionApi + " reported wrong error")
+          .that(e)
+          .hasMessageThat()
+          .contains("Use --incompatible_new_actions_api=false");
     }
   }
 

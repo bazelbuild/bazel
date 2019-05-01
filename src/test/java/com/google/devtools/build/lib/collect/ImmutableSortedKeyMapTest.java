@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.collect;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.Maps;
 import com.google.common.testing.NullPointerTester;
@@ -107,41 +107,29 @@ public class ImmutableSortedKeyMapTest {
   @Test
   public void builderPutNullKey() {
     ImmutableSortedKeyMap.Builder<String, Integer> builder = new ImmutableSortedKeyMap.Builder<>();
-    try {
-      builder.put(null, 1);
-      fail();
-    } catch (NullPointerException expected) {
-    }
+    assertThrows(NullPointerException.class, () -> builder.put(null, 1));
   }
 
   @Test
   public void builderPutNullValue() {
     ImmutableSortedKeyMap.Builder<String, Integer> builder = new ImmutableSortedKeyMap.Builder<>();
-    try {
-      builder.put("one", null);
-      fail();
-    } catch (NullPointerException expected) {
-    }
+    assertThrows(NullPointerException.class, () -> builder.put("one", null));
   }
 
   @Test
   public void builderPutNullKeyViaPutAll() {
     ImmutableSortedKeyMap.Builder<String, Integer> builder = new ImmutableSortedKeyMap.Builder<>();
-    try {
-      builder.putAll(Collections.<String, Integer>singletonMap(null, 1));
-      fail();
-    } catch (NullPointerException expected) {
-    }
+    assertThrows(
+        NullPointerException.class,
+        () -> builder.putAll(Collections.<String, Integer>singletonMap(null, 1)));
   }
 
   @Test
   public void builderPutNullValueViaPutAll() {
     ImmutableSortedKeyMap.Builder<String, Integer> builder = new ImmutableSortedKeyMap.Builder<>();
-    try {
-      builder.putAll(Collections.<String, Integer>singletonMap("one", null));
-      fail();
-    } catch (NullPointerException expected) {
-    }
+    assertThrows(
+        NullPointerException.class,
+        () -> builder.putAll(Collections.<String, Integer>singletonMap("one", null)));
   }
 
   @Test
@@ -156,32 +144,16 @@ public class ImmutableSortedKeyMapTest {
 
   @Test
   public void ofNullKey() {
-    try {
-      ImmutableSortedKeyMap.of((String) null, 1);
-      fail();
-    } catch (NullPointerException expected) {
-    }
+    assertThrows(NullPointerException.class, () -> ImmutableSortedKeyMap.of((String) null, 1));
 
-    try {
-      ImmutableSortedKeyMap.of("one", 1, null, 2);
-      fail();
-    } catch (NullPointerException expected) {
-    }
+    assertThrows(NullPointerException.class, () -> ImmutableSortedKeyMap.of("one", 1, null, 2));
   }
 
   @Test
   public void ofNullValue() {
-    try {
-      ImmutableSortedKeyMap.of("one", null);
-      fail();
-    } catch (NullPointerException expected) {
-    }
+    assertThrows(NullPointerException.class, () -> ImmutableSortedKeyMap.of("one", null));
 
-    try {
-      ImmutableSortedKeyMap.of("one", 1, "two", null);
-      fail();
-    } catch (NullPointerException expected) {
-    }
+    assertThrows(NullPointerException.class, () -> ImmutableSortedKeyMap.of("one", 1, "two", null));
   }
 
   @Test

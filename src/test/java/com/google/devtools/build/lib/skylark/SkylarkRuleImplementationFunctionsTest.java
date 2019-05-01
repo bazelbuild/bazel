@@ -196,12 +196,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   private void checkSkylarkFunctionError(String errorMsg, String line) throws Exception {
-    try {
-      setupSkylarkFunction(line);
-      fail();
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().isEqualTo(errorMsg);
-    }
+    EvalException e = assertThrows(EvalException.class, () -> setupSkylarkFunction(line));
+    assertThat(e).hasMessageThat().isEqualTo(errorMsg);
   }
 
   @Test
@@ -1925,12 +1921,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
             throw new InterruptedException();
           }
         });
-    try {
-      eval("throw()");
-      fail("Expected an InterruptedException");
-    } catch (InterruptedException ex) {
-      // Expected.
-    }
+    assertThrows(InterruptedException.class, () -> eval("throw()"));
   }
 
   @Test
@@ -2343,14 +2334,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    try {
-      action.getArguments();
-      fail();
-    } catch (CommandLineExpansionException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("map_fn must return a list of the same length as the input");
-    }
+    CommandLineExpansionException e =
+        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
+    assertThat(e)
+        .hasMessageThat()
+        .contains("map_fn must return a list of the same length as the input");
   }
 
   @Test
@@ -2507,12 +2495,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    try {
-      action.getArguments();
-      fail();
-    } catch (CommandLineExpansionException e) {
-      assertThat(e.getMessage()).contains("not enough arguments");
-    }
+    CommandLineExpansionException e =
+        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
+    assertThat(e.getMessage()).contains("not enough arguments");
   }
 
   @Test
@@ -2567,12 +2552,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    try {
-      action.getArguments();
-      fail();
-    } catch (CommandLineExpansionException e) {
-      assertThat(e.getMessage()).contains("type 'string' has no method nosuchmethod()");
-    }
+    CommandLineExpansionException e =
+        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
+    assertThat(e.getMessage()).contains("type 'string' has no method nosuchmethod()");
   }
 
   @Test
@@ -2614,13 +2596,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    try {
-      action.getArguments();
-      fail();
-    } catch (CommandLineExpansionException e) {
-      assertThat(e.getMessage())
-          .contains("Expected map_each to return string, None, or list of strings, found Integer");
-    }
+    CommandLineExpansionException e =
+        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
+    assertThat(e.getMessage())
+        .contains("Expected map_each to return string, None, or list of strings, found Integer");
   }
 
   @Test

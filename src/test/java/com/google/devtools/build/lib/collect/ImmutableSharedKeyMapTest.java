@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.collect;
 
 import static com.google.common.truth.Truth.assertThat;
-import static junit.framework.TestCase.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
@@ -98,12 +98,7 @@ public final class ImmutableSharedKeyMapTest {
             .put("key", valueB)
             .put("key", valueC);
 
-    try {
-      map.build();
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected
-    }
+    assertThrows(IllegalArgumentException.class, () -> map.build());
   }
 
   private static class SameHashCodeClass {

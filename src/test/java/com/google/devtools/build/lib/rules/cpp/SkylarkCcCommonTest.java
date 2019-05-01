@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -1412,14 +1411,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     createEnvEntryRule("six", /* key= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
     SkylarkInfo envEntry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
-    try {
-      CcModule.variableWithValueFromSkylark(envEntry);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'variable_with_value', received 'env_entry");
-    }
+    EvalException ee =
+        assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(envEntry));
+    assertThat(ee)
+        .hasMessageThat()
+        .contains("Expected object of type 'variable_with_value', received 'env_entry");
   }
 
   private void createVariableWithValueRule(String pkg, String name, String value)
@@ -1437,54 +1433,54 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomVariableWithValue() throws Exception {
+  public void testCustomVariableWithValue_none_none() throws Exception {
     loadCcToolchainConfigLib();
     createCustomVariableWithValueRule("one", /* name= */ "None", /* value= */ "None");
     ConfiguredTarget t = getConfiguredTarget("//one:a");
     SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-    try {
-      CcModule.variableWithValueFromSkylark(variable);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'name' parameter of variable_with_value must be a nonempty string.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(variable));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'name' parameter of variable_with_value must be a nonempty string.");
+  }
 
+  @Test
+  public void testCustomVariableWithValue_string_none() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomVariableWithValueRule("two", /* name= */ "'abc'", /* value= */ "None");
 
-    t = getConfiguredTarget("//two:a");
-    variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-    try {
-      CcModule.variableWithValueFromSkylark(variable);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'value' parameter of variable_with_value must be a nonempty string.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//two:a");
+    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(variable));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'value' parameter of variable_with_value must be a nonempty string.");
+  }
 
+  @Test
+  public void testCustomVariableWithValue_string_struct() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomVariableWithValueRule("three", /* name= */ "'abc'", /* value= */ "struct()");
 
-    t = getConfiguredTarget("//three:a");
-    variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-    try {
-      CcModule.variableWithValueFromSkylark(variable);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("Field 'value' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(variable));
+    assertThat(e).hasMessageThat().contains("Field 'value' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomVariableWithValue_boolean_string() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomVariableWithValueRule("four", /* name= */ "True", /* value= */ "'abc'");
 
-    t = getConfiguredTarget("//four:a");
-    variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-    try {
-      CcModule.variableWithValueFromSkylark(variable);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(variable));
+    assertThat(e).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
   }
 
   private void createCustomVariableWithValueRule(String pkg, String name, String value)
@@ -1502,7 +1498,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testEnvEntry() throws Exception {
+  public void testEnvEntry_none_none() throws Exception {
     loadCcToolchainConfigLib();
     createEnvEntryRule("one", "None", /* value= */ "None");
 
@@ -1510,26 +1506,42 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("key parameter of env_entry should be a string, found NoneType");
+  }
 
+  @Test
+  public void testEnvEntry_string_none() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvEntryRule("two", "'abc'", /* value= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("value parameter of env_entry should be a string, found NoneType");
+  }
 
+  @Test
+  public void testEnvEntry_emptyString_none() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvEntryRule("three", "''", /* value= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
     assertThat(e).hasMessageThat().contains("key parameter of env_entry must be a nonempty string");
+  }
 
+  @Test
+  public void testEnvEntry_string_emptyString() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvEntryRule("four", "'abc'", /* value= */ "''");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//four:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//four:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("value parameter of env_entry must be a nonempty string");
+  }
 
+  @Test
+  public void testEnvEntry_string_string() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvEntryRule("five", "'abc'", /* value= */ "'def'");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
@@ -1539,18 +1551,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(entry).isNotNull();
     StringValueParser parser = new StringValueParser("def");
     assertThat(entry).isEqualTo(new EnvEntry("abc", parser.getChunks()));
+  }
 
+  @Test
+  public void testEnvEntryVariable_string_string() throws Exception {
+    loadCcToolchainConfigLib();
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
-    t = getConfiguredTarget("//six:a");
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
     SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-    try {
-      CcModule.envEntryFromSkylark(variable);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'env_entry', received 'variable_with_value");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.envEntryFromSkylark(variable));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'env_entry', received 'variable_with_value");
   }
 
   private void createEnvEntryRule(String pkg, String key, String value) throws Exception {
@@ -1567,57 +1580,55 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomEnvEntry() throws Exception {
+  public void testCustomEnvEntry_none_none() throws Exception {
     loadCcToolchainConfigLib();
-
     createCustomEnvEntryRule("one", /* key= */ "None", /* value= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
     SkylarkInfo entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
-    try {
-      CcModule.envEntryFromSkylark(entry);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'key' parameter of env_entry must be a nonempty string.");
-    }
+    EvalException e = assertThrows(EvalException.class, () -> CcModule.envEntryFromSkylark(entry));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'key' parameter of env_entry must be a nonempty string.");
+  }
 
+  @Test
+  public void testCustomEnvEntry_string_none() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomEnvEntryRule("two", /* key= */ "'abc'", /* value= */ "None");
 
-    t = getConfiguredTarget("//two:a");
-    entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
-    try {
-      CcModule.envEntryFromSkylark(entry);
-      fail("Should have failed because of empty string.");
-      ;
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'value' parameter of env_entry must be a nonempty string.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//two:a");
+    SkylarkInfo entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
+    EvalException e =
+        assertThrows(
+            "Should have failed because of empty string.",
+            EvalException.class,
+            () -> CcModule.envEntryFromSkylark(entry));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'value' parameter of env_entry must be a nonempty string.");
+  }
 
+  @Test
+  public void testCustomEnvEntry_string_struct() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomEnvEntryRule("three", /* key= */ "'abc'", /* value= */ "struct()");
 
-    t = getConfiguredTarget("//three:a");
-    entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
-    try {
-      CcModule.envEntryFromSkylark(entry);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("Field 'value' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
+    EvalException e = assertThrows(EvalException.class, () -> CcModule.envEntryFromSkylark(entry));
+    assertThat(e).hasMessageThat().contains("Field 'value' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomEnvEntry_boolean_string() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomEnvEntryRule("four", /* key= */ "True", /* value= */ "'abc'");
 
-    t = getConfiguredTarget("//four:a");
-    entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
-    try {
-      CcModule.envEntryFromSkylark(entry);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("Field 'key' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
+    EvalException e = assertThrows(EvalException.class, () -> CcModule.envEntryFromSkylark(entry));
+    assertThat(e).hasMessageThat().contains("Field 'key' is not of 'java.lang.String' type.");
   }
 
   private void createCustomEnvEntryRule(String pkg, String key, String value) throws Exception {
@@ -1634,7 +1645,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testToolPath() throws Exception {
+  public void testToolPath_none_none() throws Exception {
     loadCcToolchainConfigLib();
     createToolPathRule("one", /* name= */ "None", "None");
 
@@ -1642,28 +1653,44 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("name parameter of tool_path should be a string, found NoneType");
+  }
 
+  @Test
+  public void testToolPath_string_none() throws Exception {
+    loadCcToolchainConfigLib();
     createToolPathRule("two", /* name= */ "'abc'", "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("path parameter of tool_path should be a string, found NoneType");
+  }
 
+  @Test
+  public void testToolPath_emptyString_none() throws Exception {
+    loadCcToolchainConfigLib();
     createToolPathRule("three", /* name= */ "''", "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("name parameter of tool_path must be a nonempty string");
+  }
 
+  @Test
+  public void testToolPath_string_emptyString() throws Exception {
+    loadCcToolchainConfigLib();
     createToolPathRule("four", /* name= */ "'abc'", "''");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//four:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//four:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("path parameter of tool_path must be a nonempty string");
+  }
 
+  @Test
+  public void testToolPath_string_escapedString() throws Exception {
+    loadCcToolchainConfigLib();
     createToolPathRule("five", /* name= */ "'abc'", "'/d/e/f'");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
@@ -1673,18 +1700,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(toolPath).isNotNull();
     assertThat(toolPath.first).isEqualTo("abc");
     assertThat(toolPath.second).isEqualTo("/d/e/f");
+  }
 
+  @Test
+  public void testToolPath_string_string() throws Exception {
+    loadCcToolchainConfigLib();
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
-    t = getConfiguredTarget("//six:a");
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
     SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-    try {
-      CcModule.toolPathFromSkylark(variable);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'tool_path', received 'variable_with_value");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(variable));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'tool_path', received 'variable_with_value");
   }
 
   private void createToolPathRule(String pkg, String name, String path) throws IOException {
@@ -1701,56 +1729,55 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomToolPath() throws Exception {
+  public void testCustomToolPath_name_mustBeNonEmpty() throws Exception {
     loadCcToolchainConfigLib();
-
     createCustomToolPathRule("one", /* name= */ "None", /* path= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
     SkylarkInfo toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
-    try {
-      CcModule.toolPathFromSkylark(toolPath);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'name' parameter of tool_path must be a nonempty string.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(toolPath));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'name' parameter of tool_path must be a nonempty string.");
+  }
 
+  @Test
+  public void testCustomToolPath_path_mustBeNonEmpty() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomToolPathRule("two", /* name= */ "'abc'", /* path= */ "None");
 
-    t = getConfiguredTarget("//two:a");
-    toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
-    try {
-      CcModule.toolPathFromSkylark(toolPath);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'path' parameter of tool_path must be a nonempty string.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//two:a");
+    SkylarkInfo toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(toolPath));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'path' parameter of tool_path must be a nonempty string.");
+  }
 
+  @Test
+  public void testCustomToolPath_path_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomToolPathRule("three", /* name= */ "'abc'", /* path= */ "struct()");
 
-    t = getConfiguredTarget("//three:a");
-    toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
-    try {
-      CcModule.toolPathFromSkylark(toolPath);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("Field 'path' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(toolPath));
+    assertThat(e).hasMessageThat().contains("Field 'path' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomToolPath_name_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomToolPathRule("four", /* name= */ "True", /* path= */ "'abc'");
 
-    t = getConfiguredTarget("//four:a");
-    toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
-    try {
-      CcModule.toolPathFromSkylark(toolPath);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(toolPath));
+    assertThat(e).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
   }
 
   private void createCustomToolPathRule(String pkg, String name, String path) throws IOException {
@@ -1811,14 +1838,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
     SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-    try {
-      CcModule.makeVariableFromSkylark(variable);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'make_variable', received 'variable_with_value");
-    }
+    EvalException ee =
+        assertThrows(EvalException.class, () -> CcModule.makeVariableFromSkylark(variable));
+    assertThat(ee)
+        .hasMessageThat()
+        .contains("Expected object of type 'make_variable', received 'variable_with_value");
   }
 
   private void createMakeVariablerule(String pkg, String name, String value) throws IOException {
@@ -1838,51 +1862,59 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testCustomMakeVariable() throws Exception {
     createCustomMakeVariablerule("one", /* name= */ "None", /* value= */ "None");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//one:a");
-      SkylarkInfo makeVariableProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-      CcModule.makeVariableFromSkylark(makeVariableProvider);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'name' parameter of make_variable must be a nonempty string.");
-    }
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//one:a");
+              SkylarkInfo makeVariableProvider =
+                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+              CcModule.makeVariableFromSkylark(makeVariableProvider);
+            });
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'name' parameter of make_variable must be a nonempty string.");
 
     createCustomMakeVariablerule("two", /* name= */ "'abc'", /* value= */ "None");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//two:a");
-      SkylarkInfo makeVariableProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-      CcModule.makeVariableFromSkylark(makeVariableProvider);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'value' parameter of make_variable must be a nonempty string.");
-    }
+    e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//two:a");
+              SkylarkInfo makeVariableProvider =
+                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+              CcModule.makeVariableFromSkylark(makeVariableProvider);
+            });
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'value' parameter of make_variable must be a nonempty string.");
 
     createCustomMakeVariablerule("three", /* name= */ "[]", /* value= */ "None");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//three:a");
-      SkylarkInfo makeVariableProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-      CcModule.makeVariableFromSkylark(makeVariableProvider);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
-    }
+    e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//three:a");
+              SkylarkInfo makeVariableProvider =
+                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+              CcModule.makeVariableFromSkylark(makeVariableProvider);
+            });
+    assertThat(e).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
 
     createCustomMakeVariablerule("four", /* name= */ "'abc'", /* value= */ "True");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo makeVariableProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-      CcModule.makeVariableFromSkylark(makeVariableProvider);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("Field 'value' is not of 'java.lang.String' type.");
-    }
+    e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//four:a");
+              SkylarkInfo makeVariableProvider =
+                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+              CcModule.makeVariableFromSkylark(makeVariableProvider);
+            });
+    assertThat(e).hasMessageThat().contains("Field 'value' is not of 'java.lang.String' type.");
   }
 
   private void createCustomMakeVariablerule(String pkg, String name, String value)
@@ -1944,14 +1976,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
     SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-    try {
-      CcModule.withFeatureSetFromSkylark(variable);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'with_feature_set', received 'variable_with_value");
-    }
+    EvalException ee =
+        assertThrows(EvalException.class, () -> CcModule.withFeatureSetFromSkylark(variable));
+    assertThat(ee)
+        .hasMessageThat()
+        .contains("Expected object of type 'with_feature_set', received 'variable_with_value");
   }
 
   private void createWithFeatureSetRule(String pkg, String features, String notFeatures)
@@ -1972,60 +2001,68 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testCustomWithFeatureSet() throws Exception {
     createCustomWithFeatureSetRule("one", /* features= */ "struct()", /* notFeatures= */ "None");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//one:a");
-      SkylarkInfo withFeatureSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
-      assertThat(withFeatureSetProvider).isNotNull();
-      CcModule.withFeatureSetFromSkylark(withFeatureSetProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Illegal argument: 'features' is not of expected type list or NoneType");
-    }
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//one:a");
+              SkylarkInfo withFeatureSetProvider =
+                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
+              assertThat(withFeatureSetProvider).isNotNull();
+              CcModule.withFeatureSetFromSkylark(withFeatureSetProvider);
+            });
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'features' is not of expected type list or NoneType");
 
     createCustomWithFeatureSetRule("two", /* features= */ "['abc']", /* notFeatures= */ "struct()");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//two:a");
-      SkylarkInfo withFeatureSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
-      assertThat(withFeatureSetProvider).isNotNull();
-      CcModule.withFeatureSetFromSkylark(withFeatureSetProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Illegal argument: 'not_features' is not of expected type list or NoneType");
-    }
+    e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//two:a");
+              SkylarkInfo withFeatureSetProvider =
+                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
+              assertThat(withFeatureSetProvider).isNotNull();
+              CcModule.withFeatureSetFromSkylark(withFeatureSetProvider);
+            });
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'not_features' is not of expected type list or NoneType");
 
     createCustomWithFeatureSetRule("three", /* features= */ "[struct()]", /* notFeatures= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//three:a");
-      SkylarkInfo withFeatureSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
-      assertThat(withFeatureSetProvider).isNotNull();
-      CcModule.withFeatureSetFromSkylark(withFeatureSetProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("expected type 'string' for 'features' element but got type 'struct' instead");
-    }
+    e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//three:a");
+              SkylarkInfo withFeatureSetProvider =
+                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
+              assertThat(withFeatureSetProvider).isNotNull();
+              CcModule.withFeatureSetFromSkylark(withFeatureSetProvider);
+            });
+    assertThat(e)
+        .hasMessageThat()
+        .contains("expected type 'string' for 'features' element but got type 'struct' instead");
 
     createCustomWithFeatureSetRule("four", /* features= */ "[]", /* notFeatures= */ "[struct()]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo withFeatureSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
-      assertThat(withFeatureSetProvider).isNotNull();
-      CcModule.withFeatureSetFromSkylark(withFeatureSetProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "expected type 'string' for 'not_features' element but got type 'struct' instead");
-    }
+    e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//four:a");
+              SkylarkInfo withFeatureSetProvider =
+                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
+              assertThat(withFeatureSetProvider).isNotNull();
+              CcModule.withFeatureSetFromSkylark(withFeatureSetProvider);
+            });
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "expected type 'string' for 'not_features' element but got type 'struct' instead");
   }
 
   private void createCustomWithFeatureSetRule(String pkg, String features, String notFeatures)
@@ -2043,7 +2080,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testEnvSet() throws Exception {
+  public void testEnvSet_none_none() throws Exception {
     loadCcToolchainConfigLib();
     createEnvSetRule(
         "one", /* actions= */ "['a1']", /* envEntries= */ "None", /* withFeatures= */ "None");
@@ -2052,31 +2089,47 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("env_entries parameter of env_set should be a list, found NoneType");
+  }
 
+  @Test
+  public void testEnvSet_list_none() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvSetRule(
         "two", /* actions= */ "['a1']", /* envEntries= */ "['abc']", /* withFeatures= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("with_features parameter of env_set should be a list, found NoneType");
+  }
 
+  @Test
+  public void testEnvSet_string_none() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvSetRule(
         "three", /* actions= */ "['a1']", /* envEntries= */ "'asdf'", /* withFeatures= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("env_entries parameter of env_set should be a list, found string");
+  }
 
+  @Test
+  public void testEnvSet_list_string() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvSetRule(
         "four", /* actions= */ "['a1']", /* envEntries= */ "['abc']", /* withFeatures= */ "'def'");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//four:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//four:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("with_features parameter of env_set should be a list, found string");
+  }
 
+  @Test
+  public void testEnvSet_envEntry_emptyList() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvSetRule(
         "five",
         /* actions= */ "['a1']",
@@ -2087,43 +2140,48 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget t = getConfiguredTarget("//five:a");
     SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
-    try {
-      CcModule.envSetFromSkylark(envSetProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'env_entry', received 'variable_with_value'");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'env_entry', received 'variable_with_value'");
+  }
 
+  @Test
+  public void testEnvSet_emptyList_emptyList() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvSetRule("six", /* actions= */ "[]", /* envEntries= */ "[]", /* withFeatures= */ "[]");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//six:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//six:a"));
     assertThat(e).hasMessageThat().contains("actions parameter of env_set must be a nonempty list");
+  }
 
+  @Test
+  public void testEnvSet_envEntry_featureSet() throws Exception {
+    loadCcToolchainConfigLib();
     createEnvSetRule(
         "seven",
         /* actions= */ "['a1']",
         /* envEntries= */ "[env_entry(key = 'a', value = 'b')]",
         /* withFeatures= */ "[with_feature_set(features = ['a'])]");
 
-    t = getConfiguredTarget("//seven:a");
-    envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
     EnvSet envSet = CcModule.envSetFromSkylark(envSetProvider);
     assertThat(envSet).isNotNull();
+  }
 
+  @Test
+  public void testEnvSet_string_string() throws Exception {
+    loadCcToolchainConfigLib();
     createVariableWithValueRule("eight", /* name= */ "'abc'", /* value= */ "'def'");
-    t = getConfiguredTarget("//eight:a");
+    ConfiguredTarget t = getConfiguredTarget("//eight:a");
     SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
-    try {
-      CcModule.envSetFromSkylark(variable);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'env_set', received 'variable_with_value");
-    }
+    EvalException e = assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(variable));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'env_set', received 'variable_with_value");
   }
 
   private void createEnvSetRule(String pkg, String actions, String envEntries, String withFeatures)
@@ -2143,86 +2201,86 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomEnvSet() throws Exception {
+  public void testCustomEnvSet_none_none() throws Exception {
     loadCcToolchainConfigLib();
     createCustomEnvSetRule(
         "one", /* actions= */ "[]", /* envEntries= */ "None", /* withFeatures= */ "None");
     ConfiguredTarget t = getConfiguredTarget("//one:a");
     SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
-    try {
-      CcModule.envSetFromSkylark(envSetProvider);
-      fail("Should have failed because of empty action list.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("actions parameter of env_set must be a nonempty list");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
+    assertThat(e).hasMessageThat().contains("actions parameter of env_set must be a nonempty list");
+  }
 
+  @Test
+  public void testCustomEnvSet_struct_none() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomEnvSetRule(
         "two", /* actions= */ "['a1']", /* envEntries= */ "struct()", /* withFeatures= */ "None");
-    t = getConfiguredTarget("//two:a");
-    envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    ConfiguredTarget t = getConfiguredTarget("//two:a");
+    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
-    try {
-      CcModule.envSetFromSkylark(envSetProvider);
-      fail("Should have failed because of wrong envEntries type.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'env_entries' is not of expected type list or NoneType");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'env_entries' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomEnvSet_structList_none() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomEnvSetRule(
         "three",
         /* actions= */ "['a1']",
         /* envEntries= */ "[struct()]",
         /* withFeatures= */ "None");
-    t = getConfiguredTarget("//three:a");
-    envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
-    try {
-      CcModule.envSetFromSkylark(envSetProvider);
-      fail("Should have failed because of wrong envEntry type.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Expected object of type 'env_entry', received 'struct'");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'env_entry', received 'struct'");
+  }
 
+  @Test
+  public void testCustomEnvSet_envEntry_string() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomEnvSetRule(
         "four",
         /* actions= */ "['a1']",
         /* envEntries= */ "[env_entry(key = 'a', value = 'b')]",
         /* withFeatures= */ "'a'");
-    t = getConfiguredTarget("//four:a");
-    envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
-    try {
-      CcModule.envSetFromSkylark(envSetProvider);
-      fail("Should have failed because of wrong withFeatures type.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("'with_features' is not of expected type list or NoneType");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'with_features' is not of expected type list or NoneType");
+  }
+
+  @Test
+  public void testCustomEnvSet_envEntry_envEntry() throws Exception {
+    loadCcToolchainConfigLib();
 
     createCustomEnvSetRule(
         "five",
         /* actions= */ "['a1']",
         /* envEntries= */ "[env_entry(key = 'a', value = 'b')]",
         /* withFeatures= */ "[env_entry(key = 'a', value = 'b')]");
-    t = getConfiguredTarget("//five:a");
-    envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    ConfiguredTarget t = getConfiguredTarget("//five:a");
+    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
-    try {
-      CcModule.envSetFromSkylark(envSetProvider);
-      fail("Should have failed because of wrong withFeatures type.");
-    } catch (EvalException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Expected object of type 'with_feature_set', received 'env_entry'.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'with_feature_set', received 'env_entry'.");
   }
 
   private void createCustomEnvSetRule(
@@ -2243,7 +2301,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFlagGroup() throws Exception {
+  public void testFlagGroup_flagGroup_notListofFlags() throws Exception {
     loadCcToolchainConfigLib();
     createFlagGroupRule(
         "one",
@@ -2260,7 +2318,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("flag_group must contain either a list of flags or a list of flag_groups");
+  }
 
+  @Test
+  public void testFlagGroup_iterateOver_notString() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagGroupRule(
         "two",
         /* flags= */ "['a']",
@@ -2272,11 +2334,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "None",
         /* expandIfEqual= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("iterate_over parameter of flag_group should be a string, found struct");
+  }
 
+  @Test
+  public void testFlagGroup_expandIfTrue_notString() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagGroupRule(
         "three",
         /* flags= */ "['a']",
@@ -2288,11 +2354,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "None",
         /* expandIfEqual= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("expand_if_true parameter of flag_group should be a string, found struct");
+  }
 
+  @Test
+  public void testFlagGroup_expandIfFalse_notString() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagGroupRule(
         "four",
         /* flags= */ "['a']",
@@ -2304,11 +2374,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "None",
         /* expandIfEqual= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//four:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//four:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("expand_if_false parameter of flag_group should be a string, found struct");
+  }
 
+  @Test
+  public void testFlagGroup_expandIfAvailable_notString() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagGroupRule(
         "five",
         /* flags= */ "['a']",
@@ -2320,11 +2394,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "None",
         /* expandIfEqual= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//five:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//five:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("expand_if_available parameter of flag_group should be a string, found struct");
+  }
 
+  @Test
+  public void testFlagGroup_expandIfNotAvailable_notString() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagGroupRule(
         "six",
         /* flags= */ "['a']",
@@ -2336,12 +2414,16 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "struct(val = 'a')",
         /* expandIfEqual= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//six:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//six:a"));
     assertThat(e)
         .hasMessageThat()
         .contains(
             "expand_if_not_available parameter of flag_group should be a string, found struct");
+  }
 
+  @Test
+  public void testFlagGroup_flagGroup_cannotContainFlagAndGroup() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagGroupRule(
         "seven",
         /* flags= */ "['a']",
@@ -2353,11 +2435,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "struct(val = 'a')",
         /* expandIfEqual= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//seven:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//seven:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("flag_group must not contain both a flag and another flag_group");
+  }
 
+  @Test
+  public void testFlagGroup_expandIfEqual_notSkylarkInfo() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagGroupRule(
         "eight",
         /* flags= */ "['a']",
@@ -2372,17 +2458,18 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
     SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
-    try {
-      CcModule.flagGroupFromSkylark(flagGroupProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains(
-              "Field 'expand_if_equal' is not of "
-                  + "'com.google.devtools.build.lib.packages.SkylarkInfo' type.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Field 'expand_if_equal' is not of "
+                + "'com.google.devtools.build.lib.packages.SkylarkInfo' type.");
+  }
 
+  @Test
+  public void testFlagGroup() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagGroupRule(
         "nine",
         /* flags= */ "[]",
@@ -2394,12 +2481,16 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "''",
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
-    t = getConfiguredTarget("//nine:a");
-    flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    ConfiguredTarget t = getConfiguredTarget("//nine:a");
+    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     FlagGroup f = CcModule.flagGroupFromSkylark(flagGroupProvider);
     assertThat(f).isNotNull();
+  }
 
+  @Test
+  public void testFlagGroup_flagGroup_notStruct() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagGroupRule(
         "ten",
         /* flags= */ "[]",
@@ -2411,17 +2502,14 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "''",
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
-    t = getConfiguredTarget("//ten:a");
-    flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    ConfiguredTarget t = getConfiguredTarget("//ten:a");
+    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
-    try {
-      CcModule.flagGroupFromSkylark(flagGroupProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'flag_group', received 'struct'");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'flag_group', received 'struct'");
   }
 
   private void createFlagGroupRule(
@@ -2478,9 +2566,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomFlagGroup() throws Exception {
+  public void testCustomFlagGroup_iterateOver_notString() throws Exception {
     loadCcToolchainConfigLib();
-
     createCustomFlagGroupRule(
         "one",
         /* flags= */ "['a']",
@@ -2495,15 +2582,16 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget t = getConfiguredTarget("//one:a");
     SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
-    try {
-      CcModule.flagGroupFromSkylark(flagGroupProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'iterate_over' is not of 'java.lang.String' type.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Field 'iterate_over' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomFlagGroup_expandIfTrue_notString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFlagGroupRule(
         "two",
         /* flags= */ "[]",
@@ -2515,18 +2603,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "''",
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
-    t = getConfiguredTarget("//two:a");
-    flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    ConfiguredTarget t = getConfiguredTarget("//two:a");
+    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
-    try {
-      CcModule.flagGroupFromSkylark(flagGroupProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'expand_if_true' is not of 'java.lang.String' type.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Field 'expand_if_true' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomFlagGroup_expandIfFalse_notString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFlagGroupRule(
         "three",
         /* flags= */ "[]",
@@ -2538,18 +2627,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "''",
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
-    t = getConfiguredTarget("//three:a");
-    flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
-    try {
-      CcModule.flagGroupFromSkylark(flagGroupProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'expand_if_false' is not of 'java.lang.String' type.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Field 'expand_if_false' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomFlagGroup_expandIfAvailable_notString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFlagGroupRule(
         "four",
         /* flags= */ "[]",
@@ -2561,18 +2651,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "''",
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
-    t = getConfiguredTarget("//four:a");
-    flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
-    try {
-      CcModule.flagGroupFromSkylark(flagGroupProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'expand_if_available' is not of 'java.lang.String' type.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Field 'expand_if_available' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomFlagGroup_expandIfNotAvailable_notString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFlagGroupRule(
         "five",
         /* flags= */ "[]",
@@ -2584,18 +2675,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "3",
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
-    t = getConfiguredTarget("//five:a");
-    flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    ConfiguredTarget t = getConfiguredTarget("//five:a");
+    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
-    try {
-      CcModule.flagGroupFromSkylark(flagGroupProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'expand_if_not_available' is not of 'java.lang.String' type.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Field 'expand_if_not_available' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomFlagGroup_expandIfEqual_notStruct() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFlagGroupRule(
         "six",
         /* flags= */ "[]",
@@ -2607,17 +2699,14 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* expandIfNotAvailable= */ "''",
         /* expandIfEqual= */ "struct(name = 'a', value = 'b')");
 
-    t = getConfiguredTarget("//six:a");
-    flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
+    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
-    try {
-      CcModule.flagGroupFromSkylark(flagGroupProvider);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'variable_with_value', received 'struct'.");
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'variable_with_value', received 'struct'.");
   }
 
   private void createCustomFlagGroupRule(
@@ -2652,66 +2741,78 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTool() throws Exception {
+  public void testTool_path_mustBeNonEmpty() throws Exception {
     loadCcToolchainConfigLib();
     createToolRule("one", /* path= */ "''", /* withFeatures= */ "[]", /* requirements= */ "[]");
 
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//one:a"));
     assertThat(e).hasMessageThat().contains("path parameter of tool must be a nonempty string");
+  }
 
+  @Test
+  public void testTool_withFeatures_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createToolRule("two", /* path= */ "'a'", /* withFeatures= */ "None", /* requirements= */ "[]");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("with_features parameter of tool should be a list, found NoneType");
+  }
 
+  @Test
+  public void testTool_executionRequirements_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createToolRule(
         "three", /* path= */ "'a'", /* withFeatures= */ "[]", /* requirements= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("execution_requirements parameter of tool should be a list, found NoneType");
+  }
 
+  @Test
+  public void testTool_withFeatures_mustBeWithFeatureSet() throws Exception {
+    loadCcToolchainConfigLib();
     createToolRule(
         "four",
         /* path= */ "'a'",
         /* withFeatures= */ "[struct(val = 'a')]",
         /* requirements= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
-      assertThat(toolStruct).isNotNull();
-      CcModule.toolFromSkylark(toolStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'with_feature_set', received 'struct'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'with_feature_set', received 'struct'");
+  }
 
+  @Test
+  public void testTool_requirements_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createToolRule(
         "five",
         /* path= */ "'a'",
         /* withFeatures= */ "[]",
         /* requirements= */ "[struct(val = 'a')]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//five:a");
-      SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
-      assertThat(toolStruct).isNotNull();
-      CcModule.toolFromSkylark(toolStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains(
-              "expected type 'string' for 'execution_requirements' "
-                  + "element but got type 'struct' instead");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//five:a");
+    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "expected type 'string' for 'execution_requirements' "
+                + "element but got type 'struct' instead");
+  }
 
+  @Test
+  public void testTool() throws Exception {
+    loadCcToolchainConfigLib();
     createToolRule(
         "six",
         /* path= */ "'/a/b/c'",
@@ -2744,101 +2845,110 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomTool() throws Exception {
+  public void testCustomTool_path_nonEmpty() throws Exception {
     loadCcToolchainConfigLib();
     createCustomToolRule(
         "one", /* path= */ "''", /* withFeatures= */ "[]", /* requirements= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//one:a");
-      SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
-      assertThat(toolStruct).isNotNull();
-      CcModule.toolFromSkylark(toolStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("The 'path' field of tool must be a nonempty string.");
-    }
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//one:a");
+              SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+              assertThat(toolStruct).isNotNull();
+              CcModule.toolFromSkylark(toolStruct);
+            });
+    assertThat(e).hasMessageThat().contains("The 'path' field of tool must be a nonempty string.");
+  }
 
+  @Test
+  public void testCustomTool_path_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomToolRule(
         "two", /* path= */ "struct()", /* withFeatures= */ "[]", /* requirements= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//two:a");
-      SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
-      assertThat(toolStruct).isNotNull();
-      CcModule.toolFromSkylark(toolStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee).hasMessageThat().contains("Field 'path' is not of 'java.lang.String' type.");
-    }
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//two:a");
+              SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+              assertThat(toolStruct).isNotNull();
+              CcModule.toolFromSkylark(toolStruct);
+            });
+    assertThat(e).hasMessageThat().contains("Field 'path' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomTool_withFeatures_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomToolRule(
         "three", /* path= */ "'a'", /* withFeatures= */ "struct()", /* requirements= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//three:a");
-      SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
-      assertThat(toolStruct).isNotNull();
-      CcModule.toolFromSkylark(toolStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'with_features' is not of expected type list or NoneType");
-    }
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> {
+              ConfiguredTarget t = getConfiguredTarget("//three:a");
+              SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+              assertThat(toolStruct).isNotNull();
+              CcModule.toolFromSkylark(toolStruct);
+            });
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'with_features' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomTool_withFeatures_mustBeWithFeatureSet() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomToolRule(
         "four",
         /* path= */ "'a'",
         /* withFeatures= */ "[struct(val = 'a')]",
         /* requirements= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
-      assertThat(toolStruct).isNotNull();
-      CcModule.toolFromSkylark(toolStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'with_feature_set', received 'struct'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'with_feature_set', received 'struct'");
+  }
 
+  @Test
+  public void testCustomTool_executionRequirements_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomToolRule(
         "five", /* path= */ "'a'", /* withFeatures= */ "[]", /* requirements= */ "'a'");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//five:a");
-      SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
-      assertThat(toolStruct).isNotNull();
-      CcModule.toolFromSkylark(toolStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains(
-              "llegal argument: 'execution_requirements' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//five:a");
+    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "llegal argument: 'execution_requirements' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomTool_executionRequirements_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomToolRule(
         "six", /* path= */ "'a'", /* withFeatures= */ "[]", /* requirements= */ "[struct()]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//six:a");
-      SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
-      assertThat(toolStruct).isNotNull();
-      CcModule.toolFromSkylark(toolStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains(
-              "expected type 'string' for 'execution_requirements' "
-                  + "element but got type 'struct' instead");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
+    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "expected type 'string' for 'execution_requirements' "
+                + "element but got type 'struct' instead");
   }
 
   private void createCustomToolRule(
@@ -2858,9 +2968,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFlagSet() throws Exception {
+  public void testFlagSet_withFeatures_mustBeList() throws Exception {
     loadCcToolchainConfigLib();
-
     createFlagSetRule(
         "two", /* actions= */ "['a']", /* flagGroups= */ "[]", /* withFeatures= */ "None");
 
@@ -2868,69 +2977,86 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("with_features parameter of flag_set should be a list, found NoneType");
+  }
 
+  @Test
+  public void testFlagSet_flagGroups_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagSetRule(
         "three", /* actions= */ "['a']", /* flagGroups= */ "None", /* withFeatures= */ "[]");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//three:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("flag_groups parameter of flag_set should be a list, found NoneType");
+  }
 
+  @Test
+  public void testFlagSet_actions_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagSetRule(
         "four",
         /* actions= */ "['a', struct(val = 'a')]",
         /* flagGroups= */ "[]",
         /* withFeatures= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
-      assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("expected type 'string' for 'actions' element but got type 'struct' instead");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    assertThat(flagSetStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("expected type 'string' for 'actions' element but got type 'struct' instead");
+  }
 
+  @Test
+  public void testFlagSet_flagGroups_mustBeFlagGroup() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagSetRule(
         "five",
         /* actions= */ "['a']",
         /* flagGroups= */ "[flag_group(flags = ['a']), struct(value = 'a')]",
         /* withFeatures= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//five:a");
-      SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
-      assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'flag_group', received 'struct'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//five:a");
+    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    assertThat(flagSetStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'flag_group', received 'struct'");
+  }
 
+  @Test
+  public void testFlagSet_withFeatures_mustBeWithFeatureSet() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagSetRule(
         "six",
         /* actions= */ "['a']",
         /* flagGroups= */ "[flag_group(flags = ['a'])]",
         /* withFeatures= */ "[struct(val = 'a')]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//six:a");
-      SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
-      assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'with_feature_set', received 'struct'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
+    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    assertThat(flagSetStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'with_feature_set', received 'struct'");
+  }
 
+  @Test
+  public void testFlagSet() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagSetRule(
         "seven",
         /* actions= */ "['a']",
@@ -2941,34 +3067,41 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(flagSetStruct).isNotNull();
     FlagSet f = CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null);
     assertThat(f).isNotNull();
+  }
 
+  @Test
+  public void testFlagSet_actionConfig_notActionList() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagSetRule(
         "eight",
         /* actions= */ "['a']",
         /* flagGroups= */ "[flag_group(flags = ['a'])]",
         /* withFeatures= */ "[struct(val = 'a')]");
 
-    try {
-      t = getConfiguredTarget("//eight:a");
-      flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
-      assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ "action");
-      fail("Should have failed because of nonempty actions field when created from action_config.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Thus, you must not specify action lists in an action_config's flag set.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//eight:a");
+    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    assertThat(flagSetStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ "action"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Thus, you must not specify action lists in an action_config's flag set.");
+  }
 
+  @Test
+  public void testFlagSet_emptyAction() throws Exception {
+    loadCcToolchainConfigLib();
     createFlagSetRule(
         "nine",
         /* actions= */ "[]",
         /* flagGroups= */ "[flag_group(flags = ['a'])]",
         /* withFeatures= */ "[with_feature_set(features = ['a'])]");
-    t = getConfiguredTarget("//nine:a");
-    flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    ConfiguredTarget t = getConfiguredTarget("//nine:a");
+    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
-    f = CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ "action");
+    FlagSet f = CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ "action");
     assertThat(f).isNotNull();
     assertThat(f.getActions()).containsExactly("action");
   }
@@ -3001,51 +3134,60 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(flagSet).isNotNull();
     FlagSet flagSetObject = CcModule.flagSetFromSkylark(flagSet, /* actionName */ null);
     assertThat(flagSetObject).isNotNull();
+  }
 
+  @Test
+  public void testCustomFlagSet_flagGroups_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFlagSetRule(
         "two", /* actions= */ "['a']", /* flagGroups= */ "struct()", /* withFeatures= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//two:a");
-      SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
-      assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'flag_groups' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//two:a");
+    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    assertThat(flagSetStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'flag_groups' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomFlagSet_withFeatures_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFlagSetRule(
         "three", /* actions= */ "['a']", /* flagGroups= */ "[]", /* withFeatures= */ "struct()");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//three:a");
-      SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
-      assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'with_features' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    assertThat(flagSetStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'with_features' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomFlagSet_actions_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFlagSetRule(
         "four", /* actions= */ "struct()", /* flagGroups= */ "[]", /* withFeatures= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
-      assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'actions' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    assertThat(flagSetStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'actions' is not of expected type list or NoneType");
   }
 
   private void createCustomFlagSetRule(
@@ -3067,7 +3209,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testActionConfig() throws Exception {
+  public void testActionConfig_actionName_mustBeNonEmpty() throws Exception {
     loadCcToolchainConfigLib();
     createActionConfigRule(
         "one",
@@ -3081,7 +3223,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("name parameter of action_config must be a nonempty string");
+  }
 
+  @Test
+  public void testActionConfig_enabled_mustBeBool() throws Exception {
+    loadCcToolchainConfigLib();
     createActionConfigRule(
         "two",
         /* actionName= */ "'actionname'",
@@ -3089,11 +3235,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* tools= */ "[]",
         /* flagSets= */ "[]",
         /* implies= */ "[]");
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("enabled parameter of action_config should be a bool, found list");
+  }
 
+  @Test
+  public void testActionConfig_tools_mustBeTool() throws Exception {
+    loadCcToolchainConfigLib();
     createActionConfigRule(
         "three",
         /* actionName= */ "'actionname'",
@@ -3102,18 +3252,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[]",
         /* implies= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//three:a");
-      SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'tool', received 'with_feature_set'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'tool', received 'with_feature_set'");
+  }
 
+  @Test
+  public void testActionConfig_flagSets_mustBeFlagSet() throws Exception {
+    loadCcToolchainConfigLib();
     createActionConfigRule(
         "four",
         /* actionName= */ "'actionname'",
@@ -3122,18 +3274,18 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[tool(path = 'a/b/c')]",
         /* implies= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'flag_set', received 'tool'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e).hasMessageThat().contains("Expected object of type 'flag_set', received 'tool'");
+  }
 
+  @Test
+  public void testActionConfig_implies_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createActionConfigRule(
         "five",
         /* actionName= */ "'actionname'",
@@ -3142,11 +3294,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[]",
         /* implies= */ "flag_set(actions = ['a', 'b'])");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//five:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//five:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("implies parameter of action_config should be a list, found struct");
+  }
 
+  @Test
+  public void testActionConfig_implies_mustContainString() throws Exception {
+    loadCcToolchainConfigLib();
     createActionConfigRule(
         "six",
         /* actionName= */ "'actionname'",
@@ -3155,18 +3311,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[]",
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//six:a");
-      SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
+  }
 
+  @Test
+  public void testActionConfig_implies_mustContainString_notStruct() throws Exception {
+    loadCcToolchainConfigLib();
     createActionConfigRule(
         "seven",
         /* actionName= */ "'actionname'",
@@ -3175,18 +3333,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[]",
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//seven:a");
-      SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
+  }
 
+  @Test
+  public void testActionConfig() throws Exception {
+    loadCcToolchainConfigLib();
     createActionConfigRule(
         "eight",
         /* actionName= */ "'actionname32._++-'",
@@ -3204,7 +3364,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(a.getImplies()).containsExactly("a", "b").inOrder();
     assertThat(Iterables.getOnlyElement(a.getFlagSets()).getActions())
         .containsExactly("actionname32._++-");
+  }
 
+  @Test
+  public void testActionConfig_actionName_validChars_notUpper() throws Exception {
+    loadCcToolchainConfigLib();
     createActionConfigRule(
         "nine",
         /* actionName= */ "'Upper'",
@@ -3213,20 +3377,22 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[]",
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
-    try {
-      t = getConfiguredTarget("//nine:a");
-      actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains(
-              "An action_config's name must consist solely "
-                  + "of lowercase ASCII letters, digits, '.', '_', '+', and '-', got 'Upper'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//nine:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "An action_config's name must consist solely "
+                + "of lowercase ASCII letters, digits, '.', '_', '+', and '-', got 'Upper'");
+  }
 
+  @Test
+  public void testActionConfig_actionName_validChars_notWhitespace() throws Exception {
+    loadCcToolchainConfigLib();
     createActionConfigRule(
         "ten",
         /* actionName= */ "'white\tspace'",
@@ -3235,20 +3401,18 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[]",
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
-    try {
-      t = getConfiguredTarget("//ten:a");
-      actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains(
-              "An action_config's name must consist solely "
-                  + "of lowercase ASCII letters, digits, '.', '_', '+', and '-', "
-                  + "got 'white\tspace'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//ten:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "An action_config's name must consist solely "
+                + "of lowercase ASCII letters, digits, '.', '_', '+', and '-', "
+                + "got 'white\tspace'");
   }
 
   private void createActionConfigRule(
@@ -3271,7 +3435,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomActionConfig() throws Exception {
+  public void testCustomActionConfig_actionName_mustBeString() throws Exception {
     loadCcToolchainConfigLib();
     createCustomActionConfigRule(
         "one",
@@ -3281,18 +3445,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[]",
         /* implies= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//one:a");
-      SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'action_name' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//one:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Field 'action_name' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomActionConfig_enabled_mustBeBool() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomActionConfigRule(
         "two",
         /* actionName= */ "'actionname'",
@@ -3300,18 +3466,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* tools= */ "[]",
         /* flagSets= */ "[]",
         /* implies= */ "[]");
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//two:a");
-      SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'enabled' is not of 'java.lang.Boolean' type.");
-    }
 
+    ConfiguredTarget t = getConfiguredTarget("//two:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e).hasMessageThat().contains("Field 'enabled' is not of 'java.lang.Boolean' type.");
+  }
+
+  @Test
+  public void testCustomActionConfig_tools_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomActionConfigRule(
         "three",
         /* actionName= */ "'actionname'",
@@ -3320,18 +3487,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[]",
         /* implies= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//three:a");
-      SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'tools' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'tools' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomActionConfig_flagSets_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomActionConfigRule(
         "four",
         /* actionName= */ "'actionname'",
@@ -3340,18 +3509,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "True",
         /* implies= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'flag_sets' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'flag_sets' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomActionConfig_implies_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomActionConfigRule(
         "five",
         /* actionName= */ "'actionname'",
@@ -3360,17 +3531,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* flagSets= */ "[]",
         /* implies= */ "flag_set(actions = ['a', 'b'])");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//five:a");
-      SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
-      assertThat(actionConfigStruct).isNotNull();
-      CcModule.actionConfigFromSkylark(actionConfigStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'implies' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//five:a");
+    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    assertThat(actionConfigStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'implies' is not of expected type list or NoneType");
   }
 
   private void createCustomActionConfigRule(
@@ -3394,7 +3563,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFeature() throws Exception {
+  public void testFeature_name_mustBeNonempty() throws Exception {
     loadCcToolchainConfigLib();
     createFeatureRule(
         "one",
@@ -3406,18 +3575,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//one:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("A feature must either have a nonempty 'name' field or be enabled.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//one:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("A feature must either have a nonempty 'name' field or be enabled.");
+  }
 
+  @Test
+  public void testFeature_enabled_mustBeBool() throws Exception {
+    loadCcToolchainConfigLib();
     createFeatureRule(
         "two",
         /* name= */ "'featurename'",
@@ -3431,7 +3601,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("enabled parameter of feature should be a bool, found NoneType");
+  }
 
+  @Test
+  public void testFeature_flagSets_mustBeFlagSet() throws Exception {
+    loadCcToolchainConfigLib();
     createFeatureRule(
         "three",
         /* name= */ "'featurename'",
@@ -3442,18 +3616,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//three:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'flag_set', received 'struct'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Expected object of type 'flag_set', received 'struct'");
+  }
 
+  @Test
+  public void testFeature_envSets_mustBeEnvSet() throws Exception {
+    loadCcToolchainConfigLib();
     createFeatureRule(
         "four",
         /* name= */ "'featurename'",
@@ -3464,18 +3639,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Expected object of type 'env_set', received 'tool'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e).hasMessageThat().contains("Expected object of type 'env_set', received 'tool'");
+  }
 
+  @Test
+  public void testFeature_something_mustBeFeatureSet() throws Exception {
+    loadCcToolchainConfigLib();
     createFeatureRule(
         "five",
         /* name= */ "'featurename'",
@@ -3487,16 +3661,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//five:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee).hasMessageThat().contains("expected object of type 'feature_set'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//five:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e).hasMessageThat().contains("expected object of type 'feature_set'");
+  }
 
+  @Test
+  public void testFeature_implies_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createFeatureRule(
         "six",
         /* name= */ "'featurename'",
@@ -3508,18 +3683,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[tool(path = 'a/b/c')]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//six:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
+  }
 
+  @Test
+  public void testFeature_provides_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createFeatureRule(
         "seven",
         /* name= */ "'featurename'",
@@ -3531,18 +3707,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "['a', 'b', 'c']",
         /* provides= */ "[struct()]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//seven:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("expected type 'string' for 'provides' element but got type 'struct' instead");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("expected type 'string' for 'provides' element but got type 'struct' instead");
+  }
 
+  @Test
+  public void testFeature() throws Exception {
+    loadCcToolchainConfigLib();
     createFeatureRule(
         "eight",
         /* name= */ "'featurename32+.-_'",
@@ -3559,7 +3736,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     Feature a = CcModule.featureFromSkylark(featureStruct);
     assertThat(a).isNotNull();
+  }
 
+  @Test
+  public void testFeature_name_validCharacters_notUpper() throws Exception {
+    loadCcToolchainConfigLib();
     createFeatureRule(
         "nine",
         /* name= */ "'UpperCase'",
@@ -3570,20 +3751,21 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      t = getConfiguredTarget("//nine:a");
-      featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains(
-              "A feature's name must consist solely of lowercase ASCII letters, digits, "
-                  + "'.', '_', '+', and '-', got 'UpperCase'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//nine:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "A feature's name must consist solely of lowercase ASCII letters, digits, "
+                + "'.', '_', '+', and '-', got 'UpperCase'");
+  }
 
+  @Test
+  public void testFeature_name_validCharacters_notWhitespace() throws Exception {
+    loadCcToolchainConfigLib();
     createFeatureRule(
         "ten",
         /* name= */ "'white space'",
@@ -3594,19 +3776,16 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      t = getConfiguredTarget("//ten:a");
-      featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains(
-              "A feature's name must consist solely of "
-                  + "lowercase ASCII letters, digits, '.', '_', '+', and '-', got 'white space");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//ten:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "A feature's name must consist solely of "
+                + "lowercase ASCII letters, digits, '.', '_', '+', and '-', got 'white space");
   }
 
   private void createFeatureRule(
@@ -3638,7 +3817,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomFeature() throws Exception {
+  public void testCustomFeature_name_mustBeString() throws Exception {
     loadCcToolchainConfigLib();
     createCustomFeatureRule(
         "one",
@@ -3650,16 +3829,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//one:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//one:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomFeature_enabled_mustBeBool() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFeatureRule(
         "two",
         /* name= */ "'featurename'",
@@ -3669,18 +3849,18 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* requires= */ "[]",
         /* implies= */ "[]",
         /* provides= */ "[]");
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//two:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'enabled' is not of 'java.lang.Boolean' type.");
-    }
 
+    ConfiguredTarget t = getConfiguredTarget("//two:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e).hasMessageThat().contains("Field 'enabled' is not of 'java.lang.Boolean' type.");
+  }
+
+  @Test
+  public void testCustomFeature_flagSets_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFeatureRule(
         "three",
         /* name= */ "'featurename'",
@@ -3691,18 +3871,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//three:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'flag_sets' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'flag_sets' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomFeature_envSets_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFeatureRule(
         "four",
         /* name= */ "'featurename'",
@@ -3713,18 +3894,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'env_sets' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'env_sets' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomFeature_requires_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFeatureRule(
         "five",
         /* name= */ "'featurename'",
@@ -3735,18 +3917,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//five:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'requires' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//five:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'requires' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomFeature_implies_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFeatureRule(
         "six",
         /* name= */ "'featurename'",
@@ -3757,18 +3940,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "struct()",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//six:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'implies' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'implies' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomFeature_provides_mustBeList() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFeatureRule(
         "seven",
         /* name= */ "'featurename'",
@@ -3779,18 +3963,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "struct()");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//seven:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Illegal argument: 'provides' is not of expected type list or NoneType");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Illegal argument: 'provides' is not of expected type list or NoneType");
+  }
 
+  @Test
+  public void testCustomFeature_flagSet_musthaveActions() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomFeatureRule(
         "eight",
         /* name= */ "'featurename'",
@@ -3801,17 +3986,14 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]",
         /* provides= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//eight:a");
-      SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
-      assertThat(featureStruct).isNotNull();
-      CcModule.featureFromSkylark(featureStruct);
-      fail("Should have failed because of empty 'actions' parameter in flag_set.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("A flag_set that belongs to a feature must have nonempty 'actions' parameter.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//eight:a");
+    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    assertThat(featureStruct).isNotNull();
+    EvalException e =
+        assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("A flag_set that belongs to a feature must have nonempty 'actions' parameter.");
   }
 
   private void createCustomFeatureRule(
@@ -3844,77 +4026,86 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomArtifactNamePattern() throws Exception {
+  public void testCustomArtifactNamePattern_categoryName_mustBeString() throws Exception {
     loadCcToolchainConfigLib();
     createCustomArtifactNamePatternRule(
         "one", /* categoryName= */ "struct()", /* extension= */ "'a'", /* prefix= */ "'a'");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//one:a");
-      SkylarkInfo artifactNamePatternStruct =
-          (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
-      assertThat(artifactNamePatternStruct).isNotNull();
-      CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'category_name' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//one:a");
+    SkylarkInfo artifactNamePatternStruct =
+        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    assertThat(artifactNamePatternStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Field 'category_name' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomArtifactNamePattern_extension_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomArtifactNamePatternRule(
         "two",
         /* categoryName= */ "'static_library'",
         /* extension= */ "struct()",
         /* prefix= */ "'a'");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//two:a");
-      SkylarkInfo artifactNamePatternStruct =
-          (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
-      assertThat(artifactNamePatternStruct).isNotNull();
-      CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("Field 'extension' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//two:a");
+    SkylarkInfo artifactNamePatternStruct =
+        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    assertThat(artifactNamePatternStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct));
+    assertThat(e).hasMessageThat().contains("Field 'extension' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomArtifactNamePattern_prefix_mustBeString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomArtifactNamePatternRule(
         "three",
         /* categoryName= */ "'static_library'",
         /* extension= */ "'.a'",
         /* prefix= */ "struct()");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//three:a");
-      SkylarkInfo artifactNamePatternStruct =
-          (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
-      assertThat(artifactNamePatternStruct).isNotNull();
-      CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
-      fail("Should have failed because of wrong object type.");
-    } catch (EvalException ee) {
-      assertThat(ee).hasMessageThat().contains("Field 'prefix' is not of 'java.lang.String' type.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//three:a");
+    SkylarkInfo artifactNamePatternStruct =
+        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    assertThat(artifactNamePatternStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct));
+    assertThat(e).hasMessageThat().contains("Field 'prefix' is not of 'java.lang.String' type.");
+  }
 
+  @Test
+  public void testCustomArtifactNamePattern_categoryName_mustBeNonempty() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomArtifactNamePatternRule(
         "four", /* categoryName= */ "''", /* extension= */ "'.a'", /* prefix= */ "'a'");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//four:a");
-      SkylarkInfo artifactNamePatternStruct =
-          (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
-      assertThat(artifactNamePatternStruct).isNotNull();
-      CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains(
-              "The 'category_name' field of artifact_name_pattern must be a nonempty string.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//four:a");
+    SkylarkInfo artifactNamePatternStruct =
+        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    assertThat(artifactNamePatternStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("The 'category_name' field of artifact_name_pattern must be a nonempty string.");
+  }
 
+  @Test
+  public void testCustomArtifactNamePattern_emptyString_emptyString() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomArtifactNamePatternRule(
         "five", /* categoryName= */ "'executable'", /* extension= */ "''", /* prefix= */ "''");
 
@@ -3925,44 +4116,58 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ArtifactNamePattern artifactNamePattern =
         CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
     assertThat(artifactNamePattern).isNotNull();
+  }
 
+  @Test
+  public void testCustomArtifactNamePattern_none_none() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomArtifactNamePatternRule(
         "six", /* categoryName= */ "'executable'", /* extension= */ "None", /* prefix= */ "None");
 
-    t = getConfiguredTarget("//six:a");
-    artifactNamePatternStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
+    SkylarkInfo artifactNamePatternStruct =
+        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
-    artifactNamePattern = CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
+    ArtifactNamePattern artifactNamePattern =
+        CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
     assertThat(artifactNamePattern).isNotNull();
+  }
 
+  @Test
+  public void testCustomArtifactNamePattern_categoryName_unknown() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomArtifactNamePatternRule(
         "seven", /* categoryName= */ "'unknown'", /* extension= */ "'.a'", /* prefix= */ "'a'");
 
-    try {
-      t = getConfiguredTarget("//seven:a");
-      artifactNamePatternStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
-      assertThat(artifactNamePatternStruct).isNotNull();
-      CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
-      fail("Should have failed because of unrecognized category.");
-    } catch (EvalException ee) {
-      assertThat(ee).hasMessageThat().contains("Artifact category unknown not recognized");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    SkylarkInfo artifactNamePatternStruct =
+        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    assertThat(artifactNamePatternStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct));
+    assertThat(e).hasMessageThat().contains("Artifact category unknown not recognized");
+  }
 
+  @Test
+  public void testCustomArtifactNamePattern_fileExtension_unknown() throws Exception {
+    loadCcToolchainConfigLib();
     createCustomArtifactNamePatternRule(
         "eight",
         /* categoryName= */ "'static_library'",
         /* extension= */ "'a'",
         /* prefix= */ "'a'");
 
-    try {
-      t = getConfiguredTarget("//eight:a");
-      artifactNamePatternStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
-      assertThat(artifactNamePatternStruct).isNotNull();
-      CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
-      fail("Should have failed because of unrecognized extension.");
-    } catch (EvalException ee) {
-      assertThat(ee).hasMessageThat().contains("Unrecognized file extension 'a'");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//eight:a");
+    SkylarkInfo artifactNamePatternStruct =
+        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    assertThat(artifactNamePatternStruct).isNotNull();
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () -> CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct));
+    assertThat(e).hasMessageThat().contains("Unrecognized file extension 'a'");
   }
 
   private void createCustomArtifactNamePatternRule(
