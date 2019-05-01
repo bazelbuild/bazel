@@ -159,11 +159,12 @@ public final class RuleConfiguredTargetBuilder {
                 ruleContext.getLabel()));
         return null;
       }
-      addProvider(new DepCountInfo(transitiveDepCount()));
+      addProvider(new TransitiveLabelsInfo(transitiveLabels()));
     }
 
     if (ruleContext.getRule().hasAnalysisTestTransition()) {
-      int depCount = transitiveDepCount();
+      NestedSet<Label> labels = transitiveLabels();
+      int depCount = labels.toList().size();
       if (depCount > ruleContext.getConfiguration().analysisTestingDepsLimit()) {
         ruleContext.ruleError(
             String.format(
@@ -210,20 +211,22 @@ public final class RuleConfiguredTargetBuilder {
         generatingActions.getGeneratingActionIndex());
   }
 
-  private int transitiveDepCount() {
-    int depCount = 0;
+  private NestedSet<Label> transitiveLabels() {
+    NestedSetBuilder<Label> nestedSetBuilder = NestedSetBuilder.stableOrder();
 
     for (String attributeName : ruleContext.attributes().getAttributeNames()) {
       Type<?> attributeType =
           ruleContext.attributes().getAttributeDefinition(attributeName).getType();
       if (attributeType.getLabelClass() == LabelClass.DEPENDENCY) {
-        for (DepCountInfo depCountInfo :
-            ruleContext.getPrerequisites(attributeName, Mode.DONT_CHECK, DepCountInfo.class)) {
-          depCount += depCountInfo.getNumDepEdges() + 1;
+        for (TransitiveLabelsInfo labelsInfo :
+            ruleContext.getPrerequisites(
+                attributeName, Mode.DONT_CHECK, TransitiveLabelsInfo.class)) {
+          nestedSetBuilder.addTransitive(labelsInfo.getLabels());
         }
       }
     }
-    return depCount;
+    nestedSetBuilder.add(ruleContext.getLabel());
+    return nestedSetBuilder.build();
   }
 
   /**
@@ -497,20 +500,23 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Contains a count of transitive dependency edges traversed by the target which propagated this
-   * object.
+   * Contains a nested set of transitive dependencies of the target which propagated this object.
    *
    * <p>This is automatically provided by all targets which are being evaluated in analysis testing.
+   *
+   * <p>For large builds, this object will become <i>very large</i>, but analysis tests are required
+   * to be very small. The small-size of analysis tests are enforced by evaluating the size of this
+   * object.
    */
-  private static class DepCountInfo implements TransitiveInfoProvider {
-    private final int numDepEdges;
+  private static class TransitiveLabelsInfo implements TransitiveInfoProvider {
+    private final NestedSet<Label> labels;
 
-    public DepCountInfo(int numDepEdges) {
-      this.numDepEdges = numDepEdges;
+    public TransitiveLabelsInfo(NestedSet<Label> labels) {
+      this.labels = labels;
     }
 
-    public int getNumDepEdges() {
-      return numDepEdges;
+    public NestedSet<Label> getLabels() {
+      return labels;
     }
   }
 }

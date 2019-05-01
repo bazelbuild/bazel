@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.FunctionSplitTransitionWhit
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -2472,7 +2473,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
     assertContainsEvent(
-        "analysis test rule excedeed maximum dependency edge count. " + "Count: 13. Limit is 10.");
+        "analysis test rule excedeed maximum dependency edge count. " + "Count: 14. Limit is 10.");
   }
 
   @Test
@@ -2491,6 +2492,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   private void setupAnalysisTestDepsLimitTest(
       int limit, int dependencyChainSize, boolean useTransition) throws Exception {
+    Preconditions.checkArgument(dependencyChainSize > 2);
     useConfiguration("--analysis_testing_deps_limit=" + limit);
 
     String transitionDefinition;
@@ -2514,7 +2516,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "dep_rule = rule(",
         "  implementation = dep_rule_impl,",
-        "  attrs = {'dep':  attr.label()}",
+        "  attrs = {'deps': attr.label_list()}",
         ")",
         "outer_rule_test = rule(",
         "  implementation = outer_rule_impl,",
@@ -2526,10 +2528,18 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     // Create a chain of targets where 'innerN' depends on 'inner{N+1}' until the max length.
     StringBuilder dependingRulesChain = new StringBuilder();
-    for (int i = 0; i < dependencyChainSize; i++) {
+    for (int i = 0; i < dependencyChainSize - 1; i++) {
+      // Each dep_rule target also depends on the leaf.
+      // The leaf should not be counted multiple times.
       dependingRulesChain.append(
-          String.format("dep_rule(name = 'inner%s', dep = ':inner%s')\n", i, (i + 1)));
+          String.format(
+              "dep_rule(name = 'inner%s', deps = [':inner%s', ':inner%s'])\n",
+              i, (i + 1), dependencyChainSize));
     }
+    dependingRulesChain.append(
+        String.format(
+            "dep_rule(name = 'inner%s', deps = [':inner%s'])\n",
+            dependencyChainSize - 1, dependencyChainSize));
     dependingRulesChain.append(String.format("dep_rule(name = 'inner%s')", dependencyChainSize));
 
     scratch.file(
