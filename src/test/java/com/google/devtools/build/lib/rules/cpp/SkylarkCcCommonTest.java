@@ -608,7 +608,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "cc_toolchain = toolchain,",
                 "source_file = 'foo/bar/hello'",
                 ")"))
-        .containsAllOf("-c", "foo/bar/hello")
+        .containsAtLeast("-c", "foo/bar/hello")
         .inOrder();
   }
 
@@ -622,7 +622,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "cc_toolchain = toolchain,",
                 "output_file = 'foo/bar/hello.o'",
                 ")"))
-        .containsAllOf("-o", "foo/bar/hello.o")
+        .containsAtLeast("-o", "foo/bar/hello.o")
         .inOrder();
   }
 
@@ -731,7 +731,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "cc_toolchain = toolchain,",
                 "library_search_directories = depset([ 'a', 'b', 'c' ]),",
                 ")"))
-        .containsAllOf("--library=a", "--library=b", "--library=c")
+        .containsAtLeast("--library=a", "--library=b", "--library=c")
         .inOrder();
   }
 
@@ -751,7 +751,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "cc_toolchain = toolchain,",
                 "runtime_library_search_directories = depset([ 'a', 'b', 'c' ]),",
                 ")"))
-        .containsAllOf("--runtime_library=a", "--runtime_library=b", "--runtime_library=c")
+        .containsAtLeast("--runtime_library=a", "--runtime_library=b", "--runtime_library=c")
         .inOrder();
   }
 
@@ -1046,17 +1046,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             mergedHeaders.stream()
                 .map(Artifact::getFilename)
                 .collect(ImmutableList.toImmutableList()))
-        .containsAllOf("header.h", "dep1.h", "dep2.h");
+        .containsAtLeast("header.h", "dep1.h", "dep2.h");
 
     List<String> mergedDefines =
         ((SkylarkNestedSet) myInfo.getValue("merged_defines")).getSet(String.class).toList();
-    assertThat(mergedDefines).containsAllOf("MYDEFINE", "DEP1", "DEP2");
+    assertThat(mergedDefines).containsAtLeast("MYDEFINE", "DEP1", "DEP2");
 
     List<String> mergedSystemIncludes =
         ((SkylarkNestedSet) myInfo.getValue("merged_system_includes"))
             .getSet(String.class)
             .toList();
-    assertThat(mergedSystemIncludes).containsAllOf("foo/bar", "a/dep1/baz", "a/dep2/qux");
+    assertThat(mergedSystemIncludes).containsAtLeast("foo/bar", "a/dep1/baz", "a/dep2/qux");
 
     List<String> mergedIncludes =
         ((SkylarkNestedSet) myInfo.getValue("merged_includes")).getSet(String.class).toList();
@@ -4277,12 +4277,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     // legacy_compile_flags should appear first in the list of features, followed by
     // default_compile_flags.
     assertThat(featureNames)
-        .containsAllOf(
+        .containsAtLeast(
             "legacy_compile_flags", "default_compile_flags", "custom_feature", "fdo_optimize")
         .inOrder();
     // assemble is one of the action_configs added as a legacy behavior, therefore it needs to be
     // prepended to the action configs defined by the user.
-    assertThat(actionConfigNames).containsAllOf("assemble", "custom-action").inOrder();
+    assertThat(actionConfigNames).containsAtLeast("assemble", "custom-action").inOrder();
   }
 
   @Test
@@ -4798,7 +4798,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
-    assertThat(action.getArguments()).containsAllOf("-Ifoo/bar", "-Ibaz/qux");
+    assertThat(action.getArguments()).containsAtLeast("-Ifoo/bar", "-Ibaz/qux");
   }
 
   @Test
@@ -4810,7 +4810,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
     assertThat(action.getArguments())
-        .containsAllOf("-isystem", "foo/bar", "-isystem", "baz/qux")
+        .containsAtLeast("-isystem", "foo/bar", "-isystem", "baz/qux")
         .inOrder();
   }
 
@@ -4823,7 +4823,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
     assertThat(action.getArguments())
-        .containsAllOf("-iquote", "foo/bar", "-iquote", "baz/qux")
+        .containsAtLeast("-iquote", "foo/bar", "-iquote", "baz/qux")
         .inOrder();
   }
 
@@ -4835,7 +4835,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
-    assertThat(action.getArguments()).containsAllOf("-DDEFINE1", "-DDEFINE2");
+    assertThat(action.getArguments()).containsAtLeast("-DDEFINE1", "-DDEFINE2");
   }
 
   @Test
@@ -4846,7 +4846,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CcInfo ccInfo = target.get(CcInfo.PROVIDER);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDeclaredIncludeSrcs()))
-        .containsAllOf("src foo/dep2.h", "src foo/skylark_lib.h", "src foo/private_skylark_lib.h");
+        .containsAtLeast(
+            "src foo/dep2.h", "src foo/skylark_lib.h", "src foo/private_skylark_lib.h");
   }
 
   @Test
@@ -4867,7 +4868,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
-    assertThat(action.getArguments()).containsAllOf("-DDEFINE_DEP1", "-DDEFINE_DEP2");
+    assertThat(action.getArguments()).containsAtLeast("-DDEFINE_DEP1", "-DDEFINE_DEP2");
   }
 
   @Test
@@ -4902,7 +4903,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), "bin"));
-    assertThat(action.getArguments()).containsAllOf("-DEP1_LINKOPT", "-DEP2_LINKOPT");
+    assertThat(action.getArguments()).containsAtLeast("-DEP1_LINKOPT", "-DEP2_LINKOPT");
   }
 
   @Test

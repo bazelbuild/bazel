@@ -268,7 +268,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact archive = getBinArtifact("libhello.a", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive);
     assertThat(ActionsTestUtil.baseArtifactNames(getOutputGroup(hello, OutputGroupInfo.DEFAULT)))
-        .containsAllOf("enabled_features.txt", "requested_features.txt");
+        .containsAtLeast("enabled_features.txt", "requested_features.txt");
   }
 
   @Test

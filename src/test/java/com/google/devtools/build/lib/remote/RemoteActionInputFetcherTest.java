@@ -105,7 +105,7 @@ public class RemoteActionInputFetcherTest {
         .isEqualTo("fizz buzz");
     assertThat(a2.getPath().isExecutable()).isTrue();
     assertThat(actionInputFetcher.downloadedFiles()).hasSize(2);
-    assertThat(actionInputFetcher.downloadedFiles()).containsAllOf(a1.getPath(), a2.getPath());
+    assertThat(actionInputFetcher.downloadedFiles()).containsAtLeast(a1.getPath(), a2.getPath());
     assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
   }
 

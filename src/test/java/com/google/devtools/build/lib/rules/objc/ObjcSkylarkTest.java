@@ -1091,7 +1091,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
     SkylarkNestedSet sdkFrameworks =
         (SkylarkNestedSet) getMyInfoFromTarget(skylarkTarget).getValue("sdk_frameworks");
-    assertThat(sdkFrameworks.toCollection()).containsAllOf("Accelerate", "GLKit");
+    assertThat(sdkFrameworks.toCollection()).containsAtLeast("Accelerate", "GLKit");
   }
 
   @Test
