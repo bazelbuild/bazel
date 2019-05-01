@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -48,9 +49,9 @@ public final class SelectorValue implements SkylarkValue {
   private final String noMatchError;
 
   public SelectorValue(Map<?, ?> dictionary, String noMatchError) {
+    Preconditions.checkArgument(!dictionary.isEmpty());
     this.dictionary = ImmutableMap.copyOf(dictionary);
-    this.type =
-        dictionary.isEmpty() ? Object.class : Iterables.get(dictionary.values(), 0).getClass();
+    this.type = Iterables.get(dictionary.values(), 0).getClass();
     this.noMatchError = noMatchError;
   }
 

@@ -970,6 +970,12 @@ public class MethodLibrary {
       useLocation = true)
   public Object select(SkylarkDict<?, ?> dict, String noMatchError, Location loc)
       throws EvalException {
+    if (dict.isEmpty()) {
+      throw new EvalException(
+          loc,
+          "select({}) with an empty dictionary can never resolve because it includes no conditions "
+              + "to match");
+    }
     for (Object key : dict.keySet()) {
       if (!(key instanceof String)) {
         throw new EvalException(

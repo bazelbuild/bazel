@@ -449,6 +449,24 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "Invalid key: {}. select keys must be label references");
   }
 
+  @Test
+  public void selectWithoutConditionsMakesNoSense() throws Exception {
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    scratch.file(
+        "foo/BUILD",
+        "nothing",
+        "genrule(",
+        "    name = 'nothing',",
+        "    srcs = [],",
+        "    outs = ['notmuch'],",
+        "    cmd = select({})",
+        ")");
+    assertTargetError(
+        "//foo:nothing",
+        "select({}) with an empty dictionary can never resolve because it includes no conditions "
+            + "to match");
+  }
+
   /**
    * Tests that config keys must resolve to existent targets.
    */
@@ -1103,7 +1121,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:gen")).isNull();
     assertContainsEvent(
-        "'+' operator applied to incompatible types (select of unknown, string)");
+        "select({}) with an empty dictionary can never resolve because it includes no conditions "
+            + "to match");
   }
 
   @Test
