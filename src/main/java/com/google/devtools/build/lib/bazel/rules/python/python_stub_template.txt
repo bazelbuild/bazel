@@ -99,13 +99,38 @@ def FindModuleSpace():
 
   raise AssertionError('Cannot find .runfiles directory for %s' % sys.argv[0])
 
+def ExtractZip(zip_path, dest_dir):
+  """Extracts the contents of a zip file, preserving the unix file mode bits.
+
+  These include the permission bits, and in particular, the executable bit.
+
+  Ideally the zipfile module should set these bits, but it doesn't. See:
+  https://bugs.python.org/issue15795.
+
+  Args:
+      zip_path: The path to the zip file to extract
+      dest_dir: The path to the destination directory
+  """
+  zip_path = GetWindowsPathWithUNCPrefix(zip_path)
+  dest_dir = GetWindowsPathWithUNCPrefix(dest_dir)
+  with zipfile.ZipFile(zip_path) as zf:
+    for info in zf.infolist():
+      zf.extract(info, dest_dir)
+      # UNC-prefixed paths must be absolute/normalized. See
+      # https://docs.microsoft.com/en-us/windows/desktop/fileio/naming-a-file#maximum-path-length-limitation
+      file_path = os.path.abspath(os.path.join(dest_dir, info.filename))
+      # The Unix st_mode bits (see "man 7 inode") are stored in the upper 16
+      # bits of external_attr. Of those, we set the lower 12 bits, which are the
+      # file mode bits (since the file type bits can't be set by chmod anyway).
+      attrs = info.external_attr >> 16
+      if attrs != 0:  # Rumor has it these can be 0 for zips created on Windows.
+        os.chmod(file_path, attrs & 0o7777)
+
 # Create the runfiles tree by extracting the zip file
 def CreateModuleSpace():
-  ZIP_RUNFILES_DIRECTORY_NAME = "runfiles"
   temp_dir = tempfile.mkdtemp("", "Bazel.runfiles_")
-  zf = zipfile.ZipFile(GetWindowsPathWithUNCPrefix(os.path.dirname(__file__)))
-  zf.extractall(GetWindowsPathWithUNCPrefix(temp_dir))
-  return os.path.join(temp_dir, ZIP_RUNFILES_DIRECTORY_NAME)
+  ExtractZip(os.path.dirname(__file__), temp_dir)
+  return os.path.join(temp_dir, "runfiles")
 
 # Returns repository roots to add to the import path.
 def GetRepositoriesImports(module_space, import_all):

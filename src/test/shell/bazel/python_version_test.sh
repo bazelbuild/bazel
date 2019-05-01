@@ -188,6 +188,47 @@ EOF
   expect_log "File contents: abcdefg"
 }
 
+# Regression test for #5104. This test ensures that it's possible to use
+# --build_python_zip in combination with a py_runtime (as opposed to not using
+# a py_runtime, i.e., the legacy --python_path mechanism).
+#
+# Note that with --incompatible_use_python_toolchains flipped, we're always
+# using a py_runtime, so in that case this amounts to a test that
+# --build_python_zip works at all.
+#
+# The specific issue #5104 was caused by file permissions being lost when
+# unzipping runfiles, which led to an unexecutable runtime.
+function test_build_python_zip_works_with_py_runtime() {
+  mkdir -p test
+
+  cat > test/BUILD << EOF
+py_binary(
+    name = "pybin",
+    srcs = ["pybin.py"],
+)
+
+py_runtime(
+    name = "mock_runtime",
+    interpreter = ":mockpy.sh",
+    python_version = "PY3",
+)
+EOF
+  cat > test/pybin.py << EOF
+# This doesn't actually run because we use a mock Python runtime that never
+# executes the Python code.
+print("I am pybin!")
+EOF
+  cat > test/mockpy.sh <<EOF
+#!/bin/bash
+echo "I am mockpy!"
+EOF
+  chmod u+x test/mockpy.sh
+
+  bazel run //test:pybin --python_top=//test:mock_runtime --build_python_zip \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am mockpy!"
+}
+
 function test_pybin_can_have_different_version_pybin_as_data_dep() {
   mkdir -p test
 
