@@ -46,9 +46,7 @@ inspecting the BUILD file to understand what a target's restrictions are.
 You may declare third party dependencies:
 
 *   Either declare them as remote repositories in the WORKSPACE file.
-*   Or put them in a directory called `third_party/` under your workspace directory. Note that
-all BUILD files in `third_party/` must include
-[license](https://docs.bazel.build/be/functions.html#licenses) declarations.
+*   Or put them in a directory called `third_party/` under your workspace directory.
 
 ## Depending on binaries
 
