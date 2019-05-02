@@ -43,6 +43,9 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# TODO(bazelbuild/continuous-integration#578): Enable this test for Mac and
+# Windows.
+
 # `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
 # `tr` converts all upper case letters to lower case.
 # `case` matches the result if the `uname | tr` expression to string prefixes
@@ -52,15 +55,15 @@ case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*)
   # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
   declare -r is_windows=true
-  # As of 2019-04-26, this test is disabled on Windows (via "no_windows" tag),
-  # so this code shouldn't even have run.
-  # TODO(bazelbuild/continuous-integration#578): Enable this test for Windows.
+  # As of 2018-12-17, this test is disabled on windows (via "no_windows" tag),
+  # so this code shouldn't even have run. See the TODO at
+  # use_system_python_2_3_runtimes.
   fail "This test does not run on Windows."
   ;;
 darwin*)
-  # As of 2019-04-26, this test is disabled on mac, but there's no "no_mac" tag
-  # so we just have to trivially succeed.
-  # TODO(bazelbuild/continuous-integration#578): Enable this test for Mac.
+  # As of 2018-12-17, this test is disabled on mac, but there's no "no_mac" tag
+  # so we just have to trivially succeed. See the TODO at
+  # use_system_python_2_3_runtimes.
   echo "This test does not run on Mac; exiting early." >&2
   exit 0
   ;;
@@ -75,6 +78,44 @@ if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
 fi
+
+# Use a py_runtime that invokes either the system's Python 2 or Python 3
+# interpreter based on the Python mode. On Unix this is a workaround for #4815.
+#
+# TODO(brandjon): Replace this with the autodetecting Python toolchain.
+function use_system_python_2_3_runtimes() {
+  PYTHON2_BIN=$(which python2 || echo "")
+  PYTHON3_BIN=$(which python3 || echo "")
+  # Debug output.
+  echo "Python 2 interpreter: ${PYTHON2_BIN:-"Not found"}"
+  echo "Python 3 interpreter: ${PYTHON3_BIN:-"Not found"}"
+  # Fail if either isn't present.
+  if [[ -z "${PYTHON2_BIN:-}" || -z "${PYTHON3_BIN:-}" ]]; then
+    fail "Can't use system interpreter: Could not find one or both of \
+'python2', 'python3'"
+  fi
+
+  # Point Python builds at a py_runtime target defined in a //tools package of
+  # the main repo. This is not related to @bazel_tools//tools/python.
+  add_to_bazelrc "build --python_top=//tools/python:default_runtime"
+
+  mkdir -p tools/python
+
+  cat > tools/python/BUILD << EOF
+package(default_visibility=["//visibility:public"])
+
+py_runtime(
+    name = "default_runtime",
+    files = [],
+    interpreter_path = select({
+        "@bazel_tools//tools/python:PY2": "${PYTHON2_BIN}",
+        "@bazel_tools//tools/python:PY3": "${PYTHON3_BIN}",
+    }),
+)
+EOF
+}
+
+use_system_python_2_3_runtimes
 
 #### TESTS #############################################################
 
@@ -161,8 +202,6 @@ function test_build_python_zip_works_with_py_runtime() {
   mkdir -p test
 
   cat > test/BUILD << EOF
-load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
-
 py_binary(
     name = "pybin",
     srcs = ["pybin.py"],
@@ -172,17 +211,6 @@ py_runtime(
     name = "mock_runtime",
     interpreter = ":mockpy.sh",
     python_version = "PY3",
-)
-
-py_runtime_pair(
-    name = "mock_runtime_pair",
-    py3_runtime = ":mock_runtime",
-)
-
-toolchain(
-    name = "mock_toolchain",
-    toolchain = ":mock_runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 EOF
   cat > test/pybin.py << EOF
@@ -196,8 +224,7 @@ echo "I am mockpy!"
 EOF
   chmod u+x test/mockpy.sh
 
-  bazel run //test:pybin \
-      --extra_toolchains=//test:mock_toolchain --build_python_zip \
+  bazel run //test:pybin --python_top=//test:mock_runtime --build_python_zip \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am mockpy!"
 }

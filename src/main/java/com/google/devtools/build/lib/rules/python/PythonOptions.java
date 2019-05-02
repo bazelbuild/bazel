@@ -231,7 +231,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_python_toolchains",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {

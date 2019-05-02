@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -175,10 +174,6 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "pkg/BUILD",
-        "load('"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/python:toolchain.bzl', "
-            + "'py_runtime_pair')",
         "load(':rules.bzl', 'userruntime')",
         "py_runtime(",
         "    name = 'pyruntime',",
@@ -192,22 +187,13 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    interpreter = ':userintr',",
         "    files = ['userdata.txt'],",
         ")",
-        "py_runtime_pair(",
-        "    name = 'userruntime_pair',",
-        "    py2_runtime = 'userruntime',",
-        ")",
-        "toolchain(",
-        "    name = 'usertoolchain',",
-        "    toolchain = ':userruntime_pair',",
-        "    toolchain_type = '"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/python:toolchain_type',",
-        ")",
         "py_binary(",
         "    name = 'pybin',",
         "    srcs = ['pybin.py'],",
         ")");
-    useConfiguration("--extra_toolchains=//pkg:usertoolchain");
+    String pythonTopLabel =
+        analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:userruntime");
+    useConfiguration("--python_top=" + pythonTopLabel);
     ConfiguredTarget target = getConfiguredTarget("//pkg:pybin");
     assertThat(collectRunfiles(target))
         .containsAtLeast(getSourceArtifact("pkg/data.txt"), getSourceArtifact("pkg/userdata.txt"));
