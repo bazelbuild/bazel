@@ -33,8 +33,9 @@ public class BazelPythonConfigurationTest extends ConfigurationTestCase {
     scratch.file(
         "a/BUILD",
         "py_runtime(name='b', files=[], interpreter='c')");
-    BazelPythonConfiguration config = create("--python_top=//a:b")
-        .getFragment(BazelPythonConfiguration.class);
+    BazelPythonConfiguration config =
+        create("--incompatible_use_python_toolchains=false", "--python_top=//a:b")
+            .getFragment(BazelPythonConfiguration.class);
     assertThat(config.getPythonTop()).isNotNull();
   }
 
@@ -43,7 +44,7 @@ public class BazelPythonConfigurationTest extends ConfigurationTestCase {
     OptionsParsingException expected =
         assertThrows(
             OptionsParsingException.class,
-            () -> create("--python_top=//a:!b:"));
+            () -> create("--incompatible_use_python_toolchains=false", "--python_top=//a:!b:"));
     assertThat(expected).hasMessageThat().contains("While parsing option --python_top");
   }
 
