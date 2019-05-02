@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -168,7 +169,10 @@ public abstract class TestStrategy implements TestActionContext {
     final boolean useTestWrapper = testAction.isUsingTestWrapperInsteadOfTestSetupScript();
 
     if (executedOnWindows && !useTestWrapper) {
-      args.add(testAction.getShExecutable().getPathString());
+      // TestActionBuilder constructs TestRunnerAction with a 'null' shell path only when we use the
+      // native test wrapper. Something clearly went wrong.
+      Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
+      args.add(testAction.getShExecutableMaybe().getPathString());
       args.add("-c");
       args.add("$0 \"$@\"");
     }
@@ -203,20 +207,17 @@ public abstract class TestStrategy implements TestActionContext {
     if (execSettings.getRunUnderExecutable() != null) {
       args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getCallablePathString());
     } else {
-      String command = execSettings.getRunUnder().getCommand();
-      // --run_under commands that do not contain '/' are either shell built-ins or need to be
-      // located on the PATH env, so we wrap them in a shell invocation. Note that we shell tokenize
-      // the --run_under parameter and getCommand only returns the first such token.
-      boolean needsShell =
-          !command.contains("/") && (!executedOnWindows || !command.contains("\\"));
-      if (needsShell) {
-        String shellExecutable = testAction.getShExecutable().getPathString();
+      if (execSettings.needsShell(executedOnWindows)) {
+        // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
+        // required. Something clearly went wrong.
+        Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
+        String shellExecutable = testAction.getShExecutableMaybe().getPathString();
         args.add(shellExecutable);
         args.add("-c");
         args.add("\"$@\"");
         args.add(shellExecutable); // Sets $0.
       }
-      args.add(command);
+      args.add(execSettings.getRunUnder().getCommand());
     }
     args.addAll(testAction.getExecutionSettings().getRunUnder().getOptions());
   }
