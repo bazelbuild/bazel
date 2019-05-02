@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.profiler.grapher;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.profiler.CpuUsageTimeSeries;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -100,12 +101,20 @@ public class ProfileGrapher {
     }
 
     long maxEndTime = 0;
-    // TODO(twerth): Support gzip compressed profiles.
     try (JsonReader reader =
         new JsonReader(
             new BufferedReader(
                 new InputStreamReader(
                     maybeUnzip(new FileInputStream(filename), gzipped), StandardCharsets.UTF_8)))) {
+      if (reader.peek() == JsonToken.BEGIN_OBJECT) {
+        reader.beginObject();
+        while (reader.hasNext()) {
+          if ("traceEvents".equals(reader.nextName())) {
+            break;
+          }
+          reader.skipValue();
+        }
+      }
       reader.beginArray();
       while (reader.hasNext()) {
         Map<String, Object> data = decodeJsonObject(reader);
