@@ -31,6 +31,37 @@ class FirstTimeUseTest(test_base.TestBase):
       if 'python' in line and 'not found on PATH' in line:
         self._FailWithOutput(stdout + stderr)
 
+  def testNoBashRequiredForSimpleBazelRun(self):
+    """Regression test for https://github.com/bazelbuild/bazel/issues/8229."""
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'py_binary(',
+        '    name = "x",'
+        '    srcs = ["x.py"],',
+        ')',
+    ])
+    self.ScratchFile('foo/x.py', [
+        'from __future__ import print_function',
+        'print("hello python")',
+    ])
+
+    exit_code, stdout, stderr = self.RunBazel([
+        'run',
+        '--shell_executable=',
+        '--incompatible_bashless_run_command',
+        '//foo:x',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+    found_output = False
+    for line in stdout + stderr:
+      if 'ERROR' in line and 'needs a shell' in line:
+        self._FailWithOutput(stdout + stderr)
+      if 'hello python' in line:
+        found_output = True
+        break
+    if not found_output:
+      self._FailWithOutput(stdout + stderr)
+
 
 if __name__ == '__main__':
   unittest.main()
