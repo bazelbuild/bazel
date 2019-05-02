@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -52,6 +53,7 @@ public final class WorkspaceBuilder {
   private final ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
       ImmutableList.builder();
   private AllocationTracker allocationTracker;
+  private WorkspaceFileHeaderListener workspaceFileHeaderListener;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -79,7 +81,8 @@ public final class WorkspaceBuilder {
             ruleClassProvider.getBuildInfoFactories(),
             diffAwarenessFactories.build(),
             skyFunctions.build(),
-            customDirtinessCheckers.build());
+            customDirtinessCheckers.build(),
+            workspaceFileHeaderListener);
     return new BlazeWorkspace(
         runtime,
         directories,
@@ -151,6 +154,12 @@ public final class WorkspaceBuilder {
   public WorkspaceBuilder addCustomDirtinessChecker(
       SkyValueDirtinessChecker customDirtinessChecker) {
     this.customDirtinessCheckers.add(Preconditions.checkNotNull(customDirtinessChecker));
+    return this;
+  }
+
+  public WorkspaceBuilder setWorkspaceFileHeaderListener(
+      WorkspaceFileHeaderListener workspaceFileHeaderListener) {
+    this.workspaceFileHeaderListener = workspaceFileHeaderListener;
     return this;
   }
 }

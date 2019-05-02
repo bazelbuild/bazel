@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
@@ -84,7 +85,8 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
               skylarkRepositoryFunction,
               new AtomicBoolean(true),
               ImmutableMap::of,
-              directories);
+              directories,
+              ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES);
       return ImmutableMap.of(
           SkyFunctions.REPOSITORY_DIRECTORY,
           function,

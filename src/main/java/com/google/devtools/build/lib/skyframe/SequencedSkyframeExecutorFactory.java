@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import javax.annotation.Nullable;
 
 /**
  * A factory of SkyframeExecutors that returns SequencedSkyframeExecutor.
@@ -46,7 +48,8 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
+      @Nullable WorkspaceFileHeaderListener workspaceFileHeaderListener) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
@@ -58,6 +61,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         .setDiffAwarenessFactories(diffAwarenessFactories)
         .setExtraSkyFunctions(extraSkyFunctions)
         .setCustomDirtinessCheckers(customDirtinessCheckers)
+        .setWorkspaceFileHeaderListener(workspaceFileHeaderListener)
         .build();
   }
 }
