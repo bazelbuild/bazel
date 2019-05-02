@@ -242,6 +242,9 @@ platforms:
     - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_released"
+    - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_head"
+    - "-//src/test/shell/bazel:bazel_java_test_jdk10_toolchain_head"
   windows:
     batch_commands:
     - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"

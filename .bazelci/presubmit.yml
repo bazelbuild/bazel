@@ -259,6 +259,9 @@ platforms:
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4684
     - "-//src/test/shell/bazel:bazel_determinism_test"
     - "-//src/test/shell/bazel:bazel_java_test"
+    - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_released"
+    - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_head"
+    - "-//src/test/shell/bazel:bazel_java_test_jdk10_toolchain_head"
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     - "-//src/test/shell/bazel/remote:remote_execution_test"
     - "-//src/test/shell/bazel/remote:remote_execution_http_test"

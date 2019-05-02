@@ -22,6 +22,81 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+JAVA_TOOLCHAIN="$1"; shift
+add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
+
+JAVA_TOOLS_ZIP="$1"; shift
+
+if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
+    JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+    echo "JAVA_TOOLS_ZIP_FILE_URL=$JAVA_TOOLS_ZIP_FILE_URL"
+fi
+JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
+
+if [[ $# -gt 0 ]]; then
+    JAVABASE_VALUE="$1"; shift
+    add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
+fi
+
+function set_up() {
+    cat >>WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+# java_tools versions only used to test Bazel with various JDK toolchains.
+EOF
+
+    if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
+    cat >>WORKSPACE <<EOF
+http_archive(
+    name = "local_java_tools",
+    urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
+EOF
+    fi
+
+    cat >>WORKSPACE <<EOF
+http_archive(
+    name = "remote_java_tools_javac9_test_linux",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v1.0/java_tools_javac9_linux-v1.0.zip",
+    ],
+)
+
+http_archive(
+    name = "remote_java_tools_javac9_test_windows",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v1.0/java_tools_javac9_windows-v1.0.zip",
+    ],
+)
+
+http_archive(
+    name = "remote_java_tools_javac9_test_darwin",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v1.0/java_tools_javac9_darwin-v1.0.zip",
+    ],
+)
+
+http_archive(
+    name = "openjdk9_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "45f2dfbee93b91b1468cf81d843fc6d9a47fef1f831c0b7ceff4f1eb6e6851c8",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk10_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "b3c2d762091a615b0c1424ebbd05d75cc114da3bf4f25a0dec5c51ea7e84146f",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-linux_x64.tar.gz",
+    ],
+)
+EOF
+}
+
 function write_hello_library_files() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
@@ -193,7 +268,7 @@ java_custom_library = rule(
     "deps": attr.label_list(),
     "exports": attr.label_list(),
     "resources": attr.label_list(allow_files=True),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -360,7 +435,7 @@ java_custom_library(
 )
 EOF
 
-  cat >g/java_custom_library.bzl <<'EOF'
+  cat >g/java_custom_library.bzl << EOF
 def _impl(ctx):
   output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
 
@@ -384,14 +459,14 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
 )
 EOF
    bazel build //g:test &> $TEST_log || fail "Failed to build //g:test"
-   jar tf bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to jar tf bazel-bin/g/libtest.jar"
+   zipinfo -1 bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to zipinfo -1 bazel-bin/g/libtest.jar"
    expect_log "g/A.class"
    expect_not_log "g/B.class"
  }
@@ -436,7 +511,7 @@ java_custom_library(
 )
 EOF
 
-  cat >g/java_custom_library.bzl <<'EOF'
+  cat >g/java_custom_library.bzl << EOF
 def _impl(ctx):
   output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
 
@@ -461,14 +536,14 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
 )
 EOF
    bazel build //g:test &> $TEST_log || fail "Failed to build //g:test"
-   jar tf bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to jar tf bazel-bin/g/libtest.jar"
+   zipinfo -1 bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to zipinfo -1 bazel-bin/g/libtest.jar"
    expect_log "g/A.class"
    expect_log "g/B.class"
  }
@@ -1380,7 +1455,7 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "jar": attr.label(allow_files=True),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -1421,7 +1496,7 @@ my_rule = rule(
   implementation = _impl,
   attrs = {
     "compile_time_jars": attr.label_list(allow_files=True),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
   }
 )
 EOF
@@ -1679,6 +1754,7 @@ function test_java_test_timeout_split_xml() {
 
 function test_wrapper_resolves_runfiles_to_subsuming_tree() {
     setup_clean_workspace
+    set_up
     mkdir -p java/com/google/runfiles/
     cat <<'EOF' > java/com/google/runfiles/EchoRunfiles.java
 package com.google.runfiles;
