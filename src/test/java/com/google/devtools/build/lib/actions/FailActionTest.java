@@ -49,7 +49,7 @@ public class FailActionTest {
     outputs = ImmutableList.of(anOutput);
     failAction = new FailAction(NULL_ACTION_OWNER, outputs, errorMessage);
     actionGraph.registerAction(failAction);
-    assertThat(actionGraph.getGeneratingAction(anOutput)).isSameAs(failAction);
+    assertThat(actionGraph.getGeneratingAction(anOutput)).isSameInstanceAs(failAction);
   }
 
   @Test
@@ -71,6 +71,6 @@ public class FailActionTest {
 
   @Test
   public void testPrimaryOutput() {
-    assertThat(failAction.getPrimaryOutput()).isSameAs(anOutput);
+    assertThat(failAction.getPrimaryOutput()).isSameInstanceAs(anOutput);
   }
 }

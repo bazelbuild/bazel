@@ -127,7 +127,7 @@ public class OptionDefinitionTest {
 
     // Expect reference equality, since we didn't recompute the value
     Converter<?> secondConverter = mockOptionDef.getConverter();
-    assertThat(secondConverter).isSameAs(converter);
+    assertThat(secondConverter).isSameInstanceAs(converter);
 
     mockOptionDef.getDefaultValue();
 
@@ -163,7 +163,7 @@ public class OptionDefinitionTest {
 
     // Expect reference equality, since we didn't recompute the value
     Converter<?> secondConverter = mockOptionDef.getConverter();
-    assertThat(secondConverter).isSameAs(converter);
+    assertThat(secondConverter).isSameInstanceAs(converter);
 
     mockOptionDef.getDefaultValue();
 

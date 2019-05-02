@@ -919,7 +919,7 @@ public class ParallelEvaluatorTest {
     ErrorInfo error = result.getError(topKey);
     assertThat(error.getRootCauses()).containsExactly(catastropheKey);
     if (keepGoing) {
-      assertThat(result.getCatastrophe()).isSameAs(catastrophe);
+      assertThat(result.getCatastrophe()).isSameInstanceAs(catastrophe);
     }
   }
 
@@ -1693,7 +1693,7 @@ public class ParallelEvaluatorTest {
     assertThatEvaluationResult(result2)
         .hasErrorEntryForKeyThat(topKey)
         .hasExceptionThat()
-        .isSameAs(topException);
+        .isSameInstanceAs(topException);
     assertThat(numComputes.get()).isEqualTo(2);
   }
 
@@ -1941,7 +1941,7 @@ public class ParallelEvaluatorTest {
         .setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result = eval(keepGoing, ImmutableList.of(topKey));
     assertThat(result.keyNames()).isEmpty();
-    assertThat(result.getError(topKey).getException()).isSameAs(exception);
+    assertThat(result.getError(topKey).getException()).isSameInstanceAs(exception);
     assertThat(result.getError(topKey).getRootCauses()).containsExactly(errorKey);
   }
 
@@ -2016,7 +2016,7 @@ public class ParallelEvaluatorTest {
       assertThatEvaluationResult(result).hasError();
     } else {
       assertThatEvaluationResult(result).hasNoError();
-      assertThat(result.get(topKey)).isSameAs(topValue);
+      assertThat(result.get(topKey)).isSameInstanceAs(topValue);
     }
   }
 

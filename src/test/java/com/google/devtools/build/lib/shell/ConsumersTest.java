@@ -85,7 +85,7 @@ public class ConsumersTest {
     } catch (IOException e) {
       fail();
     } catch (OutOfMemoryError e) {
-      assertWithMessage("OutOfMemoryError is not masked").that(e).isSameAs(error);
+      assertWithMessage("OutOfMemoryError is not masked").that(e).isSameInstanceAs(error);
     }
   }
 

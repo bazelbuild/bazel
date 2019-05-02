@@ -226,7 +226,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     BuildConfiguration config3 = create("--j2objc_translation_flags=baz");
     // Shared because all j2objc options are the same:
     assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isSameAs(config2.getFragment(J2ObjcConfiguration.class));
+        .isSameInstanceAs(config2.getFragment(J2ObjcConfiguration.class));
     // Distinct because the j2objc options differ:
     assertThat(config1.getFragment(J2ObjcConfiguration.class))
         .isNotSameInstanceAs(config3.getFragment(J2ObjcConfiguration.class));

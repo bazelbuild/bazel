@@ -161,7 +161,7 @@ public class ImmutableSortedKeyMapTest {
     ImmutableSortedKeyMap<String, Integer> copy
         = ImmutableSortedKeyMap.copyOf(Collections.<String, Integer>emptyMap());
     assertThat(copy).isEmpty();
-    assertThat(ImmutableSortedKeyMap.copyOf(copy)).isSameAs(copy);
+    assertThat(ImmutableSortedKeyMap.copyOf(copy)).isSameInstanceAs(copy);
   }
 
   @Test
@@ -169,7 +169,7 @@ public class ImmutableSortedKeyMapTest {
     ImmutableSortedKeyMap<String, Integer> copy
         = ImmutableSortedKeyMap.copyOf(Collections.singletonMap("one", 1));
     assertMapEquals(copy, "one", 1);
-    assertThat(ImmutableSortedKeyMap.copyOf(copy)).isSameAs(copy);
+    assertThat(ImmutableSortedKeyMap.copyOf(copy)).isSameInstanceAs(copy);
   }
 
   @Test
@@ -181,7 +181,7 @@ public class ImmutableSortedKeyMapTest {
 
     ImmutableSortedKeyMap<String, Integer> copy = ImmutableSortedKeyMap.copyOf(original);
     assertMapEquals(copy, "one", 1, "three", 3, "two", 2);
-    assertThat(ImmutableSortedKeyMap.copyOf(copy)).isSameAs(copy);
+    assertThat(ImmutableSortedKeyMap.copyOf(copy)).isSameInstanceAs(copy);
   }
 
   @Test

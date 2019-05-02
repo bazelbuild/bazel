@@ -75,7 +75,7 @@ public class EnumConverterTest {
   @Test
   public void converterIsCaseInsensitive() throws Exception {
     FruitConverter converter = new FruitConverter();
-    assertThat(converter.convert("bAnANa")).isSameAs(Fruit.Banana);
+    assertThat(converter.convert("bAnANa")).isSameInstanceAs(Fruit.Banana);
   }
 
   // Regression test: lists of enum using a subclass of EnumConverter don't work

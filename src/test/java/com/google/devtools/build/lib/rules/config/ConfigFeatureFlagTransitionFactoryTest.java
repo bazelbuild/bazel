@@ -63,7 +63,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     BuildOptions original = getOptionsWithoutFlagFragment();
     BuildOptions converted = transition.patch(original);
 
-    assertThat(converted).isSameAs(original);
+    assertThat(converted).isSameInstanceAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
   }
 
@@ -85,7 +85,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     BuildOptions original = getOptionsWithoutFlagFragment();
     BuildOptions converted = transition.patch(original);
 
-    assertThat(converted).isSameAs(original);
+    assertThat(converted).isSameInstanceAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
   }
 

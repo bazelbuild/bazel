@@ -36,6 +36,6 @@ public class StringCanonicalizerTest {
   public void twoSameStringsAreCanonicalized() {
     String stringA1 = StringCanonicalizer.intern(new String("A"));
     String stringA2 = StringCanonicalizer.intern(new String("A"));
-    assertThat(stringA2).isSameAs(stringA1);
+    assertThat(stringA2).isSameInstanceAs(stringA1);
   }
 }

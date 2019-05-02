@@ -36,10 +36,10 @@ public class TestTimeoutTest {
 
   @Test
   public void testBasicConversion() throws Exception {
-    assertThat(TestTimeout.valueOf("SHORT")).isSameAs(SHORT);
-    assertThat(TestTimeout.valueOf("MODERATE")).isSameAs(MODERATE);
-    assertThat(TestTimeout.valueOf("LONG")).isSameAs(LONG);
-    assertThat(TestTimeout.valueOf("ETERNAL")).isSameAs(ETERNAL);
+    assertThat(TestTimeout.valueOf("SHORT")).isSameInstanceAs(SHORT);
+    assertThat(TestTimeout.valueOf("MODERATE")).isSameInstanceAs(MODERATE);
+    assertThat(TestTimeout.valueOf("LONG")).isSameInstanceAs(LONG);
+    assertThat(TestTimeout.valueOf("ETERNAL")).isSameInstanceAs(ETERNAL);
   }
 
   @Test

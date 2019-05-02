@@ -70,7 +70,7 @@ public class RootTest {
     FileSystem fs2 = new InMemoryFileSystem(BlazeClock.instance());
     Root root = Root.fromPath(fs.getPath("/foo"));
     Root root2 = Root.toFileSystem(root, fs2);
-    assertThat(root2.asPath().getFileSystem()).isSameAs(fs2);
+    assertThat(root2.asPath().getFileSystem()).isSameInstanceAs(fs2);
     assertThat(root2.asPath().asFragment()).isEqualTo(PathFragment.create("/foo"));
     assertThat(root.isAbsolute()).isFalse();
   }

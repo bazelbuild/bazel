@@ -182,7 +182,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     FileSystemUtils.writeContent(
         path, "cc_library(name = 'bar')\n".getBytes(StandardCharsets.ISO_8859_1));
     assertThat(getPackage("pkg"))
-        .isSameAs(oldPkg); // Change only becomes visible after invalidatePackages.
+        .isSameInstanceAs(oldPkg); // Change only becomes visible after invalidatePackages.
 
     invalidatePackages();
 
@@ -218,7 +218,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     // Change ctime to 1.
     clock.advanceMillis(1);
     path.setLastModifiedTime(1001);
-    assertThat(getPackage("pkg")).isSameAs(oldPkg); // change not yet visible
+    assertThat(getPackage("pkg")).isSameInstanceAs(oldPkg); // change not yet visible
 
     invalidatePackages();
 

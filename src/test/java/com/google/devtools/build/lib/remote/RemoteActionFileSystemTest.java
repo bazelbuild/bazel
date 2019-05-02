@@ -86,7 +86,7 @@ public class RemoteActionFileSystemTest {
     Path localActionFsPath = actionFs.getPath(localArtifact.getPath().asFragment());
     String actualLocalContents =
         FileSystemUtils.readContent(localActionFsPath, StandardCharsets.UTF_8);
-    assertThat(remoteActionFsPath.getFileSystem()).isSameAs(actionFs);
+    assertThat(remoteActionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(actualRemoteContents).isEqualTo("remote contents");
     assertThat(actualLocalContents).isEqualTo("local contents");
     verify(inputFetcher)
@@ -115,7 +115,7 @@ public class RemoteActionFileSystemTest {
     symlinkActionFs.createSymbolicLink(actionFs.getPath(remoteArtifact.getPath().asFragment()));
 
     // assert
-    assertThat(symlinkActionFs.getFileSystem()).isSameAs(actionFs);
+    assertThat(symlinkActionFs.getFileSystem()).isSameInstanceAs(actionFs);
     verify(inputFetcher)
         .downloadFile(eq(remoteArtifact.getPath()), eq(inputs.getMetadata(remoteArtifact)));
     String symlinkTargetContents =

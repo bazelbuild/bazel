@@ -158,6 +158,6 @@ public class RemoteRetrierTest {
                     () -> {
                       throw thrown;
                     }));
-    assertThat(expected).isSameAs(thrown);
+    assertThat(expected).isSameInstanceAs(thrown);
   }
 }

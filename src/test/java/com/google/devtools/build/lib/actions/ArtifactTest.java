@@ -280,7 +280,7 @@ public class ArtifactTest {
   public void testRootRelativePathIsSameAsExecPath() throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
     Artifact a = new Artifact(scratch.file("/foo/bar1.h"), root);
-    assertThat(a.getRootRelativePath()).isSameAs(a.getExecPath());
+    assertThat(a.getRootRelativePath()).isSameInstanceAs(a.getExecPath());
   }
 
   @Test
@@ -344,13 +344,13 @@ public class ArtifactTest {
         (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
     SourceArtifact deserialized2 =
         (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
-    assertThat(deserialized1).isSameAs(deserialized2);
+    assertThat(deserialized1).isSameInstanceAs(deserialized2);
 
     Artifact sourceArtifactFromFactory =
         artifactFactory.getSourceArtifact(pathFragment, root, owner);
     Artifact deserialized =
         (Artifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifactFromFactory));
-    assertThat(sourceArtifactFromFactory).isSameAs(deserialized);
+    assertThat(sourceArtifactFromFactory).isSameInstanceAs(deserialized);
   }
 
   @Test

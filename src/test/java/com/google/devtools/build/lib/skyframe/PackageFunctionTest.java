@@ -429,7 +429,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/irrelevant")).build(),
             Root.fromPath(rootDirectory));
-    assertThat(validPackage(skyKey)).isSameAs(value);
+    assertThat(validPackage(skyKey)).isSameInstanceAs(value);
   }
 
   @Test
@@ -447,7 +447,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/irrelevant")).build(),
             Root.fromPath(rootDirectory));
-    assertThat(validPackage(skyKey)).isSameAs(value);
+    assertThat(validPackage(skyKey)).isSameInstanceAs(value);
   }
 
   @Test

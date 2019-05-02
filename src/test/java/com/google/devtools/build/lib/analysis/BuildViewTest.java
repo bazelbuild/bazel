@@ -96,7 +96,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     ConfiguredTargetAndData ruleCTAT = getConfiguredTargetAndTarget("//pkg:foo");
 
-    assertThat(ruleCTAT.getTarget()).isSameAs(ruleTarget);
+    assertThat(ruleCTAT.getTarget()).isSameInstanceAs(ruleTarget);
   }
 
   @Test
@@ -163,7 +163,7 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(outputArtifact.getRootRelativePath()).isEqualTo(PathFragment.create("pkg/a.out"));
 
     Action action = getGeneratingAction(outputArtifact);
-    assertThat(action.getClass()).isSameAs(FailAction.class);
+    assertThat(action.getClass()).isSameInstanceAs(FailAction.class);
   }
 
   @Test
@@ -724,7 +724,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Artifact aout = Iterables.getOnlyElement(
         target.getProvider(FileProvider.class).getFilesToBuild());
     Action action = getGeneratingAction(aout);
-    assertThat(action.getClass()).isSameAs(FailAction.class);
+    assertThat(action.getClass()).isSameInstanceAs(FailAction.class);
   }
 
   /**
@@ -787,7 +787,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Artifact aout = Iterables.getOnlyElement(
         target.getProvider(FileProvider.class).getFilesToBuild());
     Action action = getGeneratingAction(aout);
-    assertThat(action.getClass()).isSameAs(FailAction.class);
+    assertThat(action.getClass()).isSameInstanceAs(FailAction.class);
   }
 
   /**

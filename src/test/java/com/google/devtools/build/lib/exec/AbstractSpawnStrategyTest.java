@@ -119,7 +119,7 @@ public class AbstractSpawnStrategyTest {
                 // Ignoring the List<SpawnResult> return value.
                 new TestedSpawnStrategy(execRoot, spawnRunner)
                     .exec(SIMPLE_SPAWN, actionExecutionContext));
-    assertThat(e.getSpawnResult()).isSameAs(result);
+    assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
     verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
   }
@@ -193,7 +193,7 @@ public class AbstractSpawnStrategyTest {
                 // Ignoring the List<SpawnResult> return value.
                 new TestedSpawnStrategy(execRoot, spawnRunner)
                     .exec(SIMPLE_SPAWN, actionExecutionContext));
-    assertThat(e.getSpawnResult()).isSameAs(result);
+    assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
     verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(result));

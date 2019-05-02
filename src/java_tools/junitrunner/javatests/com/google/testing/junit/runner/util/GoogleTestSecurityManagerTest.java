@@ -126,7 +126,7 @@ public class GoogleTestSecurityManagerTest {
     System.setSecurityManager(otherSecurityManager);
     GoogleTestSecurityManager.uninstallIfInstalled();
 
-    assertThat(System.getSecurityManager()).isSameAs(otherSecurityManager);
+    assertThat(System.getSecurityManager()).isSameInstanceAs(otherSecurityManager);
     System.setSecurityManager(null);
   }
 

@@ -4126,7 +4126,7 @@ public class MemoizingEvaluatorTest {
         .setConstantValue(value);
     tester.invalidateTransientErrors();
     StringValue stringValue = (StringValue) tester.evalAndGet(/*keepGoing=*/true, errorKey);
-    assertThat(value).isSameAs(stringValue);
+    assertThat(value).isSameInstanceAs(stringValue);
     // Value builder will now throw, but we should never get to it because it isn't dirty.
     tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasTransientError(true);
     tester.invalidateTransientErrors();

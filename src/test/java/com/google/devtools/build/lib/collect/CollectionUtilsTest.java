@@ -99,7 +99,7 @@ public class CollectionUtilsTest {
   @Test
   public void testMakeImmutable() throws Exception {
     Iterable<Integer> immutableList = ImmutableList.of(1, 2, 3);
-    assertThat(CollectionUtils.makeImmutable(immutableList)).isSameAs(immutableList);
+    assertThat(CollectionUtils.makeImmutable(immutableList)).isSameInstanceAs(immutableList);
 
     Iterable<Integer> mutableList = Lists.newArrayList(1, 2, 3);
     Iterable<Integer> converted = CollectionUtils.makeImmutable(mutableList);

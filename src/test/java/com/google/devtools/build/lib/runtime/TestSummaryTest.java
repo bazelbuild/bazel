@@ -198,7 +198,7 @@ public class TestSummaryTest {
     // No need to copy if built twice in a row; no direct setters on the object.
     TestSummary summary = basicBuilder.build();
     TestSummary sameSummary = basicBuilder.build();
-    assertThat(sameSummary).isSameAs(summary);
+    assertThat(sameSummary).isSameInstanceAs(summary);
 
     basicBuilder.addTestTimes(ImmutableList.of(40L));
 

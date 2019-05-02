@@ -196,7 +196,7 @@ public class ImmutableSortedKeyListMultimapTest {
   @Test
   public void copyOfImmutableListMultimap() {
     Multimap<String, Integer> multimap = createMultimap();
-    assertThat(ImmutableSortedKeyListMultimap.copyOf(multimap)).isSameAs(multimap);
+    assertThat(ImmutableSortedKeyListMultimap.copyOf(multimap)).isSameInstanceAs(multimap);
   }
 
   @Test

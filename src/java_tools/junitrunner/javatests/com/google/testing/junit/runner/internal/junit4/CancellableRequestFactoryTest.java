@@ -170,7 +170,7 @@ public class CancellableRequestFactoryTest {
     assertThat(testRan.get()).isTrue();
     assertThat(result.getRunCount()).isEqualTo(1);
     assertThat(result.getFailureCount()).isEqualTo(1);
-    assertThat(result.getFailures().get(0).getException()).isSameAs(expectedFailure);
+    assertThat(result.getFailures().get(0).getException()).isSameInstanceAs(expectedFailure);
   }
 
 

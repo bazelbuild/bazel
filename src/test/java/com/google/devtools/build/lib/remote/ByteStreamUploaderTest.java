@@ -692,7 +692,7 @@ public class ByteStreamUploaderTest {
 
     blocker.countDown();
 
-    assertThat(upload1).isSameAs(upload2);
+    assertThat(upload1).isSameInstanceAs(upload2);
 
     upload1.get();
 

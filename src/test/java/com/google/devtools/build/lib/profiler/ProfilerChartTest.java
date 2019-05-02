@@ -128,11 +128,11 @@ public class ProfilerChartTest extends FoundationTestCase {
     assertThat(types.get(2).getName()).isEqualTo(type3.getName());
     assertThat(types.get(2).getColor()).isEqualTo(type3.getColor());
 
-    assertThat(chart.lookUpType("name3")).isSameAs(type3);
-    assertThat(chart.lookUpType("name2")).isSameAs(type2);
-    assertThat(chart.lookUpType("name1")).isSameAs(type1);
+    assertThat(chart.lookUpType("name3")).isSameInstanceAs(type3);
+    assertThat(chart.lookUpType("name2")).isSameInstanceAs(type2);
+    assertThat(chart.lookUpType("name1")).isSameInstanceAs(type1);
 
-    assertThat(chart.lookUpType("wergl")).isSameAs(Chart.UNKNOWN_TYPE);
+    assertThat(chart.lookUpType("wergl")).isSameInstanceAs(Chart.UNKNOWN_TYPE);
     types = chart.getSortedTypes();
     assertThat(types).hasSize(4);
 
@@ -155,7 +155,7 @@ public class ProfilerChartTest extends FoundationTestCase {
     ChartBar bar = rows.get(0).getBars().get(0);
     assertThat(bar.getStart()).isEqualTo(2);
     assertThat(bar.getStop()).isEqualTo(3);
-    assertThat(bar.getType()).isSameAs(type1);
+    assertThat(bar.getType()).isSameInstanceAs(type1);
     assertThat(bar.getLabel()).isEqualTo("label1");
   }
 
@@ -207,7 +207,7 @@ public class ProfilerChartTest extends FoundationTestCase {
     assertThat(bar1.getRow()).isEqualTo(row1);
     assertThat(bar1.getStart()).isEqualTo(1);
     assertThat(bar1.getStop()).isEqualTo(2);
-    assertThat(bar1.getType()).isSameAs(type);
+    assertThat(bar1.getType()).isSameInstanceAs(type);
     assertThat(bar1.getLabel()).isEqualTo("label1");
   }
 

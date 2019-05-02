@@ -150,8 +150,8 @@ public class NestedSetViewTest {
   public void testSplitNoSplit() {
     NestedSet<String> a = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
     NestedSetView<String> v = new NestedSetView<>(a);
-    assertThat(v.splitIfExceedsMaximumSize(2)).isSameAs(v);
-    assertThat(v.splitIfExceedsMaximumSize(100)).isSameAs(v);
+    assertThat(v.splitIfExceedsMaximumSize(2)).isSameInstanceAs(v);
+    assertThat(v.splitIfExceedsMaximumSize(100)).isSameInstanceAs(v);
   }
 
   @Test

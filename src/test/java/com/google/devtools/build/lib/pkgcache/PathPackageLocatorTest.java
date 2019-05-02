@@ -326,7 +326,7 @@ public class PathPackageLocatorTest extends FoundationTestCase {
         workspace,
         workspace,
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    assertThat(eventCollector.count()).isSameAs(0);
+    assertThat(eventCollector.count()).isSameInstanceAs(0);
 
     PathPackageLocator.create(
         null,
@@ -335,7 +335,7 @@ public class PathPackageLocatorTest extends FoundationTestCase {
         workspace,
         workspace.getRelative("foo"),
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    assertThat(eventCollector.count()).isSameAs(1);
+    assertThat(eventCollector.count()).isSameInstanceAs(1);
     assertContainsEvent("The package path element 'foo' will be taken relative");
   }
 

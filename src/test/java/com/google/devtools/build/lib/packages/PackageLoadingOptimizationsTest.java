@@ -50,7 +50,7 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
     assertThat(allLists).hasSize(10);
     ImmutableList<Label> firstList = allLists.get(0);
     for (int i = 1; i < allLists.size(); i++) {
-      assertThat(allLists.get(i)).isSameAs(firstList);
+      assertThat(allLists.get(i)).isSameInstanceAs(firstList);
     }
   }
 }

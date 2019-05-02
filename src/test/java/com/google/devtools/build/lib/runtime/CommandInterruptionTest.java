@@ -335,7 +335,7 @@ public final class CommandInterruptionTest {
 
     /** Asserts that both commands were executed on the same thread. */
     public void assertOnSameThreadAs(CommandState other) {
-      assertThat(thread).isSameAs(other.thread);
+      assertThat(thread).isSameInstanceAs(other.thread);
     }
   }
 

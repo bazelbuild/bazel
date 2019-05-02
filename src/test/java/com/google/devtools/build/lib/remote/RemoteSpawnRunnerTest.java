@@ -261,7 +261,7 @@ public class RemoteSpawnRunnerTest {
     when(res.status()).thenReturn(Status.EXECUTION_FAILED);
     when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(res);
 
-    assertThat(runner.exec(spawn, policy)).isSameAs(res);
+    assertThat(runner.exec(spawn, policy)).isSameInstanceAs(res);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
@@ -401,7 +401,7 @@ public class RemoteSpawnRunnerTest {
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
     IOException e = assertThrows(IOException.class, () -> runner.exec(spawn, policy));
-    assertThat(e).isSameAs(err);
+    assertThat(e).isSameInstanceAs(err);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
   }
@@ -424,7 +424,7 @@ public class RemoteSpawnRunnerTest {
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
     IOException e = assertThrows(IOException.class, () -> runner.exec(spawn, policy));
-    assertThat(e).isSameAs(err);
+    assertThat(e).isSameInstanceAs(err);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
   }
@@ -445,7 +445,7 @@ public class RemoteSpawnRunnerTest {
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
     IOException e = assertThrows(IOException.class, () -> runner.exec(spawn, policy));
-    assertThat(e).isSameAs(err);
+    assertThat(e).isSameInstanceAs(err);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
   }

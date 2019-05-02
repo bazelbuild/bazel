@@ -124,7 +124,7 @@ public class IncrementalLoadingTest {
 
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isSameAs(oldTarget);
+    assertThat(newTarget).isSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -149,7 +149,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/foo.txt", "other");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isSameAs(oldTarget);
+    assertThat(newTarget).isSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -162,7 +162,7 @@ public class IncrementalLoadingTest {
     tester.removeFile("base/foo.txt");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isSameAs(oldTarget);
+    assertThat(newTarget).isSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -244,7 +244,7 @@ public class IncrementalLoadingTest {
     tester.sync();
 
     Target fg2 = tester.getTarget("//a:fg");
-    assertThat(fg2).isSameAs(fg1);
+    assertThat(fg2).isSameInstanceAs(fg1);
   }
 
   @Test
@@ -354,7 +354,7 @@ public class IncrementalLoadingTest {
     // Write file in directory to force reload of top-level glob.
     tester.addFile("pkg/irrelevant_file");
     tester.addFile("pkg/bar/irrelevant_file"); // Subglob is also reloaded.
-    assertThat(tester.getTarget("//pkg:pkg").getPackage()).isSameAs(pkg);
+    assertThat(tester.getTarget("//pkg:pkg").getPackage()).isSameInstanceAs(pkg);
   }
 
   @Test

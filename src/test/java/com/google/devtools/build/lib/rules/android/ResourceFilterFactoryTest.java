@@ -490,7 +490,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     ResourceFilter filter =
         resourceFilterFactory.getResourceFilter(errorConsumer, resourceDeps, localResources);
 
-    assertThat(resourceDeps.filter(errorConsumer, filter)).isSameAs(resourceDeps);
+    assertThat(resourceDeps.filter(errorConsumer, filter)).isSameInstanceAs(resourceDeps);
 
     return localResources.filterLocalResources(errorConsumer, filter).getResources();
   }

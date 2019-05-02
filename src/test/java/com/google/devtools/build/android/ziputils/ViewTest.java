@@ -50,7 +50,7 @@ public class ViewTest {
     ByteBuffer buffer = ByteBuffer.allocate(100);
     TestView instance = new TestView(buffer);
     View<TestView> result = instance.at(fileOffset);
-    assertWithMessage("didn't return this").that(result).isSameAs(instance);
+    assertWithMessage("didn't return this").that(result).isSameInstanceAs(instance);
 
     long resultValue = instance.fileOffset();
     assertWithMessage("didn't return set value").that(resultValue).isEqualTo(fileOffset);

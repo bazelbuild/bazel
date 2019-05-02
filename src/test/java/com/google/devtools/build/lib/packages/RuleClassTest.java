@@ -300,7 +300,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation);
 
-    assertThat(eventCollector.count()).isSameAs(3);
+    assertThat(eventCollector.count()).isSameInstanceAs(3);
     assertDupError("//testpackage:dup1", "list1", "depsRule");
     assertDupError("//testpackage:dup1", "list3", "depsRule");
     assertDupError("//testpackage:dup2", "list3", "depsRule");
@@ -448,7 +448,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     Set<String> set = new HashSet<>();
     for (OutputFile outputFile : rule.getOutputFiles()) {
       set.add(outputFile.getName());
-      assertThat(outputFile.getGeneratingRule()).isSameAs(rule);
+      assertThat(outputFile.getGeneratingRule()).isSameInstanceAs(rule);
     }
     assertThat(set).containsExactly("foo-myrule.bar", "libmyrule-wazoo-myrule.mumble",
         "stuff-explicit_out-bar", "explicit_out");
@@ -692,7 +692,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     List<String> actual = new ArrayList<>();
     for (OutputFile outputFile : rule.getOutputFiles()) {
       actual.add(outputFile.getName());
-      assertThat(outputFile.getGeneratingRule()).isSameAs(rule);
+      assertThat(outputFile.getGeneratingRule()).isSameInstanceAs(rule);
     }
     assertWithMessage("unexpected output set").that(actual).containsExactly("first-myrule",
         "second-myrule", "out-third", "out-fourth", "third", "fourth");
@@ -842,7 +842,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     createRule(childRuleClass, "child_rule", childValues, testRuleLocation);
 
-    assertThat(eventCollector.count()).isSameAs(1);
+    assertThat(eventCollector.count()).isSameInstanceAs(1);
     assertContainsEvent("//testpackage:child_rule: missing value for mandatory "
         + "attribute 'attr' in 'child_rule' rule");
   }

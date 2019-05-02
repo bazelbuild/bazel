@@ -203,7 +203,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
     assertThat(result.isCached()).isFalse();
-    assertThat(result.getTestAction()).isSameAs(testRunnerAction);
+    assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getTestPassed()).isTrue();
     assertThat(result.getData().getRemotelyCached()).isFalse();
     assertThat(result.getData().getIsRemoteStrategy()).isFalse();
@@ -272,7 +272,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
     assertThat(result.isCached()).isFalse();
-    assertThat(result.getTestAction()).isSameAs(testRunnerAction);
+    assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getStatus()).isEqualTo(BlazeTestStatus.FLAKY);
     assertThat(result.getData().getTestPassed()).isTrue();
     assertThat(result.getData().getRemotelyCached()).isFalse();
@@ -339,7 +339,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
     assertThat(result.isCached()).isFalse();
-    assertThat(result.getTestAction()).isSameAs(testRunnerAction);
+    assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getTestPassed()).isTrue();
     assertThat(result.getData().getRemotelyCached()).isFalse();
     assertThat(result.getData().getIsRemoteStrategy()).isTrue();
@@ -399,7 +399,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
     assertThat(result.isCached()).isFalse();
-    assertThat(result.getTestAction()).isSameAs(testRunnerAction);
+    assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getTestPassed()).isTrue();
     assertThat(result.getData().getRemotelyCached()).isTrue();
     assertThat(result.getData().getIsRemoteStrategy()).isFalse();

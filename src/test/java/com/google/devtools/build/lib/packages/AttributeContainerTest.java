@@ -140,7 +140,7 @@ public class AttributeContainerTest {
 
           Location expectedLocation = i < locationCount ? locations[i] : null;
           assertThat(container.getAttributeLocation(attributes[i].getName()))
-              .isSameAs(expectedLocation);
+              .isSameInstanceAs(expectedLocation);
         }
       }
     }

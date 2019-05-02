@@ -177,7 +177,7 @@ public final class BuildOptionsTest {
     assertThat(reconstructedTwo).isEqualTo(two);
     assertThat(reconstructedTwo).isNotSameInstanceAs(two);
     BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
-    assertThat(reconstructedOne).isSameAs(one);
+    assertThat(reconstructedOne).isSameInstanceAs(one);
     BuildOptions otherFragment = BuildOptions.of(ImmutableList.of(CppOptions.class));
     assertThat(one.applyDiff(BuildOptions.diffForReconstruction(one, otherFragment)))
         .isEqualTo(otherFragment);
@@ -243,7 +243,7 @@ public final class BuildOptionsTest {
 
     BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
 
-    assertThat(reconstructedOne).isSameAs(one);
+    assertThat(reconstructedOne).isSameInstanceAs(one);
   }
 
   @Test
@@ -279,7 +279,7 @@ public final class BuildOptionsTest {
     BuildOptions base = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=a");
     BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=b");
     BuildOptions reconstructed = base.applyDiff(BuildOptions.diffForReconstruction(base, original));
-    assertThat(reconstructed).isSameAs(original);
+    assertThat(reconstructed).isSameInstanceAs(original);
   }
 
   @Test
@@ -290,7 +290,7 @@ public final class BuildOptionsTest {
     OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
     OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
 
-    assertThat(diff1).isSameAs(diff2);
+    assertThat(diff1).isSameInstanceAs(diff2);
   }
 
   @Test
@@ -555,7 +555,7 @@ public final class BuildOptionsTest {
   public void trim_nothingTrimmed_returnsSameInstance() throws Exception {
     BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class));
     BuildOptions trimmed = original.trim(ImmutableSet.of(CppOptions.class, JavaOptions.class));
-    assertThat(trimmed).isSameAs(original);
+    assertThat(trimmed).isSameInstanceAs(original);
   }
 
   private static OptionsDiffForReconstruction uncachedDiffForReconstruction(

@@ -206,7 +206,7 @@ public class PackageCacheTest extends FoundationTestCase {
     assertThat(pkg1.getName()).isEqualTo("pkg1");
     assertThat(pkg1.getFilename().asPath().getPathString()).isEqualTo("/workspace/pkg1/BUILD");
     assertThat(getPackageManager().getPackage(reporter, PackageIdentifier.createInMainRepo("pkg1")))
-        .isSameAs(pkg1);
+        .isSameInstanceAs(pkg1);
   }
 
   @Test
@@ -323,7 +323,7 @@ public class PackageCacheTest extends FoundationTestCase {
     setOptions("--package_path=/workspace:/otherroot");
 
     Package oldPkg = getPackage("pkg");
-    assertThat(getPackage("pkg")).isSameAs(oldPkg); // change not yet visible
+    assertThat(getPackage("pkg")).isSameInstanceAs(oldPkg); // change not yet visible
     assertThat(oldPkg.getFilename().asPath()).isEqualTo(buildFile1);
     assertThat(oldPkg.getSourceRoot()).isEqualTo(Root.fromPath(rootDirectory));
 

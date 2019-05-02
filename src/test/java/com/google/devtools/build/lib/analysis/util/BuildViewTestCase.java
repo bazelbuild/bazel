@@ -1152,7 +1152,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       Target outTarget = getTarget(expectedOut);
       if (!(outTarget instanceof OutputFile)) {
         fail("Target " + outTarget + " is not an output");
-        assertThat(((OutputFile) outTarget).getGeneratingRule()).isSameAs(ruleTarget);
+        assertThat(((OutputFile) outTarget).getGeneratingRule()).isSameInstanceAs(ruleTarget);
         // This ensures that the output artifact is wired up in the action graph
         getConfiguredTarget(expectedOut);
       }
@@ -1179,7 +1179,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     assertWithMessage("Action for " + labelA + " did not match " + labelB)
         .that(getGeneratingActionForLabel(labelB))
-        .isSameAs(getGeneratingActionForLabel(labelA));
+        .isSameInstanceAs(getGeneratingActionForLabel(labelA));
   }
 
   protected Artifact getSourceArtifact(PathFragment rootRelativePath, Root root) {

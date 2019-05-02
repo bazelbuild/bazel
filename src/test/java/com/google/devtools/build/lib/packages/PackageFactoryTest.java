@@ -254,7 +254,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("pina-colada")).isNotNull();
     assertThat(pkg.getRule("pina-colada").containsErrors()).isFalse();
-    assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameAs(1);
+    assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameInstanceAs(1);
   }
 
   @Test
@@ -323,7 +323,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(target.getName()).isEqualTo("BUILD");
 
     // Test that it's memoized:
-    assertThat(pkg.getTarget("BUILD")).isSameAs(target);
+    assertThat(pkg.getTarget("BUILD")).isSameInstanceAs(target);
   }
 
   @Test
@@ -339,13 +339,13 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(pkg.containsErrors()).isFalse();
 
     // X is a rule with a circular self-dependency.
-    assertThat(pkg.getTarget("X").getClass()).isSameAs(Rule.class);
+    assertThat(pkg.getTarget("X").getClass()).isSameInstanceAs(Rule.class);
 
     // Y is a rule
-    assertThat(pkg.getTarget("Y").getClass()).isSameAs(Rule.class);
+    assertThat(pkg.getTarget("Y").getClass()).isSameInstanceAs(Rule.class);
 
     // Z is a file
-    assertThat(pkg.getTarget("Z").getClass()).isSameAs(InputFile.class);
+    assertThat(pkg.getTarget("Z").getClass()).isSameInstanceAs(InputFile.class);
 
     // A is nothing
     NoSuchTargetException e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("A"));
@@ -419,7 +419,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     // Ensure that rule2's "out2" didn't overwrite rule1's:
     assertThat(((OutputFile) pkg.getTarget("out2")).getGeneratingRule())
-        .isSameAs(pkg.getRule("rule1"));
+        .isSameInstanceAs(pkg.getRule("rule1"));
 
     // None of rule2, its inputs, or its outputs should belong to pkg:
     List<Target> found = new ArrayList<>();

@@ -57,8 +57,8 @@ public class ErrorInfoTest {
         isTransitivelyTransient);
 
     assertThat(errorInfo.getRootCauses()).containsExactly(causeOfException);
-    assertThat(errorInfo.getException()).isSameAs(exception);
-    assertThat(errorInfo.getRootCauseOfException()).isSameAs(causeOfException);
+    assertThat(errorInfo.getException()).isSameInstanceAs(exception);
+    assertThat(errorInfo.getRootCauseOfException()).isSameInstanceAs(causeOfException);
     assertThat(errorInfo.getCycleInfo()).isEmpty();
     assertThat(errorInfo.isDirectlyTransient()).isEqualTo(isDirectlyTransient);
     assertThat(errorInfo.isTransitivelyTransient()).isEqualTo(
@@ -137,8 +137,8 @@ public class ErrorInfoTest {
     // For simplicity we test the current implementation detail that we choose the first non-null
     // (exception, cause) pair that we encounter. This isn't necessarily a requirement of the
     // interface, but it makes the test convenient and is a way to document the current behavior.
-    assertThat(errorInfo.getException()).isSameAs(exception1);
-    assertThat(errorInfo.getRootCauseOfException()).isSameAs(causeOfException1);
+    assertThat(errorInfo.getException()).isSameInstanceAs(exception1);
+    assertThat(errorInfo.getRootCauseOfException()).isSameInstanceAs(causeOfException1);
 
     assertThat(errorInfo.getCycleInfo()).containsExactly(
         new CycleInfo(

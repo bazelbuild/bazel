@@ -66,7 +66,7 @@ public class SplitZipTest {
               "out/shard1.jar"))
           .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard2.jar", false),
               "out/shard2.jar"));
-      assertThat(result).isSameAs(instance);
+      assertThat(result).isSameInstanceAs(instance);
   }
 
   @Test
@@ -74,7 +74,7 @@ public class SplitZipTest {
     SplitZip instance = new SplitZip();
     String res = "res";
     SplitZip result = instance.setResourceFile(res);
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
   }
 
   @Test
@@ -89,9 +89,9 @@ public class SplitZipTest {
   public void testSetMainClassListFile() {
     SplitZip instance = new SplitZip();
     SplitZip result = instance.setMainClassListFile((String) null);
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
     result = instance.setMainClassListFile("no format checks");
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
   }
 
   @Test
@@ -109,7 +109,7 @@ public class SplitZipTest {
   public void testSetEntryDate() {
     SplitZip instance = new SplitZip();
     SplitZip result = instance.setEntryDate(null);
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
   }
 
   @Test
@@ -118,7 +118,7 @@ public class SplitZipTest {
     Date now = new Date();
     instance.setEntryDate(now);
     Date result = instance.getEntryDate();
-    assertThat(now).isSameAs(result);
+    assertThat(now).isSameInstanceAs(result);
     instance.setEntryDate(null);
     assertThat(instance.getEntryDate()).isNull();
   }
@@ -127,7 +127,7 @@ public class SplitZipTest {
   public void testUseDefaultEntryDate() {
     SplitZip instance = new SplitZip();
     SplitZip result = instance.useDefaultEntryDate();
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
     Date date = instance.getEntryDate();
     assertThat(date).isEqualTo(DosTime.DOS_EPOCH);
   }
