@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
 
 /** A {@link SimpleBlobStore} implementation using a {@link ConcurrentMap}. */
 public final class ConcurrentMapBlobStore implements SimpleBlobStore {
@@ -35,6 +34,11 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   @Override
   public boolean containsKey(String key) {
     return map.containsKey(key);
+  }
+
+  @Override
+  public boolean containsActionResult(String key) {
+    return map.containsKey(ACTION_KEY_PREFIX + key);
   }
 
   @Override
@@ -74,15 +78,4 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   @Override
   public void close() {}
 
-  private static <T> T getFromFuture(ListenableFuture<T> f)
-      throws IOException, InterruptedException {
-    try {
-      return f.get();
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof IOException) {
-        throw (IOException) e.getCause();
-      }
-      throw new IOException(e.getCause());
-    }
-  }
 }

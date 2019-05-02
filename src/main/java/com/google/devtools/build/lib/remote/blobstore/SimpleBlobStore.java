@@ -31,6 +31,11 @@ public interface SimpleBlobStore {
   boolean containsKey(String key) throws IOException, InterruptedException;
 
   /**
+   * Returns {@code key} if the provided {@code key} is stored in the Action Cache.
+   */
+  boolean containsActionResult(String key) throws IOException, InterruptedException;
+
+  /**
    * Fetches the BLOB associated with the {@code key} from the CAS and writes it to {@code out}.
    *
    * <p>The caller is responsible to close {@code out}.

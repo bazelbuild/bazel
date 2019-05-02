@@ -49,6 +49,11 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
+  public boolean containsActionResult(String key) {
+    return diskCache.containsActionResult(key);
+  }
+
+  @Override
   public void put(String key, long length, InputStream in)
       throws IOException, InterruptedException {
     diskCache.put(key, length, in);
@@ -80,7 +85,7 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   private ListenableFuture<Boolean> get(String key, OutputStream out, boolean actionResult) {
-    boolean foundOnDisk = diskCache.toPath(key, actionResult).exists();
+    boolean foundOnDisk = actionResult ? diskCache.containsActionResult(key) : diskCache.containsKey(key);
 
     if (foundOnDisk) {
       return getFromCache(diskCache, key, out, actionResult);

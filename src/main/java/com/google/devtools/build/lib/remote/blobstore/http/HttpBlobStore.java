@@ -396,6 +396,11 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
+  public boolean containsActionResult(String key) {
+    throw new UnsupportedOperationException("HTTP Caching does not use this method.");
+  }
+
+  @Override
   public ListenableFuture<Boolean> get(String key, OutputStream out) {
     return get(key, out, true);
   }

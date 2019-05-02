@@ -39,6 +39,11 @@ public class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
+  public boolean containsActionResult(String key) {
+    return toPath(key, /* actionResult= */ true).exists();
+  }
+
+  @Override
   public ListenableFuture<Boolean> get(String key, OutputStream out) {
     SettableFuture<Boolean> f = SettableFuture.create();
     Path p = toPath(key, /* actionResult= */ false);
