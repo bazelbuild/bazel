@@ -57,21 +57,21 @@ EOF
 http_archive(
     name = "remote_java_tools_javac9_test_linux",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_linux-v1.0-rc1.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v1.0/java_tools_javac9_linux-v1.0.zip",
     ],
 )
 
 http_archive(
     name = "remote_java_tools_javac9_test_windows",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_windows-v1.0-rc1.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v1.0/java_tools_javac9_windows-v1.0.zip",
     ],
 )
 
 http_archive(
     name = "remote_java_tools_javac9_test_darwin",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_darwin-v1.0-rc1.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v1.0/java_tools_javac9_darwin-v1.0.zip",
     ],
 )
 
