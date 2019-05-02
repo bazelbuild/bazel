@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -297,7 +296,7 @@ public class ArtifactTest {
   @Test
   public void testWeirdArtifact() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () ->
             new Artifact(

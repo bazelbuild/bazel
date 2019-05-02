@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.HashMultiset;
@@ -21,7 +22,6 @@ import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.CapturingMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.function.Consumer;
 import org.junit.Before;
@@ -149,14 +149,14 @@ public class NestedSetFingerprintCacheTest {
     // Make sure a ParametrizedMapFn doesn't get blacklisted until it exceeds its instance count
     cache.addNestedSetToFingerprint(new IntParametrizedMapFn(1), new Fingerprint(), nestedSet);
     cache.addNestedSetToFingerprint(new IntParametrizedMapFn(2), new Fingerprint(), nestedSet);
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () ->
             cache.addNestedSetToFingerprint(
                 new IntParametrizedMapFn(3), new Fingerprint(), nestedSet));
 
     // Make sure a capturing method reference gets blacklisted
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () -> {
           for (int i = 0; i < 2; ++i) {
@@ -166,7 +166,7 @@ public class NestedSetFingerprintCacheTest {
         });
 
     // Do make sure that a capturing lambda gets blacklisted
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () -> {
           for (int i = 0; i < 2; ++i) {

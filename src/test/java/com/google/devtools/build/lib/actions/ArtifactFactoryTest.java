@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -212,10 +211,10 @@ public class ArtifactFactoryTest {
                 .getSourceArtifact(PathFragment.create("/foo"), absoluteRoot)
                 .getExecPath())
         .isEqualTo(PathFragment.create("/foo"));
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () -> artifactFactory.getSourceArtifact(PathFragment.create("/foo"), clientRoot));
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () -> artifactFactory.getSourceArtifact(PathFragment.create("foo"), absoluteRoot));
   }

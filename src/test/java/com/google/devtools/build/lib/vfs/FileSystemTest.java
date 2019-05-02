@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.FileStatus;
 import com.google.devtools.build.lib.unix.NativePosixFiles;
@@ -519,7 +518,7 @@ public abstract class FileSystemTest {
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(path);
     Path theHierarchy = path.getChild("the-hierarchy");
-    MoreAsserts.assertThrows(IOException.class, theHierarchy::createDirectoryAndParents);
+    assertThrows(IOException.class, theHierarchy::createDirectoryAndParents);
   }
 
   @Test
@@ -551,7 +550,7 @@ public abstract class FileSystemTest {
   public void testCreateDirectoryAtFileFails() throws Exception {
     Path newPath = absolutize("file");
     FileSystemUtils.createEmptyFile(newPath);
-    MoreAsserts.assertThrows(IOException.class, newPath::createDirectoryAndParents);
+    assertThrows(IOException.class, newPath::createDirectoryAndParents);
   }
 
   @Test
@@ -1153,12 +1152,12 @@ public abstract class FileSystemTest {
   // Test the Paths
   @Test
   public void testGetPathOnlyAcceptsAbsolutePath() {
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> testFS.getPath("not-absolute"));
+    assertThrows(IllegalArgumentException.class, () -> testFS.getPath("not-absolute"));
   }
 
   @Test
   public void testGetPathOnlyAcceptsAbsolutePathFragment() {
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class, () -> testFS.getPath(PathFragment.create("not-absolute")));
   }
 
