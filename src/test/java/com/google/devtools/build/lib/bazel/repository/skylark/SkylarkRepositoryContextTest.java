@@ -19,7 +19,10 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -32,19 +35,19 @@ import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
@@ -69,8 +72,8 @@ public class SkylarkRepositoryContextTest {
   public void setUp() throws Exception {
     scratch = new Scratch("/");
     outputDirectory = scratch.dir("/outputDir");
-    root = Root.fromPath(scratch.dir("/"));
-    workspaceFile = scratch.file("/WORKSPACE");
+    root = Root.fromPath(scratch.dir("/wsRoot"));
+    workspaceFile = scratch.file("/wsRoot/WORKSPACE");
   }
 
   protected static RuleClass buildRuleClass(Attribute... attributes) {
@@ -80,7 +83,8 @@ public class SkylarkRepositoryContextTest {
       ruleClassBuilder.addOrOverrideAttribute(attr);
     }
     ruleClassBuilder.setWorkspaceOnly();
-    ruleClassBuilder.setConfiguredTargetFunction(new BuiltinFunction("test") {});
+    ruleClassBuilder.setConfiguredTargetFunction(new BuiltinFunction("test") {
+    });
     return ruleClassBuilder.build();
   }
 
@@ -101,10 +105,15 @@ public class SkylarkRepositoryContextTest {
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Mockito.when(environment.getListener()).thenReturn(listener);
+    BlazeDirectories directories = new BlazeDirectories(
+        new ServerDirectories(outputDirectory, outputDirectory, outputDirectory),
+        root.asPath(), /* defaultSystemJavabase= */ null, TestConstants.PRODUCT_NAME);
     context =
         new SkylarkRepositoryContext(
             rule,
+            directories,
             outputDirectory,
+            ImmutableSet.of(),
             environment,
             ImmutableMap.of("FOO", "BAR"),
             downloader,
@@ -187,10 +196,13 @@ public class SkylarkRepositoryContextTest {
   @Test
   public void testDelete() throws Exception {
     setUpContexForRule("testDelete");
-    context.createFile(context.path("foo/bar"), "content", true, true, null);
-    assertThat(context.delete("foo/bar", null)).isTrue();
+    Path bar = outputDirectory.getRelative("foo/bar");
+    SkylarkPath barPath = context.path(bar.getPathString());
+    context.createFile(barPath, "content", true, true, null);
+    assertThat(context.delete(barPath, null)).isTrue();
 
-    assertThat(context.delete("abc/def", null)).isFalse();
+    assertThat(context.delete(barPath, null)).isFalse();
+
     Path tempFile = scratch.file("/abcde/b", "123");
     assertThat(context.delete(context.path(tempFile.getPathString()), null)).isTrue();
 
@@ -199,6 +211,17 @@ public class SkylarkRepositoryContextTest {
     scratch.file("/some/inner/deeper.txt");
     scratch.file("/some/inner/deeper/1.txt");
     assertThat(context.delete(innerDir.toString(), null)).isTrue();
+
+    Path underWorkspace = root.getRelative("under_workspace");
+    try {
+      context.delete(underWorkspace.toString(), null);
+      fail();
+    } catch (EvalException expected) {
+      assertThat(expected.getMessage())
+          .startsWith("delete() can only be applied to external paths");
+    }
+    scratch.file(".bazelignore", "under_workspace");
+    assertThat(context.delete(underWorkspace.toString(), null)).isTrue();
   }
 
   @Test
