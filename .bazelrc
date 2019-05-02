@@ -26,3 +26,8 @@ build:remote --google_default_credentials
 build:remote --jobs=100
 build:remote --action_env=PATH=/bin:/usr/bin:/usr/local/bin
 build:remote --disk_cache=
+
+build:remote-minimal --config=remote
+build:remote-minimal --experimental_remote_download_outputs=minimal
+build:remote-minimal --experimental_inmemory_dotd_files
+build:remote-minimal --experimental_inmemory_jdeps_files
