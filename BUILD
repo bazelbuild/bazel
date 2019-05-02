@@ -148,7 +148,7 @@ platform(
     constraint_values = [
         "//:highcpu_machine",
     ],
-    parents = ["@bazel_rbe_toolchains//configs/bazel_0.24.1/bazel-ubuntu1804:default_platform"],
+    parents = ["@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform"],
     remote_execution_properties = """
         {PARENT_REMOTE_EXECUTION_PROPERTIES}
         properties: {
