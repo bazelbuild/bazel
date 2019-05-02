@@ -53,7 +53,7 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
           .beginWriteOutputToFile(
               action, ctx, deterministicWriter, action.makeExecutable(), /*isRemotable=*/ true);
     } catch (IOException e) {
-      throw new EnvironmentalExecException("IOException during template expansion", e);
+      throw new EnvironmentalExecException(e);
     }
   }
 

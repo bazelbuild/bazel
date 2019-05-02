@@ -243,10 +243,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
         // We don't propagate the downloadException, as this is a recoverable error and the cause
         // of the build failure is really that we couldn't delete output files.
         throw new EnvironmentalExecException(
-            "Failed to delete output files after incomplete "
-                + "download. Cannot continue with local execution.",
-            e,
-            true);
+            "Failed to delete output files after incomplete download", e);
       }
     }
 

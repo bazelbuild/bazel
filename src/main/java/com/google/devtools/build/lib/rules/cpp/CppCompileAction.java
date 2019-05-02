@@ -419,11 +419,10 @@ public class CppCompileAction extends AbstractAction
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
         if (e.getCause() instanceof IORuntimeException) {
           throw new EnvironmentalExecException(
-              ((IORuntimeException) e.getCause()).getCauseIOException().getMessage(),
               ((IORuntimeException) e.getCause()).getCauseIOException());
         }
         if (e.getCause() instanceof IOException) {
-          throw new EnvironmentalExecException(e.getMessage(), e);
+          throw new EnvironmentalExecException((IOException) e.getCause());
         }
         Throwables.throwIfUnchecked(e.getCause());
         throw new IllegalStateException(e.getCause());
@@ -1779,8 +1778,7 @@ public class CppCompileAction extends AbstractAction
         .getEventHandler()
         .handle(Event.error("Unexpected I/O exception:\n" + stackTrace));
     return toActionExecutionException(
-        new EnvironmentalExecException("unexpected I/O exception", e),
-        actionExecutionContext.getVerboseFailures());
+        new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
   }
 
   private ActionExecutionException toActionExecutionException(

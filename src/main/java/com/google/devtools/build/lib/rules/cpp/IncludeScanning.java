@@ -115,7 +115,7 @@ public class IncludeScanning implements IncludeProcessing {
           },
           MoreExecutors.directExecutor());
     } catch (IOException e) {
-      throw new EnvironmentalExecException("I/O failure during include scanning", e);
+      throw new EnvironmentalExecException(e);
     }
   }
 

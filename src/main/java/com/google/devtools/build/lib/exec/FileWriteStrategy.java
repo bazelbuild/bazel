@@ -68,7 +68,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
           outputPath.setExecutable(true);
         }
       } catch (IOException e) {
-        throw new EnvironmentalExecException("IOException during file write", e);
+        throw new EnvironmentalExecException(e);
       }
     }
     return SpawnContinuation.immediate();

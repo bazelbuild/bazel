@@ -74,11 +74,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
       } catch (IOException e) {
         // Message is a bit misleading but is good enough for the end user.
         throw new EnvironmentalExecException(
-            "failed to create file '"
-                + getPrimaryOutput().prettyPrint()
-                + "' due to I/O error: "
-                + e.getMessage(),
-            e);
+            "Failed to write '" + getPrimaryOutput().prettyPrint() + "'", e);
       }
 
       FileWriteActionContext context = getStrategy(actionExecutionContext);

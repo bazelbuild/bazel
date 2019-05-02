@@ -995,14 +995,7 @@ public class TestRunnerAction extends AbstractAction
       } catch (ExecException e) {
         throw e.toActionExecutionException(TestRunnerAction.this);
       } catch (IOException e) {
-        // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-        // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-        testRunnerSpawn
-            .getActionExecutionContext()
-            .getEventHandler()
-            .handle(Event.error(Throwables.getStackTraceAsString(e)));
-        throw new EnvironmentalExecException("unexpected I/O exception", e)
-            .toActionExecutionException(TestRunnerAction.this);
+        throw new EnvironmentalExecException(e).toActionExecutionException(TestRunnerAction.this);
       }
     }
 
@@ -1058,8 +1051,7 @@ public class TestRunnerAction extends AbstractAction
             .getActionExecutionContext()
             .getEventHandler()
             .handle(Event.error(Throwables.getStackTraceAsString(e)));
-        throw new EnvironmentalExecException("unexpected I/O exception", e)
-            .toActionExecutionException(TestRunnerAction.this);
+        throw new EnvironmentalExecException(e).toActionExecutionException(TestRunnerAction.this);
       }
     }
   }
