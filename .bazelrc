@@ -1,15 +1,15 @@
 # Configuration to build and test Bazel itself on RBE.
-build:remote --host_javabase=@bazel_rbe_toolchains//configs/bazel_0.24.1/bazel-ubuntu1804/java:jdk
-build:remote --javabase=@bazel_rbe_toolchains//configs/bazel_0.24.1/bazel-ubuntu1804/java:jdk
+build:remote --host_javabase=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804/java:jdk
+build:remote --javabase=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804/java:jdk
 build:remote --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
 build:remote --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
-build:remote --crosstool_top=@bazel_rbe_toolchains//configs/bazel_0.24.1/bazel-ubuntu1804/cc:toolchain
+build:remote --crosstool_top=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804/cc:toolchain
 
-build:remote --extra_toolchains=@bazel_rbe_toolchains//configs/bazel_0.24.1/bazel-ubuntu1804/config:cc-toolchain
-build:remote --extra_execution_platforms=@bazel_rbe_toolchains//configs/bazel_0.24.1/bazel-ubuntu1804:default_platform
+build:remote --extra_toolchains=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804/config:cc-toolchain
+build:remote --extra_execution_platforms=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
 build:remote --extra_execution_platforms=//:rbe_highcpu_platform
-build:remote --host_platform=@bazel_rbe_toolchains//configs/bazel_0.24.1/bazel-ubuntu1804:default_platform
-build:remote --platforms=@bazel_rbe_toolchains//configs/bazel_0.24.1/bazel-ubuntu1804:default_platform
+build:remote --host_platform=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
+build:remote --platforms=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
 
 build:remote --spawn_strategy=remote
 build:remote --strategy=Javac=remote
