@@ -205,13 +205,9 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         "    name = 'androidndk',",
         "    path = '/ndk',",
         ")");
+    invalidatePackages(false);
     BuildFileNotFoundException e =
-        assertThrows(
-            BuildFileNotFoundException.class,
-            () -> {
-              invalidatePackages(false);
-              getTarget("@androidndk//:files");
-            });
+        assertThrows(BuildFileNotFoundException.class, () -> getTarget("@androidndk//:files"));
     assertThat(e)
         .hasMessageThat()
         .contains(

@@ -536,13 +536,11 @@ public class FileSystemUtilsTest {
   public void testCopyTreesBelowFromUnexistingDir() throws IOException {
     createTestDirectoryTree();
 
+    Path unexistingDir = fileSystem.getPath("/unexisting-dir");
     FileNotFoundException expected =
         assertThrows(
             FileNotFoundException.class,
-            () -> {
-              Path unexistingDir = fileSystem.getPath("/unexisting-dir");
-              FileSystemUtils.copyTreesBelow(unexistingDir, aDir, Symlinks.FOLLOW);
-            });
+            () -> FileSystemUtils.copyTreesBelow(unexistingDir, aDir, Symlinks.FOLLOW));
     assertThat(expected).hasMessageThat().isEqualTo("/unexisting-dir (No such file or directory)");
   }
 

@@ -219,14 +219,13 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   public void testSkylarkImportFilenameWithControlChars() throws Exception {
     scratch.file("pkg/BUILD", "");
     scratch.file("pkg/ext.bzl", "load('//pkg:oops\u0000.bzl', 'a')");
+    SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
     AssertionError e =
         assertThrows(
             AssertionError.class,
-            () -> {
-              SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
-              SkyframeExecutorTestUtils.evaluate(
-                  getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
-            });
+            () ->
+                SkyframeExecutorTestUtils.evaluate(
+                    getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter));
     String errorMessage = e.getMessage();
     assertThat(errorMessage)
         .contains(

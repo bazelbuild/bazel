@@ -3020,18 +3020,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
 
     // Ensure errors are handled
+    SkylarkCustomCommandLine commandLine =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "def _bad_fn(s): return s.doesnotexist()",
+            "values = depset(['a', 'b'])",
+            "args.add_all(values, map_each=_bad_fn)",
+            "args");
     assertThrows(
         CommandLineExpansionException.class,
-        () -> {
-          SkylarkCustomCommandLine commandLine =
-              getCommandLine(
-                  "args = ruleContext.actions.args()",
-                  "def _bad_fn(s): return s.doesnotexist()",
-                  "values = depset(['a', 'b'])",
-                  "args.add_all(values, map_each=_bad_fn)",
-                  "args");
-          commandLine.addToFingerprint(actionKeyContext, new Fingerprint());
-        });
+        () -> commandLine.addToFingerprint(actionKeyContext, new Fingerprint()));
   }
 
   private SkylarkCustomCommandLine getCommandLine(String... lines) throws Exception {

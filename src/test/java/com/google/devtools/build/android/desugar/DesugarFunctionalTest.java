@@ -246,14 +246,11 @@ public class DesugarFunctionalTest {
   // this "already-working" scenario.
   @Test
   public void testPrivateConstructorAccessedThroughJavacGeneratedBridge() {
+    @SuppressWarnings("ReturnValueIgnored")
     RuntimeException expected =
         assertThrows(
             RuntimeException.class,
-            () -> {
-              @SuppressWarnings("unused") // local is needed to make ErrorProne happy
-              ConstructorReference unused =
-                  ConstructorReference.emptyThroughJavacGeneratedBridge().get();
-            });
+            () -> ConstructorReference.emptyThroughJavacGeneratedBridge().get());
     assertThat(expected).hasMessageThat().isEqualTo("got it!");
   }
 

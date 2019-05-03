@@ -1071,12 +1071,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .write();
-    assertThrows(
-        NoSuchTargetException.class,
-        () -> {
-          reporter.removeHandler(failFastHandler);
-          getTarget("//lib:liblib.a");
-        });
+    reporter.removeHandler(failFastHandler);
+    assertThrows(NoSuchTargetException.class, () -> getTarget("//lib:liblib.a"));
   }
 
   @Test

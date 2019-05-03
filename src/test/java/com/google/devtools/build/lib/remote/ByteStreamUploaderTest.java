@@ -613,13 +613,12 @@ public class ByteStreamUploaderTest {
           TracingMetadataUtils.contextWithMetadata(
               "build-req-id", "command-id", DIGEST_UTIL.asActionKey(actionDigest));
       ctx.run(
-          () -> {
-            uploads.add(
-                uploader.uploadBlobAsync(
-                    HashCode.fromString(actionDigest.getHash()),
-                    chunkerEntry.getValue(),
-                    /* forceUpload=*/ true));
-          });
+          () ->
+              uploads.add(
+                  uploader.uploadBlobAsync(
+                      HashCode.fromString(actionDigest.getHash()),
+                      chunkerEntry.getValue(),
+                      /* forceUpload=*/ true)));
     }
 
     for (ListenableFuture<Void> upload : uploads) {

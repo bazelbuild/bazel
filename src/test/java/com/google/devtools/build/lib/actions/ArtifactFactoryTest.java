@@ -230,11 +230,7 @@ public class ArtifactFactoryTest {
     // Creating a second Action referring to the Artifact should create a conflict.
     Action action = new ActionsTestUtil.NullAction(NULL_ACTION_OWNER, a, b);
     ActionConflictException e =
-        assertThrows(
-            ActionConflictException.class,
-            () -> {
-              actionGraph.registerAction(action);
-            });
+        assertThrows(ActionConflictException.class, () -> actionGraph.registerAction(action));
     assertThat(e.getArtifact()).isSameAs(a);
     assertThat(actionGraph.getGeneratingAction(a)).isSameAs(originalAction);
   }
