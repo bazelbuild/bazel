@@ -92,9 +92,9 @@ public class WorkerOptions extends OptionsBase {
       help =
           "How many instances of a worker process (like the persistent Java compiler) may be "
               + "launched if you use the 'worker' strategy. May be specified as [name=value] to "
-              + "give a different value per worker mnemonic. Takes"
+              + "give a different value per worker mnemonic. Takes "
               + ResourceConverter.FLAG_SYNTAX
-              + ". 'auto' calculates a reasonable default based on machine capacity."
+              + ". 'auto' calculates a reasonable default based on machine capacity. "
               + "\"=value\" sets a default for unspecified mnemonics.",
       allowMultiple = true)
   public List<Map.Entry<String, Integer>> workerMaxInstances;
