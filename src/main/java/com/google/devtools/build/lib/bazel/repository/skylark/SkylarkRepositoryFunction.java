@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -104,6 +105,11 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     Map<String, String> resolvedHashes =
         Preconditions.checkNotNull(resolvedHashesValue).getHashes();
 
+    PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
     BlacklistedPackagePrefixesValue blacklistedPackagesValue =
         (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
     if (env.valuesMissing()) {
@@ -129,7 +135,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
               rule,
-              directories,
+              packageLocator,
               outputDirectory,
               blacklistedPatterns,
               env,

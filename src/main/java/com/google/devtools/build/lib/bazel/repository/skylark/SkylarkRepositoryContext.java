@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -72,7 +72,7 @@ public class SkylarkRepositoryContext
     implements SkylarkRepositoryContextApi<RepositoryFunctionException> {
 
   private final Rule rule;
-  private final BlazeDirectories directories;
+  private final PathPackageLocator packageLocator;
   private final Path outputDirectory;
   private final StructImpl attrObject;
   private final SkylarkOS osObject;
@@ -88,7 +88,7 @@ public class SkylarkRepositoryContext
    */
   SkylarkRepositoryContext(
       Rule rule,
-      BlazeDirectories directories,
+      PathPackageLocator packageLocator,
       Path outputDirectory,
       ImmutableSet<PathFragment> blacklistedPatterns,
       Environment environment,
@@ -98,7 +98,7 @@ public class SkylarkRepositoryContext
       Map<String, String> markerData)
       throws EvalException {
     this.rule = rule;
-    this.directories = directories;
+    this.packageLocator = packageLocator;
     this.outputDirectory = outputDirectory;
     this.blacklistedPatterns = blacklistedPatterns;
     this.env = environment;
@@ -133,15 +133,18 @@ public class SkylarkRepositoryContext
     return attrObject;
   }
 
-  private SkylarkPath externalPath(String method, Object path)
+  private SkylarkPath externalPath(String method, Object pathObject)
       throws EvalException, InterruptedException {
-    SkylarkPath skylarkPath = getPath(method, path);
-    if (!skylarkPath.getPath().startsWith(directories.getWorkspace())
-        || skylarkPath.getPath().startsWith(outputDirectory)) {
+    SkylarkPath skylarkPath = getPath(method, pathObject);
+    Path path = skylarkPath.getPath();
+    if (packageLocator.getPathEntries().stream().noneMatch(root -> path.startsWith(root.asPath()))
+        || path.startsWith(outputDirectory)) {
        return skylarkPath;
     }
+    Path workspaceRoot = packageLocator.getWorkspaceFile().getParentDirectory();
+    PathFragment relativePath = path.relativeTo(workspaceRoot);
     for (PathFragment blacklistedPattern : blacklistedPatterns) {
-      if (skylarkPath.getPath().startsWith(blacklistedPattern)) {
+      if (relativePath.startsWith(blacklistedPattern)) {
         return skylarkPath;
       }
     }

@@ -32,7 +32,9 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -42,6 +44,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -88,7 +91,9 @@ public class SkylarkRepositoryContextTest {
     return ruleClassBuilder.build();
   }
 
-  protected void setUpContextForRule(Map<String, Object> kwargs, Attribute... attributes)
+  protected void setUpContextForRule(Map<String, Object> kwargs,
+      ImmutableSet<PathFragment> ignoredPathFragments,
+      Attribute... attributes)
       throws Exception {
     Package.Builder packageBuilder =
         Package.newExternalPackageBuilder(
@@ -108,27 +113,31 @@ public class SkylarkRepositoryContextTest {
     BlazeDirectories directories = new BlazeDirectories(
         new ServerDirectories(outputDirectory, outputDirectory, outputDirectory),
         root.asPath(), /* defaultSystemJavabase= */ null, TestConstants.PRODUCT_NAME);
+    PathPackageLocator packageLocator = new PathPackageLocator(outputDirectory,
+        ImmutableList.of(root),
+        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     context =
         new SkylarkRepositoryContext(
             rule,
-            directories,
+            packageLocator,
             outputDirectory,
-            ImmutableSet.of(),
+            ignoredPathFragments,
             environment,
             ImmutableMap.of("FOO", "BAR"),
             downloader,
             1.0,
-            new HashMap<String, String>());
+            new HashMap<>());
   }
 
   protected void setUpContexForRule(String name) throws Exception {
-    setUpContextForRule(ImmutableMap.<String, Object>of("name", name));
+    setUpContextForRule(ImmutableMap.of("name", name), ImmutableSet.of());
   }
 
   @Test
   public void testAttr() throws Exception {
     setUpContextForRule(
-        ImmutableMap.<String, Object>of("name", "test", "foo", "bar"),
+        ImmutableMap.of("name", "test", "foo", "bar"),
+        ImmutableSet.of(),
         Attribute.attr("foo", Type.STRING).build());
 
     assertThat(context.getAttr().getFieldNames()).contains("foo");
@@ -220,7 +229,10 @@ public class SkylarkRepositoryContextTest {
       assertThat(expected.getMessage())
           .startsWith("delete() can only be applied to external paths");
     }
-    scratch.file(".bazelignore", "under_workspace");
+
+    scratch.file(underWorkspace.getPathString(), "123");
+    setUpContextForRule(ImmutableMap.of("name", "test"),
+        ImmutableSet.of(PathFragment.create("under_workspace")));
     assertThat(context.delete(underWorkspace.toString(), null)).isTrue();
   }
 
