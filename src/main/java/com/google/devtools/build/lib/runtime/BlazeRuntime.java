@@ -280,7 +280,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       long execStartTimeNanos,
       long waitTimeInMs) {
     OutputStream out = null;
-    boolean recordFullProfilerData = false;
+    boolean recordFullProfilerData = options.recordFullProfilerData;
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
     Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
     Path profilePath = null;
@@ -299,7 +299,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           }
           profilePath = workspace.getOutputBase().getRelative(profileName);
         }
-        recordFullProfilerData = false;
         out = profilePath.getOutputStream();
         eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
         for (ProfilerTask profilerTask : ProfilerTask.values()) {
@@ -316,7 +315,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       } else if (options.profilePath != null) {
         profilePath = workspace.getWorkspace().getRelative(options.profilePath);
 
-        recordFullProfilerData = options.recordFullProfilerData;
         out = profilePath.getOutputStream();
         eventHandler.handle(Event.info("Writing profile data to '" + profilePath + "'"));
         for (ProfilerTask profilerTask : ProfilerTask.values()) {
