@@ -13,72 +13,32 @@
 // limitations under the License
 package com.google.devtools.build.lib.analysis.skylark;
 
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.EventHandlingErrorReporter;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
  * {@link RuleErrorConsumer} for Native implementations of Skylark APIs.
  *
- * <p>This class largely reproduces the functionality of the error consumer in {@link
- * com.google.devtools.build.lib.analysis.RuleContext}, but should be easy to create and use from
- * methods annotated with {@link com.google.devtools.build.lib.skylarkinterface.SkylarkCallable}.
- * (Environment and Location are automatically provided to those methods be specifying the {@link
- * SkylarkCallable#useLocation()} and {@link SkylarkCallable#useEnvironment()} fields in the
- * annotation.
+ * <p>This class proxies reported errors and warnings to a proxy {@link RuleErrorConsumer}, except
+ * that it suppresses all cases of actually throwing exceptions until this reporter is closed.
  *
  * <p>This class is AutoClosable, to ensure that {@link RuleErrorException} are checked and handled
  * before leaving native code. The {@link #close()} method will only throw {@link EvalException},
  * properly wrapping any {@link RuleErrorException} instances if needed.
  */
-public class SkylarkErrorReporter extends EventHandlingErrorReporter implements AutoCloseable {
+public class SkylarkErrorReporter implements AutoCloseable, RuleErrorConsumer {
+  private final RuleErrorConsumer ruleErrorConsumer;
   private final Location location;
-  private final Label label;
 
-  public static SkylarkErrorReporter from(
-      ActionConstructionContext context, Location location, Environment env) {
-    return new SkylarkErrorReporter(
-        context.getActionOwner().getTargetKind(),
-        context.getAnalysisEnvironment(),
-        location,
-        env.getCallerLabel());
+  public static SkylarkErrorReporter from(RuleErrorConsumer ruleErrorConsumer, Location location) {
+    return new SkylarkErrorReporter(ruleErrorConsumer, location);
   }
 
-  private SkylarkErrorReporter(
-      String ruleClassNameForLogging,
-      AnalysisEnvironment analysisEnvironment,
-      Location location,
-      Label label) {
-    super(ruleClassNameForLogging, analysisEnvironment);
-    this.label = label;
+  private SkylarkErrorReporter(RuleErrorConsumer ruleErrorConsumer, Location location) {
+    this.ruleErrorConsumer = ruleErrorConsumer;
     this.location = location;
-  }
-
-  @Override
-  protected String getMacroMessageAppendix(String attrName) {
-    return "";
-  }
-
-  @Override
-  protected Label getLabel() {
-    return label;
-  }
-
-  @Override
-  protected Location getRuleLocation() {
-    return location;
-  }
-
-  @Override
-  protected Location getAttributeLocation(String attrName) {
-    return location;
   }
 
   @Override
@@ -86,7 +46,32 @@ public class SkylarkErrorReporter extends EventHandlingErrorReporter implements 
     try {
       assertNoErrors();
     } catch (RuleErrorException e) {
-      throw new EvalException(location, e);
+      throw new EvalException(location, "error occurred while evaluating builtin function", e);
     }
+  }
+
+  @Override
+  public void ruleWarning(String message) {
+    ruleErrorConsumer.ruleWarning(message);
+  }
+
+  @Override
+  public void ruleError(String message) {
+    ruleErrorConsumer.ruleError(message);
+  }
+
+  @Override
+  public void attributeWarning(String attrName, String message) {
+    ruleErrorConsumer.attributeWarning(attrName, message);
+  }
+
+  @Override
+  public void attributeError(String attrName, String message) {
+    ruleErrorConsumer.attributeError(attrName, message);
+  }
+
+  @Override
+  public boolean hasErrors() {
+    return ruleErrorConsumer.hasErrors();
   }
 }
