@@ -364,13 +364,13 @@ public final class CcToolchainRule implements RuleDefinition {
                 .nonconfigurable("Used in configuration creation")
                 .value(""))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(toolchain_config) -->
-        The label of the rule providing <code>cc_toolchain_config_info</code>. When specified,
-        cc_toolchain will not use the CROSSTOOL file at all.
+        The label of the rule providing <code>cc_toolchain_config_info</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr(TOOLCHAIN_CONFIG_ATTR, LABEL)
                 .allowedFileTypes()
-                .mandatoryProviders(CcToolchainConfigInfo.PROVIDER.id()))
+                .mandatoryProviders(CcToolchainConfigInfo.PROVIDER.id())
+                .mandatory())
         .build();
   }
 
@@ -399,7 +399,7 @@ public final class CcToolchainRule implements RuleDefinition {
       most commonly filegroups globbing all required files.
     </li>
     <li>
-      Generating correct command lines for C++ actions. This is done using CROSSTOOL, or using
+      Generating correct command lines for C++ actions. This is done using
       <code>CcToolchainConfigInfo</code> provider (details below).
     </li>
   </ul>

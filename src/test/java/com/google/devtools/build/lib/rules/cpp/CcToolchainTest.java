@@ -191,12 +191,15 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testBadDynamicRuntimeLib() throws Exception {
+    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratch.file(
         "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name='dynamic', srcs=['not-an-so', 'so.so'])",
         "filegroup(name='static', srcs=['not-an-a', 'a.a'])",
         "cc_toolchain(",
         "    name = 'a',",
+        "    toolchain_config = ':toolchain_config',",
         "    module_map = 'map',",
         "    ar_files = 'ar-a',",
         "    as_files = 'as-a',",
@@ -209,7 +212,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy-a',",
         "    all_files = 'all-a',",
         "    dynamic_runtime_lib = ':dynamic',",
-        "    static_runtime_lib = ':static')");
+        "    static_runtime_lib = ':static')",
+        "cc_toolchain_config(name='toolchain_config')");
 
     getAnalysisMock()
         .ccSupport()
@@ -309,12 +313,15 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testModuleMapAttribute() throws Exception {
+    scratch.file("modules/map/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
         "    toolchain_identifier = 'toolchain-identifier-k8',",
+        "    toolchain_config = ':toolchain_config',",
         "    module_map = 'map',",
         "    ar_files = 'ar-cherry',",
         "    as_files = 'as-cherry',",
@@ -326,17 +333,21 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
         "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
-        "    static_runtime_lib = 'static-runtime-libs-cherry')");
+        "    static_runtime_lib = 'static-runtime-libs-cherry')",
+        "cc_toolchain_config(name = 'toolchain_config')");
   }
 
   @Test
   public void testModuleMapAttributeOptional() throws Exception {
+    scratch.file("modules/map/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
         "    toolchain_identifier = 'toolchain-identifier-k8',",
+        "    toolchain_config = ':toolchain_config',",
         "    ar_files = 'ar-cherry',",
         "    as_files = 'as-cherry',",
         "    compiler_files = 'compile-cherry',",
@@ -346,19 +357,23 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
         "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
-        "    static_runtime_lib = 'static-runtime-libs-cherry')");
+        "    static_runtime_lib = 'static-runtime-libs-cherry')",
+        "cc_toolchain_config(name = 'toolchain_config')");
   }
 
   @Test
   public void testFailWithMultipleModuleMaps() throws Exception {
+    scratch.file("modules/multiple/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     checkError(
         "modules/multiple",
         "c",
         "expected a single artifact",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name = 'multiple-maps', srcs = ['a.cppmap', 'b.cppmap'])",
         "cc_toolchain(",
         "    name = 'c',",
         "    toolchain_identifier = 'toolchain-identifier-k8',",
+        "    toolchain_config = ':toolchain_config',",
         "    module_map = ':multiple-maps',",
         "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",
@@ -371,7 +386,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
         "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
-        "    static_runtime_lib = 'static-runtime-libs-cherry')");
+        "    static_runtime_lib = 'static-runtime-libs-cherry')",
+        "cc_toolchain_config(name = 'toolchain_config')");
   }
 
   @Test
