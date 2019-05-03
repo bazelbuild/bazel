@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -53,7 +53,7 @@ public final class WorkspaceBuilder {
   private final ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
       ImmutableList.builder();
   private AllocationTracker allocationTracker;
-  private WorkspaceFileHeaderListener workspaceFileHeaderListener;
+  private ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -82,7 +82,7 @@ public final class WorkspaceBuilder {
             diffAwarenessFactories.build(),
             skyFunctions.build(),
             customDirtinessCheckers.build(),
-            workspaceFileHeaderListener);
+            managedDirectoriesKnowledge);
     return new BlazeWorkspace(
         runtime,
         directories,
@@ -157,9 +157,9 @@ public final class WorkspaceBuilder {
     return this;
   }
 
-  public WorkspaceBuilder setWorkspaceFileHeaderListener(
-      WorkspaceFileHeaderListener workspaceFileHeaderListener) {
-    this.workspaceFileHeaderListener = workspaceFileHeaderListener;
+  public WorkspaceBuilder setManagedDirectoriesKnowledge(
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+    this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
     return this;
   }
 }

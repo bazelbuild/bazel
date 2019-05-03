@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -87,7 +89,6 @@ import java.util.stream.Collectors;
 
 /** Adds support for fetching external code. */
 public class BazelRepositoryModule extends BlazeModule {
-
   // Default location (relative to output user root) of the repository cache.
   public static final String DEFAULT_CACHE_LOCATION = "cache/repos/v1";
 
@@ -107,12 +108,28 @@ public class BazelRepositoryModule extends BlazeModule {
   private FileSystem filesystem;
   // We hold the precomputed value of the managed directories here, so that the dependency
   // on WorkspaceFileValue is not registered for each FileStateValue.
-  private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge =
-      new ManagedDirectoriesKnowledgeImpl();
+  private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
 
   public BazelRepositoryModule() {
     this.skylarkRepositoryFunction = new SkylarkRepositoryFunction(httpDownloader);
     this.repositoryHandlers = repositoryRules(httpDownloader, mavenDownloader);
+    ManagedDirectoriesListener listener =
+        repositoryNamesWithManagedDirs -> {
+          Set<String> conflicting =
+              overrides.keySet().stream()
+                  .filter(repositoryNamesWithManagedDirs::contains)
+                  .map(RepositoryName::getName)
+                  .collect(Collectors.toSet());
+          if (!conflicting.isEmpty()) {
+            String message =
+                "Overriding repositories is not allowed"
+                    + " for the repositories with managed directories.\n"
+                    + "The following overridden external repositories have managed directories: "
+                    + String.join(", ", conflicting.toArray(new String[0]));
+            throw new AbruptExitException(message, ExitCode.COMMAND_LINE_ERROR);
+          }
+        };
+    managedDirectoriesKnowledge = new ManagedDirectoriesKnowledgeImpl(listener);
   }
 
   public static ImmutableMap<String, RepositoryFunction> repositoryRules(
@@ -153,10 +170,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    builder.setWorkspaceFileHeaderListener(
-        value ->
-            managedDirectoriesKnowledge.setManagedDirectories(
-                value != null ? value.getManagedDirectories() : ImmutableMap.of()));
+    builder.setManagedDirectoriesKnowledge(managedDirectoriesKnowledge);
 
     RepositoryDirectoryDirtinessChecker customDirtinessChecker =
         new RepositoryDirectoryDirtinessChecker(managedDirectoriesKnowledge);

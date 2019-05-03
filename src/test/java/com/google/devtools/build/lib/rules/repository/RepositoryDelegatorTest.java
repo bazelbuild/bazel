@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Optional;
@@ -97,7 +98,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   private RepositoryDelegatorFunction delegatorFunction;
   private Path overrideDirectory;
   private SequentialBuildDriver driver;
-  private ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
+  private TestManagedDirectoriesKnowledge managedDirectoriesKnowledge;
   private RecordingDifferencer differencer;
   private TestSkylarkRepositoryFunction testSkylarkRepositoryFunction;
   private Path rootPath;
@@ -111,7 +112,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             rootPath,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
-    managedDirectoriesKnowledge = new ManagedDirectoriesKnowledgeImpl();
+    managedDirectoriesKnowledge = new TestManagedDirectoriesKnowledge();
     HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
     testSkylarkRepositoryFunction = new TestSkylarkRepositoryFunction(downloader);
@@ -239,7 +240,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   @Test
   public void testRepositoryDirtinessChecker() throws Exception {
     TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(new ManualClock());
-    ManagedDirectoriesKnowledgeImpl knowledge = new ManagedDirectoriesKnowledgeImpl();
+    TestManagedDirectoriesKnowledge knowledge = new TestManagedDirectoriesKnowledge();
 
     RepositoryDirectoryDirtinessChecker checker =
         new RepositoryDirectoryDirtinessChecker(knowledge);
@@ -378,6 +379,34 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         throws RepositoryFunctionException, InterruptedException {
       fetchCalled = true;
       return super.fetch(rule, outputDirectory, directories, env, markerData, key);
+    }
+  }
+
+  private static class TestManagedDirectoriesKnowledge implements ManagedDirectoriesKnowledge {
+
+    private ImmutableMap<PathFragment, RepositoryName> map = ImmutableMap.of();
+
+    public void setManagedDirectories(ImmutableMap<PathFragment, RepositoryName> map) {
+      this.map = map;
+    }
+
+    @Nullable
+    @Override
+    public RepositoryName getOwnerRepository(PathFragment relativePathFragment) {
+      return map.get(relativePathFragment);
+    }
+
+    @Override
+    public ImmutableSet<PathFragment> getManagedDirectories(RepositoryName repositoryName) {
+      return map.keySet().stream()
+          .filter(path -> repositoryName.equals(map.get(path)))
+          .collect(toImmutableSet());
+    }
+
+    @Override
+    public boolean workspaceHeaderReloaded(
+        @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue) {
+      throw new IllegalStateException();
     }
   }
 }

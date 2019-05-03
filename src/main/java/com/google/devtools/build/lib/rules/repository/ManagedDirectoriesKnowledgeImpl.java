@@ -14,61 +14,37 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** Managed directories component. {@link ManagedDirectoriesKnowledge} */
 public class ManagedDirectoriesKnowledgeImpl implements ManagedDirectoriesKnowledge {
-  private final AtomicReference<ImmutableSortedMap<PathFragment, RepositoryName>>
-      managedDirectoriesRef = new AtomicReference<>(ImmutableSortedMap.of());
-  private final AtomicReference<Map<RepositoryName, ImmutableSet<PathFragment>>> repoToDirMapRef =
-      new AtomicReference<>(ImmutableMap.of());
+  private final ManagedDirectoriesListener listener;
 
-  /**
-   * During build commands execution, Skyframe caches the states of files (FileStateValue) and
-   * directory listings (DirectoryListingStateValue). In the case when the files/directories are
-   * under a managed directory or inside an external repository, evaluation of file/directory
-   * listing states requires that the RepositoryDirectoryValue of the owning external repository is
-   * evaluated beforehand. (So that the repository rule generates the files.) So there is a
-   * dependency on RepositoryDirectoryValue for files under managed directories and external
-   * repositories. This dependency is recorded by Skyframe,
-   *
-   * <p>From the other side, by default Skyframe injects the new values of changed files already at
-   * the stage of checking what files have changed. Only the values without any dependencies can be
-   * injected into Skyframe. Skyframe can be specifically instructed to not inject new values and
-   * only register them as changed.
-   *
-   * <p>When the values of managed directories change, some files appear to become files under
-   * managed directories, or they are no longer files under managed directories. This implies that
-   * corresponding file/directory listing states gain the dependency (RepositoryDirectoryValue) or
-   * they lose this dependency. In both cases, we should prevent Skyframe from injecting those new
-   * values of file/directory listing states at the stage of checking changed files.
-   *
-   * <p>That is why we need to keep track of the previous value of the managed directories.
-   */
-  private final AtomicReference<ImmutableSortedMap<PathFragment, RepositoryName>>
-      oldManagedDirectoriesRef = new AtomicReference<>(ImmutableSortedMap.of());
+  private ImmutableSortedMap<PathFragment, RepositoryName> dirToRepoMap = ImmutableSortedMap.of();
+  private ImmutableSortedMap<RepositoryName, ImmutableSet<PathFragment>> repoToDirMap =
+      ImmutableSortedMap.of();
+
+  public ManagedDirectoriesKnowledgeImpl(ManagedDirectoriesListener listener) {
+    this.listener = listener;
+  }
 
   @Override
   @Nullable
-  public RepositoryName getOwnerRepository(RootedPath rootedPath, boolean old) {
-    PathFragment relativePath = rootedPath.getRootRelativePath();
-    NavigableMap<PathFragment, RepositoryName> map =
-        old ? oldManagedDirectoriesRef.get() : managedDirectoriesRef.get();
-    Map.Entry<PathFragment, RepositoryName> entry = map.floorEntry(relativePath);
-    if (entry != null && relativePath.startsWith(entry.getKey())) {
+  public RepositoryName getOwnerRepository(PathFragment relativePathFragment) {
+    Map.Entry<PathFragment, RepositoryName> entry = dirToRepoMap.floorEntry(relativePathFragment);
+    if (entry != null && relativePathFragment.startsWith(entry.getKey())) {
       return entry.getValue();
     }
     return null;
@@ -76,26 +52,53 @@ public class ManagedDirectoriesKnowledgeImpl implements ManagedDirectoriesKnowle
 
   @Override
   public ImmutableSet<PathFragment> getManagedDirectories(RepositoryName repositoryName) {
-    ImmutableSet<PathFragment> pathFragments = repoToDirMapRef.get().get(repositoryName);
+    ImmutableSet<PathFragment> pathFragments = repoToDirMap.get(repositoryName);
     return pathFragments != null ? pathFragments : ImmutableSet.of();
   }
 
-  public void setManagedDirectories(ImmutableMap<PathFragment, RepositoryName> map) {
-    oldManagedDirectoriesRef.set(managedDirectoriesRef.get());
-    ImmutableSortedMap<PathFragment, RepositoryName> pathsMap = ImmutableSortedMap.copyOf(map);
-    managedDirectoriesRef.set(pathsMap);
+  @Override
+  public boolean workspaceHeaderReloaded(
+      @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue)
+      throws AbruptExitException {
+    if (Objects.equals(oldValue, newValue)) {
+      listener.onManagedDirectoriesRefreshed(repoToDirMap.keySet());
+      return false;
+    }
+    Map<PathFragment, RepositoryName> oldDirToRepoMap = dirToRepoMap;
+    refreshMappings(newValue);
+    if (!Objects.equals(oldDirToRepoMap, dirToRepoMap)) {
+      listener.onManagedDirectoriesRefreshed(repoToDirMap.keySet());
+      return true;
+    }
+    return false;
+  }
+
+  private void refreshMappings(@Nullable WorkspaceFileValue newValue) {
+    if (newValue == null) {
+      dirToRepoMap = ImmutableSortedMap.of();
+      repoToDirMap = ImmutableSortedMap.of();
+      return;
+    }
+
+    dirToRepoMap = ImmutableSortedMap.copyOf(newValue.getManagedDirectories());
 
     Map<RepositoryName, Set<PathFragment>> reposMap = Maps.newHashMap();
-    for (Map.Entry<PathFragment, RepositoryName> entry : pathsMap.entrySet()) {
+    for (Map.Entry<PathFragment, RepositoryName> entry : dirToRepoMap.entrySet()) {
       RepositoryName repositoryName = entry.getValue();
       reposMap.computeIfAbsent(repositoryName, name -> Sets.newTreeSet()).add(entry.getKey());
     }
 
-    ImmutableSortedMap.Builder<RepositoryName, ImmutableSet<PathFragment>> builder =
+    ImmutableSortedMap.Builder<RepositoryName, ImmutableSet<PathFragment>> reposMapBuilder =
         new ImmutableSortedMap.Builder<>(Comparator.comparing(RepositoryName::getName));
     for (Map.Entry<RepositoryName, Set<PathFragment>> entry : reposMap.entrySet()) {
-      builder.put(entry.getKey(), ImmutableSet.copyOf(entry.getValue()));
+      reposMapBuilder.put(entry.getKey(), ImmutableSet.copyOf(entry.getValue()));
     }
-    repoToDirMapRef.set(builder.build());
+    repoToDirMap = reposMapBuilder.build();
+  }
+
+  /** Interface allows {@link BazelRepositoryModule} to react to managed directories refreshes. */
+  public interface ManagedDirectoriesListener {
+    void onManagedDirectoriesRefreshed(Set<RepositoryName> repositoryNames)
+        throws AbruptExitException;
   }
 }

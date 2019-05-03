@@ -20,11 +20,13 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -34,8 +36,10 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -52,6 +56,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nullable;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -74,7 +80,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   private ExternalPackageFunction externalSkyFunc;
   private WorkspaceASTFunction astSkyFunc;
   private FakeFileValue fakeWorkspaceFileValue;
-  private TestWorkspaceFileListener testWorkspaceFileListener;
+  private TestManagedDirectoriesKnowledge testManagedDirectoriesKnowledge;
 
   static class FakeFileValue extends FileValue {
     private boolean exists;
@@ -136,9 +142,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   @Override
-  protected WorkspaceFileHeaderListener getWorkspaceFileListener() {
-    testWorkspaceFileListener = new TestWorkspaceFileListener();
-    return testWorkspaceFileListener;
+  protected ManagedDirectoriesKnowledge getManagedDirectoriesKnowledge() {
+    testManagedDirectoriesKnowledge = new TestManagedDirectoriesKnowledge();
+    return testManagedDirectoriesKnowledge;
   }
 
   @Override
@@ -309,6 +315,67 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void setTestManagedDirectoriesKnowledge() throws Exception {
+    PrecomputedValue precomputedValue =
+        (PrecomputedValue)
+            getEnv().getValue(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting());
+    StarlarkSemantics semantics =
+        (StarlarkSemantics) Preconditions.checkNotNull(precomputedValue).get();
+    Injectable injectable = getSkyframeExecutor().injectable();
+    try {
+      StarlarkSemantics semanticsWithManagedDirectories =
+          StarlarkSemantics.builderWithDefaults()
+              .experimentalAllowIncrementalRepositoryUpdates(true)
+              .build();
+      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithManagedDirectories);
+
+      TestManagedDirectoriesListener listener = new TestManagedDirectoriesListener();
+      ManagedDirectoriesKnowledgeImpl knowledge = new ManagedDirectoriesKnowledgeImpl(listener);
+
+      RepositoryName one = RepositoryName.create("@repo1");
+      RepositoryName two = RepositoryName.create("@repo2");
+      RepositoryName three = RepositoryName.create("@repo3");
+
+      PathFragment pf1 = PathFragment.create("dir1");
+      PathFragment pf2 = PathFragment.create("dir2");
+      PathFragment pf3 = PathFragment.create("dir3");
+
+      assertThat(knowledge.getManagedDirectories(one)).isEmpty();
+      assertThat(knowledge.getOwnerRepository(pf1)).isNull();
+
+      WorkspaceFileValue workspaceFileValue = createWorkspaceFileValueForTest();
+      boolean isChanged = knowledge.workspaceHeaderReloaded(null, workspaceFileValue);
+
+      assertThat(isChanged).isTrue();
+      assertThat(listener.getRepositoryNames()).containsExactly(one, two);
+
+      assertThat(knowledge.getManagedDirectories(one)).containsExactly(pf1, pf2);
+      assertThat(knowledge.getManagedDirectories(two)).containsExactly(pf3);
+      assertThat(knowledge.getManagedDirectories(three)).isEmpty();
+
+      assertThat(knowledge.getOwnerRepository(pf1)).isEqualTo(one);
+      assertThat(knowledge.getOwnerRepository(pf2)).isEqualTo(one);
+      assertThat(knowledge.getOwnerRepository(pf3)).isEqualTo(two);
+
+      // Nothing changed, let's test the behavior.
+      listener.reset();
+      isChanged = knowledge.workspaceHeaderReloaded(workspaceFileValue, workspaceFileValue);
+      assertThat(isChanged).isFalse();
+      assertThat(listener.getRepositoryNames()).containsExactly(one, two);
+
+      assertThat(knowledge.getManagedDirectories(one)).containsExactly(pf1, pf2);
+      assertThat(knowledge.getManagedDirectories(two)).containsExactly(pf3);
+      assertThat(knowledge.getManagedDirectories(three)).isEmpty();
+
+      assertThat(knowledge.getOwnerRepository(pf1)).isEqualTo(one);
+      assertThat(knowledge.getOwnerRepository(pf2)).isEqualTo(one);
+      assertThat(knowledge.getOwnerRepository(pf3)).isEqualTo(two);
+    } finally {
+      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
+    }
+  }
+
+  @Test
   public void testManagedDirectories() throws Exception {
     PrecomputedValue precomputedValue =
         (PrecomputedValue)
@@ -323,21 +390,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
               .build();
       PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithManagedDirectories);
 
-      WorkspaceFileValue workspaceFileValue =
-          parseWorkspaceFileValue(
-              "workspace(",
-              "  name = 'rr',",
-              "  managed_directories = {'@repo1': ['dir1', 'dir2'], '@repo2': ['dir3/dir1/..']}",
-              ")");
-      ImmutableMap<PathFragment, RepositoryName> managedDirectories =
-          workspaceFileValue.getManagedDirectories();
-      assertThat(managedDirectories).isNotNull();
-      assertThat(managedDirectories).hasSize(3);
-      assertThat(managedDirectories)
-          .containsExactly(
-              PathFragment.create("dir1"), RepositoryName.create("@repo1"),
-              PathFragment.create("dir2"), RepositoryName.create("@repo1"),
-              PathFragment.create("dir3"), RepositoryName.create("@repo2"));
+      createWorkspaceFileValueForTest();
 
       assertManagedDirectoriesParsingError(
           "{'@repo1': 'dir1', '@repo2': ['dir3']}",
@@ -382,6 +435,26 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     } finally {
       PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
     }
+  }
+
+  private WorkspaceFileValue createWorkspaceFileValueForTest()
+      throws IOException, InterruptedException, LabelSyntaxException {
+    WorkspaceFileValue workspaceFileValue =
+        parseWorkspaceFileValue(
+            "workspace(",
+            "  name = 'rr',",
+            "  managed_directories = {'@repo1': ['dir1', 'dir2'], '@repo2': ['dir3/dir1/..']}",
+            ")");
+    ImmutableMap<PathFragment, RepositoryName> managedDirectories =
+        workspaceFileValue.getManagedDirectories();
+    assertThat(managedDirectories).isNotNull();
+    assertThat(managedDirectories).hasSize(3);
+    assertThat(managedDirectories)
+        .containsExactly(
+            PathFragment.create("dir1"), RepositoryName.create("@repo1"),
+            PathFragment.create("dir2"), RepositoryName.create("@repo1"),
+            PathFragment.create("dir3"), RepositoryName.create("@repo2"));
+    return workspaceFileValue;
   }
 
   private void assertManagedDirectoriesParsingError(
@@ -511,23 +584,39 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
     createWorkspaceFile("workspace(name = 'old')");
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
-    assertThat(testWorkspaceFileListener.getLastWorkspaceName()).isEqualTo("old");
-    assertThat(testWorkspaceFileListener.getCnt()).isEqualTo(1);
+    assertThat(testManagedDirectoriesKnowledge.getLastWorkspaceName()).isEqualTo("old");
+    assertThat(testManagedDirectoriesKnowledge.getCnt()).isEqualTo(1);
 
     createWorkspaceFile("workspace(name = 'changed')");
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
-    assertThat(testWorkspaceFileListener.getLastWorkspaceName()).isEqualTo("changed");
-    assertThat(testWorkspaceFileListener.getCnt()).isEqualTo(2);
+    assertThat(testManagedDirectoriesKnowledge.getLastWorkspaceName()).isEqualTo("changed");
+    assertThat(testManagedDirectoriesKnowledge.getCnt()).isEqualTo(2);
   }
 
-  private static class TestWorkspaceFileListener implements WorkspaceFileHeaderListener {
+  private static class TestManagedDirectoriesKnowledge implements ManagedDirectoriesKnowledge {
     private String lastWorkspaceName;
     private int cnt = 0;
 
+    @Nullable
     @Override
-    public void workspaceHeaderChanged(@Nullable WorkspaceFileValue newValue) {
+    public RepositoryName getOwnerRepository(PathFragment relativePathFragment) {
+      return null;
+    }
+
+    @Override
+    public ImmutableSet<PathFragment> getManagedDirectories(RepositoryName repositoryName) {
+      return null;
+    }
+
+    @Override
+    public boolean workspaceHeaderReloaded(
+        @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue) {
+      if (Objects.equals(oldValue, newValue)) {
+        return false;
+      }
       ++cnt;
       lastWorkspaceName = newValue != null ? newValue.getPackage().getWorkspaceName() : null;
+      return true;
     }
 
     private String getLastWorkspaceName() {
@@ -536,6 +625,24 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
     private int getCnt() {
       return cnt;
+    }
+  }
+
+  private static class TestManagedDirectoriesListener implements ManagedDirectoriesListener {
+    @Nullable private Set<RepositoryName> repositoryNames;
+
+    @Override
+    public void onManagedDirectoriesRefreshed(Set<RepositoryName> repositoryNames) {
+      this.repositoryNames = repositoryNames;
+    }
+
+    @Nullable
+    public Set<RepositoryName> getRepositoryNames() {
+      return repositoryNames;
+    }
+
+    public void reset() {
+      repositoryNames = null;
     }
   }
 }

@@ -132,6 +132,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -141,7 +142,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -281,7 +281,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setWorkspaceFileHeaderListener(getWorkspaceFileListener())
+            .setManagedDirectoriesKnowledge(getManagedDirectoriesKnowledge())
             .build();
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
@@ -322,7 +322,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getAnalysisMock().createRuleClassProvider();
   }
 
-  protected WorkspaceFileHeaderListener getWorkspaceFileListener() {
+  protected ManagedDirectoriesKnowledge getManagedDirectoriesKnowledge() {
     return null;
   }
 

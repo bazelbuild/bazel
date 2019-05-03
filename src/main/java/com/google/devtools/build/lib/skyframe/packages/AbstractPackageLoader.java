@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
@@ -232,7 +233,11 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     public final PackageLoader build() {
       validate();
       externalFilesHelper =
-          ExternalFilesHelper.create(pkgLocatorRef, externalFileAction, directories);
+          ExternalFilesHelper.create(
+              pkgLocatorRef,
+              externalFileAction,
+              directories,
+              ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES);
       return buildImpl();
     }
 

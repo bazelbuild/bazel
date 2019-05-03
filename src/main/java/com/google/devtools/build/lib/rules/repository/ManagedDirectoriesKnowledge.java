@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import javax.annotation.Nullable;
 
 /**
@@ -29,12 +30,18 @@ import javax.annotation.Nullable;
  * <p>Having managed directories as a separate component (and not SkyValue) allows to skip recording
  * the dependency in Skyframe for each FileStateValue and DirectoryListingStateValue.
  */
-public interface ManagedDirectoriesKnowledge {
+public interface ManagedDirectoriesKnowledge extends WorkspaceFileHeaderListener {
   ManagedDirectoriesKnowledge NO_MANAGED_DIRECTORIES =
       new ManagedDirectoriesKnowledge() {
+        @Override
+        public boolean workspaceHeaderReloaded(
+            @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue) {
+          return false;
+        }
+
         @Nullable
         @Override
-        public RepositoryName getOwnerRepository(RootedPath rootedPath, boolean old) {
+        public RepositoryName getOwnerRepository(PathFragment relativePathFragment) {
           return null;
         }
 
@@ -44,8 +51,15 @@ public interface ManagedDirectoriesKnowledge {
         }
       };
 
+  /**
+   * Returns the owning repository for the incrementally updated path, or null.
+   *
+   * @param relativePathFragment path to check, relative to workspace root
+   * @return RepositoryName or null if there is no owning repository
+   */
   @Nullable
-  RepositoryName getOwnerRepository(RootedPath rootedPath, boolean old);
+  RepositoryName getOwnerRepository(PathFragment relativePathFragment);
 
+  /** Returns managed directories for the passed repository. */
   ImmutableSet<PathFragment> getManagedDirectories(RepositoryName repositoryName);
 }
