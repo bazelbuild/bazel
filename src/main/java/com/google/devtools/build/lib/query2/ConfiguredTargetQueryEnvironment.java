@@ -164,38 +164,35 @@ public class ConfiguredTargetQueryEnvironment
           PackageManager packageManager) {
     AspectResolver aspectResolver =
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
-    return new ImmutableList.Builder<NamedThreadSafeOutputFormatterCallback<ConfiguredTarget>>()
-        .add(
-            new LabelAndConfigurationOutputFormatterCallback(
-                eventHandler, cqueryOptions, out, skyframeExecutor, accessor))
-        .add(
-            new TransitionsOutputFormatterCallback(
-                eventHandler,
-                cqueryOptions,
-                out,
-                skyframeExecutor,
-                accessor,
-                hostConfiguration,
-                trimmingTransitionFactory))
-        .add(
-            new ProtoOutputFormatterCallback(
-                eventHandler,
-                cqueryOptions,
-                out,
-                skyframeExecutor,
-                accessor,
-                aspectResolver,
-                OutputType.BINARY))
-        .add(
-            new ProtoOutputFormatterCallback(
-                eventHandler,
-                cqueryOptions,
-                out,
-                skyframeExecutor,
-                accessor,
-                aspectResolver,
-                OutputType.TEXT))
-        .build();
+    return ImmutableList.of(
+        new LabelAndConfigurationOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+        new TransitionsOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            hostConfiguration,
+            trimmingTransitionFactory),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.BINARY),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.TEXT),
+        new CqueryBuildOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
   }
 
   public String getOutputFormat() {

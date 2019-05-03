@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -187,6 +189,18 @@ class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
       throw new IllegalStateException("Thread interrupted in the middle of getting a Target.", e2);
     }
     return target;
+  }
+
+  /** Returns the rule that generates the given output file. */
+  public RuleConfiguredTarget getGeneratingConfiguredTarget(OutputFileConfiguredTarget oct)
+      throws InterruptedException {
+    return (RuleConfiguredTarget)
+        ((ConfiguredTargetValue)
+                walkableGraph.getValue(
+                    ConfiguredTargetValue.key(
+                        oct.getGeneratingRule().getLabel(),
+                        queryEnvironment.getConfiguration(oct))))
+            .getConfiguredTarget();
   }
 
   @Nullable
