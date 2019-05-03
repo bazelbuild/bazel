@@ -58,15 +58,15 @@ import javax.annotation.Nullable;
  */
 public final class LtoBackendAction extends SpawnAction {
   private Collection<Artifact> mandatoryInputs;
-  private Map<PathFragment, Artifact> bitcodeFiles;
+  private BitcodeFiles bitcodeFiles;
   private Artifact imports;
 
   private static final String GUID = "72ce1eca-4625-4e24-a0d8-bb91bb8b0e0e";
 
   public LtoBackendAction(
       Collection<Artifact> inputs,
-      Map<PathFragment, Artifact> allBitcodeFiles,
-      Artifact importsFile,
+      @Nullable BitcodeFiles allBitcodeFiles,
+      @Nullable Artifact importsFile,
       Collection<Artifact> outputs,
       Artifact primaryOutput,
       ActionOwner owner,
@@ -111,7 +111,7 @@ public final class LtoBackendAction extends SpawnAction {
   private Set<Artifact> computeBitcodeInputs(Collection<PathFragment> inputPaths) {
     HashSet<Artifact> bitcodeInputs = new HashSet<>();
     for (PathFragment inputPath : inputPaths) {
-      Artifact inputArtifact = bitcodeFiles.get(inputPath);
+      Artifact inputArtifact = bitcodeFiles.lookup(inputPath);
       if (inputArtifact != null) {
         bitcodeInputs.add(inputArtifact);
       }
@@ -177,7 +177,7 @@ public final class LtoBackendAction extends SpawnAction {
 
   @Override
   public Iterable<Artifact> getAllowedDerivedInputs() {
-    return bitcodeFiles.values();
+    return bitcodeFiles.getFiles();
   }
 
   @Override
@@ -198,9 +198,7 @@ public final class LtoBackendAction extends SpawnAction {
       fp.addPath(input.getExecPath());
     }
     if (imports != null) {
-      for (PathFragment bitcodePath : bitcodeFiles.keySet()) {
-        fp.addPath(bitcodePath);
-      }
+      bitcodeFiles.addToFingerprint(fp);
       fp.addPath(imports.getExecPath());
     }
     env.addTo(fp);
@@ -209,11 +207,10 @@ public final class LtoBackendAction extends SpawnAction {
 
   /** Builder class to construct {@link LtoBackendAction} instances. */
   public static class Builder extends SpawnAction.Builder {
-    private Map<PathFragment, Artifact> bitcodeFiles;
+    private BitcodeFiles bitcodeFiles;
     private Artifact imports;
 
-    public Builder addImportsInfo(
-        Map<PathFragment, Artifact> allBitcodeFiles, Artifact importsFile) {
+    public Builder addImportsInfo(BitcodeFiles allBitcodeFiles, Artifact importsFile) {
       this.bitcodeFiles = allBitcodeFiles;
       this.imports = importsFile;
       return this;
