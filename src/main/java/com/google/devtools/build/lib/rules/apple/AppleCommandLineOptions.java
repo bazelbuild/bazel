@@ -436,23 +436,12 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.tvOsSdkVersion = tvOsSdkVersion;
     host.macOsSdkVersion = macOsSdkVersion;
     host.appleBitcodeMode = appleBitcodeMode;
-    // TODO(http://b/131411178): Replace with the execution platform.
     // The host apple platform type will always be MACOS, as no other apple platform type can
     // currently execute build actions. If that were the case, a host_apple_platform_type flag might
     // be needed.
     host.applePlatformType = PlatformType.MACOS;
 
     return host;
-  }
-
-  @Override
-  public FragmentOptions getExec() {
-    AppleCommandLineOptions exec = (AppleCommandLineOptions) super.getExec();
-    // TODO(http://b/131411178): Replace with the execution platform.
-    // The exec apple platform type will always be MACOS, as no other apple platform type can
-    // currently execute build actions.
-    exec.applePlatformType = PlatformType.MACOS;
-    return exec;
   }
 
   void serialize(SerializationContext context, CodedOutputStream out)
