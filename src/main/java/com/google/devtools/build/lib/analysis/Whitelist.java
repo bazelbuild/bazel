@@ -98,6 +98,19 @@ public final class Whitelist {
     return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
   }
 
+  /**
+   * Returns whether the given label is in the whitelist provided.
+   *
+   * @param whitelist the whitelist provided
+   * @param relevantLabel the label to check for in the whitelist.
+   */
+  public static boolean isAvailableForWhitelist(
+      TransitiveInfoCollection whitelist, Label relevantLabel) {
+    PackageSpecificationProvider packageSpecificationProvider =
+        whitelist.getProvider(PackageSpecificationProvider.class);
+    return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
+  }
+
   public static boolean isAvailableFor(
       Iterable<PackageGroupContents> packageGroupContents, Label relevantLabel) {
     return Streams.stream(packageGroupContents)
