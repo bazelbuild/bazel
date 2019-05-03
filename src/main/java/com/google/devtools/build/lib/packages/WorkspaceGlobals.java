@@ -201,7 +201,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
-    RepositoryName repositoryName = getRepositoryName(builder, env.getGlobals().getLabel());
+    RepositoryName repositoryName = getRepositoryName(env.getGlobals().getLabel());
     builder.addRegisteredExecutionPlatforms(
         repositoryName, platformLabels.getContents(String.class, "platform_labels"));
 
@@ -214,25 +214,21 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
-    RepositoryName repositoryName = getRepositoryName(builder, env.getGlobals().getLabel());
+    RepositoryName repositoryName = getRepositoryName(env.getGlobals().getLabel());
     builder.addRegisteredToolchains(
         repositoryName, toolchainLabels.getContents(String.class, "toolchain_labels"));
 
     return NONE;
   }
 
-  private RepositoryName getRepositoryName(Package.Builder builder, Label bzlLabel) {
+  private RepositoryName getRepositoryName(Label bzlLabel) {
     RepositoryName repositoryName;
     if (bzlLabel == null) {
       // registration happened directly in the main WORKSPACE
       repositoryName = RepositoryName.MAIN;
     } else {
-      // registration happened in a loaded bzl file
+      // registeration happened in a loaded bzl file
       repositoryName = bzlLabel.getPackageIdentifier().getRepository();
-      // check if was loaded from a bzl file that was in the MAIN repository
-      if (builder.getPackageWorkspaceName().equals(repositoryName.strippedName())) {
-        repositoryName = RepositoryName.MAIN;
-      }
     }
     return repositoryName;
   }
