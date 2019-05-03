@@ -76,7 +76,7 @@ public class CcToolchainProviderHelper {
     CToolchain toolchain = null;
     CrosstoolRelease crosstoolFromCrosstoolFile = null;
 
-    if (cppConfiguration.disableCrosstool() && attributes.getCcToolchainConfigInfo() == null) {
+    if (attributes.getCcToolchainConfigInfo() == null) {
       ruleContext.ruleError(
           "cc_toolchain.toolchain_config attribute must be specified. See "
               + "https://github.com/bazelbuild/bazel/issues/7320 for details.");

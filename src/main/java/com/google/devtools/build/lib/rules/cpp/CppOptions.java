@@ -810,22 +810,6 @@ public class CppOptions extends FragmentOptions {
   public boolean disableExpandIfAllAvailableInFlagSet;
 
   @Option(
-      name = "incompatible_disable_crosstool_file",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        OptionMetadataTag.INCOMPATIBLE_CHANGE
-      },
-      help =
-          "If true, Bazel will not allow using the CROSSTOOL file for cc toolchain"
-              + " configuration. Instead, cc_toolchain should have a toolchain_config attribute"
-              + " that points to a rule written in Starlark that provides a CcToolchainConfigInfo"
-              + " provider. See https://github.com/bazelbuild/bazel/issues/7320 for more info.")
-  public boolean disableCrosstool;
-
-  @Option(
       name = "experimental_includes_attribute_subpackage_traversal",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -929,7 +913,6 @@ public class CppOptions extends FragmentOptions {
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
-    host.disableCrosstool = disableCrosstool;
     host.enableCcToolchainResolution = enableCcToolchainResolution;
     host.removeLegacyWholeArchive = removeLegacyWholeArchive;
     host.dontEnableHostNonhost = dontEnableHostNonhost;
