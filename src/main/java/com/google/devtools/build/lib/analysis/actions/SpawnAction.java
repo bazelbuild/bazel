@@ -55,9 +55,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -307,28 +305,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
             actionExecutionContext,
             SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext));
     return continuation.execute();
-  }
-
-  @Override
-  public final ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    try {
-      beforeExecute(actionExecutionContext);
-      Spawn spawn = getSpawn(actionExecutionContext);
-      List<SpawnResult> spawnResults =
-          actionExecutionContext
-              .getContext(SpawnActionContext.class)
-              .exec(spawn, actionExecutionContext);
-      afterExecute(actionExecutionContext);
-      return ActionResult.create(spawnResults);
-    } catch (IOException e) {
-      throw toActionExecutionException(
-          new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
-    } catch (ExecException e) {
-      throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
-    } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
-    }
   }
 
   private ActionExecutionException toActionExecutionException(
