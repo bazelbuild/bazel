@@ -67,6 +67,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -178,6 +179,13 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           Futures.allAsList(futureMap.values()),
           getMaxWaitForPreviousInvocation().getSeconds(),
           TimeUnit.SECONDS);
+    } catch (CancellationException e) {
+      String msg =
+          "Previous invocation failed to finish Build Event Protocol upload. "
+              + "The upload was cancelled. "
+              + "Ignoring the failure and starting a new invocation...";
+      cmdLineReporter.handle(Event.warn(msg));
+      googleLogger.atWarning().withCause(e).log(msg);
     } catch (TimeoutException exception) {
       String msg =
           String.format(
@@ -301,7 +309,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       //  passed. We should fix this by waiting at most the value set by bes_timeout.
       googleLogger.atInfo().log("Closing pending build event transports");
       Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFuturesMap.values()));
-    } catch (ExecutionException e) {
+    } catch (CancellationException | ExecutionException e) {
       googleLogger.atSevere().withCause(e).log("Failed to close a build event transport");
       LoggingUtil.logToRemote(Level.SEVERE, "Failed to close a build event transport", e);
     } finally {
@@ -328,7 +336,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           Futures.allAsList(closeFuturesMap.values()),
           getMaxWaitForPreviousInvocation().getSeconds(),
           TimeUnit.SECONDS);
-    } catch (TimeoutException | ExecutionException exception) {
+    } catch (CancellationException | TimeoutException | ExecutionException exception) {
       googleLogger.atWarning().withCause(exception).log(
           "Encountered Exception when closing BEP transports in Blaze's shutting down sequence");
     } finally {
@@ -378,6 +386,11 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         //  passed. We should fix this by waiting at most the value set by bes_timeout.
         Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFuturesMap.values()));
       }
+    } catch (CancellationException e) {
+      throw new AbruptExitException(
+          "The Build Event Protocol upload was cancelled",
+          ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+          e);
     } catch (ExecutionException e) {
       // Futures.withTimeout wraps the TimeoutException in an ExecutionException when the future
       // times out.
