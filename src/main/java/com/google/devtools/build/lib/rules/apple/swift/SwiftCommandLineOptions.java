@@ -47,11 +47,4 @@ public class SwiftCommandLineOptions extends FragmentOptions {
     host.copts = this.hostSwiftcoptList;
     return host;
   }
-
-  @Override
-  public FragmentOptions getExec() {
-    SwiftCommandLineOptions exec = (SwiftCommandLineOptions) super.getExec();
-    exec.copts = this.hostSwiftcoptList;
-    return exec;
-  }
 }
