@@ -42,9 +42,7 @@ final class WorkerKey {
   private final HashCode workerFilesCombinedHash;
   private final SortedMap<PathFragment, HashCode> workerFilesWithHashes;
   private final boolean mustBeSandboxed;
-  /**
-   * A WorkerProxy will be instantiated if true, instantiate a regular Worker if false.
-   */
+  /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean proxied;
 
   WorkerKey(
@@ -74,35 +72,43 @@ final class WorkerKey {
     this.proxied = proxied;
   }
 
+  /** Getter function for variable args. */
   public ImmutableList<String> getArgs() {
     return args;
   }
 
+  /** Getter function for variable env. */
   public ImmutableMap<String, String> getEnv() {
     return env;
   }
 
+  /** Getter function for variable execRoot. */
   public Path getExecRoot() {
     return execRoot;
   }
 
+  /** Getter function for variable mnemonic. */
   public String getMnemonic() {
     return mnemonic;
   }
 
+  /** Getter function for variable workerFilesCombinedHash. */
   public HashCode getWorkerFilesCombinedHash() {
     return workerFilesCombinedHash;
   }
 
+  /** Getter function for variable workerFilesWithHashes. */
   public SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
     return workerFilesWithHashes;
   }
 
+  /** Getter function for variable mustBeSandboxed. */
   public boolean mustBeSandboxed() {
     return mustBeSandboxed;
   }
 
-  public boolean proxied() {
+  /** Getter function for variable proxied. */
+  public boolean getProxied() {
     return proxied;
   }
 

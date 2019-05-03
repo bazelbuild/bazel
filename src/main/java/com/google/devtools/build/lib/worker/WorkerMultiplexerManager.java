@@ -30,14 +30,9 @@ public class WorkerMultiplexerManager {
    * key.
    */
   private static Map<Integer, WorkerMultiplexer> multiplexerInstance = new HashMap<>();
-  /**
-   * An accumulator of how many WorkerProxies are referencing a particular
-   * WorkerMultiplexer.
-   */
+  /** An accumulator of how many WorkerProxies are referencing a particular WorkerMultiplexer. */
   private static Map<Integer, Integer> multiplexerRefCount = new HashMap<>();
-  /**
-   * A semaphore to protect multiplexerInstance and multiplexerRefCount objects.
-   */
+  /** A semaphore to protect multiplexerInstance and multiplexerRefCount objects. */
   private static Semaphore semMultiplexer = new Semaphore(1);
 
   /**

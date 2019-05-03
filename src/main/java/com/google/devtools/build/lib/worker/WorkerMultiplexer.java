@@ -38,9 +38,7 @@ public class WorkerMultiplexer extends Thread {
    * WorkerProxy to retrieve the response.
    */
   private Map<Integer, InputStream> workerProcessResponse;
-  /**
-   * A semaphore to protect workerProcessResponse object.
-   */
+  /** A semaphore to protect workerProcessResponse object. */
   private Semaphore semWorkerProcessResponse;
   /**
    * After sending the WorkRequest, WorkerProxy will wait on a semaphore to be
@@ -49,13 +47,9 @@ public class WorkerMultiplexer extends Thread {
    * received.
    */
   private Map<Integer, Semaphore> responseChecker;
-  /**
-   * A semaphore to protect responseChecker object.
-   */
+  /** A semaphore to protect responseChecker object. */
   private Semaphore semResponseChecker;
-  /**
-   * The worker process that this WorkerMultiplexer should be talking to.
-   */
+  /** The worker process that this WorkerMultiplexer should be talking to. */
   private Subprocess process;
 
   WorkerMultiplexer() {
@@ -67,9 +61,7 @@ public class WorkerMultiplexer extends Thread {
     final WorkerMultiplexer self = this;
   }
 
-  /**
-   * Only start one worker process for each WorkerMultiplexer, if it hasn't.
-   */
+  /** Only start one worker process for each WorkerMultiplexer, if it hasn't. */
   public synchronized void createProcess(WorkerKey workerKey, Path workDir, Path logFile) throws IOException {
     if (this.process == null) {
       List<String> args = workerKey.getArgs();
@@ -120,24 +112,20 @@ public class WorkerMultiplexer extends Thread {
     return !this.process.finished();
   }
 
-  /**
-   * Pass the WorkRequest to worker process.
-   */
+  /** Pass the WorkRequest to worker process. */
   public synchronized void putRequest(byte[] request) throws IOException {
     OutputStream stdin = process.getOutputStream();
     stdin.write(request);
     stdin.flush();
   }
 
-  /**
-   * A WorkerProxy waits on a semaphore for the WorkResponse returned from worker process.
-   */
+  /** A WorkerProxy waits on a semaphore for the WorkResponse returned from worker process. */
   public InputStream getResponse(Integer workerId) throws InterruptedException {
     semResponseChecker.acquire();
     Semaphore waitForResponse = responseChecker.get(workerId);
     semResponseChecker.release();
 
-    // If there is a compilation error, the semaphore will throw InterruptedException.
+    // The semaphore will throw InterruptedException when the process is terminated.
     waitForResponse.acquire();
 
     semWorkerProcessResponse.acquire();
@@ -146,9 +134,7 @@ public class WorkerMultiplexer extends Thread {
     return response;
   }
 
-  /**
-   * Reset the map that indicates if the WorkResponses have been returned.
-   */
+  /** Reset the map that indicates if the WorkResponses have been returned. */
   public void resetResponseChecker(Integer workerId) throws InterruptedException {
     semResponseChecker.acquire();
     responseChecker.put(workerId, new Semaphore(0));
@@ -178,9 +164,7 @@ public class WorkerMultiplexer extends Thread {
     semResponseChecker.release();
   }
 
-  /**
-   * A multiplexer thread that listens to the WorkResponses from worker process.
-   */
+  /** A multiplexer thread that listens to the WorkResponses from worker process. */
   public void run() {
     while (!this.interrupted()) {
       try {

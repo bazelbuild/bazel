@@ -83,9 +83,7 @@ final class WorkerProxy extends Worker {
     }
   }
 
-  /**
-   * Send the WorkRequest to worker process.
-   */
+  /** Send the WorkRequest to worker process. */
   @Override
   void putRequest(WorkRequest request) throws IOException {
     ByteArrayOutputStream requestOutputStream = new ByteArrayOutputStream();
