@@ -2038,16 +2038,17 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   urls=["file://${WRKDIR}/ext.tar"],
-  build_file = "@//:ext.BUILD",
+  build_file = "@//path/to:ext.BUILD",
 )
 EOF
-  echo 'exports_files(["foo.txt"])' > ext.BUILD
+  mkdir -p path/to
+  echo 'exports_files(["foo.txt"])' > path/to/ext.BUILD
 
   bazel build @ext//... > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
 
   expect_log 'BUILD file not found'
-  expect_log 'path/to/workspace'
+  expect_log 'path/to/workspace/path/to'
 }
 
 function test_location_reported() {
