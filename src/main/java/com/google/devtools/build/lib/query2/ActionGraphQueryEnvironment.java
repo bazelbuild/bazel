@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
@@ -273,7 +272,7 @@ public class ActionGraphQueryEnvironment
       QueryExpression owner, String pattern, Callback<ConfiguredTargetValue> callback) {
     TargetPattern patternToEval;
     try {
-      patternToEval = getPatternKey(pattern);
+      patternToEval = getPattern(pattern);
     } catch (TargetParsingException tpe) {
       try {
         reportBuildFileError(owner, tpe.getMessage());
@@ -292,7 +291,6 @@ public class ActionGraphQueryEnvironment
       return QueryTaskFutureImpl.ofDelegate(
           Futures.catchingAsync(
               patternToEval.evalAdaptedForAsync(
-                  /* repositoryMapping= */ ImmutableMap.of(),
                   resolver,
                   getBlacklistedPackagePrefixesPathFragments(),
                   /* excludedSubdirectories= */ ImmutableSet.of(),

@@ -84,14 +84,14 @@ public class WorkspaceFactoryTest {
   @Test
   public void testRegisterExecutionPlatforms() throws Exception {
     helper.parse("register_execution_platforms('//platform:ep1')");
-    assertThat(helper.getPackage().getRegisteredExecutionPlatforms().values())
+    assertThat(helper.getPackage().getRegisteredExecutionPlatforms())
         .containsExactly("//platform:ep1");
   }
 
   @Test
   public void testRegisterExecutionPlatforms_multipleLabels() throws Exception {
     helper.parse("register_execution_platforms(", "  '//platform:ep1',", "  '//platform:ep2')");
-    assertThat(helper.getPackage().getRegisteredExecutionPlatforms().values())
+    assertThat(helper.getPackage().getRegisteredExecutionPlatforms())
         .containsExactly("//platform:ep1", "//platform:ep2");
   }
 
@@ -101,21 +101,20 @@ public class WorkspaceFactoryTest {
         "register_execution_platforms('//platform:ep1')",
         "register_execution_platforms('//platform:ep2')",
         "register_execution_platforms('//platform/...')");
-    assertThat(helper.getPackage().getRegisteredExecutionPlatforms().values())
+    assertThat(helper.getPackage().getRegisteredExecutionPlatforms())
         .containsExactly("//platform:ep1", "//platform:ep2", "//platform/...");
   }
 
   @Test
   public void testRegisterToolchains() throws Exception {
     helper.parse("register_toolchains('//toolchain:tc1')");
-    assertThat(helper.getPackage().getRegisteredToolchains().values())
-        .containsExactly("//toolchain:tc1");
+    assertThat(helper.getPackage().getRegisteredToolchains()).containsExactly("//toolchain:tc1");
   }
 
   @Test
   public void testRegisterToolchains_multipleLabels() throws Exception {
     helper.parse("register_toolchains(", "  '//toolchain:tc1',", "  '//toolchain:tc2')");
-    assertThat(helper.getPackage().getRegisteredToolchains().values())
+    assertThat(helper.getPackage().getRegisteredToolchains())
         .containsExactly("//toolchain:tc1", "//toolchain:tc2");
   }
 
@@ -125,7 +124,7 @@ public class WorkspaceFactoryTest {
         "register_toolchains('//toolchain:tc1')",
         "register_toolchains('//toolchain:tc2')",
         "register_toolchains('//toolchain/...')");
-    assertThat(helper.getPackage().getRegisteredToolchains().values())
+    assertThat(helper.getPackage().getRegisteredToolchains())
         .containsExactly("//toolchain:tc1", "//toolchain:tc2", "//toolchain/...");
   }
 

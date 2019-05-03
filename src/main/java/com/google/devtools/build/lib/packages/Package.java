@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
@@ -216,8 +215,8 @@ public class Package {
   private ImmutableList<Event> events;
   private ImmutableList<Postable> posts;
 
-  private ImmutableListMultimap<RepositoryName, String> registeredExecutionPlatforms;
-  private ImmutableListMultimap<RepositoryName, String> registeredToolchains;
+  private ImmutableList<String> registeredExecutionPlatforms;
+  private ImmutableList<String> registeredToolchains;
 
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
@@ -405,8 +404,8 @@ public class Package {
     this.features = ImmutableSortedSet.copyOf(builder.features);
     this.events = ImmutableList.copyOf(builder.events);
     this.posts = ImmutableList.copyOf(builder.posts);
-    this.registeredExecutionPlatforms = builder.registeredExecutionPlatforms.build();
-    this.registeredToolchains = builder.registeredToolchains.build();
+    this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
+    this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
     ImmutableMap.Builder<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
         repositoryMappingsBuilder = ImmutableMap.builder();
@@ -698,11 +697,11 @@ public class Package {
     return defaultRestrictedTo;
   }
 
-  public ImmutableListMultimap<RepositoryName, String> getRegisteredExecutionPlatforms() {
+  public ImmutableList<String> getRegisteredExecutionPlatforms() {
     return registeredExecutionPlatforms;
   }
 
-  public ImmutableListMultimap<RepositoryName, String> getRegisteredToolchains() {
+  public ImmutableList<String> getRegisteredToolchains() {
     return registeredToolchains;
   }
 
@@ -836,10 +835,8 @@ public class Package {
 
     private ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
 
-    private final ImmutableListMultimap.Builder<RepositoryName, String>
-        registeredExecutionPlatforms = ImmutableListMultimap.builder();
-    private final ImmutableListMultimap.Builder<RepositoryName, String> registeredToolchains =
-        ImmutableListMultimap.builder();
+    private final List<String> registeredExecutionPlatforms = new ArrayList<>();
+    private final List<String> registeredToolchains = new ArrayList<>();
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenceExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
@@ -1404,21 +1401,12 @@ public class Package {
       addRuleUnchecked(rule);
     }
 
-    void addRegisteredToolchains(RepositoryName repositoryName, List<String> toolchains) {
-      this.registeredToolchains.putAll(repositoryName, toolchains);
+    void addRegisteredExecutionPlatforms(List<String> platforms) {
+      this.registeredExecutionPlatforms.addAll(platforms);
     }
 
-    void addRegisteredToolchains(ImmutableListMultimap<RepositoryName, String> toolchains) {
-      this.registeredToolchains.putAll(toolchains);
-    }
-
-    void addRegisteredExecutionPlatforms(RepositoryName repositoryName, List<String> platforms) {
-      this.registeredExecutionPlatforms.putAll(repositoryName, platforms);
-    }
-
-    void addRegisteredExecutionPlatforms(
-        ImmutableListMultimap<RepositoryName, String> executionPlatforms) {
-      this.registeredExecutionPlatforms.putAll(executionPlatforms);
+    void addRegisteredToolchains(List<String> toolchains) {
+      this.registeredToolchains.addAll(toolchains);
     }
 
     private Builder beforeBuild(boolean discoverAssumedInputFiles) throws NoSuchPackageException {

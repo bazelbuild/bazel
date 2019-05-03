@@ -741,7 +741,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
     ListenableFuture<Void> evalFuture =
         patternToEval.evalAsync(
-            /* repositoryMapping= */ ImmutableMap.of(),
             resolver,
             blacklistedSubdirectoriesToExclude,
             additionalSubdirectoriesToExclude,

@@ -18,14 +18,12 @@ import static com.google.common.collect.ImmutableSetMultimap.flatteningToImmutab
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
@@ -263,14 +261,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       Environment env, TargetPatternPhaseKey options, List<String> failedPatterns)
       throws InterruptedException {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>(options.getTargetPatterns().size());
-
-    ImmutableListMultimap.Builder<RepositoryName, String> builder = ImmutableListMultimap.builder();
-    builder.putAll(RepositoryName.MAIN, options.getTargetPatterns());
-    ImmutableListMultimap<RepositoryName, String> patternsMap = builder.build();
-
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(
-            patternsMap,
+            options.getTargetPatterns(),
             options.getBuildManualTests()
                 ? FilteringPolicies.NO_FILTER
                 : FilteringPolicies.FILTER_MANUAL,
@@ -390,13 +383,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       Environment env, List<String> targetPatterns, String offset, TestFilter testFilter)
       throws InterruptedException {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
-
-    ImmutableListMultimap.Builder<RepositoryName, String> builder = ImmutableListMultimap.builder();
-    builder.putAll(RepositoryName.MAIN, targetPatterns);
-    ImmutableListMultimap<RepositoryName, String> patternsMap = builder.build();
-
     for (TargetPatternSkyKeyOrException keyOrException :
-        TargetPatternValue.keys(patternsMap, FilteringPolicies.FILTER_TESTS, offset)) {
+        TargetPatternValue.keys(targetPatterns, FilteringPolicies.FILTER_TESTS, offset)) {
       try {
         patternSkyKeys.add(keyOrException.getSkyKey());
       } catch (TargetParsingException e) {
