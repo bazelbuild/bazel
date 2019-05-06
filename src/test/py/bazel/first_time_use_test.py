@@ -51,16 +51,32 @@ class FirstTimeUseTest(test_base.TestBase):
         '--incompatible_bashless_run_command',
         '//foo:x',
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
-    found_output = False
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    found_error = False
     for line in stdout + stderr:
       if 'ERROR' in line and 'needs a shell' in line:
-        self._FailWithOutput(stdout + stderr)
-      if 'hello python' in line:
-        found_output = True
+        found_error = True
         break
-    if not found_output:
+    if not found_error:
       self._FailWithOutput(stdout + stderr)
+
+    if test_base.TestBase.IsWindows():
+        exit_code, stdout, stderr = self.RunBazel([
+            'run',
+            '--shell_executable=',
+            '--incompatible_bashless_run_command',
+            '//foo:x',
+        ])
+        self.AssertExitCode(exit_code, 0, stderr)
+        found_output = False
+        for line in stdout + stderr:
+          if 'ERROR' in line and 'needs a shell' in line:
+            self._FailWithOutput(stdout + stderr)
+          if 'hello python' in line:
+            found_output = True
+            break
+        if not found_output:
+          self._FailWithOutput(stdout + stderr)
 
 
 if __name__ == '__main__':
