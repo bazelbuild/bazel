@@ -309,6 +309,37 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
                 + " have managed directories: @generated_node_modules");
   }
 
+  @Test
+  public void testRepositoryOverrideChangeToConflictWithManagedDirectories() throws Exception {
+    generateProject();
+    buildExpectRepositoryRuleCalled();
+    checkProjectFiles();
+
+    Path override = context().getTmpDir().resolve("override");
+    PathUtils.writeFile(override.resolve(WORKSPACE));
+    // Just define some similar target.
+    PathUtils.writeFile(
+        override.resolve("BUILD"),
+        "genrule(",
+        "    name = \"example-module\",",
+        "    srcs = [],",
+        "    cmd = \"touch $(location package.json)\",",
+        "    outs = [\"package.json\"],",
+        "    visibility = ['//visibility:public'],",
+        ")");
+
+    // Now the overrides change.
+    BuilderRunner bazel =
+        bazel().withFlags("--override_repository=generated_node_modules=" + override.toString());
+    ProcessResult result = bazel.shouldFail().build("@generated_node_modules//:example-module");
+    assertThat(result.errString())
+        .contains(
+            "ERROR: Overriding repositories is not allowed"
+                + " for the repositories with managed directories."
+                + "\nThe following overridden external repositories"
+                + " have managed directories: @generated_node_modules");
+  }
+
   private void generateProject() throws IOException {
     for (String fileName : FILES) {
       String text = ResourceFileLoader.loadResource(ManagedDirectoriesBlackBoxTest.class, fileName);
