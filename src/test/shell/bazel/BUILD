@@ -134,6 +134,19 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java_test_no_windows",
+    size = "large",
+    timeout = "eternal",
+    srcs = ["bazel_java_test_no_windows.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_java_test",
     # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
