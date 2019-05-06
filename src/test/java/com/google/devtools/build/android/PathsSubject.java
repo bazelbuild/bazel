@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static com.google.common.truth.Fact.fact;
+import static com.google.common.truth.Fact.simpleFact;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
@@ -61,16 +64,16 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
 
   void exists() {
     if (actual() == null) {
-      fail("should not be null.");
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     if (!Files.exists(getSubject())) {
-      fail("exists.");
+      failWithActual(simpleFact("expected to exist"));
     }
   }
 
   void containsAllArchivedFilesIn(String... paths) throws IOException {
     if (actual() == null) {
-      fail("should not be null.");
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
 
@@ -85,7 +88,7 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
 
   void containsExactlyArchivedFilesIn(String... paths) throws IOException {
     if (actual() == null) {
-      fail("should not be null.");
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
 
@@ -100,7 +103,7 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
 
   void containsNoArchivedFilesIn(String... paths) throws IOException {
     if (actual() == null) {
-      fail("should not be null.");
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
     assertThat(
@@ -114,7 +117,7 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
 
   void xmlContentsIsEqualTo(String... contents) {
     if (actual() == null) {
-      fail("should not be null.");
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
     try {
@@ -129,7 +132,10 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
                   transformer))
           .isEqualTo(normalizeXml(newXmlDocument(factory, Arrays.asList(contents)), transformer));
     } catch (IOException | SAXException | ParserConfigurationException | TransformerException e) {
-      fail(e.toString());
+      failWithoutActual(
+          fact("expected to have contents", asList(contents)),
+          fact("but failed to read file with", e),
+          fact("path was", actual()));
     }
   }
 
