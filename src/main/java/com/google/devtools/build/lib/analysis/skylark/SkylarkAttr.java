@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
@@ -262,6 +263,8 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       }
       if (trans.equals("host")) {
         builder.cfg(HostTransition.createFactory());
+      } else if (trans.equals("exec")) {
+        builder.cfg(new ExecutionTransitionFactory());
       } else if (trans instanceof SplitTransition) {
         builder.cfg(TransitionFactories.of((SplitTransition) trans));
       } else if (trans instanceof TransitionFactory) {
