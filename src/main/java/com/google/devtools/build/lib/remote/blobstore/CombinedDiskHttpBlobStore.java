@@ -44,8 +44,8 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean containsKey(String key) {
-    return diskCache.containsKey(key);
+  public boolean contains(String key) {
+    return diskCache.contains(key);
   }
 
   @Override
@@ -85,7 +85,7 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   private ListenableFuture<Boolean> get(String key, OutputStream out, boolean actionResult) {
-    boolean foundOnDisk = actionResult ? diskCache.containsActionResult(key) : diskCache.containsKey(key);
+    boolean foundOnDisk = actionResult ? diskCache.containsActionResult(key) : diskCache.contains(key);
 
     if (foundOnDisk) {
       return getFromCache(diskCache, key, out, actionResult);

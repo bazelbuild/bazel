@@ -26,12 +26,12 @@ import java.io.OutputStream;
  */
 public interface SimpleBlobStore {
   /**
-   * Returns {@code key} if the provided {@code key} is stored in the CAS.
+   * Returns {@code true} if the provided {@code key} is stored in the CAS.
    */
-  boolean containsKey(String key) throws IOException, InterruptedException;
+  boolean contains(String key) throws IOException, InterruptedException;
 
   /**
-   * Returns {@code key} if the provided {@code key} is stored in the Action Cache.
+   * Returns {@code true} if the provided {@code key} is stored in the Action Cache.
    */
   boolean containsActionResult(String key) throws IOException, InterruptedException;
 

@@ -34,7 +34,7 @@ public class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean containsKey(String key) {
+  public boolean contains(String key) {
     return toPath(key, /* actionResult= */ false).exists();
   }
 

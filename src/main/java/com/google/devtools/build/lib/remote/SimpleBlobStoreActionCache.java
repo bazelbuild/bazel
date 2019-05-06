@@ -186,7 +186,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   }
 
   public boolean containsKey(Digest digest) throws IOException, InterruptedException {
-    return blobStore.containsKey(digest.getHash());
+    return blobStore.contains(digest.getHash());
   }
 
   @Override

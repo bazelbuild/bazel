@@ -32,7 +32,7 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean containsKey(String key) {
+  public boolean contains(String key) {
     return map.containsKey(key);
   }
 

@@ -40,6 +40,7 @@ import java.util.regex.Pattern;
 public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
   final ConcurrentMap<String, byte[]> cache = new ConcurrentHashMap<>();
+  private static final Pattern URI_PATTERN = Pattern.compile("^/?(.*/)?(ac/|cas/)([a-f0-9]{64})$");
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
@@ -58,9 +59,8 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
   }
 
   @VisibleForTesting
-  boolean isUriValid(String uri) {
-    String URL_PATTERN = "^/?(.*/)?(ac/|cas/)([a-f0-9]{64})$";
-    Matcher matcher = Pattern.compile(URL_PATTERN).matcher(uri);
+  static boolean isUriValid(String uri) {
+    Matcher matcher = URI_PATTERN.matcher(uri);
     return matcher.matches();
   }
 

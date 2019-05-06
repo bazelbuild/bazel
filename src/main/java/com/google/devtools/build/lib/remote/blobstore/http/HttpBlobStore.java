@@ -391,7 +391,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean containsKey(String key) {
+  public boolean contains(String key) {
     throw new UnsupportedOperationException("HTTP Caching does not use this method.");
   }
 
