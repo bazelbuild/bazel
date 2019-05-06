@@ -297,17 +297,6 @@ public final class CppLinkAction extends AbstractAction
     return new CppLinkActionContinuation(actionExecutionContext, spawnContinuation).execute();
   }
 
-  @Override
-  @ThreadCompatible
-  public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    ActionContinuationOrResult continuation = beginExecution(actionExecutionContext);
-    while (!continuation.isDone()) {
-      continuation = continuation.execute();
-    }
-    return continuation.get();
-  }
-
   private Spawn createSpawn(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     try {
