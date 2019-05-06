@@ -100,4 +100,16 @@ public class IncludeScanningOptions extends OptionsBase {
               + " \"auto\" means to use a reasonable value derived from the machine's hardware"
               + " profile (e.g. the number of processors).")
   public int includeScanningParallelism;
+
+  @Option(
+      name = "experimental_async_include_scanner",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
+      defaultValue = "false",
+      help = "Switches to a new implementation of include scanning based on futures.")
+  public boolean useAsyncIncludeScanner;
 }
