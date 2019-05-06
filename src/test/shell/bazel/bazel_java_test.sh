@@ -1785,7 +1785,7 @@ function DISABLED_test_java_test_timeout_split_xml() {
   expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
 }
 
-function test_wrapper_resolves_runfiles_to_subsuming_tree() {
+function DISABLED_test_wrapper_resolves_runfiles_to_subsuming_tree() {
     setup_clean_workspace
     set_up
     mkdir -p java/com/google/runfiles/
