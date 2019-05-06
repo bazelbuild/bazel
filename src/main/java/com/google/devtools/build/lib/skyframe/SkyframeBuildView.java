@@ -436,7 +436,7 @@ public final class SkyframeBuildView {
     }
     PackageRoots packageRoots =
         singleSourceRoot == null
-            ? new MapAsPackageRoots(collectPackageRoots(packages.build().toCollection()))
+            ? new MapAsPackageRoots(collectPackageRoots(packages.build().toList()))
             : new PackageRootsNoSymlinkCreation(singleSourceRoot);
 
     if (!result.hasError() && badActions.isEmpty()) {

@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
@@ -2415,9 +2414,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
     // Test that all bottom jars are on the runtime classpath of lib_android.
     ConfiguredTarget target = getConfiguredTarget("//foo:lib_foo");
-    Collection<Artifact> transitiveSrcJars =
-        OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP)
-            .toCollection();
+    ImmutableList<Artifact> transitiveSrcJars =
+        OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP).toList();
     assertThat(ActionsTestUtil.baseArtifactNames(transitiveSrcJars)).containsExactly(
         "libjl_bottom_for_exports-src.jar",
         "libal_bottom_for_deps-src.jar",

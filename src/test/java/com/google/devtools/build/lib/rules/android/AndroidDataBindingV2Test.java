@@ -467,12 +467,9 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         .containsExactly("java/a/databinding/a/class-info.zip");
 
     assertThat(
-        dataBindingV2Provider
-            .getTransitiveBRFiles()
-            .toCollection()
-            .stream()
-            .map(Artifact::getRootRelativePathString)
-            .collect(Collectors.toList()))
+            dataBindingV2Provider.getTransitiveBRFiles().toList().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toList()))
         .containsExactly("java/a/databinding/a/bin-files/a-a-br.bin");
   }
 
@@ -597,12 +594,9 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "java/b/databinding/b/bin-files/b-b-setter_store.bin");
 
     assertThat(
-        provider
-            .getTransitiveBRFiles()
-            .toCollection()
-            .stream()
-            .map(Artifact::getRootRelativePathString)
-            .collect(Collectors.toList()))
+            provider.getTransitiveBRFiles().toList().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toList()))
         .containsExactly(
             "java/a/databinding/a/bin-files/a-a-br.bin",
             "java/b/databinding/b/bin-files/b-b-br.bin");

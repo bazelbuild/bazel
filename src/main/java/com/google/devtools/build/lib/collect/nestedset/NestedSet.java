@@ -262,27 +262,16 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
-   * Returns a collection of all unique elements of this set (including subsets) in an
-   * implementation-specified order as a {@code Collection}.
-   *
-   * <p>If you do not need a Collection and an Iterable is enough, use the nested set itself as an
-   * Iterable.
-   */
-  public Collection<E> toCollection() {
-    return toList();
-  }
-
-  /**
-   * Returns a collection of all unique elements of the this set, similar to {@link #toCollection},
+   * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
    * but will propagate an {@code InterruptedException} if one is thrown.
    */
-  public Collection<E> toCollectionInterruptibly() throws InterruptedException {
+  public ImmutableList<E> toListInterruptibly() throws InterruptedException {
     return toList(/*handleInterruptedException=*/ false);
   }
 
   /**
-   * Returns a collection of all unique elements of this set (including subsets) in an
-   * implementation-specified order as an immutable list.
+   * Returns an immutable list of all unique elements of this set (including subsets) in an
+   * implementation-specified order.
    *
    * <p>Prefer calling this method over {@link ImmutableList#copyOf} on this set for better
    * efficiency, as it saves an iteration.
@@ -314,8 +303,8 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
-   * Returns a collection of all unique elements of this set (including subsets) in an
-   * implementation-specified order as an immutable set.
+   * Returns an immutable set of all unique elements of this set (including subsets) in an
+   * implementation-specified order.
    */
   public ImmutableSet<E> toSet() {
     return ImmutableSet.copyOf(toList());
@@ -394,7 +383,7 @@ public final class NestedSet<E> implements Iterable<E> {
   @Override
   public Iterator<E> iterator() {
     // TODO: would it help to have a proper lazy iterator?  seems like it might reduce garbage.
-    return toCollection().iterator();
+    return toList().iterator();
   }
 
   /**

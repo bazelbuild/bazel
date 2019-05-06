@@ -233,7 +233,7 @@ public final class LtoBackendAction extends SpawnAction {
         RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new LtoBackendAction(
-          inputsAndTools.toCollection(),
+          inputsAndTools.toList(),
           bitcodeFiles,
           imports,
           outputs,

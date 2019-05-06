@@ -1267,7 +1267,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testNsetGoodCompositeItem() throws Exception {
     eval("def func():", "  return depset([struct(a='a')])", "s = func()");
-    Collection<Object> result = ((SkylarkNestedSet) lookup("s")).toCollection();
+    Collection<?> result = ((SkylarkNestedSet) lookup("s")).toCollection();
     assertThat(result).hasSize(1);
     assertThat(result.iterator().next()).isInstanceOf(StructImpl.class);
   }

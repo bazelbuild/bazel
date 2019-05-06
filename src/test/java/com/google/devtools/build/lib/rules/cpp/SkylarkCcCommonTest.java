@@ -1032,7 +1032,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     @SuppressWarnings("unchecked")
     CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(
-            ccCompilationContext.getDeclaredIncludeSrcs().toCollection().stream()
+            ccCompilationContext.getDeclaredIncludeSrcs().toList().stream()
                 .map(Artifact::getFilename)
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("lib.h", "header.h", "dep1.h", "dep2.h");
@@ -4932,7 +4932,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(
-            getFilesToBuild(target).toCollection().stream()
+            getFilesToBuild(target).toList().stream()
                 .map(x -> x.getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .contains("libskylark_lib.a");
@@ -4944,14 +4944,14 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(
-            getFilesToBuild(target).toCollection().stream()
+            getFilesToBuild(target).toList().stream()
                 .map(x -> x.getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .doesNotContain("libskylark_lib.a");
   }
 
   private List<String> getFilenamesToBuild(ConfiguredTarget target) {
-    return getFilesToBuild(target).toCollection().stream()
+    return getFilesToBuild(target).toList().stream()
         .map(Artifact::getFilename)
         .collect(ImmutableList.toImmutableList());
   }
@@ -5095,7 +5095,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
     assertThat(
-            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toCollection().stream()
+            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList().stream()
                 .filter(LibraryToLink::getAlwayslink)
                 .collect(ImmutableList.toImmutableList()))
         .hasSize(1);
@@ -5107,7 +5107,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
     assertThat(
-            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toCollection().stream()
+            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList().stream()
                 .filter(LibraryToLink::getAlwayslink)
                 .collect(ImmutableList.toImmutableList()))
         .isEmpty();

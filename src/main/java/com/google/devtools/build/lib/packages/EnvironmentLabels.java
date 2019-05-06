@@ -163,7 +163,7 @@ public class EnvironmentLabels {
       // Do shallowEquals check first for speed.
       if (secondValue == null
           || (!entry.getValue().shallowEquals(secondValue)
-              && !entry.getValue().toCollection().equals(secondValue.toCollection()))) {
+              && !entry.getValue().toList().equals(secondValue.toList()))) {
         return false;
       }
     }

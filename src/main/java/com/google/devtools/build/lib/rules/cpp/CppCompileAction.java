@@ -563,7 +563,7 @@ public class CppCompileAction extends AbstractAction
       // (transitive, which is a linear scan).
       // We get a collection view of the NestedSet in a way that can throw an InterruptedException
       // because a NestedSet may contain a future.
-      for (Artifact module : transitive.toCollectionInterruptibly()) {
+      for (Artifact module : transitive.toListInterruptibly()) {
         topLevel.remove(module);
       }
     }
