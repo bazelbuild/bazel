@@ -326,7 +326,7 @@ final class ProtobufSupport {
     // For each proto in each proto group, store the smallest group in which it is contained. This
     // group will be considered the smallest input group with which the proto can be generated.
     for (NestedSet<Artifact> nestedProtoSet : protoSets.build()) {
-      ImmutableSet<Artifact> protoSet = ImmutableSet.copyOf(nestedProtoSet.toSet());
+      ImmutableSet<Artifact> protoSet = nestedProtoSet.toSet();
       for (Artifact proto : protoSet) {
         // If the proto is well known, don't store it as we don't need to generate it; it comes
         // generated with the runtime library.
