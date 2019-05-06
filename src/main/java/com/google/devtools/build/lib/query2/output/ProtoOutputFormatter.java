@@ -175,6 +175,13 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
   @VisibleForTesting
   public Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
+    return toTargetProtoBuffer(target, null);
+  }
+
+  /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
+  @VisibleForTesting
+  public Build.Target toTargetProtoBuffer(Target target, Object extraDataForPostProcess)
+      throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
     String location = getLocation(target, relativeLocations);
@@ -186,7 +193,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       if (includeLocation()) {
         rulePb.setLocation(location);
       }
-      addAttributes(rulePb, rule);
+      addAttributes(rulePb, rule, extraDataForPostProcess);
       String transitiveHashCode = rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
       if (transitiveHashCode != null && includeRuleDefinitionEnvironment()) {
         // The RuleDefinitionEnvironment is always defined for Skylark rules and
@@ -340,7 +347,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     return targetPb.build();
   }
 
-  protected void addAttributes(Build.Rule.Builder rulePb, Rule rule)
+  protected void addAttributes(Build.Rule.Builder rulePb, Rule rule, Object extraDataForPostProcess)
       throws InterruptedException {
     Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
@@ -371,7 +378,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             .sorted(ATTRIBUTE_NAME)
             .collect(Collectors.toList()));
 
-    postProcess(rule, rulePb, serializedAttributes);
+    postProcess(rule, rulePb, serializedAttributes, extraDataForPostProcess);
   }
 
   protected boolean shouldIncludeAttribute(Rule rule, Attribute attr) {
@@ -396,8 +403,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   /** Further customize the proto output */
-  protected void postProcess(Rule rule, Build.Rule.Builder rulePb, Map<Attribute,
-      Build.Attribute> serializedAttributes) { }
+  protected void postProcess(
+      Rule rule,
+      Build.Rule.Builder rulePb,
+      Map<Attribute, Build.Attribute> serializedAttributes,
+      Object extraDataForPostProcess) {}
 
   /** Filter out some attributes */
   protected boolean includeAttribute(Rule rule, Attribute attr) {
