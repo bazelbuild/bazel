@@ -32,6 +32,8 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -43,6 +45,8 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -54,6 +58,8 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -65,6 +71,8 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -77,6 +85,8 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     shard_count = 3,
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -91,7 +101,7 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     shard_count = 6,
-    # Remove once fixed: https://github.com/bazelbuild/bazel/issues/4663
+    # See https://github.com/bazelbuild/bazel/issues/8235
     tags = ["no-remote"],
 )
 
@@ -104,6 +114,8 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -115,6 +127,8 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -127,6 +141,8 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     shard_count = 4,
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -139,4 +155,6 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = ["no-remote"],
 )
