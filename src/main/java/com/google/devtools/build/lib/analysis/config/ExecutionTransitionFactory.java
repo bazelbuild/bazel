@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -62,9 +63,9 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
       BuildOptions execConfiguration = options.createHostOptions();
 
       // Then unset isHost, if CoreOptions is available.
-      if (execConfiguration.get(CoreOptions.class) != null) {
-        execConfiguration.get(CoreOptions.class).isHost = false;
-      }
+      CoreOptions coreOptions =
+          Preconditions.checkNotNull(execConfiguration.get(CoreOptions.class));
+      coreOptions.isHost = false;
 
       // Then set the target to the saved execution platform if there is one.
       if (execConfiguration.get(PlatformOptions.class) != null) {
