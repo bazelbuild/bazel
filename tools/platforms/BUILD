@@ -7,7 +7,7 @@ package(
 filegroup(
     name = "package-srcs",
     srcs = [
-        "platforms.BUILD",
+        "BUILD.tools",
     ],
 )
 
