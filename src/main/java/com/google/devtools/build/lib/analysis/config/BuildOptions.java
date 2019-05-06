@@ -95,15 +95,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     return builder.addStarlarkOptions(skylarkOptionsMap).build();
   }
 
-  /** Creates a new BuildOptions instance for exec. */
-  public BuildOptions createExecOptions() {
-    Builder builder = builder();
-    for (FragmentOptions options : fragmentOptionsMap.values()) {
-      builder.addFragmentOptions(options.getExec());
-    }
-    return builder.addStarlarkOptions(skylarkOptionsMap).build();
-  }
-
   /**
    * Returns {@code BuildOptions} that are otherwise identical to this one, but contain only options
    * from the given {@link FragmentOptions} classes (plus build configuration options).
