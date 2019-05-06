@@ -2893,30 +2893,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testNoRuleOutputsParam() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_no_rule_outputs_param=true");
-    scratch.file(
-        "test/skylark/test_rule.bzl",
-        "def _impl(ctx):",
-        "  output = ctx.outputs.out",
-        "  ctx.actions.write(output = output, content = 'hello')",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  outputs = {\"out\": \"%{name}.txt\"})");
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:test_rule.bzl', 'my_rule')",
-        "my_rule(name = 'target')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:target");
-    assertContainsEvent(
-        "parameter 'outputs' is deprecated and will be removed soon. It may be temporarily "
-            + "re-enabled by setting --incompatible_no_rule_outputs_param=false");
-  }
-
-  @Test
   public void testExecutableNotInRunfiles() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(

@@ -108,7 +108,7 @@ def java_runtime_files(name, srcs):
             outs = [src],
         )
 
-def _bootclasspath_impl(ctx):
+def _bootclasspath(ctx):
     host_javabase = ctx.attr.host_javabase[java_common.JavaRuntimeInfo]
 
     # explicitly list output files instead of using TreeArtifact to work around
@@ -141,7 +141,7 @@ def _bootclasspath_impl(ctx):
         arguments = [args],
     )
 
-    bootclasspath = ctx.outputs.output_jar
+    bootclasspath = ctx.outputs.jar
 
     inputs = class_outputs + ctx.files.host_javabase
 
@@ -166,13 +166,9 @@ def _bootclasspath_impl(ctx):
         outputs = [bootclasspath],
         arguments = [args],
     )
-    return [
-        DefaultInfo(files = depset([bootclasspath])),
-        OutputGroupInfo(jar = [bootclasspath]),
-    ]
 
-_bootclasspath = rule(
-    implementation = _bootclasspath_impl,
+bootclasspath = rule(
+    implementation = _bootclasspath,
     attrs = {
         "host_javabase": attr.label(
             cfg = "host",
@@ -185,13 +181,6 @@ _bootclasspath = rule(
         "target_javabase": attr.label(
             providers = [java_common.JavaRuntimeInfo],
         ),
-        "output_jar": attr.output(mandatory = True),
     },
+    outputs = {"jar": "%{name}.jar"},
 )
-
-def bootclasspath(name, **kwargs):
-    _bootclasspath(
-        name = name,
-        output_jar = name + ".jar",
-        **kwargs
-    )
