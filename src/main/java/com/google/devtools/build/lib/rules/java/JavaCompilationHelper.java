@@ -263,7 +263,7 @@ public final class JavaCompilationHelper {
     if (!attributes.getBootClassPath().isEmpty()) {
       return attributes.getBootClassPath();
     } else {
-      return getBootClasspath();
+      return getBootClasspath(javaToolchain);
     }
   }
 
@@ -756,16 +756,12 @@ public final class JavaCompilationHelper {
    * Returns the javac bootclasspath artifacts from the given toolchain (if it has any) or the rule.
    */
   public static ImmutableList<Artifact> getBootClasspath(JavaToolchainProvider javaToolchain) {
-    return ImmutableList.copyOf(javaToolchain.getBootclasspath());
-  }
-
-  private ImmutableList<Artifact> getBootClasspath() {
-    return ImmutableList.copyOf(javaToolchain.getBootclasspath());
+    return javaToolchain.getBootclasspath().toList();
   }
 
   /** Returns the extdir artifacts. */
   private final ImmutableList<Artifact> getExtdirInputs() {
-    return ImmutableList.copyOf(javaToolchain.getExtclasspath());
+    return javaToolchain.getExtclasspath().toList();
   }
 
   /**
