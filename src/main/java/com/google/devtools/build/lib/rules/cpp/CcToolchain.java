@@ -69,8 +69,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     // This is a platforms-backed build, we will not analyze cc_toolchain_suite at all, and we are
     // sure current cc_toolchain is the one selected. We can create CcToolchainProvider here.
     CcToolchainProvider ccToolchainProvider =
-        CcToolchainProviderHelper.getCcToolchainProvider(
-            ruleContext, attributes, /* crosstoolFromCcToolchainSuiteProtoAttribute= */ null);
+        CcToolchainProviderHelper.getCcToolchainProvider(ruleContext, attributes);
 
     if (ccToolchainProvider == null) {
       // Skyframe restart

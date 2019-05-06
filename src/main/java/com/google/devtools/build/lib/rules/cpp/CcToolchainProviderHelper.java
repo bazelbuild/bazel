@@ -32,21 +32,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportFunction.CcSkyframeCrosstoolSupportException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /** Helper responsible for creating CcToolchainProvider */
 public class CcToolchainProviderHelper {
@@ -65,57 +56,19 @@ public class CcToolchainProviderHelper {
   private static final String PACKAGE_END = ")%";
 
   public static CcToolchainProvider getCcToolchainProvider(
-      RuleContext ruleContext,
-      CcToolchainAttributesProvider attributes,
-      CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute)
+      RuleContext ruleContext, CcToolchainAttributesProvider attributes)
       throws RuleErrorException, InterruptedException {
     BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
 
-    CToolchain toolchain = null;
-    CrosstoolRelease crosstoolFromCrosstoolFile = null;
-
-    if (attributes.getCcToolchainConfigInfo() == null) {
-      ruleContext.ruleError(
-          "cc_toolchain.toolchain_config attribute must be specified. See "
-              + "https://github.com/bazelbuild/bazel/issues/7320 for details.");
+    CppToolchainInfo toolchainInfo;
+    try {
+      toolchainInfo =
+          CppToolchainInfo.create(ruleContext.getLabel(), attributes.getCcToolchainConfigInfo());
+    } catch (EvalException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
     }
-
-    if (attributes.getCcToolchainConfigInfo() == null) {
-      // Is there a toolchain proto available on the target directly?
-      toolchain = parseToolchainFromAttributes(ruleContext, attributes);
-      PackageIdentifier packageWithCrosstoolInIt = null;
-      if (toolchain == null && crosstoolFromCcToolchainSuiteProtoAttribute == null) {
-        packageWithCrosstoolInIt = ruleContext.getLabel().getPackageIdentifier();
-      }
-      if (packageWithCrosstoolInIt != null) {
-        SkyKey crosstoolKey = CcSkyframeCrosstoolSupportValue.key(packageWithCrosstoolInIt);
-        SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-        try {
-          CcSkyframeCrosstoolSupportValue ccSkyframeCrosstoolSupportValue =
-              (CcSkyframeCrosstoolSupportValue)
-                  skyframeEnv.getValueOrThrow(
-                      crosstoolKey, CcSkyframeCrosstoolSupportException.class);
-          if (skyframeEnv.valuesMissing()) {
-            return null;
-          }
-          crosstoolFromCrosstoolFile = ccSkyframeCrosstoolSupportValue.getCrosstoolRelease();
-        } catch (CcSkyframeCrosstoolSupportException e) {
-          throw ruleContext.throwWithRuleError(e.getMessage());
-        }
-      }
-    }
-
-    CppToolchainInfo toolchainInfo =
-        getCppToolchainInfo(
-            ruleContext,
-            cppConfiguration.getTransformedCpuFromOptions(),
-            cppConfiguration.getCompilerFromOptions(),
-            attributes,
-            crosstoolFromCrosstoolFile,
-            toolchain,
-            crosstoolFromCcToolchainSuiteProtoAttribute);
 
     FdoContext fdoContext =
         FdoHelper.getFdoContext(
@@ -369,107 +322,6 @@ public class CcToolchainProviderHelper {
     }
 
     return libcTopLabel.getPackageFragment();
-  }
-
-  /** Finds an appropriate {@link CppToolchainInfo} for this target. */
-  private static CppToolchainInfo getCppToolchainInfo(
-      RuleContext ruleContext,
-      String cpuFromOptions,
-      String compilerFromOptions,
-      CcToolchainAttributesProvider attributes,
-      CrosstoolRelease crosstoolFromCrosstoolFile,
-      CToolchain toolchainFromCcToolchainAttribute,
-      CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute)
-      throws RuleErrorException, InterruptedException {
-
-    CcToolchainConfigInfo configInfo = attributes.getCcToolchainConfigInfo();
-
-    if (configInfo != null) {
-      try {
-        return CppToolchainInfo.create(ruleContext.getLabel(), configInfo);
-      } catch (EvalException e) {
-        throw ruleContext.throwWithRuleError(e.getMessage());
-      }
-    }
-
-    // Attempt to find a toolchain based on the target attributes, not the configuration.
-    CToolchain toolchain = toolchainFromCcToolchainAttribute;
-    if (toolchain == null) {
-      toolchain =
-          getToolchainFromAttributes(
-              ruleContext,
-              attributes,
-              cpuFromOptions,
-              compilerFromOptions,
-              crosstoolFromCcToolchainSuiteProtoAttribute,
-              crosstoolFromCrosstoolFile);
-    }
-
-    // If we found a toolchain, use it.
-    try {
-      toolchain =
-          CppToolchainInfo.addLegacyFeatures(
-              toolchain,
-              ruleContext
-                  .getAnalysisEnvironment()
-                  .getSkylarkSemantics()
-                  .incompatibleDoNotSplitLinkingCmdline(),
-              CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
-      CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.fromToolchain(toolchain);
-      return CppToolchainInfo.create(attributes.getCcToolchainLabel(), ccToolchainConfigInfo);
-    } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
-    }
-  }
-
-  @Nullable
-  private static CToolchain parseToolchainFromAttributes(
-      RuleContext ruleContext, CcToolchainAttributesProvider attributes) throws RuleErrorException {
-    String protoAttribute = StringUtil.emptyToNull(attributes.getProto());
-    if (protoAttribute == null) {
-      return null;
-    }
-
-    CToolchain.Builder builder = CToolchain.newBuilder();
-    try {
-      TextFormat.merge(protoAttribute, builder);
-      return builder.build();
-    } catch (ParseException e) {
-      throw ruleContext.throwWithAttributeError("proto", "Could not parse CToolchain data");
-    }
-  }
-
-  @Nullable
-  private static CToolchain getToolchainFromAttributes(
-      RuleContext ruleContext,
-      CcToolchainAttributesProvider attributes,
-      String cpuFromOptions,
-      String compilerFromOptions,
-      CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute,
-      CrosstoolRelease crosstoolFromCrosstoolFile)
-      throws RuleErrorException {
-    try {
-      CrosstoolRelease crosstoolRelease;
-      if (crosstoolFromCcToolchainSuiteProtoAttribute != null) {
-        // We have cc_toolchain_suite.proto attribute set, let's use it
-        crosstoolRelease = crosstoolFromCcToolchainSuiteProtoAttribute;
-      } else {
-        // We use the proto from the CROSSTOOL file
-        crosstoolRelease = crosstoolFromCrosstoolFile;
-      }
-
-      return CToolchainSelectionUtils.selectCToolchain(
-          attributes.getToolchainIdentifier(),
-          attributes.getCpu(),
-          attributes.getCompiler(),
-          cpuFromOptions,
-          compilerFromOptions,
-          crosstoolRelease);
-    } catch (InvalidConfigurationException e) {
-      ruleContext.throwWithRuleError(
-          String.format("Error while selecting cc_toolchain: %s", e.getMessage()));
-      return null;
-    }
   }
 
   private static ImmutableList<Artifact> getBuiltinIncludes(NestedSet<Artifact> libc) {
