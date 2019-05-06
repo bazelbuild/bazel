@@ -1772,7 +1772,7 @@ function DISABLED_test_java_test_timeout() {
   expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
 }
 
-function test_java_test_timeout_split_xml() {
+function DISABLED_test_java_test_timeout_split_xml() {
   write_java_timeout_test
   bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 \
       --experimental_split_xml_generation >& "$TEST_log" \
