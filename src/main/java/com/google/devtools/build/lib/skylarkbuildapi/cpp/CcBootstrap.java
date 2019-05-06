@@ -25,34 +25,32 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
  */
 public class CcBootstrap implements Bootstrap {
   private final BazelCcModuleApi<
-          ? extends SkylarkActionFactoryApi,
-          ? extends FileApi,
-          ? extends SkylarkRuleContextApi,
-          ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
-          ? extends FeatureConfigurationApi,
-          ? extends CcCompilationContextApi,
-          ? extends CcCompilationOutputsApi<? extends FileApi>,
-          ? extends CcLinkingOutputsApi<? extends FileApi>,
-          ? extends CcLinkingContextApi,
-          ? extends LibraryToLinkApi,
-          ? extends CcToolchainVariablesApi,
-          ? extends CcToolchainConfigInfoApi>
+      ? extends FileApi,
+      ? extends SkylarkRuleContextApi,
+      ? extends SkylarkActionFactoryApi,
+      ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
+      ? extends FeatureConfigurationApi,
+      ? extends CcCompilationContextApi,
+      ? extends CcCompilationOutputsApi,
+      ? extends CcLinkingContextApi,
+      ? extends LibraryToLinkApi,
+      ? extends CcToolchainVariablesApi,
+      ? extends CcToolchainConfigInfoApi>
       ccModule;
 
   public CcBootstrap(
       BazelCcModuleApi<
-              ? extends SkylarkActionFactoryApi,
-              ? extends FileApi,
-              ? extends SkylarkRuleContextApi,
-              ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
-              ? extends FeatureConfigurationApi,
-              ? extends CcCompilationContextApi,
-              ? extends CcCompilationOutputsApi<? extends FileApi>,
-              ? extends CcLinkingOutputsApi<? extends FileApi>,
-              ? extends CcLinkingContextApi,
-              ? extends LibraryToLinkApi,
-              ? extends CcToolchainVariablesApi,
-              ? extends CcToolchainConfigInfoApi>
+          ? extends FileApi,
+          ? extends SkylarkRuleContextApi,
+          ? extends SkylarkActionFactoryApi,
+          ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
+          ? extends FeatureConfigurationApi,
+          ? extends CcCompilationContextApi,
+          ? extends CcCompilationOutputsApi,
+          ? extends CcLinkingContextApi,
+          ? extends LibraryToLinkApi,
+          ? extends CcToolchainVariablesApi,
+          ? extends CcToolchainConfigInfoApi>
           ccModule) {
     this.ccModule = ccModule;
   }
