@@ -20,12 +20,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -52,12 +52,6 @@ import javax.annotation.Nullable;
  */
 public class PlatformMappingFunction implements SkyFunction {
 
-  private final BlazeDirectories blazeDirectories;
-
-  public PlatformMappingFunction(BlazeDirectories blazeDirectories) {
-    this.blazeDirectories = blazeDirectories;
-  }
-
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -66,7 +60,8 @@ public class PlatformMappingFunction implements SkyFunction {
     PathFragment workspaceRelativeMappingPath =
         platformMappingKey.getWorkspaceRelativeMappingPath();
 
-    Root workspaceRoot = Root.fromPath(blazeDirectories.getWorkspace());
+    PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+    Root workspaceRoot = Root.fromPath(pkgLocator.getWorkspaceFile().getParentDirectory());
     RootedPath rootedMappingPath =
         RootedPath.toRootedPath(workspaceRoot, workspaceRelativeMappingPath);
     FileValue fileValue = (FileValue) env.getValue(FileValue.key(rootedMappingPath));

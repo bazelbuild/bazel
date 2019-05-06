@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -50,8 +49,8 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
   // We don't actually care about the contents of this set other than that it is passed intact
   // through the mapping logic. The platform fragment in it is purely an example, it could be any
   // set of fragments.
-  private static final Set<Class<? extends BuildConfiguration.Fragment>> PLATFORM_FRAGMENT_CLASS =
-      ImmutableSet.of(PlatformConfiguration.class);
+  private static final ImmutableSet<Class<? extends BuildConfiguration.Fragment>>
+      PLATFORM_FRAGMENT_CLASS = ImmutableSet.of(PlatformConfiguration.class);
 
   private static final ImmutableList<Class<? extends FragmentOptions>>
       BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableList.of(CoreOptions.class, PlatformOptions.class);
@@ -105,6 +104,30 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMappingFileIsRead() throws Exception {
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --cpu=one");
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+
+    BuildConfigurationValue.Key mapped =
+        platformMappingValue.map(
+            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+
+    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+  }
+
+  @Test
+  public void testMappingFileIsRead_fromAlternatePackagePath() throws Exception {
+    scratch.setWorkingDir("/other/package/path");
+    scratch.file("WORKSPACE");
+    setPackageCacheOptions("--package_path=/other/package/path");
     scratch.file(
         "my_mapping_file",
         "platforms:", // Force line break
