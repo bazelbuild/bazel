@@ -379,9 +379,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-    ],
-    tags = [
-        "no_windows",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -408,9 +406,7 @@ sh_test(
         data = [
             ":test-deps",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        ],
-        tags = [
-            "no_windows",
+            "@bazel_tools//tools/bash/runfiles",
         ],
     )
     for java_version in JAVA_VERSIONS
@@ -437,9 +433,7 @@ sh_test(
             ":test-deps",
             "//src:java_tools_java" + java_version + "_zip",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        ],
-        tags = [
-            "no_windows",
+            "@bazel_tools//tools/bash/runfiles",
         ],
     )
     for java_version in JAVA_VERSIONS
