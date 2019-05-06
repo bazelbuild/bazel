@@ -61,9 +61,9 @@ genquery(
 # Create dummy tools so we can do select to prevent building iOS target on
 # Linux.
 OSX_DUMMY_TARGETS = [
-    "src/tools/xcode/actoolwrapper/actoolwrapper",
-    "src/tools/xcode/ibtoolwrapper/ibtoolwrapper",
-    "src/tools/xcode/momcwrapper/momcwrapper",
+    "src/tools/xcode/actoolwrapper/actoolwrapper.sh",
+    "src/tools/xcode/ibtoolwrapper/ibtoolwrapper.sh",
+    "src/tools/xcode/momcwrapper/momcwrapper.sh",
     "src/objc_tools/bundlemerge/bundlemerge_deploy.jar",
     "src/objc_tools/plmerge/plmerge_deploy.jar",
     "src/tools/xcode/realpath/realpath",
@@ -83,9 +83,9 @@ OSX_DUMMY_TARGETS = [
 filegroup(
     name = "darwin_tools",
     srcs = [
-        "//src/tools/xcode/actoolwrapper:actoolwrapper",
-        "//src/tools/xcode/ibtoolwrapper:ibtoolwrapper",
-        "//src/tools/xcode/momcwrapper:momcwrapper",
+        "//src/tools/xcode/actoolwrapper:actoolwrapper.sh",
+        "//src/tools/xcode/ibtoolwrapper:ibtoolwrapper.sh",
+        "//src/tools/xcode/momcwrapper:momcwrapper.sh",
         "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
         "//src/objc_tools/plmerge:plmerge_deploy.jar",
         "//src/tools/xcode/realpath:realpath",
