@@ -783,11 +783,6 @@ public final class SkyframeActionExecutor {
     this.actionInputPrefetcher = actionInputPrefetcher;
   }
 
-  /** A local interface to unify immediate and deferred action execution code paths. */
-  private interface ActionClosure {
-    ActionResult execute() throws ActionExecutionException, InterruptedException;
-  }
-
   /**
    * Temporary interface to allow delegation of action postprocessing to ActionExecutionFunction.
    * The current implementation requires access to local fields in ActionExecutionFunction.
