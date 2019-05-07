@@ -78,14 +78,6 @@ cc_binary(
     ],
 )
 
-# Directly re-export resources.o so it can be consumed in the client.
-cc_library(
-    name = "resources",
-    srcs = ["resources.o"],
-    linkstatic = 1,
-    visibility = ["//src/main/cpp:__pkg__"],
-)
-
 filegroup(
     name = "embedded_java_tools",
     srcs = [

@@ -79,7 +79,7 @@ cc_binary(
         "global_variables.h",
         "main.cc",
     ] + select({
-        "//src/conditions:windows": ["//src/main/native/windows:resources"],
+        "//src/conditions:windows": ["resources.o"],
         "//conditions:default": [],
     }),
     copts = select({
