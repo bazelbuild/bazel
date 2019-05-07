@@ -114,7 +114,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -146,7 +145,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "ppc",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -169,12 +167,38 @@ toolchain(
 )
 
 cc_toolchain(
+    name = "cc-compiler-s390x",
+    all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
+    compiler_files = ":empty",
+    dwp_files = ":empty",
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    strip_files = ":empty",
+    supports_param_files = 1,
+    toolchain_config = ":local_linux",
+    toolchain_identifier = "local_linux",
+)
+
+toolchain(
+    name = "cc-toolchain-s390x",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:s390x",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:s390x",
+    ],
+    toolchain = ":cc-compiler-s390x",
+    toolchain_type = ":toolchain_type",
+)
+
+cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     all_files = ":empty",
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -202,7 +226,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -232,7 +255,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":osx_wrapper",
-    cpu = "darwin",
     dwp_files = ":empty",
     linker_files = ":osx_wrapper",
     objcopy_files = ":empty",
@@ -268,7 +290,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -304,7 +325,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -340,7 +360,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":compile-x64_windows",
-    cpu = "x64_windows",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
