@@ -28,9 +28,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -131,43 +128,6 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
           actionExecutionContext.getVerboseFailures(),
           this);
     }
-  }
-
-  @Override
-  public final ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    ActionResult actionResult;
-    try {
-      DeterministicWriter deterministicWriter;
-      try {
-        deterministicWriter = newDeterministicWriter(actionExecutionContext);
-      } catch (IOException e) {
-        // Message is a bit misleading but is good enough for the end user.
-        throw new EnvironmentalExecException("failed to create file '"
-            + getPrimaryOutput().prettyPrint() + "' due to I/O error: " + e.getMessage(), e);
-      }
-      FileWriteActionContext context = getStrategy(actionExecutionContext);
-      try (SilentCloseable c =
-          Profiler.instance()
-              .profile(ProfilerTask.INFO, "FileWriteActionContext.writeOutputToFile")) {
-        actionResult =
-            ActionResult.create(
-                SpawnContinuation.completeBlocking(
-                    context.beginWriteOutputToFile(
-                        this,
-                        actionExecutionContext,
-                        deterministicWriter,
-                        makeExecutable,
-                        isRemotable())));
-      }
-    } catch (ExecException e) {
-      throw e.toActionExecutionException(
-          "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
-          actionExecutionContext.getVerboseFailures(),
-          this);
-    }
-    afterWrite(actionExecutionContext);
-    return actionResult;
   }
 
   /**
