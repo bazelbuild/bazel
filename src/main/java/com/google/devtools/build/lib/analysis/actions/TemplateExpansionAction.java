@@ -179,23 +179,6 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  public final ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    TemplateExpansionContext expansionContext =
-        actionExecutionContext.getContext(TemplateExpansionContext.class);
-    try {
-      return ActionResult.create(
-          SpawnContinuation.completeBlocking(
-              expansionContext.expandTemplate(this, actionExecutionContext)));
-    } catch (ExecException e) {
-      throw e.toActionExecutionException(
-          "Error expanding template '" + Label.print(getOwner().getLabel()) + "'",
-          actionExecutionContext.getVerboseFailures(),
-          this);
-    }
-  }
-
-  @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
