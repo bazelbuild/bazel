@@ -122,12 +122,48 @@ http_archive(
 )
 
 http_archive(
+    name = "openjdk9_darwin_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk9_windows_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-win_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64.zip",
+    ],
+)
+
+http_archive(
     name = "openjdk10_linux_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
     sha256 = "b3c2d762091a615b0c1424ebbd05d75cc114da3bf4f25a0dec5c51ea7e84146f",
     strip_prefix = "zulu10.2+3-jdk10.0.1-linux_x64",
     urls = [
         "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-linux_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk10_darwin_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk10_windows_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-win_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64.zip",
     ],
 )
 EOF
