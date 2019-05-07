@@ -57,8 +57,7 @@ import java.util.Spliterators;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import javax.annotation.Nullable;
 
 /**
  * CompactHashMap is an implementation of a Map. All optional operations (put and remove) are
@@ -174,7 +173,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
    *
    * <p>Its size must be a power of two.
    */
-  private transient int @MonotonicNonNull [] table;
+  private transient int[] table;
 
   /**
    * Contains the logical entries, in the range of [0, size()). The high 32 bits of each long is the
@@ -182,19 +181,19 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
    * next entry in the bucket chain). The pointers in [size(), entries.length) are all "null"
    * (UNSET).
    */
-  @VisibleForTesting transient long @MonotonicNonNull [] entries;
+  @VisibleForTesting transient long[] entries;
 
   /**
    * The keys of the entries in the map, in the range of [0, size()). The keys in [size(),
    * keys.length) are all {@code null}.
    */
-  @VisibleForTesting transient Object @MonotonicNonNull [] keys;
+  @VisibleForTesting transient Object[] keys;
 
   /**
    * The values of the entries in the map, in the range of [0, size()). The values in [size(),
    * values.length) are all {@code null}.
    */
-  @VisibleForTesting transient Object @MonotonicNonNull [] values;
+  @VisibleForTesting transient Object[] values;
 
   /**
    * Keeps track of modifications of this set, to make it possible to throw
@@ -571,7 +570,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     }
   }
 
-  private transient @MonotonicNonNull Set<K> keySetView;
+  private transient Set<K> keySetView;
 
   @Override
   public Set<K> keySet() {
@@ -649,7 +648,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     }
   }
 
-  private transient @MonotonicNonNull Set<Entry<K, V>> entrySetView;
+  private transient Set<Entry<K, V>> entrySetView;
 
   @Override
   public Set<Entry<K, V>> entrySet() {
@@ -793,7 +792,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     return false;
   }
 
-  private transient @MonotonicNonNull Collection<V> valuesView;
+  private transient Collection<V> valuesView;
 
   @Override
   public Collection<V> values() {

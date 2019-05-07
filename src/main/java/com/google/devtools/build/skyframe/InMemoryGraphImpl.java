@@ -15,14 +15,16 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -73,20 +75,21 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
   }
 
-  protected NodeEntry createIfAbsent(SkyKey key) {
-    NodeEntry newval = newNodeEntry(key);
-    NodeEntry oldval = nodeMap.putIfAbsent(key, newval);
-    return oldval == null ? newval : oldval;
-  }
+  /**
+   * This is used to call newNodeEntry() from within computeIfAbsent. Instantiated here to avoid
+   * lambda instantiation overhead.
+   */
+  @SuppressWarnings("UnnecessaryLambda")
+  private final Function<SkyKey, NodeEntry> newNodeEntryFunction = k -> newNodeEntry(k);
 
   @Override
   public Map<SkyKey, NodeEntry> createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
-    ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
+    Map<SkyKey, NodeEntry> result = CompactHashMap.createWithExpectedSize(Iterables.size(keys));
     for (SkyKey key : keys) {
-      builder.put(key, createIfAbsent(key));
+      result.put(key, nodeMap.computeIfAbsent(key, newNodeEntryFunction));
     }
-    return builder.build();
+    return result;
   }
 
   @Override
