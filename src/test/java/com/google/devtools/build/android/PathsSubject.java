@@ -58,27 +58,30 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
               .map(p -> String.format("(?:%s)", p))
               .collect(joining("|")));
 
+  private final Path actual;
+
   PathsSubject(FailureMetadata failureMetadata, @Nullable Path subject) {
     super(failureMetadata, subject);
+    this.actual = subject;
   }
 
   void exists() {
-    if (actual() == null) {
+    if (actual == null) {
       failWithoutActual(simpleFact("expected not to be null"));
     }
-    if (!Files.exists(getSubject())) {
+    if (!Files.exists(actual)) {
       failWithActual(simpleFact("expected to exist"));
     }
   }
 
   void containsAllArchivedFilesIn(String... paths) throws IOException {
-    if (actual() == null) {
+    if (actual == null) {
       failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
 
     assertThat(
-            new ZipFile(actual().toFile())
+            new ZipFile(actual.toFile())
                 .stream()
                     .map(ZipEntry::getName)
                     .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
@@ -87,36 +90,36 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
   }
 
   void containsExactlyArchivedFilesIn(String... paths) throws IOException {
-    if (actual() == null) {
+    if (actual == null) {
       failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
 
     assertThat(
-            new ZipFile(actual().toFile())
+            new ZipFile(actual.toFile())
                 .stream()
-                .map(ZipEntry::getName)
-                .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
-                .collect(Collectors.toSet()))
+                    .map(ZipEntry::getName)
+                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
+                    .collect(Collectors.toSet()))
         .containsExactly(Arrays.asList(paths));
   }
 
   void containsNoArchivedFilesIn(String... paths) throws IOException {
-    if (actual() == null) {
+    if (actual == null) {
       failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
     assertThat(
-            new ZipFile(actual().toFile())
+            new ZipFile(actual.toFile())
                 .stream()
-                .map(ZipEntry::getName)
-                .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
-                .collect(Collectors.toSet()))
+                    .map(ZipEntry::getName)
+                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
+                    .collect(Collectors.toSet()))
         .containsNoneIn(Arrays.asList(paths));
   }
 
   void xmlContentsIsEqualTo(String... contents) {
-    if (actual() == null) {
+    if (actual == null) {
       failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
@@ -128,7 +131,7 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
 
       assertThat(
               normalizeXml(
-                  newXmlDocument(factory, Files.readAllLines(getSubject(), StandardCharsets.UTF_8)),
+                  newXmlDocument(factory, Files.readAllLines(actual, StandardCharsets.UTF_8)),
                   transformer))
           .isEqualTo(normalizeXml(newXmlDocument(factory, Arrays.asList(contents)), transformer));
     } catch (IOException | SAXException | ParserConfigurationException | TransformerException e) {
@@ -153,7 +156,6 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
   }
 
   public void containsExactlyTheseLines(String... lines) throws IOException {
-    assertThat(Files.readAllLines(actual(), StandardCharsets.UTF_8))
-        .containsExactlyElementsIn(lines);
+    assertThat(Files.readAllLines(actual, StandardCharsets.UTF_8)).containsExactlyElementsIn(lines);
   }
 }

@@ -22,19 +22,20 @@ import javax.annotation.Nullable;
  * {@link Subject} for {@link CycleInfo}. Please add to this class if you need more functionality!
  */
 public class CycleInfoSubject extends Subject<CycleInfoSubject, CycleInfo> {
+  private final CycleInfo actual;
+
   CycleInfoSubject(FailureMetadata failureMetadata, @Nullable CycleInfo cycleInfo) {
     super(failureMetadata, cycleInfo);
+    this.actual = cycleInfo;
   }
 
   public IterableSubject hasPathToCycleThat() {
     return check("getPathToCycle()")
         .withMessage("Path to cycle in " + actualAsString())
-        .that(getSubject().getPathToCycle());
+        .that(actual.getPathToCycle());
   }
 
   public IterableSubject hasCycleThat() {
-    return check("getCycle()")
-        .withMessage("Cycle in " + actualAsString())
-        .that(getSubject().getCycle());
+    return check("getCycle()").withMessage("Cycle in " + actualAsString()).that(actual.getCycle());
   }
 }

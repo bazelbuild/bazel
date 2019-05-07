@@ -27,13 +27,16 @@ class UnwrittenMergedAndroidDataSubject
   static final Subject.Factory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>
       FACTORY = UnwrittenMergedAndroidDataSubject::new;
 
+  private final UnwrittenMergedAndroidData actual;
+
   public UnwrittenMergedAndroidDataSubject(
       FailureMetadata failureMetadata, @Nullable UnwrittenMergedAndroidData subject) {
     super(failureMetadata, subject);
+    this.actual = subject;
   }
 
   public void isEqualTo(UnwrittenMergedAndroidData expected) {
-    UnwrittenMergedAndroidData subject = getSubject();
+    UnwrittenMergedAndroidData subject = actual;
     if (!Objects.equal(subject, expected)) {
       if (subject == null) {
         assertThat(subject).isEqualTo(expected);

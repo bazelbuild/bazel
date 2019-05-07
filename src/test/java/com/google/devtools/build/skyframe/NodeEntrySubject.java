@@ -26,23 +26,26 @@ import javax.annotation.Nullable;
  * {@link Subject} for {@link NodeEntry}. Please add to this class if you need more functionality!
  */
 public class NodeEntrySubject extends Subject<NodeEntrySubject, NodeEntry> {
+  private final NodeEntry actual;
+
   NodeEntrySubject(FailureMetadata failureMetadata, NodeEntry nodeEntry) {
     super(failureMetadata, nodeEntry);
+    this.actual = nodeEntry;
   }
 
   public Subject<?, ?> hasVersionThat() {
-    return check("getVersion()").withMessage(detail("Version")).that(getSubject().getVersion());
+    return check("getVersion()").withMessage(detail("Version")).that(actual.getVersion());
   }
 
   public IterableSubject hasTemporaryDirectDepsThat() {
     return assertWithMessage(detail("TemporaryDirectDeps"))
-        .that(Iterables.concat(getSubject().getTemporaryDirectDeps()));
+        .that(Iterables.concat(actual.getTemporaryDirectDeps()));
   }
 
   public ComparableSubject<?, NodeEntry.DependencyState> addReverseDepAndCheckIfDone(
       @Nullable SkyKey reverseDep) throws InterruptedException {
     return assertWithMessage(detail("AddReverseDepAndCheckIfDone"))
-        .that(getSubject().addReverseDepAndCheckIfDone(reverseDep));
+        .that(actual.addReverseDepAndCheckIfDone(reverseDep));
   }
 
   private String detail(String descriptor) {

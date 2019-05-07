@@ -27,21 +27,24 @@ import java.util.Map;
 /** Testing Subject for comparing ParsedAndroidData instances. */
 class ParsedAndroidDataSubject extends Subject<ParsedAndroidDataSubject, ParsedAndroidData> {
 
+  private final ParsedAndroidData actual;
+
   public ParsedAndroidDataSubject(FailureMetadata failureMetadata, ParsedAndroidData actual) {
     super(failureMetadata, actual);
+    this.actual = actual;
   }
 
   public void isEqualTo(ParsedAndroidData expectation) {
     List<String> errors = new ArrayList<>();
     this.<DataAsset>compareDataValues(
-        actual().iterateAssetEntries(), expectation.iterateAssetEntries(), errors, "assets");
+        actual.iterateAssetEntries(), expectation.iterateAssetEntries(), errors, "assets");
     this.<DataResource>compareDataValues(
-        actual().iterateCombiningEntries(),
+        actual.iterateCombiningEntries(),
         expectation.iterateCombiningEntries(),
         errors,
         "combining");
     this.<DataResource>compareDataValues(
-        actual().iterateOverwritableEntries(),
+        actual.iterateOverwritableEntries(),
         expectation.iterateOverwritableEntries(),
         errors,
         "overwritable");
