@@ -225,11 +225,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected abstract T getNullConfiguredTarget(Label label) throws InterruptedException;
 
   @Nullable
-  ConfiguredTargetValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
+  public ConfiguredTargetValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
     return (ConfiguredTargetValue) walkableGraphSupplier.get().getValue(key);
   }
 
-  ImmutableSet<PathFragment> getBlacklistedPackagePrefixesPathFragments()
+  public ImmutableSet<PathFragment> getBlacklistedPackagePrefixesPathFragments()
       throws InterruptedException {
     return ((BlacklistedPackagePrefixesValue)
             walkableGraphSupplier.get().getValue(BlacklistedPackagePrefixesValue.key()))
@@ -248,7 +248,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     return targetPatternKey.getParsedPattern();
   }
 
-  ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {
+  public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {
     Map<SkyKey, T> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (T target : targets) {
       targetsByKey.put(getSkyKey(target), target);
@@ -494,14 +494,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       nulls = nullsBuilder.build();
     }
 
-    boolean isTopLevelTarget(Label label) {
+    public boolean isTopLevelTarget(Label label) {
       return nonNulls.containsKey(label) || nulls.contains(label);
     }
 
     // This method returns the configuration of a top-level target if it's not null-configured and
     // otherwise returns null (signifying it is null configured).
     @Nullable
-    BuildConfiguration getConfigurationForTopLevelTarget(Label label) {
+    public BuildConfiguration getConfigurationForTopLevelTarget(Label label) {
       Preconditions.checkArgument(
           isTopLevelTarget(label),
           "Attempting to get top-level configuration for non-top-level target %s.",

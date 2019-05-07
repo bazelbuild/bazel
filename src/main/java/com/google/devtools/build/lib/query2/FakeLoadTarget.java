@@ -34,7 +34,7 @@ public class FakeLoadTarget implements Target {
   private final Label label;
   private final Package pkg;
 
-  FakeLoadTarget(Label label, Package pkg) {
+  public FakeLoadTarget(Label label, Package pkg) {
     this.label = Preconditions.checkNotNull(label);
     this.pkg = Preconditions.checkNotNull(pkg);
   }

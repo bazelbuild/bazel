@@ -54,8 +54,7 @@ java_library(
     name = "Query2Tests_lib",
     srcs = glob(
         [
-            "*.java",
-            "engine/*.java",
+            "**/*.java",
         ],
         exclude = QUERY_TESTUTIL_SRCS,
     ),

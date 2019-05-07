@@ -9,12 +9,15 @@ filegroup(
 java_library(
     name = "query2",
     srcs = glob(
-        ["*.java"],
+        [
+            "*.java",
+            "aquery/*.java",
+            "cquery/*.java",
+            "query/*.java",
+        ],
         exclude = [
             "AbstractBlazeQueryEnvironment.java",
             "FakeLoadTarget.java",
-            "AqueryUtils.java",
-            "AqueryActionFilter.java",
         ],
     ),
     deps = [
@@ -53,13 +56,7 @@ java_library(
 java_library(
     name = "query-output",
     srcs = glob(
-        ["output/*.java"],
-        exclude = [
-            "output/AspectResolver.java",
-            "output/PresciseAspectResolver.java",
-            "output/ConservativeAspectResolver.java",
-            "output/NullAspectResolver.java",
-        ],
+        ["query/output/*.java"],
     ),
     deps = [
         ":abstract-blaze-query-env",
@@ -108,12 +105,7 @@ java_library(
 
 java_library(
     name = "aspect-resolver",
-    srcs = [
-        "output/AspectResolver.java",
-        "output/ConservativeAspectResolver.java",
-        "output/NullAspectResolver.java",
-        "output/PreciseAspectResolver.java",
-    ],
+    srcs = glob(["query/aspectresolvers/*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
@@ -150,8 +142,8 @@ java_library(
 java_library(
     name = "aquery-utils",
     srcs = [
-        "AqueryActionFilter.java",
-        "AqueryUtils.java",
+        "aquery/AqueryActionFilter.java",
+        "aquery/AqueryUtils.java",
     ],
     deps = [
         ":query-engine",

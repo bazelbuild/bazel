@@ -44,35 +44,30 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * <p>Visit the transitive closure of a label. Primarily used to "fault in"
- * packages to the packageProvider and ensure the necessary targets exists, in
- * advance of the configuration step, which is intolerant of missing
- * packages/targets.
+ * Visit the transitive closure of a label. Primarily used to "fault in" packages to the
+ * packageProvider and ensure the necessary targets exists, in advance of the configuration step,
+ * which is intolerant of missing packages/targets.
  *
- * <p>LabelVisitor loads packages concurrently where possible, to increase I/O
- * parallelism.  However, the public interface is not thread-safe: calls to
- * public methods should not be made concurrently.
+ * <p>LabelVisitor loads packages concurrently where possible, to increase I/O parallelism. However,
+ * the public interface is not thread-safe: calls to public methods should not be made concurrently.
  *
- * <p>LabelVisitor is stateful: It remembers the previous visitation and can
- * check its validity on subsequent calls to sync() instead of doing the normal
- * visitation.
+ * <p>LabelVisitor is stateful: It remembers the previous visitation and can check its validity on
+ * subsequent calls to sync() instead of doing the normal visitation.
  *
- * <p>TODO(bazel-team): (2009) a small further optimization could be achieved if we
- * create tasks at the package (not individual label) level, since package
- * loading is the expensive step.  This would require additional bookkeeping to
- * maintain the list of labels that we need to visit once a package becomes
- * available.  Profiling suggests that there is still a potential benefit to be
- * gained: when the set of packages is known a-priori, loading a set of packages
- * that took 20 seconds can be done under 5 in the sequential case or 7 in the
- * current (parallel) case.
+ * <p>TODO(bazel-team): (2009) a small further optimization could be achieved if we create tasks at
+ * the package (not individual label) level, since package loading is the expensive step. This would
+ * require additional bookkeeping to maintain the list of labels that we need to visit once a
+ * package becomes available. Profiling suggests that there is still a potential benefit to be
+ * gained: when the set of packages is known a-priori, loading a set of packages that took 20
+ * seconds can be done under 5 in the sequential case or 7 in the current (parallel) case.
  *
  * <h4>Concurrency</h4>
  *
- * <p>The sync() methods of this class is thread-compatible. The accessor
- * ({@link #hasVisited} and similar must not be called until the concurrent phase
- * is over, i.e. all external calls to visit() methods have completed.
+ * <p>The sync() methods of this class is thread-compatible. The accessor ({@link #hasVisited} and
+ * similar must not be called until the concurrent phase is over, i.e. all external calls to visit()
+ * methods have completed.
  */
-final class LabelVisitor {
+public final class LabelVisitor {
 
   /**
    * Attributes of a visitation which determine whether it is up-to-date or not.
@@ -165,7 +160,7 @@ final class LabelVisitor {
     this.edgeFilter = edgeFilter;
   }
 
-  boolean syncWithVisitor(
+  public boolean syncWithVisitor(
       ExtendedEventHandler eventHandler,
       Collection<Target> targetsToVisit,
       boolean keepGoing,
@@ -218,7 +213,7 @@ final class LabelVisitor {
     return result;
   }
 
-  boolean hasVisited(Label target) {
+  public boolean hasVisited(Label target) {
     return visitedTargets.containsKey(target);
   }
 

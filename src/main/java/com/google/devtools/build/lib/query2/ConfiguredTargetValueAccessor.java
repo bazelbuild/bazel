@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetAccessor;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -35,17 +36,18 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** A {@link TargetAccessor} for {@link ConfiguredTargetValue} objects.
+/**
+ * A {@link TargetAccessor} for {@link ConfiguredTargetValue} objects.
  *
- * Incomplete; we'll implement getLabelListAttr and getVisibility when needed.
+ * <p>Incomplete; we'll implement getLabelListAttr and getVisibility when needed.
  */
-class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredTargetValue> {
+public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredTargetValue> {
 
   private final WalkableGraph walkableGraph;
   private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
       configuredTargetKeyExtractor;
 
-  ConfiguredTargetValueAccessor(
+  public ConfiguredTargetValueAccessor(
       WalkableGraph walkableGraph,
       KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey> configuredTargetKeyExtractor) {
     this.walkableGraph = walkableGraph;
