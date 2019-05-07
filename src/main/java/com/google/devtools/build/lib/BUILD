@@ -29,6 +29,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:srcs",
         "//src/main/java/com/google/devtools/build/lib/clock:srcs",
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
+        "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect:srcs",
