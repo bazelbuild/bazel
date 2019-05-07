@@ -41,14 +41,31 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
 JAVA_TOOLCHAIN="$1"; shift
 add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
 
 JAVA_TOOLS_ZIP="$1"; shift
 
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-    JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
-    echo "JAVA_TOOLS_ZIP_FILE_URL=$JAVA_TOOLS_ZIP_FILE_URL"
+    if "$is_windows"; then
+        JAVA_TOOLS_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+    else
+        JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+    fi
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
@@ -115,20 +132,6 @@ http_archive(
 )
 EOF
 }
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
 
 function write_hello_library_files() {
   mkdir -p java/main
