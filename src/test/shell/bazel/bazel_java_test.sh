@@ -17,10 +17,43 @@
 # Tests the examples provided in Bazel
 #
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
 
 JAVA_TOOLCHAIN="$1"; shift
 add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
@@ -28,8 +61,11 @@ add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
 JAVA_TOOLS_ZIP="$1"; shift
 
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-    JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
-    echo "JAVA_TOOLS_ZIP_FILE_URL=$JAVA_TOOLS_ZIP_FILE_URL"
+    if "$is_windows"; then
+        JAVA_TOOLS_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+    else
+        JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+    fi
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
@@ -86,12 +122,48 @@ http_archive(
 )
 
 http_archive(
+    name = "openjdk9_darwin_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk9_windows_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-win_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64.zip",
+    ],
+)
+
+http_archive(
     name = "openjdk10_linux_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
     sha256 = "b3c2d762091a615b0c1424ebbd05d75cc114da3bf4f25a0dec5c51ea7e84146f",
     strip_prefix = "zulu10.2+3-jdk10.0.1-linux_x64",
     urls = [
         "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-linux_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk10_darwin_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk10_windows_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-win_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64.zip",
     ],
 )
 EOF
@@ -1687,118 +1759,6 @@ EOF
 
   bazel build java/com/google/foo:my_skylark_rule >& "$TEST_log" && fail "Unexpected success"
   expect_log "The value of use_ijar is True. Make sure the java_toolchain argument is valid."
-}
-
-function write_java_timeout_test() {
-  setup_javatest_support
-  mkdir -p javatests/com/google/timeout
-  touch javatests/com/google/timeout/{BUILD,TimeoutTests.java}
-
-  cat > javatests/com/google/timeout/TimeoutTests.java << EOF
-package com.google.timeout;
-
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-import org.junit.Test;
-
-@RunWith(JUnit4.class)
-public class TimeoutTests {
-
-  @Test
-  public void testPasses() throws InterruptedException { }
-
-  @Test
-  public void testTimesOut() throws InterruptedException {
-    // sleep more than 1 min
-    Thread.sleep(Long.MAX_VALUE);
-  }
-}
-EOF
-
-  cat > javatests/com/google/timeout/BUILD <<EOF
-java_test(
-  name = "TimeoutTests",
-  srcs = ["TimeoutTests.java"],
-  deps = ['//third_party:junit4'],
-  timeout = "short", # 1 min
-)
-EOF
-}
-
-# Test is flaky: b/123476045, https://github.com/bazelbuild/bazel/issues/7288
-function DISABLED_test_java_test_timeout() {
-  write_java_timeout_test
-  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 \
-      --noexperimental_split_xml_generation >& "$TEST_log" \
-      && fail "Unexpected success"
-  xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
-  [[ -s $xml_log ]] || fail "$xml_log was not present after test"
-  cat "$xml_log" > "$TEST_log"
-  expect_log "failures='2'"
-  expect_log "<failure message='Test cancelled' type='java.lang.Exception'>java.lang.Exception: Test cancelled"
-  expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
-}
-
-function test_java_test_timeout_split_xml() {
-  write_java_timeout_test
-  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 \
-      --experimental_split_xml_generation >& "$TEST_log" \
-      && fail "Unexpected success"
-  xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
-  [[ -s $xml_log ]] || fail "$xml_log was not present after test"
-  cat "$xml_log" > "$TEST_log"
-  expect_log "failures='2'"
-  expect_log "<failure message='Test cancelled' type='java.lang.Exception'>java.lang.Exception: Test cancelled"
-  expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
-}
-
-function test_wrapper_resolves_runfiles_to_subsuming_tree() {
-    setup_clean_workspace
-    set_up
-    mkdir -p java/com/google/runfiles/
-    cat <<'EOF' > java/com/google/runfiles/EchoRunfiles.java
-package com.google.runfiles;
-
-public class EchoRunfiles {
-   public static void main(String[] argv) {
-       System.out.println(System.getenv("JAVA_RUNFILES"));
-   }
-}
-EOF
-    cat <<'EOF' > java/com/google/runfiles/BUILD
-java_binary(
-    name = 'EchoRunfiles',
-    srcs = ['EchoRunfiles.java'],
-    visibility = ['//visibility:public'],
-)
-EOF
-    # The workspace name is initialized in testenv.sh; use that var rather than
-    # hardcoding it here. The extra sed pass is so we can selectively expand
-    # that one var while keeping the rest of the heredoc literal.
-    cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > check_runfiles.sh << 'EOF'
-#!/bin/sh -eu
-unset JAVA_RUNFILES # Force the wrapper script to recompute it.
-subrunfiles=`$TEST_SRCDIR/{{WORKSPACE_NAME}}/java/com/google/runfiles/EchoRunfiles`
-if [ $subrunfiles != $TEST_SRCDIR ]; then
-  echo $subrunfiles
-  echo "DOES NOT MATCH"
-  echo $TEST_SRCDIR
-  exit 1
-fi
-EOF
-    chmod u+x check_runfiles.sh
-    cat <<'EOF' > BUILD
-sh_test(
-    name = 'check_runfiles',
-    srcs = ['check_runfiles.sh'],
-    data = ['//java/com/google/runfiles:EchoRunfiles'],
-)
-EOF
-
-    # Create a runfiles tree for EchoRunfiles.
-    bazel build //java/com/google/runfiles:EchoRunfiles
-    # We're testing a formerly non-hermetic interaction, so disable the sandbox.
-    bazel test --spawn_strategy=standalone --test_output=errors :check_runfiles
 }
 
 function test_java_info_constructor_e2e() {

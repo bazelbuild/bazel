@@ -134,7 +134,21 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java_test_no_windows",
+    size = "large",
+    timeout = "eternal",
+    srcs = ["bazel_java_test_no_windows.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_java_test",
+    # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
@@ -142,11 +156,9 @@ sh_test(
         "@bazel_tools//tools/jdk:toolchain",
         "released",
     ],
-    data = [":test-deps"],
-    tags = [
-        # TODO(laszlocsomor): make this run on Windows. Currently fails because
-        # the java_common provider doesn't work on Windows.
-        "no_windows",
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -158,18 +170,21 @@ sh_test(
     args = select({
         "//src/conditions:darwin": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
         "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
+        "//src/conditions:windows": ["@remote_java_tools_javac9_test_windows//:toolchain"],
         "//src/conditions:linux_x86_64": ["@remote_java_tools_javac9_test_linux//:toolchain"],
     }) + [
         # java_tools zip to test
         "released",
         # --javabase value
-        "@openjdk9_linux_archive//:runtime",
-    ],
-    data = [":test-deps"],
-    tags = [
-        # TODO(laszlocsomor): make this run on Windows. Currently fails because
-        # the java_common provider doesn't work on Windows.
-        "no_windows",
+    ] + select({
+        "//src/conditions:darwin": ["@openjdk9_darwin_archive//:runtime"],
+        "//src/conditions:darwin_x86_64": ["@openjdk9_darwin_archive//:runtime"],
+        "//src/conditions:windows": ["@openjdk9_windows_archive//:runtime"],
+        "//src/conditions:linux_x86_64": ["@openjdk9_linux_archive//:runtime"],
+    }),
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -184,16 +199,16 @@ sh_test(
         # java_tools zip to test
         "src/java_tools_java9.zip",
         # --javabase value
-        "@openjdk9_linux_archive//:runtime",
-    ],
+    ] + select({
+        "//src/conditions:darwin": ["@openjdk9_darwin_archive//:runtime"],
+        "//src/conditions:darwin_x86_64": ["@openjdk9_darwin_archive//:runtime"],
+        "//src/conditions:windows": ["@openjdk9_windows_archive//:runtime"],
+        "//src/conditions:linux_x86_64": ["@openjdk9_linux_archive//:runtime"],
+    }),
     data = [
         ":test-deps",
         "//src:java_tools_java9_zip",
-    ],
-    tags = [
-        # TODO(laszlocsomor): make this run on Windows. Currently fails because
-        # the java_common provider doesn't work on Windows.
-        "no_windows",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -208,16 +223,16 @@ sh_test(
         # java_tools zip to test
         "src/java_tools_java10.zip",
         # --javabase value
-        "@openjdk10_linux_archive//:runtime",
-    ],
+    ] + select({
+        "//src/conditions:darwin": ["@openjdk10_darwin_archive//:runtime"],
+        "//src/conditions:darwin_x86_64": ["@openjdk10_darwin_archive//:runtime"],
+        "//src/conditions:windows": ["@openjdk10_windows_archive//:runtime"],
+        "//src/conditions:linux_x86_64": ["@openjdk10_linux_archive//:runtime"],
+    }),
     data = [
         ":test-deps",
         "//src:java_tools_java10_zip",
-    ],
-    tags = [
-        # TODO(laszlocsomor): make this run on Windows. Currently fails because
-        # the java_common provider doesn't work on Windows.
-        "no_windows",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
