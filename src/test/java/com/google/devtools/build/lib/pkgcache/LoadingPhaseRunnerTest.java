@@ -789,7 +789,7 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.hasError()).isTrue();
     ParsingFailedEvent event = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(event.getPattern()).isEqualTo("//does_not_exist");
-    assertThat(event.getMessage()).contains("BUILD file not found on package path");
+    assertThat(event.getMessage()).contains("BUILD file not found");
   }
 
   @Test

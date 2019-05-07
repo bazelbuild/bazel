@@ -2051,6 +2051,42 @@ EOF
   expect_log 'path/to/workspace/path/to'
 }
 
+function test_report_package_external() {
+  # Verify that a useful error message is shown for a BUILD
+  # file not found at the expected location in an external repository.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir -p ext/path/too/deep
+  echo 'data' > ext/path/too/deep/foo.txt
+  echo 'exports_files(["deep/foo.txt"])' > ext/path/too/BUILD
+  tar cvf ext.tar ext
+  rm -rf ext
+
+  mkdir -p path/to/workspace
+  cd path/to/workspace
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  urls=["file://${WRKDIR}/ext.tar"],
+)
+EOF
+  cat > BUILD <<EOF
+genrule(
+  name = "it",
+  outs = ["it.txt"],
+  srcs = ["@ext//path/too/deep:foo.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:it > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+
+  expect_log 'BUILD file not found.*path/too/deep'
+}
+
 function test_location_reported() {
   # Verify that some useful information is provided about where
   # a failing repository definition occurred.

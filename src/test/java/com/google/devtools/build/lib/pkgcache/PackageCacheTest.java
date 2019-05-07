@@ -218,8 +218,7 @@ public class PackageCacheTest extends FoundationTestCase {
 
   @Test
   public void testGetNonexistentPackage() throws Exception {
-    checkGetPackageFails(
-        "not-there", "no such package 'not-there': " + "BUILD file not found on package path");
+    checkGetPackageFails("not-there", "no such package 'not-there': " + "BUILD file not found");
   }
 
   @Test
@@ -256,19 +255,16 @@ public class PackageCacheTest extends FoundationTestCase {
    */
   @Test
   public void testRepeatedAttemptsToParseMissingPackage() throws Exception {
-    checkGetPackageFails(
-        "missing", "no such package 'missing': " + "BUILD file not found on package path");
+    checkGetPackageFails("missing", "no such package 'missing': " + "BUILD file not found");
 
     // Still missing:
-    checkGetPackageFails(
-        "missing", "no such package 'missing': " + "BUILD file not found on package path");
+    checkGetPackageFails("missing", "no such package 'missing': " + "BUILD file not found");
 
     // Update the BUILD file on disk so "missing" is no longer missing:
     scratch.file("missing/BUILD", "# an ok build file");
 
     // Still missing:
-    checkGetPackageFails(
-        "missing", "no such package 'missing': " + "BUILD file not found on package path");
+    checkGetPackageFails("missing", "no such package 'missing': " + "BUILD file not found");
 
     invalidatePackages();
 

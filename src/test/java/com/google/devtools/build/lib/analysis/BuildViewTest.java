@@ -1242,9 +1242,9 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.removeHandler(failFastHandler);
     update(defaultFlags().with(Flag.KEEP_GOING), "//foo:foo");
     assertContainsEvent(
-        "every rule of type custom_rule implicitly depends upon the target '//bad2:label', but this"
-            + " target could not be found because of: no such package 'bad2': BUILD file not found "
-            + "on package path");
+        "every rule of type custom_rule implicitly depends upon the target '//bad2:label', but"
+            + " this target could not be found because of: no such package 'bad2': BUILD file not"
+            + " found");
     assertContainsEvent(
         "every rule of type custom_rule implicitly depends upon the target '//bad:label', but this "
             + "target could not be found because of: Target '//bad:label' contains an error and its"

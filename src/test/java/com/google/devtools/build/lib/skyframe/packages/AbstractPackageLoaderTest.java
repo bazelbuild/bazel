@@ -74,7 +74,7 @@ public abstract class AbstractPackageLoaderTest {
         assertThrows(NoSuchPackageException.class, () -> pkgLoader.loadPackage(pkgId));
     assertThat(expected)
         .hasMessageThat()
-        .isEqualTo("no such package 'nope': BUILD file not found on package path");
+        .startsWith("no such package 'nope': BUILD file not found");
     assertNoEvents(handler.getEvents());
   }
 
@@ -179,9 +179,7 @@ public abstract class AbstractPackageLoaderTest {
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("foo"));
     NoSuchPackageException expected =
         assertThrows(NoSuchPackageException.class, () -> pkgLoader.loadPackage(pkgId));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains("no such package 'foo': BUILD file not found on package path");
+    assertThat(expected).hasMessageThat().contains("no such package 'foo': BUILD file not found");
   }
 
   protected Path path(String rootRelativePath) {
