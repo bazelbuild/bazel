@@ -35,7 +35,7 @@ public interface PlatformInfoApi<
 
   static final String EXPERIMENTAL_WARNING =
       "<i>Note: This API is experimental and may change at any time. It is disabled by default, "
-          + "but may be enabled with <code>--experimental_platform_api</code></i>";
+          + "but may be enabled with <code>--experimental_platforms_api</code></i>";
 
   @SkylarkCallable(
       name = "label",
