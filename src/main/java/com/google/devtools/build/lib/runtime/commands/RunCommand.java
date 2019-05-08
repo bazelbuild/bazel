@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
@@ -79,6 +81,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -122,7 +125,27 @@ public class RunCommand implements BlazeCommand  {
               + "and the executable is connected to the terminal's stdin."
     )
     public PathFragment scriptPath;
+
+    @Option(
+        name = "incompatible_windows_bashless_run_command",
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+        },
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        },
+        defaultValue = "false",
+        help =
+            "On Windows: if true, the \"run\" command runs the binary directly instead of running "
+                + "through Bash; when false, then the binary is ran through Bash. On other "
+                + "platforms: no-op.")
+    public boolean bashlessRun;
   }
+
+  // Thrown when a method needs Bash but ShToolchain.getPath yields none.
+  private static final class NoShellFoundException extends Exception {}
 
   @VisibleForTesting
   public static final String SINGLE_TARGET_MESSAGE =
@@ -182,9 +205,15 @@ public class RunCommand implements BlazeCommand  {
     return args;
   }
 
-  private void constructCommandLine(List<String> cmdLine, List<String> prettyCmdLine,
-      CommandEnvironment env, PathFragment shellExecutable, ConfiguredTarget targetToRun,
-      ConfiguredTarget runUnderTarget, List<String> args) {
+  private void constructCommandLine(
+      List<String> cmdLine,
+      List<String> prettyCmdLine,
+      CommandEnvironment env,
+      BuildConfiguration configuration,
+      ConfiguredTarget targetToRun,
+      ConfiguredTarget runUnderTarget,
+      List<String> args)
+      throws NoShellFoundException {
     String productName = env.getRuntime().getProductName();
     Artifact executable = targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
 
@@ -219,6 +248,12 @@ public class RunCommand implements BlazeCommand  {
           runUnderValue += " " + ShellEscaper.escapeJoinAll(opts);
         }
       }
+
+      PathFragment shellExecutable = ShToolchain.getPath(configuration);
+      if (shellExecutable.isEmpty()) {
+        throw new NoShellFoundException();
+      }
+
       cmdLine.add(shellExecutable.getPathString());
       cmdLine.add("-c");
       cmdLine.add(runUnderValue + " " + executablePath.getPathString() + " "
@@ -350,18 +385,6 @@ public class RunCommand implements BlazeCommand  {
       }
     }
 
-    // TODO(laszlocsomor): change RunCommand to not require a shell and not write a shell script,
-    // then remove references to ShToolchain. See https://github.com/bazelbuild/bazel/issues/4319
-    PathFragment shExecutable = ShToolchain.getPath(configuration);
-    if (shExecutable.isEmpty()) {
-      env.getReporter()
-          .handle(
-              Event.error(
-                  "the \"run\" command needs a shell; use the --shell_executable=<path> flag "
-                      + "to specify its path, e.g. --shell_executable=/usr/local/bin/bash"));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
-    }
-
     Map<String, String> runEnvironment = new TreeMap<>();
     List<String> cmdLine = new ArrayList<>();
     List<String> prettyCmdLine = new ArrayList<>();
@@ -419,8 +442,18 @@ public class RunCommand implements BlazeCommand  {
     } else {
       workingDir = runfilesDir;
       List<String> args = computeArgs(env, targetToRun, commandLineArgs);
-      constructCommandLine(
-          cmdLine, prettyCmdLine, env, shExecutable, targetToRun, runUnderTarget, args);
+      try {
+        constructCommandLine(
+            cmdLine, prettyCmdLine, env, configuration, targetToRun, runUnderTarget, args);
+      } catch (NoShellFoundException e) {
+        env.getReporter()
+            .handle(
+                Event.error(
+                    "the \"run\" command needs a shell with \"--run_under\"; use the"
+                        + " --shell_executable=<path> flag to specify its path, e.g."
+                        + " --shell_executable=/bin/bash"));
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      }
     }
 
     if (runOptions.scriptPath != null) {
@@ -430,6 +463,18 @@ public class RunCommand implements BlazeCommand  {
           cmdLine,
           runEnvironment,
           workingDir.getPathString());
+
+      PathFragment shExecutable = ShToolchain.getPath(configuration);
+      if (shExecutable.isEmpty()) {
+        env.getReporter()
+            .handle(
+                Event.error(
+                    "the \"run\" command needs a shell with \"--script_path\"; use the"
+                        + " --shell_executable=<path> flag to specify its path, e.g."
+                        + " --shell_executable=/bin/bash"));
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      }
+
       if (writeScript(env, shExecutable, runOptions.scriptPath, unisolatedCommand)) {
         return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       } else {
@@ -458,12 +503,28 @@ public class RunCommand implements BlazeCommand  {
         .setWorkingDirectory(
             ByteString.copyFrom(workingDir.getPathString(), StandardCharsets.ISO_8859_1));
 
-    ImmutableList<String> shellCmdLine =
-        ImmutableList.<String>of(
-            shExecutable.getPathString(), "-c", ShellEscaper.escapeJoinAll(cmdLine));
+    if (OS.getCurrent() == OS.WINDOWS && runOptions.bashlessRun) {
+      String joinedCommands =
+          Joiner.on(" ").join(Iterables.transform(cmdLine, x -> ShellUtils.windowsEscapeArg(x)));
+      execDescription.addArgv(ByteString.copyFrom(joinedCommands, StandardCharsets.ISO_8859_1));
+    } else {
+      PathFragment shExecutable = ShToolchain.getPath(configuration);
+      if (shExecutable.isEmpty()) {
+        env.getReporter()
+            .handle(
+                Event.error(
+                    "the \"run\" command needs a shell with; use the --shell_executable=<path> "
+                        + "flag to specify the shell's path, e.g. --shell_executable=/bin/bash"));
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      }
 
-    for (String arg : shellCmdLine) {
-      execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));
+      ImmutableList<String> shellCmdLine =
+          ImmutableList.<String>of(
+              shExecutable.getPathString(), "-c", ShellEscaper.escapeJoinAll(cmdLine));
+
+      for (String arg : shellCmdLine) {
+        execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));
+      }
     }
 
     for (Map.Entry<String, String> variable : runEnvironment.entrySet()) {

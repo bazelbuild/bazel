@@ -66,6 +66,34 @@ class TestBase(unittest.TestCase):
 
   def tearDown(self):
     self.RunBazel(['shutdown'])
+    super(TestBase, self).tearDown()
+
+  def _AssertExitCodeIs(self,
+                        actual_exit_code,
+                        exit_code_pred,
+                        expectation_msg,
+                        stderr_lines,
+                        stdout_lines=None):
+    """Assert that `actual_exit_code` == `expected_exit_code`."""
+    if not exit_code_pred(actual_exit_code):
+      # If stdout was provided, include it in the output. This is mostly useful
+      # for tests.
+      stdout = ''
+      if stdout_lines:
+        stdout = '\n'.join([
+            '(start stdout)----------------------------------------',
+        ] + stdout_lines + [
+            '(end stdout)------------------------------------------',
+        ])
+
+      self.fail('\n'.join([
+          'Bazel exited with %d %s, stderr:' %
+          (actual_exit_code, expectation_msg),
+          stdout,
+          '(start stderr)----------------------------------------',
+      ] + (stderr_lines or []) + [
+          '(end stderr)------------------------------------------',
+      ]))
 
   def AssertExitCode(self,
                      actual_exit_code,
@@ -73,23 +101,19 @@ class TestBase(unittest.TestCase):
                      stderr_lines,
                      stdout_lines=None):
     """Assert that `actual_exit_code` == `expected_exit_code`."""
-    if actual_exit_code != expected_exit_code:
-      # If stdout was provided, include it in the output. This is mostly useful
-      # for tests.
-      stdout = '\n'.join([
-          '(start stdout)----------------------------------------',
-      ] + stdout_lines + [
-          '(end stdout)------------------------------------------',
-      ]) if stdout_lines is not None else ''
+    self._AssertExitCodeIs(actual_exit_code, lambda x: x == expected_exit_code,
+                           '(expected %d)' % expected_exit_code, stderr_lines,
+                           stdout_lines)
 
-      self.fail('\n'.join([
-          'Bazel exited with %d (expected %d), stderr:' % (actual_exit_code,
-                                                           expected_exit_code),
-          stdout,
-          '(start stderr)----------------------------------------',
-      ] + (stderr_lines or []) + [
-          '(end stderr)------------------------------------------',
-      ]))
+  def AssertNotExitCode(self,
+                        actual_exit_code,
+                        not_expected_exit_code,
+                        stderr_lines,
+                        stdout_lines=None):
+    """Assert that `actual_exit_code` != `not_expected_exit_code`."""
+    self._AssertExitCodeIs(
+        actual_exit_code, lambda x: x != not_expected_exit_code,
+        '(against expectations)', stderr_lines, stdout_lines)
 
   @staticmethod
   def GetEnv(name, default=None):
