@@ -532,6 +532,7 @@ abstract class AbstractParallelEvaluator {
         }
 
         if (maybeHandleRestart(skyKey, state, value)) {
+          cancelExternalDeps(env);
           // Top priority since this node has already been evaluating, so get it off our plate.
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MAX_VALUE);
           return;
@@ -716,15 +717,19 @@ abstract class AbstractParallelEvaluator {
         // underlying AbstractQueueVisitor in the registerExternalDeps call above, we have to make
         // sure that any known futures are correctly canceled if we do not reach that call. Note
         // that it is safe to cancel a future multiple times.
-        if (env != null && env.externalDeps != null) {
-          for (ListenableFuture<?> future : env.externalDeps) {
-            future.cancel(/*mayInterruptIfRunning=*/ true);
-          }
-        }
+        cancelExternalDeps(env);
         // InterruptedException cannot be thrown by Runnable.run, so we must wrap it.
         // Interrupts can be caught by both the Evaluator and the AbstractQueueVisitor.
         // The former will unwrap the IE and propagate it as is; the latter will throw a new IE.
         throw SchedulerException.ofInterruption(ie, skyKey);
+      }
+    }
+
+    private void cancelExternalDeps(SkyFunctionEnvironment env) {
+      if (env != null && env.externalDeps != null) {
+        for (ListenableFuture<?> future : env.externalDeps) {
+          future.cancel(/*mayInterruptIfRunning=*/ true);
+        }
       }
     }
 

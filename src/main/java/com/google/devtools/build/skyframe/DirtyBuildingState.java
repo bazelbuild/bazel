@@ -285,10 +285,16 @@ public abstract class DirtyBuildingState {
     return result.build();
   }
 
+  /**
+   * Resets counters that track evaluation state. May only be called when its corresponding node has
+   * no outstanding unsignaled deps, because otherwise this resetting and that signalling would
+   * race.
+   */
   final void resetForRestartFromScratch() {
     Preconditions.checkState(
         dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
     signaledDeps = 0;
+    externalDeps = 0;
     dirtyDirectDepIndex = 0;
   }
 
