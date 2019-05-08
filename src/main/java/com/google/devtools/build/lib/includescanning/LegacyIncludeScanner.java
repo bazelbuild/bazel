@@ -946,31 +946,51 @@ public class LegacyIncludeScanner implements IncludeScanner {
       } else {
         actualFuture = previous;
       }
-      return Futures.transformAsync(
-          actualFuture,
-          (inclusions) -> {
-            Preconditions.checkNotNull(inclusions, source);
-            // Shuffle the inclusions to get better parallelism. See b/62200470.
-            // Be careful not to modify the original collection! It's shared between any number of
-            // threads.
-            // TODO: Maybe we should shuffle before returning it to avoid the copy?
-            List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
-            Collections.shuffle(shuffledInclusions, CONSTANT_SEED_RANDOM);
 
-            // For each inclusion: get or locate its target file & recursively process
-            IncludeScannerHelper helper =
-                new IncludeScannerHelper(includePaths, quoteIncludePaths, source);
-            List<ListenableFuture<?>> allFutures = new ArrayList<>(shuffledInclusions.size());
-            for (Inclusion inclusion : shuffledInclusions) {
-              allFutures.add(
-                  findAndProcess(
-                      helper.createInclusionWithContext(inclusion, contextPathPos, contextKind),
-                      source,
-                      visited));
-            }
-            return Futures.allAsList(allFutures);
-          },
-          includePool);
+      if (actualFuture.isDone()) {
+        Collection<Inclusion> inclusions;
+        try {
+          inclusions = actualFuture.get();
+        } catch (ExecutionException e) {
+          return actualFuture;
+        }
+        return processInclusions(inclusions, source, contextPathPos, contextKind, visited);
+      } else {
+        return Futures.transformAsync(
+            actualFuture,
+            (inclusions) ->
+                processInclusions(inclusions, source, contextPathPos, contextKind, visited),
+            includePool);
+      }
+    }
+
+    private ListenableFuture<?> processInclusions(
+        Collection<Inclusion> inclusions,
+        Artifact source,
+        int contextPathPos,
+        Kind contextKind,
+        Set<Artifact> visited)
+        throws IOException, InterruptedException {
+      Preconditions.checkNotNull(inclusions, source);
+      // Shuffle the inclusions to get better parallelism. See b/62200470.
+      // Be careful not to modify the original collection! It's shared between any number of
+      // threads.
+      // TODO: Maybe we should shuffle before returning it to avoid the copy?
+      List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
+      Collections.shuffle(shuffledInclusions, CONSTANT_SEED_RANDOM);
+
+      // For each inclusion: get or locate its target file & recursively process
+      IncludeScannerHelper helper =
+          new IncludeScannerHelper(includePaths, quoteIncludePaths, source);
+      List<ListenableFuture<?>> allFutures = new ArrayList<>(shuffledInclusions.size());
+      for (Inclusion inclusion : shuffledInclusions) {
+        allFutures.add(
+            findAndProcess(
+                helper.createInclusionWithContext(inclusion, contextPathPos, contextKind),
+                source,
+                visited));
+      }
+      return Futures.allAsList(allFutures);
     }
 
     /** Visits an inclusion starting from a source file. */
