@@ -14,7 +14,6 @@
 """Rules for cloning external git repositories."""
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "update_attrs", "workspace_and_buildfile")
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "remove_dir")
 load("@bazel_tools//tools/build_defs/repo:git_worker.bzl", "git_repo")
 
 def _clone_or_update(ctx):
@@ -35,7 +34,7 @@ def _clone_or_update(ctx):
         dest_link = "{}/{}".format(directory, ctx.attr.strip_prefix)
         if not ctx.path(dest_link).exists:
             fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
-        remove_dir(ctx, root)
+        ctx.delete(root)
         ctx.symlink(dest_link, root)
 
     return {"commit": git_.commit, "shallow_since": git_.shallow_since}
@@ -79,13 +78,13 @@ def _new_git_repository_implementation(ctx):
     update = _clone_or_update(ctx)
     workspace_and_buildfile(ctx)
     patch(ctx)
-    remove_dir(ctx, ctx.path(".git"))
+    ctx.delete(ctx.path(".git"))
     return _update_git_attrs(ctx.attr, _new_git_repository_attrs.keys(), update)
 
 def _git_repository_implementation(ctx):
     update = _clone_or_update(ctx)
     patch(ctx)
-    remove_dir(ctx, ctx.path(".git"))
+    ctx.delete(ctx.path(".git"))
     return _update_git_attrs(ctx.attr, _common_attrs.keys(), update)
 
 new_git_repository = repository_rule(
