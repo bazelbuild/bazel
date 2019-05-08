@@ -439,12 +439,7 @@ class ExperimentalStateTracker {
 
   private ActionState getActionState(
       ActionExecutionMetadata action, Artifact actionId, long nanoTimeNow) {
-    ActionState state =
-        activeActions.computeIfAbsent(actionId, (key) -> new ActionState(action, nanoTimeNow));
-    checkState(
-        state.action == action,
-        "Inconsistent ActionExecutionMetadata objects across events for the same action");
-    return state;
+    return activeActions.computeIfAbsent(actionId, (key) -> new ActionState(action, nanoTimeNow));
   }
 
   void actionStarted(ActionStartedEvent event) {
