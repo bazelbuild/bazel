@@ -1,13 +1,13 @@
 package(
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/tools/remote:__pkg__"],
 )
 
 filegroup(
     name = "srcs",
-    testonly = 1,
+    testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__pkg__"],
+    visibility = ["//src/tools/remote:__pkg__"],
 )
 
 java_test(
