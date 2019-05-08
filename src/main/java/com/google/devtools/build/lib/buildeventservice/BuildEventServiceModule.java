@@ -23,12 +23,14 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
@@ -87,10 +89,18 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   private static final Logger logger = Logger.getLogger(BuildEventServiceModule.class.getName());
   private static final GoogleLogger googleLogger = GoogleLogger.forEnclosingClass();
 
+  /**
+   * TargetComplete BEP events scale with the value of --runs_per_tests, thus setting a very large
+   * value for can result in BEP events that are too big for BES to handle.
+   */
+  private static final int RUNS_PER_TEST_LIMIT = 100000;
+
   private BuildEventProtocolOptions bepOptions;
   private AuthAndTLSOptions authTlsOptions;
   private BuildEventStreamOptions besStreamOptions;
   private boolean useExperimentalUi;
+  private boolean isRunsPerTestOverTheLimit;
+
   /**
    * Holds the close futures for the upload of each transport with timeouts attached to them using
    * {@link #constructCloseFuturesMapWithTimeouts(ImmutableMap)} obtained from {@link
@@ -228,6 +238,13 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     this.useExperimentalUi =
         Preconditions.checkNotNull(parsingResult.getOptions(BlazeCommandEventHandler.Options.class))
             .experimentalUi;
+    this.isRunsPerTestOverTheLimit =
+        parsingResult.getOptions(TestOptions.class) != null
+            && parsingResult.getOptions(TestOptions.class).runsPerTest.stream()
+                .anyMatch(
+                    (perLabelOptions) ->
+                        Integer.parseInt(Iterables.getOnlyElement(perLabelOptions.getOptions()))
+                            > RUNS_PER_TEST_LIMIT);
 
     CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
     Supplier<BuildEventArtifactUploader> uploaderSupplier =
@@ -242,7 +259,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     // We need to wait for the previous invocation before we check the whitelist of commands to
     // allow completing previous runs using BES, for example:
     //   bazel build (..run with async BES..)
-    //   bazel info <-- Doesn't run with BES unless we wait before cheking the whitelist.
+    //   bazel info <-- Doesn't run with BES unless we wait before checking the whitelist.
     waitForPreviousInvocation();
 
     if (!whitelistedCommands(besOptions).contains(cmdEnv.getCommandName())) {
@@ -539,6 +556,21 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       CountingArtifactGroupNamer artifactGroupNamer) {
     if (Strings.isNullOrEmpty(besOptions.besBackend)) {
       clearBesClient();
+      return null;
+    }
+
+    if (isRunsPerTestOverTheLimit) {
+      String msg =
+          String.format(
+              "The value of --runs_per_test is bigger than %d and it will produce build events "
+                  + "that are too big for the Build Event Service to handle.",
+              RUNS_PER_TEST_LIMIT);
+      reportError(
+          cmdLineReporter,
+          cmdEnv.getBlazeModuleEnvironment(),
+          msg,
+          new OptionsParsingException(msg),
+          ExitCode.COMMAND_LINE_ERROR);
       return null;
     }
 

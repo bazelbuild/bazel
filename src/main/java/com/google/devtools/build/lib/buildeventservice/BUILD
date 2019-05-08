@@ -25,6 +25,7 @@ java_library(
     ],
     deps = [
         ":buildeventservice-options",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:out-err",
