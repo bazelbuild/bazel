@@ -178,6 +178,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> pluginList;
   private final boolean requireJavaToolchainHeaderCompilerDirect;
   private final boolean disallowResourceJars;
+  private final boolean disallowLegacyJavaToolchainFlags;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -244,6 +245,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
     this.requireJavaToolchainHeaderCompilerDirect =
         javaOptions.requireJavaToolchainHeaderCompilerDirect;
+    this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
       if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
@@ -389,6 +391,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       defaultLabel = "//tools/jdk:toolchain",
       defaultInToolRepository = true)
   public Label getToolchainLabel() {
+    if (disallowLegacyJavaToolchainFlags) {
+      throw new IllegalStateException("--java_toolchain is no longer supported");
+    }
     return toolchainLabel;
   }
 
