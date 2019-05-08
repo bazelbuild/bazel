@@ -408,17 +408,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new TestResult(action, data, /*cached*/ true, execRoot);
   }
 
-  private static void closeSuppressed(Throwable e, @Nullable Closeable c) {
-    if (c == null) {
-      return;
-    }
-    try {
-      c.close();
-    } catch (IOException e2) {
-      e.addSuppressed(e2);
-    }
-  }
-
   private final class StandaloneFailedAttemptResult implements FailedAttemptResult {
     private final TestResultData testResultData;
 
