@@ -127,7 +127,7 @@ public class RunCommand implements BlazeCommand  {
     public PathFragment scriptPath;
 
     @Option(
-        name = "incompatible_bashless_run_command",
+        name = "incompatible_windows_bashless_run_command",
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {
           OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,

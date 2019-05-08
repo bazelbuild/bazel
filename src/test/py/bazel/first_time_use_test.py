@@ -45,38 +45,57 @@ class FirstTimeUseTest(test_base.TestBase):
         'print("hello python")',
     ])
 
-    exit_code, stdout, stderr = self.RunBazel([
-        'run',
-        '--shell_executable=',
-        '--incompatible_bashless_run_command',
-        '//foo:x',
-    ])
-    self.AssertNotExitCode(exit_code, 0, stderr)
-    found_error = False
-    for line in stdout + stderr:
-      if 'ERROR' in line and 'needs a shell' in line:
-        found_error = True
-        break
-    if not found_error:
-      self._FailWithOutput(stdout + stderr)
-
     if test_base.TestBase.IsWindows():
         exit_code, stdout, stderr = self.RunBazel([
             'run',
             '--shell_executable=',
-            '--incompatible_bashless_run_command',
+            '--noincompatible_windows_bashless_run_command',
+            '//foo:x',
+        ])
+        self.AssertNotExitCode(exit_code, 0, stderr)
+        found_error = False
+        for line in stdout + stderr:
+            if 'ERROR' in line and 'needs a shell' in line:
+                found_error = True
+                break
+        if not found_error:
+            self._FailWithOutput(stdout + stderr)
+
+        exit_code, stdout, stderr = self.RunBazel([
+            'run',
+            '--shell_executable=',
+            '--incompatible_windows_bashless_run_command',
             '//foo:x',
         ])
         self.AssertExitCode(exit_code, 0, stderr)
         found_output = False
         for line in stdout + stderr:
-          if 'ERROR' in line and 'needs a shell' in line:
-            self._FailWithOutput(stdout + stderr)
-          if 'hello python' in line:
-            found_output = True
-            break
+            if 'ERROR' in line and 'needs a shell' in line:
+                self._FailWithOutput(stdout + stderr)
+            if 'hello python' in line:
+                found_output = True
+                break
         if not found_output:
-          self._FailWithOutput(stdout + stderr)
+            self._FailWithOutput(stdout + stderr)
+    else:
+        # The --incompatible_windows_bashless_run_command should be a no-op on
+        # platforms other than Windows.
+        for flag in ['--incompatible_windows_bashless_run_command',
+                     '--noincompatible_windows_bashless_run_command']:
+            exit_code, stdout, stderr = self.RunBazel([
+                'run',
+                '--shell_executable=',
+                flag,
+                '//foo:x',
+            ])
+            self.AssertNotExitCode(exit_code, 0, stderr)
+            found_error = False
+            for line in stdout + stderr:
+                if 'ERROR' in line and 'needs a shell' in line:
+                    found_error = True
+                    break
+            if not found_error:
+                self._FailWithOutput(["flag=" + flag] + stdout + stderr)
 
 
 if __name__ == '__main__':

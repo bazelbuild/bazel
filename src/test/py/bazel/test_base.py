@@ -84,8 +84,8 @@ class TestBase(unittest.TestCase):
       ]) if stdout_lines is not None else ''
 
       self.fail('\n'.join([
-          'Bazel exited with %d (%s), stderr:' % (actual_exit_code,
-                                                  expectation_msg),
+          'Bazel exited with %d %s, stderr:' % (actual_exit_code,
+                                                expectation_msg),
           stdout,
           '(start stderr)----------------------------------------',
       ] + (stderr_lines or []) + [
