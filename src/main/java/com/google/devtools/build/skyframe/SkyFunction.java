@@ -88,6 +88,9 @@ public interface SkyFunction {
    *
    * <p>Values of this type will <em>never</em> be returned by {@link Environment}'s getValue
    * methods or from {@link NodeEntry#getValue()}.
+   *
+   * <p>All {@link ListenableFuture}s used in calls to {@link Environment#dependOnFuture} which were
+   * not already complete will be cancelled.
    */
   interface Restart extends SkyValue {
     ImmutableGraph<SkyKey> EMPTY_SKYKEY_GRAPH =

@@ -691,8 +691,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void resetForRestartFromScratch() {
-    Preconditions.checkState(!isDone(), "Reset entry can't be done: %s", this);
-    Preconditions.checkState(isEvaluating());
+    Preconditions.checkState(isReady(), this);
     directDeps = null;
     dirtyBuildingState.resetForRestartFromScratch();
   }
