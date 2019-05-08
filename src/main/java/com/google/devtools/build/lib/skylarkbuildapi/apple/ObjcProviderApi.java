@@ -35,22 +35,6 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 )
 public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue {
 
-  @SkylarkCallable(
-      name = "asset_catalog",
-      structField = true,
-      doc =
-          "Asset catalog resource files.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> assetCatalog();
-
-  @SkylarkCallable(
-      name = "bundle_file",
-      structField = true,
-      doc =
-          "Files that are plopped into the final bundle at some arbitrary bundle path.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public SkylarkNestedSet bundleFile();
-
   @SkylarkCallable(name = "define",
       structField = true,
       doc = "A set of strings from 'defines' attributes. These are to be passed as '-D' flags to "
@@ -218,14 +202,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public NestedSet<FileApiT> multiArchLinkedBinaries();
 
-  @SkylarkCallable(
-      name = "root_merge_zip",
-      structField = true,
-      doc =
-          "Merge zips to include in the ipa and outside the bundle root.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> rootMergeZip();
-
   @SkylarkCallable(name = "sdk_dylib",
       structField = true,
       doc = "Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'."
@@ -256,22 +232,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       doc = "The library files in .framework directories that should be statically linked.")
   public NestedSet<FileApiT> staticFrameworkFile();
 
-  @SkylarkCallable(
-      name = "storyboard",
-      structField = true,
-      doc =
-          "Files for storyboard sources.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> storyboard();
-
-  @SkylarkCallable(
-      name = "strings",
-      structField = true,
-      doc =
-          "Files for strings source files.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> strings();
-
   @SkylarkCallable(name = "umbrella_header",
       structField = true,
       doc = "Clang umbrella header. Public headers are #included in umbrella headers to be "
@@ -287,31 +247,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
               + "In difference to regularly linked SDK frameworks, symbols from weakly linked "
               + "frameworks do not cause an error if they are not present at runtime.")
   public SkylarkNestedSet weakSdkFramework();
-
-  @SkylarkCallable(
-      name = "xcassets_dir",
-      structField = true,
-      doc =
-          "The set of all unique asset catalog directories (*.xcassets) containing files "
-              + "in 'asset_catalogs'.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public SkylarkNestedSet xcassetsDir();
-
-  @SkylarkCallable(
-      name = "xcdatamodel",
-      structField = true,
-      doc =
-          "Files that comprise the data models of the final linked binary.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> xcdatamodel();
-
-  @SkylarkCallable(
-      name = "xib",
-      structField = true,
-      doc =
-          ".xib resource files",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> xib();
 
   @SkylarkCallable(
       name = "framework_dir",

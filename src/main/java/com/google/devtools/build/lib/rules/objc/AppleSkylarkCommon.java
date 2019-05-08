@@ -185,8 +185,6 @@ public class AppleSkylarkCommon
       Boolean usesSwift,
       SkylarkDict<?, ?> kwargs,
       Environment environment) {
-    boolean disableObjcResourceKeys =
-        environment.getSemantics().incompatibleDisableObjcProviderResources();
     ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder(environment.getSemantics());
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
@@ -194,9 +192,6 @@ public class AppleSkylarkCommon
     for (Map.Entry<?, ?> entry : kwargs.entrySet()) {
       Key<?> key = ObjcProvider.getSkylarkKeyForString((String) entry.getKey());
       if (key != null) {
-        if (disableObjcResourceKeys && ObjcProvider.isDeprecatedResourceKey(key)) {
-          throw new IllegalArgumentException(String.format(BAD_KEY_ERROR, entry.getKey()));
-        }
         resultBuilder.addElementsFromSkylark(key, entry.getValue());
       } else if (entry.getKey().equals("providers")) {
         resultBuilder.addProvidersFromSkylark(entry.getValue());

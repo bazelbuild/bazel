@@ -196,25 +196,11 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
    */
   public static final Key<String> DEFINE = new Key<>(STABLE_ORDER, "define", String.class);
 
-  public static final Key<Artifact> ASSET_CATALOG =
-      new Key<>(STABLE_ORDER, "asset_catalog", Artifact.class);
-
-  /**
-   * Files that are plopped into the final bundle at some arbitrary bundle path. Do not include
-   * information about where the file originated from.
-   */
-  public static final Key<BundleableFile> BUNDLE_FILE =
-      new Key<>(STABLE_ORDER, "bundle_file", BundleableFile.class);
-
-  public static final Key<PathFragment> XCASSETS_DIR =
-      new Key<>(STABLE_ORDER, "xcassets_dir", PathFragment.class);
   public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER, "sdk_dylib", String.class);
   public static final Key<SdkFramework> SDK_FRAMEWORK =
       new Key<>(STABLE_ORDER, "sdk_framework", SdkFramework.class);
   public static final Key<SdkFramework> WEAK_SDK_FRAMEWORK =
       new Key<>(STABLE_ORDER, "weak_sdk_framework", SdkFramework.class);
-  public static final Key<Artifact> XCDATAMODEL =
-      new Key<>(STABLE_ORDER, "xcdatamodel", Artifact.class);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
 
   /**
@@ -248,17 +234,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       new Key<>(STABLE_ORDER, "merge_zip", Artifact.class);
 
   /**
-   * Merge zips to include in the ipa and outside the bundle root.
-   *
-   * e.g. For a bundle Test.ipa, unzipped content will be in:
-   *    Test.ipa/<unzipped>
-   *    Test.ipa/Payload
-   *    Test.ipa/Payload/Test.app
-   */
-  public static final Key<Artifact> ROOT_MERGE_ZIP =
-      new Key<>(STABLE_ORDER, "root_merge_zip", Artifact.class);
-
-  /**
    * Exec paths of {@code .framework} directories corresponding to frameworks to include in search
    * paths, but not to link.  These cause -F arguments (framework search paths) to be added to
    * each compile action, but do not cause -framework (link framework) arguments to be added to
@@ -285,12 +260,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       new Key<>(STABLE_ORDER, "dynamic_framework_file", Artifact.class);
 
   /**
-   * Bundles which should be linked in as a nested bundle to the final application.
-   */
-  public static final Key<Bundling> NESTED_BUNDLE =
-      new Key<>(STABLE_ORDER, "nested_bundle", Bundling.class);
-
-  /**
    * Debug artifacts that should be exported by the top-level target.
    */
   public static final Key<Artifact> EXPORTED_DEBUG_ARTIFACTS =
@@ -301,22 +270,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
    */
   public static final Key<Artifact> LINKMAP_FILE =
       new Key<>(STABLE_ORDER, "linkmap_file", Artifact.class);
-
-  /**
-   * Artifacts for storyboard sources.
-   */
-  public static final Key<Artifact> STORYBOARD =
-      new Key<>(STABLE_ORDER, "storyboard", Artifact.class);
-
-  /**
-   * Artifacts for .xib file sources.
-   */
-  public static final Key<Artifact> XIB = new Key<>(STABLE_ORDER, "xib", Artifact.class);
-
-  /**
-   * Artifacts for strings source files.
-   */
-  public static final Key<Artifact> STRINGS = new Key<>(STABLE_ORDER, "strings", Artifact.class);
 
   /** Linking information from cc dependencies. */
   public static final Key<LibraryToLink> CC_LIBRARY =
@@ -396,8 +349,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   /** All keys in ObjcProvider that will be passed in the corresponding Skylark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
       ImmutableList.<Key<?>>of(
-          ASSET_CATALOG,
-          BUNDLE_FILE,
           DEFINE,
           DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
@@ -421,32 +372,12 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
           MULTI_ARCH_DYNAMIC_LIBRARIES,
           MULTI_ARCH_LINKED_ARCHIVES,
           MULTI_ARCH_LINKED_BINARIES,
-          ROOT_MERGE_ZIP,
           SDK_DYLIB,
           SDK_FRAMEWORK,
           SOURCE,
           STATIC_FRAMEWORK_FILE,
-          STORYBOARD,
-          STRINGS,
           UMBRELLA_HEADER,
-          WEAK_SDK_FRAMEWORK,
-          XCASSETS_DIR,
-          XCDATAMODEL,
-          XIB);
-
-  /** Deprecated keys in ObjcProvider pertaining to resource files. */
-  static final ImmutableList<Key<?>> DEPRECATED_RESOURCE_KEYS =
-      ImmutableList.<Key<?>>of(
-          ASSET_CATALOG,
-          BUNDLE_FILE,
-          // TODO(kaipi): Add this back once we have migrated usages of merge_zip from custom rules.
-          // MERGE_ZIP,
-          ROOT_MERGE_ZIP,
-          STORYBOARD,
-          STRINGS,
-          XCASSETS_DIR,
-          XCDATAMODEL,
-          XIB);
+          WEAK_SDK_FRAMEWORK);
 
   /**
    * Keys that should be kept as directItems. This is limited to a few keys that have larger
@@ -463,17 +394,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
    */
   static final ImmutableSet<Key<?>> KEYS_FOR_DIRECT =
       ImmutableSet.<Key<?>>of(HEADER, MODULE_MAP, SOURCE);
-
-  @Override
-  public NestedSet<Artifact> assetCatalog() {
-    return get(ASSET_CATALOG);
-  }
-
-  @Override
-  public SkylarkNestedSet bundleFile() {
-    return (SkylarkNestedSet) ObjcProviderSkylarkConverters.convertToSkylark(
-        BUNDLE_FILE, get(BUNDLE_FILE));
-  }
 
   @Override
   public NestedSet<String> define() {
@@ -602,11 +522,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   }
 
   @Override
-  public NestedSet<Artifact> rootMergeZip() {
-    return get(ROOT_MERGE_ZIP);
-  }
-
-  @Override
   public NestedSet<String> sdkDylib() {
     return get(SDK_DYLIB);
   }
@@ -633,16 +548,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   }
 
   @Override
-  public NestedSet<Artifact> storyboard() {
-    return get(STORYBOARD);
-  }
-
-  @Override
-  public NestedSet<Artifact> strings() {
-    return get(STRINGS);
-  }
-
-  @Override
   public NestedSet<Artifact> umbrellaHeader() {
     return get(UMBRELLA_HEADER);
   }
@@ -651,21 +556,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   public SkylarkNestedSet weakSdkFramework() {
     return (SkylarkNestedSet) ObjcProviderSkylarkConverters.convertToSkylark(WEAK_SDK_FRAMEWORK,
         get(WEAK_SDK_FRAMEWORK));
-  }
-
-  @Override
-  public SkylarkNestedSet xcassetsDir() {
-    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(XCASSETS_DIR));
-  }
-
-  @Override
-  public NestedSet<Artifact> xcdatamodel() {
-    return get(XCDATAMODEL);
-  }
-
-  @Override
-  public NestedSet<Artifact> xib() {
-    return get(XIB);
   }
 
   /**
@@ -680,8 +570,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       CC_LIBRARY,
       // Flag enum is not exposed to skylark.
       FLAG,
-      // Bundle not exposed to skylark.
-      NESTED_BUNDLE,
       // CppModuleMap is not exposed to skylark.
       TOP_LEVEL_MODULE_MAP);
 
@@ -701,7 +589,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
           DYNAMIC_FRAMEWORK_FILE,
           FLAG,
           MERGE_ZIP,
-          ROOT_MERGE_ZIP,
           FRAMEWORK_SEARCH_PATH_ONLY,
           HEADER,
           INCLUDE,
@@ -724,10 +611,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       }
     }
     return null;
-  }
-
-  static boolean isDeprecatedResourceKey(Key<?> key) {
-    return DEPRECATED_RESOURCE_KEYS.contains(key);
   }
 
   /** Skylark constructor and identifier for ObjcProvider. */
@@ -806,14 +689,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
    */
   public boolean is(Flag flag) {
     return Iterables.contains(get(FLAG), flag);
-  }
-
-  /**
-   * Indicates whether this provider has any asset catalogs. This is true whenever some target in
-   * its transitive dependency tree specifies a non-empty {@code asset_catalogs} attribute.
-   */
-  public boolean hasAssetCatalogs() {
-    return !get(XCASSETS_DIR).isEmpty();
   }
 
   /** Returns the list of .a files required for linking that arise from objc libraries. */
