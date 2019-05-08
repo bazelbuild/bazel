@@ -425,7 +425,7 @@ function test_dump_after_discard_incrementality_data() {
 function test_query_after_discard_incrementality_data() {
   bazel build --nobuild --notrack_incremental_state //testing:mytest \
        >& "$TEST_log" || fail "Expected success"
-  bazel query --noexperimental_ui --output=label_kind //testing:mytest \
+  bazel query --experimental_ui_debug_all_events --output=label_kind //testing:mytest \
        >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: testing"
   expect_log "cc_test rule //testing:mytest"
@@ -452,19 +452,19 @@ function test_switch_back_and_forth() {
   readonly local server_pid="$(bazel info \
       --notrack_incremental_state server_pid 2> /dev/null)"
   [[ -z "$server_pid" ]] && fail "Couldn't get server pid"
-  bazel test --noexperimental_ui --notrack_incremental_state \
+  bazel test --experimental_ui_debug_all_events --notrack_incremental_state \
       //testing:mytest >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: testing"
-  bazel test --noexperimental_ui --notrack_incremental_state \
+  bazel test --experimental_ui_debug_all_events --notrack_incremental_state \
       //testing:mytest >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: testing"
-  bazel test --noexperimental_ui //testing:mytest >& "$TEST_log" \
+  bazel test --experimental_ui_debug_all_events //testing:mytest >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: testing"
-  bazel test --noexperimental_ui //testing:mytest >& "$TEST_log" \
+  bazel test --experimental_ui_debug_all_events //testing:mytest >& "$TEST_log" \
       || fail "Expected success"
   expect_not_log "Loading package: testing"
-  bazel test --noexperimental_ui --notrack_incremental_state \
+  bazel test --experimental_ui_debug_all_events --notrack_incremental_state \
       //testing:mytest >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: testing"
   readonly local new_server_pid="$(bazel info server_pid 2> /dev/null)"
