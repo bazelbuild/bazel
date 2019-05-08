@@ -64,7 +64,7 @@ public abstract class BugReport {
      * Perform all possible clean-up before crashing, posting events etc. so long as crashing isn't
      * significantly delayed or another crash isn't triggered.
      */
-    void cleanUpForCrash(int exitCode);
+    void cleanUpForCrash(ExitCode exitCode);
   }
 
   public static void setRuntime(BlazeRuntimeInterface newRuntime) {
@@ -141,8 +141,8 @@ public abstract class BugReport {
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
   public static void handleCrashWithoutSendingBugReport(
-      Throwable throwable, int exitCode, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ false, Integer.valueOf(exitCode), args);
+      Throwable throwable, ExitCode exitCode, String... args) {
+    handleCrash(throwable, /*sendBugReport=*/ false, exitCode, args);
   }
 
   /**
@@ -151,8 +151,8 @@ public abstract class BugReport {
    *
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
-  public static void handleCrash(Throwable throwable, int exitCode, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ true, Integer.valueOf(exitCode), args);
+  public static void handleCrash(Throwable throwable, ExitCode exitCode, String... args) {
+    handleCrash(throwable, /*sendBugReport=*/ true, exitCode, args);
   }
 
   /**
@@ -166,10 +166,9 @@ public abstract class BugReport {
   }
 
   private static void handleCrash(
-      Throwable throwable, boolean sendBugReport, @Nullable Integer exitCode, String... args) {
-    int exitCodeToUse = exitCode == null
-        ? getExitCodeForThrowable(throwable).getNumericExitCode()
-        : exitCode.intValue();
+      Throwable throwable, boolean sendBugReport, @Nullable ExitCode exitCode, String... args) {
+    ExitCode exitCodeToUse = exitCode == null ? getExitCodeForThrowable(throwable) : exitCode;
+    int numericExitCode = exitCodeToUse.getNumericExitCode();
     try {
       synchronized (LOCK) {
         if (IN_TEST) {
@@ -180,14 +179,14 @@ public abstract class BugReport {
           if (runtime != null) {
             runtime.cleanUpForCrash(exitCodeToUse);
           }
-          CustomExitCodePublisher.maybeWriteExitStatusFile(exitCodeToUse);
+          CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode);
         } finally {
           // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
           // trigger our Blaze crash handler (this method). Calling System#exit() here, would
           // therefore induce a deadlock. This call would block on the shutdown sequence completing,
           // but the shutdown sequence would in turn be blocked on this thread finishing. Instead,
           // exit fast via halt().
-          Runtime.getRuntime().halt(exitCodeToUse);
+          Runtime.getRuntime().halt(numericExitCode);
         }
       }
     } catch (Throwable t) {
@@ -204,7 +203,7 @@ public abstract class BugReport {
       System.err.println("Exception encountered during BugReport#handleCrash:");
       t.printStackTrace(System.err);
 
-      Runtime.getRuntime().halt(exitCodeToUse);
+      Runtime.getRuntime().halt(numericExitCode);
     }
   }
 

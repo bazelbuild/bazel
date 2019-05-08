@@ -208,7 +208,7 @@ public final class NestedSet<E> implements Iterable<E> {
         System.err.println(
             "An interrupted exception occurred during nested set deserialization, "
                 + "exiting abruptly.");
-        BugReport.handleCrash(e, ExitCode.INTERRUPTED.getNumericExitCode());
+        BugReport.handleCrash(e, ExitCode.INTERRUPTED);
         throw new IllegalStateException("Server should have shut down.", e);
       }
     } else {
