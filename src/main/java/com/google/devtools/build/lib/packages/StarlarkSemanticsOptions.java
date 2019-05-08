@@ -219,7 +219,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, disallow use of deprecated resource fields on the Objc provider.")
+      help = "Unused. Will be removed in future versions of Bazel.")
   public boolean incompatibleDisableObjcProviderResources;
 
   // For Bazel, this flag is a no-op. Bazel doesn't support built-in third party license checking

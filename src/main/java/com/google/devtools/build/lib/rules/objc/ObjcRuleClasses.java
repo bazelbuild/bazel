@@ -330,19 +330,8 @@ public class ObjcRuleClasses {
 
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
-  static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
-
-  static final FileType STORYBOARD_TYPE = FileType.of(".storyboard");
-
-  static final FileType XIB_TYPE = FileType.of(".xib");
-
   // TODO(bazel-team): Restrict this to actual header files only.
   static final FileTypeSet HDRS_TYPE = FileTypeSet.ANY_FILE;
-
-  static final FileTypeSet ENTITLEMENTS_TYPE =
-      FileTypeSet.of(FileType.of(".entitlements", ".plist"));
-
-  static final FileTypeSet STRINGS_TYPE = FileTypeSet.of(FileType.of(".strings"));
 
   /**
    * Coverage note files which contain information to reconstruct the basic block graphs and assign

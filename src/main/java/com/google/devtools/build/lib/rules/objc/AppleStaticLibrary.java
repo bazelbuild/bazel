@@ -49,21 +49,12 @@ import java.util.TreeMap;
 public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
   /**
-   * Set of {@link ObjcProvider} values which are propagated from dependencies to dependers by
-   * this rule.
+   * Set of {@link ObjcProvider} values which are propagated from dependencies to dependers by this
+   * rule.
    */
   private static final ImmutableSet<Key<?>> PROPAGATE_KEYS =
       ImmutableSet.<Key<?>>of(
-          ObjcProvider.ASSET_CATALOG,
-          ObjcProvider.BUNDLE_FILE,
-          ObjcProvider.SDK_DYLIB,
-          ObjcProvider.SDK_FRAMEWORK,
-          ObjcProvider.STORYBOARD,
-          ObjcProvider.STRINGS,
-          ObjcProvider.WEAK_SDK_FRAMEWORK,
-          ObjcProvider.XCDATAMODEL,
-          ObjcProvider.XIB,
-          ObjcProvider.XCASSETS_DIR);
+          ObjcProvider.SDK_DYLIB, ObjcProvider.SDK_FRAMEWORK, ObjcProvider.WEAK_SDK_FRAMEWORK);
 
   @VisibleForTesting
   static final String UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT =
