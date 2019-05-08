@@ -487,6 +487,17 @@ public abstract class TestStrategy implements TestActionContext {
         .handle(Event.progress(testAction.getProgressMessage()));
   }
 
+  protected static void closeSuppressed(Throwable e, @Nullable Closeable c) {
+    if (c == null) {
+      return;
+    }
+    try {
+      c.close();
+    } catch (IOException e2) {
+      e.addSuppressed(e2);
+    }
+  }
+
   /** Implements the --test_output=streamed option. */
   protected static class StreamedTestOutput implements Closeable {
     private final TestLogHelper.FilterTestHeaderOutputStream headerFilter;
