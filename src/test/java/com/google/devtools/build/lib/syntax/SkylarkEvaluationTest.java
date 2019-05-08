@@ -511,6 +511,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       return "with_args_and_kwargs(" + foo + ", " + argsString + ", " + kwargsString + ")";
     }
 
+    @SkylarkCallable(name = "raise_unchecked_exception", documented = false)
+    public void raiseUncheckedException() {
+      throw new InternalError("buggy code");
+    }
+
     @Override
     public String toString() {
       return "<mock>";
@@ -1309,6 +1314,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testCallingMethodThatRaisesUncheckedException() throws Exception {
+    update("mock", new Mock());
+    assertThrows(InternalError.class, () -> eval("mock.raise_unchecked_exception()"));
+  }
+
+  @Test
   public void testJavaFunctionWithExtraInterpreterParams() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1470,12 +1481,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaFunctionReturnsNullFails() throws Exception {
-    new SkylarkTest()
-        .update("mock", new Mock())
-        .testIfErrorContains(
-            "method invocation returned None,"
-                + " please file a bug report: nullfunc_failing(\"abc\", 1)",
-            "mock.nullfunc_failing('abc', 1)");
+    update("mock", new Mock());
+    IllegalStateException e =
+        assertThrows(IllegalStateException.class, () -> eval("mock.nullfunc_failing('abc', 1)"));
+    assertThat(e.getMessage()).contains("method invocation returned None");
   }
 
   @Test
@@ -1947,6 +1956,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "nullfunc_failing",
             "nullfunc_working",
             "proxy_methods_object",
+            "raise_unchecked_exception",
             "return_bad",
             "string",
             "string_list",

@@ -85,8 +85,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
 
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
-      DottedVersion.fromString(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
-
+      DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
   /**
    * Returns the configuration obtained by applying the apple crosstool configuration transtion to

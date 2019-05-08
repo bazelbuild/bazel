@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -1104,7 +1105,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
      * Add elements in toAdd with the given key from skylark. An error is thrown if toAdd is not an
      * appropriate SkylarkNestedSet.
      */
-    void addElementsFromSkylark(Key<?> key, Object skylarkToAdd) {
+    void addElementsFromSkylark(Key<?> key, Object skylarkToAdd) throws EvalException {
       Iterable<?> toAdd = ObjcProviderSkylarkConverters.convertToJava(key, skylarkToAdd);
       uncheckedAddAll(key, toAdd, this.items);
       if (ObjcProvider.KEYS_FOR_DIRECT.contains(key)) {
@@ -1117,16 +1118,18 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
      * ObjcProvider instances.
      */
     @SuppressWarnings("unchecked")
-    void addProvidersFromSkylark(Object toAdd) {
+    void addProvidersFromSkylark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
-        throw new IllegalArgumentException(
+        throw new EvalException(
+            null,
             String.format(
                 AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, EvalUtils.getDataTypeName(toAdd)));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
           if (!(toAddObject instanceof ObjcProvider)) {
-            throw new IllegalArgumentException(
+            throw new EvalException(
+                null,
                 String.format(
                     AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR,
                     EvalUtils.getDataTypeName(toAddObject)));
@@ -1138,21 +1141,22 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     }
 
     /**
-     * Adds the given providers from skylark, but propagate any normally-propagated items
-     * only to direct dependers. An error is thrown if toAdd is not an iterable of ObjcProvider
-     * instances.
+     * Adds the given providers from skylark, but propagate any normally-propagated items only to
+     * direct dependers. An error is thrown if toAdd is not an iterable of ObjcProvider instances.
      */
     @SuppressWarnings("unchecked")
-    void addDirectDepProvidersFromSkylark(Object toAdd) {
+    void addDirectDepProvidersFromSkylark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
-        throw new IllegalArgumentException(
+        throw new EvalException(
+            null,
             String.format(
                 AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, EvalUtils.getDataTypeName(toAdd)));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
           if (!(toAddObject instanceof ObjcProvider)) {
-            throw new IllegalArgumentException(
+            throw new EvalException(
+                null,
                 String.format(
                     AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR,
                     EvalUtils.getDataTypeName(toAddObject)));

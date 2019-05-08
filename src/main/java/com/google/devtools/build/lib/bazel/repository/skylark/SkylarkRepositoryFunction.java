@@ -146,12 +146,11 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       // all label-arguments can be resolved to paths.
       try {
         skylarkRepositoryContext.enforceLabelAttributes();
+      } catch (RepositoryMissingDependencyException e) {
+        // Missing values are expected; just restart before we actually start the rule
+        return null;
       } catch (EvalException e) {
-        if (e instanceof RepositoryMissingDependencyException) {
-          // Missing values are expected; just restart before we actually start the rule
-          return null;
-        }
-        // Other EvalExceptions indicate labels not referring to existing files. This is fine,
+        // EvalExceptions indicate labels not referring to existing files. This is fine,
         // as long as they are never resolved to files in the execution of the rule; we allow
         // non-strict rules. So now we have to start evaluating the actual rule, even if that
         // means the rule might get restarted for legitimate reasons.
@@ -192,18 +191,17 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
         }
       }
       env.getListener().post(resolved);
-    } catch (EvalException e) {
-      if (e.getCause() instanceof RepositoryMissingDependencyException) {
-        // A dependency is missing, cleanup and returns null
-        try {
-          if (outputDirectory.exists()) {
-            outputDirectory.deleteTree();
-          }
-        } catch (IOException e1) {
-          throw new RepositoryFunctionException(e1, Transience.TRANSIENT);
+    } catch (RepositoryMissingDependencyException e) {
+      // A dependency is missing, cleanup and returns null
+      try {
+        if (outputDirectory.exists()) {
+          outputDirectory.deleteTree();
         }
-        return null;
+      } catch (IOException e1) {
+        throw new RepositoryFunctionException(e1, Transience.TRANSIENT);
       }
+      return null;
+    } catch (EvalException e) {
       env.getListener()
           .handle(
               Event.error(

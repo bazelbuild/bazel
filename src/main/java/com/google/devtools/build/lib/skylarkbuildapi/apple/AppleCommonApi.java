@@ -279,32 +279,27 @@ public interface AppleCommonApi<
   public SplitTransitionProviderApi getMultiArchSplitProvider();
 
   @SkylarkCallable(
-    name = "new_objc_provider",
-    doc = "Creates a new ObjcProvider instance.",
-    parameters = {
-      @Param(
-        name = "uses_swift",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        positional = false,
-        doc = "Whether this provider should enable Swift support."
-      )
-    },
-    extraKeywords =
+      name = "new_objc_provider",
+      doc = "Creates a new ObjcProvider instance.",
+      parameters = {
         @Param(
-          name = "kwargs",
-          type = SkylarkDict.class,
-          defaultValue = "{}",
-          doc = "Dictionary of arguments."
-        ),
-    useEnvironment = true
-  )
+            name = "uses_swift",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = "Whether this provider should enable Swift support.")
+      },
+      extraKeywords =
+          @Param(
+              name = "kwargs",
+              type = SkylarkDict.class,
+              defaultValue = "{}",
+              doc = "Dictionary of arguments."),
+      useEnvironment = true)
   // This method is registered statically for skylark, and never called directly.
   public ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift,
-      SkylarkDict<?, ?> kwargs,
-      Environment environment);
+      Boolean usesSwift, SkylarkDict<?, ?> kwargs, Environment environment) throws EvalException;
 
   @SkylarkCallable(
     name = "new_dynamic_framework_provider",
@@ -403,17 +398,15 @@ public interface AppleCommonApi<
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "dotted_version",
-    doc = "Creates a new <a href=\"DottedVersion.html\">DottedVersion</a> instance.",
-    parameters = {
-      @Param(
-        name = "version",
-        type = String.class,
-        doc = "The string representation of the DottedVersion."
-      )
-    }
-  )
-  public DottedVersionApi<?> dottedVersion(String version);
+      name = "dotted_version",
+      doc = "Creates a new <a href=\"DottedVersion.html\">DottedVersion</a> instance.",
+      parameters = {
+        @Param(
+            name = "version",
+            type = String.class,
+            doc = "The string representation of the DottedVersion.")
+      })
+  public DottedVersionApi<?> dottedVersion(String version) throws EvalException;
 
   @SkylarkCallable(
     name = "objc_proto_aspect",
