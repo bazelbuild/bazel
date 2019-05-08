@@ -56,7 +56,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(runtime) -->
         A language-specific library that the generated code is compiled against.
-        The exact behavior is LANG_proto_librar-specific.
+        The exact behavior is LANG_proto_library-specific.
         Java, for example, should compile against the runtime.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("runtime", LABEL).allowedFileTypes())
