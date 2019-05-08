@@ -121,21 +121,3 @@ def update_attrs(orig, keys, override):
     result["name"] = orig.name
     result.update(override)
     return result
-
-def is_windows(ctx):
-    return ctx.os.name.lower().startswith("win")
-
-def remove_dir(ctx, dir_):
-    if not dir_.exists:
-        return
-    remove_cmd = ["rd", "/s", "/q", dir_] if is_windows(ctx) else ["rm", "-rf", dir_]
-
-    # Specify working directory as the parent of the directory that we are removing;
-    # otherwise it is going to fail on Windows.
-    st = ctx.execute(
-        remove_cmd,
-        environment = ctx.os.environ,
-        working_directory = str(dir_.dirname),
-    )
-    if st.return_code != 0:
-        fail("error removing directory '%s': %s" % (dir_, st.stderr))

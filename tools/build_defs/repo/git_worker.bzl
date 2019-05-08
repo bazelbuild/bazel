@@ -1,5 +1,3 @@
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "remove_dir")
-
 GitRepo = provider(
     doc = "TODO",
     fields = {
@@ -61,7 +59,7 @@ def git_repo(ctx, directory):
     return struct(commit = actual_commit, shallow_since = shallow_date)
 
 def _update(ctx, git_repo):
-    remove_dir(ctx, git_repo.directory)
+    ctx.delete(git_repo.directory)
 
     init(ctx, git_repo)
     add_origin(ctx, git_repo, ctx.attr.remote)
