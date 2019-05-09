@@ -393,7 +393,9 @@ EOF
   cat > BUILD <<'EOF'
 load("//:repo.bzl", "resolved")
 
-names = [entry["original_attributes"]["name"] for entry in resolved]
+names = [entry["original_attributes"]["name"]
+         for entry in resolved
+         if "native" not in entry]
 
 [
   genrule(
@@ -449,8 +451,9 @@ EOF
   cat > BUILD <<'EOF'
 load("//:repo.bzl", "resolved")
 
-names = [entry["original_attributes"]["name"] for entry in resolved]
-
+names = [entry["original_attributes"]["name"]
+         for entry in resolved
+         if "native" not in entry]
 [
   genrule(
    name = name,
@@ -1067,6 +1070,41 @@ EOF
 
   bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
         //:it || fail "Expected success"
+}
+
+test_toolchain_recorded() {
+  # Verify that the registration of toolchains is recorded in the resolved file
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
+  mkdir ext
+  touch ext/BUILD
+  cat > ext/toolchains.bzl <<'EOF'
+def ext_toolchains():
+  native.register_toolchains("@ext//:toolchain")
+EOF
+  tar cvf ext.tar ext
+  rm -rf ext
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${EXTREPODIR}/ext.tar"],
+)
+load("@ext//:toolchains.bzl", "ext_toolchains")
+ext_toolchains()
+EOF
+  touch BUILD
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+        --experimental_repository_resolved_file=resolved.bzl
+  echo; cat resolved.bzl; echo
+
+  grep 'register_toolchains.*ext//:toolchain' resolved.bzl \
+      || fail "tool chain not registered in resolved file"
 }
 
 test_definition_location_recorded() {
