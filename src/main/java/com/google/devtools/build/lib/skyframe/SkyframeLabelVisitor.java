@@ -84,20 +84,36 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
     if (!keepGoing) {
       // We may have multiple errors, but in non keep_going builds, we're obligated to print only
       // one of them.
-      Preconditions.checkState(!errors.isEmpty(), result);
-      Map.Entry<SkyKey, ErrorInfo> error = errors.iterator().next();
-      ErrorInfo errorInfo = error.getValue();
-      SkyKey topLevel = error.getKey();
-      Label topLevelLabel = ((TransitiveTargetKey) topLevel).getLabel();
-      if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
-        skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), topLevel, eventHandler);
-        errorAboutLoadingFailure(topLevelLabel, null, eventHandler);
-      } else if (isDirectErrorFromTopLevelLabel(topLevelLabel, labelsToVisit, errorInfo)) {
-        // An error caused by a non-top-level label has already been reported during error
-        // bubbling but an error caused by the top-level non-target label itself hasn't been
-        // reported yet. Note that errors from top-level targets have already been reported
-        // during target parsing.
-        errorAboutLoadingFailure(topLevelLabel, errorInfo.getException(), eventHandler);
+      if (!errors.isEmpty()) {
+        Map.Entry<SkyKey, ErrorInfo> error = errors.iterator().next();
+        ErrorInfo errorInfo = error.getValue();
+        SkyKey topLevel = error.getKey();
+        Label topLevelLabel = ((TransitiveTargetKey) topLevel).getLabel();
+        if (!errorInfo.getCycleInfo().isEmpty()) {
+          skyframeCyclesReporter
+              .get()
+              .reportCycles(errorInfo.getCycleInfo(), topLevel, eventHandler);
+          errorAboutLoadingFailure(topLevelLabel, null, eventHandler);
+        } else if (isDirectErrorFromTopLevelLabel(topLevelLabel, labelsToVisit, errorInfo)) {
+          // An error caused by a non-top-level label has already been reported during error
+          // bubbling but an error caused by the top-level non-target label itself hasn't been
+          // reported yet. Note that errors from top-level targets have already been reported
+          // during target parsing.
+          errorAboutLoadingFailure(topLevelLabel, errorInfo.getException(), eventHandler);
+        }
+      } else {
+        for (TransitiveTargetKey topLevelTransitiveTargetKey :
+            result.<TransitiveTargetKey>keyNames()) {
+          TransitiveTargetValue topLevelTransitiveTargetValue =
+              result.get(topLevelTransitiveTargetKey);
+          if (topLevelTransitiveTargetValue.getTransitiveRootCauses() != null) {
+            errorAboutLoadingFailure(
+                topLevelTransitiveTargetKey.getLabel(),
+                topLevelTransitiveTargetValue.getErrorLoadingTarget(),
+                eventHandler);
+            break;
+          }
+        }
       }
       return false;
     }

@@ -249,14 +249,6 @@ public class TransitiveTargetFunction
     return ((Rule) toTarget).getRuleClassObject().getAdvertisedProviders();
   }
 
-  @Override
-  TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
-      throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
-    return (TargetMarkerValue)
-        env.getValueOrThrow(
-            targetMarkerKey, NoSuchTargetException.class, NoSuchPackageException.class);
-  }
-
   private static void maybeReportErrorAboutMissingEdge(
       Target target, Label depLabel, NoSuchThingException e, EventHandler eventHandler) {
     if (e instanceof NoSuchTargetException) {
