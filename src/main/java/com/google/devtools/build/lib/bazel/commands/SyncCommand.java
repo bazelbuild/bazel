@@ -50,6 +50,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /** Syncs all repositories specified in the workspace file */
@@ -145,6 +146,7 @@ public final class SyncCommand implements BlazeCommand {
         }
         workspace = fileValue.next();
       }
+      env.getReporter().post(toolchainEvent(fileValue.getPackage().getRegisteredToolchains()));
       env.getReporter().post(new RepositoryOrderEvent(repositoryOrder.build()));
 
       // take all skylark workspace rules and get their values
@@ -232,6 +234,53 @@ public final class SyncCommand implements BlazeCommand {
             .put(
                 ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
                 ImmutableMap.<String, Object>of("name", name, "actual", actual))
+            .put(ResolvedHashesFunction.NATIVE, nativeCommand)
+            .build();
+      }
+    };
+  }
+
+  private ResolvedEvent toolchainEvent(List<String> toolchains) {
+    // For the name attribute we are in a slightly tricky situation, as the ResolvedEvents are
+    // designed for external repositories and hence are indexted by their unique
+    // names. Technically, however, the list of toolchains is not associated with ant external
+    // repository (but still a workspace command); so we take a name that syntactially can never
+    // be the name of a repository, as it starts with a '//'.
+    String name = "//external/toolchains";
+    StringBuilder nativeCommandBuilder = new StringBuilder().append("register_toolchains(");
+    boolean firstEntryAdded = false;
+    for (String toolchain : toolchains) {
+      if (firstEntryAdded) {
+        nativeCommandBuilder.append(", ");
+      }
+      nativeCommandBuilder.append(Printer.getPrinter().repr(toolchain));
+      firstEntryAdded = true;
+    }
+    nativeCommandBuilder.append(")");
+    String nativeCommand = nativeCommandBuilder.toString();
+
+    return new ResolvedEvent() {
+      @Override
+      public String getName() {
+        return name;
+      }
+
+      @Override
+      public Object getResolvedInformation() {
+        return ImmutableMap.<String, Object>builder()
+            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "register_toolchains")
+            .put(
+                ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                // The original attributes are a bit of a problem, as the arguments to
+                // register_toolchains do not at all look like those of a repository rule:
+                // they're all positional, and, in particular, there is no keyword argument
+                // called "name". A lot of uses of the resolved file, however, blindly assume
+                // that "name" is always part of the original arguments; so we provide our
+                // fake name here as well, and the actual arguments under the keyword "*args",
+                // which hopefully reminds everyone inspecting the file of the actual syntax of
+                // that rule. Note that the original arguments are always ignored when bazel uses
+                // a resolved file instead of a workspace file.
+                ImmutableMap.<String, Object>of("name", name, "*args", toolchains))
             .put(ResolvedHashesFunction.NATIVE, nativeCommand)
             .build();
       }
