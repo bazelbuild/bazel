@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.blackbox.tests.manageddirs;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
@@ -32,14 +31,6 @@ import org.junit.Test;
 
 /** Tests for managed directories. */
 public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
-  private static final List<String> FILES =
-      Lists.newArrayList(
-          "BUILD.test",
-          "WORKSPACE.test",
-          ".bazelignore",
-          "package.json",
-          "test_rule.bzl",
-          "use_node_modules.bzl");
   private Random random;
   private Integer currentDebugId;
 
@@ -341,14 +332,19 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private void generateProject() throws IOException {
-    for (String fileName : FILES) {
-      String text = ResourceFileLoader.loadResource(ManagedDirectoriesBlackBoxTest.class, fileName);
-      assertThat(text).isNotNull();
-      assertThat(text).isNotEmpty();
-      fileName =
-          fileName.endsWith(".test") ? fileName.substring(0, fileName.length() - 5) : fileName;
-      context().write(fileName, text);
-    }
+    writeProjectFile("BUILD.test", "BUILD");
+    writeProjectFile("WORKSPACE.test", "WORKSPACE");
+    writeProjectFile("bazelignore.test", ".bazelignore");
+    writeProjectFile("package.json", "package.json");
+    writeProjectFile("test_rule.bzl", "test_rule.bzl");
+    writeProjectFile("use_node_modules.bzl", "use_node_modules.bzl");
+  }
+
+  private void writeProjectFile(String oldName, String newName) throws IOException {
+    String text = ResourceFileLoader.loadResource(ManagedDirectoriesBlackBoxTest.class, oldName);
+    assertThat(text).isNotNull();
+    assertThat(text).isNotEmpty();
+    context().write(newName, text);
   }
 
   private void checkProjectFiles() throws IOException {
