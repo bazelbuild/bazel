@@ -79,7 +79,6 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
     FunctionPatchTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition, Rule rule) {
       super(starlarkDefinedConfigTransition);
-
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
       RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
       for (Attribute attribute : rule.getAttributes()) {
