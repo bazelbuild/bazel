@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
@@ -182,6 +184,15 @@ public final class RuleConfiguredTargetBuilder {
                 depCount, ruleContext.getConfiguration().analysisTestingDepsLimit()));
         return null;
       }
+    }
+
+    if (ruleContext.getRule().isBuildSetting()) {
+      BuildSetting buildSetting = ruleContext.getRule().getRuleClassObject().getBuildSetting();
+      Object defaultValue =
+          ruleContext
+              .attributes()
+              .get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSetting.getType());
+      addProvider(BuildSettingProvider.class, new BuildSettingProvider(buildSetting, defaultValue));
     }
 
     TransitiveInfoProviderMap providers = providersBuilder.build();

@@ -74,6 +74,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   public List<String> getOutputs() {
     return outputs;
   }
+  
 
   /**
    * Returns the location of the Starlark code responsible for determining the transition's changed

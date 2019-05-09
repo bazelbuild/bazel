@@ -195,6 +195,10 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     return ruleClass.hasAnalysisTestTransition();
   }
 
+  public boolean isBuildSetting() {
+    return ruleClass.getBuildSetting() != null;
+  }
+
   /**
    * Returns true iff there were errors while constructing this rule, such as
    * attributes with missing values or values of the wrong type.
