@@ -9,11 +9,17 @@ title: Installing Bazel on Windows
 
 *   64 bit Windows 7 or newer, or 64 bit Windows Server 2008 R2 or newer
 
-*   [MSYS2 shell](https://msys2.github.io/)
-
 *   [Microsoft Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
 
     These are common DLLs that Bazel needs. You may already have them installed.
+
+Bazel 0.24.x and older:
+
+*   [MSYS2 shell](https://msys2.github.io/)
+
+Bazel 0.25.0 and newer:
+
+*   MSYS2 is not always required. Read about [Using Bazel without Bash](windows.html#using-bazel-without-bash).
 
 ### Getting Bazel
 
