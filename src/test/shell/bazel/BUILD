@@ -236,6 +236,34 @@ sh_test(
     ],
 )
 
+[
+    sh_test(
+        name = "bazel_java_test_local_java_tools_jdk" + java_version,
+        size = "large",
+        timeout = "eternal",
+        srcs = ["bazel_java_test.sh"],
+        args = [
+            # --java_toolchain
+            "@local_java_tools//:toolchain",
+            # java_tools zip to test
+            "$(LOCAL_JAVA_TOOLS_ZIP_URL)",
+            # --javabase value
+        ] + select({
+            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
+            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+        }),
+        data = [
+            ":test-deps",
+            "@bazel_tools//tools/bash/runfiles",
+        ],
+        # This test is only run by the java_tools binaries pipeline.
+        tags = ["manual"],
+    )
+    for java_version in ("9", "10")
+]
+
 sh_test(
     name = "bazel_android_tools_test",
     size = "small",
