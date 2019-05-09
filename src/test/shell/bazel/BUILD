@@ -261,7 +261,7 @@ sh_test(
         # This test is only run by the java_tools binaries pipeline.
         tags = ["manual"]
     )
-    for java_version in (9, 10)
+    for java_version in ("9", "10")
 ]
 
 sh_test(
