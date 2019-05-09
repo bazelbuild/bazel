@@ -25,9 +25,9 @@ java_test(
     timeout = "moderate",
     srcs = ["manageddirs/ManagedDirectoriesBlackBoxTest.java"],
     resources = [
-        "manageddirs/.bazelignore",
         "manageddirs/BUILD.test",
         "manageddirs/WORKSPACE.test",
+        "manageddirs/bazelignore.test",
         "manageddirs/package.json",
         "manageddirs/test_rule.bzl",
         "manageddirs/use_node_modules.bzl",
