@@ -59,9 +59,10 @@ JAVA_TOOLCHAIN="$1"; shift
 add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
 
 JAVA_TOOLS_ZIP="$1"; shift
-
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-    if "$is_windows"; then
+    if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
+        JAVA_TOOLS_ZIP_FILE_URL="${JAVA_TOOLS_ZIP}"
+    elif "$is_windows"; then
         JAVA_TOOLS_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
     else
         JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
@@ -389,15 +390,6 @@ function test_strategy_picks_first_preferred_local() {
     --spawn_strategy=local,worker &> $TEST_log || fail "build failed"
   expect_not_log " processes: .*worker"
   expect_log " processes: .*local"
-}
-
-# This test builds a simple java deploy jar using remote singlejar and ijar
-# targets which compile them from source.
-function test_build_hello_world_with_remote_embedded_tool_targets() {
-  write_hello_library_files
-
-  bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
-    &> $TEST_log || fail "build failed"
 }
 
 # This test verifies that jars named by deploy_env are excluded from the final

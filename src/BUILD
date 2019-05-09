@@ -704,8 +704,6 @@ genrule(
         name = "upload_java_tools_java" + java_version,
         srcs = ["upload_java_tools.sh"],
         args = [
-            "--java_tools_zip",
-            "src/java_tools_java" + java_version + ".zip",
             "--gcs_java_tools_dir",
             "tmp/build",
             "--java_version",

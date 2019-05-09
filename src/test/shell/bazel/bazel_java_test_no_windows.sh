@@ -132,3 +132,13 @@ EOF
     # We're testing a formerly non-hermetic interaction, so disable the sandbox.
     bazel test --spawn_strategy=standalone --test_output=errors :check_runfiles
 }
+
+# This test builds a simple java deploy jar using remote singlejar and ijar
+# targets which compile them from source.
+# This test fails on Windows only when invoked from the java_tools binaries pipeline.
+function test_build_hello_world_with_remote_embedded_tool_targets() {
+  write_hello_library_files
+
+  bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
+    &> $TEST_log || fail "build failed"
+}

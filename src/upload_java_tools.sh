@@ -46,6 +46,20 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
 # Parsing the flags.
 while [[ -n "$@" ]]; do
   arg="$1"; shift
@@ -95,6 +109,14 @@ if [[ "$platform" == "windows" ]]; then
   gsutil_cmd="gsutil.cmd"
 fi
 
+
+if "$is_windows"; then
+    zip_url=$(cygpath -m ${tmp_zip})
+else
+    # Non-Windows needs "file:///foo/bar".
+    zip_url=${tmp_zip}
+fi
+
 # Upload the zip that contains the README.md to GCS.
-"$gsutil_cmd" cp "$tmp_zip" \
+"$gsutil_cmd" cp "$zip_url" \
  "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}-${timestamp}.zip"
