@@ -1649,7 +1649,7 @@ public abstract class CcModule
       FileTypeSet fileTypeForErrorMessage)
       throws EvalException {
     for (Artifact file : files) {
-      if (!validFileTypeSet.matches(file.getFilename())) {
+      if (!validFileTypeSet.matches(file.getFilename()) && !file.isTreeArtifact()) {
         throw new EvalException(
             location,
             String.format(
