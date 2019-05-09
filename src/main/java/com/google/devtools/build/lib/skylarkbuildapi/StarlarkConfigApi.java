@@ -110,34 +110,6 @@ public interface StarlarkConfigApi extends SkylarkValue {
       })
   BuildSettingApi stringListSetting(Boolean flag);
 
-  @SkylarkCallable(
-      name = "label",
-      doc = "A label typed build setting",
-      parameters = {
-        @Param(
-            name = FLAG_ARG,
-            type = Boolean.class,
-            defaultValue = "False",
-            doc = FLAG_ARG_DOC,
-            named = true,
-            positional = false)
-      })
-  BuildSettingApi labelSetting(Boolean flag);
-
-  @SkylarkCallable(
-      name = "label_list",
-      doc = "A label list-typed build setting",
-      parameters = {
-        @Param(
-            name = FLAG_ARG,
-            type = Boolean.class,
-            defaultValue = "False",
-            doc = FLAG_ARG_DOC,
-            named = true,
-            positional = false)
-      })
-  BuildSettingApi labelListSetting(Boolean flag);
-
   /** The API for build setting descriptors. */
   @SkylarkModule(
       name = "BuildSetting",
