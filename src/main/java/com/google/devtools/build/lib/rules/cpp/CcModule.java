@@ -1442,7 +1442,11 @@ public abstract class CcModule
     try {
       label =
           Label.create(
-              actions.getActionConstructionContext().getActionOwner().getLabel().getPackageName(),
+              actions
+                  .getActionConstructionContext()
+                  .getActionOwner()
+                  .getLabel()
+                  .getPackageIdentifier(),
               name);
     } catch (LabelSyntaxException e) {
       throw new EvalException(location, e);
