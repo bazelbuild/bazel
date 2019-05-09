@@ -925,86 +925,79 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       throws EvalException;
 
   @SkylarkCallable(
-    name = "resolve_command",
-    // TODO(bazel-team): The naming here isn't entirely accurate (input_manifests is no longer
-    // manifests), but this is experimental/should be opaque to the end user.
-    doc =
-        "<i>(Experimental)</i> "
-            + "Returns a tuple <code>(inputs, command, input_manifests)</code> of the list of "
-            + "resolved inputs, the argv list for the resolved command, and the runfiles metadata "
-            + "required to run the command, all of them suitable for passing as the same-named "
-            + "arguments of the <code>ctx.action</code> method.",
-    parameters = {
-      @Param(
-        name = "command",
-        type = String.class, // string
-        defaultValue = "''",
-        named = true,
-        positional = false,
-        doc = "Command to resolve."
-      ),
-      @Param(
-        name = "attribute",
-        type = String.class, // string
-        defaultValue = "None",
-        noneable = true,
-        named = true,
-        positional = false,
-        doc = "Name of the associated attribute for which to issue an error, or None."
-      ),
-      @Param(
-        name = "expand_locations",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        positional = false,
-        doc =
-            "Shall we expand $(location) variables? "
-                + "See <a href=\"#expand_location\">ctx.expand_location()</a> for more details."
-      ),
-      @Param(
-        name = "make_variables",
-        type = SkylarkDict.class, // dict(string, string)
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc = "Make variables to expand, or None."
-      ),
-      @Param(
-        name = "tools",
-        defaultValue = "[]",
-        type = SkylarkList.class,
-        generic1 = TransitiveInfoCollectionApi.class,
-        named = true,
-        positional = false,
-        doc = "List of tools (list of targets)."
-      ),
-      @Param(
-        name = "label_dict",
-        type = SkylarkDict.class,
-        defaultValue = "{}",
-        named = true,
-        positional = false,
-        doc =
-            "Dictionary of resolved labels and the corresponding list of Files "
-                + "(a dict of Label : list of Files)."
-      ),
-      @Param(
-        name = "execution_requirements",
-        type = SkylarkDict.class,
-        defaultValue = "{}",
-        named = true,
-        positional = false,
-        doc =
-            "Information for scheduling the action to resolve this command. See "
-                + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
-                + "for useful keys."
-      ),
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "resolve_command",
+      // TODO(bazel-team): The naming here isn't entirely accurate (input_manifests is no longer
+      // manifests), but this is experimental/should be opaque to the end user.
+      doc =
+          "<i>(Experimental)</i> Returns a tuple <code>(inputs, command, input_manifests)</code>"
+              + " of the list of resolved inputs, the argv list for the resolved command, and the"
+              + " runfiles metadata required to run the command, all of them suitable for passing"
+              + " as the same-named arguments of the <code>ctx.action</code> method.<br/><b>Note"
+              + " for Windows users</b>: this method requires Bash (MSYS2). Consider using"
+              + " <code>resolve_tools()</code> instead (if that fits your needs).",
+      parameters = {
+        @Param(
+            name = "command",
+            type = String.class, // string
+            defaultValue = "''",
+            named = true,
+            positional = false,
+            doc = "Command to resolve."),
+        @Param(
+            name = "attribute",
+            type = String.class, // string
+            defaultValue = "None",
+            noneable = true,
+            named = true,
+            positional = false,
+            doc = "Name of the associated attribute for which to issue an error, or None."),
+        @Param(
+            name = "expand_locations",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc =
+                "Shall we expand $(location) variables? See <a"
+                    + " href=\"#expand_location\">ctx.expand_location()</a> for more details."),
+        @Param(
+            name = "make_variables",
+            type = SkylarkDict.class, // dict(string, string)
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = "Make variables to expand, or None."),
+        @Param(
+            name = "tools",
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = TransitiveInfoCollectionApi.class,
+            named = true,
+            positional = false,
+            doc = "List of tools (list of targets)."),
+        @Param(
+            name = "label_dict",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "Dictionary of resolved labels and the corresponding list of Files "
+                    + "(a dict of Label : list of Files)."),
+        @Param(
+            name = "execution_requirements",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "Information for scheduling the action to resolve this command. See "
+                    + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
+                    + "for useful keys."),
+      },
+      useLocation = true,
+      useEnvironment = true)
   public Tuple<Object> resolveCommand(
       String command,
       Object attributeUnchecked,
