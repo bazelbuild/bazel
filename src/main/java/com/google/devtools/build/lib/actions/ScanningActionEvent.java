@@ -22,12 +22,12 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
  * <p>This event should only appear in-between corresponding {@link ActionStartedEvent} and {@link
  * ActionCompletionEvent} events. TODO(jmmv): But this theory is not true today. Investigate.
  */
-public class AnalyzingActionEvent implements ProgressLike {
+public class ScanningActionEvent implements ProgressLike {
 
   private final ActionExecutionMetadata action;
 
   /** Constructs a new event. */
-  public AnalyzingActionEvent(ActionExecutionMetadata action) {
+  public ScanningActionEvent(ActionExecutionMetadata action) {
     this.action = action;
   }
 

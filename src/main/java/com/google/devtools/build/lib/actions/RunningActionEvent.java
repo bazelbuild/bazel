@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
  *
  * <p>This event should only appear in-between corresponding {@link ActionStartedEvent} and {@link
  * ActionCompletionEvent} events, and should only appear after corresponding {@link
- * AnalyzingActionEvent} and {@link SchedulingActionEvent} events. TODO(jmmv): But this theory is
- * not true today. Investigate.
+ * ScanningActionEvent} and {@link SchedulingActionEvent} events. TODO(jmmv): But this theory is not
+ * true today. Investigate.
  */
 public class RunningActionEvent implements ProgressLike {
 
