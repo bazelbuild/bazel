@@ -24,9 +24,9 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.AnalyzingActionEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -177,25 +177,25 @@ class ExperimentalStateTracker {
     long nanoStartTime;
 
     /**
-     * Whether this action is in the analyzing state or not.
+     * Whether this action is in the scanning state or not.
      *
      * <p>If true, implies that {@link #schedulingStrategiesBitmap} and {@link
      * #runningStrategiesBitmap} are both zero. The opposite is not necessarily true: if false, the
      * bitmaps can be zero as well to represent that the action is still in the preparation stage.
      */
-    boolean analyzing;
+    boolean scanning;
 
     /**
      * Bitmap of strategies that are scheduling this action.
      *
-     * <p>If non-zero, implies that {@link #analyzing} is false.
+     * <p>If non-zero, implies that {@link #scanning} is false.
      */
     int schedulingStrategiesBitmap = 0;
 
     /**
      * Bitmap of strategies that are running this action.
      *
-     * <p>If non-zero, implies that {@link #analyzing} is false.
+     * <p>If non-zero, implies that {@link #scanning} is false.
      */
     int runningStrategiesBitmap = 0;
 
@@ -208,7 +208,7 @@ class ExperimentalStateTracker {
     /** Creates a deep copy of this action state. */
     synchronized ActionState deepCopy() {
       ActionState other = new ActionState(action, nanoStartTime);
-      other.analyzing = analyzing;
+      other.scanning = scanning;
       other.schedulingStrategiesBitmap = schedulingStrategiesBitmap;
       other.runningStrategiesBitmap = runningStrategiesBitmap;
       return other;
@@ -222,14 +222,14 @@ class ExperimentalStateTracker {
     }
 
     /**
-     * Marks the action as analyzing.
+     * Marks the action as scanning.
      *
      * <p>Because we may receive events out of order, this does nothing if the action is already
      * scheduled or running.
      */
-    void setAnalyzing(long nanoChangeTime) {
+    void setScanning(long nanoChangeTime) {
       if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
-        analyzing = true;
+        scanning = true;
         nanoStartTime = nanoChangeTime;
       }
     }
@@ -243,7 +243,7 @@ class ExperimentalStateTracker {
     void setScheduling(String strategy, long nanoChangeTime) {
       int id = strategyIds.getId(strategy);
       if ((runningStrategiesBitmap & id) == 0) {
-        analyzing = false;
+        scanning = false;
         schedulingStrategiesBitmap |= id;
         nanoStartTime = nanoChangeTime;
       }
@@ -256,7 +256,7 @@ class ExperimentalStateTracker {
      * regardless of any other events (which may come out of order).
      */
     void setRunning(String strategy, long nanoChangeTime) {
-      analyzing = false;
+      scanning = false;
       int id = strategyIds.getId(strategy);
       schedulingStrategiesBitmap &= ~id;
       runningStrategiesBitmap |= id;
@@ -269,8 +269,8 @@ class ExperimentalStateTracker {
         return "Running";
       } else if (schedulingStrategiesBitmap != 0) {
         return "Scheduling";
-      } else if (analyzing) {
-        return "Analyzing";
+      } else if (scanning) {
+        return "Scanning";
       } else {
         return "Preparing";
       }
@@ -459,11 +459,11 @@ class ExperimentalStateTracker {
     }
   }
 
-  void analyzingAction(AnalyzingActionEvent event) {
+  void scanningAction(ScanningActionEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
     Artifact actionId = event.getActionMetadata().getPrimaryOutput();
     long now = clock.nanoTime();
-    getActionState(action, actionId, now).setAnalyzing(now);
+    getActionState(action, actionId, now).setScanning(now);
   }
 
   void schedulingAction(SchedulingActionEvent event) {
