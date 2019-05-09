@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.MakeVariable;
@@ -5197,6 +5198,71 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     createFiles(scratch, bzlFilePath, "", "");
   }
 
+  @Test
+  public void testTransitiveLinkWithDeps() throws Exception {
+    setupTestTransitiveLink(scratch, "        linking_contexts = dep_linking_contexts");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
+    assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
+        .containsAllOf("bin foo/libdep1.a", "bin foo/libdep2.a");
+  }
+
+  @Test
+  public void testTransitiveLinkForDynamicLibrary() throws Exception {
+    setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    assertThat(library).isNotNull();
+    Object executable = getMyInfoFromTarget(target).getValue("executable");
+    assertThat(EvalUtils.isNullOrNone(executable)).isTrue();
+  }
+
+  @Test
+  public void testTransitiveLinkForExecutable() throws Exception {
+    setupTestTransitiveLink(scratch, "output_type = 'executable'");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
+    assertThat(executable).isNotNull();
+    Object library = getMyInfoFromTarget(target).getValue("library");
+    assertThat(EvalUtils.isNullOrNone(library)).isTrue();
+  }
+
+  @Test
+  public void testTransitiveLinkWithCompilationOutputs() throws Exception {
+    setupTestTransitiveLink(scratch, "compilation_outputs=objects");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
+    assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
+        .contains("src foo/file.o");
+  }
+
+  @Test
+  public void testApiWithAspectsOnTargetsInExternalRepos() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"), "local_repository(name='r', path='/r')");
+    scratch.file("/r/WORKSPACE");
+    scratch.file("/r/p/BUILD", "cc_library(", "    name = 'a',", "    srcs = ['a.cc'],", ")");
+    invalidatePackages();
+    scratch.file(
+        "b/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
+        "cc_skylark_library(",
+        "    name = 'b',",
+        "    srcs = ['b.cc'],",
+        "    aspect_deps = ['@r//p:a']",
+        ")");
+    assertThat(getConfiguredTarget("//b:b")).isNotNull();
+  }
+
   private static void createFiles(
       Scratch scratch, String bzlFilePath, String compileProviderLines, String linkProviderLines)
       throws Exception {
@@ -5208,6 +5274,39 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         bzlFilePath + "/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _cc_aspect_impl(target, ctx):",
+        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    feature_configuration = cc_common.configure_features(",
+        "        cc_toolchain = toolchain,",
+        "        requested_features = ctx.features,",
+        "        unsupported_features = ctx.disabled_features,",
+        "    )",
+        "    (compilation_context, compilation_outputs) = cc_common.compile(",
+        "        actions = ctx.actions,",
+        "        feature_configuration = feature_configuration,",
+        "        cc_toolchain = toolchain,",
+        "        name = ctx.label.name + '_aspect',",
+        "        srcs = ctx.rule.files.srcs,",
+        "        public_hdrs = ctx.rule.files.hdrs,",
+        "    )",
+        "    (linking_context, linking_outputs) = (",
+        "        cc_common.create_linking_context_from_compilation_outputs(",
+        "            actions = ctx.actions,",
+        "            feature_configuration = feature_configuration,",
+        "            name = ctx.label.name + '_aspect',",
+        "            cc_toolchain = toolchain,",
+        "            compilation_outputs = compilation_outputs,",
+        "        )",
+        "    )",
+        "    return []",
+        "_cc_aspect = aspect(",
+        "    implementation = _cc_aspect_impl,",
+        "    attrs = {",
+        "        '_cc_toolchain': attr.label(default ="
+            + " '@bazel_tools//tools/cpp:current_cc_toolchain'),",
+        "    },",
+        fragments,
+        ")",
         "def _cc_skylark_library_impl(ctx):",
         "    dep_compilation_contexts = []",
         "    dep_linking_contexts = []",
@@ -5262,6 +5361,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "      '_additional_inputs': attr.label_list(allow_files=True,"
             + " default=['//foo:script.lds']),",
         "      '_deps': attr.label_list(default=['//foo:dep1', '//foo:dep2']),",
+        "      'aspect_deps': attr.label_list(aspects=[_cc_aspect]),",
         "      '_cc_toolchain': attr.label(default =",
         "          configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
         "    },",
@@ -5397,48 +5497,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "      'pic_object2': attr.label(allow_single_file=True),",
         "    },",
         ")");
-  }
-
-  @Test
-  public void testTransitiveLinkWithDeps() throws Exception {
-    setupTestTransitiveLink(scratch, "        linking_contexts = dep_linking_contexts");
-    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    assertThat(target).isNotNull();
-    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
-    assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
-        .containsAllOf("bin foo/libdep1.a", "bin foo/libdep2.a");
-  }
-
-  @Test
-  public void testTransitiveLinkForDynamicLibrary() throws Exception {
-    setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'");
-    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    assertThat(target).isNotNull();
-    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
-    assertThat(library).isNotNull();
-    Object executable = getMyInfoFromTarget(target).getValue("executable");
-    assertThat(EvalUtils.isNullOrNone(executable)).isTrue();
-  }
-
-  @Test
-  public void testTransitiveLinkForExecutable() throws Exception {
-    setupTestTransitiveLink(scratch, "output_type = 'executable'");
-    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    assertThat(target).isNotNull();
-    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
-    assertThat(executable).isNotNull();
-    Object library = getMyInfoFromTarget(target).getValue("library");
-    assertThat(EvalUtils.isNullOrNone(library)).isTrue();
-  }
-
-  @Test
-  public void testTransitiveLinkWithCompilationOutputs() throws Exception {
-    setupTestTransitiveLink(scratch, "compilation_outputs=objects");
-    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    assertThat(target).isNotNull();
-    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
-    assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
-        .contains("src foo/file.o");
   }
 
   private static void setupTestTransitiveLink(Scratch scratch, String... additionalLines)
