@@ -52,8 +52,6 @@ public final class SkyFunctions {
   static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.createHermetic("PACKAGE_ERROR");
   public static final SkyFunctionName PACKAGE_ERROR_MESSAGE =
       SkyFunctionName.createHermetic("PACKAGE_ERROR_MESSAGE");
-  public static final SkyFunctionName TARGET_MARKER =
-      SkyFunctionName.createHermetic("TARGET_MARKER");
   // Semi-hermetic because accesses package locator
   public static final SkyFunctionName TARGET_PATTERN =
       SkyFunctionName.createSemiHermetic("TARGET_PATTERN");
