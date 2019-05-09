@@ -23,14 +23,19 @@ alias(
     actual = "emulator/emulator",
 )
 
+# TODO(b/132352722)
+#
+# emulator v29+ removed the arm and x86 specific binaries.
+# Keeping these aliases around for backwards compatibility with
+# older unified launcher releases.
 alias(
     name = "emulator_arm",
-    actual = "emulator/emulator64-arm",
+    actual = "emulator/emulator",
 )
 
 alias(
     name = "emulator_x86",
-    actual = "emulator/emulator64-x86",
+    actual = "emulator/emulator",
 )
 
 filegroup(
