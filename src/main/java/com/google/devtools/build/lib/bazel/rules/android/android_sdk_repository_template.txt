@@ -23,14 +23,16 @@ alias(
     actual = "emulator/emulator",
 )
 
+# emulator v29+ removed the arm and x86 specific binaries.
+# Keeping these aliases around for backwards compatibility.
 alias(
     name = "emulator_arm",
-    actual = "emulator/emulator64-arm",
+    actual = "emulator/emulator",
 )
 
 alias(
     name = "emulator_x86",
-    actual = "emulator/emulator64-x86",
+    actual = "emulator/emulator",
 )
 
 filegroup(
