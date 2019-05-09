@@ -1236,8 +1236,13 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
   string prev_installation;
   bool ok =
       blaze_util::ReadDirectorySymlink(installation_path, &prev_installation);
+  // Canonicalise this path for comparison, because
+  // ReadDirectorySymlink will realpath to remove all symlinks, and
+  // install_base might have a symlink in it.
+  string wanted_installation =
+      blaze_util::MakeCanonical(globals->options->install_base);
   if (!ok || !blaze_util::CompareAbsolutePaths(
-                 prev_installation, globals->options->install_base)) {
+                 prev_installation, wanted_installation)) {
     if (server->Connected()) {
       BAZEL_LOG(INFO)
           << "Killing running server because it is using another version of "
