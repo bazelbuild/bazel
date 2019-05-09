@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.engine.AbstractQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -132,8 +134,10 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     // In the --nokeep_going case, errors are reported in the order in which the patterns are
     // specified; using a linked hash set here makes sure that the left-most error is reported.
     Set<String> targetPatternSet = new LinkedHashSet<>();
-    expr.collectTargetPatterns(targetPatternSet);
-    try {
+    try (SilentCloseable closeable = Profiler.instance().profile("collectTargetPatterns")) {
+      expr.collectTargetPatterns(targetPatternSet);
+    }
+    try (SilentCloseable closeable = Profiler.instance().profile("preloadOrThrow")) {
       preloadOrThrow(expr, targetPatternSet);
     } catch (TargetParsingException e) {
       // Unfortunately, by evaluating the patterns in parallel, we lose some location information.

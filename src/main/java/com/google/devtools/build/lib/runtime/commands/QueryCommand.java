@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -71,7 +73,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       AbstractBlazeQueryEnvironment<Target> queryEnv,
       QueryRuntimeHelper queryRuntimeHelper) {
     QueryExpression expr;
-    try {
+    try (SilentCloseable closeable = Profiler.instance().profile("QueryExpression.parse")) {
       expr = QueryExpression.parse(query, queryEnv);
     } catch (QueryException e) {
       env.getReporter()
@@ -112,7 +114,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
 
     QueryEvalResult result;
     boolean catastrophe = true;
-    try {
+    try (SilentCloseable closeable = Profiler.instance().profile("queryEnv.evaluateQuery")) {
       result = queryEnv.evaluateQuery(expr, callback);
       catastrophe = false;
     } catch (QueryException e) {
@@ -150,7 +152,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     }
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
-      try {
+      try (SilentCloseable closeable = Profiler.instance().profile("QueryOutputUtils.output")) {
         Set<Target> targets =
             ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
         QueryOutputUtils.output(

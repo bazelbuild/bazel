@@ -17,6 +17,8 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -47,7 +49,12 @@ public class FunctionExpression extends QueryExpression {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       QueryEnvironment<T> env, QueryExpressionContext<T> context, Callback<T> callback) {
-    return function.eval(env, context, this, args, callback);
+    QueryTaskFuture<Void> result;
+    try (SilentCloseable closeable =
+        Profiler.instance().profile("function.eval/" + function.getName())) {
+      result = function.eval(env, context, this, args, callback);
+    }
+    return result;
   }
 
   @Override

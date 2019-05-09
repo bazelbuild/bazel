@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -54,7 +56,11 @@ public class QueryOutputUtils {
       @SuppressWarnings("unchecked")
       DigraphQueryEvalResult<Target> digraphQueryEvalResult =
           (DigraphQueryEvalResult<Target>) result;
-      Digraph<Target> subgraph = digraphQueryEvalResult.getGraph().extractSubgraph(targetsResult);
+      Digraph<Target> subgraph;
+
+      try (SilentCloseable closeable = Profiler.instance().profile("digraph.extractSubgraph")) {
+        subgraph = digraphQueryEvalResult.getGraph().extractSubgraph(targetsResult);
+      }
 
       // Building ConditionalEdges involves traversing the subgraph and so we only do this when
       // needed.
@@ -68,7 +74,9 @@ public class QueryOutputUtils {
         conditionalEdges = new ConditionalEdges();
       }
 
-      formatter.output(queryOptions, subgraph, outputStream, aspectResolver, conditionalEdges);
+      try (SilentCloseable closeable = Profiler.instance().profile("formatter.output")) {
+        formatter.output(queryOptions, subgraph, outputStream, aspectResolver, conditionalEdges);
+      }
     }
   }
 }

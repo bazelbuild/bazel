@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.ErrorPrintingTargetEdgeErrorObserver;
 import com.google.devtools.build.lib.query2.FakeLoadTarget;
@@ -298,9 +300,19 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public void buildTransitiveClosure(QueryExpression caller,
                                      ThreadSafeMutableSet<Target> targetNodes,
                                      int maxDepth) throws QueryException, InterruptedException {
-    preloadTransitiveClosure(targetNodes, maxDepth);
-    labelVisitor.syncWithVisitor(eventHandler, targetNodes, keepGoing,
-        loadingPhaseThreads, maxDepth, errorObserver, new GraphBuildingObserver());
+    try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
+      preloadTransitiveClosure(targetNodes, maxDepth);
+    }
+    try (SilentCloseable closeable = Profiler.instance().profile("syncWithVisitor")) {
+      labelVisitor.syncWithVisitor(
+          eventHandler,
+          targetNodes,
+          keepGoing,
+          loadingPhaseThreads,
+          maxDepth,
+          errorObserver,
+          new GraphBuildingObserver());
+    }
 
     if (errorObserver.hasErrors()) {
       reportBuildFileError(caller, "errors were encountered while computing transitive closure");
