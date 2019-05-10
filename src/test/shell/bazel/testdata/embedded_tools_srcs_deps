@@ -1,7 +1,3 @@
-@com_google_protobuf//:protoc
-@com_google_protobuf//:protoc_lib
-@com_google_protobuf//:protobuf
-@com_google_protobuf//:protobuf_lite
 //tools/test:tw
 //tools/test:tw_lib
 //tools/test:xml

@@ -1,6 +1,0 @@
-actoolwrapper runs actool, which compiles asset catalog files.
-actoolwrapper then zips up the output, because actool returns an unpredictable
-number of output files.
-
-actool only runs on Darwin, so actoolwrapper only runs on Darwin.
-
