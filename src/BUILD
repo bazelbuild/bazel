@@ -61,11 +61,6 @@ genquery(
 # Create dummy tools so we can do select to prevent building iOS target on
 # Linux.
 OSX_DUMMY_TARGETS = [
-    "src/tools/xcode/actoolwrapper/actoolwrapper.sh",
-    "src/tools/xcode/ibtoolwrapper/ibtoolwrapper.sh",
-    "src/tools/xcode/momcwrapper/momcwrapper.sh",
-    "src/objc_tools/bundlemerge/bundlemerge_deploy.jar",
-    "src/objc_tools/plmerge/plmerge_deploy.jar",
     "src/tools/xcode/realpath/realpath",
     "src/tools/xcode/stdredirect/StdRedirect.dylib",
 ]
@@ -83,11 +78,6 @@ OSX_DUMMY_TARGETS = [
 filegroup(
     name = "darwin_tools",
     srcs = [
-        "//src/tools/xcode/actoolwrapper:actoolwrapper.sh",
-        "//src/tools/xcode/ibtoolwrapper:ibtoolwrapper.sh",
-        "//src/tools/xcode/momcwrapper:momcwrapper.sh",
-        "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
-        "//src/objc_tools/plmerge:plmerge_deploy.jar",
         "//src/tools/xcode/realpath:realpath",
         "//tools/osx:xcode_locator.m",
     ] + select({
@@ -454,8 +444,6 @@ filegroup(
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/tools:srcs",
-        "//src/objc_tools/bundlemerge:srcs",
-        "//src/objc_tools/plmerge:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
         "//src/test/native:srcs",
@@ -478,13 +466,9 @@ filegroup(
         "//src/tools/skylark/java/com/google/devtools/skylark/common:srcs",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:srcs",
         "//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:srcs",
-        "//src/tools/xcode/actoolwrapper:srcs",
-        "//src/tools/xcode/ibtoolwrapper:srcs",
-        "//src/tools/xcode/momcwrapper:srcs",
         "//src/tools/xcode/realpath:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/xcode/stdredirect:srcs",
-        "//src/tools/xcode-common:srcs",
         "//src/tools/remote:srcs",
         "//tools/osx:srcs",
     ],
