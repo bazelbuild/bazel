@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandCompleteEvent;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
@@ -179,7 +178,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.sandboxBase = sandboxBase;
     this.defaultImage = defaultImage;
-    this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
+    this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.timeoutKillDelay = timeoutKillDelay;
     this.commandId = cmdEnv.getCommandId().toString();
     this.reporter = cmdEnv.getReporter();

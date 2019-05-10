@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
-import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
@@ -141,7 +140,7 @@ public class StandaloneSpawnStrategyTest {
                                 execRoot,
                                 localExecutionOptions,
                                 resourceManager,
-                                LocalEnvProvider.UNMODIFIED,
+                                (env, unusedBinTools, unusedFallbackTempDir) -> env,
                                 BinTools.forIntegrationTesting(
                                     directories, ImmutableList.of())))))),
             ImmutableList.of());

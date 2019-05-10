@@ -35,7 +35,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/collect:srcs",
         "//src/main/java/com/google/devtools/build/lib/concurrent:srcs",
         "//src/main/java/com/google/devtools/build/lib/dynamic:srcs",
-        "//src/main/java/com/google/devtools/build/lib/exec/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec/local:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
