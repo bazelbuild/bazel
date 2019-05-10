@@ -74,10 +74,7 @@ public class LabelBuildSettings {
         .build();
   }
 
-  /**
-   * Rule definition of label_setting TODO(b/110417082): documentation when other documentation on
-   * SBC exists and we can point to it.
-   */
+  /** Rule definition of label_setting */
   public static class LabelBuildSettingRule extends CommonAliasRule<BuildConfiguration> {
 
     public LabelBuildSettingRule() {
@@ -90,10 +87,7 @@ public class LabelBuildSettings {
     }
   }
 
-  /**
-   * Rule definition of label_flag TODO(b/110417082): documentation when other documentation on SBC
-   * exists and we can point to it.
-   */
+  /** Rule definition of label_flag */
   public static class LabelBuildFlagRule extends CommonAliasRule<BuildConfiguration> {
 
     public LabelBuildFlagRule() {
