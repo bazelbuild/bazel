@@ -161,7 +161,13 @@ public interface QueryableGraph {
     WALKABLE_GRAPH_RDEPS,
 
     /** Some other reason than one of the above. */
-    OTHER,
+    OTHER;
+
+    public boolean isWalkable() {
+      return this == WALKABLE_GRAPH_VALUE
+          || this == WALKABLE_GRAPH_DEPS
+          || this == WALKABLE_GRAPH_RDEPS;
+    }
   }
 
   /** Parameters for {@link QueryableGraph#prefetchDeps}. */
