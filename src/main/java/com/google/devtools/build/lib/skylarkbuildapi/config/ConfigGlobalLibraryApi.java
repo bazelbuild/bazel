@@ -50,23 +50,23 @@ public interface ConfigGlobalLibraryApi {
             // TODO(cparsons): The settings dict should take actual Label objects as keys and not
             // strings. Update the documentation.
             doc =
-                "The function implementing this transition. This function always has the "
-                    + "parameter <code>settings</code>, a dictionary whose set of keys is defined "
+                "The function implementing this transition. This function always has two "
+                    + "parammeters: <code>settings</code> and <code>attr</code>. The "
+                    + "<code>settings</code> param is a dictionary whose set of keys is defined "
                     + "by the inputs parameter. So, for each build setting "
                     + "<code>--//foo=bar</code>, if <code>inputs</code> contains "
                     + "<code>//foo</code>, <code>settings</code> will "
                     + "have an entry <code>settings['//foo']='bar'</code>.<p>"
-                    // TODO(cparsons): Consider making this parameter mandatory, and determine
-                    // what to do with attributes which are defined with select().
-                    + "This function also optionally takes a parameter <code>attr</code> which is "
-                    + "a reference to <code>ctx.attr</code> but pre-analysis-phase. This gives the "
-                    + "implementation function access to the rule's attributes to make "
+                    + "The <code>attr</code> param is a reference to <code>ctx.attr</code>. This "
+                    + "gives the implementation function access to the rule's attributes to make "
                     + "attribute-parameterized transitions possible.<p>"
-                    // TODO(cparsons): Mention the expected output for split transitions.
                     + "This function must return a <code>dict</code> from build setting identifier "
                     + "to build setting value; this represents the configuration transition: for "
                     + "each entry in the returned <code>dict</code>, the transition updates that "
-                    + "setting to the new value. All other settings are unchanged."),
+                    + "setting to the new value. All other settings are unchanged. This function "
+                    + "can also return a <code>list</code> of <code>dict</code>s or a "
+                    + "<code>dict</code> of <code>dict</code>s in the case of a "
+                    + "split transition."),
         @Param(
             name = "inputs",
             type = SkylarkList.class,
