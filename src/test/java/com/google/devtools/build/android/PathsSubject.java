@@ -138,7 +138,7 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
       failWithoutActual(
           fact("expected to have contents", asList(contents)),
           fact("but failed to read file with", e),
-          fact("path was", actual()));
+          fact("path was", actual));
     }
   }
 

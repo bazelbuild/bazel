@@ -78,7 +78,7 @@ public class ClassPathsSubject extends Subject<ClassPathsSubject, Path> {
       failWithoutActual(
           fact("expected to have contents", asList(contents)),
           fact("but failed to read file with", e),
-          fact("path was", actual()));
+          fact("path was", actual));
     }
   }
 
