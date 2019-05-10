@@ -72,11 +72,11 @@ fi
 # Writes a python file that prints all arguments (except argv[0]).
 #
 # Args:
-# $1: directory (package path) where the file will be written
+# $1: directory (workspace and package path) where the file will be written
 function create_py_file_that_prints_args() {
-  local -r pkg="$1"; shift
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat >"$pkg/a.py" <<'eof'
+  local -r ws="$1"; shift
+  mkdir -p "$ws" || fail "mkdir -p $ws"
+  cat >"$ws/a.py" <<'eof'
 from __future__ import print_function
 import sys
 for i in range(1, len(sys.argv)):
@@ -87,11 +87,11 @@ eof
 # Writes a BUILD file for a py_binary with an untokenizable "args" entry.
 #
 # Args:
-# $1: directory (package path) where the file will be written
+# $1: directory (workspace and package path) where the file will be written
 function create_build_file_for_untokenizable_args() {
-  local -r pkg="$1"; shift
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat >"$pkg/BUILD" <<'eof'
+  local -r ws="$1"; shift
+  mkdir -p "$ws" || fail "mkdir -p $ws"
+  cat >"$ws/BUILD" <<'eof'
 py_binary(
     name = "cannot_tokenize",
     srcs = ["a.py"],
@@ -108,9 +108,9 @@ eof
 # Args:
 # $1: directory (package path) where the file will be written
 function create_build_file_with_many_args() {
-  local -r pkg="$1"; shift
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat >"$pkg/BUILD" <<'eof'
+  local -r ws="$1"; shift
+  mkdir -p "$ws" || fail "mkdir -p $ws"
+  cat >"$ws/BUILD" <<'eof'
 py_binary(
     name = "x",
     srcs = ["a.py"],
@@ -243,13 +243,17 @@ function assert_good_output_of_the_program_with_many_args() {
 # ----------------------------------------------------------------------
 
 function test_args_escaping_disabled_on_windows() {
-  local -r pkg="${FUNCNAME[0]}"  # unique package name for this test
+  local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
+  mkdir -p "$ws"
+  touch "$ws/WORKSPACE"
 
-  create_py_file_that_prints_args "$pkg"
-  create_build_file_with_many_args "$pkg"
+  create_py_file_that_prints_args "$ws"
+  create_build_file_with_many_args "$ws"
 
-  bazel run --verbose_failures --noincompatible_windows_escape_python_args \
-    "${pkg}:x" &>"$TEST_log" || fail "expected success"
+  ( cd "$ws"
+    bazel run --verbose_failures --noincompatible_windows_escape_python_args \
+      :x &>"$TEST_log" || fail "expected success"
+  )
   if "$is_windows"; then
     # On Windows, the target runs but prints bad output.
     assert_bad_output_of_the_program_with_many_args
@@ -260,41 +264,133 @@ function test_args_escaping_disabled_on_windows() {
 }
 
 function test_args_escaping() {
-  local -r pkg="${FUNCNAME[0]}"  # unique package name for this test
+  local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
+  mkdir -p "$ws"
+  touch "$ws/WORKSPACE"
 
-  create_py_file_that_prints_args "$pkg"
-  create_build_file_with_many_args "$pkg"
+  create_py_file_that_prints_args "$ws"
+  create_build_file_with_many_args "$ws"
 
   # On all platforms, the target prints good output.
-  bazel run --verbose_failures --incompatible_windows_escape_python_args \
-    "${pkg}:x" &>"$TEST_log" || fail "expected success"
+  ( cd "$ws"
+    bazel run --verbose_failures --incompatible_windows_escape_python_args \
+      :x &>"$TEST_log" || fail "expected success"
+  )
   assert_good_output_of_the_program_with_many_args
 }
 
 function test_untokenizable_args_when_escaping_is_disabled() {
-  local -r pkg="${FUNCNAME[0]}"  # unique package name for this test
+  local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
+  mkdir -p "$ws"
+  touch "$ws/WORKSPACE"
 
-  create_py_file_that_prints_args "$pkg"
-  create_build_file_for_untokenizable_args "$pkg"
+  create_py_file_that_prints_args "$ws"
+  create_build_file_for_untokenizable_args "$ws"
 
   # On all platforms, Bazel can build the target.
-  if bazel build --verbose_failures --noincompatible_windows_escape_python_args \
-      "${pkg}:cannot_tokenize" 2>"$TEST_log"; then
-    fail "expected failure"
-  fi
+  ( cd "$ws"
+    if bazel build --verbose_failures --noincompatible_windows_escape_python_args \
+        :cannot_tokenize 2>"$TEST_log"; then
+      fail "expected failure"
+    fi
+  )
   expect_log "unterminated quotation"
 }
 
 function test_untokenizable_args_when_escaping_is_enabled() {
-  local -r pkg="${FUNCNAME[0]}"  # unique package name for this test
+  local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
+  mkdir -p "$ws"
+  touch "$ws/WORKSPACE"
 
-  create_py_file_that_prints_args "$pkg"
-  create_build_file_for_untokenizable_args "$pkg"
+  create_py_file_that_prints_args "$ws"
+  create_build_file_for_untokenizable_args "$ws"
 
   local -r flag="--incompatible_windows_escape_python_args"
-  bazel run --verbose_failures "$flag" "${pkg}:cannot_tokenize" \
-    2>"$TEST_log" && fail "expected failure" || true
+  ( cd "$ws"
+    bazel run --verbose_failures "$flag" :cannot_tokenize \
+      2>"$TEST_log" && fail "expected failure" || true
+  )
   expect_log "ERROR:.*in args attribute of py_binary rule.*unterminated quotation"
+}
+
+function test_host_config() {
+  local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
+  mkdir -p "$ws"
+  touch "$ws/WORKSPACE"
+
+  cat >"$ws/BUILD" <<'eof'
+load("//:rule.bzl", "run_host_configured")
+
+run_host_configured(
+    name = "x",
+    tool = ":print_args",
+    out = "x.out",
+)
+
+py_binary(
+    name = "print_args",
+    srcs = ["print_args.py"],
+)
+eof
+
+  cat >"$ws/print_args.py" <<'eof'
+import sys
+with open(sys.argv[1], "wt") as f:
+    for i in range(2, len(sys.argv)):
+        f.write("arg%d=(%s)" % (i, sys.argv[i]))
+eof
+
+  cat >"$ws/rule.bzl" <<'eof'
+def _impl(ctx):
+    tool_inputs, tool_input_mfs = ctx.resolve_tools(tools = [ctx.attr.tool])
+    ctx.actions.run(
+        outputs = [ctx.outputs.out],
+        inputs = tool_inputs,
+        executable = ctx.executable.tool,
+        arguments = [ctx.outputs.out.path, "a", "", "\"b \\\"c", "z"],
+        use_default_shell_env = True,
+        input_manifests = tool_input_mfs,
+    )
+    return DefaultInfo(files = depset(items = [ctx.outputs.out]))
+
+run_host_configured = rule(
+    implementation = _impl,
+    attrs = {
+        "tool": attr.label(executable = True, cfg = "host"),
+        "out": attr.output(),
+    },
+)
+eof
+
+  ( cd "$ws"
+    bazel build --verbose_failures --noincompatible_windows_escape_python_args \
+      :x &>"$TEST_log" || fail "expected success"
+    cat bazel-bin/x.out >> "$TEST_log"
+  )
+  if "$is_windows"; then
+    # This output is wrong, but expected on Windows with
+    # --noincompatible_windows_escape_python_args.
+    expect_log 'arg2=(a)'
+    expect_log 'arg3=()'
+    expect_log 'arg4=("b \\c z)'
+  else
+    # This output is right.
+    expect_log 'arg2=(a)'
+    expect_log 'arg3=()'
+    expect_log 'arg4=("b \\"c)'
+    expect_log 'arg5=(z)'
+  fi
+
+  ( cd "$ws"
+    bazel build --verbose_failures --incompatible_windows_escape_python_args \
+      :x &>"$TEST_log" || fail "expected success"
+    cat bazel-bin/x.out >> "$TEST_log"
+  )
+  # This output is right.
+  expect_log 'arg2=(a)'
+  expect_log 'arg3=()'
+  expect_log 'arg4=("b \\"c)'
+  expect_log 'arg5=(z)'
 }
 
 run_suite "Tests about how Bazel passes py_binary.args to the binary"
