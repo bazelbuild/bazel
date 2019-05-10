@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -504,9 +503,10 @@ public class RunCommand implements BlazeCommand  {
             ByteString.copyFrom(workingDir.getPathString(), StandardCharsets.ISO_8859_1));
 
     if (OS.getCurrent() == OS.WINDOWS && runOptions.bashlessRun) {
-      String joinedCommands =
-          Joiner.on(" ").join(Iterables.transform(cmdLine, x -> ShellUtils.windowsEscapeArg(x)));
-      execDescription.addArgv(ByteString.copyFrom(joinedCommands, StandardCharsets.ISO_8859_1));
+      for (String arg : cmdLine) {
+        execDescription.addArgv(
+            ByteString.copyFrom(ShellUtils.windowsEscapeArg(arg), StandardCharsets.ISO_8859_1));
+      }
     } else {
       PathFragment shExecutable = ShToolchain.getPath(configuration);
       if (shExecutable.isEmpty()) {
