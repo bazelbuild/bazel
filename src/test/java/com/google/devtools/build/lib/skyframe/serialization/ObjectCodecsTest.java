@@ -138,7 +138,7 @@ public class ObjectCodecsTest {
         .serialize(any(SerializationContext.class), eq(original), any(CodedOutputStream.class));
     SerializationException e =
         assertThrows(SerializationException.class, () -> underTest.serialize(original));
-    assertThat(e).isSameAs(staged);
+    assertThat(e).isSameInstanceAs(staged);
   }
 
   @Test
@@ -152,7 +152,7 @@ public class ObjectCodecsTest {
         .serialize(any(SerializationContext.class), eq(original), any(CodedOutputStream.class));
     SerializationException e =
         assertThrows(SerializationException.class, () -> underTest.serialize(original));
-    assertThat(e).hasCauseThat().isSameAs(staged);
+    assertThat(e).hasCauseThat().isSameInstanceAs(staged);
   }
 
   @Test
@@ -164,7 +164,7 @@ public class ObjectCodecsTest {
     SerializationException thrown =
         assertThrows(
             SerializationException.class, () -> underTest.deserialize(underTest.serialize(1)));
-    assertThat(thrown).isSameAs(staged);
+    assertThat(thrown).isSameInstanceAs(staged);
   }
 
   @Test
@@ -177,7 +177,7 @@ public class ObjectCodecsTest {
     SerializationException e =
         assertThrows(
             SerializationException.class, () -> underTest.deserialize(underTest.serialize(1)));
-    assertThat(e).hasCauseThat().isSameAs(staged);
+    assertThat(e).hasCauseThat().isSameInstanceAs(staged);
   }
 
   @Test

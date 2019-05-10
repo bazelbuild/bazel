@@ -113,7 +113,7 @@ public class ArtifactFactoryTest {
   @Test
   public void testGetSourceArtifactYieldsSameArtifact() throws Exception {
     assertThat(artifactFactory.getSourceArtifact(fooRelative, clientRoot))
-        .isSameAs(artifactFactory.getSourceArtifact(fooRelative, clientRoot));
+        .isSameInstanceAs(artifactFactory.getSourceArtifact(fooRelative, clientRoot));
   }
 
   @Test
@@ -121,22 +121,22 @@ public class ArtifactFactoryTest {
     assertThat(
             artifactFactory.getSourceArtifact(
                 PathFragment.create("foo/./foosource.txt"), clientRoot))
-        .isSameAs(artifactFactory.getSourceArtifact(fooRelative, clientRoot));
+        .isSameInstanceAs(artifactFactory.getSourceArtifact(fooRelative, clientRoot));
   }
 
   @Test
   public void testResolveArtifact_noDerived_simpleSource() throws Exception {
     assertThat(artifactFactory.resolveSourceArtifact(fooRelative, MAIN))
-        .isSameAs(artifactFactory.getSourceArtifact(fooRelative, clientRoot));
+        .isSameInstanceAs(artifactFactory.getSourceArtifact(fooRelative, clientRoot));
     assertThat(artifactFactory.resolveSourceArtifact(barRelative, MAIN))
-        .isSameAs(artifactFactory.getSourceArtifact(barRelative, clientRoRoot));
+        .isSameInstanceAs(artifactFactory.getSourceArtifact(barRelative, clientRoRoot));
   }
 
   @Test
   public void testResolveArtifact_inExternalRepo() throws Exception {
     Artifact a1 = artifactFactory.getSourceArtifact(alienRelative, alienRoot);
     Artifact a2 = artifactFactory.resolveSourceArtifact(alienRelative, MAIN);
-    assertThat(a1).isSameAs(a2);
+    assertThat(a1).isSameInstanceAs(a2);
   }
 
   @Test
@@ -154,9 +154,10 @@ public class ArtifactFactoryTest {
   @Test
   public void testResolveArtifact_noDerived_simpleSource_other() throws Exception {
     Artifact actual = artifactFactory.resolveSourceArtifact(fooRelative, MAIN);
-    assertThat(actual).isSameAs(artifactFactory.getSourceArtifact(fooRelative, clientRoot));
+    assertThat(actual).isSameInstanceAs(artifactFactory.getSourceArtifact(fooRelative, clientRoot));
     actual = artifactFactory.resolveSourceArtifact(barRelative, MAIN);
-    assertThat(actual).isSameAs(artifactFactory.getSourceArtifact(barRelative, clientRoRoot));
+    assertThat(actual)
+        .isSameInstanceAs(artifactFactory.getSourceArtifact(barRelative, clientRoRoot));
   }
 
   @Test
@@ -231,8 +232,8 @@ public class ArtifactFactoryTest {
     Action action = new ActionsTestUtil.NullAction(NULL_ACTION_OWNER, a, b);
     ActionConflictException e =
         assertThrows(ActionConflictException.class, () -> actionGraph.registerAction(action));
-    assertThat(e.getArtifact()).isSameAs(a);
-    assertThat(actionGraph.getGeneratingAction(a)).isSameAs(originalAction);
+    assertThat(e.getArtifact()).isSameInstanceAs(a);
+    assertThat(actionGraph.getGeneratingAction(a)).isSameInstanceAs(originalAction);
   }
 
   private static class MockPackageRootResolver implements PackageRootResolver {

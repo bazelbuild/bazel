@@ -102,7 +102,7 @@ public class ZipInTest {
             () -> zipIn.endOfCentralDirectory());
     assertWithMessage(subcase + "caught exception")
         .that(ex.getClass())
-        .isSameAs(IllegalStateException.class);
+        .isSameInstanceAs(IllegalStateException.class);
   }
 
   @Test
@@ -132,7 +132,7 @@ public class ZipInTest {
             () -> zipIn.endOfCentralDirectory());
     assertWithMessage(subcase + "caught exception")
         .that(ex.getClass())
-        .isSameAs(IndexOutOfBoundsException.class);
+        .isSameInstanceAs(IndexOutOfBoundsException.class);
   }
 
   @Test
@@ -163,7 +163,7 @@ public class ZipInTest {
             () -> zipIn.endOfCentralDirectory());
     assertWithMessage(subcase + "caught exception")
         .that(ex.getClass())
-        .isSameAs(IndexOutOfBoundsException.class);
+        .isSameInstanceAs(IndexOutOfBoundsException.class);
   }
 
   @Test
@@ -190,7 +190,7 @@ public class ZipInTest {
             () -> zipIn.endOfCentralDirectory());
     assertWithMessage(subcase + "caught exception")
         .that(ex.getClass())
-        .isSameAs(IllegalArgumentException.class);
+        .isSameInstanceAs(IllegalArgumentException.class);
   }
 
   @Test
@@ -340,7 +340,7 @@ public class ZipInTest {
           public void handle(
               ZipIn in, LocalFileHeader header, DirectoryEntry dirEntry, ByteBuffer data)
               throws IOException {
-            assertThat(in).isSameAs(zipIn);
+            assertThat(in).isSameInstanceAs(zipIn);
             String filename = "pkg/f" + count + ".class";
             assertThat(header.getFilename()).isEqualTo(filename);
             assertThat(dirEntry.getFilename()).isEqualTo(filename);
@@ -578,7 +578,7 @@ public class ZipInTest {
       if (header != null) {
         ZipEntry zipEntry = zipIn.entryWith(header);
         assertThat(zipEntry.getDirEntry()).isNotNull();
-        assertThat(zipEntry.getHeader()).isSameAs(header);
+        assertThat(zipEntry.getHeader()).isSameInstanceAs(header);
         assertThat(zipEntry.getHeader().getFilename()).isEqualTo(name);
         assertThat(zipEntry.getDirEntry().getFilename()).isEqualTo(name);
         assertThat(header.getFilename()).isEqualTo(name);
