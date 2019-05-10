@@ -1,3 +1,48 @@
+## Release 0.25.2 (2019-05-10)
+
+```
+Baseline: 03662462941953dad23af88693804b8b1d4430b9
+
+Cherry picks:
+
+   + 3f7f255f9a8345b8898e3953e7e53d68106cc63d:
+     Windows: fix native test wrapper's arg. escaping
+   + afeb8d0b7fef619159fc8fbaaeb8bd41dd2619bd:
+     Flip --incompatible_windows_escape_jvm_flags
+   + 4299b6549cbc1b3e4494c91ed2f51d49b14c7980:
+     Sort DirectoryNode children to ensure validity.
+   + 231270c67d5aa771462245531fa9b2ee7d3d0ae8:
+     Conditionally use deprecated signature for initWithContentsOfURL
+   + 75a3a531b08e727ade4fa3cb0a574bd142727cce:
+     Add http_archive entries for testing with various JDK versions.
+   + 4a6354a3a5ca23583f8b62e3e439a04ce75b863f:
+     Now that ubuntu1804 uses JDK 11, remove explicit
+     ubuntu1804_java11 tests.
+   + ae102fbde3c1ff87e4f67007a275fb30792a4e8d:
+     Fix wrong name of ubuntu1804_javabase9 task.
+   + 0020a97fdc20ca099ec6386771b20d3236f9890d:
+     Remove @executable_path/Frameworks from rpaths
+   + 130f86ded1ce84f959f0b78c065211902faed546:
+     Download stderr/stdout to a temporary FileOutErr
+   + 2ab38663592a9ccbcc1f6f75ed135ae315f4d9d9:
+     Release 0.25.0 (2019-05-01)
+   + ed48a4a5fddbd93b057c3aa726e15720d79dcf8f:
+     Add implementation to removed methods to address
+     https://github.com/bazelbuild/bazel/issues/8226
+   + 81aefe7ee01cc73646a53f9c72ed40ead09f9f5a:
+     Remove unsupported cpu attribute from cc_toolchains.
+   + cccced1e7fc7eaf4ba8f2c9d73dbac72b2686df9:
+     Release 0.25.1 (2019-05-07)
+   + 0900660d67b53a56a13d1fa16a788e4cecbb1c0e:
+     Use package identifier instead of package name
+   + 85a5a2bd569a5274950fc7327a044c395248c024:
+     Configure @androidsdk//:emulator_x86 and :emulator_arm to point
+     to the unified emulator binary
+```
+
+* Add fix for https://github.com/bazelbuild/bazel/issues/8254
+* Add fix for https://github.com/bazelbuild/bazel/issues/8280
+
 ## Release 0.25.1 (2019-05-07)
 
 ```
