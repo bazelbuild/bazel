@@ -74,8 +74,8 @@ def _update(ctx, git_repo):
         update_submodules(ctx, git_repo)
 
 def init(ctx, git_repo):
-    cl = ["git", "init", "%s" % git_repo.directory]
-    st = ctx.execute(cl, environment = ctx.os.environ)
+    cl = [ctx.which("git"), "init", "%s" % git_repo.directory]
+    st = ctx.execute(cl)
     if st.return_code != 0:
         _error(ctx.name, cl, st.stderr)
 
@@ -101,14 +101,14 @@ def _get_head_date(ctx, git_repo):
     return _git(ctx, git_repo, "log", "-n", "1", "--pretty=format:%cd", "--date=raw")
 
 def _git(ctx, git_repo, command, *args):
-    start = ["git", command]
+    start = [ctx.which("git"), command]
     st = _execute(ctx, git_repo, start + list(args))
     if st.return_code != 0:
         _error(ctx.name, start + list(args), st.stderr)
     return st.stdout
 
 def _git_maybe_shallow(ctx, git_repo, command, *args):
-    start = ["git", command]
+    start = [ctx.which("git"), command]
     args_list = list(args)
     st = _execute(ctx, git_repo, start + ["'%s'" % git_repo.shallow] + args_list)
     if st.return_code != 0:
@@ -119,7 +119,7 @@ def _git_maybe_shallow(ctx, git_repo, command, *args):
 def _execute(ctx, git_repo, args):
     return ctx.execute(
         args,
-        environment = ctx.os.environ,
+        # environment = ctx.os.environ,
         working_directory = str(git_repo.directory),
     )
 
