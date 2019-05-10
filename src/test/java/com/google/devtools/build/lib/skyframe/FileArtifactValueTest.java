@@ -191,7 +191,7 @@ public class FileArtifactValueTest {
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, "content");
     IOException e = assertThrows(IOException.class, () -> createShareable(path));
-    assertThat(e).isSameAs(exception);
+    assertThat(e).isSameInstanceAs(exception);
   }
 
   @Test
