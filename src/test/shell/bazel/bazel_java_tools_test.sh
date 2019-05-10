@@ -172,5 +172,4 @@ function test_java_tools_has_proguard() {
   expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.html"
 }
 
-
 run_suite "Java tools archive tests"
