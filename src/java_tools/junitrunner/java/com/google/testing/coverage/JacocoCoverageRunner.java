@@ -34,6 +34,7 @@ import java.io.Reader;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.net.URLDecoder;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -384,17 +385,17 @@ public class JacocoCoverageRunner {
         URL[] urls = ((URLClassLoader) classLoader).getURLs();
         metadataFiles = new File[urls.length];
         for (int i = 0; i < urls.length; i++) {
-          URL url = urls[i];
-          metadataFiles[i] = new File(url.getFile());
+          String file = URLDecoder.decode(urls[i].getFile(), "UTF-8");
+          metadataFiles[i] = new File(file);
           // Special case for deploy jars.
-          if (url.getFile().endsWith("_deploy.jar")) {
-            metadataFile = url.getFile();
-          } else if (url.getFile().endsWith(".jar")) {
+          if (file.endsWith("_deploy.jar")) {
+            metadataFile = file;
+          } else if (file.endsWith(".jar")) {
             // Collect
             // - uninstrumented class files for coverage before starting the actual test
             // - paths considered for coverage
             // Collecting these in the shutdown hook is too expensive (we only have a 5s budget).
-            JarFile jarFile = new JarFile(url.getFile());
+            JarFile jarFile = new JarFile(file);
             Enumeration<JarEntry> jarFileEntries = jarFile.entries();
             while (jarFileEntries.hasMoreElements()) {
               JarEntry jarEntry = jarFileEntries.nextElement();
