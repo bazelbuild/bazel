@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -94,12 +95,14 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
  * An implementation of the 'genquery' rule.
  */
 public class GenQuery implements RuleConfiguredTargetFactory {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final QueryEnvironmentFactory QUERY_ENVIRONMENT_FACTORY =
       new QueryEnvironmentFactory();
 
@@ -166,6 +169,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    if (result.size() > 50_000_000) {
+      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+          "Genquery %s had large output %s", ruleContext.getLabel(), result.size());
+    }
     ruleContext.registerAction(
         new QueryResultAction(ruleContext.getActionOwner(), outputArtifact, result));
 
