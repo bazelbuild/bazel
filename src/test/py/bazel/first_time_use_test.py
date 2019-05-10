@@ -31,6 +31,22 @@ class FirstTimeUseTest(test_base.TestBase):
       if 'python' in line and 'not found on PATH' in line:
         self._FailWithOutput(stdout + stderr)
 
+  def _AssertBazelRunBinaryOutput(self, exit_code, stdout, stderr, flag):
+    self.AssertExitCode(exit_code, 0, stderr)
+    found_hello = found_arg_a = found_arg_bc = False
+    for line in stdout + stderr:
+      if 'ERROR' in line and 'needs a shell' in line:
+        self._FailWithOutput(['flag=' + flag] + stdout + stderr)
+      if not found_hello and 'hello python' in line:
+        found_hello = True
+      elif not found_arg_a and 'arg[1]=(a)':
+        found_arg_a = True
+      elif not found_arg_bc and 'arg[2]=(b c)':
+        found_arg_bc = True
+        break
+    if not found_hello or not found_arg_a or not found_arg_bc:
+      self._FailWithOutput(['flag=' + flag] + stdout + stderr)
+
   def testNoBashRequiredForSimpleBazelRun(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/8229."""
     self.ScratchFile('WORKSPACE')
@@ -38,16 +54,21 @@ class FirstTimeUseTest(test_base.TestBase):
         'py_binary(',
         '    name = "x",'
         '    srcs = ["x.py"],',
+        '    args = ["a", "\'b c\'"],',
         ')',
     ])
     self.ScratchFile('foo/x.py', [
         'from __future__ import print_function',
+        'import sys',
         'print("hello python")',
+        'for i in range(len(sys.argv)):',
+        '    print("arg%d=(%s)" % (i, sys.argv[i]))',
     ])
 
     if test_base.TestBase.IsWindows():
       exit_code, stdout, stderr = self.RunBazel([
           'run',
+          # Run without shell but with shell-based "bazel run". Should fail.
           '--shell_executable=',
           '--noincompatible_windows_bashless_run_command',
           '//foo:x',
@@ -61,22 +82,16 @@ class FirstTimeUseTest(test_base.TestBase):
       if not found_error:
         self._FailWithOutput(stdout + stderr)
 
+      flag = '--incompatible_windows_bashless_run_command'
       exit_code, stdout, stderr = self.RunBazel([
           'run',
+          # Run without shell and with bashless "bazel run". Should succeed.
           '--shell_executable=',
-          '--incompatible_windows_bashless_run_command',
+          flag,
           '//foo:x',
       ])
-      self.AssertExitCode(exit_code, 0, stderr)
-      found_output = False
-      for line in stdout + stderr:
-        if 'ERROR' in line and 'needs a shell' in line:
-          self._FailWithOutput(stdout + stderr)
-        if 'hello python' in line:
-          found_output = True
-          break
-      if not found_output:
-        self._FailWithOutput(stdout + stderr)
+
+      self._AssertBazelRunBinaryOutput(exit_code, stdout, stderr, flag)
     else:
       # The --incompatible_windows_bashless_run_command should be a no-op on
       # platforms other than Windows.
@@ -86,6 +101,8 @@ class FirstTimeUseTest(test_base.TestBase):
       ]:
         exit_code, stdout, stderr = self.RunBazel([
             'run',
+            # Run fails because we provide no shell. Platforms other than
+            # Windows always use Bash for "bazel run".
             '--shell_executable=',
             flag,
             '//foo:x',
@@ -98,6 +115,10 @@ class FirstTimeUseTest(test_base.TestBase):
             break
         if not found_error:
           self._FailWithOutput(['flag=' + flag] + stdout + stderr)
+
+        # Run succeeds because there is a shell.
+        exit_code, stdout, stderr = self.RunBazel(['run', flag, '//foo:x'])
+        self._AssertBazelRunBinaryOutput(exit_code, stdout, stderr, flag)
 
 
 if __name__ == '__main__':
