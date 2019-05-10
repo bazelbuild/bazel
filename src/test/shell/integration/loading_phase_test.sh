@@ -325,30 +325,26 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
 
   echo 'workspace(name="wsname1")' > WORKSPACE
   echo 'sh_library(name="shname1")' > $pkg/foo/BUILD
-  # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
+  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname1"
 
   echo 'sh_library(name="shname2")' > $pkg/foo/BUILD
-  # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
+  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
 
   # Test that comment changes do not cause package reloading
   echo '#benign comment' >> WORKSPACE
-  # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
+  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_not_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
 
   echo 'workspace(name="wsname2")' > WORKSPACE
-  # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
+  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
