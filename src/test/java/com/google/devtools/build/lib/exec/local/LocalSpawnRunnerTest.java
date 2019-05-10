@@ -73,6 +73,7 @@ import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -271,6 +272,10 @@ public class LocalSpawnRunnerTest {
 
   private Logger logger;
 
+  private static Map<String, String> keepLocalEnvUnchanged(
+      Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
+    return env;
+  }
 
   @Before
   public final void suppressLogging() {
@@ -326,7 +331,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
@@ -377,8 +382,13 @@ public class LocalSpawnRunnerTest {
     Path execRoot = fs.getPath("/execroot");
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
-            execRoot, fs.getPath("/embedded_bin"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            execRoot,
+            fs.getPath("/embedded_bin"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.LINUX,
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
     ParamFileActionInput paramFileActionInput =
         new ParamFileActionInput(
             PathFragment.create("some/dir/params"),
@@ -432,7 +442,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             NO_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
@@ -477,7 +487,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -525,7 +535,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     assertThat(fs.getPath("/out").createDirectory()).isTrue();
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
@@ -561,7 +571,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr();
@@ -612,7 +622,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
@@ -639,7 +649,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
@@ -666,7 +676,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
@@ -736,7 +746,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.WINDOWS,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
@@ -867,7 +877,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED,
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools);
 
     Spawn spawn =
@@ -930,7 +940,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED,
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools);
 
     Spawn spawn =
@@ -984,7 +994,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             NO_WRAPPER,
             OS.LINUX,
-            LocalEnvProvider.UNMODIFIED);
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);

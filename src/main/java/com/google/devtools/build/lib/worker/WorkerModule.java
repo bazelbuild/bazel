@@ -27,18 +27,14 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
-import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.WorkerOptions.MultiResourceConverter;
 import com.google.devtools.common.options.OptionsBase;
@@ -145,7 +141,7 @@ public class WorkerModule extends BlazeModule {
     Preconditions.checkNotNull(workerPool);
     ImmutableMultimap<String, String> extraFlags =
         ImmutableMultimap.copyOf(env.getOptions().getOptions(WorkerOptions.class).workerExtraFlags);
-    LocalEnvProvider localEnvProvider = createLocalEnvProvider(env);
+    LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
             env.getExecRoot(),
@@ -174,14 +170,6 @@ public class WorkerModule extends BlazeModule {
         ResourceManager.instance(),
         localEnvProvider,
         env.getBlazeWorkspace().getBinTools());
-  }
-
-  private static LocalEnvProvider createLocalEnvProvider(CommandEnvironment env) {
-    return OS.getCurrent() == OS.DARWIN
-        ? new XcodeLocalEnvProvider(env.getClientEnv())
-        : (OS.getCurrent() == OS.WINDOWS
-            ? new WindowsLocalEnvProvider(env.getClientEnv())
-            : new PosixLocalEnvProvider(env.getClientEnv()));
   }
 
   @Subscribe

@@ -33,11 +33,9 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
-import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
-import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -374,17 +372,12 @@ public final class SandboxModule extends BlazeModule {
   private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
-    LocalEnvProvider localEnvProvider =
-        OS.getCurrent() == OS.DARWIN
-            ? new XcodeLocalEnvProvider(env.getClientEnv())
-            : new PosixLocalEnvProvider(env.getClientEnv());
-    return
-        new LocalSpawnRunner(
-            env.getExecRoot(),
-            localExecutionOptions,
-            ResourceManager.instance(),
-            localEnvProvider,
-            env.getBlazeWorkspace().getBinTools());
+    return new LocalSpawnRunner(
+        env.getExecRoot(),
+        localExecutionOptions,
+        ResourceManager.instance(),
+        LocalEnvProvider.forCurrentOs(env.getClientEnv()),
+        env.getBlazeWorkspace().getBinTools());
   }
 
   private static final class SandboxFallbackSpawnRunner implements SpawnRunner {

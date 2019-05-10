@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.exec.apple;
+package com.google.devtools.build.lib.exec.local;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
@@ -57,9 +56,11 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
   /**
    * Creates a new {@link XcodeLocalEnvProvider}.
    *
+   * <p>Use {@link LocalEnvProvider#forCurrentOs(Map)} to instantiate this.
+   *
    * @param clientEnv a map of the current Bazel command's environment
    */
-  public XcodeLocalEnvProvider(Map<String, String> clientEnv) {
+  XcodeLocalEnvProvider(Map<String, String> clientEnv) {
     this.clientEnv = clientEnv;
   }
 
