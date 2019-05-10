@@ -392,6 +392,7 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.buildPythonZip = buildPythonZip;
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
+    hostPythonOptions.windowsEscapePythonArgs = windowsEscapePythonArgs;
     return hostPythonOptions;
   }
 
