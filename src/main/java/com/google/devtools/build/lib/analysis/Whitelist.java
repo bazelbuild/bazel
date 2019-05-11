@@ -81,11 +81,17 @@ public final class Whitelist {
    *     whitelist on rule definition location and features that whitelist on rule instantiation
    *     location to share logic.
    */
-  private static boolean isAvailableFor(
+  public static boolean isAvailableFor(
       RuleContext ruleContext, String whitelistName, Label relevantLabel) {
     PackageSpecificationProvider packageSpecificationProvider =
         fetchPackageSpecificationProvider(ruleContext, whitelistName);
     return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
+  }
+
+  public static boolean isAvailableFor(
+      Iterable<PackageGroupContents> packageGroupContents, Label relevantLabel) {
+    return Streams.stream(packageGroupContents)
+        .anyMatch(p -> p.containsPackage(relevantLabel.getPackageIdentifier()));
   }
 
   public static PackageSpecificationProvider fetchPackageSpecificationProvider(
@@ -109,12 +115,6 @@ public final class Whitelist {
     PackageSpecificationProvider packageSpecificationProvider =
         whitelist.getProvider(PackageSpecificationProvider.class);
     return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
-  }
-
-  public static boolean isAvailableFor(
-      Iterable<PackageGroupContents> packageGroupContents, Label relevantLabel) {
-    return Streams.stream(packageGroupContents)
-        .anyMatch(p -> p.containsPackage(relevantLabel.getPackageIdentifier()));
   }
 
   /**
