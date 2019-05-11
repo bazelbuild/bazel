@@ -92,7 +92,7 @@ class GraphOutputFormatter extends OutputFormatter {
           public void beginVisit() {
             super.beginVisit();
             // TODO(bazel-team): (2009) make this the default in Digraph.
-            out.printf("\tnode [shape=box];%s", options.getLineTerminator());
+            out.printf("  node [shape=box];%s", options.getLineTerminator());
           }
 
           @Override
@@ -103,7 +103,7 @@ class GraphOutputFormatter extends OutputFormatter {
                 getConditionsGraphLabel(
                     ImmutableSet.of(lhs), ImmutableSet.of(rhs), conditionalEdges);
             if (!outputLabel.isEmpty()) {
-              out.printf("\t[label=\"%s\"];\n", outputLabel);
+              out.printf("  [label=\"%s\"];\n", outputLabel);
             }
           }
         },
