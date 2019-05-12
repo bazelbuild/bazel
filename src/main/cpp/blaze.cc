@@ -1240,7 +1240,7 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
   // ReadDirectorySymlink will realpath to remove all symlinks, and
   // install_base might have a symlink in it.
   string wanted_installation =
-      blaze_util::MakeCanonical(globals->options->install_base);
+      blaze_util::MakeCanonical(globals->options->install_base.c_str());
   if (!ok || !blaze_util::CompareAbsolutePaths(
                  prev_installation, wanted_installation)) {
     if (server->Connected()) {
