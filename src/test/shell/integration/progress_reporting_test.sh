@@ -61,8 +61,6 @@ else
   chmod +x "$WORKSPACE_STATUS"
 fi
 
-# TODO(b/37617303): make tests UI-independent
-add_to_bazelrc "build --noexperimental_ui"
 add_to_bazelrc "build --workspace_status_command=\"$WORKSPACE_STATUS\" --nostamp"
 add_to_bazelrc "build --show_progress_rate_limit=-1"
 add_to_bazelrc "build --genrule_strategy=local"
@@ -100,7 +98,7 @@ function test_respects_progress_interval() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
-  local -r MATCHER="Executing genrule //${pkg}:x, [0-9] s"
+  local -r MATCHER="Executing genrule //${pkg}:x; [0-9]s local"
 
   cat >"${pkg}/BUILD" <<'EOF'
 genrule(
@@ -133,12 +131,13 @@ genrule(
 )
 EOF
 
-  bazel build "//${pkg}:x" "--${show}_task_finish" --color=no \
+  bazel build "//${pkg}:x" "--${show}_task_finish" \
+      --experimental_ui_debug_all_events --color=no \
       --curses=no --nocache_test_results >& "$TEST_log" || fail "bazel test"
 
-  expect_log "$PROGRESS_RX Executing genrule //${pkg}:x"
+  expect_log "START.*: $PROGRESS_RX Executing genrule //${pkg}:x"
   if [ "$show" == "show" ]; then
-    expect_log "$PROGRESS_RX Executing genrule //${pkg}:x DONE"
+    expect_log "FINISH.*: $PROGRESS_RX Executing genrule //${pkg}:x"
   else
     # Negative matching should be as permissive as possible.
     expect_not_log "DONE"
@@ -198,7 +197,8 @@ EOF
     chmod +x "$wsc"
   fi
 
-  bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
+  bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
+      --show_task_finish --color=no --curses=no \
       --workspace_status_command="$wsc" \
       --progress_report_interval=1 \
       >& "$TEST_log" || fail "build failed"
@@ -218,13 +218,13 @@ EOF
   # It may happen that Skyframe does not discover (enque) the workspace status
   # writer action immediately, so the counter may initially report 3 total
   # actions instead of 4.
-  expect_log "\[0 / [34]\] Executing genrule //${pkg}:z\s*$"
-  expect_log "\[1 / [34]\] Executing genrule //${pkg}:z DONE\s*$"
-  expect_log "\[1 / [34]\] Executing genrule //${pkg}:y\s*$"
-  expect_log "\[2 / [34]\] Executing genrule //${pkg}:y DONE\s*$"
-  expect_log "\[2 / 4\] Executing genrule //${pkg}:x\s*$"
-  expect_log "\[3 / 4\] Executing genrule //${pkg}:x DONE\s*$"
-  expect_log "\[3 / 4\] Still waiting for 1 job to complete:"
+  expect_log "START.*: \[0 / [34]\] Executing genrule //${pkg}:z\s*$"
+  expect_log "FINISH.*: \[1 / [34]\] Executing genrule //${pkg}:z\s*$"
+  expect_log "START.*: \[1 / [34]\] Executing genrule //${pkg}:y\s*$"
+  expect_log "FINISH.*: \[2 / [34]\] Executing genrule //${pkg}:y\s*$"
+  expect_log "START.*: \[2 / 4\] Executing genrule //${pkg}:x\s*$"
+  expect_log "FINISH.*: \[3 / 4\] Executing genrule //${pkg}:x\s*$"
+  expect_log "PROGRESS.*: \[3 / 4\] Still waiting for 1 job to complete:"
 
   # Open-source Bazel calls this file stable-status.txt, Google internal version
   # calls it build-info.txt.
@@ -276,16 +276,18 @@ EOF
   # last one might be the workspace status writer action).
 
   echo "input-clean" > "${pkg}/input"
-  bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
+  bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
+      --show_task_finish --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
-  expect_log_once "\[[89] / 9\] Executing genrule //${pkg}:x DONE"
-  expect_log_n "\[[1-9] / 9\] Executing genrule //${pkg}:.* DONE" 8
+  expect_log_once "FINISH.*: \[[89] / 9\] Executing genrule //${pkg}:x"
+  expect_log_n "FINISH.*: \[[1-9] / 9\] Executing genrule //${pkg}:.*" 8
 
   echo "input-incremental" > "${pkg}/input"
-  bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
+  bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
+      --show_task_finish --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
-  expect_log_once "\[[89] / 9\] Executing genrule //${pkg}:x DONE"
-  expect_log_n "\[[1-9] / 9\] Executing genrule //${pkg}:.* DONE" 2
+  expect_log_once "FINISH.*: \[[89] / 9\] Executing genrule //${pkg}:x"
+  expect_log_n "FINISH.*: \[[1-9] / 9\] Executing genrule //${pkg}:.*" 2
 }
 
 function test_failed_actions_with_keep_going() {
@@ -322,9 +324,10 @@ EOF
   # there are enough local resources for two genrules to run in parallel.
   # Give enough head room so that the test won't break again if we tweak
   # our assumptions about local resource usage.
-  bazel build -j 2 --local_ram_resources=2048000 --local_cpu_resources=32 \
-       -k -s "//${pkg}:"{top,longrun} --progress_report_interval=1 \
-       >& "$TEST_log" && fail "build succeeded"
+  bazel build --experimental_ui_debug_all_events -j 2 \
+      --local_ram_resources=2048000 --local_cpu_resources=32 \
+      -k -s "//${pkg}:"{top,longrun} --progress_report_interval=1 \
+      >& "$TEST_log" && fail "build succeeded"
   expect_log "\[3 / 4\] Still waiting for 1 job to complete:"
   expect_log "^ *Executing genrule //${pkg}:longrun"
 }
@@ -370,16 +373,18 @@ EOF
   # The last action should again be target "x", its completion index 8 or 9 (the
   # last one might be the workspace status writer action).
   echo "input-clean" > "${pkg}/input"
-  bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
+  bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
+      --show_task_finish --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
-  expect_log_once "\[[89] / 9\] Executing genrule //${pkg}:x DONE"
-  expect_log_n "\[[1-9] / 9\] Executing genrule //${pkg}:.* DONE" 8
+  expect_log_once "FINISH.*: \[[89] / 9\] Executing genrule //${pkg}:x"
+  expect_log_n "FINISH.*: \[[1-9] / 9\] Executing genrule //${pkg}:.*" 8
 
   echo "input-incremental" > "${pkg}/input"
-  bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
+  bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
+      --show_task_finish --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
-  expect_log_once "\[[12] / 9\] Executing genrule //${pkg}:dep1 DONE"
-  expect_log_once "Executing genrule .* DONE"
+  expect_log_once "FINISH.*: \[[12] / 9\] Executing genrule //${pkg}:dep1"
+  expect_log_once "FINISH.*:.* Executing genrule .*"
 }
 
 function test_counts_exclusive_tests_in_total_work() {
