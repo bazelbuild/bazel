@@ -41,10 +41,10 @@ public final class CppFileTypes {
       FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE);
 
   public static final FileType CPP_HEADER =
-      FileType.of(".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc", ".inl", ".H");
+      FileType.of(".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc", ".inl", ".tlh", ".tli", ".H");
   public static final FileType PCH = FileType.of(".pch");
   public static final FileTypeSet OBJC_HEADER = FileTypeSet.of(CPP_HEADER, PCH);
-  
+
   public static final FileType CPP_TEXTUAL_INCLUDE = FileType.of(".inc");
 
   public static final FileType PIC_PREPROCESSED_C = FileType.of(".pic.i");
