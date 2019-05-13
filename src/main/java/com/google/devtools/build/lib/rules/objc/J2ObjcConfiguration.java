@@ -89,6 +89,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   private final ImmutableList<String> translationFlags;
   private final boolean removeDeadCode;
   private final boolean experimentalJ2ObjcHeaderMap;
+  private final boolean experimentalShorterHeaderPath;
   @Nullable private final Label deadCodeReport;
 
   private J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
@@ -100,6 +101,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
             .build();
     this.removeDeadCode = j2ObjcOptions.removeDeadCode;
     this.experimentalJ2ObjcHeaderMap = j2ObjcOptions.experimentalJ2ObjcHeaderMap;
+    this.experimentalShorterHeaderPath = j2ObjcOptions.experimentalShorterHeaderPath;
     this.deadCodeReport = j2ObjcOptions.deadCodeReport;
   }
 
@@ -147,6 +149,13 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
    */
   public boolean experimentalJ2ObjcHeaderMap() {
     return experimentalJ2ObjcHeaderMap;
+  }
+
+  /**
+   * Returns whether to use a shorter path for generated header files.
+   */
+  public boolean experimentalShorterHeaderPath() {
+    return experimentalShorterHeaderPath;
   }
 
   @Override
