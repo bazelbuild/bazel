@@ -26,9 +26,6 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 function set_up() {
   bazel clean --expunge >& $TEST_log
   repo_cache_dir=$TEST_TMPDIR/repository_cache
-  # TODO(b/37617303): make test UI-independent
-  add_to_bazelrc "fetch --noexperimental_ui"
-  add_to_bazelrc "build --noexperimental_ui"
 }
 
 function tear_down() {
