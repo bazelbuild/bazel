@@ -188,53 +188,34 @@ sh_test(
     ],
 )
 
-sh_test(
-    name = "bazel_java_test_jdk9_toolchain_head",
-    size = "large",
-    timeout = "eternal",
-    srcs = ["bazel_java_test.sh"],
-    args = [
-        # --java_toolchain
-        "@local_java_tools//:toolchain",
-        # java_tools zip to test
-        "src/java_tools_java9.zip",
-        # --javabase value
-    ] + select({
-        "//src/conditions:darwin": ["@openjdk9_darwin_archive//:runtime"],
-        "//src/conditions:darwin_x86_64": ["@openjdk9_darwin_archive//:runtime"],
-        "//src/conditions:windows": ["@openjdk9_windows_archive//:runtime"],
-        "//src/conditions:linux_x86_64": ["@openjdk9_linux_archive//:runtime"],
-    }),
-    data = [
-        ":test-deps",
-        "//src:java_tools_java9_zip",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
+JAVA_VERSIONS = ("9", "10", "11")
 
-sh_test(
-    name = "bazel_java_test_jdk10_toolchain_head",
-    size = "large",
-    timeout = "eternal",
-    srcs = ["bazel_java_test.sh"],
-    args = [
-        # --java_toolchain
-        "@local_java_tools//:toolchain",
-        # java_tools zip to test
-        "src/java_tools_java10.zip",
-        # --javabase value
-    ] + select({
-        "//src/conditions:darwin": ["@openjdk10_darwin_archive//:runtime"],
-        "//src/conditions:darwin_x86_64": ["@openjdk10_darwin_archive//:runtime"],
-        "//src/conditions:windows": ["@openjdk10_windows_archive//:runtime"],
-        "//src/conditions:linux_x86_64": ["@openjdk10_linux_archive//:runtime"],
-    }),
-    data = [
-        ":test-deps",
-        "//src:java_tools_java10_zip",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
+[
+    sh_test(
+        name = "bazel_java_test_jdk" + java_version + "_toolchain_head",
+        size = "large",
+        timeout = "eternal",
+        srcs = ["bazel_java_test.sh"],
+        args = [
+            # --java_toolchain
+            "@local_java_tools//:toolchain",
+            # java_tools zip to test
+            "src/java_tools_java" + java_version + ".zip",
+            # --javabase value
+        ] + select({
+            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
+            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+        }),
+        data = [
+            ":test-deps",
+            "//src:java_tools_java" + java_version + "_zip",
+            "@bazel_tools//tools/bash/runfiles",
+        ],
+    )
+    for java_version in JAVA_VERSIONS
+]
 
 [
     sh_test(
@@ -261,7 +242,7 @@ sh_test(
         # This test is only run by the java_tools binaries pipeline.
         tags = ["manual"],
     )
-    for java_version in ("9", "10")
+    for java_version in ("9", "10", "11")
 ]
 
 sh_test(
