@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
@@ -66,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -100,7 +102,10 @@ public class BuildEventStreamer {
 
   private final CountingArtifactGroupNamer artifactGroupNamer;
   private OutErrProvider outErrProvider;
-  private volatile AbortReason abortReason = AbortReason.UNKNOWN;
+
+  @GuardedBy("this")
+  private final Set<AbortReason> abortReasons = new LinkedHashSet<>();
+
   // Will be set to true if the build was invoked through "bazel test" or "bazel coverage".
   private boolean isTestCommand;
 
@@ -293,7 +298,11 @@ public class BuildEventStreamer {
               .map(BuildEvent::getEventId)
               .collect(ImmutableSet.<BuildEventId>toImmutableSet()));
       buildEvent(
-          new AbortedEvent(BuildEventId.buildStartedId(), children.build(), abortReason, ""));
+          new AbortedEvent(
+              BuildEventId.buildStartedId(),
+              children.build(),
+              getLastAbortReason(),
+              getAbortReasonDetails()));
     }
   }
 
@@ -301,7 +310,7 @@ public class BuildEventStreamer {
   private synchronized void clearPendingEvents() {
     while (!pendingEvents.isEmpty()) {
       BuildEventId id = pendingEvents.keySet().iterator().next();
-      buildEvent(new AbortedEvent(id, abortReason, ""));
+      buildEvent(new AbortedEvent(id, getLastAbortReason(), getAbortReasonDetails()));
     }
   }
 
@@ -319,7 +328,7 @@ public class BuildEventStreamer {
       }
       for (BuildEventId id : ids) {
         if (!dontclear.contains(id)) {
-          post(new AbortedEvent(id, abortReason, ""));
+          post(new AbortedEvent(id, getLastAbortReason(), getAbortReasonDetails()));
         }
       }
     }
@@ -339,7 +348,7 @@ public class BuildEventStreamer {
     }
     closed = true;
     if (reason != null) {
-      abortReason = reason;
+      addAbortReason(reason);
     }
 
     if (finalEventsToCome == null) {
@@ -403,17 +412,17 @@ public class BuildEventStreamer {
 
   @Subscribe
   public void buildInterrupted(BuildInterruptedEvent event) {
-    abortReason = AbortReason.USER_INTERRUPTED;
+    addAbortReason(AbortReason.USER_INTERRUPTED);
   }
 
   @Subscribe
   public void noAnalyze(NoAnalyzeEvent event) {
-    abortReason = AbortReason.NO_ANALYZE;
+    addAbortReason(AbortReason.NO_ANALYZE);
   }
 
   @Subscribe
   public void noExecution(NoExecutionEvent event) {
-    abortReason = AbortReason.NO_BUILD;
+    addAbortReason(AbortReason.NO_BUILD);
   }
 
   @Subscribe
@@ -469,8 +478,15 @@ public class BuildEventStreamer {
       buildEvent(freedEvent);
     }
 
-    if (event instanceof BuildCompleteEvent && isCrash((BuildCompleteEvent) event)) {
-      abortReason = AbortReason.INTERNAL;
+    if (event instanceof BuildCompleteEvent) {
+      BuildCompleteEvent buildCompleteEvent = (BuildCompleteEvent) event;
+      if (isCrash(buildCompleteEvent)) {
+        addAbortReason(AbortReason.INTERNAL);
+      } else if (isCatastrophe(buildCompleteEvent)) {
+        addAbortReason(AbortReason.INTERNAL);
+      } else if (isIncomplete(buildCompleteEvent)) {
+        addAbortReason(AbortReason.INCOMPLETE);
+      }
     }
 
     if (event instanceof BuildCompletingEvent) {
@@ -490,6 +506,16 @@ public class BuildEventStreamer {
 
   private static boolean isCrash(BuildCompleteEvent event) {
     return event.getResult().getUnhandledThrowable() != null;
+  }
+
+  private static boolean isCatastrophe(BuildCompleteEvent event) {
+    return event.getResult().wasCatastrophe();
+  }
+
+  private boolean isIncomplete(BuildCompleteEvent event) {
+    return !event.getResult().getSuccess()
+        && !event.getResult().wasCatastrophe()
+        && event.getResult().getStopOnFirstFailure();
   }
 
   private synchronized BuildEvent flushStdoutStderrEvent(String out, String err) {
@@ -711,6 +737,34 @@ public class BuildEventStreamer {
    */
   public synchronized ImmutableMap<BuildEventTransport, ListenableFuture<Void>> getHalfClosedMap() {
     return halfCloseFuturesMap;
+  }
+
+  /**
+   * Stores the abort reason for later reporting on BEP pending events. In case of multiple abort
+   * reasons:
+   *
+   * <ul>
+   *   <li>Only the most recent reason will be reported as the main AbortReason in BEP.
+   *   <li>All previous AbortReason will appear in Aborted#getDescription message.
+   * </ul>
+   */
+  private synchronized void addAbortReason(BuildEventStreamProtos.Aborted.AbortReason reason) {
+    abortReasons.add(reason);
+  }
+
+  /** @return the most recent AbortReason or UNKNOWN if no value was set. */
+  private synchronized AbortReason getLastAbortReason() {
+    return abortReasons.isEmpty() ? AbortReason.UNKNOWN : Iterables.getLast(abortReasons);
+  }
+
+  /**
+   * @return Detailed message explaining the most recent AbortReason (and possibly previous
+   *     reasons).
+   */
+  private synchronized String getAbortReasonDetails() {
+    return abortReasons.size() <= 1
+        ? ""
+        : String.format("Multiple abort reasons reported: %s", abortReasons);
   }
 
   /** A builder for {@link BuildEventStreamer}. */
