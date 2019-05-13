@@ -292,7 +292,7 @@ TODO(bazel-team): Expand supported build setting types.
 
 ## Build Settings and Select
 Users can configure attributes on build settings by using
-[`select()`](functions.html#select). Build setting targets can be passed to the
+[`select()`](be/functions.html#select). Build setting targets can be passed to the
 `flag_values` attribute of `config_setting`. The value to match to the
 configuration is passed as a `String` then parsed to the type of the build
 setting for matching.
