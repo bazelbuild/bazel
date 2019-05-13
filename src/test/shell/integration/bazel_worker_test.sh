@@ -460,10 +460,10 @@ EOF
   sed -i.bak '/execution_requirements/d' work.bzl
   rm -f work.bzl.bak
 
-  bazel build --worker_quit_after_build :hello_world &> $TEST_log \
-    || fail "build failed"
+  bazel build --worker_quit_after_build :hello_world &> $TEST_log || true
 
-  expect_log "Worker strategy cannot execute this Work action, because the action's execution info does not contain 'supports-workers=1'"
+  expect_log "No usable spawn strategy found for spawn with mnemonic Work"
+  expect_not_log "Worker strategy cannot execute this Work action, because the action's execution info does not contain 'supports-workers=1'"
   expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
   expect_not_log "Destroying Work worker (id [0-9]\+)"
 

@@ -104,7 +104,6 @@ EOF
 
   bazel clean >& $TEST_log
   bazel build \
-      --incompatible_list_based_execution_strategy_selection \
       --remote_executor=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
@@ -280,7 +279,6 @@ tags = ["no-remote"],
 EOF
 
   bazel build \
-      --incompatible_list_based_execution_strategy_selection \
       --spawn_strategy=remote,local \
       --remote_executor=localhost:${worker_port} \
       --build_event_text_file=gen1.log \
@@ -304,7 +302,6 @@ tags = ["no-remote"],
 EOF
 
   bazel build \
-      --incompatible_list_based_execution_strategy_selection \
       --spawn_strategy=remote,sandboxed,local \
       --remote_executor=localhost:${worker_port} \
       --build_event_text_file=gen1.log \
@@ -328,7 +325,6 @@ tags = ["no-remote"],
 EOF
 
   bazel build \
-      --incompatible_list_based_execution_strategy_selection \
       --remote_executor=localhost:${worker_port} \
       --build_event_text_file=gen1.log \
       //gen1 >& $TEST_log \
