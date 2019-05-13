@@ -53,8 +53,13 @@ EOF
 
   bazel clean --expunge
   bazel build --experimental_repository_resolved_file=../repo.bzl @ext//... \
-      || fail "Expected success"
+        > "${TEST_log}" 2>&1 || fail "Expected success"
   bazel shutdown
+
+  # We expect the additional argument to be reported to the user...
+  expect_log 'extra_arg.*foobar'
+  # ...as well as the location of the definition.
+  expect_log 'fetchrepo/WORKSPACE:2'
 
   # Verify that bazel can read the generated repo.bzl file and that it contains
   # the expected information
