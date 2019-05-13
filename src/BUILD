@@ -556,31 +556,23 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//conditions:default": [],
 })
 
-genrule(
-    name = "jars_java_tools_java9_zip",
-    srcs = JAVA_TOOLS_DEPLOY_JARS + [
-        "@java_tools_langtools_javac9//:jdk_compiler_jar",
-        "@java_tools_langtools_javac9//:java_compiler_jar",
-        "@java_tools_langtools_javac9//:javac_jar",
-    ],
-    outs = ["jars_java_tools_java9.zip"],
-    cmd = "zip -qjX $@ $$(echo $(SRCS) | sort)",
-    visibility = ["//visibility:private"],
-)
 
-genrule(
-    name = "jars_java_tools_java10_zip",
-    srcs = JAVA_TOOLS_DEPLOY_JARS + [
-        "@java_tools_langtools_javac10//:jdk_compiler_jar",
-        "@java_tools_langtools_javac10//:java_compiler_jar",
-        "@java_tools_langtools_javac10//:javac_jar",
-    ],
-    outs = ["jars_java_tools_java10.zip"],
-    cmd = "zip -qjX $@ $$(echo $(SRCS) | sort)",
-    visibility = ["//visibility:private"],
-)
+JAVA_VERSIONS = ("9", "10", "11")
 
-JAVA_VERSIONS = ("9", "10")
+[
+    genrule(
+        name = "jars_java_tools_java" + java_version + "_zip",
+        srcs = JAVA_TOOLS_DEPLOY_JARS + [
+            "@java_tools_langtools_javac" + java_version + "//:jdk_compiler_jar",
+            "@java_tools_langtools_javac" + java_version + "//:java_compiler_jar",
+            "@java_tools_langtools_javac" + java_version + "//:javac_jar",
+        ],
+        outs = ["jars_java_tools_java" + java_version + ".zip"],
+        cmd = "zip -qjX $@ $$(echo $(SRCS) | sort)",
+        visibility = ["//visibility:private"],
+    )
+    for java_version in JAVA_VERSIONS
+]
 
 [
     genrule(
