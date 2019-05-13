@@ -1734,68 +1734,6 @@ $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testd
 )
 
 sh_test(
-    name = "dump_interface_with_static_and_default_methods_with_args_test",
-    srcs = ["diff.sh"],
-    args = [
-        "$(location interface_with_static_and_default_methods_with_args_disassembled_golden.txt)",
-        "$(location interface_with_static_and_default_methods_with_args_disassembled.txt)",
-    ],
-    data = [
-        "interface_with_static_and_default_methods_with_args_disassembled_golden.txt",
-        ":interface_with_static_and_default_methods_with_args_disassembled.txt",
-    ],
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "dump_companion_with_static_and_default_methods_with_args_test",
-    srcs = ["diff.sh"],
-    args = [
-        "$(location companion_with_static_and_default_methods_with_args_disassembled_golden.txt)",
-        "$(location companion_with_static_and_default_methods_with_args_disassembled.txt)",
-    ],
-    data = [
-        "companion_with_static_and_default_methods_with_args_disassembled_golden.txt",
-        ":companion_with_static_and_default_methods_with_args_disassembled.txt",
-    ],
-    tags = ["no_windows"],
-)
-
-genrule(
-    name = "dump_interface_with_static_and_default_methods_with_args",
-    srcs = [":testdata_desugared_default_methods.jar"],
-    outs = ["interface_with_static_and_default_methods_with_args_disassembled.txt"],
-    cmd = """
-        raw_dump=$$($(JAVABASE)/bin/javap -v -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethodParameters')
-        runtime_visible_annotations="$$(echo \"$$raw_dump\" | grep -A 1 RuntimeVisibleAnnotations:)"
-        runtime_visible_type_annotations="$$(echo \"$$raw_dump\" | grep -A 2 RuntimeVisibleTypeAnnotations:)"
-        runtime_visible_parameter_annotations="$$(echo \"$$raw_dump\" | grep -A 3 RuntimeVisibleParameterAnnotations:)"
-        method_parameters="$$(echo \"$$raw_dump\" | grep -A 3 MethodParameters:)"
-        echo -e "$${runtime_visible_annotations}\n$${runtime_visible_type_annotations}\n$${runtime_visible_parameter_annotations}\n$${method_parameters}" > $@
-    """,
-    tags = ["no_windows"],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk"],
-)
-
-genrule(
-    name = "dump_companion_with_static_and_default_methods_with_args",
-    srcs = [":testdata_desugared_default_methods.jar"],
-    outs = ["companion_with_static_and_default_methods_with_args_disassembled.txt"],
-    cmd = """
-        raw_dump=$$($(JAVABASE)/bin/javap -v -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethodParameters$$$$CC')
-        runtime_visible_annotations="$$(echo \"$$raw_dump\" | grep -A 1 RuntimeVisibleAnnotations:)"
-        runtime_visible_type_annotations="$$(echo \"$$raw_dump\" | grep -A 2 RuntimeVisibleTypeAnnotations:)"
-        runtime_visible_parameter_annotations="$$(echo \"$$raw_dump\" | grep -A 3 RuntimeVisibleParameterAnnotations:)"
-        method_parameters="$$(echo \"$$raw_dump\" | grep -A 3 MethodParameters:)"
-        echo -e "$${runtime_visible_annotations}\n$${runtime_visible_type_annotations}\n$${runtime_visible_parameter_annotations}\n$${method_parameters}" > $@
-    """,
-    tags = ["no_windows"],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk"],
-)
-
-sh_test(
     name = "inherited_abstract_method_gets_no_default_method_stub",
     srcs = ["diff.sh"],
     args = [
