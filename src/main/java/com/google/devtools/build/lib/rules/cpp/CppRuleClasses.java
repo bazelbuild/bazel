@@ -363,6 +363,9 @@ public class CppRuleClasses {
   /** A string constant for the autofdo feature. */
   public static final String AUTOFDO = "autofdo";
 
+  /** A string constant for the build_interface_libraries feature. */
+  public static final String BUILD_INTERFACE_LIBRARIES = "build_interface_libraries";
+
   /** A string constant for the xbinaryfdo feature. */
   public static final String XBINARYFDO = "xbinaryfdo";
 
