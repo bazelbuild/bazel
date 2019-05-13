@@ -419,6 +419,16 @@ public class JavaOptions extends FragmentOptions {
   public Map<String, Label> bytecodeOptimizers;
 
   @Option(
+      name = "enforce_proguard_file_extension",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If enabled, requires that ProGuard configuration files outside of third_party/ use the"
+              + " *.pgcfg file extension.")
+  public boolean enforceProguardFileExtension;
+
+  @Option(
       name = "translations",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

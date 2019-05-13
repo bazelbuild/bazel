@@ -1056,6 +1056,63 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void enforceProguardFileExtension_disabled_allowsOtherExtensions() throws Exception {
+    useConfiguration("--noenforce_proguard_file_extension");
+    scratch.file(
+        "java/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro'])");
+
+    ConfiguredTarget unused = getConfiguredTarget("//java/android/hello:b");
+  }
+
+  @Test
+  public void enforceProguardFileExtension_enabled_disallowsOtherExtensions() throws Exception {
+    useConfiguration("--enforce_proguard_file_extension");
+    scratch.file(
+        "java/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro'])");
+
+    AssertionError assertionError =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//java/android/hello:b"));
+
+    assertThat(assertionError).hasMessageThat().contains("These files do not end in .pgcfg");
+  }
+
+  @Test
+  public void enforceProguardFileExtension_enabled_allowsPgcfg() throws Exception {
+    useConfiguration("--enforce_proguard_file_extension");
+    scratch.file(
+        "java/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = [':proguard.pgcfg'])");
+
+    ConfiguredTarget unused = getConfiguredTarget("//java/android/hello:b");
+  }
+
+  @Test
+  public void enforceProguardFileExtension_enabled_ignoresThirdParty() throws Exception {
+    useConfiguration("--enforce_proguard_file_extension");
+    scratch.file(
+        "third_party/bar/BUILD", "licenses(['unencumbered'])", "exports_files(['proguard.pro'])");
+    scratch.file(
+        "java/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['//third_party/bar:proguard.pro'])");
+
+    ConfiguredTarget unused = getConfiguredTarget("//java/android/hello:b");
+  }
+
+  @Test
   public void testNeverlinkTransitivity() throws Exception {
     useConfiguration("--android_fixed_resource_neverlinking");
 
