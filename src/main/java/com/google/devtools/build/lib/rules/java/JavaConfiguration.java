@@ -168,6 +168,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> translationTargets;
   private final JavaOptimizationMode javaOptimizationMode;
   private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
+  private final boolean enforceProguardFileExtension;
   private final Label toolchainLabel;
   private final Label runtimeLabel;
   private final boolean explicitJavaTestDeps;
@@ -199,6 +200,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
+    this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.bundleTranslations = javaOptions.bundleTranslations;
     this.toolchainLabel = javaOptions.javaToolchain;
     this.runtimeLabel = javaOptions.javaBase;
@@ -367,6 +369,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   /** Returns all labels provided with --extra_proguard_specs. */
   public ImmutableList<Label> getExtraProguardSpecs() {
     return extraProguardSpecs;
+  }
+
+  /** Returns whether ProGuard configuration files are required to use a *.pgcfg extension. */
+  public boolean enforceProguardFileExtension() {
+    return enforceProguardFileExtension;
   }
 
   /** Returns the raw translation targets. */
