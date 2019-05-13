@@ -54,5 +54,5 @@ class Constants {
   static final ImmutableList<String> CC_EXTENSIONS =
       ImmutableList.of(
           ".cc", ".cpp", ".cxx", ".c++", ".C", ".c", ".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc",
-          ".inl", ".H");
+          ".inl", ".tlh", ".tli", ".H");
 }
