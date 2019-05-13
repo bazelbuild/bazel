@@ -10,16 +10,16 @@ User-definable configuration is coming to Starlark!
 This makes it possible to:
 
 * define custom flags for your project, obsoleting the need for
-  [`--define`][define]
-* [transition][transitions] deps to different configurations than their parents
-  (e.g.`--compilation_mode=opt` or `--cpu=arm`)
+[`--define`](configurable-attributes.html#custom-keys)
+* write
+[transitions](skylark/lib/transition.html#modules.transition)
+  to configure deps in different configurations     than their parents (e.g.`--     compilation_mode=opt` or `--cpu=arm`)
 * bake better defaults into rules (e.g. automatically build `//my:android_app`
   with a specified SDK)
 
 and more, all completely from .bzl files
 (no Bazel release required).
-
-[TOC]
+<!-- [TOC] -->
 
 ## Current Status
 
@@ -27,7 +27,6 @@ As of Q2'19, this effort is [partially rolled out]
 (https://github.com/bazelbuild/bazel/issues/5574#issuecomment-458349702) to
 Bazel and Bazel. Much functionality is guarded while
 we work out concerns about
-<!--begin-block:external
 memory and performance
 at scale.
 
@@ -40,7 +39,8 @@ Related issues:
 Skylark rules migration
 
 ## User-defined Build Settings
-A build setting is a single piece of [configuration][configuration-def]
+A build setting is a single piece of
+[configuration](skylark/rules.html#configurations)
 information. Think of a configuration as a key/value map. Setting `--cpu=ppc`
 and `--copt="-DFoo"` produces a configuration that looks like
 `{cpu: ppc, copt: "-DFoo"}`. Each entry is a build setting.
@@ -78,7 +78,9 @@ function. More on this below.
 The `config` function also takes an optional boolean parameter, `flag`, which is
 set to false by default. if `flag` is set to true, the build setting can be set
 on the command line by users as well as internally by rule writers via default
-values and [transitions][transitions].  Not all settings should be settable by
+values and
+[transitions](skylark/lib/transition.html#modules.transition)
+.  Not all settings should be settable by
 users. For example if you as a rule writer have some debug mode that you'd like
 to turn on inside test rules, you don't want to give users the ability to
 indiscriminately turn on that feature inside other non-test rules.
@@ -289,7 +291,9 @@ usage of `--define` in `select()` statements. Work on this feature is being
 prioritized in Q219.
 
 ## User-defined Transitions
-A configuration [transition][transitions] is how we change configuration of
+A configuration
+[transition](skylark/lib/transition.html#modules.transition)
+is how we change configuration of
 configured targets in the build graph.
 
 ### Defining Transitions in Starlark
@@ -341,15 +345,15 @@ attributes they should be wary of selecting on or taking other precautions.
 
 The implementation function must return a dictionary (or list of
 dictionaries, in the case of
-transitions with multiple output configurations
-) of new build settings values to apply. The returned dictionary keyset(s) must
-be exactly the same as the set of build settings passed to the `outputs`
+transitions with multiple output configurations)
+of new build settings values to apply. The returned dictionary keyset(s) must
+contain exactly the set of build settings passed to the `outputs`
 parameter of the transition function. This is true even if a build setting is
 not actually changed over the course of the transition - its original value must
 be explicitly passed through in the returned dictionary.
 
 #### Defining 1:2+ Transitions
-[outgoing edge transition](#outgoing-edge-transitions) can map a single input
+[Outgoing edge transition](#outgoing-edge-transitions) can map a single input
 configuration to two or more output configurations. These are defined in
 Starlark by returning a list of dictionaries in the transition implementation
 function.
@@ -403,7 +407,7 @@ drink_rule = rule(
     attrs = { "dep": attr.label(cfg = coffee_transition)}
     ...
 ```
-Outgoing edge transitions can be 1:1 or 1:2+
+Outgoing edge transitions can be 1:1 or 1:2+.
 
 ### Transitions on Native Options
 WARNING: This feature will be deprecated soon. Use at your own risk.
@@ -427,14 +431,10 @@ cpu_transition = transition(
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
-[target platform][target-platform].
+[target platform](platforms.html)
 
 ## Also see:
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
  * [Bazel Configurability Roadmap]
    (https://bazel.build/roadmaps/configuration.html)
-[define]: configurable-attributes.html#custom-keys
-[transitions]: skylark/lib/transition.html#modules.transition
-[configuration-def]: skylark/rules.html#configurations
-[target-platform]: platforms.html
