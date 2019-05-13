@@ -147,6 +147,79 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
     assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
+  @Test
+  public void handlesNoWorkspaceFile() throws Exception {
+    scratch.setWorkingDir("/other/package/path");
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --cpu=one");
+    setPackageCacheOptions("--package_path=/other/package/path");
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+
+    BuildConfigurationValue.Key mapped =
+        platformMappingValue.map(
+            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+
+    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+  }
+
+  @Test
+  public void multiplePackagePaths() throws Exception {
+    scratch.setWorkingDir("/other/package/path");
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --cpu=one");
+    setPackageCacheOptions("--package_path=%workspace%:/other/package/path");
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+
+    BuildConfigurationValue.Key mapped =
+        platformMappingValue.map(
+            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+
+    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+  }
+
+  @Test
+  public void multiplePackagePathsFirstWins() throws Exception {
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --cpu=one");
+    scratch.setWorkingDir("/other/package/path");
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --cpu=two");
+    setPackageCacheOptions("--package_path=%workspace%:/other/package/path");
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+
+    BuildConfigurationValue.Key mapped =
+        platformMappingValue.map(
+            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+
+    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+  }
+
   private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.injectExtraPrecomputedValues(
