@@ -676,6 +676,14 @@ public final class CcCommon {
   }
 
   /**
+   * Returns all additional linker inputs specified in the |additional_linker_inputs| attribute of
+   * the rule.
+   */
+  List<Artifact> getAdditionalLinkerInputs() {
+    return ruleContext.getPrerequisiteArtifacts("additional_linker_inputs", Mode.TARGET).list();
+  }
+
+  /**
    * Replaces shared library artifact with mangled symlink and creates related
    * symlink action. For artifacts that should retain filename (e.g. libraries
    * with SONAME tag), link is created to the parent directory instead.

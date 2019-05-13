@@ -1136,6 +1136,10 @@ public final class RuleContext extends TargetContext
     return new Expander(this, getConfigurationMakeVariableContext());
   }
 
+  public Expander getExpander(ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
+    return new Expander(this, getConfigurationMakeVariableContext(), labelMap);
+  }
+
   /**
    * Returns a cached context that maps Make variable names (string) to values (string) without any
    * extra {@link MakeVariableSupplier}.
