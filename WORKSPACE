@@ -496,7 +496,6 @@ http_archive(
     ],
 )
 
-
 load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")
 
 skydoc_repositories()
