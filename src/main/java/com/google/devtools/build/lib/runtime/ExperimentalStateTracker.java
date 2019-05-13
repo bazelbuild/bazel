@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
@@ -227,7 +228,7 @@ class ExperimentalStateTracker {
      * <p>Because we may receive events out of order, this does nothing if the action is already
      * scheduled or running.
      */
-    void setScanning(long nanoChangeTime) {
+    synchronized void setScanning(long nanoChangeTime) {
       if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
         scanning = true;
         nanoStartTime = nanoChangeTime;
@@ -240,7 +241,7 @@ class ExperimentalStateTracker {
      * <p>Because we may receive events out of order, this does nothing if the action is already
      * running with this strategy.
      */
-    void setScheduling(String strategy, long nanoChangeTime) {
+    synchronized void setScheduling(String strategy, long nanoChangeTime) {
       int id = strategyIds.getId(strategy);
       if ((runningStrategiesBitmap & id) == 0) {
         scanning = false;
@@ -255,7 +256,7 @@ class ExperimentalStateTracker {
      * <p>Because "running" is a terminal state, this forcibly updates the state to running
      * regardless of any other events (which may come out of order).
      */
-    void setRunning(String strategy, long nanoChangeTime) {
+    synchronized void setRunning(String strategy, long nanoChangeTime) {
       scanning = false;
       int id = strategyIds.getId(strategy);
       schedulingStrategiesBitmap &= ~id;
@@ -478,6 +479,20 @@ class ExperimentalStateTracker {
     Artifact actionId = event.getActionMetadata().getPrimaryOutput();
     long now = clock.nanoTime();
     getActionState(action, actionId, now).setRunning(event.getStrategy(), now);
+  }
+
+  void actionCompletion(ActionScanningCompletedEvent event) {
+    Action action = event.getAction();
+    Artifact actionId = action.getPrimaryOutput();
+    checkState(activeActions.containsKey(actionId));
+    activeActions.remove(actionId);
+
+    // As callers to the experimental state tracker assume we will fully report the new state once
+    // informed of an action completion, we need to make sure the progress receiver is aware of the
+    // completion, even though it might be called later on the event bus.
+    if (executionProgressReceiver != null) {
+      executionProgressReceiver.actionCompleted(event.getActionLookupData());
+    }
   }
 
   void actionCompletion(ActionCompletionEvent event) {

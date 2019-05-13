@@ -571,7 +571,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // we don't have any input metadata available, so we couldn't re-execute the action even if we
       // wanted to.
       return previousAction.getResultOrDependOnFuture(
-          env, actionLookupData, action, skyframeActionExecutor.getActionCompletedReceiver());
+          env,
+          actionLookupData,
+          action,
+          skyframeActionExecutor.getSharedActionCallback(
+              env.getListener(), state.discoveredInputs != null, action, actionLookupData));
     }
     // The metadataHandler may be recreated if we discover inputs.
     ArtifactPathResolver pathResolver =
@@ -714,7 +718,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           actionStartTime,
           actionExecutionContext,
           actionLookupData,
-          new ActionPostprocessingImpl(state));
+          new ActionPostprocessingImpl(state),
+          state.discoveredInputs != null);
     } catch (IOException e) {
       throw new ActionExecutionException(
           "Failed to close action output", e, action, /*catastrophe=*/ false);
