@@ -30,7 +30,6 @@ we work out concerns about
 memory and performance
 at scale.
 
-<!--begin-block:external
 Related issues:
 * [#5574](https://github.com/bazelbuild/bazel/issues/5574) - Starlark support for custom configuration transitions
 * [#5575](https://github.com/bazelbuild/bazel/issues/5575) - Starlark support for multi-arch ("fat") binaries
