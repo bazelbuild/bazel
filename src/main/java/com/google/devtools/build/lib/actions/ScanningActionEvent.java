@@ -19,8 +19,9 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 /**
  * Notifies that an in-flight action has started being analyzed.
  *
- * <p>This event should only appear in-between corresponding {@link ActionStartedEvent} and {@link
- * ActionCompletionEvent} events. TODO(jmmv): But this theory is not true today. Investigate.
+ * <p>This event is sent before a corresponding {@link ActionScanningCompletedEvent} or {@link
+ * ActionStartedEvent}. When such an event is posted, this ends the scanning phase for the current
+ * action.
  */
 public class ScanningActionEvent implements ProgressLike {
 
