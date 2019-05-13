@@ -113,6 +113,12 @@ temperature = rule(
 )
 ```
 
+Note: if a rule depends on a build setting, it will receive whatever providers
+the build setting implementation function returns, like any other dependency.
+But all other references to the value of the build setting (e.g. in transitions)
+will see its basic Starlark-typed value, not this post implementation function
+value.
+
 #### Instantiating Build Settings
 Rules defined with the `build_setting` parameter have an implicit mandatory
 `build_setting_default` attribute. This attribute takes on the same type as
@@ -285,9 +291,21 @@ label_flag(
 TODO(bazel-team): Expand supported build setting types.
 
 ## Build Settings and Select
-As user-created build variables, build settings will be able to replace the
-usage of `--define` in `select()` statements. Work on this feature is being
-prioritized in Q219.
+Users can configure attributes on build settings by using
+[`select()`](functions.html#select). Build setting targets can be passed to the
+`flag_values` attribute of `config_setting`. The value to match to the
+configuration is passed as a `String` then parsed to the type of the build
+setting for matching.
+
+```python
+config_setting(
+    name = "my_config",
+    flag_values = {
+        "//example:favorite_flavor": "MANGO"
+    }
+)
+```
+
 
 ## User-defined Transitions
 A configuration
@@ -435,5 +453,4 @@ flags will likely be replaced by transitioning on the
 ## Also see:
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
- * [Bazel Configurability Roadmap]
-   (https://bazel.build/roadmaps/configuration.html)
+ * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
