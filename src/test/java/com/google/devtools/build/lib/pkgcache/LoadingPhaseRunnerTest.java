@@ -334,6 +334,20 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void testTestMinusAllTests() throws Exception {
+    tester.addFile(
+        "test/BUILD",
+        "cc_library(name = 'bar1')",
+        "cc_test(name = 'test', deps = [':bar1'], tags = ['manual'])");
+    TargetPatternPhaseValue result = tester.loadTests("//test:test", "-//test:all");
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.hasPostExpansionError()).isFalse();
+    tester.assertContainsWarning("All specified test targets were excluded by filters");
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getLabels("//test:test"));
+    assertThat(result.getTargetLabels()).isEmpty();
+  }
+
+  @Test
   public void testFindLongestPrefix() throws Exception {
     tester.addFile("base/BUILD", "exports_files(['bar', 'bar/bar', 'bar/baz'])");
     TargetPatternPhaseValue result = assertNoErrors(tester.load("base/bar/baz"));

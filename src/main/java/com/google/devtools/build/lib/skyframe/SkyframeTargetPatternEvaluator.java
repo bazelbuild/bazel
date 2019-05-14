@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
@@ -35,34 +34,14 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
-/**
- * Skyframe-based target pattern parsing.
- */
-final class SkyframeTargetPatternEvaluator
-    implements TargetPatternEvaluator, TargetPatternPreloader {
+/** Skyframe-based target pattern parsing. */
+final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
   private final SkyframeExecutor skyframeExecutor;
 
   SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
     this.skyframeExecutor = skyframeExecutor;
-  }
-
-  @Override
-  public ResolvedTargets<Target> parseTargetPatternList(
-      PathFragment relativeWorkingDirectory,
-      ExtendedEventHandler eventHandler,
-      List<String> targetPatterns,
-      FilteringPolicy policy,
-      boolean keepGoing)
-      throws TargetParsingException, InterruptedException {
-    return parseTargetPatternList(
-        relativeWorkingDirectory.getPathString(),
-        eventHandler,
-        ImmutableList.copyOf(targetPatterns),
-        policy,
-        keepGoing);
   }
 
   @Override
@@ -76,7 +55,7 @@ final class SkyframeTargetPatternEvaluator
     // how query works on Skyframe, in which case this method is likely to go away.
     ImmutableList.Builder<TargetPatternsAndKeysAndResultBuilder>
         targetPatternsAndKeysAndResultListBuilder = ImmutableList.builder();
-    FilteringPolicy policy = DEFAULT_FILTERING_POLICY;
+    FilteringPolicy policy = FilteringPolicies.NO_FILTER;
     for (String pattern : patterns) {
       ImmutableList<String> singletonPatternList = ImmutableList.of(pattern);
       targetPatternsAndKeysAndResultListBuilder.add(new TargetPatternsAndKeysAndResultBuilder(
@@ -88,7 +67,6 @@ final class SkyframeTargetPatternEvaluator
               policy,
               keepGoing),
           createTargetPatternEvaluatorUtil(policy, eventHandler, keepGoing)));
-
     }
     ImmutableList<ResolvedTargets<Target>> batchResult = parseTargetPatternKeysBatch(
         targetPatternsAndKeysAndResultListBuilder.build(),
@@ -130,29 +108,6 @@ final class SkyframeTargetPatternEvaluator
       }
     }
     return builder.build();
-  }
-
-  /**
-   * Loads a list of target patterns (eg, "foo/..."). When policy is set to FILTER_TESTS,
-   * test_suites are going to be expanded.
-   */
-  private ResolvedTargets<Target> parseTargetPatternList(
-      String offset,
-      ExtendedEventHandler eventHandler,
-      ImmutableList<String> targetPatterns,
-      FilteringPolicy policy,
-      boolean keepGoing)
-      throws InterruptedException, TargetParsingException {
-    return Iterables.getOnlyElement(
-        parseTargetPatternKeysBatch(
-            ImmutableList.of(
-                new TargetPatternsAndKeysAndResultBuilder(
-                    targetPatterns,
-                    getTargetPatternKeys(offset, eventHandler, targetPatterns, policy, keepGoing),
-                    createTargetPatternEvaluatorUtil(policy, eventHandler, keepGoing))),
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            keepGoing,
-            eventHandler));
   }
 
   private TargetPatternsResultBuilder createTargetPatternEvaluatorUtil(
