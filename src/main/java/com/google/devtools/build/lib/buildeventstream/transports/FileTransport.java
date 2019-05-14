@@ -154,7 +154,6 @@ abstract class FileTransport implements BuildEventTransport {
       // An {@link ExecutionException} may be wrapping a {@link TimeoutException} if the
       // Future was created with {@link Futures#withTimeout}.
       if (e instanceof ExecutionException
-          && e.getCause() != null
           && e.getCause() instanceof TimeoutException) {
         message = "Unable to write all BEP events to file due to timeout";
       } else {
