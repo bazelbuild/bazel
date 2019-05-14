@@ -257,29 +257,35 @@ sh_test(
     tags = ["no_windows"],
 )
 
-sh_test(
-    name = "bazel_java_tools_javac9_test",
-    size = "small",
-    srcs = ["bazel_java_tools_test.sh"],
-    args = ["java9"],
-    data = [
-        ":test-deps",
-        "//src:java_tools_java9.zip",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
+[
+    sh_test(
+        name = "bazel_java_tools_javac" + java_version + "_test",
+        size = "small",
+        srcs = ["bazel_java_tools_test.sh"],
+        args = ["java" + java_version],
+        data = [
+            ":test-deps",
+            "//src:java_tools_java" + java_version + ".zip",
+            "@bazel_tools//tools/bash/runfiles",
+        ],
+    )
+    for java_version in JAVA_VERSIONS
+]
 
-sh_test(
-    name = "bazel_java_tools_javac10_test",
-    size = "small",
-    srcs = ["bazel_java_tools_test.sh"],
-    args = ["java10"],
-    data = [
-        ":test-deps",
-        "//src:java_tools_java10.zip",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
+[
+    sh_test(
+        name = "bazel_java_tools_dist_javac" + java_version + "_test",
+        size = "small",
+        srcs = ["bazel_java_tools_dist_test.sh"],
+        args = ["javac" + java_version],
+        data = [
+            ":test-deps",
+            "//src:java_tools_dist_javac" + java_version + ".zip",
+            "@bazel_tools//tools/bash/runfiles",
+        ],
+    )
+    for java_version in JAVA_VERSIONS
+]
 
 sh_test(
     name = "bazel_proto_library_test",

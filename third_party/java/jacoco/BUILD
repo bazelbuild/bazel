@@ -25,6 +25,16 @@ genrule(
     tools = ["//src:zip_files"],
 )
 
+filegroup(
+    name = "transitive_sources",
+    srcs = glob(['*-src.jar']) + ["LICENSE"] + [
+        "//third_party:asm/asm-7.0-sources.jar",
+        "//third_party:asm/asm-analysis-7.0-sources.jar",
+        "//third_party:asm/asm-commons-7.0-sources.jar"
+    ],
+)
+
+# TODO(iirina): Remove this target after #8311 is completley merged.
 genrule(
     name = "jacoco_source_jars_zip",
     srcs = glob(['*-src.jar']) + ["LICENSE"] + [
