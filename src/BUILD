@@ -585,13 +585,14 @@ JAVA_VERSIONS = ("9", "10", "11")
             "//third_party/checker_framework_javacutil:srcs",
             "//third_party/jarjar:srcs",
             "//third_party/ijar:transitive_sources",
-            "//third_party/java/jacoco:jacoco_source_jars_zip",
-            "//third_party/java/proguard:proguard_srcs_zip",
+            "//third_party/java/jacoco:transitive_sources",
+            "//third_party/java/proguard:srcs",
             "@java_tools_langtools_javac" + java_version + "//:srcs",
         ],
         outs = ["java_tools_dist_javac" + java_version + ".zip"],
         cmd = "zip -qXr $@ $$(echo $(SRCS) | sort)",
         output_to_bindir = 1,
+        visibility = ["//src/test/shell/bazel:__pkg__"],
     )
     for java_version in JAVA_VERSIONS
 ]
