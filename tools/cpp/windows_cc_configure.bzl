@@ -45,7 +45,10 @@ def _get_path_env_var(repository_ctx, name, default = None, enable_warning = Tru
         if len(value) == 1 or value[-1] != "\"":
             auto_configure_fail("'%s' environment variable has bad quoting" % name)
         value = value[1:-1]
-    value = value.replace("/", "\\").rstrip("\\")
+    if "/" in value:
+        value = value.replace("/", "\\")
+    if value[-1] == "\\":
+        value = value.rstrip("\\")
     return value
 
 def _get_temp_env(repository_ctx):
@@ -113,16 +116,14 @@ def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False
 
 def _get_system_root(repository_ctx):
     """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
-    systemroot = _get_path_env_var(
-        repository_ctx,
-        "SYSTEMROOT",
-        default = "__not_found__",
-        enable_warning = False,
+    return escape_string(
+        _get_path_env_var(
+            repository_ctx,
+            "SYSTEMROOT",
+            default = "C:\\Windows",
+            enable_warning = True,
+        ),
     )
-    if systemroot != "__not_found__":
-        return escape_string(systemroot)
-    _auto_configure_warning_maybe(repository_ctx, "SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows")
-    return "C:\\Windows"
 
 def _add_system_root(repository_ctx, env):
     """Running VCVARSALL.BAT and VCVARSQUERYREGISTRY.BAT need %SYSTEMROOT%\\\\system32 in PATH."""
