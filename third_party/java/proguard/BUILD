@@ -3,7 +3,10 @@ licenses(["restricted"])  # GNU GPL v2
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//third_party:__pkg__"],
+    visibility = [
+        "//third_party:__pkg__",
+        "//src:__pkg__"
+    ],
 )
 
 filegroup(
@@ -28,6 +31,7 @@ genrule(
     visibility = ["//src:__pkg__"],
 )
 
+# TODO(iirina): Remove this target after #8311 is completley merged.
 genrule(
     name = "proguard_srcs_zip",
     srcs = [":srcs"],
