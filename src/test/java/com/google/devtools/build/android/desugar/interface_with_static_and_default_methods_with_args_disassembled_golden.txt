@@ -1,0 +1,13 @@
+    RuntimeVisibleAnnotations:
+      0: #18()
+    RuntimeVisibleTypeAnnotations:
+      0: #19(): METHOD_RETURN
+      1: #19(): METHOD_FORMAL_PARAMETER, param_index=1
+    RuntimeVisibleParameterAnnotations:
+      parameter 0:
+      parameter 1:
+        0: #18()
+    MethodParameters:
+      Name                           Flags
+      x
+      y
