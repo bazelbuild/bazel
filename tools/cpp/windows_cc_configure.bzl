@@ -364,7 +364,7 @@ def find_llvm_path(repository_ctx):
         program_files_dir = "C:\\Program Files"
         _auto_configure_warning_maybe(
             repository_ctx,
-            "'PROGRAMFILES)' environment variable is not set, using '%s' as default" % program_files_dir,
+            "'PROGRAMFILES' environment variable is not set, using '%s' as default" % program_files_dir,
         )
     path = program_files_dir + "\\LLVM"
     if repository_ctx.path(path).exists:
