@@ -292,10 +292,10 @@ if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
 elif [ "$has_tail" == true ] && [  -z "$no_echo" ]; then
   touch "${XML_OUTPUT_FILE}.log"
   if [ -z "$COVERAGE_DIR" ]; then
-    ("${TEST_PATH}" "$@" &>"${XML_OUTPUT_FILE}.log") &
+    ("${TEST_PATH}" "$@" &>"${XML_OUTPUT_FILE}.log") <&0 &
     pid=$!
   else
-    ("$1" "$TEST_PATH" "${@:3}" &> "${XML_OUTPUT_FILE}.log") &
+    ("$1" "$TEST_PATH" "${@:3}" &> "${XML_OUTPUT_FILE}.log") <&0 &
     pid=$!
   fi
   tail -fq --pid $pid -s 0.001 "${XML_OUTPUT_FILE}.log"
