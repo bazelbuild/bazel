@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.pkgcache.FilteringPolicies.FILTER_TESTS;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -40,7 +39,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link TargetPatternEvaluator}. */
+/** Tests for {@link TargetPatternPreloader}. */
 @RunWith(JUnit4.class)
 public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTest {
   private PathFragment fooOffset;
@@ -146,19 +145,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
             false)));
   }
 
-  private Set<Label> parseList(FilteringPolicy policy, String... patterns)
-      throws TargetParsingException, InterruptedException {
-    return targetsToLabels(
-        getFailFast(
-            parseTargetPatternList(
-                PathFragment.EMPTY_FRAGMENT,
-                parser,
-                parsingListener,
-                Arrays.asList(patterns),
-                policy,
-                false)));
-  }
-
   private Set<Label> parseListKeepGoingExpectFailure(String... patterns)
       throws TargetParsingException, InterruptedException {
     ResolvedTargets<Target> result =
@@ -179,11 +165,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   }
 
   private void expectError(
-      PathFragment offset,
-      TargetPatternEvaluator parser,
-      String expectedError,
-      String target)
-          throws InterruptedException {
+      PathFragment offset, TargetPatternPreloader parser, String expectedError, String target)
+      throws InterruptedException {
     TargetParsingException e =
         assertThrows(
             "target='" + target + "', expected error: " + expectedError,
@@ -428,17 +411,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThat(parseListKeepGoingExpectFailure(toParse)).containsExactlyElementsIn(expectedLabels);
     assertContainsEvent(expectedEvent);
     reporter.addHandler(failFastHandler);
-  }
-
-  /** Regression test for bug: "IllegalStateException in BuildTool.prepareToBuild()" */
-  @Test
-  public void testTestingIsSubset() throws Exception {
-    scratch.file("test/BUILD",
-        "cc_library(name = 'bar1')",
-        "cc_test(name = 'test', deps = [':bar1'], tags = ['manual'])");
-
-    assertThat(parseList(FILTER_TESTS, "//test:test", "-//test:all"))
-        .containsExactlyElementsIn(labels());
   }
 
   @Test
