@@ -183,6 +183,11 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
+  public int getNumberOfDirectDepGroups() throws InterruptedException {
+    return getDelegate().getNumberOfDirectDepGroups();
+  }
+
+  @Override
   public void removeReverseDep(SkyKey reverseDep) throws InterruptedException {
     getDelegate().removeReverseDep(reverseDep);
   }
