@@ -23,10 +23,9 @@ and more, all completely from .bzl files
 
 ## Current Status
 
-As of Q2'19, this effort is [partially rolled out]
-(https://github.com/bazelbuild/bazel/issues/5574#issuecomment-458349702) to
-Bazel and Bazel. Much functionality is guarded while
-we work out concerns about
+As of Q2'19, this effort is
+[partially rolled out](https://github.com/bazelbuild/bazel/issues/5574#issuecomment-458349702)
+. Much functionality is guarded while we work out concerns about
 memory and performance
 at scale.
 
