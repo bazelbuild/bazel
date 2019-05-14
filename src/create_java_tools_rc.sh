@@ -10,14 +10,20 @@ while [[ -n "$@" ]]; do
     "--java_version") java_version="$val" ;;
     "--java_tools_version") java_tools_version="$val" ;;
     "--commit_hash") commit_hash="$val" ;;
-    "--rc") timestamp="$val" ;;
+    "--rc") rc="$val" ;;
+    "--release") release="$release" ;;
     *) echo "Flag $arg is not recognized." && exit 1 ;;
   esac
 done
 
 for platform in linux windows darwin; do
-  src_artifact=$(gsutil ls -lh gs://bazel-mirror/bazel_java_tools/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep "gs" | cut -d " " -f 7)
-  dest_artifact="gs://bazel-mirror/bazel_java_tools/release_candidates/javac${java_version}/${java_tools_version}/java_tools_javac${java_version}_${platform}-${java_tools_version}-rc${rc}.zip"
+  if [[ $release == "true" ]]; then
+    src_artifact="gs://bazel-mirror/bazel_java_tools/release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
+    dest_artifact="gs://bazel-mirror/bazel_java_tools/releases/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
+  else
+    src_artifact=$(gsutil ls -lh gs://bazel-mirror/bazel_java_tools/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep "gs" | cut -d " " -f 7)
+    dest_artifact="gs://bazel-mirror/bazel_java_tools/release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
+  fi
   gsutil cp ${src_artifact} ${dest_artifact}
 done
 
