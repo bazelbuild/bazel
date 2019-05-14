@@ -327,7 +327,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     QueryExpressionMapper<Void> mapper = getQueryExpressionMapper();
-    QueryExpression transformedQueryExpression = queryExpression.accept(mapper);
+    QueryExpression transformedQueryExpression;
+    try (AutoProfiler p =
+        AutoProfiler.logged(
+            "transforming query", logger, /*minTimeForLoggingInMilliseconds=*/ 50)) {
+      transformedQueryExpression = queryExpression.accept(mapper);
+    }
     logger.info(
         String.format(
             "transformed query [%s] to [%s]",
