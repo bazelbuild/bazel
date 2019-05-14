@@ -26,47 +26,30 @@ load(
     "resolve_labels",
 )
 
-def _get_path_env_var(repository_ctx, name, default = None, enable_warning = True):
+def _get_path_env_var(repository_ctx, name):
     """Returns a path from an environment variable.
 
     Removes quotes, replaces '/' with '\', and strips trailing '\'s."""
-    value = None
     if name in repository_ctx.os.environ:
         value = repository_ctx.os.environ[name]
-    elif default != None:
-        if enable_warning:
-            auto_configure_warning(
-                "'%s' environment variable is not set, using '%s' as default" % (name, default),
-            )
-        value = default
-    if not value:
-        auto_configure_fail("'%s' environment variable is not set" % name)
-    if value[0] == "\"":
-        if len(value) == 1 or value[-1] != "\"":
-            auto_configure_fail("'%s' environment variable has bad quoting" % name)
-        value = value[1:-1]
-    if "/" in value:
-        value = value.replace("/", "\\")
-    if value[-1] == "\\":
-        value = value.rstrip("\\")
-    return value
+        if value[0] == "\"":
+            if len(value) == 1 or value[-1] != "\"":
+                auto_configure_fail("'%s' environment variable has no trailing quote" % name)
+            value = value[1:-1]
+        if "/" in value:
+            value = value.replace("/", "\\")
+        if value[-1] == "\\":
+            value = value.rstrip("\\")
+        return value
+    else:
+        return None
 
 def _get_temp_env(repository_ctx):
     """Returns the value of TMP, or TEMP, or if both undefined then C:\Windows."""
-    tmp = _get_path_env_var(
-        repository_ctx,
-        "TMP",
-        default = "__not_found__",
-        enable_warning = False,
-    )
-    if tmp == "__not_found__":
-        tmp = _get_path_env_var(
-            repository_ctx,
-            "TEMP",
-            default = "__not_found__",
-            enable_warning = False,
-        )
-    if tmp == "__not_found__":
+    tmp = _get_path_env_var(repository_ctx, "TMP")
+    if not tmp:
+        tmp = _get_path_env_var(repository_ctx, "TEMP")
+    if not tmp:
         tmp = "C:\\Windows\\Temp"
         auto_configure_warning(
             "neither 'TMP' nor 'TEMP' environment variables are set, using '%s' as default" % tmp,
@@ -80,13 +63,16 @@ def _auto_configure_warning_maybe(repository_ctx, msg):
 
 def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False):
     """Return the content of msys cc toolchain rule."""
-    bazel_sh = _get_path_env_var(repository_ctx, "BAZEL_SH", "", False).replace("\\", "/").lower()
-    tokens = bazel_sh.rsplit("/", 1)
     msys_root = ""
-    if tokens[0].endswith("/usr/bin"):
-        msys_root = tokens[0][:len(tokens[0]) - len("usr/bin")]
-    elif tokens[0].endswith("/bin"):
-        msys_root = tokens[0][:len(tokens[0]) - len("bin")]
+    bazel_sh = _get_path_env_var(repository_ctx, "BAZEL_SH")
+    if bazel_sh:
+        bazel_sh = bazel_sh.replace("\\", "/").lower()
+        tokens = bazel_sh.rsplit("/", 1)
+        if tokens[0].endswith("/usr/bin"):
+            msys_root = tokens[0][:len(tokens[0]) - len("usr/bin")]
+        elif tokens[0].endswith("/bin"):
+            msys_root = tokens[0][:len(tokens[0]) - len("bin")]
+
     prefix = "mingw64" if use_mingw else "usr"
     tool_path_prefix = escape_string(msys_root) + prefix
     tool_bin_path = tool_path_prefix + "/bin"
@@ -116,14 +102,14 @@ def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False
 
 def _get_system_root(repository_ctx):
     """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
-    return escape_string(
-        _get_path_env_var(
+    systemroot = _get_path_env_var(repository_ctx, "SYSTEMROOT")
+    if not systemroot:
+        systemroot = "C:\\Windows"
+        _auto_configure_warning_maybe(
             repository_ctx,
-            "SYSTEMROOT",
-            default = "C:\\Windows",
-            enable_warning = True,
-        ),
-    )
+            "SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows",
+        )
+    return escape_string(systemroot)
 
 def _add_system_root(repository_ctx, env):
     """Running VCVARSALL.BAT and VCVARSQUERYREGISTRY.BAT need %SYSTEMROOT%\\\\system32 in PATH."""
@@ -136,13 +122,8 @@ def find_vc_path(repository_ctx):
     """Find Visual C++ build tools install path. Doesn't %-escape the result."""
 
     # 1. Check if BAZEL_VC or BAZEL_VS is already set by user.
-    bazel_vc = _get_path_env_var(
-        repository_ctx,
-        "BAZEL_VC",
-        default = "__not_found__",
-        enable_warning = False,
-    )
-    if bazel_vc != "__not_found__":
+    bazel_vc = _get_path_env_var(repository_ctx, "BAZEL_VC")
+    if bazel_vc:
         if repository_ctx.path(bazel_vc).exists:
             return bazel_vc
         else:
@@ -151,13 +132,8 @@ def find_vc_path(repository_ctx):
                 "%BAZEL_VC% is set to non-existent path, ignoring.",
             )
 
-    bazel_vs = _get_path_env_var(
-        repository_ctx,
-        "BAZEL_VS",
-        default = "__not_found__",
-        enable_warning = False,
-    )
-    if bazel_vs != "__not_found__":
+    bazel_vs = _get_path_env_var(repository_ctx, "BAZEL_VS")
+    if bazel_vs:
         if repository_ctx.path(bazel_vs).exists:
             bazel_vc = bazel_vs + "\\VC"
             if repository_ctx.path(bazel_vc).exists:
@@ -234,7 +210,13 @@ def find_vc_path(repository_ctx):
 
     # 4. Check default directories for VC installation
     _auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
-    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)", default = "C:\\Program Files (x86)", enable_warning = True)
+    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)")
+    if not program_files_dir:
+        program_files_dir = "C:\\Program Files (x86)"
+        _auto_configure_warning_maybe(
+            repository_ctx,
+            "'PROGRAMFILES(X86)' environment variable is not set, using '%s' as default" % program_files_dir,
+        )
     for path in [
         "Microsoft Visual Studio\\2019\\Preview\\VC",
         "Microsoft Visual Studio\\2019\\BuildTools\\VC",
@@ -352,8 +334,9 @@ def find_llvm_path(repository_ctx):
     """Find LLVM install path."""
 
     # 1. Check if BAZEL_LLVM is already set by user.
-    if "BAZEL_LLVM" in repository_ctx.os.environ:
-        return _get_path_env_var(repository_ctx, "BAZEL_LLVM")
+    bazel_llvm = _get_path_env_var(repository_ctx, "BAZEL_LLVM")
+    if bazel_llvm:
+        return bazel_llvm
 
     _auto_configure_warning_maybe(repository_ctx, "'BAZEL_LLVM' is not set, " +
                                                   "start looking for LLVM installation on machine.")
@@ -376,7 +359,13 @@ def find_llvm_path(repository_ctx):
 
     # 3. Check default directories for LLVM installation
     _auto_configure_warning_maybe(repository_ctx, "Looking for default LLVM installation directory")
-    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES", default = "C:\\Program Files", enable_warning = True)
+    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES")
+    if not program_files_dir:
+        program_files_dir = "C:\\Program Files"
+        _auto_configure_warning_maybe(
+            repository_ctx,
+            "'PROGRAMFILES)' environment variable is not set, using '%s' as default" % program_files_dir,
+        )
     path = program_files_dir + "\\LLVM"
     if repository_ctx.path(path).exists:
         llvm_dir = path
