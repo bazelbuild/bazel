@@ -71,6 +71,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -832,8 +833,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
   }
 
-  private static Object establishSkyframeDependencies(Environment env, Action action)
-      throws ActionExecutionException, InterruptedException {
+  private static <E extends Exception> Object establishSkyframeDependencies(
+      Environment env, Action action) throws ActionExecutionException, InterruptedException {
     // Before we may safely establish Skyframe dependencies, we must build all action inputs by
     // requesting their ArtifactValues.
     // This is very important to do, because the establishSkyframeDependencies method may request
@@ -848,8 +849,14 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // checking. See documentation of SkyframeAwareAction.
       Preconditions.checkState(action.executeUnconditionally(), action);
 
+      @SuppressWarnings("unchecked")
+      SkyframeAwareAction<E> skyframeAwareAction = (SkyframeAwareAction<E>) action;
+      ImmutableList<? extends SkyKey> keys = skyframeAwareAction.getDirectSkyframeDependencies();
+      Map<SkyKey, ValueOrException<E>> values =
+          env.getValuesOrThrow(keys, skyframeAwareAction.getExceptionType());
+
       try {
-        return ((SkyframeAwareAction) action).establishSkyframeDependencies(env);
+        return skyframeAwareAction.processSkyframeValues(keys, values, env.valuesMissing());
       } catch (SkyframeAwareAction.ExceptionBase e) {
         throw new ActionExecutionException(e, action, false);
       }
