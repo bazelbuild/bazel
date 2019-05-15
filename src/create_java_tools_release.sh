@@ -89,7 +89,7 @@ for platform in linux windows darwin; do
 
   # Download the file locally to compute its sha256sum.
   local_zip="$tmp_dir/java_tools_$platform.zip"
-  gsutil -q cp ${rc_url} ${local_zip}
+  gsutil -q cp ${gcs_bucket}/${rc_url} ${local_zip}
   file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
   echo "${release_artifact} ${file_hash}"
 done
