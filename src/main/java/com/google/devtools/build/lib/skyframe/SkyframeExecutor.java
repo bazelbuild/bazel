@@ -825,6 +825,14 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
   }
 
+  /**
+   * Notifies the executor to post logging stats when the server is crashing, so that logging is
+   * still available even when the server crashes.
+   */
+  public void postLoggingStatsWhenCrashing(ExtendedEventHandler eventHandler) {
+    memoizingEvaluator.postLoggingStats(eventHandler);
+  }
+
   protected abstract Differencer evaluatorDiffer();
 
   protected abstract T getBuildDriver();
