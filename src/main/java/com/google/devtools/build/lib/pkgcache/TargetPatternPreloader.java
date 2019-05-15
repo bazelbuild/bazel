@@ -52,6 +52,7 @@ public interface TargetPatternPreloader {
       ExtendedEventHandler eventHandler,
       PathFragment relativeWorkingDirectory,
       Collection<String> patterns,
-      boolean keepGoing)
-          throws TargetParsingException, InterruptedException;
+      boolean keepGoing,
+      boolean useForkJoinPool)
+      throws TargetParsingException, InterruptedException;
 }

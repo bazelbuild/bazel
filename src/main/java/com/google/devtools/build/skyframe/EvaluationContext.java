@@ -31,17 +31,20 @@ public class EvaluationContext {
   @Nullable private final Supplier<ExecutorService> executorServiceSupplier;
   private final boolean keepGoing;
   private final ExtendedEventHandler eventHandler;
+  private final boolean useForkJoinPool;
 
   protected EvaluationContext(
       int numThreads,
       @Nullable Supplier<ExecutorService> executorServiceSupplier,
       boolean keepGoing,
-      ExtendedEventHandler eventHandler) {
+      ExtendedEventHandler eventHandler,
+      boolean useForkJoinPool) {
     Preconditions.checkArgument(0 < numThreads, "numThreads must be positive");
     this.numThreads = numThreads;
     this.executorServiceSupplier = executorServiceSupplier;
     this.keepGoing = keepGoing;
     this.eventHandler = Preconditions.checkNotNull(eventHandler);
+    this.useForkJoinPool = useForkJoinPool;
   }
 
   public int getParallelism() {
@@ -65,8 +68,16 @@ public class EvaluationContext {
       return this;
     } else {
       return new EvaluationContext(
-          this.numThreads, this.executorServiceSupplier, keepGoing, this.eventHandler);
+          this.numThreads,
+          this.executorServiceSupplier,
+          keepGoing,
+          this.eventHandler,
+          this.useForkJoinPool);
     }
+  }
+
+  public boolean getUseForkJoinPool() {
+    return useForkJoinPool;
   }
 
   public static Builder newBuilder() {
@@ -79,6 +90,7 @@ public class EvaluationContext {
     private Supplier<ExecutorService> executorServiceSupplier;
     private boolean keepGoing;
     private ExtendedEventHandler eventHandler;
+    private boolean useForkJoinPool;
 
     private Builder() {}
 
@@ -110,8 +122,14 @@ public class EvaluationContext {
       return this;
     }
 
+    public Builder setUseForkJoinPool(boolean useForkJoinPool) {
+      this.useForkJoinPool = useForkJoinPool;
+      return this;
+    }
+
     public EvaluationContext build() {
-      return new EvaluationContext(numThreads, executorServiceSupplier, keepGoing, eventHandler);
+      return new EvaluationContext(
+          numThreads, executorServiceSupplier, keepGoing, eventHandler, useForkJoinPool);
     }
   }
 }

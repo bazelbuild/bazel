@@ -101,7 +101,8 @@ public final class FetchCommand implements BlazeCommand {
             false,
             Lists.<String>newArrayList(),
             threadsOption.threads,
-            EnumSet.noneOf(Setting.class));
+            EnumSet.noneOf(Setting.class),
+            /* useForkJoinPool= */ false);
 
     // 1. Parse query:
     QueryExpression expr;
