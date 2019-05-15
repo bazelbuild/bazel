@@ -279,13 +279,18 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         return expandSingletonArtifact(filesToBuild, "$@", "output file");
       }
 
+      PathFragment ruleDirRootRelativePath =
+          ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
+      PathFragment ruleDirExecPath =
+          ruleContext
+              .getBinOrGenfilesDirectory()
+              .getExecPath()
+              .getRelative(ruleDirRootRelativePath);
+
       if (variableName.equals("RULEDIR")) {
         // The output root directory. This variable expands to the package's root directory
         // in the genfiles tree.
-        PathFragment dir = ruleContext.getBinOrGenfilesDirectory().getExecPath();
-        PathFragment relPath =
-            ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
-        return dir.getRelative(relPath).getPathString();
+        return ruleDirExecPath.getPathString();
       }
 
       if (variableName.equals("@D")) {
@@ -305,15 +310,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
           }
           return relativeOutputFile.getParentDirectory().getPathString();
         } else {
-          PathFragment dir;
-          if (ruleContext.getRule().hasBinaryOutput()) {
-            dir = ruleContext.getConfiguration().getBinFragment();
-          } else {
-            dir = ruleContext.getConfiguration().getGenfilesFragment();
-          }
-          PathFragment relPath =
-              ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
-          return dir.getRelative(relPath).getPathString();
+          return ruleDirExecPath.getPathString();
         }
       }
 
