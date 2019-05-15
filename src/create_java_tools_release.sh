@@ -65,15 +65,27 @@ while [[ -n "$@" ]]; do
   esac
 done
 
+tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXX')
+trap "rm -fr $tmp_dir" EXIT
+
 for platform in linux windows darwin; do
   rc_url="gs://bazel-mirror/bazel_java_tools/release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
+
   if [[ $release == "true" ]]; then
     release_url="gs://bazel-mirror/bazel_java_tools/releases/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
     # Make release candidate the release artifact for the current platform.
-    gsutil cp ${rc_url} ${release_url}
+    gsutil -q cp ${rc_url} ${release_url}
+    release_artifact="releases/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
   else
     tmp_url=$(gsutil ls -lh gs://bazel-mirror/bazel_java_tools/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep "gs" | cut -d " " -f 7)
     # Make the generated artifact a release candidate for the current platform.
-    gsutil cp ${tmp_url} ${rc_url}
+    gsutil -q cp ${tmp_url} ${rc_url}
+    release_artifact="release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
   fi
+
+  local_zip="$tmp_dir/java_tools_$platform.zip"
+  # Download the file to compute its sha256sum.
+  gsutil -q cp ${rc_url} ${local_zip}
+  file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
+  echo "${release_artifact} ${file_hash}"
 done
