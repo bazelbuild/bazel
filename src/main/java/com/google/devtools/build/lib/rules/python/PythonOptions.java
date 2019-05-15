@@ -393,6 +393,10 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
     hostPythonOptions.windowsEscapePythonArgs = windowsEscapePythonArgs;
+
+    // Save host options in case of a further exec->host transition.
+    hostPythonOptions.hostForcePython = hostForcePython;
+
     return hostPythonOptions;
   }
 
