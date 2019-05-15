@@ -22,8 +22,8 @@
 # The script is using gsutil to copy artifacts.
 #
 # Mandatory flags:
-# --java_version        The JDK version included in the java_tools to be
-                        released.
+
+# --java_version        The JDK version included in the java_tools to be released.
 # --java_tools_version  The version number of the java_tools to be released.
 # --rc                  The release candidate number of current release.
 #                       If --release true then --rc is the number of the rc to
