@@ -72,6 +72,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       Label label,
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
+      ImmutableList<String> javabuilderJvmOptions,
       boolean javacSupportsWorkers,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
@@ -111,6 +112,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         compatibleJavacOptions,
         javacOptions,
         jvmOptions,
+        javabuilderJvmOptions,
         javacSupportsWorkers,
         packageConfiguration,
         javaSemantics);
@@ -135,6 +137,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableListMultimap<String, String> compatibleJavacOptions;
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> jvmOptions;
+  private final ImmutableList<String> javabuilderJvmOptions;
   private final boolean javacSupportsWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final JavaSemantics javaSemantics;
@@ -160,6 +163,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
+      ImmutableList<String> javabuilderJvmOptions,
       boolean javacSupportsWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       JavaSemantics javaSemantics) {
@@ -184,6 +188,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.compatibleJavacOptions = compatibleJavacOptions;
     this.javacOptions = javacOptions;
     this.jvmOptions = jvmOptions;
+    this.javabuilderJvmOptions = javabuilderJvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.packageConfiguration = packageConfiguration;
     this.javaSemantics = javaSemantics;
@@ -312,6 +317,11 @@ public class JavaToolchainProvider extends ToolchainInfo
    */
   public ImmutableList<String> getJvmOptions() {
     return jvmOptions;
+  }
+
+  /** Returns the list of JVM options for running JavaBuilder. */
+  public ImmutableList<String> getJavabuilderJvmOptions() {
+    return javabuilderJvmOptions;
   }
 
   /** @return whether JavaBuilders supports running as a persistent worker or not */
