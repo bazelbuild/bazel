@@ -1192,6 +1192,10 @@ public abstract class AbstractQueryTest<T> {
         "cc_test(name='two')",
         "test_suite(name='all', tests=[':one'])");
     assertThat(eval("tests(//x:all)")).isEqualTo(eval("//x:one"));
+    // Expect an ambiguity warning in the event handler.
+    assertContainsEvent(
+        "The target pattern '//x:all' is ambiguous: ':all' is both a wildcard, and "
+            + "the name of an existing test_suite rule; using the latter interpretation");
   }
 
   // Test that long expressions can be parsed and evaluated (without stackoverflow)

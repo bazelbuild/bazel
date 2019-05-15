@@ -144,7 +144,6 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.LoadedPackageCache
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -1605,8 +1604,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     skyframeActionExecutor.prepareForExecution(reporter, executor, options, checker, outputService);
   }
 
-  EvaluationResult<TargetPatternValue> targetPatterns(
-      Iterable<TargetPatternKey> patternSkyKeys,
+  EvaluationResult<SkyValue> targetPatterns(
+      Iterable<? extends SkyKey> patternSkyKeys,
       int numThreads,
       boolean keepGoing,
       ExtendedEventHandler eventHandler)
