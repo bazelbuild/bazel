@@ -17,6 +17,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -75,12 +76,8 @@ cc_toolchain_config(
 
 toolchain(
     name = "cc-toolchain-%{name}",
-    exec_compatible_with = [
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
-    ],
-    target_compatible_with = [
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
-    ],
+    exec_compatible_with = HOST_CONSTRAINTS,
+    target_compatible_with = HOST_CONSTRAINTS,
     toolchain = ":cc-compiler-%{name}",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
@@ -109,9 +106,7 @@ cc_toolchain_config(
 
 toolchain(
     name = "cc-toolchain-armeabi-v7a",
-    exec_compatible_with = [
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
-    ],
+    exec_compatible_with = HOST_CONSTRAINTS,
     target_compatible_with = [
         "@bazel_tools//platforms:arm",
         "@bazel_tools//platforms:android",

@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load(":osx_archs.bzl", "OSX_TOOLS_ARCHS")
+load(":osx_archs.bzl", "OSX_TOOLS_ARCHS", "OSX_TOOLS_CONSTRAINTS")
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
 CC_TOOLCHAINS = [(
@@ -10,10 +10,10 @@ CC_TOOLCHAINS = [(
     cpu,
     ":cc-compiler-" + cpu,
 ) for cpu in OSX_TOOLS_ARCHS] + [
-    ("k8|compiler", ":cc-compiler-darwin_x86_64", ),
-    ("darwin|compiler", ":cc-compiler-darwin_x86_64", ),
-    ("k8", ":cc-compiler-darwin_x86_64", ),
-    ("darwin", ":cc-compiler-darwin_x86_64", ),
+    ("k8|compiler", ":cc-compiler-darwin_x86_64"),
+    ("darwin|compiler", ":cc-compiler-darwin_x86_64"),
+    ("k8", ":cc-compiler-darwin_x86_64"),
+    ("darwin", ":cc-compiler-darwin_x86_64"),
 ]
 
 cc_library(
@@ -39,13 +39,13 @@ cc_toolchain_suite(
     filegroup(
         name = "osx_tools_" + arch,
         srcs = [
-          ":cc_wrapper",
-          ":libtool",
-          ":make_hashed_objlist.py",
-          ":wrapped_clang",
-          ":wrapped_clang_pp",
-          ":wrapped_ar",
-          ":xcrunwrapper.sh",
+            ":cc_wrapper",
+            ":libtool",
+            ":make_hashed_objlist.py",
+            ":wrapped_ar",
+            ":wrapped_clang",
+            ":wrapped_clang_pp",
+            ":xcrunwrapper.sh",
         ],
     )
     for arch in OSX_TOOLS_ARCHS
@@ -54,12 +54,6 @@ cc_toolchain_suite(
 [
     apple_cc_toolchain(
         name = "cc-compiler-" + arch,
-        toolchain_identifier = (
-            arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"
-        ),
-        toolchain_config = ":" + (
-            arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"
-        ),
         all_files = ":osx_tools_" + arch,
         ar_files = ":empty",
         as_files = ":empty",
@@ -69,6 +63,12 @@ cc_toolchain_suite(
         objcopy_files = ":empty",
         strip_files = ":osx_tools_" + arch,
         supports_param_files = 0,
+        toolchain_config = ":" + (
+            arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"
+        ),
+        toolchain_identifier = (
+            arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"
+        ),
     )
     for arch in OSX_TOOLS_ARCHS
 ]
@@ -76,8 +76,8 @@ cc_toolchain_suite(
 [
     cc_toolchain_config(
         name = (arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"),
-        cpu = arch,
         compiler = "compiler",
+        cpu = arch,
     )
     for arch in OSX_TOOLS_ARCHS
 ]
@@ -86,11 +86,11 @@ cc_toolchain_suite(
     toolchain(
         name = "cc-toolchain-" + arch,
         exec_compatible_with = [
-            # TODO(katre): add autodiscovered constraints for host CPU and OS.
+            # These only execute on macOS.
+            "@bazel_tools//platforms:osx",
+            "@bazel_tools//platforms:x86_64",
         ],
-        target_compatible_with = [
-            # TODO(katre): add autodiscovered constraints for host CPU and OS.
-        ],
+        target_compatible_with = OSX_TOOLS_CONSTRAINTS[arch],
         toolchain = ":cc-compiler-" + arch,
         toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
     )

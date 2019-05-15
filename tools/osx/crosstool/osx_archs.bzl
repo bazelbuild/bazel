@@ -32,3 +32,22 @@ OSX_TOOLS_ARCHS = [
     "watchos_arm64_32",
     "tvos_arm64",
 ] + OSX_TOOLS_NON_DEVICE_ARCHS
+
+# Target constraints for each arch.
+# TODO(apple-rules): Rename osx constraint to macOS.
+# TODO(apple-rules): Add constraints for watchos and tvos.
+OSX_TOOLS_CONSTRAINTS = {
+    "darwin_x86_64": ["@bazel_tools//platforms:osx", "@bazel_tools//platforms:x86_64"],
+    "ios_i386": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:x86_32"],
+    "ios_x86_64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:x86_64"],
+    "watchos_i386": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:x86_32"],
+    "watchos_x86_64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:x86_64"],
+    "tvos_x86_64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:x86_64"],
+    "armeabi-v7a": ["@bazel_tools//platforms:arm"],
+    "ios_armv7": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
+    "ios_arm64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
+    "ios_arm64e": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
+    "watchos_armv7k": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
+    "watchos_arm64_32": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
+    "tvos_arm64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
+}
