@@ -23,7 +23,8 @@
 #
 # Mandatory flags:
 
-# --java_version        The JDK version included in the java_tools to be released.
+# --java_version        The JDK version included in the java_tools to be
+#                       released.
 # --java_tools_version  The version number of the java_tools to be released.
 # --rc                  The release candidate number of current release.
 #                       If --release true then --rc is the number of the rc to
@@ -65,26 +66,29 @@ while [[ -n "$@" ]]; do
   esac
 done
 
+# Create a tmp directory to download the artifacts from GCS and compute their
+# sha256sum.
 tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXX')
 trap "rm -fr $tmp_dir" EXIT
 
+gcs_bucket="gs://bazel-mirror/bazel_java_tools"
+
 for platform in linux windows darwin; do
-  rc_url="gs://bazel-mirror/bazel_java_tools/release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
+  rc_url="release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
 
   if [[ $release == "true" ]]; then
-    release_url="gs://bazel-mirror/bazel_java_tools/releases/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
-    # Make release candidate the release artifact for the current platform.
-    gsutil -q cp ${rc_url} ${release_url}
     release_artifact="releases/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
+    # Make release candidate the release artifact for the current platform.
+    gsutil -q cp "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
   else
-    tmp_url=$(gsutil ls -lh gs://bazel-mirror/bazel_java_tools/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep "gs" | cut -d " " -f 7)
+    tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep "gs" | cut -d " " -f 7)
     # Make the generated artifact a release candidate for the current platform.
-    gsutil -q cp ${tmp_url} ${rc_url}
-    release_artifact="release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
+    gsutil -q cp ${tmp_url} "${gcs_bucket}/${rc_url}"
+    release_artifact="${rc_url}"
   fi
 
+  # Download the file locally to compute its sha256sum.
   local_zip="$tmp_dir/java_tools_$platform.zip"
-  # Download the file to compute its sha256sum.
   gsutil -q cp ${rc_url} ${local_zip}
   file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
   echo "${release_artifact} ${file_hash}"
