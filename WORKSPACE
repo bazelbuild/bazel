@@ -116,7 +116,7 @@ distdir_tar(
         "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "0.16.2.zip",
-        "android_tools_pkg-0.3.tar.gz",
+        "android_tools_pkg-SNAPSHOT-DEV.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -164,8 +164,8 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
             "https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
         ],
-        "android_tools_pkg-0.3.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.3.tar.gz",
+        "android_tools_pkg-SNAPSHOT-DEV.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-SNAPSHOT-DEV.tar.gz",
         ],
     },
 )
@@ -390,7 +390,7 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip",
-        "android_tools_pkg-0.3.tar.gz",
+        "android_tools_pkg-SNAPSHOT-DEV.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -433,8 +433,8 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz"],
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip"],
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-win_x64.zip"],
-        "android_tools_pkg-0.3.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.3.tar.gz",
+        "android_tools_pkg-SNAPSHOT-DEV.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-SNAPSHOT-DEV.tar.gz",
         ],
     },
 )

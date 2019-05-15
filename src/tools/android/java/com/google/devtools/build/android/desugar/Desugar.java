@@ -34,9 +34,12 @@ import com.google.devtools.build.android.desugar.io.IndexedInputs;
 import com.google.devtools.build.android.desugar.io.InputFileProvider;
 import com.google.devtools.build.android.desugar.io.OutputFileProvider;
 import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
@@ -331,6 +334,16 @@ class Desugar {
           + "This flag may be removed when no longer needed."
     )
     public boolean legacyJacocoFix;
+
+    @Option(
+        name = "persistent_worker",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.HIDDEN},
+        help = "Run as a Bazel persistent worker."
+    )
+    public boolean persistentWorker;
   }
 
   private static final String RUNTIME_LIB_PACKAGE =
@@ -963,15 +976,70 @@ class Desugar {
   }
 
   public static void main(String[] args) throws Exception {
+    DesugarOptions options = parseCommandLineOptions(args);
+    if (options.persistentWorker) {
+      runPersistentWorker();
+    } else {
+      processRequest(options);
+    }
+  }
+
+  private static int runPersistentWorker() throws Exception {
+    while (true) {
+      try {
+        WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+
+        if (request == null) {
+          break;
+        }
+
+        String[] argList = new String[request.getArgumentsList().size()];
+        argList = request.getArgumentsList().toArray(argList);
+
+        DesugarOptions options = parseCommandLineOptions(argList);
+
+        int exitCode = processRequest(options);
+        WorkResponse.newBuilder()
+            .setExitCode(exitCode)
+            .build()
+            .writeDelimitedTo(System.out);
+        System.out.flush();
+      } catch (IOException e) {
+        e.printStackTrace();
+        return 1;
+      }
+    }
+    return 0;
+  }
+
+  private static int processRequest(DesugarOptions options) throws Exception {
     // It is important that this method is called first. See its javadoc.
     Path dumpDirectory = createAndRegisterLambdaDumpDirectory();
     verifyLambdaDumpDirectoryRegistered(dumpDirectory);
 
-    DesugarOptions options = parseCommandLineOptions(args);
+    checkArgument(!options.inputJars.isEmpty(), "--input is required");
+    checkArgument(
+        options.inputJars.size() == options.outputJars.size(),
+        "Desugar requires the same number of inputs and outputs to pair them. #input=%s,#output=%s",
+        options.inputJars.size(),
+        options.outputJars.size());
+    checkArgument(
+        !options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
+        "At least one --bootclasspath_entry is required");
+    for (Path path : options.bootclasspath) {
+      checkArgument(!Files.isDirectory(path), "Bootclasspath entry must be a jar file: %s", path);
+    }
+    checkArgument(!options.desugarCoreLibs
+            || !options.rewriteCoreLibraryPrefixes.isEmpty()
+            || !options.emulateCoreLibraryInterfaces.isEmpty(),
+        "--desugar_supported_core_libs requires specifying renamed and/or emulated core libraries");
+
     if (options.verbose) {
       System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
     }
     new Desugar(options, dumpDirectory).desugar();
+
+    return 0;
   }
 
   static void verifyLambdaDumpDirectoryRegistered(Path dumpDirectory) throws IOException {
@@ -1030,22 +1098,6 @@ class Desugar {
     parser.parseAndExitUponError(args);
     DesugarOptions options = parser.getOptions(DesugarOptions.class);
 
-    checkArgument(!options.inputJars.isEmpty(), "--input is required");
-    checkArgument(
-        options.inputJars.size() == options.outputJars.size(),
-        "Desugar requires the same number of inputs and outputs to pair them. #input=%s,#output=%s",
-        options.inputJars.size(),
-        options.outputJars.size());
-    checkArgument(
-        !options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
-        "At least one --bootclasspath_entry is required");
-    for (Path path : options.bootclasspath) {
-      checkArgument(!Files.isDirectory(path), "Bootclasspath entry must be a jar file: %s", path);
-    }
-    checkArgument(!options.desugarCoreLibs
-        || !options.rewriteCoreLibraryPrefixes.isEmpty()
-        || !options.emulateCoreLibraryInterfaces.isEmpty(),
-        "--desugar_supported_core_libs requires specifying renamed and/or emulated core libraries");
     return options;
   }
 
