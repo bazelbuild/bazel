@@ -66,8 +66,9 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
     return unsignedApk;
   }
 
-  /** Returns the coverage metadata artifacts generated in the transitive closure. */
+  /** Returns the coverage metadata artifact generated in the transitive closure. */
   @Nullable
+  @Override
   public Artifact getCoverageMetadata() {
     return coverageMetadata;
   }

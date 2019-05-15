@@ -42,6 +42,11 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
   }
 
   @Override
+  public FileApi getCoverageMetadata() {
+    return null;
+  }
+
+  @Override
   public String toProto(Location loc) throws EvalException {
     return "";
   }
