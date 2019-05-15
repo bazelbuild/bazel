@@ -56,6 +56,15 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   FileT getUnsignedApk();
 
+  /** Returns the coverage metadata artifact generated in the transitive closure. */
+  @SkylarkCallable(
+      name = "coverage_metadata",
+      doc = "Returns the coverage metadata artifact generated in the transitive closure.",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  FileT getCoverageMetadata();
+
   /** Returns keystore that was used to sign the APK */
   @SkylarkCallable(
       name = "keystore",
