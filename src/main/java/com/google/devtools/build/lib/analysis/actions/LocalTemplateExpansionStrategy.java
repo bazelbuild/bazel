@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -40,6 +41,7 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
   public SpawnContinuation expandTemplate(
       TemplateExpansionAction action, ActionExecutionContext ctx)
       throws ExecException, InterruptedException {
+    ctx.getEventHandler().post(new RunningActionEvent(action, "local"));
     try {
       final String expandedTemplate = getExpandedTemplateUnsafe(action, ctx.getPathResolver());
       DeterministicWriter deterministicWriter =
