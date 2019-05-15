@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Sets.SetView;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -110,10 +113,8 @@ public interface MutableActionGraph extends ActionGraph {
 
     private static void addListDetail(
         StringBuilder sb, String key, Iterable<Artifact> valueA, Iterable<Artifact> valueB) {
-      Set<Artifact> setA = ImmutableSet.copyOf(valueA);
-      Set<Artifact> setB = ImmutableSet.copyOf(valueB);
-      SetView<Artifact> diffA = Sets.difference(setA, setB);
-      SetView<Artifact> diffB = Sets.difference(setB, setA);
+      Set<Artifact> diffA = differenceWithoutOwner(valueA, valueB);
+      Set<Artifact> diffB = differenceWithoutOwner(valueB, valueA);
 
       sb.append(key).append(": ");
       if (diffA.isEmpty() && diffB.isEmpty()) {
@@ -137,8 +138,33 @@ public interface MutableActionGraph extends ActionGraph {
       }
     }
 
+    /** Returns items in {@code valueA} that are not in {@code valueB}, ignoring the owner. */
+    private static Set<Artifact> differenceWithoutOwner(
+        Iterable<Artifact> valueA, Iterable<Artifact> valueB) {
+      ImmutableSet.Builder<Artifact> diff = new ImmutableSet.Builder<>();
+
+      // Group valueB by exec path for easier checks.
+      ImmutableListMultimap<String, Artifact> mapB =
+          Streams.stream(valueB)
+              .collect(toImmutableListMultimap(Artifact::getExecPathString, Functions.identity()));
+      for (Artifact a : valueA) {
+        boolean found = false;
+        for (Artifact b : mapB.get(a.getExecPathString())) {
+          if (a.equalsWithoutOwner(b)) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          diff.add(a);
+        }
+      }
+
+      return diff.build();
+    }
+
     /** Pretty print action diffs (at most {@code MAX_DIFF_ARTIFACTS_TO_REPORT} lines). */
-    private static void prettyPrintArtifactDiffs(StringBuilder sb, SetView<Artifact> diff) {
+    private static void prettyPrintArtifactDiffs(StringBuilder sb, Set<Artifact> diff) {
       for (Artifact artifact : Iterables.limit(diff, MAX_DIFF_ARTIFACTS_TO_REPORT)) {
         sb.append("\t" + artifact.prettyPrint() + "\n");
       }
@@ -195,7 +221,7 @@ public interface MutableActionGraph extends ActionGraph {
               && aPrimaryInput.toString().equals(bPrimaryInput.toString()))) {
         Artifact aPrimaryOutput = a.getPrimaryOutput();
         Artifact bPrimaryOutput = b.getPrimaryOutput();
-        if (!aPrimaryOutput.equals(bPrimaryOutput)) {
+        if (!aPrimaryOutput.equalsWithoutOwner(bPrimaryOutput)) {
           sb.append("Primary outputs are different: ")
               .append(System.identityHashCode(aPrimaryOutput))
               .append(", ")
