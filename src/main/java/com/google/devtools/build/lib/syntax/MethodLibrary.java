@@ -1036,7 +1036,7 @@ public class MethodLibrary {
               + "<pre class=\"language-python\">"
               + "153\n"
               + "0x2A  # hexadecimal literal\n"
-              + "054  # octal literal\n"
+              + "0o54  # octal literal\n"
               + "23 * 2 + 5\n"
               + "100 / -7\n"
               + "100 % -7  # -5 (unlike in some other languages)\n"
