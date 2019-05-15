@@ -1264,7 +1264,7 @@ public class CppCompileAction extends AbstractAction
             spawnContext,
             showIncludesFilterForStdout,
             showIncludesFilterForStderr,
-            SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext))
+            SpawnContinuation.ofBeginExecution(spawn, spawnContext))
         .execute();
   }
 
