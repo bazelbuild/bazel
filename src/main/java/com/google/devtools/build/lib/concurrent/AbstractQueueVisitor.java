@@ -164,6 +164,14 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
             .build());
   }
 
+  public static ExecutorService createExecutorService(
+      int parallelism, String poolName, boolean useForkJoinPool) {
+    if (useForkJoinPool) {
+      return new NamedForkJoinPool(poolName, parallelism);
+    }
+    return createExecutorService(parallelism, poolName);
+  }
+
   public static ExecutorService createExecutorService(int parallelism, String poolName) {
     return createExecutorService(
         parallelism,

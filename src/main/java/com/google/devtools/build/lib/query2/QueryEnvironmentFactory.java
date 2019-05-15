@@ -36,7 +36,6 @@ import javax.annotation.Nullable;
 /** A factory that creates instances of {@code AbstractBlazeQueryEnvironment<Target>}. */
 public class QueryEnvironmentFactory {
   /** Creates an appropriate {@link AbstractBlazeQueryEnvironment} based on the given options. */
-
   public AbstractBlazeQueryEnvironment<Target> create(
       TransitivePackageLoader transitivePackageLoader,
       WalkableGraphFactory graphFactory,
@@ -54,7 +53,8 @@ public class QueryEnvironmentFactory {
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
       @Nullable PathPackageLocator packagePath,
-      boolean blockUniverseEvaluationErrors) {
+      boolean blockUniverseEvaluationErrors,
+      boolean useForkJoinPool) {
     Preconditions.checkNotNull(universeScope);
     if (canUseSkyQuery(orderedResults, universeScope, packagePath, strictScope, labelFilter)) {
       return new SkyQueryEnvironment(
@@ -81,7 +81,8 @@ public class QueryEnvironmentFactory {
           labelFilter,
           eventHandler,
           settings,
-          extraFunctions);
+          extraFunctions,
+          useForkJoinPool);
     }
   }
 

@@ -150,7 +150,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               !streamResults,
               queryOptions.universeScope,
               options.getOptions(LoadingPhaseThreadsOption.class).threads,
-              settings)) {
+              settings,
+              queryOptions.useForkJoinPool)) {
         result =
             doQuery(
                 query, env, queryOptions, streamResults, formatter, queryEnv, queryRuntimeHelper);
@@ -192,9 +193,14 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       AbstractBlazeQueryEnvironment<Target> queryEnv,
       QueryRuntimeHelper queryRuntimeHelper);
 
-  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(CommandEnvironment env,
-      boolean keepGoing, boolean orderedResults, List<String> universeScope,
-      int loadingPhaseThreads, Set<Setting> settings) {
+  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(
+      CommandEnvironment env,
+      boolean keepGoing,
+      boolean orderedResults,
+      List<String> universeScope,
+      int loadingPhaseThreads,
+      Set<Setting> settings,
+      boolean useForkJoinPool) {
 
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
@@ -228,6 +234,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             settings,
             env.getRuntime().getQueryFunctions(),
             env.getPackageManager().getPackagePath(),
-            /*blockUniverseEvaluationErrors=*/ false);
+            /*blockUniverseEvaluationErrors=*/ false,
+            useForkJoinPool);
   }
 }
