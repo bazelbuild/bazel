@@ -24,7 +24,7 @@ def git_repo(ctx, directory):
     if ctx.attr.shallow_since:
         shallow = "--shallow-since=%s" % ctx.attr.shallow_since
     if ctx.attr.commit:
-        shallow = ""
+        shallow = "--shallow-since=%s" % ctx.attr.commit
 
     reset_ref = ""
     fetch_ref = ""
@@ -74,7 +74,7 @@ def _update(ctx, git_repo):
         update_submodules(ctx, git_repo)
 
 def init(ctx, git_repo):
-    cl = ["git", "init", "%s" % git_repo.directory]
+    cl = ["git", "init", git_repo.directory]
     st = ctx.execute(cl, environment = ctx.os.environ)
     if st.return_code != 0:
         _error(ctx.name, cl, st.stderr)
@@ -110,11 +110,13 @@ def _git(ctx, git_repo, command, *args):
 def _git_maybe_shallow(ctx, git_repo, command, *args):
     start = ["git", command]
     args_list = list(args)
-    st = _execute(ctx, git_repo, start + ["'%s'" % git_repo.shallow] + args_list)
+    if git_repo.shallow:
+        st = _execute(ctx, git_repo, start + [git_repo.shallow] + args_list)
+        if st.return_code == 0:
+            return
+    st = _execute(ctx, git_repo, start + args_list)
     if st.return_code != 0:
-        st = _execute(ctx, git_repo, start + args_list)
-        if st.return_code != 0:
-            _error(ctx.name, start + args_list, st.stderr)
+        _error(ctx.name, start + args_list, st.stderr)
 
 def _execute(ctx, git_repo, args):
     return ctx.execute(
