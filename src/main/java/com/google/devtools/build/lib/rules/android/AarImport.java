@@ -162,6 +162,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR));
 
     Artifact jdepsArtifact = null;
+    // Don't register import deps checking actions if the level is off. Since it's off, the
+    // check isn't useful anyway, so don't waste resources running it.
     if (javaConfig.getImportDepsCheckingLevel() != ImportDepsCheckingLevel.OFF) {
       jdepsArtifact = createAarArtifact(ruleContext, "jdeps.proto");
       javaCompilationArtifactsBuilder.setCompileTimeDependencies(jdepsArtifact);
@@ -185,9 +187,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     // dependency checking action is called.
     ruleContext.registerAction(
         createSingleFileExtractorActions(
-            ruleContext, aar, ANDROID_MANIFEST,
-            jdepsArtifact,
-            androidManifestArtifact));
+            ruleContext, aar, ANDROID_MANIFEST, jdepsArtifact, androidManifestArtifact));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         common.collectJavaCompilationArgs(
