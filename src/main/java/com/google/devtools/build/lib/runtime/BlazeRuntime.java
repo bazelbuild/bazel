@@ -528,25 +528,18 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // exiting for us.
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
       if (eventBus != null) {
-        try {
-          workspace
-              .getSkyframeExecutor()
-              .notifyCommandComplete(
-                  new ExtendedEventHandler() {
-                    @Override
-                    public void post(Postable obj) {
-                      eventBus.post(obj);
-                    }
+        workspace
+            .getSkyframeExecutor()
+            .postLoggingStatsWhenCrashing(
+                new ExtendedEventHandler() {
+                  @Override
+                  public void post(Postable obj) {
+                    eventBus.post(obj);
+                  }
 
-                    @Override
-                    public void handle(Event event) {}
-                  });
-        } catch (InterruptedException e) {
-          logger.severe("InterruptedException when crashing: " + e);
-          // Follow the convention of interrupting the current thread, even though nothing can throw
-          // an interrupt after this.
-          Thread.currentThread().interrupt();
-        }
+                  @Override
+                  public void handle(Event event) {}
+                });
         eventBus.post(new CommandCompleteEvent(exitCode.getNumericExitCode()));
       }
     }
