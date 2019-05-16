@@ -49,7 +49,6 @@ else
   INPUT="$(find "${RUNFILES}" -path "*/tools/android/desugared_java8_legacy_libs.jar" | head -1)"
   CONFIG="$(find "${RUNFILES}" -path "*/tools/android/minify_java8_legacy_libs.cfg" | head -1)"
   SCAN="$(find "${RUNFILES}" -path "*/src/tools/android/java/com/google/devtools/build/android/desugar/scan/KeepScanner" | head -1)"
-  PG="$(find "${RUNFILES}" -path "*/third_party/java/proguard/proguard" | head -1)"
   DEXER="$(find "${RUNFILES}" -path "*/tools/android/dexer" | head -1)"
 fi
 
