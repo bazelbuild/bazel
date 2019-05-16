@@ -74,16 +74,25 @@ gcs_bucket="gs://bazel-mirror/bazel_java_tools"
 
 for platform in linux windows darwin; do
   rc_url="release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
+  rc_sources_url="release_candidates/javac${java_version}/v${java_tools_version}/sources/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
 
   if [[ $release == "true" ]]; then
     release_artifact="releases/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
+    release_sources_artifact="releases/javac${java_version}/v${java_tools_version}/sources/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
     # Make release candidate the release artifact for the current platform.
     gsutil -q cp "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
+
+    # Copy the associated zip file that contains the sources of the release zip.
+    gsutil -q cp "${gcs_bucket}/${rc_sources_url}" "${gcs_bucket}/${release_sources_artifact}"
   else
     tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep "gs" | cut -d " " -f 7)
     # Make the generated artifact a release candidate for the current platform.
     gsutil -q cp ${tmp_url} "${gcs_bucket}/${rc_url}"
     release_artifact="${rc_url}"
+
+    # Copy the associated zip file that contains the sources of the release zip.
+    tmp_sources_url=$(gsutil ls -lh ${gcs_bucket}/tmp/sources/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep "gs" | cut -d " " -f 7)
+    gsutil -q cp ${tmp_sources_url} ${gcs_bucket}/${rc_sources_url}
   fi
 
   # Download the file locally to compute its sha256sum (needed to update the
