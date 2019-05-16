@@ -104,7 +104,6 @@ EOF
 
   bazel clean >& $TEST_log
   bazel build \
-      --incompatible_list_based_execution_strategy_selection \
       --remote_executor=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
@@ -261,10 +260,7 @@ EOF
       --remote_local_fallback_strategy=local \
       --build_event_text_file=gen1.log \
       //gen1 >& $TEST_log \
-      || fail "Expected success"
-
-  mv gen1.log $TEST_log
-  expect_log "1 process: 1 local"
+      && fail "Expected failure" || true
 }
 
 function test_local_fallback_with_local_strategy_lists() {
@@ -280,7 +276,6 @@ tags = ["no-remote"],
 EOF
 
   bazel build \
-      --incompatible_list_based_execution_strategy_selection \
       --spawn_strategy=remote,local \
       --remote_executor=localhost:${worker_port} \
       --build_event_text_file=gen1.log \
@@ -304,7 +299,6 @@ tags = ["no-remote"],
 EOF
 
   bazel build \
-      --incompatible_list_based_execution_strategy_selection \
       --spawn_strategy=remote,sandboxed,local \
       --remote_executor=localhost:${worker_port} \
       --build_event_text_file=gen1.log \
@@ -328,7 +322,6 @@ tags = ["no-remote"],
 EOF
 
   bazel build \
-      --incompatible_list_based_execution_strategy_selection \
       --remote_executor=localhost:${worker_port} \
       --build_event_text_file=gen1.log \
       //gen1 >& $TEST_log \
@@ -356,10 +349,7 @@ EOF
       --remote_local_fallback_strategy=sandboxed \
       --build_event_text_file=gen2.log \
       //gen2 >& $TEST_log \
-      || fail "Expected success"
-
-  mv gen2.log $TEST_log
-  expect_log "1 process: 1 .*-sandbox"
+      && fail "Expected failure" || true
 }
 
 function is_file_uploaded() {
@@ -903,7 +893,7 @@ EOF
   || fail "Expected bazel-bin/a/remote.txt to have not been downloaded"
 
   bazel build \
-    --genrule_strategy=remote \
+    --genrule_strategy=remote,local \
     --remote_executor=localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
