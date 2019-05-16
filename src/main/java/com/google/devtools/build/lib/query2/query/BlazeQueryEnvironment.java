@@ -125,7 +125,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     this.cachingPackageLocator = cachingPackageLocator;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter, useForkJoinPool);
     this.useForkJoinPool = useForkJoinPool;
   }
 
