@@ -167,7 +167,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
     if (javaConfig.getImportDepsCheckingLevel() != ImportDepsCheckingLevel.OFF) {
       jdepsArtifact = createAarArtifact(ruleContext, "jdeps.proto");
       javaCompilationArtifactsBuilder.setCompileTimeDependencies(jdepsArtifact);
-
       ImportDepsCheckActionBuilder.newBuilder()
           .bootclasspath(getBootclasspath(ruleContext))
           .declareDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ true))
@@ -220,8 +219,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
         .addNativeDeclaredProvider(javaInfoBuilder.build());
-    if (javaConfig.getImportDepsCheckingLevel() != ImportDepsCheckingLevel.OFF
-        && jdepsArtifact != null) {
+    if (jdepsArtifact != null) {
       // Add the deps check result so that we can unit test it.
       ruleBuilder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, jdepsArtifact);
     }

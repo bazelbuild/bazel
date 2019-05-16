@@ -465,8 +465,8 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCompilationArgsProvider() throws Exception {
+    useConfiguration("--experimental_import_deps_checking=ERROR");
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
-    useConfiguration("--experimental_import_deps_checking=warning");
 
     JavaCompilationArgsProvider provider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, aarImportTarget);
