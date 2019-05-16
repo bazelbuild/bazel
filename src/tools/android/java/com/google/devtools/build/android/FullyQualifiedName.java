@@ -22,6 +22,7 @@ import com.android.ide.common.resources.configuration.FolderConfiguration;
 import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -316,6 +317,13 @@ public class FullyQualifiedName implements DataKey {
   @Override
   public KeyType getKeyType() {
     return KeyType.FULL_QUALIFIED_NAME;
+  }
+
+  @Override
+  public boolean shouldDetectConflicts() {
+    // Ignore conflicts among pseudolocales.
+    return qualifiers.stream()
+        .noneMatch(q -> Ascii.equalsIgnoreCase(q, "en-rXA") || Ascii.equalsIgnoreCase(q, "ar-rXB"));
   }
 
   @Override
