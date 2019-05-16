@@ -152,6 +152,15 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  jars = ['JacocoCoverage_jarjar_deploy.jar'],",
         ")",
         "java_import(",
+        "  name = 'proguard_import',",
+        "  jars = ['proguard_rt.jar'],",
+        ")",
+        "java_binary(",
+        "  name = 'proguard',",
+        "  main_class = 'proguard.Proguard',",
+        "  runtime_deps = [':proguard_import'],",
+        ")",
+        "java_import(",
         "  name = 'TestRunner',",
         "  jars = ['TestRunner.jar'],",
         ")",
@@ -198,10 +207,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "/bazel_tools_workspace/tools/android/emulator/BUILD",
         Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
-    // Bundled Proguard used by android_sdk_repository
-    config.create(
-        "/bazel_tools_workspace/third_party/java/proguard/BUILD",
-        "exports_files(['proguard'])");
 
     config.create(
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");

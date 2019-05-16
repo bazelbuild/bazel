@@ -252,6 +252,19 @@ remote_java_tools_filegroup(
     target = ":java_tools/ExperimentalRunner_deploy.jar",
 )
 
+alias(
+    name = "proguard",
+    actual = select({
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:proguard",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:proguard",
+        "//src/conditions:windows": "@remote_java_tools_windows//:proguard",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:proguard",
+        # On different platforms the linux repository can be used because the
+        # proguard deploy jar is platform-agnostic.
+        "//conditions:default": "@remote_java_tools_linux//tools/jdk:proguard",
+    }),
+)
+
 BOOTCLASS_JARS = [
     "rt.jar",
     "resources.jar",
