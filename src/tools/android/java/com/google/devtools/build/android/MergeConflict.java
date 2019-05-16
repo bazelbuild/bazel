@@ -87,7 +87,8 @@ public class MergeConflict {
   }
 
   boolean isValidWith(SourceChecker checker) throws IOException {
-    return !primary.valueEquals(overwritten)
+    return dataKey.shouldDetectConflicts()
+        && !primary.valueEquals(overwritten)
         && primary.compareMergePriorityTo(overwritten) == 0
         && !checker.checkEquality(primary.source(), overwritten.source());
   }
