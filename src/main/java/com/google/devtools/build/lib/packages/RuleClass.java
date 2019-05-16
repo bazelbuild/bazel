@@ -78,7 +78,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -2111,12 +2110,13 @@ public class RuleClass {
       return;
     }
 
-    Set<Label> configLabels =
-        rule.getAttributes().stream()
-            .map(attr -> attributes.getSelectorList(attr.getName(), attr.getType()))
-            .filter(Predicates.notNull())
-            .flatMap(selectorList -> selectorList.getKeyLabels().stream())
-            .collect(Collectors.toCollection(LinkedHashSet::new));
+    LinkedHashSet<Label> configLabels = new LinkedHashSet<>();
+    for (Attribute attr : rule.getAttributes()) {
+      SelectorList<?> selectorList = attributes.getSelectorList(attr.getName(), attr.getType());
+      if (selectorList != null) {
+        configLabels.addAll(selectorList.getKeyLabels());
+      }
+    }
 
     rule.setAttributeValue(configDepsAttribute, ImmutableList.copyOf(configLabels),
         /*explicit=*/false);
