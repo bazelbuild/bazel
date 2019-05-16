@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -857,7 +857,22 @@ public class Package {
      */
     private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
-    private final Interner<ImmutableList<?>> listInterner = BlazeInterners.newStrongInterner();
+    private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
+
+    @ThreadCompatible
+    private static class ThreadCompatibleInterner<T> implements Interner<T> {
+      private final Map<T, T> interns = new HashMap<>();
+
+      @Override
+      public T intern(T sample) {
+        T t = interns.get(sample);
+        if (t != null) {
+          return t;
+        }
+        interns.put(sample, sample);
+        return sample;
+      }
+    }
 
     private boolean alreadyBuilt = false;
 
