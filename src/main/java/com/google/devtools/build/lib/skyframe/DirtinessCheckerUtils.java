@@ -144,7 +144,8 @@ public class DirtinessCheckerUtils {
         return SkyValueDirtinessChecker.DirtyResult.notDirty(oldValue);
       }
       FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) skyKey.argument());
-      if (fileType == FileType.EXTERNAL_REPO) {
+      if (fileType == FileType.EXTERNAL_REPO
+          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
         // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
         // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
         // parsed.
