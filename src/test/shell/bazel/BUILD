@@ -427,6 +427,9 @@ sh_test(
             ":test-deps",
             "//src:java_tools_java" + java_version + "_zip",
         ],
+	tags = [
+	   "no_windows",
+	],
     )
     for java_version in JAVA_VERSIONS
 ]
