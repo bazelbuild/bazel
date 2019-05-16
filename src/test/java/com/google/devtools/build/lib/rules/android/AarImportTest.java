@@ -136,7 +136,7 @@ public class AarImportTest extends BuildViewTestCase {
     ConfiguredTarget libTarget = getConfiguredTarget("//a:library");
 
     NestedSet<Artifact> transitiveCompiledSymbols =
-        libTarget.get(com.google.devtools.build.lib.rules.android.AndroidResourcesInfo.PROVIDER).getTransitiveCompiledSymbols();
+        libTarget.get(AndroidResourcesInfo.PROVIDER).getTransitiveCompiledSymbols();
 
     assertThat(transitiveCompiledSymbols).hasSize(2);
 
@@ -148,12 +148,12 @@ public class AarImportTest extends BuildViewTestCase {
                 .collect(Collectors.toSet()))
         .containsExactly("a/foo_symbols/symbols.zip", "a/library_symbols/symbols.zip");
 
-    NestedSet<com.google.devtools.build.lib.rules.android.ValidatedAndroidResources> directResources =
-        libTarget.get(com.google.devtools.build.lib.rules.android.AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
+    NestedSet<ValidatedAndroidResources> directResources =
+        libTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
 
     assertThat(directResources).hasSize(1);
 
-    com.google.devtools.build.lib.rules.android.ValidatedAndroidResources resourceContainer = directResources.iterator().next();
+    ValidatedAndroidResources resourceContainer = directResources.iterator().next();
     Truth.assertThat(resourceContainer.getAapt2RTxt()).isNotNull();
   }
 
@@ -161,22 +161,22 @@ public class AarImportTest extends BuildViewTestCase {
   public void testResourcesProvided() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
-    NestedSet<com.google.devtools.build.lib.rules.android.ValidatedAndroidResources> directResources =
-        aarImportTarget.get(com.google.devtools.build.lib.rules.android.AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
+    NestedSet<ValidatedAndroidResources> directResources =
+        aarImportTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
     assertThat(directResources).hasSize(1);
 
-    com.google.devtools.build.lib.rules.android.ValidatedAndroidResources resourceContainer = directResources.iterator().next();
+    ValidatedAndroidResources resourceContainer = directResources.iterator().next();
     assertThat(resourceContainer.getManifest()).isNotNull();
 
     Artifact resourceTreeArtifact = Iterables.getOnlyElement(resourceContainer.getResources());
     assertThat(resourceTreeArtifact.isTreeArtifact()).isTrue();
     assertThat(resourceTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/resources/foo");
 
-    NestedSet<com.google.devtools.build.lib.rules.android.ParsedAndroidAssets> directAssets =
-        aarImportTarget.get(com.google.devtools.build.lib.rules.android.AndroidAssetsInfo.PROVIDER).getDirectParsedAssets();
+    NestedSet<ParsedAndroidAssets> directAssets =
+        aarImportTarget.get(AndroidAssetsInfo.PROVIDER).getDirectParsedAssets();
     assertThat(directAssets).hasSize(1);
 
-    com.google.devtools.build.lib.rules.android.ParsedAndroidAssets assets = directAssets.iterator().next();
+    ParsedAndroidAssets assets = directAssets.iterator().next();
     assertThat(assets.getSymbols()).isNotNull();
 
     Artifact assetsTreeArtifact = Iterables.getOnlyElement(assets.getAssets());
@@ -186,9 +186,9 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testResourcesExtractor() throws Exception {
-    com.google.devtools.build.lib.rules.android.ValidatedAndroidResources resourceContainer =
+    ValidatedAndroidResources resourceContainer =
         getConfiguredTarget("//a:foo")
-            .get(com.google.devtools.build.lib.rules.android.AndroidResourcesInfo.PROVIDER)
+            .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()
             .toList()
             .get(0);
@@ -200,9 +200,9 @@ public class AarImportTest extends BuildViewTestCase {
             .getProvider(FilesToRunProvider.class)
             .getExecutable();
 
-    com.google.devtools.build.lib.rules.android.ParsedAndroidAssets assets =
+    ParsedAndroidAssets assets =
         getConfiguredTarget("//a:foo")
-            .get(com.google.devtools.build.lib.rules.android.AndroidAssetsInfo.PROVIDER)
+            .get(AndroidAssetsInfo.PROVIDER)
             .getDirectParsedAssets()
             .toList()
             .get(0);
@@ -230,7 +230,7 @@ public class AarImportTest extends BuildViewTestCase {
 
     // We should force asset merging to happen
     Artifact mergedAssetsZip =
-        aarImportTarget.get(com.google.devtools.build.lib.rules.android.AndroidAssetsInfo.PROVIDER).getValidationResult();
+        aarImportTarget.get(AndroidAssetsInfo.PROVIDER).getValidationResult();
     assertThat(outputGroup).contains(mergedAssetsZip);
 
     // Get the other artifact from the output group
@@ -286,7 +286,7 @@ public class AarImportTest extends BuildViewTestCase {
 
     // We should force asset merging to happen
     Artifact mergedAssetsZip =
-        aarImportTarget.get(com.google.devtools.build.lib.rules.android.AndroidAssetsInfo.PROVIDER).getValidationResult();
+        aarImportTarget.get(AndroidAssetsInfo.PROVIDER).getValidationResult();
     assertThat(outputGroup).contains(mergedAssetsZip);
 
     // Get the other artifact from the output group
@@ -340,7 +340,7 @@ public class AarImportTest extends BuildViewTestCase {
     ConfiguredTarget androidLibraryTarget = getConfiguredTarget("//java:lib");
 
     NestedSet<Artifact> nativeLibs =
-        androidLibraryTarget.get(com.google.devtools.build.lib.rules.android.AndroidNativeLibsInfo.PROVIDER).getNativeLibs();
+        androidLibraryTarget.get(AndroidNativeLibsInfo.PROVIDER).getNativeLibs();
     assertThat(nativeLibs)
         .containsExactly(
             ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
@@ -391,9 +391,9 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testNoCustomJavaPackage() throws Exception {
-    com.google.devtools.build.lib.rules.android.ValidatedAndroidResources resourceContainer =
+    ValidatedAndroidResources resourceContainer =
         getConfiguredTarget("//a:foo")
-            .get(com.google.devtools.build.lib.rules.android.AndroidResourcesInfo.PROVIDER)
+            .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()
             .iterator()
             .next();
@@ -511,7 +511,7 @@ public class AarImportTest extends BuildViewTestCase {
   @Test
   public void testExportsManifest() throws Exception {
     Artifact binaryMergedManifest =
-        getConfiguredTarget("//java:app").get(com.google.devtools.build.lib.rules.android.ApkInfo.PROVIDER).getMergedManifest();
+        getConfiguredTarget("//java:app").get(ApkInfo.PROVIDER).getMergedManifest();
     // Compare root relative path strings instead of artifacts due to difference in configuration
     // caused by the Android split transition.
     assertThat(
@@ -523,7 +523,7 @@ public class AarImportTest extends BuildViewTestCase {
 
   private String getAndroidManifest(String aarImport) throws Exception {
     return getConfiguredTarget(aarImport)
-        .get(com.google.devtools.build.lib.rules.android.AndroidResourcesInfo.PROVIDER)
+        .get(AndroidResourcesInfo.PROVIDER)
         .getDirectAndroidResources()
         .toList()
         .get(0)
