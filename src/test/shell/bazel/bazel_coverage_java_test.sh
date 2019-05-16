@@ -28,8 +28,6 @@ JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
     if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
         JAVA_TOOLS_ZIP_FILE_URL="${JAVA_TOOLS_ZIP}"
-    elif "$is_windows"; then
-        JAVA_TOOLS_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
     else
         JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
     fi
