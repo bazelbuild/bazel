@@ -36,8 +36,10 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.GregorianCalendar;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
@@ -88,6 +90,12 @@ public class AndroidResourceOutputs {
       }
     }
 
+    protected void addEntry(ZipEntry entry, byte[] content) throws IOException {
+      // Create a new ZipEntry because there are occasional discrepancies
+      // between the metadata and written content.
+      addEntry(entry.getName(), content, entry.getMethod());
+    }
+
     protected void addEntry(String rawName, byte[] content, int storageMethod) throws IOException {
       addEntry(rawName, content, storageMethod, null);
     }
@@ -116,18 +124,45 @@ public class AndroidResourceOutputs {
       zip.closeEntry();
     }
 
-    protected void addEntry(ZipEntry entry, byte[] content) throws IOException {
-      // Create a new ZipEntry because there are occasional discrepancies
-      // between the metadata and written content.
-      ZipEntry newEntry = new ZipEntry(entry.getName());
-      zip.putNextEntry(newEntry);
-      zip.write(content);
-      zip.closeEntry();
-    }
-
     @Override
     public void close() throws IOException {
       zip.close();
+    }
+  }
+
+  /** A ZipBuilder that avoids adding the same entry twice, storing only the first occurrence. */
+  public static class UniqueZipBuilder extends ZipBuilder {
+
+    /** A set of all entry names (e.g. "foo/bar.txt") that have been added to the underlying zip. */
+    private final Set<String> addedEntryNames = new HashSet<>();
+
+    private UniqueZipBuilder(ZipOutputStream zip) {
+      super(zip);
+    }
+
+    public static UniqueZipBuilder createFor(Path archivePath) throws IOException {
+      return new UniqueZipBuilder(
+          new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(archivePath))));
+    }
+
+    @Override
+    public void addEntry(ZipEntry entry, byte[] content) throws IOException {
+      addEntry(entry.getName(), content, entry.getMethod());
+    }
+
+    @Override
+    public void addEntry(String rawName, byte[] content, int storageMethod) throws IOException {
+      // Fix the path for Windows (required to ensure entry name isn't duplicated by call to super).
+      String relativeName = rawName.replace('\\', '/');
+      if (!addedEntryNames.add(relativeName)) {
+        return;
+      }
+      super.addEntry(relativeName, content, storageMethod);
+    }
+
+    public void addDirEntry(String rawName) throws IOException {
+      String dirName = rawName + (rawName.endsWith("/") ? "" : "/");
+      addEntry(dirName, new byte[0], ZipEntry.STORED);
     }
   }
 
