@@ -112,7 +112,6 @@ JAVA_TOOLS = [
     "//third_party/java/proguard:embedded_tools",
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-    "//third_party/java/jacoco:srcs",
     "//third_party/jarjar:embedded_build_and_license",
 ]
 

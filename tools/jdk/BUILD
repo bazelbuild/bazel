@@ -421,12 +421,6 @@ py_test(
     ],
 )
 
-# For java coverage
-alias(
-    name = "jacoco-blaze-agent",
-    actual = "//third_party/java/jacoco:blaze-agent",
-)
-
 remote_java_tools_java_import(
     name = "JarJar",
     target = ":JarJar",
