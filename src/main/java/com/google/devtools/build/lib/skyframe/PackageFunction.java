@@ -81,6 +81,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -716,10 +717,11 @@ public class PackageFunction implements SkyFunction {
                 containingPkgLookupKeys,
                 BuildFileNotFoundException.class,
                 InconsistentFilesystemException.class);
-    if (env.valuesMissing()) {
+    if (env.valuesMissing() || containingPkgLookupKeys.isEmpty()) {
       return;
     }
-    for (Target target : ImmutableSet.copyOf(pkgBuilder.getTargets())) {
+    for (Iterator<Target> iterator = pkgBuilder.getTargets().iterator(); iterator.hasNext(); ) {
+      Target target = iterator.next();
       SkyKey key = targetToKey.get(target);
       if (!containingPkgLookupValues.containsKey(key)) {
         continue;
@@ -733,7 +735,7 @@ public class PackageFunction implements SkyFunction {
           target.getLabel(),
           target.getLocation(),
           containingPackageLookupValue)) {
-        pkgBuilder.removeTarget(target);
+        iterator.remove();
         pkgBuilder.setContainsErrors();
       }
     }
