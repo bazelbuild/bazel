@@ -66,46 +66,15 @@ the <code>native</code> module.
     #if($ruleFamily.size() > 0)
       <tr>
         <td class="lang">${ruleFamily.name}</td>
+      #set( $ruleTypes = [$ruleFamily.binaryRules, $ruleFamily.libraryRules, $ruleFamily.testRules, $ruleFamily.otherRules1, $ruleFamily.otherRules2] )
+      #foreach($ruleType in $ruleTypes)
         <td>
-      #foreach($ruleDoc in $ruleFamily.binaryRules)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
+        #foreach($ruleDoc in $ruleType)
+          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>${ruleDoc.ruleName}</a>
           <br />
-      #end
+        #end
         </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.libraryRules)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
       #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.testRules)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.otherRules1)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.otherRules2)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
       </tr>
     #end
   #end
