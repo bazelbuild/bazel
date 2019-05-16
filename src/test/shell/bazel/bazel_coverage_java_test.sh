@@ -21,6 +21,176 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+JAVA_TOOLCHAIN="$1"; shift
+add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
+
+JAVA_TOOLS_ZIP="$1"; shift
+if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
+    if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
+        JAVA_TOOLS_ZIP_FILE_URL="${JAVA_TOOLS_ZIP}"
+    elif "$is_windows"; then
+        JAVA_TOOLS_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+    else
+        JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+    fi
+fi
+JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
+
+if [[ $# -gt 0 ]]; then
+    JAVABASE_VALUE="$1"; shift
+    add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
+fi
+
+function set_up() {
+    cat >>WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+# java_tools versions only used to test Bazel with various JDK toolchains.
+EOF
+
+    if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
+    cat >>WORKSPACE <<EOF
+http_archive(
+    name = "local_java_tools",
+    urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
+EOF
+    fi
+
+    cat >>WORKSPACE <<EOF
+http_archive(
+    name = "remote_java_tools_javac9_test_linux",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v1.0/java_tools_javac9_linux-v1.0.zip",
+    ],
+)
+http_archive(
+    name = "remote_java_tools_javac9_test_windows",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v1.0/java_tools_javac9_windows-v1.0.zip",
+    ],
+)
+http_archive(
+    name = "remote_java_tools_javac9_test_darwin",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v1.0/java_tools_javac9_darwin-v1.0.zip",
+    ],
+)
+
+http_archive(
+    name = "remote_java_tools_javac10_test_linux",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac10/v3.1/java_tools_javac10_linux-v3.1.zip",
+    ],
+)
+http_archive(
+    name = "remote_java_tools_javac10_test_windows",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac10/v3.1/java_tools_javac10_windows-v3.1.zip",
+    ],
+)
+http_archive(
+    name = "remote_java_tools_javac10_test_darwin",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac10/v3.1/java_tools_javac10_darwin-v3.1.zip",
+    ],
+)
+
+http_archive(
+    name = "remote_java_tools_javac11_test_linux",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_linux-v1.0.zip",
+    ],
+)
+http_archive(
+    name = "remote_java_tools_javac11_test_windows",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_windows-v1.0.zip",
+    ],
+)
+http_archive(
+    name = "remote_java_tools_javac11_test_darwin",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_darwin-v1.0.zip",
+    ],
+)
+
+http_archive(
+    name = "openjdk9_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "45f2dfbee93b91b1468cf81d843fc6d9a47fef1f831c0b7ceff4f1eb6e6851c8",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz",
+    ],
+)
+http_archive(
+    name = "openjdk9_darwin_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz",
+    ],
+)
+http_archive(
+    name = "openjdk9_windows_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-win_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64.zip",
+    ],
+)
+http_archive(
+    name = "openjdk10_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "b3c2d762091a615b0c1424ebbd05d75cc114da3bf4f25a0dec5c51ea7e84146f",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-linux_x64.tar.gz",
+    ],
+)
+http_archive(
+    name = "openjdk10_darwin_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64.tar.gz",
+    ],
+)
+http_archive(
+    name = "openjdk10_windows_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-win_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64.zip",
+    ],
+)
+http_archive(
+    name = "openjdk11_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu11.31.11-ca-jdk11.0.3-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu11.31.11-ca-jdk11.0.3/zulu11.31.11-ca-jdk11.0.3-linux_x64.tar.gz",
+    ],
+)
+http_archive(
+    name = "openjdk11_darwin_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu11.31.11-ca-jdk11.0.3-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu11.31.11-ca-jdk11.0.3/zulu11.31.11-ca-jdk11.0.3-macosx_x64.tar.gz",
+    ],
+)
+http_archive(
+    name = "openjdk11_windows_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu11.31.11-ca-jdk11.0.3-win_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu11.31.11-ca-jdk11.0.3/zulu11.31.11-ca-jdk11.0.3-win_x64.zip",
+    ],
+)
+EOF
+}
+
 # Asserts if the given expected coverage result is included in the given output
 # file.
 #
