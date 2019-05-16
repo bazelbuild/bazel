@@ -127,8 +127,7 @@ public class DirtinessCheckerUtils {
         return false;
       }
       FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) key.argument());
-      return fileTypesToCheck.contains(fileType)
-          || fileType.equals(FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
+      return fileTypesToCheck.contains(fileType);
     }
 
     @Nullable
