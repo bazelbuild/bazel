@@ -44,8 +44,6 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-load("//tools/osx:alias_rules.bzl", "xcode_config_alias")
-
 xcode_config_alias(name = "current_xcode_config")
 
 load(
