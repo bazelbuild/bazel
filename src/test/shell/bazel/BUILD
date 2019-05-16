@@ -369,14 +369,72 @@ sh_test(
     name = "bazel_coverage_java_test",
     srcs = ["bazel_coverage_java_test.sh"],
     data = [":test-deps"],
+    args = [
+        "@bazel_tools//tools/jdk:toolchain",
+        "released",
+    ],
     tags = [
         "no_windows",
     ],
 )
 
+# Test java coverage with the java_toolchain in the released java_tools versions.
+[
+    sh_test(
+        name = "bazel_coverage_java_jdk" + java_version + "toolchain_released_test",
+        srcs = ["bazel_coverage_java_test.sh"],
+        data = [":test-deps"],
+        args = select({
+            "//src/conditions:darwin": ["@remote_java_tools_javac" + java_version + "_test_darwin//:toolchain"],
+            "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac" + java_version + "_test_darwin//:toolchain"],
+            "//src/conditions:windows": ["@remote_java_tools_javac" + java_version + "_test_windows//:toolchain"],
+            "//src/conditions:linux_x86_64": ["@remote_java_tools_javac" + java_version + "_test_linux//:toolchain"],
+        }) + [
+            # java_tools zip to test
+            "released",
+            # --javabase value
+        ] + select({
+            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
+            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+        }),
+        tags = [
+            "no_windows",
+        ],
+    )
+    for java_version in JAVA_VERSIONS
+]
+
+# Test java coverage with the java_toolchain in the java_tools zip built at head.
+[
+    sh_test(
+        name = "bazel_coverage_java_jdk" + java_version + "_toolchain_head_test",
+        srcs = ["bazel_coverage_java_test.sh"],
+        args = [
+            # --java_toolchain
+            "@local_java_tools//:toolchain",
+            # java_tools zip to test
+            "src/java_tools_java" + java_version + ".zip",
+            # --javabase value
+        ] + select({
+            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
+            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+        }),
+        data = [
+            ":test-deps",
+            "//src:java_tools_java" + java_version + "_zip",
+        ],
+    )
+    for java_version in JAVA_VERSIONS
+]
+
 sh_test(
     name = "bazel_coverage_sh_test",
     srcs = ["bazel_coverage_sh_test.sh"],
+
     data = [":test-deps"],
     tags = [
         "no_windows",
