@@ -29,7 +29,7 @@ public class AndroidBootstrap implements Bootstrap {
 
   private final AndroidSkylarkCommonApi<?, ?> androidCommon;
   private final ApkInfoApiProvider apkInfoProvider;
-  private final AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider;
+  private final AndroidInstrumentationInfoApiProvider<?, ?> androidInstrumentationInfoProvider;
   private final AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider;
   private final AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider<?, ?, ?>
       androidResourcesInfoProvider;
@@ -38,7 +38,7 @@ public class AndroidBootstrap implements Bootstrap {
   public AndroidBootstrap(
       AndroidSkylarkCommonApi<?, ?> androidCommon,
       ApkInfoApiProvider apkInfoProvider,
-      AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider,
+      AndroidInstrumentationInfoApiProvider<?, ?> androidInstrumentationInfoProvider,
       AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,
       AndroidResourcesInfoApiProvider<?, ?, ?> androidResourcesInfoProvider,
       AndroidNativeLibsInfoApiProvider androidNativeLibsInfoProvider) {
