@@ -1,0 +1,13 @@
+# Format: google3/devtools/metadata/metadata.proto (go/google3metadata)
+
+name: "jacoco"
+description: "JaCoCo is a code coverage library for Java."
+
+third_party {
+  url {
+    type: ARCHIVE
+    value: "http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.3/jacoco-0.8.3.zip"
+  }
+  version: "0.8.3"
+  last_upgrade_date { year: 2019 month: 4 day: 10 }
+}

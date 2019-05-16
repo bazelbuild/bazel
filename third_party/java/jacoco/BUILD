@@ -7,6 +7,8 @@ exports_files(["LICENSE"])
 
 package(default_visibility = ["//visibility:public"])
 
+VERSION = "0.8.3"
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -36,43 +38,32 @@ filegroup(
 
 java_import(
     name = "agent",
-    jars = ["org.jacoco.agent-0.7.5.201505241946.jar"],
-    srcjar = "org.jacoco.agent-0.7.5.201505241946-src.jar",
+    jars = ["org.jacoco.agent-%s.jar" % VERSION],
+    srcjar = "org.jacoco.agent-%s-sources.jar" % VERSION,
 )
 
 java_import(
     name = "core",
-    jars = ["org.jacoco.core-0.7.5.201505241946.jar"],
-    srcjar = "org.jacoco.core-0.7.5.201505241946-src.jar",
+    jars = ["org.jacoco.core-%s.jar" % VERSION],
+    srcjar = "org.jacoco.core-%s-sources.jar" % VERSION,
     exports = [
-        "//third_party:asm",
-        "//third_party:asm-commons",
-        "//third_party:asm-tree",
+        "//third_party/java/asm",
+        "//third_party/java/asm:asm-commons",
+        "//third_party/java/asm:asm-tree",
     ],
-)
-
-filegroup(
-    name = "core-jars",
-    srcs = ["org.jacoco.core-0.7.5.201505241946.jar"],
 )
 
 java_import(
     name = "report",
-    jars = ["org.jacoco.report-0.7.5.201505241946.jar"],
-    srcjar = "org.jacoco.report-0.7.5.201505241946-src.jar",
+    jars = ["org.jacoco.report-%s.jar" % VERSION],
+    srcjar = "org.jacoco.report-%s-sources.jar" % VERSION,
     exports = [
         ":core",
-        "//third_party:asm",
+        "//third_party/java/asm",
     ],
 )
 
-java_import(
+filegroup(
     name = "blaze-agent",
-    jars = ["jacocoagent.jar"],
-)
-
-java_import(
-    name = "blaze-agent-neverlink",
-    jars = ["jacocoagent.jar"],
-    neverlink = 1,
+    srcs = ["jacocoagent.jar"],
 )
