@@ -59,7 +59,7 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_list_based_execution_strategy_selection",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {
