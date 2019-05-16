@@ -1425,16 +1425,22 @@ public class Package {
 
       // The Iterable returned by getTargets is sorted, so when we build up the list of tests by
       // processing it in order below, that list will be sorted too.
-      Iterable<Rule> sortedRules = ImmutableList.copyOf(getTargets(Rule.class));
 
       List<Label> sortedTests = new ArrayList<>();
-      for (final Rule rule : sortedRules) {
+      List<Rule> implicitTestSuites = new ArrayList<>();
+      Map<Label, InputFile> newInputFiles = new HashMap<>();
+      for (final Rule rule : getTargets(Rule.class)) {
         if (discoverAssumedInputFiles) {
           // All labels mentioned in a rule that refer to an unknown target in the
           // current package are assumed to be InputFiles, so let's create them:
           for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-            createInputFileMaybe(
-                depEdge.getLabel(), rule.getAttributeLocation(depEdge.getAttribute().getName()));
+            InputFile inputFile =
+                createInputFileMaybe(
+                    depEdge.getLabel(),
+                    rule.getAttributeLocation(depEdge.getAttribute().getName()));
+            if (inputFile != null && !newInputFiles.containsKey(depEdge.getLabel())) {
+              newInputFiles.put(depEdge.getLabel(), inputFile);
+            }
           }
         }
 
@@ -1446,13 +1452,20 @@ public class Package {
         if (TargetUtils.isTestRule(rule) && !TargetUtils.hasManualTag(rule)) {
           sortedTests.add(rule.getLabel());
         }
-      }
-      for (Rule rule : sortedRules) {
+
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
         if (rule.getRuleClass().equals("test_suite")
             && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()) {
-          rule.setAttributeValueByName("$implicit_tests", sortedTests);
+          implicitTestSuites.add(rule);
         }
+      }
+
+      for (InputFile inputFile : newInputFiles.values()) {
+        addInputFile(inputFile);
+      }
+
+      for (Rule rule : implicitTestSuites) {
+        rule.setAttributeValueByName("$implicit_tests", sortedTests);
       }
       return this;
     }
@@ -1508,20 +1521,24 @@ public class Package {
     }
 
     /**
-     * If "label" refers to a non-existent target in the current package, create
-     * an InputFile target.
+     * If "label" refers to a non-existent target in the current package, create an InputFile
+     * target.
      */
-    private void createInputFileMaybe(Label label, Location location) {
+    private InputFile createInputFileMaybe(Label label, Location location) {
       if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
         if (!targets.containsKey(label.getName())) {
-          addInputFile(label, location);
+          return new InputFile(pkg, label, location);
         }
       }
+      return null;
     }
 
     private InputFile addInputFile(Label label, Location location) {
-      InputFile inputFile = new InputFile(pkg, label, location);
-      Target prev = targets.put(label.getName(), inputFile);
+      return addInputFile(new InputFile(pkg, label, location));
+    }
+
+    private InputFile addInputFile(InputFile inputFile) {
+      Target prev = targets.put(inputFile.getLabel().getName(), inputFile);
       Preconditions.checkState(prev == null);
       return inputFile;
     }
