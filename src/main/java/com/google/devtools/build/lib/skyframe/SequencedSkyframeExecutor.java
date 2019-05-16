@@ -490,9 +490,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
     ExternalFilesHelper tmpExternalFilesHelper =
         externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
     // See the comment for FileType.OUTPUT for why we need to consider output files here.
-    EnumSet<FileType> fileTypesToCheck = checkOutputFiles
-        ? EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.OUTPUT)
-        : EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO);
+    EnumSet<FileType> fileTypesToCheck =
+        checkOutputFiles
+            ? EnumSet.of(
+                FileType.EXTERNAL,
+                FileType.EXTERNAL_REPO,
+                FileType.EXTERNAL_IN_MANAGED_DIRECTORY,
+                FileType.OUTPUT)
+            : EnumSet.of(
+                FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
     logger.info(
         "About to scan skyframe graph checking for filesystem nodes of types "
             + Iterables.toString(fileTypesToCheck));
