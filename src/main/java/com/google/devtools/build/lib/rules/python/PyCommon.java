@@ -192,8 +192,8 @@ public final class PyCommon {
   public PyCommon(RuleContext ruleContext, PythonSemantics semantics) {
     this.ruleContext = ruleContext;
     this.semantics = semantics;
-    this.sourcesVersion = initSrcsVersionAttr(ruleContext);
     this.version = ruleContext.getFragment(PythonConfiguration.class).getPythonVersion();
+    this.sourcesVersion = initSrcsVersionAttr(ruleContext);
     this.dependencyTransitivePythonSources = initDependencyTransitivePythonSources(ruleContext);
     this.transitivePythonSources = initTransitivePythonSources(ruleContext);
     this.usesSharedLibraries = initUsesSharedLibraries(ruleContext);
@@ -646,6 +646,46 @@ public final class PyCommon {
 
   public PythonVersion getSourcesVersion() {
     return sourcesVersion;
+  }
+
+  /**
+   * Returns whether, in the case that a user Python program fails, the stub script should emit a
+   * warning that the failure may have been caused by the host configuration using the wrong Python
+   * version.
+   *
+   * <p>This method should only be called for executable Python rules.
+   *
+   * <p>Background: Executable Python rules have a rule transition that sets the version to the one
+   * declared by the target's attributes ({@code python_version} / {@code default_python_version}).
+   * If there's any discrepancy, that means the rule transition didn't actually have any effect.
+   * This can only happen in the host configuration, when the target's version is the opposite of
+   * the value of {@code --host_force_python}. Running a program under the wrong Python interpreter
+   * version can lead to confusing tracebacks, therefore we try to be helpful by appending a
+   * diagnostic message to stderr. See #7899 for context.
+   *
+   * <p>This method only returns true when 1) a version mismatch is detected, and 2) Python
+   * toolchains are enabled. Toolchains make it more likely that the Python runtime invoked at
+   * execution time matches the version decided at analysis time (fixing #4815). Therefore, when
+   * toolchains are enabled the warning is 1) more important, because many builds start failing due
+   * to getting the "correct" interpreter for the first time (see #7899), and 2) more accurate,
+   * because it correctly describes which interpreter version was actually used.
+   *
+   * @throws IllegalArgumentException if there is a problem parsing the Python version from the
+   *     attributes; see {@link #readPythonVersionFromAttributes}.
+   */
+  // TODO(#6443): Remove this logic and the corresponding stub script logic once we no longer have
+  // the possibility of Python binaries appearing in the host configuration.
+  public boolean shouldWarnAboutHostVersionUponFailure() {
+    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
+    if (!config.useToolchains()) {
+      return false;
+    }
+    PythonVersion configVersion = config.getPythonVersion();
+    PythonVersion attrVersion = readPythonVersionFromAttributes(ruleContext.attributes());
+    if (attrVersion == null) {
+      attrVersion = config.getDefaultPythonVersion();
+    }
+    return configVersion != attrVersion;
   }
 
   /**

@@ -583,4 +583,75 @@ function test_default_output_root_is_bazel_bin() {
   expect_not_log "bazel-out/.*-py3.*/bin"
 }
 
+# Tests that we get a warning when host tools fail due to being built for the
+# wrong Python version. See #7899 for context.
+# TODO(#6443): Delete this once we no longer have the host configuration.
+function test_host_version_mismatch_warning() {
+  mkdir -p test
+
+  cat > test/BUILD << 'EOF'
+py_binary(
+    name = "success_tool",
+    srcs = ["success_tool.py"],
+    python_version = "PY2",
+)
+
+py_binary(
+    name = "fail_tool",
+    srcs = ["fail_tool.py"],
+    python_version = "PY2",
+)
+
+genrule(
+    name = "success_gen",
+    cmd = "$(location :success_tool) > $@",
+    tools = [":success_tool"],
+    outs = ["success_out.txt"],
+)
+
+genrule(
+    name = "fail_gen",
+    cmd = "$(location :fail_tool) > $@",
+    tools = [":fail_tool"],
+    outs = ["fail_out.txt"],
+)
+EOF
+  cat > test/success_tool.py << EOF
+print("Successfully did nothing.")
+EOF
+  cat > test/fail_tool.py << EOF
+import sys
+sys.exit(1)
+EOF
+
+  # The warning should be present if the tool
+  #   1) was built in the host config,
+  #   2) with the wrong version,
+  #   3) with toolchains enabled,
+  #   4) and it failed during execution.
+  bazel build //test:fail_gen \
+      --incompatible_use_python_toolchains=true --host_force_python=PY3 \
+      &> $TEST_log && fail "bazel build succeeded (expected failure)"
+  expect_log "it is a Python 2 program that was built in the host \
+configuration, which uses Python 3"
+
+  # No warning if there was no version mismatch.
+  bazel build //test:fail_gen \
+      --incompatible_use_python_toolchains=true --host_force_python=PY2 \
+      &> $TEST_log && fail "bazel build succeeded (expected failure)"
+  expect_not_log "program that was built in the host configuration"
+
+  # No warning if toolchains are disabled.
+  bazel build //test:fail_gen \
+      --incompatible_use_python_toolchains=false --host_force_python=PY2 \
+      &> $TEST_log && fail "bazel build succeeded (expected failure)"
+  expect_not_log "program that was built in the host configuration"
+
+  # No warning if it succeeded during execution.
+  bazel build //test:success_gen \
+      --incompatible_use_python_toolchains=true --host_force_python=PY2 \
+      &> $TEST_log || fail "bazel build failed (expected success)"
+  expect_not_log "program that was built in the host configuration"
+}
+
 run_suite "Tests for how the Python rules handle Python 2 vs Python 3"

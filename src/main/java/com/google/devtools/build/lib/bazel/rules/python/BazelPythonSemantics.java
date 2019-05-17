@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
+import com.google.devtools.build.lib.rules.python.PythonVersion;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -172,7 +173,13 @@ public class BazelPythonSemantics implements PythonSemantics {
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                   Substitution.of("%is_zipfile%", "False"),
                   Substitution.of(
-                      "%import_all%", config.getImportAllRepositories() ? "True" : "False")),
+                      "%import_all%", config.getImportAllRepositories() ? "True" : "False"),
+                  Substitution.of(
+                      "%enable_host_version_warning%",
+                      common.shouldWarnAboutHostVersionUponFailure() ? "True" : "False"),
+                  Substitution.of(
+                      "%python_version%",
+                      common.getVersion() == PythonVersion.PY3 ? "'3'" : "'2'")),
               true));
     } else {
       Artifact zipFile = common.getPythonZipArtifact(executable);
@@ -190,7 +197,13 @@ public class BazelPythonSemantics implements PythonSemantics {
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                   Substitution.of("%is_zipfile%", "True"),
                   Substitution.of(
-                      "%import_all%", config.getImportAllRepositories() ? "True" : "False")),
+                      "%import_all%", config.getImportAllRepositories() ? "True" : "False"),
+                  Substitution.of(
+                      "%enable_host_version_warning%",
+                      common.shouldWarnAboutHostVersionUponFailure() ? "True" : "False"),
+                  Substitution.of(
+                      "%python_version%",
+                      common.getVersion() == PythonVersion.PY3 ? "'3'" : "'2'")),
               true));
 
       if (OS.getCurrent() != OS.WINDOWS) {
