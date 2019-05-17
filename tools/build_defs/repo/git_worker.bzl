@@ -30,13 +30,18 @@ and resetting to the specified reference.""",
 )
 
 def git_repo(ctx, directory):
-    """ Fetches data from git repository and checks out file tree at specified revision into
-    specified directory.
+    """ Fetches data from git repository and checks out file tree.
+
     Called by git_repository or new_git_repository rules.
 
     Args:
         ctx: Context of the calling rules, for reading the attributes.
+        Please refer to the git_repository and new_git_repository rules for the description.
         directory: Directory where to check out the file tree.
+    Returns:
+        The struct with the following fields:
+        commit: Actual HEAD commit of the checked out data.
+        shallow_since: Actual date and time of the HEAD commit of the checked out data.
     """
     if ctx.attr.shallow_since:
         if ctx.attr.tag:
