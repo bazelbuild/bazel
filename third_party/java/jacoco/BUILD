@@ -47,10 +47,15 @@ java_import(
     jars = ["org.jacoco.core-%s.jar" % VERSION],
     srcjar = "org.jacoco.core-%s-sources.jar" % VERSION,
     exports = [
-        "//third_party/java/asm",
-        "//third_party/java/asm:asm-commons",
-        "//third_party/java/asm:asm-tree",
+        "//third_party:asm",
+        "//third_party:asm-commons",
+        "//third_party:asm-tree",
     ],
+)
+
+filegroup(
+    name = "core-jars",
+    srcs = ["org.jacoco.core-%s.jar" % VERSION],
 )
 
 java_import(
@@ -59,11 +64,17 @@ java_import(
     srcjar = "org.jacoco.report-%s-sources.jar" % VERSION,
     exports = [
         ":core",
-        "//third_party/java/asm",
+        "//third_party:asm",
     ],
 )
 
-filegroup(
+java_import(
     name = "blaze-agent",
-    srcs = ["jacocoagent.jar"],
+    jars = ["jacocoagent.jar"],
+)
+
+java_import(
+    name = "blaze-agent-neverlink",
+    jars = ["jacocoagent.jar"],
+    neverlink = 1,
 )
