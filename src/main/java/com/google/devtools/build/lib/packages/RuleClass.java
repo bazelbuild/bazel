@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
@@ -2091,6 +2092,13 @@ public class RuleClass {
       if (defaultValue instanceof SkylarkComputedDefaultTemplate) {
         SkylarkComputedDefaultTemplate template = (SkylarkComputedDefaultTemplate) defaultValue;
         valueToSet = template.computePossibleValues(attr, rule, eventHandler);
+      } else if (defaultValue instanceof ComputedDefault) {
+        // Compute all possible values to verify that the ComputedDefault is well-defined. This was
+        // previously done implicitly as part of visiting all labels to check for null-ness in
+        // Rule.checkForNullLabels, but that was changed to skip non-label attributes to improve
+        // performance.
+        ((ComputedDefault) defaultValue).getPossibleValues(attr.getType(), rule);
+        valueToSet = defaultValue;
       } else {
         valueToSet = defaultValue;
       }
