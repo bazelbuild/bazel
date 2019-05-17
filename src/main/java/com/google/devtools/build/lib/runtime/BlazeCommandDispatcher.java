@@ -457,11 +457,7 @@ public class BlazeCommandDispatcher {
 
       try (SilentCloseable closeable = Profiler.instance().profile("CommandEnv.beforeCommand")) {
         // Notify the BlazeRuntime, so it can do some initial setup.
-        env.beforeCommand(
-            options,
-            commonOptions,
-            waitTimeInMs,
-            invocationPolicy);
+        env.beforeCommand(waitTimeInMs, invocationPolicy);
       } catch (AbruptExitException e) {
         reporter.handle(Event.error(e.getMessage()));
         return BlazeCommandResult.exitCode(e.getExitCode());

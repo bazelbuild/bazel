@@ -636,15 +636,11 @@ public final class CommandEnvironment {
   /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
    *
-   * @param commonOptions The CommonCommandOptions used by every command.
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(
-      OptionsParsingResult options,
-      CommonCommandOptions commonOptions,
-      long waitTimeInMs,
-      InvocationPolicy invocationPolicy)
+  void beforeCommand(long waitTimeInMs, InvocationPolicy invocationPolicy)
       throws AbruptExitException {
+    CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     commandStartTime -= commonOptions.startupTime;
 
     eventBus.post(
