@@ -1,11 +1,15 @@
 # Description:
 #   JaCoCo is a free code coverage library for Java, created by the EclEmma team.
+#
+# http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.3/jacoco-0.8.3.zip
 
 licenses(["reciprocal"])  # EPL 1.0 (Eclipse Public License)
 
 exports_files(["LICENSE"])
 
 package(default_visibility = ["//visibility:public"])
+
+VERSION = "0.8.3"
 
 filegroup(
     name = "srcs",
@@ -36,14 +40,14 @@ filegroup(
 
 java_import(
     name = "agent",
-    jars = ["org.jacoco.agent-0.7.5.201505241946.jar"],
-    srcjar = "org.jacoco.agent-0.7.5.201505241946-src.jar",
+    jars = ["org.jacoco.agent-%s.jar" % VERSION],
+    srcjar = "org.jacoco.agent-%s-sources.jar" % VERSION,
 )
 
 java_import(
     name = "core",
-    jars = ["org.jacoco.core-0.7.5.201505241946.jar"],
-    srcjar = "org.jacoco.core-0.7.5.201505241946-src.jar",
+    jars = ["org.jacoco.core-%s.jar" % VERSION],
+    srcjar = "org.jacoco.core-%s-sources.jar" % VERSION,
     exports = [
         "//third_party:asm",
         "//third_party:asm-commons",
@@ -53,13 +57,13 @@ java_import(
 
 filegroup(
     name = "core-jars",
-    srcs = ["org.jacoco.core-0.7.5.201505241946.jar"],
+    srcs = ["org.jacoco.core-%s.jar" % VERSION],
 )
 
 java_import(
     name = "report",
-    jars = ["org.jacoco.report-0.7.5.201505241946.jar"],
-    srcjar = "org.jacoco.report-0.7.5.201505241946-src.jar",
+    jars = ["org.jacoco.report-%s.jar" % VERSION],
+    srcjar = "org.jacoco.report-%s-sources.jar" % VERSION,
     exports = [
         ":core",
         "//third_party:asm",
