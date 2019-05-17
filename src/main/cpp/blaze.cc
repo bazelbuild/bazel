@@ -1824,8 +1824,7 @@ void GrpcBlazeServer::KillRunningServer() {
   request.set_client_description("pid=" + blaze::GetProcessIdAsString() +
                                  " (for shutdown)");
   request.add_arg("shutdown");
-  BAZEL_LOG(INFO) << "Shutting running server with request ["
-                  << request.ShortDebugString() << "]";
+  BAZEL_LOG(INFO) << "Shutting running server with RPC request";
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(&context, request));
 
