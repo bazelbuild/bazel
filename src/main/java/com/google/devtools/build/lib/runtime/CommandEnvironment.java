@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -30,7 +28,6 @@ import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -384,17 +381,6 @@ public final class CommandEnvironment {
       }
     }
     return result;
-  }
-
-  /**
-   * Creates and returns a new target pattern preloader.
-   */
-  public TargetPatternPreloader newTargetPatternPreloader() {
-    return getPackageManager().newTargetPatternPreloader();
-  }
-
-  public PackageRootResolver getPackageRootResolver() {
-    return new SkyframePackageRootResolver(getSkyframeExecutor(), reporter);
   }
 
   /**
