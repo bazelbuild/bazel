@@ -1222,7 +1222,8 @@ public class CppCompileAction extends AbstractAction
             new ParamFileActionInput(
                 paramFilePath,
                 compileCommandLine.getCompilerOptions(overwrittenVariables),
-                ParameterFileType.SHELL_QUOTED,
+                // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
+                ParameterFileType.GCC_QUOTED,
                 StandardCharsets.ISO_8859_1);
       } catch (CommandLineExpansionException e) {
         throw new ActionExecutionException(
