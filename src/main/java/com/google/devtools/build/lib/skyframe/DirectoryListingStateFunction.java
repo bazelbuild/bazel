@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -63,8 +62,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
         // the file system is frozen at the beginning of the build command.
         return DirectoryListingStateValue.create(dirRootedPath);
       }
-      return DirectoryListingStateValue.create(
-          syscallCache.get().readdir(dirRootedPath.asPath(), Symlinks.NOFOLLOW));
+      return DirectoryListingStateValue.create(syscallCache.get().readdir(dirRootedPath.asPath()));
     } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
       // DirectoryListingStateValue.key assumes the path exists. This exception here is therefore
       // indicative of a programming bug.
