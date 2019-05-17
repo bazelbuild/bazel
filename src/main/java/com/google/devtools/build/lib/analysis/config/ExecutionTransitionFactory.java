@@ -72,6 +72,8 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
           Preconditions.checkNotNull(execConfiguration.get(CoreOptions.class));
       coreOptions.isHost = false;
       coreOptions.outputDirectoryName = null;
+      coreOptions.platformSuffix =
+          String.format("-exec-%X", executionPlatform.getCanonicalForm().hashCode());
 
       // Then set the target to the saved execution platform if there is one.
       if (execConfiguration.get(PlatformOptions.class) != null) {
