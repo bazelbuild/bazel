@@ -91,7 +91,7 @@ public final class SpawnLogModule extends BlazeModule {
 
     AsynchronousFileOutputStream outStream = null;
     if (executionOptions.executionLogFile != null) {
-      rawOutput = env.getRuntime().getFileSystem().getPath(executionOptions.executionLogFile);
+      rawOutput = workingDirectory.getRelative(executionOptions.executionLogFile);
       outStream =
           new AsynchronousFileOutputStream(
               workingDirectory.getRelative(executionOptions.executionLogFile));

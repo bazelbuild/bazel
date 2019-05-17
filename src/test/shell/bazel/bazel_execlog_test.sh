@@ -107,4 +107,16 @@ EOF
   fi
 }
 
+function test_dir_relative() {
+  cat > BUILD <<'EOF'
+genrule(
+      name = "rule",
+      outs = ["out.txt"],
+      cmd = "echo hello > $(location out.txt)"
+)
+EOF
+  bazel build //:all --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  wc output || fail "no output produced"
+}
+
 run_suite "execlog_tests"
