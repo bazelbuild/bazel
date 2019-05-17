@@ -17,12 +17,14 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
@@ -171,25 +173,29 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // We can safely ignore the boolean error flag. The evaluateQuery() method above wraps the
     // entire query computation in an error sensor.
 
-    Set<Target> targets = new LinkedHashSet<>(resolvedTargetPatterns.get(pattern));
+    Set<Target> targets = resolvedTargetPatterns.get(pattern);
 
     // Sets.filter would be more convenient here, but can't deal with exceptions.
-    Iterator<Target> targetIterator = targets.iterator();
-    while (targetIterator.hasNext()) {
-      Target target = targetIterator.next();
-      if (!validateScope(target.getLabel(), strictScope)) {
-        targetIterator.remove();
+    if (labelFilter != Predicates.<Label>alwaysTrue()) {
+      // The labelFilter is always true for bazel query; it's only used for genquery rules.
+      targets = new LinkedHashSet<>(targets);
+      Iterator<Target> targetIterator = targets.iterator();
+      while (targetIterator.hasNext()) {
+        Target target = targetIterator.next();
+        if (!validateScope(target.getLabel(), strictScope)) {
+          targetIterator.remove();
+        }
       }
     }
 
-    Set<PathFragment> packages = new HashSet<>();
+    Set<PathFragment> packages = CompactHashSet.create();
     for (Target target : targets) {
       packages.add(target.getLabel().getPackageFragment());
     }
 
-    Set<Target> result = new LinkedHashSet<>();
     for (Target target : targets) {
-      result.add(getOrCreate(target));
+      // This triggers node creation in the Digraph; getOrCreate(X) returns X.
+      getOrCreate(target);
 
       // Preservation of graph order: it is important that targets obtained via
       // a wildcard such as p:* are correctly ordered w.r.t. each other, so to
@@ -220,7 +226,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         }
       }
     }
-    callback.process(result);
+    callback.process(targets);
   }
 
   @Override
