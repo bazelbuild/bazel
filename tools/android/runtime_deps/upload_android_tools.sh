@@ -60,9 +60,9 @@ echo
 
 cat <<EOF
 sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' WORKSPACE  && \\
-  sed -i 's/"android_tools_pkg.*\.tar\.gz":.*"[a-fA-F0-9]{64}".*/"$VERSIONED_FILENAME": "$checksum", # built at $commit /g' WORKSPACE && \\
+  sed -i 's/"android_tools_pkg.*[0-9a-FA-F]\{64\}",.*/"$VERSIONED_FILENAME": "$checksum", # built at $commit/g' WORKSPACE && \\
   sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE && \\
-  sed -i 's/"[a-fA-F0-9]{64}",/"$checksum", # built at $commit/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+  sed -i 's/"[0-9a-fA-F]\{64\}",/"$checksum", # built at $commit/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
 EOF
 
 echo
