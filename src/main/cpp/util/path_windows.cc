@@ -463,9 +463,16 @@ static bool AsAbsoluteWindowsPathImpl(const std::wstring& path,
     if (result->empty() || (result->size() == 1 && (*result)[0] == '.')) {
       *result = GetCwdW();
     } else {
-      *result = GetCwdW() + L"\\" + *result;
+      std::wstring wd = RemoveUncPrefixMaybe(GetCwdW().c_str());
+      std::wstring joined = wd + L"\\" + *result;
+      if (!NormalizeWindowsPath(joined, result)) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+            << "NormalizePath(" << WstringToCstring(joined.c_str()).get()
+            << ")";
+      }
     }
   }
+
   if (!HasUncPrefix(result->c_str())) {
     *result = std::wstring(L"\\\\?\\") + *result;
   }
