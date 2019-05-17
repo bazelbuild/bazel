@@ -976,15 +976,19 @@ class Desugar {
   }
 
   public static void main(String[] args) throws Exception {
+    // It is important that this method is called first. See its javadoc.
+    Path dumpDirectory = createAndRegisterLambdaDumpDirectory();
+    verifyLambdaDumpDirectoryRegistered(dumpDirectory);
+
     DesugarOptions options = parseCommandLineOptions(args);
     if (options.persistentWorker) {
-      runPersistentWorker();
+      runPersistentWorker(dumpDirectory);
     } else {
-      processRequest(options);
+      processRequest(options, dumpDirectory);
     }
   }
 
-  private static int runPersistentWorker() throws Exception {
+  private static int runPersistentWorker(Path dumpDirectory) throws Exception {
     while (true) {
       try {
         WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
@@ -998,7 +1002,7 @@ class Desugar {
 
         DesugarOptions options = parseCommandLineOptions(argList);
 
-        int exitCode = processRequest(options);
+        int exitCode = processRequest(options, dumpDirectory);
         WorkResponse.newBuilder()
             .setExitCode(exitCode)
             .build()
@@ -1012,11 +1016,7 @@ class Desugar {
     return 0;
   }
 
-  private static int processRequest(DesugarOptions options) throws Exception {
-    // It is important that this method is called first. See its javadoc.
-    Path dumpDirectory = createAndRegisterLambdaDumpDirectory();
-    verifyLambdaDumpDirectoryRegistered(dumpDirectory);
-
+  private static int processRequest(DesugarOptions options, Path dumpDirectory) throws Exception {
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(
         options.inputJars.size() == options.outputJars.size(),
