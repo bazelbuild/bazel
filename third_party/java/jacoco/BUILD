@@ -1,5 +1,7 @@
 # Description:
 #   JaCoCo is a free code coverage library for Java, created by the EclEmma team.
+#
+# http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.3/jacoco-0.8.3.zip
 
 licenses(["reciprocal"])  # EPL 1.0 (Eclipse Public License)
 

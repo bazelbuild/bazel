@@ -126,16 +126,18 @@ filegroup(
     srcs = ["java_tools/java_compiler.jar"],
 )
 
+JACOCO_VERSION = "0.8.3"
+
 java_import(
     name = "jacoco-agent",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946-src.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-%s.jar" % JACOCO_VERSION],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-%s-sources.jar" % JACOCO_VERSION,
 )
 
 java_import(
     name = "jacoco-core",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946-src.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-%s.jar" % JACOCO_VERSION],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-%s-sources.jar" % JACOCO_VERSION,
     exports = [
         ":asm",
         ":asm-commons",
@@ -145,13 +147,13 @@ java_import(
 
 filegroup(
     name = "jacoco-core-jars",
-    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946.jar"],
+    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-%s.jar" % JACOCO_VERSION],
 )
 
 java_import(
     name = "jacoco-report",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946-src.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-%s.jar" % JACOCO_VERSION],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-%s-sources.jar" % JACOCO_VERSION,
     exports = [
         ":asm",
         ":jacoco-core",

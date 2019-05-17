@@ -157,10 +157,11 @@ function test_java_tools_has_BUILD() {
 }
 
 function test_java_tools_has_jacocoagent() {
+  jacoco_version="0.8.3"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/jacocoagent.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-${jacoco_version}.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-${jacoco_version}.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.report-${jacoco_version}.jar"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-tree-7.0.jar"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-commons-7.0.jar"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-7.0.jar"
