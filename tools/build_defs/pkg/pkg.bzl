@@ -144,6 +144,12 @@ def _pkg_deb_impl(ctx):
     if ctx.attr.postrm:
         args += ["--postrm=@" + ctx.file.postrm.path]
         files += [ctx.file.postrm]
+    if ctx.attr.config:
+        args += ["--config=@" + ctx.file.config.path]
+        files += [ctx.file.config]
+    if ctx.attr.templates:
+        args += ["--templates=@" + ctx.file.templates.path]
+        files += [ctx.file.templates]
 
     # Conffiles can be specified by a file or a string list
     if ctx.attr.conffiles_file:
@@ -283,6 +289,8 @@ pkg_deb = rule(
         "postinst": attr.label(allow_single_file = True),
         "prerm": attr.label(allow_single_file = True),
         "postrm": attr.label(allow_single_file = True),
+        "config": attr.label(allow_single_file = True),
+        "templates": attr.label(allow_single_file = True),
         "conffiles_file": attr.label(allow_single_file = True),
         "conffiles": attr.string_list(default = []),
         "version_file": attr.label(allow_single_file = True),
