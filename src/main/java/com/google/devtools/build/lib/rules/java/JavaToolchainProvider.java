@@ -91,6 +91,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
+      TransitiveInfoCollection jacocoRunner,
       JavaSemantics javaSemantics) {
     return new JavaToolchainProvider(
         label,
@@ -115,6 +116,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         javabuilderJvmOptions,
         javacSupportsWorkers,
         packageConfiguration,
+        jacocoRunner,
         javaSemantics);
   }
 
@@ -140,6 +142,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableList<String> javabuilderJvmOptions;
   private final boolean javacSupportsWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
+  private final TransitiveInfoCollection jacocoRunner;
   private final JavaSemantics javaSemantics;
 
   @VisibleForSerialization
@@ -166,6 +169,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javabuilderJvmOptions,
       boolean javacSupportsWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
+      TransitiveInfoCollection jacocoRunner,
       JavaSemantics javaSemantics) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
@@ -191,6 +195,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.javabuilderJvmOptions = javabuilderJvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.packageConfiguration = packageConfiguration;
+    this.jacocoRunner = jacocoRunner;
     this.javaSemantics = javaSemantics;
   }
 
@@ -332,6 +337,10 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns the global {@code java_plugin_configuration} data. */
   public ImmutableList<JavaPackageConfigurationProvider> packageConfiguration() {
     return packageConfiguration;
+  }
+
+  public TransitiveInfoCollection getJacocoRunner() {
+    return jacocoRunner;
   }
 
   public JavaSemantics getJavaSemantics() {
