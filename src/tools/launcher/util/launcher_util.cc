@@ -118,8 +118,9 @@ bool DeleteDirectoryByPath(const wchar_t* path) {
 }
 
 wstring GetBinaryPathWithoutExtension(const wstring& binary) {
-  if (binary.find(L".exe", binary.size() - 4) != wstring::npos) {
-    return binary.substr(0, binary.length() - 4);
+  if (binary.size() >= 4 &&
+      binary.find(L".exe", binary.size() - 4) != wstring::npos) {
+    return binary.substr(0, binary.size() - 4);
   }
   return binary;
 }
