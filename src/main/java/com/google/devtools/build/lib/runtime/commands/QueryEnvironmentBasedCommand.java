@@ -222,7 +222,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             env.getSkyframeExecutor(),
             targetProviderForQueryEnvironment,
             env.getPackageManager(),
-            env.newTargetPatternPreloader(),
+            env.getPackageManager().newTargetPatternPreloader(),
             env.getRelativeWorkingDirectory(),
             keepGoing,
             /*strictScope=*/ true,
