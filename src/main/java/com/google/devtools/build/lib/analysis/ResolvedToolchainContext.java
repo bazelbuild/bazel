@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -67,7 +66,9 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
             .setExecutionPlatform(unloadedToolchainContext.executionPlatform())
             .setTargetPlatform(unloadedToolchainContext.targetPlatform())
             .setRequiredToolchainTypes(unloadedToolchainContext.requiredToolchainTypes())
-            .setResolvedToolchainLabels(unloadedToolchainContext.resolvedToolchainLabels());
+            .setResolvedToolchainLabels(unloadedToolchainContext.resolvedToolchainLabels())
+            .setRequestedToolchainTypeLabels(
+                unloadedToolchainContext.requestedLabelToToolchainType());
 
     ImmutableMap.Builder<ToolchainTypeInfo, ToolchainInfo> toolchains =
         new ImmutableMap.Builder<>();
@@ -126,6 +127,10 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
     /** Sets the toolchain types that were requested. */
     Builder setRequiredToolchainTypes(Set<ToolchainTypeInfo> requiredToolchainTypes);
 
+    /** Sets the map from requested {@link Label} to toolchain type provider. */
+    Builder setRequestedToolchainTypeLabels(
+        ImmutableMap<Label, ToolchainTypeInfo> requestedToolchainTypeLabels);
+
     /** Sets the map from toolchain type to toolchain provider. */
     Builder setToolchains(ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains);
 
@@ -142,6 +147,9 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
   /** Returns a description of the target being used, for error messaging. */
   abstract String targetDescription();
 
+  /** Sets the map from requested {@link Label} to toolchain type provider. */
+  abstract ImmutableMap<Label, ToolchainTypeInfo> requestedToolchainTypeLabels();
+
   abstract ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains();
 
   /** Returns the template variables that these toolchains provide. */
@@ -153,15 +161,11 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
    */
   @Nullable
   public ToolchainInfo forToolchainType(Label toolchainTypeLabel) {
-    Optional<ToolchainTypeInfo> toolchainType =
-        toolchains().keySet().stream()
-            .filter(info -> info.typeLabel().equals(toolchainTypeLabel))
-            .findFirst();
-    if (toolchainType.isPresent()) {
-      return forToolchainType(toolchainType.get());
-    } else {
+    ToolchainTypeInfo toolchainTypeInfo = requestedToolchainTypeLabels().get(toolchainTypeLabel);
+    if (toolchainTypeInfo == null) {
       return null;
     }
+    return toolchains().get(toolchainTypeInfo);
   }
 
   @Nullable
@@ -215,6 +219,9 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
     Label toolchainTypeLabel = transformKey(key, loc);
 
     if (!containsKey(key, loc, context)) {
+      // TODO(bazel-configurability): The list of available toolchain types is confusing in the
+      // presence of aliases, since it only contains the actual label, not the alias passed to the
+      // rule definition.
       throw new EvalException(
           loc,
           String.format(
@@ -233,12 +240,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
   public boolean containsKey(Object key, Location loc, StarlarkContext context)
       throws EvalException {
     Label toolchainTypeLabel = transformKey(key, loc);
-    Optional<Label> matching =
-        toolchains().keySet().stream()
-            .map(ToolchainTypeInfo::typeLabel)
-            .filter(label -> label.equals(toolchainTypeLabel))
-            .findAny();
-    return matching.isPresent();
+    return requestedToolchainTypeLabels().containsKey(toolchainTypeLabel);
   }
 
   /**
