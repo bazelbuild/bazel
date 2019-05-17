@@ -28,7 +28,7 @@ def cc_grpc_library(name, src):
         cmd = "\\\n".join([
             "$(location " + protoc_label + ")",
             "    --plugin=protoc-gen-grpc=$(location " + cpp_plugin_label + ")",
-            "    --cpp_out=$(GENDIR)",
+            "    --cpp_out=lite:$(GENDIR)",
             "    --grpc_out=$(GENDIR)",
             "    $(location " + src + ")",
         ]),
@@ -39,6 +39,7 @@ def cc_grpc_library(name, src):
         name = name,
         srcs = [basename + ".grpc.pb.cc", basename + ".pb.cc"],
         hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],
+        defines = ["GRPC_USE_PROTO_LITE=ON"],
         deps = [
             str(Label("//third_party/grpc:grpc++_unsecure")),
             protobuf_lib_label,
