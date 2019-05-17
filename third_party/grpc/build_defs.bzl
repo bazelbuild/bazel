@@ -18,11 +18,11 @@ def _gensource_impl(ctx):
         if s.label.package != ctx.label.package:
             print(("in srcs attribute of {0}: Proto source with label {1} should be in " +
                    "same package as consuming rule").format(ctx.label, s.label))
-    srcdotjar = ctx.new_file(ctx.label.name + ".jar")
+    srcdotjar = ctx.actions.declare_file(ctx.label.name + ".jar")
     srcs = [f for dep in ctx.attr.srcs for f in dep.proto.direct_sources]
     includes = [f for dep in ctx.attr.srcs for f in dep.proto.transitive_imports.to_list()]
 
-    ctx.action(
+    ctx.actions.run_shell(
         command = " ".join([
                                ctx.executable._protoc.path,
                                "--plugin=protoc-gen-grpc-java={0}".format(ctx.executable._java_plugin.path),
@@ -35,7 +35,7 @@ def _gensource_impl(ctx):
         use_default_shell_env = True,
     )
 
-    ctx.action(
+    ctx.actions.run_shell(
         command = "cp '%s' '%s'" % (srcdotjar.path, ctx.outputs.srcjar.path),
         inputs = [srcdotjar],
         outputs = [ctx.outputs.srcjar],
