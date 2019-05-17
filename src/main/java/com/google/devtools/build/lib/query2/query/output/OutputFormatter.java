@@ -288,13 +288,13 @@ public abstract class OutputFormatter implements Serializable {
       return new TextOutputFormatterCallback<Target>(out) {
         @Override
         public void processOutput(Iterable<Target> partialResult) {
+          String lineTerm = options.getLineTerminator();
           for (Target target : partialResult) {
             if (showKind) {
               printStream.print(target.getTargetKind());
               printStream.print(' ');
             }
-            printStream.printf(
-                "%s%s", target.getLabel().getDefaultCanonicalForm(), options.getLineTerminator());
+            printStream.print(target.getLabel().getDefaultCanonicalForm() + lineTerm);
           }
         }
       };
@@ -350,7 +350,7 @@ public abstract class OutputFormatter implements Serializable {
           if (!failFast) {
             final String lineTerm = options.getLineTerminator();
             for (String packageName : packageNames) {
-              printStream.printf("%s%s", packageName, lineTerm);
+              printStream.print(packageName + lineTerm);
             }
           }
           super.close(failFast);
@@ -525,7 +525,7 @@ public abstract class OutputFormatter implements Serializable {
       if (outputToOrder != null) {
         Collections.sort(outputToOrder);
         for (RankAndLabel item : outputToOrder) {
-          printStream.printf("%s%s", item, lineTerm);
+          printStream.print(item + lineTerm);
         }
       }
 
@@ -601,7 +601,7 @@ public abstract class OutputFormatter implements Serializable {
       final String lineTerm = options.getLineTerminator();
       PrintStream printStream = new PrintStream(out);
       for (RankAndLabel item : output) {
-        printStream.printf("%s%s", item, lineTerm);
+        printStream.print(item + lineTerm);
       }
       flushAndCheckError(printStream);
     }
