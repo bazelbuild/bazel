@@ -37,11 +37,23 @@ public final class MemoizingInterruptibleSupplierTest {
   }
 
   @Test
-  public void returnsCorrectResult() throws Exception {
+  public void getReturnsCorrectResult() throws Exception {
     MemoizingInterruptibleSupplier<String> supplier =
         MemoizingInterruptibleSupplier.of(callCounter::call);
     returnVal = "abc";
 
+    String result = supplier.get();
+
+    assertThat(result).isEqualTo("abc");
+  }
+
+  @Test
+  public void subsequentCallToGetReturnsCorrectResult() throws Exception {
+    MemoizingInterruptibleSupplier<String> supplier =
+        MemoizingInterruptibleSupplier.of(callCounter::call);
+    returnVal = "abc";
+
+    supplier.get();
     String result = supplier.get();
 
     assertThat(result).isEqualTo("abc");
@@ -68,6 +80,39 @@ public final class MemoizingInterruptibleSupplierTest {
     supplier.get();
 
     GcFinalization.awaitClear(ref);
+  }
+
+  @Test
+  public void notInitializedBeforeCallingGet() {
+    MemoizingInterruptibleSupplier<String> supplier =
+        MemoizingInterruptibleSupplier.of(callCounter::call);
+
+    boolean initialized = supplier.isInitialized();
+
+    assertThat(initialized).isFalse();
+  }
+
+  @Test
+  public void isInitializedAfterCallingGet() throws Exception {
+    MemoizingInterruptibleSupplier<String> supplier =
+        MemoizingInterruptibleSupplier.of(callCounter::call);
+
+    supplier.get();
+    boolean initialized = supplier.isInitialized();
+
+    assertThat(initialized).isTrue();
+  }
+
+  @Test
+  public void isStillInitializedAfterSubsequentCallToGet() throws Exception {
+    MemoizingInterruptibleSupplier<String> supplier =
+        MemoizingInterruptibleSupplier.of(callCounter::call);
+
+    supplier.get();
+    supplier.get();
+    boolean initialized = supplier.isInitialized();
+
+    assertThat(initialized).isTrue();
   }
 
   @Test
