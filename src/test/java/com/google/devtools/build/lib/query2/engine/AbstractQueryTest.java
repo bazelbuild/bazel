@@ -1797,6 +1797,10 @@ public abstract class AbstractQueryTest<T> {
     /** Evaluates the given query and returns the result. */
     ResultAndTargets<T> evaluateQuery(String query) throws QueryException, InterruptedException;
 
+    default Set<T> evaluateQueryRaw(String query) throws QueryException, InterruptedException {
+      return evaluateQuery(query).results;
+    }
+
     /**
      * Contains both the results of the query (Like if there were errors, empty result, etc.) and
      * the actual targets returned by the query.
