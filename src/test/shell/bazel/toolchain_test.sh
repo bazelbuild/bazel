@@ -275,6 +275,100 @@ EOF
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
+function test_toolchain_type_alias_use_in_toolchain {
+  write_test_toolchain
+  write_test_rule
+
+  # Create an alias for the toolchain type.
+  mkdir -p alias
+  cat >> alias/BUILD <<EOF
+alias(
+    name = 'toolchain_type',
+    actual = '//toolchain:test_toolchain',
+    visibility = ['//visibility:public'])
+EOF
+
+  # Use the alias.
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+# Define the toolchain.
+filegroup(name = 'dep_rule_test_toolchain')
+test_toolchain(
+    name = 'test_toolchain_impl_1',
+    extra_label = ':dep_rule_test_toolchain',
+    extra_str = 'foo from test_toolchain',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchain.
+toolchain(
+    name = 'test_toolchain_1',
+    toolchain_type = '//alias:toolchain_type',
+    exec_compatible_with = [],
+    target_compatible_with = [],
+    toolchain = ':test_toolchain_impl_1',
+    visibility = ['//visibility:public'])
+EOF
+
+  # The rule uses the original, non-aliased type.
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build --extra_toolchains=//:test_toolchain_1 //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
+function test_toolchain_type_alias_use_in_rule {
+  write_test_toolchain
+  write_register_toolchain
+
+  # Create an alias for the toolchain type.
+  mkdir -p alias
+  cat >> alias/BUILD <<EOF
+alias(
+    name = 'toolchain_type',
+    actual = '//toolchain:test_toolchain',
+    visibility = ['//visibility:public'])
+EOF
+
+  # Use the alias in a rule.
+  mkdir -p demo
+  cat >> demo/aliased_rule.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//alias:toolchain_type']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain extra_str: "%s"' %
+         (message, toolchain.extra_str))
+  return []
+
+aliased_rule = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = ['//alias:toolchain_type'],
+)
+EOF
+
+  cat >> demo/BUILD <<EOF
+load(':aliased_rule.bzl', 'aliased_rule')
+# Use the toolchain.
+aliased_rule(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
 function test_toolchain_use_in_rule_missing {
   write_test_toolchain
   write_test_rule
