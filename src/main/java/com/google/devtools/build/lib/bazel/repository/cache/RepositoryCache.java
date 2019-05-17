@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.UUID;
 import javax.annotation.Nullable;
 
 /** The cache implementation to store download artifacts from external repositories.
@@ -73,6 +74,7 @@ public class RepositoryCache {
 
   // Rename cached files to this value to simplify lookup.
   public static final String DEFAULT_CACHE_FILENAME = "file";
+  public static final String TMP_PREFIX = "tmp-";
 
   @Nullable private Path repositoryCachePath;
   @Nullable private Path contentAddressablePath;
@@ -104,7 +106,11 @@ public class RepositoryCache {
    */
   public boolean exists(String cacheKey, KeyType keyType) {
     Preconditions.checkState(isEnabled());
-    return keyType.getCachePath(contentAddressablePath).getChild(cacheKey).exists();
+    return keyType
+        .getCachePath(contentAddressablePath)
+        .getChild(cacheKey)
+        .getChild(DEFAULT_CACHE_FILENAME)
+        .exists();
   }
 
   /**
@@ -175,8 +181,10 @@ public class RepositoryCache {
 
     Path cacheEntry = keyType.getCachePath(contentAddressablePath).getRelative(cacheKey);
     Path cacheValue = cacheEntry.getRelative(DEFAULT_CACHE_FILENAME);
+    Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     FileSystemUtils.createDirectoryAndParents(cacheEntry);
-    FileSystemUtils.copyFile(sourcePath, cacheValue);
+    FileSystemUtils.copyFile(sourcePath, tmpName);
+    FileSystemUtils.moveFile(tmpName, cacheValue);
   }
 
   /**
