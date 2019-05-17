@@ -52,15 +52,17 @@ gsutil cp -n $versioned_android_tools_archive \
 
 checksum=$(sha256sum $versioned_android_tools_archive | cut -f 1 -d ' ')
 
+commit=$(git rev-parse HEAD)
+
 echo
 echo "Run this command to update Bazel to use the new version:"
 echo
 
 cat <<EOF
-sed -i 's/"android_tools_pkg.*\.tar\.gz":.*"[a-fA-F0-9]{64}"/"$VERSIONED_FILENAME": "$checksum"/g' WORKSPACE && \\
-  sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' WORKSPACE  && \\
+sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' WORKSPACE  && \\
+  sed -i 's/"android_tools_pkg.*\.tar\.gz":.*"[a-fA-F0-9]{64}".*/"$VERSIONED_FILENAME": "$checksum", # built at $commit /g' WORKSPACE && \\
   sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE && \\
-  sed -i 's/"[a-fA-F0-9]{64}"/"$checksum"/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+  sed -i 's/"[a-fA-F0-9]{64}",/"$checksum", # built at $commit/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
 EOF
 
 echo
