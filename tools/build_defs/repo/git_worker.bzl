@@ -1,4 +1,20 @@
-_GitRepo = provider(
+# Copyright 2019 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Code for interacting with git binary to get the file tree checked out at the specified revision.
+"""
+
+_GitRepoInfo = provider(
     doc = "Provider to organize precomputed arguments for calling git.",
     fields = {
         "directory": "Working directory path",
@@ -14,6 +30,14 @@ and resetting to the specified reference.""",
 )
 
 def git_repo(ctx, directory):
+    """ Fetches data from git repository and checks out file tree at specified revision into
+    specified directory.
+    Called by git_repository or new_git_repository rules.
+
+    Args:
+        ctx: Context of the calling rules, for reading the attributes.
+        directory: Directory where to check out the file tree.
+    """
     if ctx.attr.shallow_since:
         if ctx.attr.tag:
             fail("shallow_since not allowed if a tag is specified; --depth=1 will be used for tags")
@@ -37,7 +61,7 @@ def git_repo(ctx, directory):
         reset_ref = "origin/" + ctx.attr.branch
         fetch_ref = ctx.attr.branch
 
-    git_repo = _GitRepo(
+    git_repo = _GitRepoInfo(
         directory = ctx.path(directory),
         shallow = shallow,
         reset_ref = reset_ref,
