@@ -23,18 +23,14 @@
 # these jars out from Bazel to keep its binary size small.
 #
 # If you make changes any tool bundled in android_tools.tar.gz and want them to be used for
-# the next Bazel release, increment the version number and run this script. Then, update the
-# following files with new version, URL, and sha256 of the new android_tools tarball:
-#
-# - WORKSPACE
-# - src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+# the next Bazel release, increment the version number and run this script.
 #
 # More context: https://github.com/bazelbuild/bazel/issues/1055
 
-set -xeuo pipefail
+set -euo pipefail
 
 # The version of android_tools.tar.gz
-VERSION="0.2"
+VERSION="0.3-rc1"
 VERSIONED_FILENAME="android_tools_pkg-$VERSION.tar.gz"
 
 # Create a temp directory to hold the versioned tarball, and clean it up when the script exits.
@@ -53,3 +49,20 @@ cp $android_tools_archive $versioned_android_tools_archive
 # -n for no-clobber, so we don't overwrite existing files
 gsutil cp -n $versioned_android_tools_archive \
   gs://bazel-mirror/bazel_android_tools/$VERSIONED_FILENAME
+
+checksum=$(sha256sum $versioned_android_tools_archive | cut -f 1 -d ' ')
+
+echo
+echo "Run this command to update Bazel to use the new version:"
+echo
+
+cat <<EOF
+sed -i 's/"android_tools_pkg.*\.tar\.gz":.*"[a-fA-F0-9]{64}"/"$VERSIONED_FILENAME": "$checksum"/g' WORKSPACE && \\
+  sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' WORKSPACE  && \\
+  sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE && \\
+  sed -i 's/"[a-fA-F0-9]{64}"/"$checksum"/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+EOF
+
+echo
+echo "Then, commit the changes and submit a pull request."
+echo
