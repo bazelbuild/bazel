@@ -997,6 +997,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       host.persistentBusyboxTools = persistentBusyboxTools;
+
+      // Once this has been set to ANDROID, the crosstool_top is the android crosstool, even after
+      // a host transition. In that case, allowing the distinguisher to reset creates the action
+      // conflicts that this was added to stop.
+      host.configurationDistinguisher = configurationDistinguisher;
       return host;
     }
   }
