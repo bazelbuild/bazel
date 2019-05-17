@@ -5,9 +5,6 @@
 # https://groups.google.com/forum/?nomobile=true#!topic/bazel-dev/4Ql_7eDcLC0
 # We do lose the ability to set -o pipefail.
 
-# TODO(#7843): integration tests for failure to find python / wrong version
-# found / error while trying to print version
-
 FAILURE_HEADER="\
 Error occurred while attempting to use the default Python toolchain \
 (@bazel_tools//tools/python:autodetecting_toolchain)."
