@@ -1987,4 +1987,30 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:d");
     assertThat(configuredTarget).isNotNull();
   }
+
+  @Test
+  public void testDirectFields() throws Exception {
+    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "   name = 'foo',",
+        "   srcs = ['foo.m'],",
+        "   hdrs = ['foo.h'],",
+        ")",
+        "objc_library(",
+        "    name = 'bar',",
+        "    srcs = ['bar.m'],",
+        "    hdrs = ['bar.h'],",
+        "    deps = [':foo'],",
+        ")");
+
+    ObjcProvider dependerProvider = providerForTarget("//x:bar");
+    assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.HEADER)))
+        .containsExactly("bar.h");
+    assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
+        .containsExactly("bar.m");
+    assertThat(Artifact.toRootRelativePaths(dependerProvider.getDirect(ObjcProvider.MODULE_MAP)))
+        .containsExactly("x/bar.modulemaps/module.modulemap");
+  }
 }
