@@ -57,7 +57,6 @@ def workspace_and_buildfile(ctx):
         ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
 
     if ctx.attr.build_file:
-        ctx.delete("BUILD")
         ctx.delete("BUILD.bazel")
         ctx.symlink(ctx.attr.build_file, "BUILD.bazel")
     elif ctx.attr.build_file_content:
