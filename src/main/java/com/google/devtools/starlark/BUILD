@@ -20,6 +20,7 @@ java_binary(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
     ],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
