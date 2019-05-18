@@ -29,8 +29,6 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
     - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8365
-    - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:WorkspaceBlackBoxTest"
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -60,8 +58,6 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
     - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8365
-    - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:WorkspaceBlackBoxTest"
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -95,8 +91,6 @@ platforms:
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
     - "-//src/java_tools/import_deps_checker/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8365
-    - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:WorkspaceBlackBoxTest"
   ubuntu1804_javabase9:
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 9 Javabase"
@@ -163,8 +157,6 @@ platforms:
     - "-//src/test/shell/integration:output_filter_test"
     - "-//src/test/shell/integration:stub_finds_runfiles_test"
     - "-//src/test/shell/integration:test_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8365
-    - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:WorkspaceBlackBoxTest"
   ubuntu1804_javabase10:
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 10 Javabase"
@@ -231,8 +223,6 @@ platforms:
     - "-//src/test/shell/integration:output_filter_test"
     - "-//src/test/shell/integration:stub_finds_runfiles_test"
     - "-//src/test/shell/integration:test_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8365
-    - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:WorkspaceBlackBoxTest"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -282,8 +272,6 @@ platforms:
     - "-//src/test/shell/bazel/android:aar_integration_test"
     - "-//src/test/shell/bazel/android:android_integration_test"
     - "-//src/test/shell/integration:minimal_jdk_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8365
-    - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:WorkspaceBlackBoxTest"
   windows:
     batch_commands:
     - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
@@ -305,8 +293,6 @@ platforms:
     test_targets:
     - "--"
     - "//src:all_windows_tests"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8365
-    - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:WorkspaceBlackBoxTest"
   rbe_ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
