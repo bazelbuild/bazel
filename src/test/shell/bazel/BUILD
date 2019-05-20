@@ -368,7 +368,10 @@ sh_test(
 sh_test(
     name = "bazel_coverage_java_test",
     srcs = ["bazel_coverage_java_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+    ],
     args = [
         "@bazel_tools//tools/jdk:toolchain",
         "released",
