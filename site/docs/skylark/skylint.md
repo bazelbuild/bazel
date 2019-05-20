@@ -8,7 +8,7 @@ title: Skylint
 This document explains how to use Skylint, a Starlark linter.
 
 Skylint is no longer maintained. It will be replaced soon with [Buildifier](
-https://github.com/bazelbuild/buildtools/blob/master/buildifier/README.md#linter).
+https://github.com/bazelbuild/buildtools/tree/master/buildifier#linter).
 
 <!-- [TOC] -->
 
