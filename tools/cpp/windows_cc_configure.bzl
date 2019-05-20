@@ -282,9 +282,6 @@ def _get_latest_subversion(repository_ctx, vc_path):
       <vc_path>\\Tools\\MSVC\\14.10.24930\\bin\\HostX64\\x64
       <vc_path>\\Tools\\MSVC\\14.16.27023\\bin\\HostX64\\x64
     This function should return 14.16.27023 in this case."""
-    if not _is_vs_2017_or_2019(vc_path):
-        auto_configure_fail(repository_ctx, "Cannot calculate latest subversion from VC build tool older than 2017")
-
     versions = [path.basename for path in repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()]
     if len(versions) < 1:
         _auto_configure_warning_maybe(repository_ctx, "Cannot find any VC installation under BAZEL_VC(%s)" % vc_path)
