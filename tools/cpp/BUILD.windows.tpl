@@ -16,8 +16,8 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load(":cc_toolchain_config.bzl", "cc_toolchain_config")
-
+load(":windows_cc_toolchain_config.bzl", "cc_toolchain_config")
+load(":armeabi_cc_toolchain_config.bzl", "armeabi_cc_toolchain_config")
 cc_library(
     name = "malloc",
 )
@@ -60,6 +60,16 @@ cc_toolchain_config(
     name = "msys_x64",
     cpu = "x64_windows",
     compiler = "msys-gcc",
+    host_system_name = "local",
+    target_system_name = "local",
+    target_libc = "msys",
+    abi_version = "local",
+    abi_libc_version = "local",
+    cxx_builtin_include_directories = [%{cxx_builtin_include_directories}],
+    tool_paths = {%{tool_paths}},
+    tool_bin_path = "%{tool_bin_path}",
+    dbg_mode_debug_flag = "%{dbg_mode_debug_flag}",
+    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag}",
 )
 
 toolchain(
@@ -96,6 +106,16 @@ cc_toolchain_config(
     name = "msys_x64_mingw",
     cpu = "x64_windows",
     compiler = "mingw-gcc",
+    host_system_name = "local",
+    target_system_name = "local",
+    target_libc = "mingw",
+    abi_version = "local",
+    abi_libc_version = "local",
+    tool_bin_path = "%{mingw_tool_bin_path}",
+    cxx_builtin_include_directories = [%{mingw_cxx_builtin_include_directories}],
+    tool_paths = {%{mingw_tool_paths}},
+    dbg_mode_debug_flag = "%{dbg_mode_debug_flag}",
+    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag}",
 )
 
 toolchain(
@@ -132,6 +152,35 @@ cc_toolchain_config(
     name = "msvc_x64",
     cpu = "x64_windows",
     compiler = "msvc-cl",
+    host_system_name = "local",
+    target_system_name = "local",
+    target_libc = "msvcrt",
+    abi_version = "local",
+    abi_libc_version = "local",
+    toolchain_identifier = "msvc_x64",
+    msvc_env_tmp = "%{msvc_env_tmp}",
+    msvc_env_path = "%{msvc_env_path}",
+    msvc_env_include = "%{msvc_env_include}",
+    msvc_env_lib = "%{msvc_env_lib}",
+    msvc_cl_path = "%{msvc_cl_path}",
+    msvc_ml_path = "%{msvc_ml_path}",
+    msvc_link_path = "%{msvc_link_path}",
+    msvc_lib_path = "%{msvc_lib_path}",
+    cxx_builtin_include_directories = [%{msvc_cxx_builtin_include_directories}],
+    tool_paths = {
+        "ar": "%{msvc_lib_path}",
+        "ml": "%{msvc_ml_path}",
+        "cpp": "%{msvc_cl_path}",
+        "gcc": "%{msvc_cl_path}",
+        "gcov": "wrapper/bin/msvc_nop.bat",
+        "ld": "%{msvc_link_path}",
+        "nm": "wrapper/bin/msvc_nop.bat",
+        "objcopy": "wrapper/bin/msvc_nop.bat",
+        "objdump": "wrapper/bin/msvc_nop.bat",
+        "strip": "wrapper/bin/msvc_nop.bat",
+    },
+    dbg_mode_debug_flag = "%{dbg_mode_debug_flag}",
+    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag}",
 )
 
 toolchain(
@@ -163,11 +212,7 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
-cc_toolchain_config(
-    name = "stub_armeabi-v7a",
-    cpu = "armeabi-v7a",
-    compiler = "compiler",
-)
+armeabi_cc_toolchain_config(name = "stub_armeabi-v7a")
 
 toolchain(
     name = "cc-toolchain-armeabi-v7a",
