@@ -16,6 +16,7 @@ java_binary(
         "-XX:+IgnoreUnrecognizedVMOptions",
     ],
     main_class = "com.google.devtools.starlark.Starlark",
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
