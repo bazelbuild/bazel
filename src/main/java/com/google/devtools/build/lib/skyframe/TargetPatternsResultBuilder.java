@@ -14,16 +14,16 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
-import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -33,13 +33,24 @@ import java.util.Set;
  * list of target patterns (eg, //foo:all -//bar/... //foo:test).
  */
 class TargetPatternsResultBuilder {
-  private final Set<Label> resolvedLabelsBuilder = CompactHashSet.create();
+  private final ResolvedTargets.Builder<Label> resolvedLabelsBuilder = ResolvedTargets.builder();
   private Map<PackageIdentifier, Package> packages;
+  private boolean hasError;
+
+  /** Sets that there was an error, during evaluation. */
+  public void setError() {
+    hasError = true;
+  }
 
   /** Returns final set of targets and sets error flag if required. */
-  public Collection<Target> build(WalkableGraph walkableGraph) throws InterruptedException {
+  public ResolvedTargets<Target> build(WalkableGraph walkableGraph) throws InterruptedException {
     precomputePackages(walkableGraph);
-    return transformLabelsIntoTargets(resolvedLabelsBuilder);
+    ResolvedTargets.Builder<Target> resolvedTargetsBuilder =
+        transformLabelsIntoTargets(resolvedLabelsBuilder.build());
+    if (hasError) {
+      resolvedTargetsBuilder.setError();
+    }
+    return resolvedTargetsBuilder.build();
   }
 
   /**
@@ -47,14 +58,18 @@ class TargetPatternsResultBuilder {
    * method is using information about packages, so {@link #precomputePackages} has to be called
    * before this method.
    */
-  private Collection<Target> transformLabelsIntoTargets(Set<Label> resolvedLabels) {
+  private ResolvedTargets.Builder<Target> transformLabelsIntoTargets(
+      ResolvedTargets<Label> resolvedLabels) {
     // precomputePackages has to be called before this method.
-    Set<Target> targets = CompactHashSet.create();
+    ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();
     Preconditions.checkNotNull(packages);
-    for (Label label : resolvedLabels) {
-      targets.add(getExistingTarget(label));
+    for (Label label : resolvedLabels.getTargets()) {
+      resolvedTargetsBuilder.add(getExistingTarget(label));
     }
-    return targets;
+    for (Label label : resolvedLabels.getFilteredTargets()) {
+      resolvedTargetsBuilder.remove(getExistingTarget(label));
+    }
+    return resolvedTargetsBuilder;
   }
 
   private void precomputePackages(WalkableGraph walkableGraph) throws InterruptedException {
@@ -79,7 +94,7 @@ class TargetPatternsResultBuilder {
 
   private Set<PackageIdentifier> getPackagesIdentifiers() {
     Set<PackageIdentifier> packagesIdentifiers = new HashSet<>();
-    for (Label label : resolvedLabelsBuilder) {
+    for (Label label : getLabels()) {
       packagesIdentifiers.add(label.getPackageIdentifier());
     }
     return packagesIdentifiers;
@@ -92,9 +107,19 @@ class TargetPatternsResultBuilder {
         .getPackage();
   }
 
+  /** Adds the result from expansion of positive target pattern (eg, "//foo:all"). */
+  void addLabelsOfNegativePattern(ResolvedTargets<Label> labels) {
+    resolvedLabelsBuilder.filter(Predicates.not(Predicates.in(labels.getTargets())));
+  }
+
   /** Adds the result from expansion of negative target pattern (eg, "-//foo:all"). */
   void addLabelsOfPositivePattern(ResolvedTargets<Label> labels) {
-    Preconditions.checkArgument(labels.getFilteredTargets().isEmpty());
-    resolvedLabelsBuilder.addAll(labels.getTargets());
+    resolvedLabelsBuilder.merge(labels);
+  }
+
+  /** Returns target labels from all individual results. */
+  private Iterable<Label> getLabels() {
+    ResolvedTargets<Label> resolvedLabels = resolvedLabelsBuilder.build();
+    return Iterables.concat(resolvedLabels.getTargets(), resolvedLabels.getFilteredTargets());
   }
 }

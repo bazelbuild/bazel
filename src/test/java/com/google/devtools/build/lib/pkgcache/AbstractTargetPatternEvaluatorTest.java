@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +72,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
         targetPatterns.stream()
             .map((s) -> s.startsWith("-") ? s.substring(1) : s)
             .collect(Collectors.toList());
-    Map<String, Collection<Target>> resolvedTargetsMap =
+    Map<String, ResolvedTargets<Target>> resolvedTargetsMap =
         parser.preloadTargetPatterns(
             eventHandler,
             relativeWorkingDirectory,
@@ -84,11 +83,11 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
     for (String pattern : targetPatterns) {
       if (pattern.startsWith("-")) {
         String positivePattern = pattern.substring(1);
-        Collection<Target> resolvedTargets = resolvedTargetsMap.get(positivePattern);
-        result.filter(Predicates.not(Predicates.in(resolvedTargets)));
+        ResolvedTargets<Target> resolvedTargets = resolvedTargetsMap.get(positivePattern);
+        result.filter(Predicates.not(Predicates.in(resolvedTargets.getTargets())));
       } else {
-        Collection<Target> resolvedTargets = resolvedTargetsMap.get(pattern);
-        result.addAll(resolvedTargets);
+        ResolvedTargets<Target> resolvedTargets = resolvedTargetsMap.get(pattern);
+        result.merge(resolvedTargets);
       }
     }
     return result.build();
