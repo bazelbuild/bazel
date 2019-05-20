@@ -287,8 +287,14 @@ def _get_latest_subversion(repository_ctx, vc_path):
         _auto_configure_warning_maybe(repository_ctx, "Cannot find any VC installation under BAZEL_VC(%s)" % vc_path)
         return None
 
-    versions = sorted(versions)
-    latest_version = versions[-1]
+    # Parse the version string into integers, then sort the integers to prevent textual sorting.
+    version_list = []
+    for version in versions:
+        parts = [int(i) for i in version.split(".")]
+        version_list.append((parts, version))
+
+    version_list = sorted(version_list)
+    latest_version = version_list[-1][1]
 
     _auto_configure_warning_maybe(repository_ctx, "Found the following VC verisons:\n%s\n\nChoosing the latest version = %s" % ("\n".join(versions), latest_version))
     return latest_version

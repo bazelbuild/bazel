@@ -140,13 +140,13 @@ To build C++ targets, you need:
         [known issue](https://github.com/bazelbuild/bazel/issues/3949),
         please upgrade your VS 2017 to the latest version.
 
-*   The `BAZEL_VS` , `BAZEL_VC` and `BAZEL_VC_FULL_VERSION` environment variable. (They are *not* the same!)
+*   The `BAZEL_VS`, `BAZEL_VC` and `BAZEL_VC_FULL_VERSION` environment variable.
 
     Bazel tries to locate the C++ compiler the first time you build any
-    target. To tell Bazel where the compiler is, we provide the
+    target. To tell Bazel where the compiler is, you can set the
     following environment variables:
 
-    For Visual Studio 2017 and 2019, setting one of `BAZEL_VC` or `BAZEL_VS`, `BAZEL_VC_FULL_VERSION` is optional:
+    For Visual Studio 2017 and 2019, set one of `BAZEL_VC` or `BAZEL_VS`. Additionally you may also set `BAZEL_VC_FULL_VERSION`.
 
     *   `BAZEL_VS` the Visual Studio installation directory
 
@@ -167,7 +167,7 @@ To build C++ targets, you need:
         set BAZEL_VC_FULL_VERSION=14.16.27023
         ```
 
-    For Visual Studio 2015 or older, setting one of `BAZEL_VC` or `BAZEL_VS` is enough.
+    For Visual Studio 2015 or older, set `BAZEL_VC` or `BAZEL_VS`. (`BAZEL_VC_FULL_VERSION` is not supported.)
 
     *   `BAZEL_VS` the Visual Studio installation directory
 
