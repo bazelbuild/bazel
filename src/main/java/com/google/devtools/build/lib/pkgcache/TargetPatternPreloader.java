@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -48,7 +47,7 @@ public interface TargetPatternPreloader {
    * keepGoing} is set to true. In that case, the patterns that failed to load have the error flag
    * set.
    */
-  Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
+  Map<String, Collection<Target>> preloadTargetPatterns(
       ExtendedEventHandler eventHandler,
       PathFragment relativeWorkingDirectory,
       Collection<String> patterns,
