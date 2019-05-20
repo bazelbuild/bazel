@@ -1096,9 +1096,7 @@ def _impl(ctx):
             runtime_library_search_directories_feature,
             library_search_directories_feature,
             archiver_flags_feature,
-            user_link_flags_feature,
             force_pic_flags_feature,
-            static_libgcc_feature,
             fission_support_feature,
             strip_debug_symbols_feature
         ]
@@ -1115,6 +1113,8 @@ def _impl(ctx):
             default_compile_flags_feature,
             default_link_flags_feature,
             libraries_to_link_feature,
+            user_link_flags_feature,
+            static_libgcc_feature,
             fdo_optimize_feature,
             supports_dynamic_linker_feature,
             dbg_feature,
