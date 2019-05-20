@@ -28,18 +28,17 @@
 #include <assert.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include <grpc/grpc.h>
 #include <grpc/support/log.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/client_context.h>
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
+#include <limits.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <algorithm>
 #include <chrono>  // NOLINT (gRPC requires this)
@@ -53,6 +52,7 @@
 #include <utility>
 #include <vector>
 
+#include "src/main/cpp/archive_utils.h"
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/global_variables.h"
@@ -69,9 +69,8 @@
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
-#include "third_party/ijar/zip.h"
-
 #include "src/main/protobuf/command_server.grpc.pb.h"
+#include "third_party/ijar/zip.h"
 
 using blaze_util::GetLastErrorString;
 
@@ -255,109 +254,10 @@ class GrpcBlazeServer : public BlazeServer {
 ////////////////////////////////////////////////////////////////////////
 // Logic
 
-// A devtools_ijar::ZipExtractorProcessor that has a pure version of Accept.
-class PureZipExtractorProcessor : public devtools_ijar::ZipExtractorProcessor {
- public:
-  virtual ~PureZipExtractorProcessor() {}
 
-  // Like devtools_ijar::ZipExtractorProcessor::Accept, but is guaranteed to not
-  // have side-effects.
-  virtual bool AcceptPure(const char *filename,
-                          const devtools_ijar::u4 attr) const = 0;
-};
-
-// A PureZipExtractorProcessor that adds the names of all the files ZIP up in
-// the Blaze binary to the given vector.
-class NoteAllFilesZipProcessor : public PureZipExtractorProcessor {
- public:
-  explicit NoteAllFilesZipProcessor(std::vector<std::string>* files)
-      : files_(files) {}
-
-  bool AcceptPure(const char *filename,
-                  const devtools_ijar::u4 attr) const override {
-    return false;
-  }
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    files_->push_back(filename);
-    return false;
-  }
-
-  void Process(const char *filename, const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data, const size_t size) override {
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "NoteAllFilesZipProcessor::Process shouldn't be called";
-  }
- private:
-  std::vector<std::string>* files_;
-};
-
-// A devtools_ijar::ZipExtractorProcessor that processes the ZIP entries using
-// the given PureZipExtractorProcessors.
-class CompoundZipProcessor : public devtools_ijar::ZipExtractorProcessor {
- public:
-  explicit CompoundZipProcessor(
-      const vector<PureZipExtractorProcessor*>& processors)
-      : processors_(processors) {}
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    bool should_accept = false;
-    for (auto* processor : processors_) {
-      if (processor->Accept(filename, attr)) {
-        // ZipExtractorProcessor::Accept is allowed to be side-effectful, so
-        // we don't want to break out on the first true here.
-        should_accept = true;
-      }
-    }
-    return should_accept;
-  }
-
-  void Process(const char *filename, const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data, const size_t size) override {
-    for (auto* processor : processors_) {
-      if (processor->AcceptPure(filename, attr)) {
-        processor->Process(filename, attr, data, size);
-      }
-    }
-  }
-
- private:
-  const vector<PureZipExtractorProcessor*> processors_;
-};
 
 static map<string, EnvVarValue> PrepareEnvironmentForJvm();
 
-// A PureZipExtractorProcessor to extract the InstallKeyFile
-class GetInstallKeyFileProcessor : public PureZipExtractorProcessor {
- public:
-  explicit GetInstallKeyFileProcessor(string *install_base_key)
-      : install_base_key_(install_base_key) {}
-
-  bool AcceptPure(const char *filename,
-                  const devtools_ijar::u4 attr) const override {
-    return strcmp(filename, "install_base_key") == 0;
-  }
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    return AcceptPure(filename, attr);
-  }
-
-  void Process(const char *filename, const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data, const size_t size) override {
-    string str(reinterpret_cast<const char *>(data), size);
-    blaze_util::StripWhitespace(&str);
-    if (str.size() != 32) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Failed to extract install_base_key: file size mismatch "
-             "(should be 32, is "
-          << str.size() << ")";
-    }
-    *install_base_key_ = str;
-  }
-
- private:
-  string *install_base_key_;
-};
 
 // Populates globals->install_md5 and globals->extracted_binaries by reading the
 // ZIP entries in the Blaze binary.
@@ -903,33 +803,6 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
       << "couldn't connect to server (" << server_pid << ") after 120 seconds.";
 }
-
-// A PureZipExtractorProcessor to extract the files from the blaze zip.
-class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
- public:
-  explicit ExtractBlazeZipProcessor(const string &embedded_binaries,
-                                    blaze::embedded_binaries::Dumper *dumper)
-      : embedded_binaries_(embedded_binaries), dumper_(dumper) {}
-
-  bool AcceptPure(const char *filename,
-                  const devtools_ijar::u4 attr) const override {
-    return !devtools_ijar::zipattr_is_dir(attr);
-  }
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    return AcceptPure(filename, attr);
-  }
-
-  void Process(const char *filename, const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data, const size_t size) override {
-    dumper_->Dump(data, size,
-                  blaze_util::JoinPath(embedded_binaries_, filename));
-  }
-
- private:
-  const string embedded_binaries_;
-  blaze::embedded_binaries::Dumper *dumper_;
-};
 
 // Actually extracts the embedded data files into the tree whose root
 // is 'embedded_binaries'.

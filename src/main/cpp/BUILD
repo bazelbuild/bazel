@@ -70,6 +70,23 @@ cc_library(
     }),
 )
 
+cc_library(
+    name = "archive_utils",
+    srcs = [
+        "archive_utils.cc",
+    ],
+    hdrs = [
+        "archive_utils.h",
+    ],
+    deps = [
+        ":blaze_util",
+        "//src/main/cpp/util",
+        "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:logging",
+        "//third_party/ijar:zip",
+    ],
+)
+
 cc_binary(
     name = "client",
     srcs = [
@@ -104,6 +121,7 @@ cc_binary(
     }),
     visibility = ["//src:__pkg__"],
     deps = [
+        ":archive_utils",
         ":bazel_startup_options",
         ":blaze_util",
         ":option_processor",
