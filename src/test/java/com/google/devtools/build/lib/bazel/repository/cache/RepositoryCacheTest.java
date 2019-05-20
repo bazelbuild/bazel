@@ -193,4 +193,21 @@ public class RepositoryCacheTest {
         KeyType.SHA256);
   }
 
+  @Test
+  public void testCanonicalId() throws Exception {
+    repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256, "fooid");
+    Path targetDirectory = scratch.dir("/external");
+    Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
+
+    Path lookupWithSameId =
+        repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256, "fooid");
+    assertThat(lookupWithSameId).isEqualTo(targetPath);
+
+    Path lookupOtherId =
+        repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256, "barid");
+    assertThat(lookupOtherId).isNull();
+
+    Path lookupNoId = repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
+    assertThat(lookupNoId).isEqualTo(targetPath);
+  }
 }
