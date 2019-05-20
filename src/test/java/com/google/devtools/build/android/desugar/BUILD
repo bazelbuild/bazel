@@ -1193,7 +1193,7 @@ genrule(
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
           "-i $(location :separate_java8) -o $@ " +
           "--emit_dependency_metadata_as_needed " +
-          "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
+          "--classpath_entry $(location //third_party/java/jacoco:blaze-agent-0.8.3) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
     tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
