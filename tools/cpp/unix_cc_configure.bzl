@@ -321,10 +321,16 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on Unix platforms."""
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.tpl",
+        "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl",
         "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl",
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
     ])
+
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl"],
+        "armeabi_cc_toolchain_config.bzl",
+    )
 
     repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
     darwin = cpu_value == "darwin"
@@ -518,27 +524,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                 ],
             ),
             "%{dbg_compile_content}": get_starlark_list(["-g"]),
-            "%{msvc_env_tmp}": "",
-            "%{msvc_env_path}": "",
-            "%{msvc_env_include}": "",
-            "%{msvc_env_lib}": "",
-            "%{msvc_cl_path}": "",
-            "%{msvc_ml_path}": "",
-            "%{msvc_link_path}": "",
-            "%{msvc_lib_path}": "",
-            "%{msvc_cxx_builtin_include_directories}": "",
-            "%{msys_x64_mingw_cxx_content}": "",
-            "%{msys_x64_mingw_link_content}": "",
-            "%{dbg_mode_debug}": "",
-            "%{fastbuild_mode_debug}": "",
             "%{coverage_feature}": _coverage_feature(repository_ctx, darwin),
             "%{use_coverage_feature}": "coverage_feature,",
             "%{supports_start_end_lib}": "supports_start_end_lib_feature," if supports_gold_linker else "",
-            "%{use_windows_features}": "",
-            "%{mingw_tool_paths}": "",
-            "%{mingw_cxx_builtin_include_directories}": "",
-            "%{artifact_name_patterns}": "",
-            "%{tool_bin_path}": "NOT_USED",
-            "%{mingw_tool_bin_path}": "NOT_USED",
         },
     )
