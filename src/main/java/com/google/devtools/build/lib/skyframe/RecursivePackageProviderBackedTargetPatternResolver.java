@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -123,7 +122,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
-  public Collection<Target> getTargetsInPackage(
+  public ResolvedTargets<Target> getTargetsInPackage(
       String originalPattern, PackageIdentifier packageIdentifier, boolean rulesOnly)
       throws TargetParsingException, InterruptedException {
     FilteringPolicy actualPolicy = rulesOnly
@@ -139,16 +138,18 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     }
   }
 
-  private Map<PackageIdentifier, Collection<Target>> bulkGetTargetsInPackage(
-      String originalPattern, Iterable<PackageIdentifier> pkgIds, FilteringPolicy policy)
-      throws InterruptedException {
+  private Map<PackageIdentifier, ResolvedTargets<Target>> bulkGetTargetsInPackage(
+          String originalPattern,
+          Iterable<PackageIdentifier> pkgIds, FilteringPolicy policy)
+          throws InterruptedException {
     try {
       Map<PackageIdentifier, Package> pkgs = bulkGetPackages(pkgIds);
       if (pkgs.size() != Iterables.size(pkgIds)) {
         throw new IllegalStateException("Bulk package retrieval missing results: "
             + Sets.difference(ImmutableSet.copyOf(pkgIds), pkgs.keySet()));
       }
-      ImmutableMap.Builder<PackageIdentifier, Collection<Target>> result = ImmutableMap.builder();
+      ImmutableMap.Builder<PackageIdentifier, ResolvedTargets<Target>> result =
+              ImmutableMap.builder();
       for (PackageIdentifier pkgId : pkgIds) {
         Package pkg = pkgs.get(pkgId);
         result.put(pkgId,  TargetPatternResolverUtil.resolvePackageTargets(pkg, policy));
@@ -290,11 +291,11 @@ public class RecursivePackageProviderBackedTargetPatternResolver
                 ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(pkgIdBatch);
                 packageSemaphore.acquireAll(pkgIdBatchSet);
                 try {
-                  Iterable<Collection<Target>> resolvedTargets =
+                  Iterable<ResolvedTargets<Target>> resolvedTargets =
                       bulkGetTargetsInPackage(originalPattern, pkgIdBatch, actualPolicy).values();
                   List<Target> filteredTargets = new ArrayList<>(calculateSize(resolvedTargets));
-                  for (Collection<Target> targets : resolvedTargets) {
-                    filteredTargets.addAll(targets);
+                  for (ResolvedTargets<Target> targets : resolvedTargets) {
+                    filteredTargets.addAll(targets.getTargets());
                   }
                   // TODO(bazel-core): Invoking the callback while holding onto the package
                   // semaphore can lead to deadlocks. Also, if the semaphore has a small count,
@@ -311,10 +312,10 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     return Futures.whenAllSucceed(futures).call(() -> null, directExecutor());
   }
 
-  private static <T> int calculateSize(Iterable<Collection<T>> resolvedTargets) {
+  private static <T> int calculateSize(Iterable<ResolvedTargets<T>> resolvedTargets) {
     int size = 0;
-    for (Collection<T> targets : resolvedTargets) {
-      size += targets.size();
+    for (ResolvedTargets<T> targets : resolvedTargets) {
+      size += targets.getTargets().size();
     }
     return size;
   }

@@ -21,7 +21,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 
 /**
  * A callback that is used during the process of converting target patterns (such as
@@ -58,8 +57,8 @@ public abstract class TargetPatternResolver<T> {
    * @param packageIdentifier the identifier of the package
    * @param rulesOnly whether to return rules only
    */
-  public abstract Collection<T> getTargetsInPackage(
-      String originalPattern, PackageIdentifier packageIdentifier, boolean rulesOnly)
+  public abstract ResolvedTargets<T> getTargetsInPackage(String originalPattern,
+      PackageIdentifier packageIdentifier, boolean rulesOnly)
       throws TargetParsingException, InterruptedException;
 
   /**

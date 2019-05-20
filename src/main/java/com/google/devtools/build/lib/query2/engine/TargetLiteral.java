@@ -34,7 +34,6 @@ public final class TargetLiteral extends QueryExpression {
 
   public TargetLiteral(String pattern) {
     this.pattern = Preconditions.checkNotNull(pattern);
-    Preconditions.checkArgument(!pattern.startsWith("-"));
   }
 
   public String getPattern() {

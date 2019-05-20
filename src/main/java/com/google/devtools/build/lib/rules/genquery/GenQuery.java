@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -416,7 +415,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public Map<String, Collection<Target>> preloadTargetPatterns(
+    public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
         ExtendedEventHandler eventHandler,
         PathFragment relativeWorkingDirectory,
         Collection<String> patterns,
@@ -426,7 +425,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Preconditions.checkArgument(!keepGoing);
       Preconditions.checkArgument(relativeWorkingDirectory.isEmpty());
       boolean ok = true;
-      Map<String, Collection<Target>> preloadedPatterns =
+      Map<String, ResolvedTargets<Target>> preloadedPatterns =
           Maps.newHashMapWithExpectedSize(patterns.size());
       Map<TargetPatternKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
       for (String pattern : patterns) {
@@ -483,11 +482,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       for (Map.Entry<String, ResolvedTargets<Label>> entry : resolvedLabelsMap.entrySet()) {
         String pattern = entry.getKey();
         ResolvedTargets<Label> resolvedLabels = resolvedLabelsMap.get(pattern);
-        Set<Target> builder = CompactHashSet.create();
+        ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
         for (Label label : resolvedLabels.getTargets()) {
           builder.add(getExistingTarget(label, packages));
         }
-        preloadedPatterns.put(pattern, builder);
+        for (Label label : resolvedLabels.getFilteredTargets()) {
+          builder.remove(getExistingTarget(label, packages));
+        }
+        preloadedPatterns.put(pattern, builder.build());
       }
       return preloadedPatterns;
     }

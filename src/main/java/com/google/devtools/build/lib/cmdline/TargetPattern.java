@@ -474,7 +474,9 @@ public abstract class TargetPattern implements Serializable {
       }
 
       callback.process(
-          resolver.getTargetsInPackage(getOriginalPattern(), packageIdentifier, rulesOnly));
+          resolver
+              .getTargetsInPackage(getOriginalPattern(), packageIdentifier, rulesOnly)
+              .getTargets());
     }
 
     @Override
