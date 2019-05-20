@@ -844,9 +844,10 @@ public final class RuleContext extends TargetContext
             attributeDefinition
                 .getTransitionFactory()
                 .create(
-                    AttributeTransitionData.create(
-                        ConfiguredAttributeMapper.of(rule, configConditions),
-                        getToolchainContext().executionPlatform().label()));
+                    AttributeTransitionData.builder()
+                        .attributes(ConfiguredAttributeMapper.of(rule, configConditions))
+                        .executionPlatform(getToolchainContext().executionPlatform().label())
+                        .build());
     BuildOptions fromOptions = getConfiguration().getOptions();
     List<BuildOptions> splitOptions = transition.split(fromOptions);
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
