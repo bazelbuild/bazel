@@ -1287,6 +1287,65 @@ EOF
   bazel build '@ext//:foo' || fail "expected success"
 }
 
+function test_cache_split() {
+  # Verify that the canonical_id is honored to logically split the cache
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="foo",
+  outs=["foo.txt"],
+  cmd="echo Hello World > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  zip ext.zip ext/*
+  rm -rf ext
+  sha256=$(sha256sum ext.zip | head -c 64)
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${WRKDIR}/ext.zip"],
+  canonical_id = "canonical_ext_zip",
+  sha256="${sha256}",
+)
+EOF
+  # Use the external repository once to make sure it is cached.
+  bazel build '@ext//:foo' || fail "expected success"
+
+  # Now "go offline" and clean local resources.
+  rm -f "${WRKDIR}/ext.zip"
+  bazel clean --expunge
+
+  # Still, the file should be cached.
+  bazel build '@ext//:foo' || fail "expected success"
+
+  # Now, change the canonical_id
+  ed WORKSPACE <<'EOF'
+/canonical_id
+s|"|"modified_
+w
+q
+EOF
+  # The build should fail now
+  bazel build '@ext//:foo' && fail "should not have a cache hit now" || :
+
+  # However, removing the canonical_id, we should get a cache hit again
+  ed WORKSPACE <<'EOF'
+/canonical_id
+d
+w
+q
+EOF
+  bazel build '@ext//:foo' || fail "expected success"
+}
+
 function test_cache_disable {
   # Verify that the repository cache can be disabled.
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
