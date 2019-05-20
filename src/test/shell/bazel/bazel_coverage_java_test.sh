@@ -54,9 +54,7 @@ http_archive(
 EOF
     fi
 
-    ls -R ${testdata_path}
-    jdk_http_archives_file="${testdata_path}/jdk_http_archives"
-    cat ${jdk_http_archives_file} >> WORKSPACE
+    cat "${testdata_path}/jdk_http_archives" >> WORKSPACE
 }
 
 # Asserts if the given expected coverage result is included in the given output

@@ -159,6 +159,7 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
 )
 
@@ -185,6 +186,7 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
 )
 
@@ -212,6 +214,7 @@ JAVA_VERSIONS = ("9", "10", "11")
             ":test-deps",
             "//src:java_tools_java" + java_version + "_zip",
             "@bazel_tools//tools/bash/runfiles",
+            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
     )
     for java_version in JAVA_VERSIONS
@@ -238,6 +241,7 @@ JAVA_VERSIONS = ("9", "10", "11")
         data = [
             ":test-deps",
             "@bazel_tools//tools/bash/runfiles",
+            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
         # This test is only run by the java_tools binaries pipeline.
         tags = ["manual"],
@@ -386,7 +390,10 @@ sh_test(
     sh_test(
         name = "bazel_coverage_java_jdk" + java_version + "toolchain_released_test",
         srcs = ["bazel_coverage_java_test.sh"],
-        data = [":test-deps"],
+        data = [
+            ":test-deps",
+            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+        ],
         args = select({
             "//src/conditions:darwin": ["@remote_java_tools_javac" + java_version + "_test_darwin//:toolchain"],
             "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac" + java_version + "_test_darwin//:toolchain"],
@@ -429,10 +436,11 @@ sh_test(
         data = [
             ":test-deps",
             "//src:java_tools_java" + java_version + "_zip",
+            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
-	tags = [
-	   "no_windows",
-	],
+	    tags = [
+	        "no_windows",
+	    ],
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -440,7 +448,6 @@ sh_test(
 sh_test(
     name = "bazel_coverage_sh_test",
     srcs = ["bazel_coverage_sh_test.sh"],
-
     data = [":test-deps"],
     tags = [
         "no_windows",
