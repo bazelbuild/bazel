@@ -54,7 +54,7 @@ http_archive(
 EOF
     fi
 
-    cat "${testdata_path}/jdk_http_archives" >> WORKSPACE
+    cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
 # Asserts if the given expected coverage result is included in the given output

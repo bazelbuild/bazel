@@ -90,7 +90,7 @@ http_archive(
 EOF
     fi
 
-    cat "${testdata_path}/jdk_http_archives" >> WORKSPACE
+    cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
 function write_hello_library_files() {
