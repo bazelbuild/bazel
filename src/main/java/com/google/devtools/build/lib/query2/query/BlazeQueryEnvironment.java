@@ -19,10 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -79,7 +77,7 @@ import java.util.Set;
  */
 public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
-  private final Map<String, Set<Target>> resolvedTargetPatterns = new HashMap<>();
+  private final Map<String, Collection<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternPreloader targetPatternPreloader;
   private final PathFragment relativeWorkingDirectory;
   private final TransitivePackageLoader transitivePackageLoader;
@@ -173,7 +171,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // We can safely ignore the boolean error flag. The evaluateQuery() method above wraps the
     // entire query computation in an error sensor.
 
-    Set<Target> targets = resolvedTargetPatterns.get(pattern);
+    Collection<Target> targets = resolvedTargetPatterns.get(pattern);
 
     // Sets.filter would be more convenient here, but can't deal with exceptions.
     if (labelFilter != Predicates.<Label>alwaysTrue()) {
@@ -473,10 +471,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
       // being called from within a SkyFunction.
       resolvedTargetPatterns.putAll(
-          Maps.transformValues(
-              targetPatternPreloader.preloadTargetPatterns(
-                  eventHandler, relativeWorkingDirectory, patterns, keepGoing, useForkJoinPool),
-              ResolvedTargets::getTargets));
+          targetPatternPreloader.preloadTargetPatterns(
+              eventHandler, relativeWorkingDirectory, patterns, keepGoing, useForkJoinPool));
     }
   }
 

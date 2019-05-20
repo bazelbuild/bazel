@@ -17,6 +17,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+load(":armeabi_cc_toolchain_config.bzl", "armeabi_cc_toolchain_config")
 load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
 
 licenses(["notice"])  # Apache 2.0
@@ -98,11 +99,7 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
-cc_toolchain_config(
-    name = "stub_armeabi-v7a",
-    cpu = "armeabi-v7a",
-    compiler = "compiler",
-)
+armeabi_cc_toolchain_config(name = "stub_armeabi-v7a")
 
 toolchain(
     name = "cc-toolchain-armeabi-v7a",

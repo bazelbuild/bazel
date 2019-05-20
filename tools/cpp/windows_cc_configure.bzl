@@ -20,8 +20,6 @@ load(
     "auto_configure_warning",
     "escape_string",
     "execute",
-    "get_env_var",
-    "get_starlark_list",
     "is_cc_configure_debug",
     "resolve_labels",
 )
@@ -83,22 +81,9 @@ def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False
             tool_path[tool] = tool_bin_path + "/" + tool
         else:
             tool_path[tool] = "msys_gcc_installation_error.bat"
-    tool_paths = (
-        '        tool_path (name= "ar", path= "%s"),\n' % tool_path["ar"] +
-        '        tool_path (name= "compat-ld", path= "%s"),\n' % tool_path["ld"] +
-        '        tool_path (name= "cpp", path= "%s"),\n' % tool_path["cpp"] +
-        '        tool_path (name= "dwp", path= "%s"),\n' % tool_path["dwp"] +
-        '        tool_path (name= "gcc", path= "%s"),\n' % tool_path["gcc"] +
-        '        tool_path (name= "gcov", path= "%s"),\n' % tool_path["gcov"] +
-        '        tool_path (name= "ld", path= "%s"),\n' % tool_path["ld"] +
-        '        tool_path (name= "nm", path= "%s"),\n' % tool_path["nm"] +
-        '        tool_path (name= "objcopy", path= "%s"),\n' % tool_path["objcopy"] +
-        '        tool_path (name= "objdump", path= "%s"),\n' % tool_path["objdump"] +
-        '        tool_path (name= "strip", path= "%s"),\n' % tool_path["strip"]
-    )
+    tool_paths = ",\n        ".join(['"%s": "%s"' % (k, v) for k, v in tool_path.items()])
     include_directories = ('        "%s/",\n        ' % tool_path_prefix) if msys_root else ""
-    artifact_name_patterns = '        artifact_name_pattern(category_name="executable", prefix="", extension=".exe"),'
-    return tool_paths, tool_bin_path, include_directories, artifact_name_patterns
+    return tool_paths, tool_bin_path, include_directories
 
 def _get_system_root(repository_ctx):
     """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
@@ -400,13 +385,21 @@ def _get_clang_version(repository_ctx, clang_cl):
 def configure_windows_toolchain(repository_ctx):
     """Configure C++ toolchain on Windows."""
     paths = resolve_labels(repository_ctx, [
-        "@bazel_tools//tools/cpp:BUILD.static.windows",
-        "@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl",
+        "@bazel_tools//tools/cpp:BUILD.windows.tpl",
+        "@bazel_tools//tools/cpp:windows_cc_toolchain_config.bzl",
+        "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
         "@bazel_tools//tools/cpp:msys_gcc_installation_error.bat",
     ])
 
-    repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.windows"], "BUILD")
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:windows_cc_toolchain_config.bzl"],
+        "windows_cc_toolchain_config.bzl",
+    )
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl"],
+        "armeabi_cc_toolchain_config.bzl",
+    )
     repository_ctx.symlink(
         paths["@bazel_tools//tools/cpp:msys_gcc_installation_error.bat"],
         "msys_gcc_installation_error.bat",
@@ -436,14 +429,13 @@ def configure_windows_toolchain(repository_ctx):
                 {"%{vc_error_message}": message},
             )
 
-    tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw, _ = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
-    tool_paths, tool_bin_path, inc_dir_msys, artifact_patterns = _get_escaped_windows_msys_starlark_content(repository_ctx)
+    tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
+    tool_paths, tool_bin_path, inc_dir_msys = _get_escaped_windows_msys_starlark_content(repository_ctx)
     if not vc_path or missing_tools:
         repository_ctx.template(
-            "cc_toolchain_config.bzl",
-            paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl"],
+            "BUILD",
+            paths["@bazel_tools//tools/cpp:BUILD.windows.tpl"],
             {
-                "%{toolchain_identifier}": "msys_x64",
                 "%{msvc_env_tmp}": "msvc_not_found",
                 "%{msvc_env_path}": "msvc_not_found",
                 "%{msvc_env_include}": "msvc_not_found",
@@ -452,35 +444,13 @@ def configure_windows_toolchain(repository_ctx):
                 "%{msvc_ml_path}": "vc_installation_error.bat",
                 "%{msvc_link_path}": "vc_installation_error.bat",
                 "%{msvc_lib_path}": "vc_installation_error.bat",
-                "%{msvc_cxx_builtin_include_directories}": "",
-                "%{msys_x64_mingw_cxx_content}": get_starlark_list(["-std=gnu++0x"]),
-                "%{msys_x64_mingw_link_content}": get_starlark_list(["-lstdc++"]),
-                "%{dbg_mode_debug}": "/DEBUG",
-                "%{fastbuild_mode_debug}": "/DEBUG",
-                "%{compile_content}": "",
-                "%{cxx_content}": get_starlark_list(["-std=gnu++0x"]),
-                "%{link_content}": get_starlark_list(["-lstdc++"]),
-                "%{opt_compile_content}": "",
-                "%{opt_link_content}": "",
-                "%{unfiltered_content}": "",
-                "%{dbg_compile_content}": "",
+                "%{dbg_mode_debug_flag}": "/DEBUG",
+                "%{fastbuild_mode_debug_flag}": "/DEBUG",
                 "%{cxx_builtin_include_directories}": inc_dir_msys,
                 "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
-                "%{coverage_feature}": "",
-                "%{use_coverage_feature}": "",
-                "%{supports_start_end_lib}": "",
-                "%{use_windows_features}": "windows_features + ",
-                "%{abi_version}": "local",
-                "%{abi_libc_version}": "local",
-                "%{builtin_sysroot}": "",
-                "%{compiler}": "msys-gcc",
-                "%{host_system_name}": "local",
-                "%{target_libc}": "msys",
-                "%{target_cpu}": "x64_windows",
-                "%{target_system_name}": "local",
+                "%{msvc_cxx_builtin_include_directories}": "",
                 "%{tool_paths}": tool_paths,
                 "%{mingw_tool_paths}": tool_paths_mingw,
-                "%{artifact_name_patterns}": artifact_patterns,
                 "%{tool_bin_path}": tool_bin_path,
                 "%{mingw_tool_bin_path}": tool_bin_path_mingw,
             },
@@ -528,10 +498,9 @@ def configure_windows_toolchain(repository_ctx):
     support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
 
     repository_ctx.template(
-        "cc_toolchain_config.bzl",
-        paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl"],
+        "BUILD",
+        paths["@bazel_tools//tools/cpp:BUILD.windows.tpl"],
         {
-            "%{toolchain_identifier}": "msys_x64",
             "%{msvc_env_tmp}": escaped_tmp_dir,
             "%{msvc_env_path}": escaped_paths,
             "%{msvc_env_include}": escaped_include_paths,
@@ -540,35 +509,13 @@ def configure_windows_toolchain(repository_ctx):
             "%{msvc_ml_path}": msvc_ml_path,
             "%{msvc_link_path}": link_path,
             "%{msvc_lib_path}": lib_path,
-            "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
-            "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
-            "%{msys_x64_mingw_cxx_content}": get_starlark_list(["-std=gnu++0x"]),
-            "%{msys_x64_mingw_link_content}": get_starlark_list(["-lstdc++"]),
-            "%{compile_content}": "",
-            "%{cxx_content}": get_starlark_list(["-std=gnu++0x"]),
-            "%{link_content}": get_starlark_list(["-lstdc++"]),
-            "%{opt_compile_content}": "",
-            "%{opt_link_content}": "",
-            "%{unfiltered_content}": "",
-            "%{dbg_compile_content}": "",
+            "%{dbg_mode_debug_flag}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
+            "%{fastbuild_mode_debug_flag}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
             "%{cxx_builtin_include_directories}": inc_dir_msys + ",\n        ".join(escaped_cxx_include_directories),
             "%{msvc_cxx_builtin_include_directories}": "        " + ",\n        ".join(escaped_cxx_include_directories),
             "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw + ",\n        ".join(escaped_cxx_include_directories),
-            "%{coverage_feature}": "",
-            "%{use_coverage_feature}": "",
-            "%{supports_start_end_lib}": "",
-            "%{use_windows_features}": "windows_features + ",
-            "%{abi_version}": "local",
-            "%{abi_libc_version}": "local",
-            "%{builtin_sysroot}": "",
-            "%{compiler}": "msys-gcc",
-            "%{host_system_name}": "local",
-            "%{target_libc}": "msys",
-            "%{target_cpu}": "x64_windows",
-            "%{target_system_name}": "local",
             "%{tool_paths}": tool_paths,
             "%{mingw_tool_paths}": tool_paths_mingw,
-            "%{artifact_name_patterns}": artifact_patterns,
             "%{tool_bin_path}": tool_bin_path,
             "%{mingw_tool_bin_path}": tool_bin_path_mingw,
         },

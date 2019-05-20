@@ -45,6 +45,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -191,7 +192,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public ResolvedTargets<Void> getTargetsInPackage(
+    public Collection<Void> getTargetsInPackage(
         String originalPattern, PackageIdentifier packageIdentifier, boolean rulesOnly)
         throws TargetParsingException, InterruptedException {
       FilteringPolicy policy =
@@ -199,15 +200,15 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       return getTargetsInPackage(originalPattern, packageIdentifier, policy);
     }
 
-    private ResolvedTargets<Void> getTargetsInPackage(
+    private Collection<Void> getTargetsInPackage(
         String originalPattern, PackageIdentifier packageIdentifier, FilteringPolicy policy)
         throws TargetParsingException, InterruptedException {
       try {
         Package pkg = packageProvider.getPackage(env.getListener(), packageIdentifier);
-        ResolvedTargets<Target> packageTargets =
+        Collection<Target> packageTargets =
             TargetPatternResolverUtil.resolvePackageTargets(pkg, policy);
         ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();
-        for (Target target : packageTargets.getTargets()) {
+        for (Target target : packageTargets) {
           builder.add(TransitiveTraversalValue.key(target.getLabel()));
         }
         ImmutableList<SkyKey> skyKeys = builder.build();
@@ -215,7 +216,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         if (env.valuesMissing()) {
           throw new MissingDepException();
         }
-        return ResolvedTargets.empty();
+        return ImmutableSet.of();
       } catch (NoSuchThingException e) {
         String message = TargetPatternResolverUtil.getParsingErrorMessage(
             "package contains errors", originalPattern);
