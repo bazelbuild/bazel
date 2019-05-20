@@ -21,6 +21,42 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+JAVA_TOOLCHAIN="$1"; shift
+add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
+
+JAVA_TOOLS_ZIP="$1"; shift
+if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
+    if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
+        JAVA_TOOLS_ZIP_FILE_URL="${JAVA_TOOLS_ZIP}"
+    else
+        JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+    fi
+fi
+JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
+
+if [[ $# -gt 0 ]]; then
+    JAVABASE_VALUE="$1"; shift
+    add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
+fi
+
+function set_up() {
+    cat >>WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+# java_tools versions only used to test Bazel with various JDK toolchains.
+EOF
+
+    if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
+    cat >>WORKSPACE <<EOF
+http_archive(
+    name = "local_java_tools",
+    urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
+EOF
+    fi
+
+    cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+}
+
 # Asserts if the given expected coverage result is included in the given output
 # file.
 #
