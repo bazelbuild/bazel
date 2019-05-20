@@ -455,6 +455,7 @@ blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
 blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     const vector<string>& args, const string& workspace, const string& cwd,
     string* error) {
+  assert(!parse_options_called_);
   parse_options_called_ = true;
   cmd_line_ = SplitCommandLine(args, error);
   if (cmd_line_ == nullptr) {
