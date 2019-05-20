@@ -1444,7 +1444,7 @@ genrule(
         ":testdata",
         # Depend on Jacoco runtime in case testdata was built with coverage
         # instrumentation
-        "//third_party/java/jacoco:blaze-agent",
+        "//third_party/java/jacoco:blaze-agent-0.8.3",
         "@bazel_tools//tools/android:android_jar",
     ],
     outs = ["testdata_desugared_for_try_with_resources.jar"],
