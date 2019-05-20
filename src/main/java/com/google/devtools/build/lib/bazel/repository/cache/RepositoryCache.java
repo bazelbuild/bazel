@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.cache;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashFunction;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -75,6 +78,7 @@ public class RepositoryCache {
   // Rename cached files to this value to simplify lookup.
   public static final String DEFAULT_CACHE_FILENAME = "file";
   public static final String TMP_PREFIX = "tmp-";
+  public static final String ID_PREFIX = "id-";
 
   @Nullable private Path repositoryCachePath;
   @Nullable private Path contentAddressablePath;
@@ -113,6 +117,21 @@ public class RepositoryCache {
         .exists();
   }
 
+  boolean hasCanonicalId(String cacheKey, KeyType keyType, String canonicalId) {
+    Preconditions.checkState(isEnabled());
+    String idHash = keyType.newHasher().putString(canonicalId, UTF_8).hash().toString();
+    return keyType
+        .getCachePath(contentAddressablePath)
+        .getChild(cacheKey)
+        .getChild(ID_PREFIX + idHash)
+        .exists();
+  }
+
+  public synchronized Path get(String cacheKey, Path targetPath, KeyType keyType)
+      throws IOException {
+    return get(cacheKey, targetPath, keyType, null);
+  }
+
   /**
    * Copy or hardlink cached value to a specified directory, if it exists.
    *
@@ -123,13 +142,15 @@ public class RepositoryCache {
    * @param cacheKey The string key to cache the value by.
    * @param targetPath The path where the cache value should be copied to.
    * @param keyType The type of key used. See: KeyType
+   * @param canonicalId If set to a non-empty string, restrict cache hits to those cases, where the
+   *     entry with the given cacheKey was added with this String given.
    * @return The Path value where the cache value has been copied to. If cache value does not exist,
    *     return null.
    * @throws IOException
    */
   @Nullable
-  public synchronized Path get(String cacheKey, Path targetPath, KeyType keyType)
-      throws IOException {
+  public synchronized Path get(
+      String cacheKey, Path targetPath, KeyType keyType, String canonicalId) throws IOException {
     Preconditions.checkState(isEnabled());
 
     assertKeyIsValid(cacheKey, keyType);
@@ -148,6 +169,12 @@ public class RepositoryCache {
           + "Please delete the directory " + cacheEntry + " and try again.");
     }
 
+    if (!Strings.isNullOrEmpty(canonicalId)) {
+      if (!hasCanonicalId(cacheKey, keyType, canonicalId)) {
+        return null;
+      }
+    }
+
     FileSystemUtils.createDirectoryAndParents(targetPath.getParentDirectory());
     if (useHardlinks) {
       FileSystemUtils.createHardLink(targetPath, cacheValue);
@@ -164,16 +191,23 @@ public class RepositoryCache {
     return targetPath;
   }
 
+  public synchronized void put(String cacheKey, Path sourcePath, KeyType keyType)
+      throws IOException {
+    put(cacheKey, sourcePath, keyType, null);
+  }
+
   /**
    * Copies a value from a specified path into the cache.
    *
    * @param cacheKey The string key to cache the value by.
    * @param sourcePath The path of the value to be cached.
    * @param keyType The type of key used. See: KeyType
+   * @param canonicalId If set to a non-empty String associate the file with this name, allowing
+   *     restricted cache lookups later.
    * @throws IOException
    */
-  public synchronized void put(String cacheKey, Path sourcePath, KeyType keyType)
-    throws IOException {
+  public synchronized void put(
+      String cacheKey, Path sourcePath, KeyType keyType, String canonicalId) throws IOException {
     Preconditions.checkState(isEnabled());
 
     assertKeyIsValid(cacheKey, keyType);
@@ -185,6 +219,18 @@ public class RepositoryCache {
     FileSystemUtils.createDirectoryAndParents(cacheEntry);
     FileSystemUtils.copyFile(sourcePath, tmpName);
     FileSystemUtils.moveFile(tmpName, cacheValue);
+
+    if (!Strings.isNullOrEmpty(canonicalId)) {
+      byte[] canonicalIdBytes = canonicalId.getBytes(UTF_8);
+      String idHash = keyType.newHasher().putBytes(canonicalIdBytes).hash().toString();
+      OutputStream idStream = cacheEntry.getRelative(ID_PREFIX + idHash).getOutputStream();
+      idStream.write(canonicalIdBytes);
+      idStream.close();
+    }
+  }
+
+  public synchronized String put(Path sourcePath, KeyType keyType) throws IOException {
+    return put(sourcePath, keyType, null);
   }
 
   /**
@@ -192,12 +238,15 @@ public class RepositoryCache {
    *
    * @param sourcePath The path of the value to be cached.
    * @param keyType The type of key to be used.
+   * @param canonicalId If set to a non-empty String associate the file with this name, allowing
+   *     restricted cache lookups later.
    * @throws IOException
    * @return The key for the cached entry.
    */
-  public synchronized String put(Path sourcePath, KeyType keyType) throws IOException {
+  public synchronized String put(Path sourcePath, KeyType keyType, String canonicalId)
+      throws IOException {
     String cacheKey = getChecksum(keyType, sourcePath);
-    put(cacheKey, sourcePath, keyType);
+    put(cacheKey, sourcePath, keyType, canonicalId);
     return cacheKey;
   }
 
