@@ -90,6 +90,7 @@ public class HttpDownloader {
   public Path download(
       List<URL> urls,
       String sha256,
+      String canonicalId,
       Optional<String> type,
       Path output,
       ExtendedEventHandler eventHandler,
@@ -132,7 +133,8 @@ public class HttpDownloader {
         isCachingByProvidedSha256 = true;
 
         try {
-          Path cachedDestination = repositoryCache.get(sha256, destination, KeyType.SHA256);
+          Path cachedDestination =
+              repositoryCache.get(sha256, destination, KeyType.SHA256, canonicalId);
           if (cachedDestination != null) {
             // Cache hit!
             eventHandler.post(new RepositoryCacheHitEvent(repo, sha256, mainUrl));
@@ -168,7 +170,7 @@ public class HttpDownloader {
           if (match) {
             if (isCachingByProvidedSha256) {
               try {
-                repositoryCache.put(sha256, candidate, KeyType.SHA256);
+                repositoryCache.put(sha256, candidate, KeyType.SHA256, canonicalId);
               } catch (IOException e) {
                 eventHandler.handle(
                     Event.warn("Failed to copy " + candidate + " to repository cache: " + e));
@@ -212,9 +214,9 @@ public class HttpDownloader {
     }
 
     if (isCachingByProvidedSha256) {
-      repositoryCache.put(sha256, destination, KeyType.SHA256);
+      repositoryCache.put(sha256, destination, KeyType.SHA256, canonicalId);
     } else if (repositoryCache.isEnabled()) {
-      String newSha256 = repositoryCache.put(destination, KeyType.SHA256);
+      String newSha256 = repositoryCache.put(destination, KeyType.SHA256, canonicalId);
       eventHandler.handle(Event.info("SHA256 (" + urls.get(0) + ") = " + newSha256));
     }
 

@@ -459,6 +459,7 @@ public class SkylarkRepositoryContext
       String sha256,
       Boolean executable,
       Boolean allowFail,
+      String canonicalId,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
@@ -480,6 +481,7 @@ public class SkylarkRepositoryContext
           httpDownloader.download(
               urls,
               sha256,
+              canonicalId,
               Optional.<String>absent(),
               outputPath.getPath(),
               env.getListener(),
@@ -558,6 +560,7 @@ public class SkylarkRepositoryContext
       String type,
       String stripPrefix,
       Boolean allowFail,
+      String canonicalId,
       Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
@@ -588,6 +591,7 @@ public class SkylarkRepositoryContext
           httpDownloader.download(
               urls,
               sha256,
+              canonicalId,
               Optional.of(type),
               outputPath.getPath(),
               env.getListener(),

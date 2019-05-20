@@ -360,6 +360,14 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             doc =
                 "If set, indicate the error in the return value"
                     + " instead of raising an error for failed downloads"),
+        @Param(
+            name = "canonical_id",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "If set, restrict cache hits to those cases where the file was added to the cache"
+                    + " with the same canonical id"),
       })
   public StructApi download(
       Object url,
@@ -367,6 +375,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String sha256,
       Boolean executable,
       Boolean allowFail,
+      String canonicalId,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
@@ -486,6 +495,14 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             doc =
                 "If set, indicate the error in the return value"
                     + " instead of raising an error for failed downloads"),
+        @Param(
+            name = "canonical_id",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "If set, restrict cache hits to those cases where the file was added to the cache"
+                    + " with the same canonical id"),
       })
   public StructApi downloadAndExtract(
       Object url,
@@ -494,6 +511,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String type,
       String stripPrefix,
       Boolean allowFail,
+      String canonicalId,
       Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 }
