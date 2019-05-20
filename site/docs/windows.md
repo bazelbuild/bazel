@@ -140,17 +140,19 @@ To build C++ targets, you need:
         [known issue](https://github.com/bazelbuild/bazel/issues/3949),
         please upgrade your VS 2017 to the latest version.
 
-*   The `BAZEL_VS` or `BAZEL_VC` environment variable. (They are *not* the same!)
+*   The `BAZEL_VS` , `BAZEL_VC` and `BAZEL_VC_FULL_VERSION` environment variable. (They are *not* the same!)
 
     Bazel tries to locate the C++ compiler the first time you build any
-    target. To tell Bazel where the compiler is, you can set one of the
+    target. To tell Bazel where the compiler is, we provide the
     following environment variables:
 
     *   `BAZEL_VS` storing the Visual Studio installation directory
 
     *   `BAZEL_VC` storing the Visual C++ Build Tools installation directory
 
-    Setting one of these variables is enough. For example:
+    *   `BAZEL_VC_FULL_VERSION` Only for Visual Studio 2017 & 2019, the full version number of your Visual C++ Build Tools
+
+    For Visual Studio 2015 or older, setting one of `BAZEL_VC` or `BAZEL_VS` is enough.
 
     ```
     set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio 14.0
@@ -165,7 +167,9 @@ To build C++ targets, you need:
     The first command sets the path to Visual Studio (BAZEL\_V<b>S</b>), the other
     sets the path to Visual C++ (BAZEL\_V<b>C</b>).
 
-    For Visual Studio 2017, with a default install, instead you might want
+    For Visual Studio 2017 & 2019, besides setting one of `BAZEL_VC` or `BAZEL_VS`, you can specify
+    the full version number of your Visual C++ Build Tools via `BAZEL_VC_FULL_VERSION` if more than
+    one version are installed, otherwise Bazel will choose the latest version.
 
     ```
     set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools
@@ -175,6 +179,12 @@ To build C++ targets, you need:
 
      ```
     set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC
+    ```
+
+    and to specify the exact Visual C++ Build Tools version:
+
+    ```
+    set BAZEL_VC_FULL_VERSION=14.16.27023
     ```
 
 *   The [Windows
