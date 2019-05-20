@@ -52,7 +52,7 @@ public class BranchDetailAnalyzer extends Analyzer {
   public void analyzeClass(final ClassReader reader) {
     final Map<Integer, BranchExp> lineToBranchExp = mapProbes(reader);
 
-    long classid = CRC64.checksum(reader.b);
+    long classid = CRC64.classId(reader.b);
     ExecutionData classData = executionData.get(classid);
     if (classData == null) {
       return;
