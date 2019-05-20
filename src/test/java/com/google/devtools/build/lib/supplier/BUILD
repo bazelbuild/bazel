@@ -9,14 +9,21 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-java_test(
-    name = "MemoizingInterruptibleSupplierTest",
-    size = "small",
-    srcs = ["MemoizingInterruptibleSupplierTest.java"],
+java_library(
+    name = "supplier_tests",
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/supplier",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
     ],
+)
+
+java_test(
+    name = "SupplierTests",
+    size = "small",
+    test_class = "com.google.devtools.build.lib.supplier.AllTests",
+    runtime_deps = [":supplier_tests"],
 )
