@@ -14,12 +14,24 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.INTEGER;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Converters.IntegerConverter;
+import com.google.devtools.common.options.Converters.StringConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
@@ -32,6 +44,21 @@ import java.util.Map;
  * domain-specific (i.e. aren't consumed within a single {@link FragmentOptions}).
  */
 public class CoreOptionConverters {
+
+  /**
+   * The set of converters used for {@link com.google.devtools.build.lib.packages.BuildSetting}
+   * value parsing.
+   */
+  public static final ImmutableMap<Type<?>, Converter<?>> BUILD_SETTING_CONVERTERS =
+      new ImmutableMap.Builder<Type<?>, Converter<?>>()
+          .put(INTEGER, new IntegerConverter())
+          .put(BOOLEAN, new BooleanConverter())
+          .put(STRING, new StringConverter())
+          .put(STRING_LIST, new CommaSeparatedOptionListConverter())
+          .put(LABEL, new LabelConverter())
+          .put(LABEL_LIST, new LabelListConverter())
+          .build();
+
   /** A converter from strings to Labels. */
   public static class LabelConverter implements Converter<Label> {
     @Override

@@ -14,20 +14,14 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -43,10 +37,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Converters.BooleanConverter;
-import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.Converters.IntegerConverter;
-import com.google.devtools.common.options.Converters.StringConverter;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
@@ -65,16 +55,6 @@ public class StarlarkOptionsParser {
   private final PathFragment relativeWorkingDirectory;
   private final Reporter reporter;
   private final OptionsParser nativeOptionsParser;
-
-  private final ImmutableMap<Type<?>, Converter<?>> converters =
-      new ImmutableMap.Builder<Type<?>, Converter<?>>()
-          .put(INTEGER, new IntegerConverter())
-          .put(BOOLEAN, new BooleanConverter())
-          .put(STRING, new StringConverter())
-          .put(STRING_LIST, new CommaSeparatedOptionListConverter())
-          .put(LABEL, new LabelConverter())
-          .put(LABEL_LIST, new LabelListConverter())
-          .build();
 
   private StarlarkOptionsParser(
       SkyframeExecutor skyframeExecutor,
@@ -146,7 +126,7 @@ public class StarlarkOptionsParser {
             String.format("Unrecognized option: %s=%s", loadedFlag, unparsedValue));
       }
       Type<?> type = buildSetting.getType();
-      Converter<?> converter = converters.get(type);
+      Converter<?> converter = BUILD_SETTING_CONVERTERS.get(type);
       Object value;
       try {
         value = converter.convert(unparsedValue);
