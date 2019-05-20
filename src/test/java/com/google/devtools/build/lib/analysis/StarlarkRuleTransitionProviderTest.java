@@ -908,4 +908,39 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     assertThat(configuration.getOptions().get(TestOptions.class).testArguments)
         .containsExactly("post-transition");
   }
+
+  /**
+   * Regression test to ensure that an empty dict is not interpreted as a dict of dicts and
+   * generates the proper error message.
+   */
+  @Test
+  public void testEmptyReturnDict() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:test_arg'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "transition outputs [//command_line_option:test_arg] were "
+            + "not defined by transition function");
+  }
 }
