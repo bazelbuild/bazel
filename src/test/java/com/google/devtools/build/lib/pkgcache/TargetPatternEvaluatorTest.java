@@ -149,7 +149,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
       throws TargetParsingException, InterruptedException {
     ResolvedTargets<Target> result =
         parseTargetPatternList(parser, parsingListener, Arrays.asList(patterns), true);
-    assertThat(result.hasError()).isTrue();
     return targetsToLabels(result.getTargets());
   }
 
