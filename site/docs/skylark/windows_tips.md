@@ -249,8 +249,16 @@ Solutions:
 <!--
 TODO:
 - runfiles, runfiles libraries, -nolegacy_external_runfiles
+- runfiles envvars, runfiles manifest structure
+- avoid using runfiles for things that could be inputs
+- whether to use runfiles manifest on non-windows
+- how to patch tools that expect to read from the filesystem to do a lookup through the manifest file instead (including helpers in many languages)
+- how this applies in tests as well that rely on $TEST_SRCDIR
 - unzip is slow
 - cmd.exe has 8k command length limit
 - put paths in envvars instead of args
 - put cmd.exe commands in .bat files
+- use ctx.resolve_tools instead of ctx.resolve_command (Bash dep)
+- how to run cmd.exe actions (maybe I should write a genrule-like rule for these)
+
 -->
