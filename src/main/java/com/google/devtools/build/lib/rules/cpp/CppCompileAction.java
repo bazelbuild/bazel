@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -1695,44 +1694,17 @@ public class CppCompileAction extends AbstractAction
         // executed spawn.
         dotDContents = getDotDContents(spawnResults.get(0));
       } catch (ExecException e) {
-        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
-          closeSuppressed(e, spawnExecutionContext.getFileOutErr());
-        }
+        copyTempOutErrToActionOutErr();
         throw e.toActionExecutionException(
             "C++ compilation of rule '" + getOwner().getLabel() + "'",
             actionExecutionContext.getVerboseFailures(),
             CppCompileAction.this);
       } catch (InterruptedException e) {
-        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
-          closeSuppressed(e, spawnExecutionContext.getFileOutErr());
-        }
+        copyTempOutErrToActionOutErr();
         throw e;
       }
 
-      // If parse_showincludes feature is enabled, instead of parsing dotD file we parse the
-      // output of cl.exe caused by /showIncludes option.
-      if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
-        try {
-          FileOutErr tempOutErr = spawnExecutionContext.getFileOutErr();
-          FileOutErr outErr = actionExecutionContext.getFileOutErr();
-          tempOutErr.close();
-          if (tempOutErr.hasRecordedStdout()) {
-            try (InputStream in = tempOutErr.getOutputPath().getInputStream()) {
-              ByteStreams.copy(
-                  in,
-                  showIncludesFilterForStdout.getFilteredOutputStream(outErr.getOutputStream()));
-            }
-          }
-          if (tempOutErr.hasRecordedStderr()) {
-            try (InputStream in = tempOutErr.getErrorPath().getInputStream()) {
-              ByteStreams.copy(
-                  in, showIncludesFilterForStderr.getFilteredOutputStream(outErr.getErrorStream()));
-            }
-          }
-        } catch (IOException e) {
-          throw printIOExceptionAndConvertToActionExecutionException(actionExecutionContext, e);
-        }
-      }
+      copyTempOutErrToActionOutErr();
 
       ensureCoverageNotesFilesExist(actionExecutionContext);
 
@@ -1784,11 +1756,30 @@ public class CppCompileAction extends AbstractAction
       return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
     }
 
-    private void closeSuppressed(Exception e, Closeable closeable) {
-      try {
-        closeable.close();
-      } catch (IOException e2) {
-        e.addSuppressed(e2);
+    private void copyTempOutErrToActionOutErr() throws ActionExecutionException {
+      // If parse_showincludes feature is enabled, instead of parsing dotD file we parse the
+      // output of cl.exe caused by /showIncludes option.
+      if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+        try {
+          FileOutErr tempOutErr = spawnExecutionContext.getFileOutErr();
+          FileOutErr outErr = actionExecutionContext.getFileOutErr();
+          tempOutErr.close();
+          if (tempOutErr.hasRecordedStdout()) {
+            try (InputStream in = tempOutErr.getOutputPath().getInputStream()) {
+              ByteStreams.copy(
+                  in,
+                  showIncludesFilterForStdout.getFilteredOutputStream(outErr.getOutputStream()));
+            }
+          }
+          if (tempOutErr.hasRecordedStderr()) {
+            try (InputStream in = tempOutErr.getErrorPath().getInputStream()) {
+              ByteStreams.copy(
+                  in, showIncludesFilterForStderr.getFilteredOutputStream(outErr.getErrorStream()));
+            }
+          }
+        } catch (IOException e) {
+          throw printIOExceptionAndConvertToActionExecutionException(actionExecutionContext, e);
+        }
       }
     }
   }

@@ -504,5 +504,23 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testCppErrorShouldBeVisible(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "bad",',
+        '  srcs = ["bad.cc"],',
+        ')',
+    ])
+    self.ScratchFile('bad.cc', [
+        'int main(int argc, char** argv) {',
+        '  this_is_an_error();',
+        '}',
+    ])
+    exit_code, stdout, stderr = self.RunBazel(['build', '//:bad'])
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('this_is_an_error', ''.join(stdout))
+
+
 if __name__ == '__main__':
   unittest.main()
