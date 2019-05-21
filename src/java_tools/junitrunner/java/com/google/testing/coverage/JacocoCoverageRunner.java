@@ -31,10 +31,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.URLDecoder;
+import java.security.SecureClassLoader;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -55,6 +58,7 @@ import org.jacoco.core.analysis.IBundleCoverage;
 import org.jacoco.core.tools.ExecFileLoader;
 import org.jacoco.report.IReportVisitor;
 import org.jacoco.report.ISourceFileLocator;
+import sun.misc.Unsafe;
 
 /**
  * Runner class used to generate code coverage report when using Jacoco offline instrumentation.
@@ -345,6 +349,36 @@ public class JacocoCoverageRunner {
     return convertedMetadataFiles.build();
   }
 
+  private static URL[] getUrls(ClassLoader classLoader) {
+    if (classLoader instanceof URLClassLoader) {
+      return ((URLClassLoader) classLoader).getURLs();
+    }
+
+    // java 9 and later
+    if (classLoader.getClass().getName().startsWith("jdk.internal.loader.ClassLoaders$")) {
+      try {
+        Field field = Unsafe.class.getDeclaredField("theUnsafe");
+        field.setAccessible(true);
+        Unsafe unsafe = (Unsafe) field.get(null);
+
+        // jdk.internal.loader.ClassLoaders.AppClassLoader.ucp
+        Field ucpField = classLoader.getClass().getDeclaredField("ucp");
+        long ucpFieldOffset = unsafe.objectFieldOffset(ucpField);
+        Object ucpObject = unsafe.getObject(classLoader, ucpFieldOffset);
+
+        // jdk.internal.loader.URLClassPath.path
+        Field pathField = ucpField.getType().getDeclaredField("path");
+        long pathFieldOffset = unsafe.objectFieldOffset(pathField);
+        ArrayList<URL> path = (ArrayList<URL>) unsafe.getObject(ucpObject, pathFieldOffset);
+
+        return path.toArray(new URL[path.size()]);
+      } catch (Exception e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   public static void main(String[] args) throws Exception {
     String metadataFile = System.getenv("JACOCO_METADATA_JAR");
 
@@ -353,23 +387,23 @@ public class JacocoCoverageRunner {
     final HashMap<String, byte[]> uninstrumentedClasses = new HashMap<>();
     ImmutableSet.Builder<String> pathsForCoverageBuilder = new ImmutableSet.Builder<>();
     ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-    if (classLoader instanceof URLClassLoader) {
-      URL[] urls = ((URLClassLoader) classLoader).getURLs();
+    URL[] urls = getUrls(classLoader);
+    if (urls != null) {
       metadataFiles = new File[urls.length];
       for (int i = 0; i < urls.length; i++) {
-        URL url = urls[i];
-        metadataFiles[i] = new File(url.getFile());
+        String file = URLDecoder.decode(urls[i].getFile(), "UTF-8");
+        metadataFiles[i] = new File(file);
         // Special case for when there is only one deploy jar on the classpath.
-        if (url.getFile().endsWith("_deploy.jar")) {
-          metadataFile = url.getFile();
+        if (file.endsWith("_deploy.jar")) {
+          metadataFile = file;
           deployJars++;
         }
-        if (url.getFile().endsWith(".jar")) {
+        if (file.endsWith(".jar")) {
           // Collect
           // - uninstrumented class files for coverage before starting the actual test
           // - paths considered for coverage
           // Collecting these in the shutdown hook is too expensive (we only have a 5s budget).
-          JarFile jarFile = new JarFile(url.getFile());
+          JarFile jarFile = new JarFile(file);
           Enumeration<JarEntry> jarFileEntries = jarFile.entries();
           while (jarFileEntries.hasMoreElements()) {
             JarEntry jarEntry = jarFileEntries.nextElement();
