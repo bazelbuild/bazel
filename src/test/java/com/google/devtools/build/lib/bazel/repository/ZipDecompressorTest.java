@@ -18,9 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.TestArchiveDescriptor.INNER_FOLDER_NAME;
 import static com.google.devtools.build.lib.bazel.repository.TestArchiveDescriptor.ROOT_FOLDER_NAME;
 
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -70,8 +68,7 @@ public class ZipDecompressorTest {
     archiveDescriptor.assertOutputFiles(outputDir, INNER_FOLDER_NAME);
   }
 
-  private Path decompress(DecompressorDescriptor.Builder descriptorBuilder)
-      throws IOException, RepositoryFunctionException {
+  private Path decompress(DecompressorDescriptor.Builder descriptorBuilder) throws Exception {
     descriptorBuilder.setDecompressor(ZipDecompressor.INSTANCE);
     return ZipDecompressor.INSTANCE.decompress(descriptorBuilder.build());
   }
