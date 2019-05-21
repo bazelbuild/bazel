@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/cpp/blaze_util_platform.h"
-
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -26,7 +24,6 @@
 #include <objbase.h>         // CoTaskMemFree
 #include <shlobj.h>          // SHGetKnownFolderPath
 #include <stdarg.h>          // va_start, va_end, va_list
-#include <versionhelpers.h>  // IsWindows8OrGreater
 
 #include <algorithm>
 #include <cstdio>
@@ -40,6 +37,7 @@
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
@@ -765,12 +763,6 @@ int ExecuteDaemon(const string& exe,
   CloseHandle(processInfo.hThread);
 
   return processInfo.dwProcessId;
-}
-
-// Returns whether nested jobs are not available on the current system.
-static bool NestedJobsSupported() {
-  // Nested jobs are supported from Windows 8
-  return IsWindows8OrGreater();
 }
 
 // Run the given program in the current working directory, using the given
