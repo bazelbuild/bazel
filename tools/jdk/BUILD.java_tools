@@ -59,7 +59,8 @@ java_toolchain(
         ":java_compiler_jar",
         ":jdk_compiler_jar",
     ],
-    jacocorunner = ":jacoco_coverage_runner"
+    # TODO(iirina): Re-enable this after #8378 is merged.
+    # jacocorunner = ":jacoco_coverage_runner"
 )
 
 filegroup(
