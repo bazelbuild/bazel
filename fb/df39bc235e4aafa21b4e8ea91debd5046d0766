@@ -1,0 +1,6 @@
+Incompatible changes:
+
+  - Flip --incompatible_windows_escape_jvm_flags to true. See
+    https://github.com/bazelbuild/bazel/issues/7486
+
+This release contains contributions from many people at Google, as well as George Gensure, Keith Smiley, Robert Sayre.
