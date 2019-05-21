@@ -78,7 +78,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\t\ts[0]",
             "def foo():",
-            "  s = depset()",
+            "  s = []",
             "  if s[0] == 1:",
             "    x = 1",
             "foo()");
@@ -249,7 +249,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("sorted([True, False, True])", "[False, True, True]")
         .testEval("sorted(['a','x','b','z'])", "[\"a\", \"b\", \"x\", \"z\"]")
         .testEval("sorted({1: True, 5: True, 4: False})", "[1, 4, 5]")
-        .testEval("sorted(depset([1, 5, 4]))", "[1, 4, 5]")
         .testIfExactError("Cannot compare function with function", "sorted([sorted, sorted])");
   }
 
@@ -637,8 +636,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("str(zip([1], {2: 'a'}))", "[(1, 2)]")
         .testStatement("str(zip([1], []))", "[]")
         .testIfErrorContains("type 'int' is not iterable", "zip(123)")
-        .testIfErrorContains("type 'int' is not iterable", "zip([1], 1)")
-        .testStatement("str(zip([1], depset([2])))", "[(1, 2)]");
+        .testIfErrorContains("type 'int' is not iterable", "zip([1], 1)");
   }
 
   /**
@@ -701,7 +699,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testTupleCoercion() throws Exception {
     new BothModesTest()
         .testStatement("tuple([1, 2]) == (1, 2)", true)
-        .testStatement("tuple(depset([1, 2])) == (1, 2)", true)
         // Depends on current implementation of dict
         .testStatement("tuple({1: 'foo', 2: 'bar'}) == (1, 2)", true);
   }

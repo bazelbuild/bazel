@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -248,6 +249,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @SuppressWarnings("unchecked")
   @Test
   public void testListComprehensionsWithNestedSet() throws Exception {
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+                .incompatibleDepsetIsNotIterable(false)
+                .build());
+    ev.initialize();
+
     Object result = eval("[x + x for x in depset([1, 2, 3])]");
     assertThat((Iterable<Object>) result).containsExactly(2, 4, 6).inOrder();
   }
@@ -706,8 +714,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  label_dict = {}",
         "  all = []",
         "  for dep in ruleContext.attr.srcs + ruleContext.attr.tools:",
-        "    all.extend(list(dep.files))",
-        "    label_dict[dep.label] = list(dep.files)",
+        "    all.extend(dep.files.to_list())",
+        "    label_dict[dep.label] = dep.files.to_list()",
         "  return ruleContext.resolve_command(",
         "    command='A$(locations //foo:mytool) B$(location //foo:file3.dat)',",
         "    attribute='cmd', expand_locations=True, label_dict=label_dict)",
@@ -3185,4 +3193,3 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
   }
 }
-
