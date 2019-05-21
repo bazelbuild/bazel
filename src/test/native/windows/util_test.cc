@@ -11,6 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include "src/main/native/windows/util.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
@@ -21,7 +26,6 @@
 #include <string>
 
 #include "gtest/gtest.h"
-#include "src/main/native/windows/util.h"
 
 #if !defined(_WIN32) && !defined(__CYGWIN__)
 #error("This test should only be run on Windows")
