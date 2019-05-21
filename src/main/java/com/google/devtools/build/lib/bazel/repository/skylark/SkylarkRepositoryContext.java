@@ -645,7 +645,8 @@ public class SkylarkRepositoryContext
     return StructProvider.STRUCT.createStruct(dict, null);
   }
 
-  private String calculateSha256(String originalSha, Path path) throws IOException {
+  private String calculateSha256(String originalSha, Path path)
+      throws IOException, InterruptedException {
     if (!Strings.isNullOrEmpty(originalSha)) {
       // The sha is checked on download, so if we got here, the user provided sha is good
       return originalSha;
@@ -685,11 +686,6 @@ public class SkylarkRepositoryContext
     }
 
     return result.build();
-  }
-
-  private static List<URL> getUrls(Object urlOrList)
-      throws RepositoryFunctionException, EvalException {
-    return getUrls(urlOrList, /* ensureNonEmpty= */ true);
   }
 
   private static List<URL> getUrls(Object urlOrList, boolean ensureNonEmpty)
