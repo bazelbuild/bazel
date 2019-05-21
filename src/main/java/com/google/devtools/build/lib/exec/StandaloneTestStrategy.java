@@ -323,7 +323,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     if (stat != null) {
       try {
         if (stat.getSize() > 0) {
-          Path stdOut = outErr.getErrorPath();
+          Path stdOut = outErr.getOutputPath();
           if (stdOut.exists()) {
             stdOut.setWritable(true);
           }
