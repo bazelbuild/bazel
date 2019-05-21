@@ -29,9 +29,13 @@
 
 #elif defined(_WIN32)
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include <stdio.h>
 #include <string.h>
-#include <windows.h>
 #define _diag_msg(prefix, msg, ...) \
   { fprintf(stderr, prefix msg "\n", __VA_ARGS__); }
 #define _diag_msgx(exit_value, prefix, msg, ...) \

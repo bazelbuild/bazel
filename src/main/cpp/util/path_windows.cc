@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include "src/main/cpp/util/path_platform.h"
+
+#include <windows.h>
 
 #include <assert.h>
 #include <wchar.h>  // wcslen
-#include <windows.h>
 
 #include <algorithm>
 #include <memory>  // unique_ptr

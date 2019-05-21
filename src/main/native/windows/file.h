@@ -14,6 +14,10 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_H_
 #define BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_H_
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <windows.h>
 
 #include <memory>
