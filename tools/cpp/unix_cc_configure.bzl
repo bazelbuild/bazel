@@ -72,14 +72,6 @@ def _get_value(it):
     else:
         return "\"%s\"" % it
 
-def _build_tool_path(d):
-    """Build the list of %-escaped tool_path for the CROSSTOOL file."""
-    return ["  tool_path { name: \"%s\" path: \"%s\" }" % (k, escape_string(d[k])) for k in d]
-
-def _build_tool_path_starlark(d):
-    """Build the list of %-escaped tool_path for the Starlark rule."""
-    return "\n".join(["        tool_path ( name= \"%s\", path= \"%s\" )," % (k, escape_string(d[k])) for k in d])
-
 def _find_tool(repository_ctx, tool, overriden_tools):
     """Find a tool for repository, taking overriden tools into account."""
     if tool in overriden_tools:
@@ -87,9 +79,9 @@ def _find_tool(repository_ctx, tool, overriden_tools):
     return which(repository_ctx, tool, "/usr/bin/" + tool)
 
 def _get_tool_paths(repository_ctx, overriden_tools):
-    """Compute the path to the various tools. Doesn't %-escape the result!"""
+    """Compute the %-escaped path to the various tools"""
     return dict({
-        k: _find_tool(repository_ctx, k, overriden_tools)
+        k: escape_string(_find_tool(repository_ctx, k, overriden_tools))
         for k in [
             "ar",
             "ld",
@@ -231,7 +223,7 @@ def get_env(repository_ctx):
     else:
         return ""
 
-def _coverage_feature(repository_ctx, darwin):
+def _coverage_flags(repository_ctx, darwin):
     use_llvm_cov = "1" == get_env_var(
         repository_ctx,
         "BAZEL_USE_LLVM_NATIVE_COVERAGE",
@@ -239,49 +231,14 @@ def _coverage_feature(repository_ctx, darwin):
         enable_warning = False,
     )
     if darwin or use_llvm_cov:
-        compile_flags = """flag_group (
-                    flags = ["-fprofile-instr-generate",  "-fcoverage-mapping"],
-                ),"""
-        link_flags = """flag_group (flags = ["-fprofile-instr-generate"]),"""
+        compile_flags = '"-fprofile-instr-generate",  "-fcoverage-mapping"'
+        link_flags = '"-fprofile-instr-generate"'
     else:
         # gcc requires --coverage being passed for compilation and linking
         # https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#Instrumentation-Options
-        compile_flags = """flag_group (flags = ["--coverage"]),"""
-        link_flags = """flag_group (flags = ["--coverage"]),"""
-
-    # Note that we also set --coverage for c++-link-nodeps-dynamic-library. The
-    # generated code contains references to gcov symbols, and the dynamic linker
-    # can't resolve them unless the library is linked against gcov.
-    return """
-    coverage_feature = feature (
-        name = "coverage",
-        provides = ["profile"],
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    ACTION_NAMES.cpp_module_compile,
-                ],
-                flag_groups = [
-                    """ + compile_flags + """
-                ],
-            ),
-            flag_set (
-                actions = [
-                    ACTION_NAMES.cpp_link_dynamic_library,
-                    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                    ACTION_NAMES.cpp_link_executable,
-                ],
-                flag_groups = [
-                    """ + link_flags + """
-                ],
-            ),
-        ],
-    )
-"""
+        compile_flags = '"--coverage"'
+        link_flags = '"--coverage"'
+    return compile_flags, link_flags
 
 def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False, silent = False):
     """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
@@ -314,18 +271,20 @@ def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False,
 def find_cc(repository_ctx, overriden_tools):
     return _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
 
-def _feature(name, enabled):
-    return "  feature { name: '" + name + "' enabled: " + ("true" if enabled else "false") + " }"
-
 def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on Unix platforms."""
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.tpl",
         "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
-        "@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl",
+        "@bazel_tools//tools/cpp:unix_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl",
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
     ])
+
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:unix_cc_toolchain_config.bzl"],
+        "cc_toolchain_config.bzl",
+    )
 
     repository_ctx.symlink(
         paths["@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl"],
@@ -351,25 +310,12 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         overriden_tools["ar"] = "/usr/bin/libtool"
 
     tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
-    cc_toolchain_identifier = get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False)
-
-    repository_ctx.template(
-        "BUILD",
-        paths["@bazel_tools//tools/cpp:BUILD.tpl"],
-        {
-            "%{cc_toolchain_identifier}": cc_toolchain_identifier,
-            "%{name}": cpu_value,
-            "%{supports_param_files}": "0" if darwin else "1",
-            "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
-            "%{compiler}": get_env_var(
-                repository_ctx,
-                "BAZEL_COMPILER",
-                "compiler",
-                False,
-            ),
-            "%{target_cpu}": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False)),
-        },
-    )
+    cc_toolchain_identifier = escape_string(get_env_var(
+        repository_ctx,
+        "CC_TOOLCHAIN_NAME",
+        "local",
+        False,
+    ))
 
     cc_wrapper_src = (
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl" if darwin else "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl"
@@ -383,8 +329,18 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         },
     )
 
-    cxx_opts = split_escaped(get_env_var(repository_ctx, "BAZEL_CXXOPTS", "-std=c++0x", False), ":")
-    link_opts = split_escaped(get_env_var(repository_ctx, "BAZEL_LINKOPTS", "-lstdc++:-lm", False), ":")
+    cxx_opts = split_escaped(get_env_var(
+        repository_ctx,
+        "BAZEL_CXXOPTS",
+        "-std=c++0x",
+        False,
+    ), ":")
+    link_opts = split_escaped(get_env_var(
+        repository_ctx,
+        "BAZEL_LINKOPTS",
+        "-lstdc++:-lm",
+        False,
+    ), ":")
     supports_gold_linker = _is_gold_supported(repository_ctx, cc)
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
@@ -394,20 +350,61 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         # cc is inside the repository, don't set -B.
         bin_search_flag = []
 
+    coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
+
     repository_ctx.template(
-        "cc_toolchain_config.bzl",
-        paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl"],
+        "BUILD",
+        paths["@bazel_tools//tools/cpp:BUILD.tpl"],
         {
-            "%{toolchain_identifier}": escape_string(cc_toolchain_identifier),
-            "%{abi_version}": escape_string(get_env_var(repository_ctx, "ABI_VERSION", "local", False)),
-            "%{abi_libc_version}": escape_string(get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False)),
-            "%{builtin_sysroot}": "",
-            "%{compiler}": escape_string(get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False)),
-            "%{host_system_name}": escape_string(get_env_var(repository_ctx, "BAZEL_HOST_SYSTEM", "local", False)),
-            "%{target_libc}": "macosx" if darwin else escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False)),
-            "%{target_cpu}": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False)),
-            "%{target_system_name}": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False)),
-            "%{tool_paths}": _build_tool_path_starlark(tool_paths),
+            "%{cc_toolchain_identifier}": cc_toolchain_identifier,
+            "%{name}": cpu_value,
+            "%{supports_param_files}": "0" if darwin else "1",
+            "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
+            "%{compiler}": escape_string(get_env_var(
+                repository_ctx,
+                "BAZEL_COMPILER",
+                "compiler",
+                False,
+            )),
+            "%{abi_version}": escape_string(get_env_var(
+                repository_ctx,
+                "ABI_VERSION",
+                "local",
+                False,
+            )),
+            "%{abi_libc_version}": escape_string(get_env_var(
+                repository_ctx,
+                "ABI_LIBC_VERSION",
+                "local",
+                False,
+            )),
+            "%{host_system_name}": escape_string(get_env_var(
+                repository_ctx,
+                "BAZEL_HOST_SYSTEM",
+                "local",
+                False,
+            )),
+            "%{target_libc}": "macosx" if darwin else escape_string(get_env_var(
+                repository_ctx,
+                "BAZEL_TARGET_LIBC",
+                "local",
+                False,
+            )),
+            "%{target_cpu}": escape_string(get_env_var(
+                repository_ctx,
+                "BAZEL_TARGET_CPU",
+                cpu_value,
+                False,
+            )),
+            "%{target_system_name}": escape_string(get_env_var(
+                repository_ctx,
+                "BAZEL_TARGET_SYSTEM",
+                "local",
+                False,
+            )),
+            "%{tool_paths}": ",\n        ".join(
+                ['"%s": "%s"' % (k, v) for k, v in tool_paths.items()],
+            ),
             "%{cxx_builtin_include_directories}": get_starlark_list(
                 _uniq(
                     get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
@@ -426,7 +423,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     ),
                 ),
             ),
-            "%{compile_content}": get_starlark_list(
+            "%{compile_flags}": get_starlark_list(
                 [
                     # Security hardening requires optimization.
                     # We need to undef it as some distributions now have it enabled by default.
@@ -451,8 +448,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-fno-omit-frame-pointer",
                 ],
             ),
-            "%{cxx_content}": get_starlark_list(cxx_opts + _escaped_cplus_include_paths(repository_ctx)),
-            "%{link_content}": get_starlark_list((
+            "%{cxx_flags}": get_starlark_list(cxx_opts + _escaped_cplus_include_paths(repository_ctx)),
+            "%{link_flags}": get_starlark_list((
                 ["-fuse-ld=gold"] if supports_gold_linker else []
             ) + _add_linker_option_if_supported(
                 repository_ctx,
@@ -480,7 +477,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-pass-exit-codes",
                 )
             ) + link_opts),
-            "%{opt_compile_content}": get_starlark_list(
+            "%{opt_compile_flags}": get_starlark_list(
                 [
                     # No debug symbols.
                     # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
@@ -500,12 +497,13 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     # Disable assertions
                     "-DNDEBUG",
 
-                    # Removal of unused code and data at link time (can this increase binary size in some cases?).
+                    # Removal of unused code and data at link time (can this increase binary
+                    # size in some cases?).
                     "-ffunction-sections",
                     "-fdata-sections",
                 ],
             ),
-            "%{opt_link_content}": get_starlark_list(
+            "%{opt_link_flags}": get_starlark_list(
                 [] if darwin else _add_linker_option_if_supported(
                     repository_ctx,
                     cc,
@@ -513,7 +511,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-gc-sections",
                 ),
             ),
-            "%{unfiltered_content}": get_starlark_list(
+            "%{unfiltered_compile_flags}": get_starlark_list(
                 _get_no_canonical_prefixes_opt(repository_ctx, cc) + [
                     # Make C++ compilation deterministic. Use linkstamping instead of these
                     # compiler symbols.
@@ -523,9 +521,9 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-D__TIME__=\\\"redacted\\\"",
                 ],
             ),
-            "%{dbg_compile_content}": get_starlark_list(["-g"]),
-            "%{coverage_feature}": _coverage_feature(repository_ctx, darwin),
-            "%{use_coverage_feature}": "coverage_feature,",
-            "%{supports_start_end_lib}": "supports_start_end_lib_feature," if supports_gold_linker else "",
+            "%{dbg_compile_flags}": get_starlark_list(["-g"]),
+            "%{coverage_compile_flags}": coverage_compile_flags,
+            "%{coverage_link_flags}": coverage_link_flags,
+            "%{supports_start_end_lib}": "True" if supports_gold_linker else "False",
         },
     )
