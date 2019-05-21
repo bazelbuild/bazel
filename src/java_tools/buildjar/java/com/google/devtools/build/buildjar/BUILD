@@ -86,7 +86,7 @@ java_library(
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jacoco:core",
+        "//third_party/java/jacoco:core-0.8.3",
         "//third_party/java/jdk/langtools:javac",
     ],
 )
