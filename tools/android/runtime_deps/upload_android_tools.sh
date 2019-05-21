@@ -30,7 +30,7 @@
 set -euo pipefail
 
 # The version of android_tools.tar.gz
-VERSION="SNAPSHOT-DEV"
+VERSION="0.4rc1"
 VERSIONED_FILENAME="android_tools_pkg-$VERSION.tar.gz"
 
 # Create a temp directory to hold the versioned tarball, and clean it up when the script exits.
