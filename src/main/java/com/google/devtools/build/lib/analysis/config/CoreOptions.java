@@ -597,6 +597,46 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Instantiates build configurations with the specified properties")
   public ConfigsMode configsMode;
 
+  /** Values for --experimental_output_paths. */
+  public enum OutputPathsMode {
+    /** Use the production output path model. */
+    OFF,
+    /**
+     * Use <a href="https://github.com/bazelbuild/bazel/issues/6526#issuecomment-488103473">
+     * content-based paths</a>.
+     *
+     * <p>Rule implementations also have to individually opt into this. So this setting doesn't mean
+     * all outputs follow this. Non-opted-in outputs continue to use the production model.
+     *
+     * <p>Follow the above link for latest details on exact scope.
+     */
+    CONTENT,
+  }
+
+  /** Converter for --experimental_output_paths. */
+  public static class OutputPathsConverter extends EnumConverter<OutputPathsMode> {
+    public OutputPathsConverter() {
+      super(OutputPathsMode.class, "output path mode");
+    }
+  }
+
+  @Option(
+      name = "experimental_output_paths",
+      converter = OutputPathsConverter.class,
+      defaultValue = "off",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.EXECUTION
+      },
+      help =
+          "Which model to use for where in the output tree rules write their outputs, particularly "
+              + "for multi-platform / multi-configuration builds. This is highly experimental. See "
+              + "https://github.com/bazelbuild/bazel/issues/6526 for details.")
+  public OutputPathsMode outputPathsMode;
+
   @Option(
       name = "enable_runfiles",
       oldName = "experimental_enable_runfiles",
@@ -641,6 +681,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.configsMode = configsMode;
+    host.outputPathsMode = outputPathsMode;
     host.enableRunfiles = enableRunfiles;
     host.executionInfoModifier = executionInfoModifier;
     host.commandLineBuildVariables = commandLineBuildVariables;
