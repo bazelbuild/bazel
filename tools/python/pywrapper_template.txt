@@ -18,6 +18,13 @@ die() {
     exit 1
 }
 
+# Make sure PATH is exported. If we're called with PATH unset, as happens when
+# we're invoked as a tool during the build, the shell will initialize its own
+# PATH but not necessarily export it. This would break our call to `which`. See
+# https://github.com/bazelbuild/continuous-integration/issues/578 for more
+# information.
+export PATH
+
 # Try the "python%VERSION%" command name first, then fall back on "python".
 PYTHON_BIN=`which python%VERSION% || echo ""`
 USED_FALLBACK=0

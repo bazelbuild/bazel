@@ -52,17 +52,11 @@ case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*)
   # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
   declare -r is_windows=true
-  # As of 2019-04-26, this test is disabled on Windows (via "no_windows" tag),
+  # As of 2019-05-18, this test is disabled on Windows (via "no_windows" tag),
   # so this code shouldn't even have run.
-  # TODO(bazelbuild/continuous-integration#578): Enable this test for Windows.
+  # TODO(#7844): Enable this test for Windows once our autodetecting toolchain
+  # works transparently for this platform.
   fail "This test does not run on Windows."
-  ;;
-darwin*)
-  # As of 2019-04-26, this test is disabled on mac, but there's no "no_mac" tag
-  # so we just have to trivially succeed.
-  # TODO(bazelbuild/continuous-integration#578): Enable this test for Mac.
-  echo "This test does not run on Mac; exiting early." >&2
-  exit 0
   ;;
 *)
   declare -r is_windows=false
@@ -581,6 +575,60 @@ function test_default_output_root_is_bazel_bin() {
   expect_log "bazel-out/.*/bin"
   expect_not_log "bazel-out/.*-py2.*/bin"
   expect_not_log "bazel-out/.*-py3.*/bin"
+}
+
+# Regression test for (bazelbuild/continuous-integration#578): Ensure that a
+# py_binary built with the autodetecting toolchain works when used as a tool
+# from Starlark rule. In particular, the wrapper script that launches the real
+# second-stage interpreter must be able to tolerate PATH not being set.
+function test_py_binary_with_autodetecting_toolchain_usable_as_tool() {
+  mkdir -p test
+
+  cat > test/BUILD << 'EOF'
+load(":tooluser.bzl", "tooluser_rule")
+
+py_binary(
+    name = "tool",
+    srcs = ["tool.py"],
+)
+
+tooluser_rule(
+    name = "tooluser",
+    out = "out.txt",
+)
+EOF
+  cat > test/tooluser.bzl << EOF
+def _tooluser_rule_impl(ctx):
+    ctx.actions.run(
+        inputs = [],
+        outputs = [ctx.outputs.out],
+        executable = ctx.executable._tool,
+        arguments = [ctx.outputs.out.path],
+    )
+
+tooluser_rule = rule(
+    implementation = _tooluser_rule_impl,
+    attrs = {
+        "_tool": attr.label(
+            executable = True,
+            default = "//test:tool",
+            # cfg param is required but its value doesn't matter
+            cfg = "target"),
+        "out": attr.output(),
+    },
+)
+EOF
+  cat > test/tool.py << EOF
+import sys
+with open(sys.argv[1], 'wt') as out:
+    print("Tool output", file=out)
+EOF
+
+  bazel build //test:tooluser \
+      --incompatible_use_python_toolchains=true \
+      || fail "bazel build failed"
+  cat bazel-bin/test/out.txt &> $TEST_log
+  expect_log "Tool output"
 }
 
 run_suite "Tests for how the Python rules handle Python 2 vs Python 3"
