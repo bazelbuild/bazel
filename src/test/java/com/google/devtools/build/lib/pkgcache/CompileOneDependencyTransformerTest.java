@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -116,12 +117,12 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
 
   private ResolvedTargets<Target> parseListCompileOneDepWithOffset(
       PathFragment offset, String... patterns) throws TargetParsingException, InterruptedException {
-    Map<String, ResolvedTargets<Target>> resolvedTargetsMap =
+    Map<String, Collection<Target>> resolvedTargetsMap =
         parser.preloadTargetPatterns(
             reporter, offset, ImmutableSet.copyOf(patterns), false, /* useForkJoinPool= */ false);
     ResolvedTargets.Builder<Target> result = ResolvedTargets.builder();
     for (String pattern : patterns) {
-      result.merge(resolvedTargetsMap.get(pattern));
+      result.addAll(resolvedTargetsMap.get(pattern));
     }
     return transformer.transformCompileOneDependency(reporter, result.build());
   }

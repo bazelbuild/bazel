@@ -51,7 +51,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
   }
 
   @Override
-  public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
+  public Map<String, Collection<Target>> preloadTargetPatterns(
       ExtendedEventHandler eventHandler,
       PathFragment relativeWorkingDirectory,
       Collection<String> patterns,
@@ -59,13 +59,14 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
       boolean useForkJoinPool)
       throws TargetParsingException, InterruptedException {
     String offset = relativeWorkingDirectory.getPathString();
-    ImmutableMap.Builder<String, ResolvedTargets<Target>> resultBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, Collection<Target>> resultBuilder = ImmutableMap.builder();
     List<PatternLookup> patternLookups = new ArrayList<>();
     List<SkyKey> allKeys = new ArrayList<>();
     for (String pattern : patterns) {
+      Preconditions.checkArgument(!pattern.startsWith("-"));
       PatternLookup patternLookup = createPatternLookup(offset, eventHandler, pattern, keepGoing);
       if (patternLookup == null) {
-        resultBuilder.put(pattern, ResolvedTargets.failed());
+        resultBuilder.put(pattern, ImmutableSet.of());
       } else {
         patternLookups.add(patternLookup);
         allKeys.add(patternLookup.skyKey);
@@ -85,7 +86,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
       SkyValue resultValue = result.get(key);
       if (resultValue != null) {
         try {
-          ResolvedTargets<Target> resolvedTargets =
+          Collection<Target> resolvedTargets =
               patternLookup.process(eventHandler, resultValue, walkableGraph, keepGoing);
           resultBuilder.put(patternLookup.pattern, resolvedTargets);
         } catch (TargetParsingException e) {
@@ -95,7 +96,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
           eventHandler.handle(
               Event.error("Skipping '" + patternLookup.pattern + "': " + e.getMessage()));
           eventHandler.post(PatternExpandingError.skipped(patternLookup.pattern, e.getMessage()));
-          resultBuilder.put(patternLookup.pattern, ResolvedTargets.failed());
+          resultBuilder.put(patternLookup.pattern, ImmutableSet.of());
         }
       } else {
         String rawPattern = patternLookup.pattern;
@@ -124,7 +125,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
           eventHandler.post(PatternExpandingError.failed(patternLookup.pattern, errorMessage));
           throw new TargetParsingException(errorMessage);
         }
-        resultBuilder.put(patternLookup.pattern, ResolvedTargets.failed());
+        resultBuilder.put(patternLookup.pattern, ImmutableSet.of());
       }
     }
     return resultBuilder.build();
@@ -177,7 +178,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
       this.skyKey = skyKey;
     }
 
-    public abstract ResolvedTargets<Target> process(
+    public abstract Collection<Target> process(
         ExtendedEventHandler eventHandler,
         SkyValue value,
         WalkableGraph walkableGraph,
@@ -186,17 +187,15 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
   }
 
   private static class NormalLookup extends PatternLookup {
-    private final TargetPatternKey key;
     private final TargetPatternsResultBuilder resultBuilder;
 
     private NormalLookup(String targetPattern, TargetPatternKey key) {
       super(targetPattern, key);
-      this.key = key;
       this.resultBuilder = new TargetPatternsResultBuilder();
     }
 
     @Override
-    public ResolvedTargets<Target> process(
+    public Collection<Target> process(
         ExtendedEventHandler eventHandler,
         SkyValue value,
         WalkableGraph walkableGraph,
@@ -204,11 +203,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
         throws InterruptedException {
       TargetPatternValue resultValue = (TargetPatternValue) value;
       ResolvedTargets<Label> results = resultValue.getTargets();
-      if (key.isNegative()) {
-        resultBuilder.addLabelsOfNegativePattern(results);
-      } else {
-        resultBuilder.addLabelsOfPositivePattern(results);
-      }
+      resultBuilder.addLabelsOfPositivePattern(results);
       return resultBuilder.build(walkableGraph);
     }
   }
@@ -229,7 +224,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
     }
 
     @Override
-    public ResolvedTargets<Target> process(
+    public Collection<Target> process(
         ExtendedEventHandler eventHandler,
         SkyValue value,
         WalkableGraph walkableGraph,
@@ -243,14 +238,16 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
               eventHandler,
               FilteringPolicies.NO_FILTER,
               /* packageSemaphore= */ null);
-      AtomicReference<ResolvedTargets<Target>> result = new AtomicReference<>();
+      AtomicReference<Collection<Target>> result = new AtomicReference<>();
       targetPattern.eval(
           resolver,
           /*blacklistedSubdirectories=*/ ImmutableSet.<PathFragment>of(),
           /*excludedSubdirectories=*/ ImmutableSet.<PathFragment>of(),
           partialResult ->
               result.set(
-                  new ResolvedTargets<>(ImmutableSet.copyOf(partialResult), /*hasError=*/ false)),
+                  partialResult instanceof Collection
+                      ? (Collection<Target>) partialResult
+                      : ImmutableSet.copyOf(partialResult)),
           TargetParsingException.class);
       return result.get();
     }
