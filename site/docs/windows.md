@@ -140,42 +140,45 @@ To build C++ targets, you need:
         [known issue](https://github.com/bazelbuild/bazel/issues/3949),
         please upgrade your VS 2017 to the latest version.
 
-*   The `BAZEL_VS` or `BAZEL_VC` environment variable. (They are *not* the same!)
+*   The `BAZEL_VS`, `BAZEL_VC` and `BAZEL_VC_FULL_VERSION` environment variable.
 
     Bazel tries to locate the C++ compiler the first time you build any
-    target. To tell Bazel where the compiler is, you can set one of the
+    target. To tell Bazel where the compiler is, you can set the
     following environment variables:
 
-    *   `BAZEL_VS` storing the Visual Studio installation directory
+    For Visual Studio 2017 and 2019, set one of `BAZEL_VC` or `BAZEL_VS`. Additionally you may also set `BAZEL_VC_FULL_VERSION`.
 
-    *   `BAZEL_VC` storing the Visual C++ Build Tools installation directory
+    *   `BAZEL_VS` the Visual Studio installation directory
 
-    Setting one of these variables is enough. For example:
+        ```
+        set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools
+        ```
 
-    ```
-    set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio 14.0
-    ```
+    *   `BAZEL_VC` the Visual C++ Build Tools installation directory
+        ```
+        set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC
+        ```
 
-    or
+    *   `BAZEL_VC_FULL_VERSION` (Optional) Only for Visual Studio 2017 and 2019, the full version
+        number of your Visual C++ Build Tools. You can choose the exact Visual C++ Build Tools
+        version via `BAZEL_VC_FULL_VERSION` if more than one version are installed, otherwise Bazel
+        will choose the latest version.
+        ```
+        set BAZEL_VC_FULL_VERSION=14.16.27023
+        ```
 
-    ```
-    set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC
-    ```
+    For Visual Studio 2015 or older, set `BAZEL_VC` or `BAZEL_VS`. (`BAZEL_VC_FULL_VERSION` is not supported.)
 
-    The first command sets the path to Visual Studio (BAZEL\_V<b>S</b>), the other
-    sets the path to Visual C++ (BAZEL\_V<b>C</b>).
+    *   `BAZEL_VS` the Visual Studio installation directory
 
-    For Visual Studio 2017, with a default install, instead you might want
+        ```
+        set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio 14.0
+        ```
 
-    ```
-    set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools
-    ```
-
-    or
-
-     ```
-    set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC
-    ```
+    *   `BAZEL_VC` the Visual C++ Build Tools installation directory
+        ```
+        set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC
+        ```
 
 *   The [Windows
     SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).

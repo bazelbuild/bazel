@@ -251,10 +251,15 @@ def setup_vc_env_vars(repository_ctx, vc_path):
     vcvarsall = _find_vcvarsall_bat_script(repository_ctx, vc_path)
     if not vcvarsall:
         return None
+    vcvars_ver = ""
+    if _is_vs_2017_or_2019(vc_path):
+        full_version = _get_vc_full_version(repository_ctx, vc_path)
+        if full_version:
+            vcvars_ver = "-vcvars_ver=" + full_version
     repository_ctx.file(
         "get_env.bat",
         "@echo off\n" +
-        "call \"" + vcvarsall + "\" amd64 > NUL \n" +
+        ("call \"%s\" amd64 %s > NUL \n" % (vcvarsall, vcvars_ver)) +
         "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB%,WINDOWSSDKDIR=%WINDOWSSDKDIR% \n",
         True,
     )
@@ -269,28 +274,50 @@ def setup_vc_env_vars(repository_ctx, vc_path):
         env_map[key] = escape_string(value.replace("\\", "\\\\"))
     return env_map
 
+def _get_latest_subversion(repository_ctx, vc_path):
+    """Get the latest subversion of a VS 2017/2019 installation.
+
+    For VS 2017 & 2019, there could be multiple versions of VC build tools.
+    The directories are like:
+      <vc_path>\\Tools\\MSVC\\14.10.24930\\bin\\HostX64\\x64
+      <vc_path>\\Tools\\MSVC\\14.16.27023\\bin\\HostX64\\x64
+    This function should return 14.16.27023 in this case."""
+    versions = [path.basename for path in repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()]
+    if len(versions) < 1:
+        _auto_configure_warning_maybe(repository_ctx, "Cannot find any VC installation under BAZEL_VC(%s)" % vc_path)
+        return None
+
+    # Parse the version string into integers, then sort the integers to prevent textual sorting.
+    version_list = []
+    for version in versions:
+        parts = [int(i) for i in version.split(".")]
+        version_list.append((parts, version))
+
+    version_list = sorted(version_list)
+    latest_version = version_list[-1][1]
+
+    _auto_configure_warning_maybe(repository_ctx, "Found the following VC verisons:\n%s\n\nChoosing the latest version = %s" % ("\n".join(versions), latest_version))
+    return latest_version
+
+def _get_vc_full_version(repository_ctx, vc_path):
+    """Return the value of BAZEL_VC_FULL_VERSION if defined, otherwise the latest version."""
+    if "BAZEL_VC_FULL_VERSION" in repository_ctx.os.environ:
+        return repository_ctx.os.environ["BAZEL_VC_FULL_VERSION"]
+    return _get_latest_subversion(repository_ctx, vc_path)
+
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
-    tool_path = ""
+    tool_path = None
     if _is_vs_2017_or_2019(vc_path):
-        # For VS 2017 and 2019, the tools are under a directory like:
-        # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.10.24930\bin\HostX64\x64
-        dirs = repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()
-        if len(dirs) < 1:
-            return None
-
-        # Normally there should be only one child directory under %VC_PATH%\TOOLS\MSVC,
-        # but iterate every directory to be more robust.
-        for path in dirs:
-            tool_path = str(path) + "\\bin\\HostX64\\x64\\" + tool
-            if repository_ctx.path(tool_path).exists:
-                break
+        full_version = _get_vc_full_version(repository_ctx, vc_path)
+        if full_version:
+            tool_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\x64\\%s" % (vc_path, full_version, tool)
     else:
         # For VS 2015 and older version, the tools are under:
         # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64
         tool_path = vc_path + "\\bin\\amd64\\" + tool
 
-    if not repository_ctx.path(tool_path).exists:
+    if not tool_path or not repository_ctx.path(tool_path).exists:
         return None
 
     return tool_path.replace("\\", "/")
