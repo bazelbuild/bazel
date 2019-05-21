@@ -67,6 +67,7 @@ cc_autoconf = repository_rule(
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
         "BAZEL_USE_LLVM_NATIVE_COVERAGE",
         "BAZEL_VC",
+        "BAZEL_VC_FULL_VERSION",
         "BAZEL_VS",
         "BAZEL_LLVM",
         "USE_CLANG_CL",
