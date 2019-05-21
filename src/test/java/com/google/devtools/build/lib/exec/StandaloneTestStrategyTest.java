@@ -655,4 +655,49 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     }
     assertThat(outErr.getErrorPath().exists()).isFalse();
   }
+
+  @Test
+  public void testAppendStdErrDoesNotBusyLoop() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    executionOptions.testOutput = TestOutputFormat.ALL;
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    // setup a test action
+    scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"empty_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"empty_test.sh\"],",
+        ")");
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:empty_test");
+
+    SpawnResult expectedSpawnResult =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              ((ActionExecutionContext) invocation.getArgument(1)).getFileOutErr().printErr("Foo");
+              return SpawnContinuation.immediate(expectedSpawnResult);
+            });
+
+    FileOutErr outErr = createTempOutErr(tmpDirRoot);
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(outErr, spawnActionContext);
+
+    // actual StandaloneTestStrategy execution
+    execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
+
+    // check that the test stdout contains all the expected output
+    try {
+      String outData = FileSystemUtils.readContent(outErr.getOutputPath(), UTF_8);
+      assertThat(outData).contains("Foo");
+    } catch (IOException e) {
+      fail("Test stdout file missing: " + outErr.getOutputPath());
+    }
+  }
 }
