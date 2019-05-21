@@ -466,6 +466,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   @SuppressWarnings("unchecked")
   public <T extends BlazeModule> T getBlazeModule(Class<T> moduleClass) {
+    // TODO(steinman): Change this to include subclasses, and clean up places where we're iterating
+    // through all the modules to find an instance of the superclass.
     for (BlazeModule module : blazeModules) {
       if (module.getClass() == moduleClass) {
         return (T) module;
