@@ -106,6 +106,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites(
                 "package_configuration", Mode.HOST, JavaPackageConfigurationProvider.class));
 
+    TransitiveInfoCollection jacocoRunner = ruleContext.getPrerequisite("jacocorunner", Mode.HOST);
+
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(
             ruleContext.getLabel(),
@@ -130,6 +132,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             ijar,
             compatibleJavacOptions,
             packageConfiguration,
+            jacocoRunner,
             semantics);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)

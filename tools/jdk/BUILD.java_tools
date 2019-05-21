@@ -59,6 +59,8 @@ java_toolchain(
         ":java_compiler_jar",
         ":jdk_compiler_jar",
     ],
+    # TODO(iirina): Re-enable this after #8378 is merged.
+    # jacocorunner = ":jacoco_coverage_runner"
 )
 
 filegroup(
@@ -69,6 +71,11 @@ filegroup(
 filegroup(
     name = "GenClass",
     srcs = ["java_tools/GenClass_deploy.jar"],
+)
+
+java_import(
+    name = "jacoco_coverage_runner",
+    jars = ["java_tools/JacocoCoverage_jarjar_deploy.jar"],
 )
 
 filegroup(

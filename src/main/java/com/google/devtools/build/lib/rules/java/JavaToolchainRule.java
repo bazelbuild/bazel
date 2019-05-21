@@ -232,6 +232,14 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes()
                 .mandatoryNativeProviders(ImmutableList.of(JavaPackageConfigurationProvider.class)))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(jacocorunner) -->
+        Label of the JacocoCoverageRunner deploy jar.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("jacocorunner", LABEL)
+                .cfg(HostTransition.createFactory())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         .build();
   }
 
