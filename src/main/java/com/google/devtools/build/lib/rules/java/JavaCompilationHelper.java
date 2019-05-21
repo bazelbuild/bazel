@@ -267,6 +267,16 @@ public final class JavaCompilationHelper {
     }
   }
 
+  public boolean addCoverageSupport() {
+    TransitiveInfoCollection jacocoRunner = javaToolchain.getJacocoRunner();
+    if (jacocoRunner != null
+        && JavaInfo.getProvider(JavaCompilationArgsProvider.class, jacocoRunner) != null) {
+      addLibrariesToAttributes(ImmutableList.of(jacocoRunner));
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Creates an {@link Artifact} needed by {@code JacocoCoverageRunner}.
    *
