@@ -997,7 +997,7 @@ class Desugar {
           break;
         }
 
-        String[] argList = new String[request.getArgumentsList().size()];
+        String[] argList = new String[request.getArgumentsCount()];
         argList = request.getArgumentsList().toArray(argList);
 
         DesugarOptions options = parseCommandLineOptions(argList);
