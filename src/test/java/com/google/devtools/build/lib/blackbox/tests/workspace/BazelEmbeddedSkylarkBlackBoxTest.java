@@ -21,11 +21,9 @@ import com.google.devtools.build.lib.bazel.repository.TarFunction;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -134,7 +132,7 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
     }
   }
 
-  private Path decompress(Path dataTarPath) throws IOException, RepositoryFunctionException {
+  private Path decompress(Path dataTarPath) throws Exception {
     FileSystem fs = FileSystems.getNativeFileSystem();
     com.google.devtools.build.lib.vfs.Path dataTarPathForDecompress =
         fs.getPath(dataTarPath.toAbsolutePath().toString());
