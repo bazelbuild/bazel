@@ -119,4 +119,28 @@ EOF
   wc output || fail "no output produced"
 }
 
+function test_negating_flags() {
+  cat > BUILD <<'EOF'
+genrule(
+      name = "rule",
+      outs = ["out.txt"],
+      cmd = "echo hello > $(location out.txt)"
+)
+EOF
+  bazel build //:all --experimental_execution_log_file=output --experimental_execution_log_file= 2>&1 >> $TEST_log || fail "could not build"
+  if [[ -e output ]]; then
+    fail "file shouldn't exist"
+  fi
+
+  bazel build //:all --execution_log_json_file=output --execution_log_json_file= 2>&1 >> $TEST_log || fail "could not build"
+  if [[ -e output ]]; then
+    fail "file shouldn't exist"
+  fi
+
+  bazel build //:all --execution_log_binary_file=output --execution_log_binary_file= 2>&1 >> $TEST_log || fail "could not build"
+  if [[ -e output ]]; then
+    fail "file shouldn't exist"
+  fi
+}
+
 run_suite "execlog_tests"
