@@ -48,6 +48,9 @@ import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileT
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.network.ConnectivityStatus;
+import com.google.devtools.build.lib.network.ConnectivityStatus.Status;
+import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -128,6 +131,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @Nullable private String invocationId;
   @Nullable private Reporter cmdLineReporter;
   @Nullable private BuildEventStreamer streamer;
+  @Nullable private ConnectivityStatusProvider connectivityProvider;
+  private static final String CONNECTIVITY_CACHE_KEY = "BES";
 
   protected BESOptionsT besOptions;
 
@@ -226,6 +231,15 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     this.invocationId = cmdEnv.getCommandId().toString();
     this.buildRequestId = cmdEnv.getBuildRequestId();
     this.cmdLineReporter = cmdEnv.getReporter();
+
+    for (BlazeModule module : cmdEnv.getRuntime().getBlazeModules()) {
+      if (module instanceof ConnectivityStatusProvider) {
+        this.connectivityProvider = (ConnectivityStatusProvider) module;
+        break;
+      }
+    }
+    Preconditions.checkNotNull(
+        this.connectivityProvider, "No ConnectivityStatusProvider found in modules list");
 
     OptionsParsingResult parsingResult = cmdEnv.getOptions();
     this.besOptions = Preconditions.checkNotNull(parsingResult.getOptions(optionsClass()));
@@ -575,6 +589,18 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     }
 
     constructAndReportIds();
+
+    ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
+    if (status.status != Status.OK) {
+      clearBesClient();
+      String message =
+          String.format(
+              "Build Event Service uploads disabled due to a connectivity problem: %s",
+              status.toString());
+      cmdLineReporter.handle(Event.warn(message));
+      googleLogger.atWarning().log(message);
+      return null;
+    }
 
     final BuildEventServiceClient besClient;
     try {
