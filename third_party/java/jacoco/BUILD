@@ -9,8 +9,7 @@ exports_files(["LICENSE"])
 
 package(default_visibility = ["//visibility:public"])
 
-NEW_VERSION = "0.8.3"
-OLD_VERSION = "0.7.5.201505241946"
+VERSION = "0.8.3"
 
 filegroup(
     name = "srcs",
@@ -41,20 +40,20 @@ filegroup(
 
 java_import(
     name = "agent",
-    jars = ["org.jacoco.agent-%s.jar" % OLD_VERSION],
-    srcjar = "org.jacoco.agent-%s-sources.jar" % OLD_VERSION,
+    jars = ["org.jacoco.agent-%s.jar" % VERSION],
+    srcjar = "org.jacoco.agent-%s-sources.jar" % VERSION,
 )
 
 java_import(
-    name = "agent-%s" % NEW_VERSION,
-    jars = ["org.jacoco.agent-%s.jar" % NEW_VERSION],
-    srcjar = "org.jacoco.agent-%s-sources.jar" % NEW_VERSION,
+    name = "agent-%s" % VERSION,
+    jars = ["org.jacoco.agent-%s.jar" % VERSION],
+    srcjar = "org.jacoco.agent-%s-sources.jar" % VERSION,
 )
 
 java_import(
     name = "core",
-    jars = ["org.jacoco.core-%s.jar" % OLD_VERSION],
-    srcjar = "org.jacoco.core-%s-sources.jar" % OLD_VERSION,
+    jars = ["org.jacoco.core-%s.jar" % VERSION],
+    srcjar = "org.jacoco.core-%s-sources.jar" % VERSION,
     exports = [
         "//third_party:asm",
         "//third_party:asm-commons",
@@ -63,9 +62,9 @@ java_import(
 )
 
 java_import(
-    name = "core-%s" % NEW_VERSION,
-    jars = ["org.jacoco.core-%s.jar" % NEW_VERSION],
-    srcjar = "org.jacoco.core-%s-sources.jar" % NEW_VERSION,
+    name = "core-%s" % VERSION,
+    jars = ["org.jacoco.core-%s.jar" % VERSION],
+    srcjar = "org.jacoco.core-%s-sources.jar" % VERSION,
     exports = [
         "//third_party:asm",
         "//third_party:asm-commons",
@@ -75,18 +74,18 @@ java_import(
 
 filegroup(
     name = "core-jars",
-    srcs = ["org.jacoco.core-%s.jar" % OLD_VERSION],
+    srcs = ["org.jacoco.core-%s.jar" % VERSION],
 )
 
 filegroup(
-    name = "core-jars-%s" % NEW_VERSION,
-    srcs = ["org.jacoco.core-%s.jar" % NEW_VERSION],
+    name = "core-jars-%s" % VERSION,
+    srcs = ["org.jacoco.core-%s.jar" % VERSION],
 )
 
 java_import(
     name = "report",
-    jars = ["org.jacoco.report-%s.jar" % OLD_VERSION],
-    srcjar = "org.jacoco.report-%s-sources.jar" % OLD_VERSION,
+    jars = ["org.jacoco.report-%s.jar" % VERSION],
+    srcjar = "org.jacoco.report-%s-sources.jar" % VERSION,
     exports = [
         ":core",
         "//third_party:asm",
@@ -94,33 +93,33 @@ java_import(
 )
 
 java_import(
-    name = "report-%s" % NEW_VERSION,
-    jars = ["org.jacoco.report-%s.jar" % NEW_VERSION],
-    srcjar = "org.jacoco.report-%s-sources.jar" % NEW_VERSION,
+    name = "report-%s" % VERSION,
+    jars = ["org.jacoco.report-%s.jar" % VERSION],
+    srcjar = "org.jacoco.report-%s-sources.jar" % VERSION,
     exports = [
-        ":core-%s" % NEW_VERSION,
+        ":core-%s" % VERSION,
         "//third_party:asm",
     ],
 )
 
 java_import(
     name = "blaze-agent",
-    jars = ["jacocoagent-%s.jar" % OLD_VERSION],
+    jars = ["jacocoagent-%s.jar" % VERSION],
 )
 
 java_import(
-    name = "blaze-agent-%s" % NEW_VERSION,
-    jars = ["jacocoagent-%s.jar" % NEW_VERSION],
+    name = "blaze-agent-%s" % VERSION,
+    jars = ["jacocoagent-%s.jar" % VERSION],
 )
 
 java_import(
     name = "blaze-agent-neverlink",
-    jars = ["jacocoagent-%s.jar"  % OLD_VERSION],
+    jars = ["jacocoagent-%s.jar"  % VERSION],
     neverlink = 1,
 )
 
 java_import(
-    name = "blaze-agent-neverlink-%s" % NEW_VERSION,
-    jars = ["jacocoagent-%s.jar"  % NEW_VERSION],
+    name = "blaze-agent-neverlink-%s" % VERSION,
+    jars = ["jacocoagent-%s.jar"  % VERSION],
     neverlink = 1,
 )
