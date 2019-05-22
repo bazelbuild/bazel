@@ -11,11 +11,8 @@ build:remote --extra_execution_platforms=//:rbe_highcpu_platform
 build:remote --host_platform=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
 build:remote --platforms=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
 
-build:remote --spawn_strategy=remote
-build:remote --strategy=Javac=remote
-build:remote --strategy=Closure=remote
-build:remote --strategy=Genrule=remote
-build:remote --define=EXECUTOR=remote
+ # TODO(ishikhman): Remove this flag after upgrading Bazel to 0.27.0
+build:remote --incompatible_list_based_execution_strategy_selection
 
 build:remote --remote_instance_name=projects/bazel-untrusted/instances/default_instance
 build:remote --remote_executor=remotebuildexecution.googleapis.com
