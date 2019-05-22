@@ -14,6 +14,8 @@ build:remote --platforms=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubunt
  # TODO(ishikhman): Remove this flag after upgrading Bazel to 0.27.0
 build:remote --incompatible_list_based_execution_strategy_selection
 
+build:remote --define=EXECUTOR=remote
+
 build:remote --remote_instance_name=projects/bazel-untrusted/instances/default_instance
 build:remote --remote_executor=remotebuildexecution.googleapis.com
 build:remote --remote_timeout=600
