@@ -31,7 +31,7 @@ static constexpr const char* BASH_BIN_PATH = "bash_bin_path";
 ExitCode BashBinaryLauncher::Launch() {
   wstring bash_binary = this->GetLaunchInfoByKey(BASH_BIN_PATH);
 
-  if (GetBinaryPathWithoutExtension(bash_binary) == "bash") {
+  if (GetBinaryPathWithoutExtension(bash_binary) == L"bash") {
     // Rlocation returns the original path if bash_binary is an absolute path.
     bash_binary = this->Rlocation(bash_binary, true);
   }
