@@ -18,99 +18,22 @@
 #include <string>
 #include <vector>
 
-#include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/util/strings.h"
-#include "third_party/ijar/zip.h"
-
 namespace blaze {
 
-using std::vector;
-using std::string;
+// Determines the contents of the archive, storing the names of the contained
+// files into `files` and the install md5 key into `install_md5`.
+void DetermineArchiveContents(const std::string &archive_path,
+                              const std::string &product_name,
+                              std::vector<std::string> *files,
+                              std::string *install_md5);
 
-// A devtools_ijar::ZipExtractorProcessor that has a pure version of Accept.
-class PureZipExtractorProcessor : public devtools_ijar::ZipExtractorProcessor {
- public:
-  virtual ~PureZipExtractorProcessor() {}
-
-  // Like devtools_ijar::ZipExtractorProcessor::Accept, but is guaranteed to not
-  // have side-effects.
-  virtual bool AcceptPure(const char *filename,
-                          const devtools_ijar::u4 attr) const = 0;
-};
-
-// A devtools_ijar::ZipExtractorProcessor that processes the ZIP entries using
-// the given PureZipExtractorProcessors.
-class CompoundZipProcessor : public devtools_ijar::ZipExtractorProcessor {
- public:
-  explicit CompoundZipProcessor(
-      const vector<PureZipExtractorProcessor *> &processors);
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override;
-
-  void Process(const char *filename, const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data, const size_t size) override;
-
- private:
-  const vector<PureZipExtractorProcessor *> processors_;
-};
-
-// A PureZipExtractorProcessor to extract the InstallKeyFile
-class GetInstallKeyFileProcessor : public PureZipExtractorProcessor {
- public:
-  explicit GetInstallKeyFileProcessor(string *install_base_key);
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    return AcceptPure(filename, attr);
-  }
-
-  bool AcceptPure(const char *filename,
-                  const devtools_ijar::u4 attr) const override;
-
-  void Process(const char *filename, const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data, const size_t size) override;
-
- private:
-  string *install_base_key_;
-};
-
-// A PureZipExtractorProcessor that adds the names of all the files ZIP up in
-// the Blaze binary to the given vector.
-class NoteAllFilesZipProcessor : public PureZipExtractorProcessor {
- public:
-  explicit NoteAllFilesZipProcessor(std::vector<std::string> *files);
-
-  bool AcceptPure(const char *filename,
-                  const devtools_ijar::u4 attr) const override;
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override;
-
-  void Process(const char *filename, const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data, const size_t size) override;
-
- private:
-  std::vector<std::string> *files_;
-};
-
-// A PureZipExtractorProcessor to extract the files from the blaze zip.
-class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
- public:
-  explicit ExtractBlazeZipProcessor(const string &embedded_binaries,
-                                    blaze::embedded_binaries::Dumper *dumper);
-
-  bool AcceptPure(const char *filename,
-                  const devtools_ijar::u4 attr) const override;
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    return AcceptPure(filename, attr);
-  }
-
-  void Process(const char *filename, const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data, const size_t size) override;
-
- private:
-  const string embedded_binaries_;
-  blaze::embedded_binaries::Dumper *dumper_;
-};
+// Extracts the embedded data files in `archive_path` into `output_dir`.
+// Fails if `expected_install_md5` doesn't match that contained in the archive,
+// as this could indicate that the contents has unexpectedly changed.
+void ExtractArchiveOrDie(const std::string &archive_path,
+                         const std::string &product_name,
+                         const std::string &expected_install_md5,
+                         const std::string &output_dir);
 
 }  // namespace blaze
 
