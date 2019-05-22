@@ -146,19 +146,19 @@ Problems:
 
   Be aware that shell scripts (`.sh`) are NOT executable on Windows, i.e. you cannot specify them as
   `ctx.actions.run`'s `executable`. There's also no `+x` permission that files can have, so you
-  can't execute arbitrary files like on e.g. Linux.
+  can't execute arbitrary files like on Linux.
 
 - **Bash commands**: For sake of portability, avoid running Bash commands directly in actions.
 
-  Bash is convenient and widely present on Unix-like systems, but it's often unavailable on Windows.
-  Bazel itself is relying less and less on Bash (MSYS2), so in the future, users would be less
-  likely to have MSYS2 installed along with Bazel. To make rules easier to use on Windows, avoid
-  running Bash commands in actions.
+  Bash is widespread on Unix-like systems, but it's often unavailable on Windows.  Bazel itself is
+  relying less and less on Bash (MSYS2), so in the future users would be less likely to have MSYS2
+  installed along with Bazel. To make rules easier to use on Windows, avoid running Bash commands in
+  actions.
 
-- **Line endings**: Windows uses CRLF (`\r\n`), Unix uses LF (`\n`).
+- **Line endings**: Windows uses CRLF (`\r\n`), Unix-like systems uses LF (`\n`).
 
   Be aware of this when comparing text files. Be mindful of your Git settings, especially of line
-  endings when checking out / committing. (See Git's `core.autocrlf` setting.)
+  endings when checking out or committing. (See Git's `core.autocrlf` setting.)
 
 Solutions:
 
@@ -192,7 +192,7 @@ Solutions:
     ([source](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/native_binary.bzl),
     [documentation](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/native_binary_doc.md#native_binary)):
     wraps a native binary in a `*_binary` rule, which you can `bazel run` or use in `run_binary()`'s
-    `tool` attribute, or in `native.genrule()`'s `tools` attribute
+    `tool` attribute or `native.genrule()`'s `tools` attribute
 
   Test rule examples:
 
@@ -214,22 +214,23 @@ Solutions:
   error code, then a simple `.bat` file will suffice. If your rule returns a `DefaultInfo()`
   provider, the `executable` field may refer to that `.bat` file on Windows.
 
-  And since file extensions don't matter on macOS / Linux, you can always use `.bat` as the
+  And since file extensions don't matter on macOS and Linux, you can always use `.bat` as the
   extension, even for shell scripts.
 
-  Be aware that **empty `.bat` files cannot be executed**. If you need an empty script, write one
-  space in it.
+  Be aware that empty `.bat` files cannot be executed. If you need an empty script, write one space
+  in it.
 
 - **Use Bash in a principled way.**
 
   In Starlark build and test rules, use `ctx.actions.run_shell` to run Bash scripts and Bash
   commands as actions.
 
-  In Starlark macros, wrap the Bash commands in a `native.sh_binary()` or `native.genrule()`. Bazel
-  will check if Bash is available and run the script / command through Bash.
+  In Starlark macros, wrap Bash scripts and commands in a `native.sh_binary()` or
+  `native.genrule()`. Bazel will check if Bash is available and run the script or command through
+  Bash.
 
-  In Starlark repository rules, try avoiding Bash altogether. Bazel offers no way to run Bash
-  commands in a principled way in repository rules.
+  In Starlark repository rules, try avoiding Bash altogether. Bazel currently offers no way to run
+  Bash commands in a principled way in repository rules.
 
 ## Deleting files
 
