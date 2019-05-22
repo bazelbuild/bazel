@@ -62,21 +62,17 @@ public class Parser {
     /** Whether the file contained any errors. */
     public final boolean containsErrors;
 
-    public final List<Event> octalEvents;
-
     public ParseResult(
         List<Statement> statements,
         List<Comment> comments,
         Location location,
-        boolean containsErrors,
-        List<Event> octalEvents) {
+        boolean containsErrors) {
       // No need to copy here; when the object is created, the parser instance is just about to go
       // out of scope and be garbage collected.
       this.statements = Preconditions.checkNotNull(statements);
       this.comments = Preconditions.checkNotNull(comments);
       this.location = location;
       this.containsErrors = containsErrors;
-      this.octalEvents = octalEvents;
     }
   }
 
@@ -209,11 +205,7 @@ public class Parser {
     }
     boolean errors = parser.errorsCount > 0 || lexer.containsErrors();
     return new ParseResult(
-        statements,
-        lexer.getComments(),
-        locationFromStatements(lexer, statements),
-        errors,
-        lexer.getOctalEvents());
+        statements, lexer.getComments(), locationFromStatements(lexer, statements), errors);
   }
 
   /**

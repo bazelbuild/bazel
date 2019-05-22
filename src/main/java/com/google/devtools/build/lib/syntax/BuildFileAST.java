@@ -49,8 +49,6 @@ public class BuildFileAST extends ASTNode {
    */
   private final boolean containsErrors;
 
-  private final List<Event> octalEvents;
-
   @Nullable private final String contentHashCode;
 
   private BuildFileAST(
@@ -59,15 +57,13 @@ public class BuildFileAST extends ASTNode {
       String contentHashCode,
       Location location,
       ImmutableList<Comment> comments,
-      @Nullable ImmutableList<SkylarkImport> imports,
-      List<Event> octalEvents) {
+      @Nullable ImmutableList<SkylarkImport> imports) {
     this.statements = statements;
     this.containsErrors = containsErrors;
     this.contentHashCode = contentHashCode;
     this.comments = comments;
     this.setLocation(location);
     this.imports = imports;
-    this.octalEvents = octalEvents;
   }
 
   private static BuildFileAST create(
@@ -102,8 +98,7 @@ public class BuildFileAST extends ASTNode {
         contentHashCode,
         result.location,
         ImmutableList.copyOf(result.comments),
-        skylarkImports.second,
-        result.octalEvents);
+        skylarkImports.second);
   }
 
   private static BuildFileAST create(
@@ -140,8 +135,7 @@ public class BuildFileAST extends ASTNode {
         null,
         this.statements.get(firstStatement).getLocation(),
         ImmutableList.of(),
-        imports.build(),
-        octalEvents);
+        imports.build());
   }
 
   /**
@@ -208,15 +202,6 @@ public class BuildFileAST extends ASTNode {
     return imports.build();
   }
 
-  /** Returns true if there was no error event. */
-  public boolean replayLexerEvents(Environment env, EventHandler eventHandler) {
-    if (env.getSemantics().incompatibleDisallowOldOctalNotation() && !octalEvents.isEmpty()) {
-      Event.replayEventsOn(eventHandler, octalEvents);
-      return false;
-    }
-    return true;
-  }
-
   /**
    * Executes this build file in a given Environment.
    *
@@ -235,9 +220,6 @@ public class BuildFileAST extends ASTNode {
    */
   public boolean exec(Environment env, EventHandler eventHandler) throws InterruptedException {
     boolean ok = true;
-    if (!replayLexerEvents(env, eventHandler)) {
-      return false;
-    }
     for (Statement stmt : statements) {
       if (!execTopLevelStatement(stmt, env, eventHandler)) {
         ok = false;
@@ -389,8 +371,7 @@ public class BuildFileAST extends ASTNode {
         /* contentHashCode= */ null,
         result.location,
         ImmutableList.copyOf(result.comments),
-        /* imports= */ null,
-        result.octalEvents);
+        /* imports= */ null);
   }
 
   /**
@@ -403,8 +384,7 @@ public class BuildFileAST extends ASTNode {
     if (valid || containsErrors) {
       return this;
     }
-    return new BuildFileAST(
-        statements, true, contentHashCode, getLocation(), comments, imports, octalEvents);
+    return new BuildFileAST(statements, true, contentHashCode, getLocation(), comments, imports);
   }
 
   public static BuildFileAST parseString(EventHandler eventHandler, String... content) {
