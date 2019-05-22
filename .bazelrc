@@ -11,10 +11,9 @@ build:remote --extra_execution_platforms=//:rbe_highcpu_platform
 build:remote --host_platform=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
 build:remote --platforms=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
 
-build:remote --spawn_strategy=remote
-build:remote --strategy=Javac=remote
-build:remote --strategy=Closure=remote
-build:remote --strategy=Genrule=remote
+ # TODO(ishikhman): Remove this flag after upgrading Bazel to 0.27.0
+build:remote --incompatible_list_based_execution_strategy_selection
+
 build:remote --define=EXECUTOR=remote
 
 build:remote --remote_instance_name=projects/bazel-untrusted/instances/default_instance
@@ -28,5 +27,4 @@ build:remote --action_env=PATH=/bin:/usr/bin:/usr/local/bin
 build:remote --disk_cache=
 
 # Flags for Android
-build:remote --strategy=DexBuilder=remote        # RBE C++ toolchain is built for RBE container
 build:remote --noexperimental_check_desugar_deps # Workaround for singlejar incompatibility with RBE
