@@ -25,6 +25,9 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
     - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."
+    include_json_profile:
+    - build
+    - test
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -50,6 +53,9 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
     - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."
+    include_json_profile:
+    - build
+    - test
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -79,6 +85,9 @@ platforms:
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
     - "-//src/java_tools/import_deps_checker/..."
+    include_json_profile:
+    - build
+    - test
   ubuntu1804_javabase9:
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 9 Javabase"
@@ -145,6 +154,9 @@ platforms:
     - "-//src/test/shell/integration:test_test"
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    include_json_profile:
+    - build
+    - test
   ubuntu1804_javabase10:
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 10 Javabase"
@@ -211,6 +223,9 @@ platforms:
     - "-//src/test/shell/integration:test_test"
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    include_json_profile:
+    - build
+    - test
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -245,6 +260,9 @@ platforms:
     - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_released"
     - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_head"
     - "-//src/test/shell/bazel:bazel_java_test_jdk10_toolchain_head"
+    include_json_profile:
+    - build
+    - test
   windows:
     batch_commands:
     - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
@@ -268,6 +286,9 @@ platforms:
     - "//src:all_windows_tests"
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    include_json_profile:
+    - build
+    - test
   rbe_ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
@@ -278,3 +299,5 @@ platforms:
     build_targets:
     - "//src:bazel"
     - "//src:bazel_jdk_minimal"
+    include_json_profile:
+    - build
