@@ -27,5 +27,4 @@ build:remote --action_env=PATH=/bin:/usr/bin:/usr/local/bin
 build:remote --disk_cache=
 
 # Flags for Android
-build:remote --strategy=DexBuilder=remote        # RBE C++ toolchain is built for RBE container
 build:remote --noexperimental_check_desugar_deps # Workaround for singlejar incompatibility with RBE
