@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -215,7 +216,7 @@ public class AbstractSpawnStrategyTest {
                     .build()));
     when(actionExecutionContext.getMetadataProvider()).thenReturn(mock(MetadataProvider.class));
 
-    Artifact input = new Artifact(scratch.file("/execroot/foo", "1"), rootDir);
+    Artifact input = ActionsTestUtil.createArtifact(rootDir, scratch.file("/execroot/foo", "1"));
     scratch.file("/execroot/out1", "123");
     scratch.file("/execroot/out2", "123");
     Spawn spawn =

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -623,8 +624,8 @@ public class FilesystemValueCheckerTest {
   private Artifact createDerivedArtifact(String relPath) throws IOException {
     Path outputPath = fs.getPath("/bin");
     outputPath.createDirectory();
-    return new Artifact(
-        outputPath.getRelative(relPath), ArtifactRoot.asDerivedRoot(fs.getPath("/"), outputPath));
+    return ActionsTestUtil.createArtifact(
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), outputPath), outputPath.getRelative(relPath));
   }
 
   private SpecialArtifact createTreeArtifact(String relPath) throws IOException {

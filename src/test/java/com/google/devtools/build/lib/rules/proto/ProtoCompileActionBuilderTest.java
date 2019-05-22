@@ -429,7 +429,7 @@ public class ProtoCompileActionBuilderTest {
   }
 
   private Artifact artifact(String ownerLabel, String path) {
-    return new Artifact(
+    return new Artifact.SourceArtifact(
         root,
         root.getExecPath().getRelative(path),
         new LabelArtifactOwner(Label.parseAbsoluteUnchecked(ownerLabel)));
@@ -437,7 +437,7 @@ public class ProtoCompileActionBuilderTest {
 
   /** Creates a dummy artifact with the given path, that actually resides in /out/<path>. */
   private Artifact derivedArtifact(String ownerLabel, String path) {
-    return new Artifact(
+    return new Artifact.DerivedArtifact(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(path),
         new LabelArtifactOwner(Label.parseAbsoluteUnchecked(ownerLabel)));

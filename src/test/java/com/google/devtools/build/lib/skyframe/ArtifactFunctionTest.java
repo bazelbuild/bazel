@@ -322,19 +322,15 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private Artifact createSourceArtifact(String path) {
-    return new Artifact.SourceArtifact(
-        ArtifactRoot.asSourceRoot(Root.fromPath(root)),
-        PathFragment.create(path),
-        ArtifactOwner.NullArtifactOwner.INSTANCE);
+    return ActionsTestUtil.createArtifactWithExecPath(
+        ArtifactRoot.asSourceRoot(Root.fromPath(root)), PathFragment.create(path));
   }
 
   private Artifact createDerivedArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     Artifact output =
-        new Artifact(
-            ArtifactRoot.asDerivedRoot(root, root.getRelative("out")),
-            execPath,
-            ALL_OWNER);
+        new Artifact.DerivedArtifact(
+            ArtifactRoot.asDerivedRoot(root, root.getRelative("out")), execPath, ALL_OWNER);
     actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
     return output;
   }
@@ -342,7 +338,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private Artifact createMiddlemanArtifact(String path) {
     ArtifactRoot middlemanRoot =
         ArtifactRoot.middlemanRoot(middlemanPath, middlemanPath.getRelative("out"));
-    return new Artifact(middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
+    return new Artifact.DerivedArtifact(
+        middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
   }
 
   private SpecialArtifact createDerivedTreeArtifactWithAction(String path) {

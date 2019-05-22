@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -76,7 +77,7 @@ public class ActionMetadataHandlerTest {
   @Test
   public void withArtifactInput() throws Exception {
     PathFragment path = PathFragment.create("src/a");
-    Artifact artifact = new Artifact(path, sourceRoot);
+    Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(sourceRoot, path);
     FileArtifactValue metadata =
         FileArtifactValue.createNormalFile(
             new byte[] {1, 2, 3}, /*proxy=*/ null, 10L, /*isShareable=*/ true);
@@ -95,7 +96,7 @@ public class ActionMetadataHandlerTest {
   @Test
   public void withUnknownSourceArtifactAndNoMissingArtifactsAllowed() throws Exception {
     PathFragment path = PathFragment.create("src/a");
-    Artifact artifact = new Artifact(path, sourceRoot);
+    Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(sourceRoot, path);
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler = new ActionMetadataHandler(
         map,
@@ -112,7 +113,7 @@ public class ActionMetadataHandlerTest {
   @Test
   public void withUnknownSourceArtifact() throws Exception {
     PathFragment path = PathFragment.create("src/a");
-    Artifact artifact = new Artifact(path, sourceRoot);
+    Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(sourceRoot, path);
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler = new ActionMetadataHandler(
         map,
@@ -127,7 +128,7 @@ public class ActionMetadataHandlerTest {
   @Test
   public void withUnknownOutputArtifactMissingAllowed() throws Exception {
     PathFragment path = PathFragment.create("foo/bar");
-    Artifact artifact = new Artifact(path, outputRoot);
+    Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler = new ActionMetadataHandler(
         map,
@@ -142,7 +143,7 @@ public class ActionMetadataHandlerTest {
   @Test
   public void withUnknownOutputArtifactStatsFile() throws Exception {
     scratch.file("/output/bin/foo/bar", "not empty");
-    Artifact artifact = new Artifact(PathFragment.create("foo/bar"), outputRoot);
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "foo/bar");
     assertThat(artifact.getPath().exists()).isTrue();
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler = new ActionMetadataHandler(
@@ -157,7 +158,7 @@ public class ActionMetadataHandlerTest {
 
   @Test
   public void withUnknownOutputArtifactStatsFileFailsWithException() throws Exception {
-    Artifact artifact = new Artifact(PathFragment.create("foo/bar"), outputRoot);
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "foo/bar");
     assertThat(artifact.getPath().exists()).isFalse();
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler = new ActionMetadataHandler(
@@ -173,7 +174,7 @@ public class ActionMetadataHandlerTest {
   @Test
   public void withUnknownOutputArtifactMissingDisallowed() throws Exception {
     PathFragment path = PathFragment.create("foo/bar");
-    Artifact artifact = new Artifact(path, outputRoot);
+    Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler = new ActionMetadataHandler(
         map,
@@ -245,7 +246,7 @@ public class ActionMetadataHandlerTest {
   public void resettingOutputs() throws Exception {
     scratch.file("/output/bin/foo/bar", "not empty");
     PathFragment path = PathFragment.create("foo/bar");
-    Artifact artifact = new Artifact(path, outputRoot);
+    Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
@@ -272,7 +273,7 @@ public class ActionMetadataHandlerTest {
   @Test
   public void injectRemoteArtifactMetadata() throws Exception {
     PathFragment path = PathFragment.create("foo/bar");
-    Artifact artifact = new Artifact(path, outputRoot);
+    Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
             /* inputArtifactData= */ new ActionInputMap(0),

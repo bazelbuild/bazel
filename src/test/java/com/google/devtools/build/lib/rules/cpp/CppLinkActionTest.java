@@ -702,10 +702,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ruleContext,
                 ruleContext,
                 ruleContext.getLabel(),
-                new Artifact(
-                    PathFragment.create(outputPath),
-                    getTargetConfiguration()
-                        .getBinDirectory(ruleContext.getRule().getRepository())),
+                ActionsTestUtil.createArtifact(
+                    getTargetConfiguration().getBinDirectory(ruleContext.getRule().getRepository()),
+                    outputPath),
                 ruleContext.getConfiguration(),
                 toolchain,
                 toolchain.getFdoContext(),
@@ -732,7 +731,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   public Artifact getOutputArtifact(String relpath) {
-    return new Artifact(
+    return ActionsTestUtil.createArtifactWithExecPath(
         getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
         getTargetConfiguration().getBinFragment().getRelative(relpath));
   }
@@ -742,7 +741,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
     Path outputRoot = execRoot.getRelative("out");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRoot);
     try {
-      return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
+      return ActionsTestUtil.createArtifact(
+          root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

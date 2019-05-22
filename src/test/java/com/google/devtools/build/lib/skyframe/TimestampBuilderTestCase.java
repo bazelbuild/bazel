@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -371,10 +371,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   private static Artifact createSourceArtifact(FileSystem fs, String name) {
     Path root = fs.getPath(TestUtils.tmpDir());
-    return new Artifact.SourceArtifact(
-        ArtifactRoot.asSourceRoot(Root.fromPath(root)),
-        PathFragment.create(name),
-        ArtifactOwner.NullArtifactOwner.INSTANCE);
+    return ActionsTestUtil.createArtifactWithExecPath(
+        ArtifactRoot.asSourceRoot(Root.fromPath(root)), PathFragment.create(name));
   }
 
   protected Artifact createDerivedArtifact(String name) {
@@ -384,7 +382,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   Artifact createDerivedArtifact(FileSystem fs, String name) {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    return new Artifact(
+    return new Artifact.DerivedArtifact(
         ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
         ACTION_LOOKUP_KEY);

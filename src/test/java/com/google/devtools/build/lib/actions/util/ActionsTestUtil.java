@@ -205,6 +205,25 @@ public final class ActionsTestUtil {
     };
   }
 
+  public static Artifact createArtifact(ArtifactRoot root, Path path) {
+    return createArtifactWithRootRelativePath(root, root.getRoot().relativize(path));
+  }
+
+  public static Artifact createArtifact(ArtifactRoot root, String path) {
+    return createArtifactWithRootRelativePath(root, PathFragment.create(path));
+  }
+
+  public static Artifact createArtifactWithRootRelativePath(
+      ArtifactRoot root, PathFragment rootRelativePath) {
+    PathFragment execPath = root.getExecPath().getRelative(rootRelativePath);
+    return createArtifactWithExecPath(root, execPath);
+  }
+
+  public static Artifact createArtifactWithExecPath(ArtifactRoot root, PathFragment execPath) {
+    return root.isSourceRoot()
+        ? new Artifact.SourceArtifact(root, execPath, ArtifactOwner.NullArtifactOwner.INSTANCE)
+        : new Artifact.DerivedArtifact(root, execPath, ArtifactOwner.NullArtifactOwner.INSTANCE);
+  }
 
   /**
    * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
@@ -267,10 +286,22 @@ public final class ActionsTestUtil {
     }
   }
 
+  static class NullArtifactOwner implements ArtifactOwner {
+    private NullArtifactOwner() {}
+
+    @Override
+    public Label getLabel() {
+      return NULL_LABEL;
+    }
+  }
+
+  @AutoCodec public static final ArtifactOwner NULL_ARTIFACT_OWNER = new NullArtifactOwner();
+
   public static final Artifact DUMMY_ARTIFACT =
-      new Artifact(
+      new Artifact.SourceArtifact(
+          ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())),
           PathFragment.create("/dummy"),
-          ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())));
+          NULL_ARTIFACT_OWNER);
 
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(
@@ -283,17 +314,6 @@ public final class ActionsTestUtil {
           null,
           null,
           null);
-
-  static class NullArtifactOwner implements ArtifactOwner {
-    private NullArtifactOwner() {}
-
-    @Override
-    public Label getLabel() {
-      return NULL_LABEL;
-    }
-  }
-
-  @AutoCodec public static final ArtifactOwner NULL_ARTIFACT_OWNER = new NullArtifactOwner();
 
   /** An unchecked exception class for action conflicts. */
   public static class UncheckedActionConflictException extends RuntimeException {
