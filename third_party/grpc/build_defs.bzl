@@ -30,7 +30,8 @@ def _gensource_impl(ctx):
                            ] +
                            ["-I{0}={1}".format(_path_ignoring_repository(include), include.path) for include in includes] +
                            [src.path for src in srcs]),
-        inputs = [ctx.executable._java_plugin, ctx.executable._protoc] + srcs + includes,
+        inputs = srcs + includes,
+        tools = [ctx.executable._java_plugin, ctx.executable._protoc],
         outputs = [srcdotjar],
         use_default_shell_env = True,
     )
