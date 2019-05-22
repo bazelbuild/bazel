@@ -440,8 +440,6 @@ sh_test(
         ],
         tags = [
             "no_windows",
-            # TODO(iirina): Remove this tag after #8431 is merged.
-            "manual",
         ],
     )
     for java_version in JAVA_VERSIONS
