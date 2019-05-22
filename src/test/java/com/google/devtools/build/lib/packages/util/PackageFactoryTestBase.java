@@ -199,16 +199,12 @@ public abstract class PackageFactoryTestBase {
       List<String> result, List<String> includes, List<String> excludes, boolean excludeDirs)
       throws Exception {
 
-    // The BUILD language, unlike Skylark, doesn't have fail(), so instead,
-    // we rely on boolean short circuit logic to only try to evaluate
-    // the undefined identifier this_will_fail if the result isn't as expected,
-    // in which case an error occurs (which we test in testGlobNegativeTest).
     Pair<Package, GlobCache> evaluated =
         evaluateGlob(
             includes,
             excludes,
             excludeDirs,
-            Printer.format("(result == sorted(%r)) or this_will_fail()", result));
+            Printer.format("(result == sorted(%r)) or fail('incorrect glob result')", result));
 
     Package pkg = evaluated.first;
     GlobCache globCache = evaluated.second;

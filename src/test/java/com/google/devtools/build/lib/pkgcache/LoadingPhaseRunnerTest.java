@@ -735,23 +735,19 @@ public class LoadingPhaseRunnerTest {
 
   @Test
   public void testTopLevelTargetErrorsPrintedExactlyOnce_NoKeepGoing() throws Exception {
-    tester.addFile("bad/BUILD",
-        "sh_binary(name = 'bad', srcs = ['bad.sh'])",
-        "undefined_symbol");
+    tester.addFile("bad/BUILD", "sh_binary(name = 'bad', srcs = ['bad.sh'])", "fail('some error')");
     assertThrows(TargetParsingException.class, () -> tester.load("//bad"));
-    tester.assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    tester.assertContainsEventWithFrequency("some error", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//bad");
   }
 
   @Test
   public void testTopLevelTargetErrorsPrintedExactlyOnce_KeepGoing() throws Exception {
-    tester.addFile("bad/BUILD",
-        "sh_binary(name = 'bad', srcs = ['bad.sh'])",
-        "undefined_symbol");
+    tester.addFile("bad/BUILD", "sh_binary(name = 'bad', srcs = ['bad.sh'])", "fail('some error')");
     TargetPatternPhaseValue result = tester.loadKeepGoing("//bad");
     assertThat(result.hasError()).isTrue();
-    tester.assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    tester.assertContainsEventWithFrequency("some error", 1);
   }
 
   @Test

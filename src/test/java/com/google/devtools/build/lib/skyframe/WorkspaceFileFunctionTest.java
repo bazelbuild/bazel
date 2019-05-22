@@ -292,7 +292,6 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     scratch.file("BUILD", "");
     RootedPath workspace =
         createWorkspaceFile(
-            "WORKSPACE",
             "workspace(name = 'good')",
             "local_repository(name = 'a', path = '../a', repo_mapping = {'@x' : '@y'})",
             "load('//:b.bzl', 'b')",
