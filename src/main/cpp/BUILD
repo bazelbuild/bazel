@@ -82,6 +82,7 @@ cc_library(
         ":blaze_util",
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:errors",
         "//src/main/cpp/util:logging",
         "//third_party/ijar:zip",
     ],

@@ -259,32 +259,6 @@ class GrpcBlazeServer : public BlazeServer {
 static map<string, EnvVarValue> PrepareEnvironmentForJvm();
 
 
-// Populates globals->install_md5 and globals->extracted_binaries by reading the
-// ZIP entries in the Blaze binary.
-static void ComputeInstallMd5AndNoteAllFiles(const string &self_path) {
-  NoteAllFilesZipProcessor note_all_files_processor(
-      &globals->extracted_binaries);
-  GetInstallKeyFileProcessor install_key_processor(&globals->install_md5);
-  CompoundZipProcessor processor({&note_all_files_processor,
-                                  &install_key_processor});
-  std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
-      devtools_ijar::ZipExtractor::Create(self_path.c_str(), &processor));
-  if (extractor == NULL) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to open " << globals->options->product_name
-        << " as a zip file: " << GetLastErrorString();
-  }
-  if (extractor->ProcessAll() < 0) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to extract install_base_key: " << extractor->GetError();
-  }
-
-  if (globals->install_md5.empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to find install_base_key's in zip file";
-  }
-}
-
 // Escapes colons by replacing them with '_C' and underscores by replacing them
 // with '_U'. E.g. "name:foo_bar" becomes "name_Cfoo_Ubar"
 static string EscapeForOptionSource(const string &input) {
@@ -804,62 +778,7 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
       << "couldn't connect to server (" << server_pid << ") after 120 seconds.";
 }
 
-// Actually extracts the embedded data files into the tree whose root
-// is 'embedded_binaries'.
-static void ActuallyExtractData(const string &argv0,
-                                const string &embedded_binaries) {
-  std::string install_md5;
-  GetInstallKeyFileProcessor install_key_processor(&install_md5);
-
-  std::string error;
-  std::unique_ptr<blaze::embedded_binaries::Dumper> dumper(
-      blaze::embedded_binaries::Create(&error));
-  if (dumper == nullptr) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << error;
-  }
-  ExtractBlazeZipProcessor extract_blaze_processor(embedded_binaries,
-                                                   dumper.get());
-
-  CompoundZipProcessor processor({&extract_blaze_processor,
-                                  &install_key_processor});
-  if (!blaze_util::MakeDirectories(embedded_binaries, 0777)) {
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "couldn't create '" << embedded_binaries
-        << "': " << GetLastErrorString();
-  }
-
-  BAZEL_LOG(USER) << "Extracting " << globals->options->product_name
-                  << " installation...";
-
-  std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
-      devtools_ijar::ZipExtractor::Create(argv0.c_str(), &processor));
-  if (extractor == NULL) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to open " << globals->options->product_name
-        << " as a zip file: " << GetLastErrorString();
-  }
-  if (extractor->ProcessAll() < 0) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to extract " << globals->options->product_name
-        << " as a zip file: " << extractor->GetError();
-  }
-
-  if (!dumper->Finish(&error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to extract embedded binaries: " << error;
-  }
-
-  if (install_md5 != globals->install_md5) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "The " << globals->options->product_name << " binary at " << argv0
-        << " was replaced during the client's self-extraction (old md5: "
-        << globals->install_md5 << " new md5: " << install_md5
-        << "). If you expected this then you should simply re-run "
-        << globals->options->product_name
-        << " in order to pick up the different version. If you didn't expect "
-           "this then you should investigate what happened.";
-  }
-
+static void MoveFiles(const string &embedded_binaries) {
   // Set the timestamps of the extracted files to the future and make sure (or
   // at least as sure as we can...) that the files we have written are actually
   // on the disk.
@@ -909,6 +828,7 @@ static void ActuallyExtractData(const string &argv0,
   blaze_util::SyncFile(embedded_binaries);
 }
 
+
 // Installs Blaze by extracting the embedded data files, iff necessary.
 // The MD5-named install_base directory on disk is trusted; we assume
 // no-one has modified the extracted files beneath this directory once
@@ -924,7 +844,12 @@ static void ExtractData(const string &self_path) {
                          blaze::GetProcessIdAsString();
     string tmp_binaries =
         blaze_util::JoinPath(tmp_install, "_embedded_binaries");
-    ActuallyExtractData(self_path, tmp_binaries);
+    ExtractArchiveOrDie(
+        self_path,
+        globals->options->product_name,
+        globals->install_md5,
+        tmp_binaries);
+    MoveFiles(tmp_binaries);
 
     uint64_t et = GetMillisecondsMonotonic();
     globals->extract_data_time = et - st;
@@ -1228,19 +1153,20 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
     globals->options->batch = true;
   }
 
+  DetermineArchiveContents(
+      self_path,
+      globals->options->product_name,
+      &globals->extracted_binaries,
+      &globals->install_md5);
+
   // The default install_base is <output_user_root>/install/<md5(blaze)>
   // but if an install_base is specified on the command line, we use that as
   // the base instead.
   if (globals->options->install_base.empty()) {
     string install_user_root =
         blaze_util::JoinPath(globals->options->output_user_root, "install");
-    ComputeInstallMd5AndNoteAllFiles(self_path);
     globals->options->install_base = blaze_util::JoinPath(install_user_root,
                                                           globals->install_md5);
-  } else {
-    // We still need to populate globals->install_md5 and
-    // globals->extracted_binaries.
-    ComputeInstallMd5AndNoteAllFiles(self_path);
   }
 
   if (globals->options->output_base.empty()) {
