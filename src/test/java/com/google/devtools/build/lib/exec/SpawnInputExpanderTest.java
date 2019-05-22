@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
@@ -84,9 +85,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesSingleFile() throws Exception {
     Artifact artifact =
-        new Artifact(
-            fs.getPath("/root/dir/file"),
-            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
+            fs.getPath("/root/dir/file"));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
@@ -105,9 +106,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesDirectoryStrict() {
     Artifact artifact =
-        new Artifact(
-            fs.getPath("/root/dir/file"),
-            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
+            fs.getPath("/root/dir/file"));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
@@ -130,9 +131,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesDirectoryNonStrict() throws Exception {
     Artifact artifact =
-        new Artifact(
-            fs.getPath("/root/dir/file"),
-            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
+            fs.getPath("/root/dir/file"));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
@@ -149,13 +150,13 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesTwoFiles() throws Exception {
     Artifact artifact1 =
-        new Artifact(
-            fs.getPath("/root/dir/file"),
-            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
+            fs.getPath("/root/dir/file"));
     Artifact artifact2 =
-        new Artifact(
-            fs.getPath("/root/dir/baz"),
-            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
+            fs.getPath("/root/dir/baz"));
     Runfiles runfiles =
         new Runfiles.Builder("workspace").addArtifact(artifact1).addArtifact(artifact2).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
@@ -181,9 +182,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesSymlink() throws Exception {
     Artifact artifact =
-        new Artifact(
-            fs.getPath("/root/dir/file"),
-            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
+            fs.getPath("/root/dir/file"));
     Runfiles runfiles =
         new Runfiles.Builder("workspace")
             .addSymlink(PathFragment.create("symlink"), artifact)
@@ -205,9 +206,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesRootSymlink() throws Exception {
     Artifact artifact =
-        new Artifact(
-            fs.getPath("/root/dir/file"),
-            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
+            fs.getPath("/root/dir/file"));
     Runfiles runfiles =
         new Runfiles.Builder("workspace")
             .addRootSymlink(PathFragment.create("symlink"), artifact)
@@ -316,15 +317,15 @@ public class SpawnInputExpanderTest {
     inputMappings = expander.getInputMapping(spawn, artifactExpander, ArtifactPathResolver.IDENTITY,
         fakeCache, true);
     assertThat(inputMappings).hasSize(2);
-    assertThat(inputMappings).containsEntry(PathFragment.create("treeArtifact/file1"), file1);
-    assertThat(inputMappings).containsEntry(PathFragment.create("treeArtifact/file2"), file2);
+    assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file1"), file1);
+    assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file2"), file2);
   }
 
   private SpecialArtifact createTreeArtifact(String relPath) throws IOException {
-    Path outputDir = fs.getPath("/root");
-    Path outputPath = execRoot.getRelative(relPath);
+    Path outputDir = execRoot.getRelative("out");
+    Path outputPath = outputDir.getRelative(relPath);
     outputPath.createDirectoryAndParents();
-    ArtifactRoot derivedRoot = ArtifactRoot.asSourceRoot(Root.fromPath(outputDir));
+    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, outputDir);
     return new SpecialArtifact(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),

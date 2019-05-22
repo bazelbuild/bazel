@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
@@ -55,9 +56,8 @@ public class ObjcProviderTest {
   }
 
   private static Artifact createArtifact(String path) {
-    return new Artifact(
-        PathFragment.create(path),
-        ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())));
+    return ActionsTestUtil.createArtifact(
+        ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())), path);
   }
 
   @Test

@@ -66,7 +66,8 @@ public class HeaderDiscoveryTest {
         .shouldValidateInclusions()
         .setAction(new ActionsTestUtil.NullAction())
         .setPermittedSystemIncludePrefixes(ImmutableList.of())
-        .setSourceFile(new Artifact(derivedRoot.getRelative("foo.cc"), artifactRoot))
+        .setSourceFile(
+            ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")))
         .setDependencies(dependencies)
         .setAllowedDerivedinputs(includedHeaders)
         .build()

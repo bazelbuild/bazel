@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
@@ -74,6 +75,6 @@ public class J2ObjcSourceTest {
   }
 
   private Artifact getArtifactForTest(String path) throws Exception {
-    return new Artifact(PathFragment.create(path), rootDir);
+    return ActionsTestUtil.createArtifact(rootDir, path);
   }
 }

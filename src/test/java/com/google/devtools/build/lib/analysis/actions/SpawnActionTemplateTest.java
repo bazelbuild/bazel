@@ -381,7 +381,7 @@ public class SpawnActionTemplateTest {
   }
 
   private Artifact createDerivedArtifact(String rootRelativePath) {
-    return new Artifact(PathFragment.create(rootRelativePath), root);
+    return ActionsTestUtil.createArtifact(root, rootRelativePath);
   }
 
   private CustomCommandLine createSimpleCommandLineTemplate(
