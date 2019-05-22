@@ -46,6 +46,7 @@ import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -988,32 +989,26 @@ class Desugar {
     }
   }
 
-  private static int runPersistentWorker(Path dumpDirectory) throws Exception {
+  private static void runPersistentWorker(Path dumpDirectory) throws Exception {
     while (true) {
-      try {
-        WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+      WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
 
-        if (request == null) {
-          break;
-        }
-
-        String[] argList = new String[request.getArgumentsCount()];
-        argList = request.getArgumentsList().toArray(argList);
-
-        DesugarOptions options = parseCommandLineOptions(argList);
-
-        int exitCode = processRequest(options, dumpDirectory);
-        WorkResponse.newBuilder()
-            .setExitCode(exitCode)
-            .build()
-            .writeDelimitedTo(System.out);
-        System.out.flush();
-      } catch (IOException e) {
-        e.printStackTrace();
-        return 1;
+      if (request == null) {
+        break;
       }
+
+      String[] argList = new String[request.getArgumentsCount()];
+      argList = request.getArgumentsList().toArray(argList);
+
+      DesugarOptions options = parseCommandLineOptions(argList);
+
+      int exitCode = processRequest(options, dumpDirectory);
+      WorkResponse.newBuilder()
+          .setExitCode(exitCode)
+          .build()
+          .writeDelimitedTo(System.out);
+      System.out.flush();
     }
-    return 0;
   }
 
   private static int processRequest(DesugarOptions options, Path dumpDirectory) throws Exception {
