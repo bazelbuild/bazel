@@ -81,7 +81,7 @@ public class ResourceConverterTest {
 
   @Test
   public void convertHostCpus_returnsCpuSetting() throws Exception {
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(0, 15));
+    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(1, 15));
     resourceConverter = new ResourceConverter(() -> 5);
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }
