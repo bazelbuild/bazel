@@ -22,7 +22,26 @@ load(
     "resolve_labels",
 )
 
+cc_autoconf_toolchains = repository_rule(
+    environ = [
+        "BAZEL_USE_CPP_ONLY_TOOLCHAIN",
+        "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
+    ],
+    implementation = cc_autoconf__toolchains_impl,
+)
+
+def cc_autoconf__toolchains_impl(repository_ctx, overriden_tools = dict()):
+  """Generate BUILD file with 'toolchain' targets for the local host C++ toolchain."""
+    paths = resolve_labels(repository_ctx, [
+        "@bazel_tools//tools/cpp:BUILD.toolchains.tpl",
+    ])
+    env = repository_ctx.os.environ
+    if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
+        repository_ctx.file("BUILD", "# C++ toolchain autoconfiguration was disabled by BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN env variable.")
+
+
 def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
+  """Generate BUILD file with 'cc_toolchain' targets for the local host C++ toolchain."""
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.static.freebsd",
         "@bazel_tools//tools/cpp:cc_toolchain_config.bzl",
@@ -89,9 +108,10 @@ cc_autoconf = repository_rule(
 
 def cc_configure():
     """A C++ configuration rules that generate the crosstool file."""
+    cc_autoconf_toolchains(name = "local_config_cc_toolchains")
     cc_autoconf(name = "local_config_cc")
     native.bind(name = "cc_toolchain", actual = "@local_config_cc//:toolchain")
     native.register_toolchains(
         # Use register_toolchain's target pattern expansion to register all toolchains in the package.
-        "@local_config_cc//:all",
+        "@local_config_cc_toolchains//:all",
     )
