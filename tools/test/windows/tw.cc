@@ -288,6 +288,11 @@ std::wstring AsMixedPath(const std::wstring& path) {
   return value;
 }
 
+// Gets an environment variable's value.
+// Returns:
+// - true, if the envvar is defined and successfully fetched, or it's empty or
+//   undefined
+// - false, if some error occurred
 bool GetEnv(const wchar_t* name, std::wstring* result) {
   static constexpr size_t kSmallBuf = MAX_PATH;
   WCHAR value[kSmallBuf];
@@ -310,6 +315,11 @@ bool GetEnv(const wchar_t* name, std::wstring* result) {
   }
 }
 
+// Gets an environment variable's value as a Path.
+// Returns:
+// - true, if the envvar is defined and successfully fetched, or it's empty or
+//   undefined
+// - false, if some error occurred
 bool GetPathEnv(const wchar_t* name, Path* result) {
   std::wstring value;
   if (!GetEnv(name, &value)) {
@@ -319,6 +329,11 @@ bool GetPathEnv(const wchar_t* name, Path* result) {
   return result->Set(value);
 }
 
+// Gets an environment variable's value as integer and as the original string.
+// Returns:
+// - true, if the envvar is defined and successfully fetched, or it's empty or
+//   undefined
+// - false, if some error occurred
 bool GetIntEnv(const wchar_t* name, std::wstring* as_wstr, int* as_int) {
   *as_int = 0;
   if (!GetEnv(name, as_wstr) ||
@@ -1041,7 +1056,8 @@ inline void ComputeRunfilePath(const std::wstring& test_workspace,
   }
 }
 
-bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
+bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
+                    Path* result) {
   if (!blaze_util::IsAbsolute(test_path)) {
     std::string argv0_acp;
     if (!WcsToAcp(argv0.Get(), &argv0_acp)) {
@@ -1081,7 +1097,14 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
     }
   }
 
-  return result->Set(test_path);
+  if (!result->Set(test_path)) {
+    LogError(__LINE__,
+             std::wstring(L"Failed to set path \"") + test_path + L"\"");
+    return false;
+  }
+
+  (void) result->Absolutize(cwd);
+  return true;
 }
 
 bool CreateCommandLine(const Path& path, const std::wstring& args,
@@ -1641,8 +1664,12 @@ bool Path::Set(const std::wstring& path) {
 
 bool Path::Absolutize(const Path& cwd) {
   if (!path_.empty() && !blaze_util::IsAbsolute(path_)) {
-    path_ = cwd.path_ + L"\\" + path_;
-    return true;
+    // Both paths are normalized, but this->path_ may begin with ".."s so we
+    // must normalize after joining.
+    // We wouldn't need full normalization, just normlize at the joined edges,
+    // but let's keep the code simple and normalize fully. (AsWindowsPath in
+    // Set normalizes.)
+    return Set(cwd.path_ + L"\\" + path_);
   } else {
     return false;
   }
@@ -1788,10 +1815,9 @@ int TestWrapperMain(int argc, wchar_t** argv) {
   UndeclaredOutputs undecl;
   std::wstring args;
   if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
-      !PrintTestLogStartMarker() ||
-      !FindTestBinary(argv0, test_path_arg, &test_path) ||
-      !GetCwd(&exec_root) || !ExportUserName() ||
-      !ExportSrcPath(exec_root, &srcdir) ||
+      !PrintTestLogStartMarker() || !GetCwd(&exec_root) ||
+      !FindTestBinary(argv0, exec_root, test_path_arg, &test_path) ||
+      !ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
       !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||
