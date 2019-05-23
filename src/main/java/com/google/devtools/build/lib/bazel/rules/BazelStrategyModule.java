@@ -70,6 +70,7 @@ public class BazelStrategyModule extends BlazeModule {
       builder.addStrategyByMnemonic("Javac", ImmutableList.of("worker"));
       builder.addStrategyByMnemonic("Closure", ImmutableList.of("worker"));
       builder.addStrategyByMnemonic("DexBuilder", ImmutableList.of("worker"));
+      builder.addStrategyByMnemonic("Desugar", ImmutableList.of("worker"));
 
       // The --spawn_strategy= flag is a bit special: If it's set to the empty string, we actually
       // have to pass a literal empty string to the builder to trigger the "use the strategy that
