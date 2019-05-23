@@ -22,26 +22,30 @@ import javax.annotation.Nullable;
  */
 public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
 
-  @Nullable private String cachedKey = null;
+  @Nullable private volatile String cachedKey = null;
 
   @Override
-  public final synchronized String getKey(ActionKeyContext actionKeyContext) {
+  public final String getKey(ActionKeyContext actionKeyContext) {
     if (cachedKey == null) {
-      try {
-        Fingerprint fp = new Fingerprint();
-        computeKey(actionKeyContext, fp);
+      synchronized (this) {
+        if (cachedKey == null) {
+          try {
+            Fingerprint fp = new Fingerprint();
+            computeKey(actionKeyContext, fp);
 
-        // Add a bool indicating whether the execution platform was set.
-        fp.addBoolean(getExecutionPlatform() != null);
-        if (getExecutionPlatform() != null) {
-          // Add the execution platform information.
-          getExecutionPlatform().addTo(fp);
+            // Add a bool indicating whether the execution platform was set.
+            fp.addBoolean(getExecutionPlatform() != null);
+            if (getExecutionPlatform() != null) {
+              // Add the execution platform information.
+              getExecutionPlatform().addTo(fp);
+            }
+
+            // Compute the actual key and store it.
+            cachedKey = fp.hexDigestAndReset();
+          } catch (CommandLineExpansionException e) {
+            cachedKey = KEY_ERROR;
+          }
         }
-
-        // Compute the actual key and store it.
-        cachedKey = fp.hexDigestAndReset();
-      } catch (CommandLineExpansionException e) {
-        cachedKey = KEY_ERROR;
       }
     }
     return cachedKey;
