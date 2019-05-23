@@ -112,6 +112,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private boolean buildRunning;
   // Number of open build even protocol transports.
   private boolean progressBarNeedsRefresh;
+  private volatile boolean shutdown;
   private final AtomicReference<Thread> updateThread;
   private byte[] stdoutBuffer;
   private byte[] stderrBuffer;
@@ -990,7 +991,7 @@ public class ExperimentalEventHandler implements EventHandler {
           new Thread(
               () -> {
                 try {
-                  while (true) {
+                  while (!shutdown) {
                     Thread.sleep(minimalUpdateInterval);
                     if (lastRefreshMillis < mustRefreshAfterMillis
                         && mustRefreshAfterMillis < clock.currentTimeMillis()) {
@@ -1015,6 +1016,7 @@ public class ExperimentalEventHandler implements EventHandler {
    * NOT CALL from a SYNCHRONIZED block, as this will give the opportunity for dead locks.
    */
   private void stopUpdateThread() {
+    shutdown = true;
     Thread threadToWaitFor = updateThread.getAndSet(null);
     if (threadToWaitFor != null) {
       threadToWaitFor.interrupt();
