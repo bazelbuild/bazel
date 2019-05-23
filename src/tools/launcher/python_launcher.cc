@@ -31,11 +31,14 @@ static constexpr const char* WINDOWS_STYLE_ESCAPE_JVM_FLAGS = "escape_args";
 ExitCode PythonBinaryLauncher::Launch() {
   wstring python_binary = this->GetLaunchInfoByKey(PYTHON_BIN_PATH);
 
-  // The value of python_binary could be the following cases:
-  //   1. if --python_top or python toolchains are used, it should be the
-  //      runfile path of the Python binary.
-  //   2. if --python_path is used, it should be an absolute path to the Python binary.
-  //   3. if none of above are specified, it should be just "python".
+  // There are three kinds of values for `python_binary`:
+  // 1. An absolute path to a system interpreter. This is the case if `--python_path` is set by the
+  //    user, or if a `py_runtime` is used that has `interpreter_path` set.
+  // 2. A runfile path to an in-workspace interpreter. This is the case if a `py_runtime` is used
+  //    that has `interpreter` set.
+  // 3. The special constant, "python". This is the default case if neither of the above apply.
+  // Rlocation resolves runfiles paths to absolute paths, and if given an absolute path it leaves
+  // it alone, so it's suitable for cases 1 and 2.
   if (GetBinaryPathWithoutExtension(python_binary) != L"python") {
     // Rlocation returns the original path if python_binary is an absolute path.
     python_binary = this->Rlocation(python_binary, true);
