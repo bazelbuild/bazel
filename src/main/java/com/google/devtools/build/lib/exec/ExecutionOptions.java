@@ -580,11 +580,7 @@ public class ExecutionOptions extends OptionsBase {
       super(
           ImmutableMap.of(
               "HOST_RAM",
-              // Some tests seem to set local host RAM to 0, so we adjust host RAM to 1 here
-              // to make sure the default is valid.
-              () ->
-                  Math.max(
-                      1, (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb()))),
+              () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb())),
           1,
           Integer.MAX_VALUE);
     }
