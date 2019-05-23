@@ -1316,12 +1316,26 @@ int GetExitCodeForAbruptExit(const GlobalVariables &globals) {
   return custom_exit_code;
 }
 
+static void PrintVersionInfo(const string &self_path,
+                             const string &product_name) {
+  string build_label;
+  ExtractBuildLabel(self_path, product_name, &build_label);
+  printf("%s %s\n", product_name.c_str(), build_label.c_str());
+}
+
 int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
          OptionProcessor *option_processor, uint64_t start_time) {
   // Logging must be set first to assure no log statements are missed.
   std::unique_ptr<blaze_util::BazelLogHandler> default_handler(
       new blaze_util::BazelLogHandler());
   blaze_util::SetLogHandler(std::move(default_handler));
+
+  const string self_path = GetSelfPath();
+
+  if (argc == 2 && strcmp(argv[1], "--version") == 0) {
+    PrintVersionInfo(self_path, option_processor->GetLowercaseProductName());
+    return blaze_exit_code::SUCCESS;
+  }
 
   globals = new GlobalVariables(option_processor);
   blaze::SetupStdStreams();
@@ -1367,7 +1381,6 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 
-  const string self_path = GetSelfPath();
   ComputeBaseDirectories(workspace_layout, self_path);
 
   blaze_server = static_cast<BlazeServer *>(

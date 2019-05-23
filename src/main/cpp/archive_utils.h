@@ -35,6 +35,11 @@ void ExtractArchiveOrDie(const std::string &archive_path,
                          const std::string &expected_install_md5,
                          const std::string &output_dir);
 
+// Retrieves the build label (version string) from `archive_path` into
+// `build_label`.
+void ExtractBuildLabel(const std::string &archive_path,
+                       const std::string &product_name,
+                       std::string *build_label);
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_ARCHIVE_UTILS_H_
