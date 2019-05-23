@@ -20,6 +20,7 @@ import com.google.common.collect.Maps;
 import com.google.common.testing.NullPointerTester;
 import java.io.Serializable;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.Test;
@@ -248,5 +249,27 @@ public class ImmutableSortedKeyMapTest {
     assertThat(map.toString()).isEqualTo("{a=1, b=2}");
     map = ImmutableSortedKeyMap.of();
     assertThat(map.toString()).isEqualTo("{}");
+  }
+
+  @Test
+  public void emptyValuesCollectionTest() {
+    Map<String, Integer> map = ImmutableSortedKeyMap.of();
+    assertThat(map.values().size()).isEqualTo(0);
+    assertThat(map.values()).containsExactly();
+    Iterator<Integer> it = map.values().iterator();
+    assertThat(it.hasNext()).isFalse();
+  }
+
+  @Test
+  public void valuesCollectionTest() {
+    Map<String, Integer> map = ImmutableSortedKeyMap.of("a", 1, "b", 2);
+    assertThat(map.values().size()).isEqualTo(2);
+    assertThat(map.values()).containsExactly(1, 2);
+    Iterator<Integer> it = map.values().iterator();
+    assertThat(it.hasNext()).isTrue();
+    assertThat(it.next()).isEqualTo(1);
+    assertThat(it.hasNext()).isTrue();
+    assertThat(it.next()).isEqualTo(2);
+    assertThat(it.hasNext()).isFalse();
   }
 }
