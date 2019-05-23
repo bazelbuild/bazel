@@ -279,7 +279,7 @@ def Main():
       ret_code = subprocess.call(args)
       shutil.rmtree(os.path.dirname(module_space), True)
       MaybeEmitHostVersionWarning(ret_code)
-      exit(ret_code)
+      sys.exit(ret_code)
     else:
       # On Windows, os.execv doesn't handle arguments with spaces correctly,
       # and it actually starts a subprocess just like subprocess.call.
@@ -288,7 +288,7 @@ def Main():
       if IsWindows() or %enable_host_version_warning%:
         ret_code = subprocess.call(args)
         MaybeEmitHostVersionWarning(ret_code)
-        exit(ret_code)
+        sys.exit(ret_code)
       else:
         os.execv(args[0], args)
   except EnvironmentError:
