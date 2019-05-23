@@ -63,6 +63,9 @@ class OptionProcessor {
 
   virtual ~OptionProcessor() {}
 
+  // Returns the lower-case product name associated with this options processor.
+  std::string GetLowercaseProductName() const;
+
   // Splits the arguments of a command line invocation.
   //
   // For instance:

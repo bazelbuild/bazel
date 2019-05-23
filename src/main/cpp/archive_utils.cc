@@ -165,6 +165,50 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
   blaze::embedded_binaries::Dumper *dumper_;
 };
 
+// A ZipExtractorProcessor that reads the contents of the build-label.txt file
+// from the archive.
+class GetBuildLabelFileProcessor
+    : public devtools_ijar::ZipExtractorProcessor {
+ public:
+  explicit GetBuildLabelFileProcessor(string *build_label)
+    : build_label_(build_label) {}
+
+  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
+    return strcmp(filename, "build-label.txt") == 0;
+  }
+
+  void Process(const char *filename,
+               const devtools_ijar::u4 attr,
+               const devtools_ijar::u1 *data,
+               const size_t size) override {
+    string contents(reinterpret_cast<const char *>(data), size);
+    blaze_util::StripWhitespace(&contents);
+    *build_label_ = contents;
+  }
+
+ private:
+  string *build_label_;
+};
+
+static void RunZipProcessorOrDie(
+    const string &archive_path,
+    const string &product_name,
+    devtools_ijar::ZipExtractorProcessor *processor) {
+  std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
+      devtools_ijar::ZipExtractor::Create(archive_path.c_str(), processor));
+
+  if (extractor == NULL) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to open " << product_name
+        << " as a zip file: " << blaze_util::GetLastErrorString();
+  }
+
+  if (extractor->ProcessAll() < 0) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to extract install_base_key: " << extractor->GetError();
+  }
+}
+
 void DetermineArchiveContents(
     const string &archive_path,
     const string &product_name,
@@ -174,17 +218,8 @@ void DetermineArchiveContents(
   GetInstallKeyFileProcessor install_key_processor(install_md5);
   CompoundZipProcessor processor({&note_all_files_processor,
                                   &install_key_processor});
-  std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
-      devtools_ijar::ZipExtractor::Create(archive_path.c_str(), &processor));
-  if (extractor == NULL) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to open " << product_name
-        << " as a zip file: " << blaze_util::GetLastErrorString();
-  }
-  if (extractor->ProcessAll() < 0) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to extract install_base_key: " << extractor->GetError();
-  }
+
+  RunZipProcessorOrDie(archive_path, product_name, &processor);
 
   if (install_md5->empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -219,18 +254,7 @@ void ExtractArchiveOrDie(const string &archive_path,
   BAZEL_LOG(USER) << "Extracting " << product_name
                   << " installation...";
 
-  std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
-      devtools_ijar::ZipExtractor::Create(archive_path.c_str(), &processor));
-  if (extractor == NULL) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to open " << product_name
-        << " as a zip file: " << blaze_util::GetLastErrorString();
-  }
-  if (extractor->ProcessAll() < 0) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to extract " << product_name
-        << " as a zip file: " << extractor->GetError();
-  }
+  RunZipProcessorOrDie(archive_path, product_name, &processor);
 
   if (!dumper->Finish(&error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -246,6 +270,20 @@ void ExtractArchiveOrDie(const string &archive_path,
         << product_name
         << " in order to pick up the different version. If you didn't expect "
            "this then you should investigate what happened.";
+  }
+}
+
+void ExtractBuildLabel(const string &archive_path,
+                       const string &product_name,
+                       string *build_label) {
+  GetBuildLabelFileProcessor processor(build_label);
+  RunZipProcessorOrDie(archive_path, product_name, &processor);
+
+  // We expect the build label file to exist and be non-empty, if neither is the
+  // case then something unexpected is going on.
+  if (build_label->empty()) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Couldn't determine build label from archive";
   }
 }
 

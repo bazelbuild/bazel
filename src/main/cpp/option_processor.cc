@@ -67,10 +67,13 @@ OptionProcessor::OptionProcessor(
       parse_options_called_(false),
       system_bazelrc_path_(system_bazelrc_path) {}
 
+std::string OptionProcessor::GetLowercaseProductName() const {
+  return startup_options_->GetLowercaseProductName();
+}
+
 std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
     vector<string> args, string* error) const {
-  const string lowercase_product_name =
-      startup_options_->GetLowercaseProductName();
+  const string lowercase_product_name = GetLowercaseProductName();
 
   if (args.empty()) {
     blaze_util::StringPrintf(error,
