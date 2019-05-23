@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * A provider that provides all compiling and linking information in the transitive closure of its
@@ -345,6 +346,9 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
 
   // Items which should be passed to strictly direct dependers, but not transitive dependers.
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
+
+  // Lazily initialized because it's only needed when header thinning is not enabled.
+  @Nullable private volatile NestedSet<Artifact> generatedHeaders;
 
   /** All keys in ObjcProvider that will be passed in the corresponding Skylark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
@@ -711,6 +715,26 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder().addLibraries(libraryToLinkListBuilder.build()).build();
     return ccLinkingContext.getStaticModeParamsForExecutableLibraries();
+  }
+
+  /** Returns the set of generated header files. */
+  NestedSet<Artifact> getGeneratedHeaders() {
+    if (generatedHeaders == null) {
+      synchronized (this) {
+        if (generatedHeaders == null) {
+          NestedSet<Artifact> headers = header();
+          NestedSetBuilder<Artifact> generatedHeadersBuilder =
+              new NestedSetBuilder<>(headers.getOrder());
+          for (Artifact header : headers) {
+            if (!header.isSourceArtifact()) {
+              generatedHeadersBuilder.add(header);
+            }
+          }
+          generatedHeaders = generatedHeadersBuilder.build();
+        }
+      }
+    }
+    return generatedHeaders;
   }
 
   /**

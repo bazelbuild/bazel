@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -118,13 +117,7 @@ public class ObjcCppSemantics implements CppSemantics {
       // ObjcHeaderScanning action so this is only required when that is disabled
       // TODO(b/62060839): Identify the mechanism used to add generated headers in c++, and recycle
       // it here.
-      ImmutableSet.Builder<Artifact> generatedHeaders = ImmutableSet.builder();
-      for (Artifact header : objcProvider.get(HEADER)) {
-        if (!header.isSourceArtifact()) {
-          generatedHeaders.add(header);
-        }
-      }
-      actionBuilder.addMandatoryInputs(generatedHeaders.build());
+      actionBuilder.addTransitiveMandatoryInputs(objcProvider.getGeneratedHeaders());
     }
   }
 
