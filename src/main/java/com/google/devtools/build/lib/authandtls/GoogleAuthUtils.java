@@ -93,6 +93,7 @@ public final class GoogleAuthUtils {
     }
     if (options.incompatibleTlsEnabledRemoved) {
       // 'grpcs://' or empty prefix => TLS-enabled
+      // when no schema prefix is provided in URL, bazel will treat it as a gRPC request with TLS enabled
       return !target.startsWith("grpc://");
     }
     return target.startsWith("grpcs") || options.tlsEnabled;
