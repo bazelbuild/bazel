@@ -80,6 +80,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /** Exception class for exceptions thrown during application of a starlark-defined transition */
+  // TODO(juliexxia): add more information to this exception e.g. originating target of transition
   public static class TransitionException extends Exception {
     private final String message;
 

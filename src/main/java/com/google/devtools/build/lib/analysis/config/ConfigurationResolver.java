@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigurationsResult;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -672,7 +673,7 @@ public final class ConfigurationResolver {
   // TODO(gregce): merge this more with resolveConfigurations? One crucial difference is
   //   resolveConfigurations can null-return on missing deps since it executes inside Skyfunctions.
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#resolveConfigurations}.
-  public static LinkedHashSet<TargetAndConfiguration> getConfigurationsFromExecutor(
+  public static TopLevelTargetsAndConfigsResult getConfigurationsFromExecutor(
       Iterable<TargetAndConfiguration> defaultContext,
       Multimap<BuildConfiguration, Dependency> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
@@ -688,13 +689,15 @@ public final class ConfigurationResolver {
     // could be successfully Skyframe-evaluated.
     Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
         new LinkedHashMap<>();
+    boolean hasError = false;
     if (!targetsToEvaluate.isEmpty()) {
       for (BuildConfiguration fromConfig : targetsToEvaluate.keySet()) {
-        Multimap<Dependency, BuildConfiguration> evaluatedTargets =
+        ConfigurationsResult configurationsResult =
             skyframeExecutor.getConfigurations(
                 eventHandler, fromConfig.getOptions(), targetsToEvaluate.get(fromConfig));
+        hasError |= configurationsResult.hasError();
         for (Map.Entry<Dependency, BuildConfiguration> evaluatedTarget :
-            evaluatedTargets.entries()) {
+            configurationsResult.getConfigurationMap().entries()) {
           Target target = labelsToTargets.get(evaluatedTarget.getKey().getLabel());
           successfullyEvaluatedTargets.put(
               new TargetAndConfiguration(target, fromConfig),
@@ -713,7 +716,30 @@ public final class ConfigurationResolver {
         result.add(originalInput);
       }
     }
-    return result;
+    return new TopLevelTargetsAndConfigsResult(result, hasError);
+  }
+
+  /**
+   * The result of {@link #getConfigurationsFromExecutor} which also registers if an error was
+   * recorded.
+   */
+  public static class TopLevelTargetsAndConfigsResult {
+    private final Collection<TargetAndConfiguration> configurations;
+    private final boolean hasError;
+
+    public TopLevelTargetsAndConfigsResult(
+        Collection<TargetAndConfiguration> configurations, boolean hasError) {
+      this.configurations = configurations;
+      this.hasError = hasError;
+    }
+
+    public boolean hasError() {
+      return hasError;
+    }
+
+    public Collection<TargetAndConfiguration> getTargetsAndConfigs() {
+      return configurations;
+    }
   }
 }
 
