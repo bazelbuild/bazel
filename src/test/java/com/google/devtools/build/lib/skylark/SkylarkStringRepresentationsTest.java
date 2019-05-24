@@ -173,7 +173,7 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         "dep = rule(implementation = _impl)",
         "",
         "def _genfile_impl(ctx):",
-        "  ctx.file_action(output = ctx.outputs.my_output, content = 'foo')",
+        "  ctx.actions.write(output = ctx.outputs.my_output, content = 'foo')",
         "genfile = rule(",
         "  implementation = _genfile_impl,",
         "  outputs = {'my_output': '%{name}.txt'},",

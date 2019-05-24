@@ -112,8 +112,7 @@ def _impl(ctx):
     # This is used to test the code that handles multiple flagfiles and the --flagfile= style.
     idx = 1
     for arg in ["--output_file=" + output.path] + ctx.attr.args:
-      argfile = ctx.new_file(ctx.bin_dir, "%s_worker_input_%s" % (ctx.label.name, idx))
-      ctx.file_action(output=argfile, content=arg)
+      argfile = ctx.actions.declare_file("%s_worker_input_%s" % (ctx.label.name, idx))
       ctx.actions.write(output=argfile, content=arg)
       argfile_inputs.append(argfile)
       flagfile_prefix = "@" if (idx % 2 == 0) else "--flagfile="
@@ -121,7 +120,7 @@ def _impl(ctx):
       idx += 1
   else:
     # Generate the "@"-file containing the command-line args for the unit of work.
-    argfile = ctx.new_file(ctx.bin_dir, "%s_worker_input" % ctx.label.name)
+    argfile = ctx.actions.declare_file("%s_worker_input" % ctx.label.name)
     argfile_contents = "\n".join(["--output_file=" + output.path] + ctx.attr.args)
     ctx.actions.write(output=argfile, content=argfile_contents)
     argfile_inputs.append(argfile)
