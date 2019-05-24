@@ -824,4 +824,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   public boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext) {
     return false;
   }
+
+  @Override
+  public void checkDependencyRuleKinds(RuleContext ruleContext) {}
 }
