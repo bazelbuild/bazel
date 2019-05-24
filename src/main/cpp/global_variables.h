@@ -60,8 +60,6 @@ struct GlobalVariables {
   // Whether or not the jvm_log_file should be opened with O_APPEND.
   bool jvm_log_file_append;
 
-  std::string cwd;
-
   // The nearest enclosing workspace directory, starting from cwd.
   // If not under a workspace directory, this is equal to cwd.
   std::string workspace;

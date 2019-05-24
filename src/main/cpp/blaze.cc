@@ -1114,14 +1114,14 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
   SignalHandler::Get().PropagateSignalOrExit(server->Communicate());
 }
 
-// Parse the options, storing parsed values in globals.
-static void ParseOptions(int argc, const char *argv[]) {
+// Parse the options, storing parsed values into globals->options.
+static void ParseOptions(const string &cwd, int argc, const char *argv[]) {
   std::string error;
   std::vector<std::string> args;
   args.insert(args.end(), argv, argv + argc);
   const blaze_exit_code::ExitCode parse_exit_code =
       globals->option_processor->ParseOptions(
-          args, globals->workspace, globals->cwd, &error);
+          args, globals->workspace, cwd, &error);
 
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
     globals->option_processor->PrintStartupOptionsProvenanceMessage();
@@ -1130,15 +1130,14 @@ static void ParseOptions(int argc, const char *argv[]) {
   globals->options = globals->option_processor->GetParsedStartupOptions();
 }
 
-// Compute the globals globals->cwd and globals->workspace.
-static void ComputeWorkspace(const WorkspaceLayout *workspace_layout) {
-  globals->cwd = blaze_util::MakeCanonical(blaze_util::GetCwd().c_str());
-  if (globals->cwd.empty()) {
+static string GetCanonicalCwd() {
+  string result = blaze_util::MakeCanonical(blaze_util::GetCwd().c_str());
+  if (result.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "blaze_util::MakeCanonical('" << blaze_util::GetCwd()
         << "') failed: " << GetLastErrorString();
   }
-  globals->workspace = workspace_layout->GetWorkspace(globals->cwd);
+  return result;
 }
 
 // Figure out the base directories based on embedded data, username, cwd, etc.
@@ -1274,11 +1273,11 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   return result;
 }
 
-static string CheckAndGetBinaryPath(const string &argv0) {
+static string CheckAndGetBinaryPath(const string &cwd, const string &argv0) {
   if (blaze_util::IsAbsolute(argv0)) {
     return argv0;
   } else {
-    string abs_path = blaze_util::JoinPath(globals->cwd, argv0);
+    string abs_path = blaze_util::JoinPath(cwd, argv0);
     string resolved_path = blaze_util::MakeCanonical(abs_path.c_str());
     if (!resolved_path.empty()) {
       return resolved_path;
@@ -1353,8 +1352,9 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   // the Blaze client also benefits from this (e.g. during installation).
   UnlimitResources();
 
-  // Must be done before command line parsing.
-  ComputeWorkspace(workspace_layout);
+  // Figure out workspace, must be done before command line parsing.
+  string cwd = GetCanonicalCwd();
+  globals->workspace = workspace_layout->GetWorkspace(cwd);
 
 #if defined(_WIN32) || defined(__CYGWIN__)
   // Must be done before command line parsing.
@@ -1363,8 +1363,8 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   (void)DetectBashAndExportBazelSh();
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
-  globals->binary_path = CheckAndGetBinaryPath(argv[0]);
-  ParseOptions(argc, argv);
+  globals->binary_path = CheckAndGetBinaryPath(cwd, argv[0]);
+  ParseOptions(cwd, argc, argv);
 
   SetDebugLog(globals->options->client_debug);
   // If client_debug was false, this is ignored, so it's accurate.
