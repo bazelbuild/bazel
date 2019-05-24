@@ -224,7 +224,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(true)
           .incompatibleDisableThirdPartyLicenseChecking(true)
-          .incompatibleDisableDeprecatedAttrParams(false)
+          .incompatibleDisableDeprecatedAttrParams(true)
           .incompatibleDisableObjcProviderResources(true)
           .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowFileType(true)

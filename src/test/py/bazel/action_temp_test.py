@@ -171,8 +171,8 @@ class ActionTempTest(test_base.TestBase):
         'foorule = rule(',
         '    implementation=_impl,',
         '    attrs={"tool": attr.label(executable=True, cfg="host",',
-        '                              allow_files=True, single_file=True),',
-        '           "src": attr.label(allow_files=True, single_file=True)},',
+        '                              allow_single_file=True),',
+        '           "src": attr.label(allow_single_file=True)},',
         '    outputs={"out": "%{name}.txt"},',
         ')',
     ])

@@ -198,7 +198,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "incompatible_disable_deprecated_attr_params",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
