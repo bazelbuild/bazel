@@ -87,10 +87,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           Type.INTEGER, Type.STRING, BuildType.LABEL, BuildType.NODEP_LABEL, BuildType.OUTPUT,
           Type.BOOLEAN, BuildType.TRISTATE, BuildType.LICENSE);
 
-  private boolean relativeLocations = false;
+  private boolean relativeLocations;
   protected boolean includeDefaultValues = true;
   private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
+  private boolean includeLocations = true;
 
   protected void setDependencyFilter(QueryOptions options) {
     this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
@@ -108,6 +109,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.includeDefaultValues = options.protoIncludeDefaultValues;
     this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
     this.flattenSelects = options.protoFlattenSelects;
+    this.includeLocations = options.protoIncludeLocations;
   }
 
   private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
@@ -185,14 +187,13 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
-    String location = getLocation(target, relativeLocations);
     if (target instanceof Rule) {
       Rule rule = (Rule) target;
       Build.Rule.Builder rulePb = Build.Rule.newBuilder()
           .setName(rule.getLabel().toString())
           .setRuleClass(rule.getRuleClass());
       if (includeLocation()) {
-        rulePb.setLocation(location);
+        rulePb.setLocation(getLocation(target, relativeLocations));
       }
       addAttributes(rulePb, rule, extraDataForPostProcess);
       String transitiveHashCode = rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
@@ -263,7 +264,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                        .setName(label.toString());
 
       if (includeLocation()) {
-        output.setLocation(location);
+        output.setLocation(getLocation(target, relativeLocations));
       }
       targetPb.setType(GENERATED_FILE);
       targetPb.setGeneratedFile(output.build());
@@ -275,7 +276,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           .setName(label.toString());
 
       if (includeLocation()) {
-        input.setLocation(location);
+        input.setLocation(getLocation(target, relativeLocations));
       }
 
       if (inputFile.getName().equals("BUILD")) {
@@ -310,7 +311,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                                            .setName(label.toString());
 
       if (includeLocation()) {
-        input.setLocation(location);
+        input.setLocation(getLocation(target, relativeLocations));
       }
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input.build());
@@ -429,7 +430,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   protected boolean includeLocation() {
-    return true;
+    return includeLocations;
   }
 
   /**

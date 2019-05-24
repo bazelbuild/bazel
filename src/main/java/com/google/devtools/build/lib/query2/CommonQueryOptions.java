@@ -109,6 +109,13 @@ public class CommonQueryOptions extends OptionsBase {
   )
   public boolean relativeLocations;
 
+  @Option(
+      name = "proto:locations",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether to output location information in proto output at all.")
+  public boolean protoIncludeLocations;
 
   @Option(
       name = "proto:default_values",
@@ -120,7 +127,6 @@ public class CommonQueryOptions extends OptionsBase {
               + "included; otherwise they are omitted. This option is applicable to --output=proto"
   )
   public boolean protoIncludeDefaultValues;
-
 
   @Option(
       name = "proto:flatten_selects",
