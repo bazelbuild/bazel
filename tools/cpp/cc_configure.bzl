@@ -22,26 +22,36 @@ load(
     "resolve_labels",
 )
 
+def cc_autoconf_toolchains_impl(repository_ctx, overriden_tools = dict()):
+    """Generate BUILD file with 'toolchain' targets for the local host C++ toolchain."""
+    print("Generating toolchains")
+    paths = resolve_labels(repository_ctx, [
+        "@bazel_tools//tools/cpp:BUILD.toolchains.tpl",
+    ])
+    env = repository_ctx.os.environ
+    cpu_value = get_cpu_value(repository_ctx)
+    if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
+        repository_ctx.file("BUILD", "# C++ toolchain autoconfiguration was disabled by BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN env variable.")
+    else:
+        repository_ctx.template(
+            "BUILD",
+            paths["@bazel_tools//tools/cpp:BUILD.toolchains.tpl"],
+            { "%{name}": cpu_value },
+        )
+
 cc_autoconf_toolchains = repository_rule(
     environ = [
         "BAZEL_USE_CPP_ONLY_TOOLCHAIN",
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
     ],
-    implementation = cc_autoconf__toolchains_impl,
+    implementation = cc_autoconf_toolchains_impl,
 )
 
-def cc_autoconf__toolchains_impl(repository_ctx, overriden_tools = dict()):
-  """Generate BUILD file with 'toolchain' targets for the local host C++ toolchain."""
-    paths = resolve_labels(repository_ctx, [
-        "@bazel_tools//tools/cpp:BUILD.toolchains.tpl",
-    ])
-    env = repository_ctx.os.environ
-    if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
-        repository_ctx.file("BUILD", "# C++ toolchain autoconfiguration was disabled by BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN env variable.")
 
 
 def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
-  """Generate BUILD file with 'cc_toolchain' targets for the local host C++ toolchain."""
+    """Generate BUILD file with 'cc_toolchain' targets for the local host C++ toolchain."""
+    print("Generating cc toolchains")
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.static.freebsd",
         "@bazel_tools//tools/cpp:cc_toolchain_config.bzl",
