@@ -280,7 +280,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             type = Boolean.class,
             named = true,
             positional = false,
-            defaultValue = "False",
+            defaultValue = "True",
             disableWithFlag =
                 FlagIdentifier.INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED,
             valueWhenDisabled = "True",
