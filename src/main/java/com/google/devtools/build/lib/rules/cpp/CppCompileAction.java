@@ -401,17 +401,18 @@ public class CppCompileAction extends AbstractAction
   private Iterable<Artifact> findUsedHeaders(
       ActionExecutionContext actionExecutionContext, IncludeScanningHeaderData headerData)
       throws ActionExecutionException, InterruptedException {
-    if (!shouldScanIncludes()) {
-      return NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
-          .addTransitive(additionalPrunableHeaders)
-          .build();
-    }
     try {
       try {
-        return actionExecutionContext
-            .getContext(CppIncludeScanningContext.class)
-            .findAdditionalInputs(this, actionExecutionContext, includeProcessing, headerData)
-            .get();
+        ListenableFuture<Iterable<Artifact>> future =
+            actionExecutionContext
+                .getContext(CppIncludeScanningContext.class)
+                .findAdditionalInputs(this, actionExecutionContext, includeProcessing, headerData);
+        if (future == null) {
+          return NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
+              .addTransitive(additionalPrunableHeaders)
+              .build();
+        }
+        return future.get();
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
