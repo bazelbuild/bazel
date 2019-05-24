@@ -157,9 +157,10 @@ using command_server::CommandServer;
 //   could come about after deleting the PID file but before stopping accepting
 //   connections. It would also not be resilient against a dead server that
 //   left a PID file around.
-class BlazeServer {
+class BlazeServer final {
  public:
-  virtual ~BlazeServer() {}
+  BlazeServer(int connect_timeout_secs);
+  ~BlazeServer();
 
   // Acquire a lock for the server running in this output base. Returns the
   // number of milliseconds spent waiting for the lock.
@@ -171,62 +172,31 @@ class BlazeServer {
   // Connect to the server. Returns if the connection was successful. Only
   // call this when this object is in disconnected state. If it returns true,
   // this object will be in connected state.
-  virtual bool Connect() = 0;
+  bool Connect();
 
   // Disconnects from an existing server. Only call this when this object is in
   // connected state. After this call returns, the object will be in connected
   // state.
-  virtual void Disconnect() = 0;
+  void Disconnect();
 
   // Send the command line to the server and forward whatever it says to stdout
   // and stderr. Returns the desired exit code. Only call this when the server
   // is in connected state.
-  virtual unsigned int Communicate() = 0;
+  unsigned int Communicate();
 
   // Disconnects and kills an existing server. Only call this when this object
   // is in connected state.
-  virtual void KillRunningServer() = 0;
+  void KillRunningServer();
 
   // Cancel the currently running command. If there is no command currently
   // running, the result is unspecified. When called, this object must be in
   // connected state.
-  virtual void Cancel() = 0;
+  void Cancel();
 
  protected:
   BlazeLock blaze_lock_;
   bool connected_;
-};
 
-////////////////////////////////////////////////////////////////////////
-// Global Variables
-static GlobalVariables *globals;
-static BlazeServer *blaze_server;
-
-// TODO(laszlocsomor) 2016-11-24: release the `globals` and `blaze_server`
-// objects. Currently nothing deletes them. Be careful that some functions may
-// call exit(2) or _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have
-// to delete the objects before those.
-
-uint64_t BlazeServer::AcquireLock() {
-  return blaze::AcquireLock(globals->options->output_base,
-                            globals->options->batch,
-                            globals->options->block_for_lock, &blaze_lock_);
-}
-
-// Communication method that uses gRPC on a socket bound to localhost. More
-// documentation is in command_server.proto .
-class GrpcBlazeServer : public BlazeServer {
- public:
-  GrpcBlazeServer(int connect_timeout_secs);
-  virtual ~GrpcBlazeServer();
-
-  virtual bool Connect();
-  virtual void Disconnect();
-  virtual unsigned int Communicate();
-  virtual void KillRunningServer();
-  virtual void Cancel();
-
- private:
   enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
 
   std::unique_ptr<CommandServer::Stub> client_;
@@ -252,9 +222,23 @@ class GrpcBlazeServer : public BlazeServer {
 };
 
 ////////////////////////////////////////////////////////////////////////
+// Global Variables
+static GlobalVariables *globals;
+static BlazeServer *blaze_server;
+
+// TODO(laszlocsomor) 2016-11-24: release the `globals` and `blaze_server`
+// objects. Currently nothing deletes them. Be careful that some functions may
+// call exit(2) or _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have
+// to delete the objects before those.
+
+uint64_t BlazeServer::AcquireLock() {
+  return blaze::AcquireLock(globals->options->output_base,
+                            globals->options->batch,
+                            globals->options->block_for_lock, &blaze_lock_);
+}
+
+////////////////////////////////////////////////////////////////////////
 // Logic
-
-
 
 static map<string, EnvVarValue> PrepareEnvironmentForJvm();
 
@@ -1384,7 +1368,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   ComputeBaseDirectories(workspace_layout, self_path);
 
   blaze_server = static_cast<BlazeServer *>(
-      new GrpcBlazeServer(globals->options->connect_timeout_secs));
+      new BlazeServer(globals->options->connect_timeout_secs));
 
   globals->command_wait_time = blaze_server->AcquireLock();
   BAZEL_LOG(INFO) << "Acquired the client lock, waited "
@@ -1431,7 +1415,7 @@ static bool ProtoStringEqual(const StringTypeA &cookieA,
   return memcmp(cookieA.c_str(), cookieB.c_str(), cookie_length) == 0;
 }
 
-GrpcBlazeServer::GrpcBlazeServer(int connect_timeout_secs) {
+BlazeServer::BlazeServer(int connect_timeout_secs) {
   connected_ = false;
   connect_timeout_secs_ = connect_timeout_secs;
 
@@ -1444,12 +1428,12 @@ GrpcBlazeServer::GrpcBlazeServer(int connect_timeout_secs) {
   }
 }
 
-GrpcBlazeServer::~GrpcBlazeServer() {
+BlazeServer::~BlazeServer() {
   delete pipe_;
   pipe_ = NULL;
 }
 
-bool GrpcBlazeServer::TryConnect(
+bool BlazeServer::TryConnect(
     CommandServer::Stub *client) {
   grpc::ClientContext context;
   context.set_deadline(std::chrono::system_clock::now() +
@@ -1472,7 +1456,7 @@ bool GrpcBlazeServer::TryConnect(
   return true;
 }
 
-bool GrpcBlazeServer::Connect() {
+bool BlazeServer::Connect() {
   assert(!connected_);
 
   std::string server_dir =
@@ -1563,7 +1547,7 @@ bool GrpcBlazeServer::Connect() {
 // the server and the client go on as if nothing had happened (except that this
 // Ctrl-C still counts as a SIGINT, three of which result in a SIGKILL being
 // delivered to the server)
-void GrpcBlazeServer::CancelThread() {
+void BlazeServer::CancelThread() {
   bool running = true;
   bool cancel = false;
   bool command_id_received = false;
@@ -1606,7 +1590,7 @@ void GrpcBlazeServer::CancelThread() {
   }
 }
 
-void GrpcBlazeServer::SendCancelMessage() {
+void BlazeServer::SendCancelMessage() {
   std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
 
   command_server::CancelRequest request;
@@ -1625,7 +1609,7 @@ void GrpcBlazeServer::SendCancelMessage() {
 }
 
 // This will wait indefinitely until the server shuts down
-void GrpcBlazeServer::KillRunningServer() {
+void BlazeServer::KillRunningServer() {
   assert(connected_);
 
   grpc::ClientContext context;
@@ -1689,7 +1673,7 @@ void GrpcBlazeServer::KillRunningServer() {
   connected_ = false;
 }
 
-unsigned int GrpcBlazeServer::Communicate() {
+unsigned int BlazeServer::Communicate() {
   assert(connected_);
   assert(globals->server_pid > 0);
 
@@ -1742,7 +1726,7 @@ unsigned int GrpcBlazeServer::Communicate() {
       << "Releasing client lock, let the server manage concurrent requests.";
   blaze::ReleaseLock(&blaze_lock_);
 
-  std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
+  std::thread cancel_thread(&BlazeServer::CancelThread, this);
   bool command_id_set = false;
   bool pipe_broken = false;
   command_server::RunResponse final_response;
@@ -1856,7 +1840,7 @@ unsigned int GrpcBlazeServer::Communicate() {
       : final_response.exit_code();
 }
 
-void GrpcBlazeServer::Disconnect() {
+void BlazeServer::Disconnect() {
   assert(connected_);
 
   client_.reset();
@@ -1865,7 +1849,7 @@ void GrpcBlazeServer::Disconnect() {
   connected_ = false;
 }
 
-void GrpcBlazeServer::SendAction(CancelThreadAction action) {
+void BlazeServer::SendAction(CancelThreadAction action) {
   char msg = action;
   if (!pipe_->Send(&msg, 1)) {
     blaze::SigPrintf(
@@ -1873,7 +1857,7 @@ void GrpcBlazeServer::SendAction(CancelThreadAction action) {
   }
 }
 
-void GrpcBlazeServer::Cancel() {
+void BlazeServer::Cancel() {
   assert(connected_);
   SendAction(CancelThreadAction::CANCEL);
 }
