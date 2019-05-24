@@ -109,6 +109,42 @@ function test_remote_https_cache() {
       || fail "Failed to build //a:foo with https remote cache"
 }
 
+function test_remote_cache_with_incompatible_tls_enabled_removed_default_scheme() {
+  # Test that if default scheme for --remote_cache flag with --incompatible_tls_enabled_removed, remote cache works.
+  _prepareBasicRule
+
+  bazel build \
+      --remote_cache=localhost:${worker_port} \
+      --incompatible_tls_enabled_removed=true \
+      --tls_certificate="${cert_path}/ca.crt" \
+      //a:foo \
+      || fail "Failed to build //a:foo with default(grpcs) remote cache"
+}
+
+function test_remote_cache_with_incompatible_tls_enabled_removed_grpcs_scheme() {
+  # Test that if 'grpcs' scheme for --remote_cache flag with --incompatible_tls_enabled_removed, remote cache works.
+  _prepareBasicRule
+
+  bazel build \
+      --remote_cache=grpcs://localhost:${worker_port} \
+      --incompatible_tls_enabled_removed=true \
+      --tls_certificate="${cert_path}/ca.crt" \
+      //a:foo \
+      || fail "Failed to build //a:foo with grpcs remote cache"
+}
+
+function test_remote_cache_with_incompatible_tls_enabled_removed_grpc_scheme() {
+  # Test that if 'grpc' scheme for --remote_cache flag with --incompatible_tls_enabled_removed, remote cache fails.
+  _prepareBasicRule
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --incompatible_tls_enabled_removed=true \
+      --tls_certificate="${cert_path}/ca.crt" \
+      //a:foo \
+      && fail "Expected test failure" || true
+}
+
 function test_remote_cache_with_incompatible_tls_enabled_removed() {
   # Test that if --incompatible_tls_enabled_removed=true and --tls_enabled=true an error is thrown
   _prepareBasicRule
@@ -117,6 +153,7 @@ function test_remote_cache_with_incompatible_tls_enabled_removed() {
       --remote_cache=grpc://localhost:${worker_port} \
       --tls_enabled=true \
       --incompatible_tls_enabled_removed=true \
+      --tls_certificate="${cert_path}/ca.crt" \
       //a:foo \
       && fail "Expected test failure" || true
 }

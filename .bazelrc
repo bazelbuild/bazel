@@ -16,10 +16,12 @@ build:remote --incompatible_list_based_execution_strategy_selection
 
 build:remote --define=EXECUTOR=remote
 
+# TODO(ishikhman): Remove this flag after flag flip (after 0.30 release)
+build:remote --incompatible_tls_enabled_removed
+
 build:remote --remote_instance_name=projects/bazel-untrusted/instances/default_instance
 build:remote --remote_executor=remotebuildexecution.googleapis.com
 build:remote --remote_timeout=600
-build:remote --tls_enabled
 build:remote --google_default_credentials
 
 build:remote --jobs=100

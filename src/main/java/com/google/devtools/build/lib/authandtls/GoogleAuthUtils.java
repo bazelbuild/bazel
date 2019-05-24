@@ -91,6 +91,10 @@ public final class GoogleAuthUtils {
     if (options.incompatibleTlsEnabledRemoved && options.tlsEnabled) {
       throw new IllegalArgumentException("flag --tls_enabled was not found");
     }
+    if (options.incompatibleTlsEnabledRemoved) {
+      // 'grpcs://' or empty prefix => TLS-enabled
+      return !target.startsWith("grpc://");
+    }
     return target.startsWith("grpcs") || options.tlsEnabled;
   }
 
