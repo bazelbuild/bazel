@@ -98,9 +98,9 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     scratch.file(
         "test/rule.bzl",
         "def impl(ctx):",
-        "  output_file0 = ctx.new_file('myfile0')",
-        "  output_file1 = ctx.new_file('myfile1')",
-        "  executable = ctx.new_file('executable')",
+        "  output_file0 = ctx.actions.declare_file('myfile0')",
+        "  output_file1 = ctx.actions.declare_file('myfile1')",
+        "  executable = ctx.actions.declare_file('executable')",
         "  ctx.actions.run(outputs=[output_file0], executable=executable,",
         "      mnemonic='MyAction0', env={'foo':'bar', 'pet':'puppy'})",
         "  ctx.actions.run_shell(outputs=[executable, output_file1],",

@@ -72,7 +72,7 @@ function test_plain_outputs() {
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/rule.bzl <<EOF
 def _impl(ctx):
-  ctx.file_action(
+  ctx.actions.write(
       output=ctx.outputs.out,
       content="Hello World!"
   )
@@ -110,7 +110,7 @@ def _outputs(foo):
   }
 
 def _impl(ctx):
-  ctx.file_action(
+  ctx.actions.write(
       output=ctx.outputs.out,
       content="Hello World!"
   )
@@ -141,7 +141,7 @@ function test_output_select_error() {
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/rule.bzl <<EOF
 def _impl(ctx):
-  ctx.file_action(
+  ctx.actions.write(
       output=ctx.outputs.out,
       content="Hello World!"
   )
@@ -178,7 +178,7 @@ function test_configurable_output_error() {
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/rule.bzl <<EOF
 def _impl(ctx):
-  ctx.file_action(
+  ctx.actions.write(
       output=ctx.outputs.out,
       content="Hello World!"
   )

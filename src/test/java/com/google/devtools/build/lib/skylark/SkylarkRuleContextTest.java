@@ -833,6 +833,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testDeriveArtifactLegacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(
@@ -845,7 +846,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testDeriveArtifact() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result = evalRuleContextCode(ruleContext, "ruleContext.new_file('a/b.txt')");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.actions.declare_file('a/b.txt')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/a/b.txt");
   }
@@ -889,6 +890,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testParamFileLegacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(
@@ -901,6 +903,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testParamFileSuffixLegacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(
@@ -2274,6 +2277,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     scratch.file("test/BUILD",
         "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
         "dep_rule(name = 'dep')",
@@ -2316,6 +2320,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testFrozenRuleContextForAspectsHasInaccessibleAttributes() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     List<String> attributes = new ArrayList<>();
     attributes.addAll(ctxAttributes);
     attributes.addAll(ImmutableList.of(

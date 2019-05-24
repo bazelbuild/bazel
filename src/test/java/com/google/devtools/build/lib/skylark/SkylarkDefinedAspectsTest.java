@@ -957,7 +957,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         "def _impl(target, ctx):",
         "  f = ctx.actions.declare_file('f.txt')",
-        "  ctx.file_action(f, 'f')",
+        "  ctx.actions.write(f, 'f')",
         "  return struct(output_groups = { 'duplicate' : depset([f]) })",
         "",
         "MyAspect = aspect(implementation=_impl)",
