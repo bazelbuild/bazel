@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
@@ -222,7 +223,7 @@ public class BuildView {
 
     // Prepare the analysis phase
     BuildConfigurationCollection configurations;
-    Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
+    TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigsResult;
     if (viewOptions.skyframePrepareAnalysis) {
       PrepareAnalysisPhaseValue prepareAnalysisPhaseValue;
       try (SilentCloseable c = Profiler.instance().profile("Prepare analysis phase")) {
@@ -232,7 +233,7 @@ public class BuildView {
         // Determine the configurations
         configurations =
             prepareAnalysisPhaseValue.getConfigurations(eventHandler, skyframeExecutor);
-        topLevelTargetsWithConfigs =
+        topLevelTargetsWithConfigsResult =
             prepareAnalysisPhaseValue.getTopLevelCts(eventHandler, skyframeExecutor);
       }
     } else {
@@ -249,7 +250,7 @@ public class BuildView {
                     keepGoing);
       }
       try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
-        topLevelTargetsWithConfigs =
+        topLevelTargetsWithConfigsResult =
             AnalysisUtils.getTargetsWithConfigs(
                 configurations, targets, eventHandler, ruleClassProvider, skyframeExecutor);
       }
@@ -264,6 +265,9 @@ public class BuildView {
               new MakeEnvironmentEvent(
                   configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
     }
+
+    Collection<TargetAndConfiguration> topLevelTargetsWithConfigs =
+        topLevelTargetsWithConfigsResult.getTargetsAndConfigs();
 
     // Report the generated association of targets to configurations
     Multimap<Label, BuildConfiguration> byLabel =
@@ -430,7 +434,7 @@ public class BuildView {
             viewOptions,
             skyframeAnalysisResult,
             targetsToSkip,
-            topLevelTargetsWithConfigs);
+            topLevelTargetsWithConfigsResult);
     logger.info("Finished analysis");
     return result;
   }
@@ -444,7 +448,7 @@ public class BuildView {
       AnalysisOptions viewOptions,
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs)
+      TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigs)
       throws InterruptedException {
     Set<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
@@ -503,7 +507,8 @@ public class BuildView {
         skyframeExecutor,
         eventHandler);
 
-    String error = createErrorMessage(loadingResult, skyframeAnalysisResult);
+    String error =
+        createErrorMessage(loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
 
     final WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
     final ActionGraph actionGraph =
@@ -540,21 +545,32 @@ public class BuildView {
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
-        topLevelTargetsWithConfigs);
+        topLevelTargetsWithConfigs.getTargetsAndConfigs());
   }
 
+  /**
+   * Check for errors in "chronological" order (acknowledge that loading and analysis are
+   * interleaved, but sequential on the single target scale).
+   */
   @Nullable
   public static String createErrorMessage(
       TargetPatternPhaseValue loadingResult,
-      @Nullable SkyframeAnalysisResult skyframeAnalysisResult) {
-    return loadingResult.hasError()
-        ? "command succeeded, but there were errors parsing the target pattern"
-        : loadingResult.hasPostExpansionError()
-                || (skyframeAnalysisResult != null && skyframeAnalysisResult.hasLoadingError())
-            ? "command succeeded, but there were loading phase errors"
-            : (skyframeAnalysisResult != null && skyframeAnalysisResult.hasAnalysisError())
-                ? "command succeeded, but not all targets were analyzed"
-                : null;
+      @Nullable SkyframeAnalysisResult skyframeAnalysisResult,
+      @Nullable TopLevelTargetsAndConfigsResult topLevelTargetsAndConfigs) {
+    if (loadingResult.hasError()) {
+      return "command succeeded, but there were errors parsing the target pattern";
+    }
+    if (loadingResult.hasPostExpansionError()
+        || (skyframeAnalysisResult != null && skyframeAnalysisResult.hasLoadingError())) {
+      return "command succeeded, but there were loading phase errors";
+    }
+    if (topLevelTargetsAndConfigs != null && topLevelTargetsAndConfigs.hasError()) {
+      return "command succeeded, but top level configurations could not be created";
+    }
+    if (skyframeAnalysisResult != null && skyframeAnalysisResult.hasAnalysisError()) {
+      return "command succeeded, but not all targets were analyzed";
+    }
+    return null;
   }
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(

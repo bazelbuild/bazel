@@ -138,7 +138,7 @@ public final class AnalysisPhaseRunner {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());
       logger.atInfo().log("No analysis requested, so finished");
-      String errorMessage = BuildView.createErrorMessage(loadingResult, null);
+      String errorMessage = BuildView.createErrorMessage(loadingResult, null, null);
       if (errorMessage != null) {
         throw new BuildFailedException(errorMessage);
       }

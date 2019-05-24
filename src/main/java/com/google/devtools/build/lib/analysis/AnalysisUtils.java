@@ -22,6 +22,7 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.List;
 
 /**
  * Utility functions for use during analysis.
@@ -179,7 +179,7 @@ public final class AnalysisUtils {
    * <p>Preserves the original input ordering.
    */
   // Keep this in sync with PrepareAnalysisPhaseFunction.
-  public static List<TargetAndConfiguration> getTargetsWithConfigs(
+  public static TopLevelTargetsAndConfigsResult getTargetsWithConfigs(
       BuildConfigurationCollection configurations,
       Collection<Target> targets,
       ExtendedEventHandler eventHandler,
@@ -201,9 +201,8 @@ public final class AnalysisUtils {
     Multimap<BuildConfiguration, Dependency> asDeps =
         AnalysisUtils.targetsToDeps(nodes, ruleClassProvider);
 
-    return ImmutableList.copyOf(
-        ConfigurationResolver.getConfigurationsFromExecutor(
-            nodes, asDeps, eventHandler, skyframeExecutor));
+    return ConfigurationResolver.getConfigurationsFromExecutor(
+        nodes, asDeps, eventHandler, skyframeExecutor);
   }
 
   @VisibleForTesting

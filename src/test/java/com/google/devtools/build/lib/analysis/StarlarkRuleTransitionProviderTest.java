@@ -498,7 +498,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
 
     reporter.removeHandler(failFastHandler);
-    getConfiguration(getConfiguredTarget("//test"));
+    getConfiguredTarget("//test");
     assertContainsEvent(
         "expected value of type 'string' for " + "//test:cute-animal-fact, but got 24 (int)");
   }
@@ -519,10 +519,30 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
     reporter.removeHandler(failFastHandler);
-    getConfiguration(getConfiguredTarget("//test"));
+    getConfiguredTarget("//test");
     assertContainsEvent(
         "no such target '//test:i-am-not-real': target "
             + "'i-am-not-real' not declared in package 'test'");
+  }
+
+  @Test
+  public void testTransitionOnBuildSetting_noSuchPackage() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//i-am-not-real': 'imaginary-friend'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//i-am-not-real']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("no such package 'i-am-not-real': Unable to find build setting package");
   }
 
   @Test

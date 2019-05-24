@@ -1702,12 +1702,13 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
       Iterable<Dependency> keys)
-      throws TransitionException, InvalidConfigurationException {
+      throws InvalidConfigurationException {
     checkActive();
 
     Multimap<Dependency, BuildConfiguration> configs;
     if (originalConfig != null) {
-      configs = getConfigurations(eventHandler, originalConfig.getOptions(), keys);
+      configs =
+          getConfigurations(eventHandler, originalConfig.getOptions(), keys).getConfigurationMap();
     } else {
       configs = ArrayListMultimap.<Dependency, BuildConfiguration>create();
       for (Dependency key : keys) {
@@ -1950,11 +1951,10 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
    */
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#getConfigurations}.
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
-  public Multimap<Dependency, BuildConfiguration> getConfigurations(
+  public ConfigurationsResult getConfigurations(
       ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys)
       throws InvalidConfigurationException {
-    Multimap<Dependency, BuildConfiguration> builder =
-        ArrayListMultimap.<Dependency, BuildConfiguration>create();
+    ConfigurationsResult.Builder builder = ConfigurationsResult.newBuilder();
     Set<Dependency> depsToEvaluate = new HashSet<>();
 
     ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> allFragments = null;
@@ -1987,6 +1987,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         // No fragments to compute here.
       } else if (fragmentsResult.getError(TransitiveTargetKey.of(key.getLabel())) != null) {
         labelsWithErrors.add(key.getLabel());
+        builder.setHasError();
       } else {
         TransitiveTargetValue ttv =
             (TransitiveTargetValue) fragmentsResult.get(TransitiveTargetKey.of(key.getLabel()));
@@ -2022,6 +2023,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
           StarlarkTransition.replayEvents(eventHandler, transition);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
+          builder.setHasError();
+          continue;
         }
         for (BuildOptions toOption : toOptions) {
           configSkyKeys.add(toConfigurationKey(platformMappingValue, depFragments, toOption));
@@ -2050,6 +2053,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
                   fromOptions, key.getTransition(), buildSettingPackages);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
+          builder.setHasError();
+          continue;
         }
         for (BuildOptions toOption : toOptions) {
           BuildConfigurationValue.Key configKey =
@@ -2064,7 +2069,53 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         }
       }
     }
-    return builder;
+    return builder.build();
+  }
+
+  /**
+   * The result of {@link #getConfigurations(ExtendedEventHandler, BuildOptions, Iterable)} which
+   * also registers if an error was recorded.
+   */
+  public static class ConfigurationsResult {
+    private final Multimap<Dependency, BuildConfiguration> configurations;
+    private final boolean hasError;
+
+    private ConfigurationsResult(
+        Multimap<Dependency, BuildConfiguration> configurations, boolean hasError) {
+      this.configurations = configurations;
+      this.hasError = hasError;
+    }
+
+    public boolean hasError() {
+      return hasError;
+    }
+
+    public Multimap<Dependency, BuildConfiguration> getConfigurationMap() {
+      return configurations;
+    }
+
+    public static Builder newBuilder() {
+      return new Builder();
+    }
+
+    /** Builder for {@link ConfigurationsResult} */
+    public static class Builder {
+      private final Multimap<Dependency, BuildConfiguration> configurations =
+          ArrayListMultimap.<Dependency, BuildConfiguration>create();
+      private boolean hasError = false;
+
+      void put(Dependency key, BuildConfiguration value) {
+        configurations.put(key, value);
+      }
+
+      void setHasError() {
+        this.hasError = true;
+      }
+
+      ConfigurationsResult build() {
+        return new ConfigurationsResult(configurations, hasError);
+      }
+    }
   }
 
   private PlatformMappingValue getPlatformMappingValue(
@@ -2100,11 +2151,20 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   }
 
   private Map<SkyKey, SkyValue> collectBuildSettingValues(
-      ConfigurationTransition transition, ExtendedEventHandler eventHandler) {
+      ConfigurationTransition transition, ExtendedEventHandler eventHandler)
+      throws TransitionException {
     ImmutableSet<SkyKey> buildSettingPackageKeys =
         StarlarkTransition.getAllBuildSettingPackageKeys(transition);
     EvaluationResult<SkyValue> buildSettingsResult =
         evaluateSkyKeys(eventHandler, buildSettingPackageKeys, true);
+    if (buildSettingsResult.hasError()) {
+      throw new TransitionException(
+          new NoSuchPackageException(
+              ((PackageValue.Key) buildSettingsResult.getError().getRootCauseOfException())
+                  .argument(),
+              "Unable to find build setting package",
+              buildSettingsResult.getError().getException()));
+    }
     ImmutableMap.Builder<SkyKey, SkyValue> buildSettingValues = new ImmutableMap.Builder<>();
     buildSettingPackageKeys.forEach(k -> buildSettingValues.put(k, buildSettingsResult.get(k)));
     return buildSettingValues.build();
