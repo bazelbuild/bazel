@@ -37,6 +37,7 @@ _FEATURE_NAMES = struct(
     supports_dynamic_linker = "supports_dynamic_linker",
     supports_interface_shared_libraries = "supports_interface_shared_libraries",
     pic = "pic",
+    define_with_space = "define_with_space",
     parse_headers = "parse_headers",
     layering_check = "layering_check",
     header_modules = "header_modules",
@@ -113,6 +114,25 @@ _supports_dynamic_linker_feature = feature(
 _supports_interface_shared_libraries_feature = feature(
     name = _FEATURE_NAMES.supports_interface_shared_libraries,
     enabled = True,
+)
+
+_define_with_space = feature(
+    name = "default",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.cpp_compile,
+                ACTION_NAMES.linkstamp_compile,
+                ACTION_NAMES.cpp_header_parsing,
+                ACTION_NAMES.cpp_module_compile,
+                ACTION_NAMES.cpp_module_codegen,
+                ACTION_NAMES.clif_match,
+                ACTION_NAMES.objcpp_compile,
+            ],
+            flag_groups = [flag_group(flags = ["-Dfoo=bar bam"])],
+        ),
+    ],
 )
 
 _pic_feature = feature(
@@ -1116,6 +1136,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.supports_dynamic_linker: _supports_dynamic_linker_feature,
     _FEATURE_NAMES.supports_interface_shared_libraries: _supports_interface_shared_libraries_feature,
     _FEATURE_NAMES.pic: _pic_feature,
+    _FEATURE_NAMES.define_with_space: _define_with_space,
     _FEATURE_NAMES.parse_headers: _parse_headers_feature,
     _FEATURE_NAMES.layering_check: _layering_check_feature,
     _FEATURE_NAMES.module_map_home_cwd: _module_map_home_cwd_feature,
