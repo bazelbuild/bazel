@@ -2139,18 +2139,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
 
     Correspondence<AnalysisFailure, AnalysisFailure> correspondence =
-        new Correspondence<AnalysisFailure, AnalysisFailure>() {
-          @Override
-          public boolean compare(AnalysisFailure actual, AnalysisFailure expected) {
-            return actual.getLabel().equals(expected.getLabel())
-                && actual.getMessage().contains(expected.getMessage());
-          }
-
-          @Override
-          public String toString() {
-            return "is equivalent to";
-          }
-        };
+        Correspondence.from(
+            (actual, expected) ->
+                actual.getLabel().equals(expected.getLabel())
+                    && actual.getMessage().contains(expected.getMessage()),
+            "is equivalent to");
 
     AnalysisFailure expectedOne =
         new AnalysisFailure(
