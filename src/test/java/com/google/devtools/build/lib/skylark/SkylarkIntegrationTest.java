@@ -2591,7 +2591,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
     assertContainsEvent(
-        "_whitelist_function_transition attribute does not have the expected value");
+        " _whitelist_function_transition attribute (//test:my_other_rule) does not have the"
+            + " expected value");
   }
 
   @Test
