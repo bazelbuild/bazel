@@ -1651,27 +1651,38 @@ void GrpcBlazeServer::KillRunningServer() {
   while (reader->Read(&response)) {
   }
 
-  // Check the final message from the server to see if it exited because another
-  // command holds the client lock.
-  if (response.finished()) {
-    if (response.exit_code() == blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK) {
-      assert(!globals->options->block_for_lock);
-      BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
-          << "Exiting because the lock is held and --noblock_for_lock was "
-             "given.";
+  grpc::Status status = reader->Finish();
+  if (status.ok()) {
+    // Check the final message from the server to see if it exited because
+    // another command holds the client lock.
+    if (response.finished()) {
+      if (response.exit_code() == blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK) {
+        assert(!globals->options->block_for_lock);
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the lock is held and --noblock_for_lock was "
+               "given.";
+      }
     }
+
+    // If for any reason the shutdown request failed to initiate a termination,
+    // this is a bug. Yes, this means the server won't be forced to shut down,
+    // which might be the preferred behavior, but it will help identify the bug.
+    assert(response.termination_expected());
   }
 
-  // If for any reason the shutdown request failed to initiate a termination,
-  // this is a bug. Yes, this means the server won't be forced to shut down,
-  // which might be the preferred behavior, but it will help identify the bug.
-  assert(response.termination_expected());
   // Wait for the server process to terminate (if we know the server PID).
   // If it does not terminate itself gracefully within 1m, terminate it.
   if (globals->server_pid > 0 &&
       !AwaitServerProcessTermination(globals->server_pid,
                                      globals->options->output_base,
                                      kPostShutdownGracePeriodSeconds)) {
+    if (!status.ok()) {
+      BAZEL_LOG(WARNING)
+          << "Shutdown request failed, server still alive: (error code: "
+          << status.error_code() << ", error message: '"
+          << status.error_message() << "', log file: '" << globals->jvm_log_file
+          << "')";
+    }
     KillServerProcess(globals->server_pid, globals->options->output_base);
   }
 
