@@ -706,8 +706,7 @@ sample_bin = rule(
             default=Label("@other//:a/b"),
             executable=True,
             cfg="host",
-            allow_files=True,
-            single_file=True)
+            allow_single_file=True)
     },
     outputs = {'sh': "%{name}.sh"},
     implementation = impl,

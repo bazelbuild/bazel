@@ -169,6 +169,7 @@ public class SkydocMain {
     parser.parseAndExitUponError(args);
     StarlarkSemanticsOptions semanticsOptions = parser.getOptions(StarlarkSemanticsOptions.class);
     semanticsOptions.incompatibleDepsetUnion = false;
+    semanticsOptions.incompatibleDisableDeprecatedAttrParams = false;
     SkydocOptions skydocOptions = parser.getOptions(SkydocOptions.class);
 
     String targetFileLabelString;

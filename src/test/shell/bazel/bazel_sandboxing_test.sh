@@ -194,7 +194,7 @@ def _skylark_breaks1_impl(ctx):
 skylark_breaks1 = rule(
   _skylark_breaks1_impl,
   attrs = {
-    "input": attr.label(mandatory=True, allow_files=True, single_file=True),
+    "input": attr.label(mandatory=True, allow_single_file=True),
     "output": attr.output(mandatory=True),
     "action_tags": attr.string_list(),
   },
