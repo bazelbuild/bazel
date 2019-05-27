@@ -104,8 +104,7 @@ public class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
-        /* slimProfile= */ false,
-        /* enableJsonMetadata= */ false);
+        /* slimProfile= */ false);
     return buffer;
   }
 
@@ -121,8 +120,7 @@ public class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
-        /* slimProfile= */ false,
-        /* enableJsonMetadata= */ false);
+        /* slimProfile= */ false);
   }
 
   @Test
@@ -224,8 +222,7 @@ public class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
-        /* slimProfile= */ false,
-        /* enableJsonMetadata= */ false);
+        /* slimProfile= */ false);
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
       // Next task takes less than 10 ms but should be recorded anyway.
       clock.advanceMillis(1);
@@ -258,8 +255,7 @@ public class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
-        /* slimProfile= */ false,
-        /* enableJsonMetadata= */ false);
+        /* slimProfile= */ false);
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     profiler.logSimpleTask(20000, 30000, ProfilerTask.REMOTE_EXECUTION, "remote execution");
 
@@ -371,8 +367,7 @@ public class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
-        /* slimProfile= */ false,
-        /* enableJsonMetadata= */ false);
+        /* slimProfile= */ false);
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
     assertThat(ProfilerTask.VFS_STAT.collectsSlowestInstances()).isTrue();
@@ -595,8 +590,7 @@ public class ProfilerTest {
         badClock,
         initialNanoTime,
         /* enabledCpuUsageProfiling= */ false,
-        /* slimProfile= */ false,
-        /* enableJsonMetadata= */ false);
+        /* slimProfile= */ false);
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
   }
@@ -650,8 +644,7 @@ public class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
-        /* slimProfile= */ false,
-        /* enableJsonMetadata= */ false);
+        /* slimProfile= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, () -> profiler.stop());
@@ -677,8 +670,7 @@ public class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
-        /* slimProfile= */ false,
-        /* enableJsonMetadata= */ false);
+        /* slimProfile= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, () -> profiler.stop());
@@ -698,8 +690,7 @@ public class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
-        slimProfile,
-        /* enableJsonMetadata= */ false);
+        slimProfile);
     long curTime = Profiler.nanoTimeMaybe();
     for (int i = 0; i < 100_000; i++) {
       Duration duration;
