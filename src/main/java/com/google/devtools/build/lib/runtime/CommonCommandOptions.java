@@ -189,7 +189,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_remove_binary_profile",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {
