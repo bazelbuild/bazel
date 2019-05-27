@@ -784,7 +784,7 @@ void ForEachDirectoryEntryW(const wstring& path,
   }
   // Unconditionally add a trailing backslash. We know `wpath` has no trailing
   // backslash because it comes from AsWindowsPath whose output is always
-  // normalized (see NormalizeWindowsPath).
+  // normalized.
   wpath.append(L"\\");
   WIN32_FIND_DATAW metadata;
   HANDLE handle = ::FindFirstFileW((wpath + L"*").c_str(), &metadata);
@@ -836,7 +836,7 @@ void ForEachDirectoryEntry(const string &path,
   }
   // Unconditionally add a trailing backslash. We know `wpath` has no trailing
   // backslash because it comes from AsWindowsPath whose output is always
-  // normalized (see NormalizeWindowsPath).
+  // normalized.
   wpath.append(L"\\");
   WIN32_FIND_DATAW metadata;
   HANDLE handle = ::FindFirstFileW((wpath + L"*").c_str(), &metadata);

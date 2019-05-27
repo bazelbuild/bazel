@@ -70,7 +70,10 @@ cc_library(
         ":logging",
         ":strings",
     ] + select({
-        "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
+        "//src/conditions:windows": [
+            "//src/main/native/windows:lib-file",
+            "//src/main/native/windows:lib-util",
+        ],
         "//conditions:default": [],
     }),
 )

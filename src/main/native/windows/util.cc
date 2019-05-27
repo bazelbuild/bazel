@@ -26,6 +26,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace bazel {
 namespace windows {
@@ -267,6 +268,7 @@ wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result) {
                             L"AsExecutablePathForCreateProcess", path,
                             L"path should not be empty");
   }
+
   wstring error = AsShortPath(path, result);
   if (!error.empty()) {
     return MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -278,6 +280,115 @@ wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result) {
   QuotePath(*result, result);
   return L"";
 }
+
+wstring Strip(wstring s, wchar_t c) {
+  if (s.size() > 1 && s[s.size() - 1] == c) {
+    // There's at least one character to strip from right side.
+    for (wstring::size_type i = s.size() - 2; i >= 0; --i) {
+      if (s[i] != c) {
+        if (s[i + 1] == c) {
+          s.erase(i + 1);
+        }
+        break;
+      }
+    }
+  }
+
+  if (!s.empty() && s[0] == c) {
+    // There's at least one character to strip from left side.
+    for (wstring::size_type i = 1; i <= s.size(); ++i) {
+      if (i == s.size() || s[i] != c) {
+        if (i > 0 && s[i - 1] == c) {
+          s.erase(0, i);
+        }
+        break;
+      }
+    }
+  }
+
+  return s;
+}
+
+template <typename C>
+std::basic_string<C> NormalizeImpl(const std::basic_string<C>& p) {
+  typedef std::basic_string<C> Str;
+  static const Str kDot = Str(1, '.');
+  static const Str kDotDot = Str(2, '.');
+  std::vector<std::pair<Str::size_type, Str::size_type> > segs; 
+  Str::size_type start = Str::npos;
+  bool first = true;
+  bool abs = false;
+  bool starts_with_dot = false;
+  bool has_unc = p.size() >= 4 && p[0] == '\\' && p[1] == '\\' &&
+                 (p[2] == '?' || p[2] == '.') && p[3] == '\\';
+  for (Str::size_type i = has_unc ? 4 : 0; i <= p.size(); ++i) {
+    if (start == Str::npos) {
+      if (i < p.size() && p[i] != '/' && p[i] != '\\') {
+        start = i;
+      }
+    } else {
+      if (i == p.size() || (p[i] == '/' || p[i] == '\\')) {
+        Str::size_type len = i - start;
+        if (first) {
+          first = false;
+          abs = len == 2 &&
+                ((p[start] >= 'A' && p[start] <= 'Z') ||
+                 (p[start] >= 'a' && p[start] <= 'z')) &&
+                 p[start + 1] == ':';
+          segs.push_back(std::make_pair(start, len));
+          starts_with_dot = !abs && p.compare(start, len, kDot) == 0;
+        } else {
+          if (p.compare(start, len, kDot) == 0) {
+            if (segs.empty()) {
+              // Retain "." if that is the first (and possibly only segment).
+              segs.push_back(std::make_pair(start, len));
+              starts_with_dot = true;
+            }
+          } else {
+            if (starts_with_dot) {
+              // Delete the "." if that was the first (and so far only) segment.
+              segs.clear();
+              starts_with_dot = false;
+            }
+            if (p.compare(start, len, kDotDot) == 0) {
+              if (segs.empty() ||
+                  p.compare(segs.back().first, segs.back().second,
+                            kDotDot) == 0) {
+                // Append ".." if it cannot pop anything.
+                segs.push_back(std::make_pair(start, len));
+              } else if (!abs || segs.size() > 1) {
+                // Pop last segment if it is not the drive root.
+                segs.pop_back();
+              }  // Ignore ".." otherwise.
+            } else {
+              segs.push_back(std::make_pair(start, len));
+            }
+          }
+        }
+        start = Str::npos;
+      }
+    }
+  }
+  std::basic_stringstream<C> res;
+  first = true;
+  for (const auto& i : segs) {
+    Str s = p.substr(i.first, i.second);
+    if (first) {
+      first = false;
+    } else {
+      res << '\\';
+    }
+    res << s;
+  }
+  if (abs && segs.size() == 1) {
+    res << '\\';
+  }
+  return res.str();
+}
+
+std::string Normalize(const std::string& p) { return NormalizeImpl(p); }
+
+wstring Normalize(const wstring& p) { return NormalizeImpl(p); }
 
 }  // namespace windows
 }  // namespace bazel
