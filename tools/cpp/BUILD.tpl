@@ -18,7 +18,6 @@ package(default_visibility = ["//visibility:public"])
 
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 load(":armeabi_cc_toolchain_config.bzl", "armeabi_cc_toolchain_config")
-load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -93,14 +92,6 @@ cc_toolchain_config(
     supports_start_end_lib = %{supports_start_end_lib},
 )
 
-toolchain(
-    name = "cc-toolchain-%{name}",
-    exec_compatible_with = HOST_CONSTRAINTS,
-    target_compatible_with = HOST_CONSTRAINTS,
-    toolchain = ":cc-compiler-%{name}",
-    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-)
-
 # Android tooling requires a default toolchain for the armeabi-v7a cpu.
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
@@ -118,14 +109,3 @@ cc_toolchain(
 )
 
 armeabi_cc_toolchain_config(name = "stub_armeabi-v7a")
-
-toolchain(
-    name = "cc-toolchain-armeabi-v7a",
-    exec_compatible_with = HOST_CONSTRAINTS,
-    target_compatible_with = [
-        "@bazel_tools//platforms:arm",
-        "@bazel_tools//platforms:android",
-    ],
-    toolchain = ":cc-compiler-armabi-v7a",
-    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-)
