@@ -232,12 +232,43 @@ void LogErrorWithValue(const int line, const std::wstring& msg, DWORD value) {
   }
 }
 
+void LogErrorWithArg(const int line, const std::string& msg,
+                     const std::string& arg) {
+  std::stringstream ss;
+  ss << msg << " (arg: " << arg << ")";
+  LogError(line, ss.str());
+}
+
+void LogErrorWithArg(const int line, const std::string& msg,
+                     const std::wstring& arg) {
+  std::string acp_arg;
+  if (blaze_util::WcsToAcp(arg, &acp_arg)) {
+    LogErrorWithArg(line, msg, acp_arg);
+  }
+}
+
+void LogErrorWithArg2(const int line, const std::string& msg,
+                      const std::string& arg1, const std::string& arg2) {
+  std::stringstream ss;
+  ss << msg << " (arg1: " << arg1 << ", arg2: " << arg2 << ")";
+  LogError(line, ss.str());
+}
+
+void LogErrorWithArg2(const int line, const std::string& msg,
+                      const std::wstring& arg1, const std::wstring& arg2) {
+  std::string acp_arg1, acp_arg2;
+  if (blaze_util::WcsToAcp(arg1, &acp_arg1) &&
+      blaze_util::WcsToAcp(arg2, &acp_arg2)) {
+    LogErrorWithArg2(line, msg, acp_arg1, acp_arg2);
+  }
+}
+
 void LogErrorWithArgAndValue(const int line, const std::string& msg,
                              const std::string& arg, DWORD value) {
   std::stringstream ss;
   ss << "value: " << value << " (0x";
   ss.setf(std::ios_base::hex, std::ios_base::basefield);
-  ss << std::setw(8) << std::setfill('0') << value << "): argument: ";
+  ss << std::setw(8) << std::setfill('0') << value << "), arg: ";
   ss.setf(std::ios_base::dec, std::ios_base::basefield);
   ss << arg << ": " << msg;
   LogError(line, ss.str());
@@ -405,18 +436,43 @@ bool ExportUserName() {
   return SetEnv(L"USER", buffer);
 }
 
-// Set TEST_SRCDIR as required by the Bazel Test Encyclopedia.
-bool ExportSrcPath(const Path& cwd, Path* result) {
-  if (!GetPathEnv(L"TEST_SRCDIR", result)) {
+// Gets a path envvar, and re-exports it as an absolute path.
+// Returns:
+// - true, if the envvar was defined, and was already absolute or was
+//   successfully absolutized and re-exported
+// - false, if the envvar was undefined or empty, or it could not be absolutized
+//   or re-exported
+bool ExportAbsolutePathEnv(const wchar_t* envvar, const Path& cwd,
+                           Path* result) {
+  if (!GetPathEnv(envvar, result)) {
+    LogErrorWithArg(__LINE__, "Failed to get envvar", envvar);
     return false;
   }
-  return !result->Absolutize(cwd) || SetPathEnv(L"TEST_SRCDIR", *result);
+  if (result->Get().empty()) {
+    LogErrorWithArg(__LINE__, "Envvar was empty", envvar);
+    return false;
+  }
+  if (result->Absolutize(cwd) && !SetPathEnv(envvar, *result)) {
+    LogErrorWithArg2(__LINE__, "Failed to set absolutized envvar", envvar,
+                     result->Get());
+    return false;
+  }
+  return true;
+}
+
+// Set TEST_SRCDIR as required by the Bazel Test Encyclopedia.
+bool ExportSrcPath(const Path& cwd, Path* result) {
+  if (!ExportAbsolutePathEnv(L"TEST_SRCDIR", cwd, result)) {
+    LogError(__LINE__, "Failed to export TEST_SRCDIR");
+    return false;
+  }
+  return true;
 }
 
 // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
 bool ExportTmpPath(const Path& cwd, Path* result) {
-  if (!GetPathEnv(L"TEST_TMPDIR", result) ||
-      (result->Absolutize(cwd) && !SetPathEnv(L"TEST_TMPDIR", *result))) {
+  if (!ExportAbsolutePathEnv(L"TEST_TMPDIR", cwd, result)) {
+    LogError(__LINE__, "Failed to export TEST_TMPDIR");
     return false;
   }
   // Create the test temp directory, which may not exist on the remote host when
@@ -617,8 +673,7 @@ bool ToZipEntryPaths(const Path& root, const std::vector<FileInfo>& files,
                      ZipEntryPaths* result) {
   std::string acp_root;
   if (!WcsToAcp(AsMixedPath(RemoveUncPrefixMaybe(root)), &acp_root)) {
-    LogError(__LINE__,
-             std::wstring(L"Failed to convert path \"") + root.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to convert path", root.Get());
     return false;
   }
 
@@ -628,8 +683,7 @@ bool ToZipEntryPaths(const Path& root, const std::vector<FileInfo>& files,
   for (const auto& e : files) {
     std::string acp_path;
     if (!WcsToAcp(AsMixedPath(e.RelativePath()), &acp_path)) {
-      LogError(__LINE__, std::wstring(L"Failed to convert path \"") +
-                             e.RelativePath() + L"\"");
+      LogErrorWithArg(__LINE__, "Failed to convert path", e.RelativePath());
       return false;
     }
     if (e.IsDirectory()) {
@@ -656,8 +710,7 @@ bool CreateZipBuilder(const Path& zip, const ZipEntryPaths& entry_paths,
 
   std::string acp_zip;
   if (!WcsToAcp(zip.Get(), &acp_zip)) {
-    LogError(__LINE__,
-             std::wstring(L"Failed to convert path \"") + zip.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to convert path", zip.Get());
     return false;
   }
 
@@ -778,8 +831,7 @@ bool WriteToFile(HANDLE output, const void* buffer, const size_t size) {
 bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
   bazel::windows::AutoHandle input;
   if (!OpenExistingFileForRead(file, &input)) {
-    LogError(__LINE__,
-             std::wstring(L"Failed to open file \"") + file.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to open file for reading", file.Get());
     return false;
   }
 
@@ -799,8 +851,8 @@ bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
       return true;
     }
     if (!WriteToFile(output, buffer.get(), read)) {
-      LogError(__LINE__,
-               std::wstring(L"Failed to append file \"") + file.Get() + L"\"");
+      LogErrorWithArg(__LINE__, "Failed to write contents from file",
+                      file.Get());
       return false;
     }
   }
@@ -854,22 +906,19 @@ bool CreateUndeclaredOutputsManifest(const std::vector<FileInfo>& files,
                                      const Path& output) {
   std::string content;
   if (!CreateUndeclaredOutputsManifestContent(files, &content)) {
-    LogError(__LINE__,
-             std::wstring(L"Failed to create manifest content for file \"") +
-                 output.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to create manifest content for file",
+                    output.Get());
     return false;
   }
 
   bazel::windows::AutoHandle handle;
   if (!OpenFileForWriting(output, &handle)) {
-    LogError(__LINE__, std::wstring(L"Failed to open file for writing \"") +
-                           output.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to open file for writing", output.Get());
     return false;
   }
 
   if (!WriteToFile(handle, content.c_str(), content.size())) {
-    LogError(__LINE__,
-             std::wstring(L"Failed to write file \"") + output.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to write file", output.Get());
     return false;
   }
   return true;
@@ -912,8 +961,8 @@ bool GetZipEntryPtr(devtools_ijar::ZipBuilder* zip_builder,
                     devtools_ijar::u1** result) {
   *result = zip_builder->NewFile(entry_name, attr);
   if (*result == nullptr) {
-    LogError(__LINE__, std::string("Failed to add new zip entry for file \"") +
-                           entry_name + "\": " + zip_builder->GetError());
+    LogErrorWithArg2(__LINE__, "Failed to add new zip entry for file",
+                     entry_name, zip_builder->GetError());
     return false;
   }
   return true;
@@ -951,8 +1000,7 @@ bool CreateZip(const Path& root, const std::vector<FileInfo>& files,
     Path path;
     if (!path.Set(root.Get() + L"\\" + files[i].RelativePath()) ||
         (!files[i].IsDirectory() && !OpenExistingFileForRead(path, &handle))) {
-      LogError(__LINE__,
-               std::wstring(L"Failed to open file \"") + path.Get() + L"\"");
+      LogErrorWithArg(__LINE__, "Failed to open file for reading", path.Get());
       return false;
     }
 
@@ -961,22 +1009,21 @@ bool CreateZip(const Path& root, const std::vector<FileInfo>& files,
                         GetZipAttr(files[i]), &dest) ||
         (!files[i].IsDirectory() &&
          !ReadFromFile(handle, dest, files[i].Size()))) {
-      LogError(__LINE__, std::wstring(L"Failed to dump file \"") + path.Get() +
-                             L"\" into zip");
+      LogErrorWithArg(__LINE__, "Failed to dump file into zip", path.Get());
       return false;
     }
 
     if (zip_builder->FinishFile(files[i].Size(), /* compress */ false,
                                 /* compute_crc */ true) == -1) {
-      LogError(__LINE__, std::wstring(L"Failed to finish writing file \"") +
-                             path.Get() + L"\" to zip");
+      LogErrorWithArg(__LINE__, "Failed to finish writing file to zip",
+                      path.Get());
       return false;
     }
   }
 
   if (zip_builder->Finish() == -1) {
-    LogError(__LINE__, std::string("Failed to add file to zip: ") +
-                           zip_builder->GetError());
+    LogErrorWithArg(__LINE__, "Failed to add file to zip",
+                    zip_builder->GetError());
     return false;
   }
 
@@ -1061,8 +1108,7 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
   if (!blaze_util::IsAbsolute(test_path)) {
     std::string argv0_acp;
     if (!WcsToAcp(argv0.Get(), &argv0_acp)) {
-      LogError(__LINE__, std::wstring(L"Failed to convert path \"") +
-                             argv0.Get() + L"\"");
+      LogErrorWithArg(__LINE__, "Failed to convert path", argv0.Get());
       return false;
     }
 
@@ -1098,8 +1144,7 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
   }
 
   if (!result->Set(test_path)) {
-    LogError(__LINE__,
-             std::wstring(L"Failed to set path \"") + test_path + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to set path", test_path);
     return false;
   }
 
@@ -1174,8 +1219,7 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
   // into it that the subprocess writes to the pipe.
   bazel::windows::AutoHandle test_outerr;
   if (!OpenFileForWriting(outerr, &test_outerr)) {
-    LogError(__LINE__, std::wstring(L"Failed to open for writing \"") +
-                           outerr.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to open file for writing", outerr.Get());
     return false;
   }
 
@@ -1235,8 +1279,8 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
 
   std::vector<FileInfo> files;
   if (!GetFileListRelativeTo(undecl_annot_dir, &files, 0)) {
-    LogError(__LINE__, std::wstring(L"Failed to get files under \"") +
-                           undecl_annot_dir.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to get directory contents",
+                    undecl_annot_dir.Get());
     return false;
   }
   // There are no *.part files under `undecl_annot_dir`, nothing to do.
@@ -1246,8 +1290,7 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
 
   bazel::windows::AutoHandle handle;
   if (!OpenFileForWriting(output, &handle)) {
-    LogError(__LINE__, std::wstring(L"Failed to open for writing \"") +
-                           output.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to open file for writing", output.Get());
     return false;
   }
 
@@ -1258,8 +1301,8 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
       Path path;
       if (!path.Set(undecl_annot_dir.Get() + L"\\" + e.RelativePath()) ||
           !AppendFileTo(path, e.Size(), handle)) {
-        LogError(__LINE__, std::wstring(L"Failed to append file \"") +
-                               path.Get() + L"\" to \"" + output.Get() + L"\"");
+        LogErrorWithArg2(__LINE__, "Failed to append file to another",
+                         path.Get(), output.Get());
         return false;
       }
     }
@@ -1299,29 +1342,23 @@ bool ParseXmlWriterArgs(int argc, wchar_t** argv, const Path& cwd,
     return false;
   }
   if (!out_test_log->Set(argv[1]) || out_test_log->Get().empty()) {
-    LogError(__LINE__, (std::wstring(L"Failed to parse test log path from \"") +
-                        argv[1] + L"\"")
-                           .c_str());
+    LogErrorWithArg(__LINE__, "Failed to parse test log path argument",
+                    argv[1]);
     return false;
   }
   out_test_log->Absolutize(cwd);
   if (!out_xml_log->Set(argv[2]) || out_xml_log->Get().empty()) {
-    LogError(__LINE__, (std::wstring(L"Failed to parse XML log path from \"") +
-                        argv[2] + L"\"")
-                           .c_str());
+    LogErrorWithArg(__LINE__, "Failed to parse XML log path argument", argv[2]);
     return false;
   }
   out_xml_log->Absolutize(cwd);
   if (!out_duration->FromString(argv[3])) {
-    LogError(__LINE__, (std::wstring(L"Failed to parse test duration from \"") +
-                        argv[3] + L"\"")
-                           .c_str());
+    LogErrorWithArg(__LINE__, "Failed to parse test duration argument",
+                    argv[3]);
     return false;
   }
   if (!ToInt(argv[4], out_exit_code)) {
-    LogError(__LINE__, (std::wstring(L"Failed to parse exit code from \"") +
-                        argv[4] + L"\"")
-                           .c_str());
+    LogErrorWithArg(__LINE__, "Failed to parse exit code argument", argv[4]);
     return false;
   }
   return true;
@@ -1365,8 +1402,7 @@ int RunSubprocess(const Path& test_path, const std::wstring& args,
   bazel::windows::WaitableProcess process;
   LARGE_INTEGER start, end, freq;
   if (!StartSubprocess(test_path, args, test_outerr, &tee, &start, &process)) {
-    LogError(__LINE__, std::wstring(L"Failed to start test process \"") +
-                           test_path.Get() + L"\"");
+    LogErrorWithArg(__LINE__, "Failed to start test process", test_path.Get());
     return 1;
   }
 
@@ -1557,8 +1593,8 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
                   const bool delete_afterwards) {
   bool should_create_xml;
   if (!ShouldCreateXml(output, &should_create_xml)) {
-    LogError(__LINE__,
-             (std::wstring(L"CreateXmlLog(") + output.Get() + L")").c_str());
+    LogErrorWithArg(__LINE__, "Failed to decide if XML log is needed",
+                    output.Get());
     return false;
   }
   if (!should_create_xml) {
@@ -1642,9 +1678,7 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
 bool Duration::FromString(const wchar_t* str) {
   int result;
   if (!ToInt(str, &result)) {
-    LogError(
-        __LINE__,
-        (std::wstring(L"Failed to parse int from \"") + str + L"\"").c_str());
+    LogErrorWithArg(__LINE__, "Failed to parse int from string", str);
     return false;
   }
   this->seconds = result;
