@@ -82,10 +82,10 @@ root. Paths are represented as depsets with `preorder` order.
 )
 
 def _join_lines(nodes):
-    return "\n".join(nodes) if nodes else "<None>"
+    return "\n".join([str(n) for n in nodes]) if nodes else "<None>"
 
 def _str_path(path):
-    return " -> ".join(path.to_list())
+    return " -> ".join([str(p) for p in path.to_list()])
 
 def _str_tv_info(tv_info):
     """Returns a string representation of a `_TransitiveVersionInfo`."""
