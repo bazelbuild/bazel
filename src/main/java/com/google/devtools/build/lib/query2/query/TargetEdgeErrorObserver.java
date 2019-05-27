@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.query2;
+package com.google.devtools.build.lib.query2.query;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -23,22 +23,21 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 
 /**
- * Record errors, such as missing package/target or rules containing errors,
- * encountered during visitation. Emit an error message upon encountering
- * missing edges
+ * Record errors, such as missing package/target or rules containing errors, encountered during
+ * visitation. Emit an error message upon encountering missing edges
  *
- * The accessor {@link #hasErrors}) may not be called until the concurrent phase
- * is over, i.e. all external calls to visit() methods have completed.
+ * <p>The accessor {@link #hasErrors}) may not be called until the concurrent phase is over, i.e.
+ * all external calls to visit() methods have completed.
  *
- * If you need to report errors to the console during visitation, use the
- * subclass {@link com.google.devtools.build.lib.query2.ErrorPrintingTargetEdgeErrorObserver}.
+ * <p>If you need to report errors to the console during visitation, use the subclass {@link
+ * ErrorPrintingTargetEdgeErrorObserver}.
  */
 class TargetEdgeErrorObserver implements TargetEdgeObserver {
 
   /**
-   * True iff errors were encountered.  Note, may be set to "true" during the
-   * concurrent phase.  Volatile, because it is assigned by worker threads and
-   * read by the main thread without monitor synchronization.
+   * True iff errors were encountered. Note, may be set to "true" during the concurrent phase.
+   * Volatile, because it is assigned by worker threads and read by the main thread without monitor
+   * synchronization.
    */
   private volatile boolean hasErrors = false;
 
@@ -56,13 +55,13 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
   }
 
   /**
-   * Returns true iff any errors (such as missing targets or packages, or rules
-   * with errors) have been encountered during any work.
+   * Returns true iff any errors (such as missing targets or packages, or rules with errors) have
+   * been encountered during any work.
    *
    * <p>Not thread-safe; do not call during visitation.
    *
-   *  @return true iff no errors (such as missing targets or packages, or rules
-   *              with errors) have been encountered during any work.
+   * @return true iff no errors (such as missing targets or packages, or rules with errors) have
+   *     been encountered during any work.
    */
   public boolean hasErrors() {
     return hasErrors;
@@ -77,7 +76,7 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
   public void node(Target node) {
     if (node.getPackage().containsErrors()
         || ((node instanceof Rule) && ((Rule) node).containsErrors())) {
-      this.hasErrors = true;  // Note, this is thread-safe.
+      this.hasErrors = true; // Note, this is thread-safe.
     }
   }
 }
