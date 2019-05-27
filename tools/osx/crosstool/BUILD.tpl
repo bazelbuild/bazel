@@ -1,7 +1,14 @@
 package(default_visibility = ["//visibility:public"])
 
-load(":osx_archs.bzl", "OSX_TOOLS_ARCHS", "OSX_TOOLS_CONSTRAINTS")
+load("@local_config_cc_toolchains//:osx_archs.bzl", "OSX_TOOLS_ARCHS")
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+# Reexporting osx_arch.bzl for backwards compatibility
+# Originally this file was present in @local_config_cc, but with the split in
+# https://github.com/bazelbuild/bazel/pull/8459 we had to move the file to
+# @local_config_cc_toolchains. This alias is there to keep the code backwards
+# compatible (and serves no other purpose).
+alias(name = "osx_archs.bzl", actual = "@local_config_cc_toolchains//:osx_archs.bzl")
 
 CC_TOOLCHAINS = [(
     cpu + "|compiler",
@@ -78,21 +85,6 @@ cc_toolchain_suite(
         name = (arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"),
         compiler = "compiler",
         cpu = arch,
-    )
-    for arch in OSX_TOOLS_ARCHS
-]
-
-[
-    toolchain(
-        name = "cc-toolchain-" + arch,
-        exec_compatible_with = [
-            # These only execute on macOS.
-            "@bazel_tools//platforms:osx",
-            "@bazel_tools//platforms:x86_64",
-        ],
-        target_compatible_with = OSX_TOOLS_CONSTRAINTS[arch],
-        toolchain = ":cc-compiler-" + arch,
-        toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
     )
     for arch in OSX_TOOLS_ARCHS
 ]
