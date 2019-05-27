@@ -150,9 +150,6 @@ wstring AsShortPath(wstring path, wstring* result);
 // Otherwise this function fails and returns an error message.
 wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result);
 
-// Returns a copy of 's', stripping the sequences of 'c' from beginning and end.
-wstring Strip(wstring s, wchar_t c);
-
 // Returns a normalized form of the input `path`.
 //
 // Normalization:

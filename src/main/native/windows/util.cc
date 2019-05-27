@@ -281,34 +281,6 @@ wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result) {
   return L"";
 }
 
-wstring Strip(wstring s, wchar_t c) {
-  if (s.size() > 1 && s[s.size() - 1] == c) {
-    // There's at least one character to strip from right side.
-    for (wstring::size_type i = s.size() - 2; i >= 0; --i) {
-      if (s[i] != c) {
-        if (s[i + 1] == c) {
-          s.erase(i + 1);
-        }
-        break;
-      }
-    }
-  }
-
-  if (!s.empty() && s[0] == c) {
-    // There's at least one character to strip from left side.
-    for (wstring::size_type i = 1; i <= s.size(); ++i) {
-      if (i == s.size() || s[i] != c) {
-        if (i > 0 && s[i - 1] == c) {
-          s.erase(0, i);
-        }
-        break;
-      }
-    }
-  }
-
-  return s;
-}
-
 template <typename C>
 std::basic_string<C> NormalizeImpl(const std::basic_string<C>& p) {
   typedef std::basic_string<C> Str;

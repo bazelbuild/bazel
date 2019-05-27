@@ -341,22 +341,6 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
   DeleteDirsUnder(tmpdir, short_root);
 }
 
-TEST(WindowsUtilTest, TestStrip) {
-  ASSERT_EQ(Strip(L"", L'x'), L"");
-  ASSERT_EQ(Strip(L" ", L'x'), L" ");
-  ASSERT_EQ(Strip(L"xabc", L'x'), L"abc");
-  ASSERT_EQ(Strip(L"xabcx", L'x'), L"abc");
-  ASSERT_EQ(Strip(L"xxabcx", L'x'), L"abc");
-  ASSERT_EQ(Strip(L"xxabcxx", L'x'), L"abc");
-  ASSERT_EQ(Strip(L"abc", L'x'), L"abc");
-  ASSERT_EQ(Strip(L"abcx", L'x'), L"abc");
-  ASSERT_EQ(Strip(L"abcxx", L'x'), L"abc");
-  ASSERT_EQ(Strip(L"xabc", L'x'), L"abc");
-  ASSERT_EQ(Strip(L"xxabc", L'x'), L"abc");
-  ASSERT_EQ(Strip(L"x", L'x'), L"");
-  ASSERT_EQ(Strip(L"xx", L'x'), L"");
-}
-
 TEST(WindowsUtilTest, TestNormalize) {
 #define ASSERT_NORMALIZE(x, y) ASSERT_EQ(Normalize(x), y)
   ASSERT_NORMALIZE("", "");
