@@ -65,8 +65,8 @@ test_custom_message() {
   touch WORKSPACE
   cat > rule.bzl <<'EOF'
 def _rule_impl(ctx):
-  out = ctx.new_file(ctx.label.name + ".txt")
-  ctx.action(
+  out = ctx.actions.declare_file(ctx.label.name + ".txt")
+  ctx.actions.run_shell(
     inputs = ctx.files._data,
     outputs = [out],
     command = ["cp"] + [f.path for f in ctx.files._data] + [out.path],

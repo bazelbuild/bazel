@@ -391,15 +391,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
   }
 
-  @Test
-  public void testCreateSpawnActionNoExecutable() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    checkErrorContains(
-        ruleContext,
-        "You must specify either 'command' or 'executable' argument",
-        "ruleContext.action(outputs=[])");
-  }
-
   private Object createTestSpawnAction(SkylarkRuleContext ruleContext) throws Exception {
     return evalRuleContextCode(
         ruleContext,

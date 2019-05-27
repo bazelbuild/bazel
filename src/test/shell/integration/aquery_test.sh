@@ -251,7 +251,7 @@ bar_aspect = aspect(implementation = _aspect_impl,
 )
 
 def _bar_impl(ctx):
-    ctx.file_action(content = "hello world", output = ctx.outputs.out)
+    ctx.actions.write(content = "hello world", output = ctx.outputs.out)
     return struct(files = depset(transitive = [dep[DummyProvider].dummies for dep in ctx.attr.deps]))
 
 bar_rule = rule(
@@ -798,7 +798,7 @@ function test_aquery_cpp_action_template_treeartifact_output() {
   cat > "$pkg/a.bzl" <<'EOF'
 def _impl(ctx):
   directory = ctx.actions.declare_directory(ctx.attr.name + "_artifact.cc")
-  ctx.action(
+  ctx.actions.run_shell(
     inputs = ctx.files.srcs,
     outputs = [directory],
     mnemonic = 'MoveTreeArtifact',

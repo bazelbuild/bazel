@@ -448,7 +448,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "java/b/rules.bzl",
         "def _impl(ctx):",
         "  print('debug in b')",
-        "  ctx.file_action(",
+        "  ctx.actions.write(",
         "    output = ctx.outputs.my_output,",
         "    content = 'foo',",
         "  )",

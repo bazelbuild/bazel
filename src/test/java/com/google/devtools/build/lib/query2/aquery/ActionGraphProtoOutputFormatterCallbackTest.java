@@ -483,7 +483,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "test/a.bzl",
         "def _impl(ctx):",
         "  directory = ctx.actions.declare_directory(ctx.attr.name + \"_artifact.cc\")",
-        "  ctx.action(",
+        "  ctx.actions.run_shell(",
         "    inputs = ctx.files.srcs,",
         "    outputs = [directory],",
         "    mnemonic = 'MoveTreeArtifact',",

@@ -125,21 +125,21 @@ import java.util.stream.Collectors;
 /**
  * Main entry point for the Skydoc binary.
  *
- * <p>Skydoc generates human-readable documentation for relevant details of skylark files by
- * running a skylark interpreter with a fake implementation of the build API.</p>
+ * <p>Skydoc generates human-readable documentation for relevant details of skylark files by running
+ * a skylark interpreter with a fake implementation of the build API.
  *
  * <p>Currently, Skydoc generates documentation for skylark rule definitions (discovered by
- * invocations of the build API function {@code rule()}.</p>
+ * invocations of the build API function {@code rule()}.
  *
- * <p>Usage:</p>
+ * <p>Usage:
+ *
  * <pre>
  *   skydoc {target_skylark_file_label} {output_file} [symbol_name]...
  * </pre>
- * <p>
- *   Generates documentation for all exported symbols of the target skylark file that are
- *   specified in the list of symbol names. If no symbol names are supplied, outputs documentation
- *   for all exported symbols in the target skylark file.
- * </p>
+ *
+ * <p>Generates documentation for all exported symbols of the target skylark file that are specified
+ * in the list of symbol names. If no symbol names are supplied, outputs documentation for all
+ * exported symbols in the target skylark file.
  */
 public class SkydocMain {
 
@@ -170,6 +170,7 @@ public class SkydocMain {
     StarlarkSemanticsOptions semanticsOptions = parser.getOptions(StarlarkSemanticsOptions.class);
     semanticsOptions.incompatibleDepsetUnion = false;
     semanticsOptions.incompatibleDisableDeprecatedAttrParams = false;
+    semanticsOptions.incompatibleNewActionsApi = false;
     SkydocOptions skydocOptions = parser.getOptions(SkydocOptions.class);
 
     String targetFileLabelString;
@@ -198,8 +199,7 @@ public class SkydocMain {
       depRoots = ImmutableList.copyOf(skydocOptions.depRoots);
     }
 
-    Label targetFileLabel =
-        Label.parseAbsolute(targetFileLabelString, ImmutableMap.of());
+    Label targetFileLabel = Label.parseAbsolute(targetFileLabelString, ImmutableMap.of());
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
@@ -271,9 +271,8 @@ public class SkydocMain {
   }
 
   private static void printProviderInfos(
-      PrintWriter printWriter,
-      MarkdownRenderer renderer,
-      Map<String, ProviderInfo> providerInfos) throws IOException {
+      PrintWriter printWriter, MarkdownRenderer renderer, Map<String, ProviderInfo> providerInfos)
+      throws IOException {
     for (Entry<String, ProviderInfo> entry : providerInfos.entrySet()) {
       printProviderInfo(printWriter, renderer, entry.getKey(), entry.getValue());
       printWriter.println();
@@ -299,14 +298,17 @@ public class SkydocMain {
   }
 
   private static void printRuleInfo(
-      PrintWriter printWriter, MarkdownRenderer renderer,
-      String exportedName, RuleInfo ruleInfo) throws IOException {
+      PrintWriter printWriter, MarkdownRenderer renderer, String exportedName, RuleInfo ruleInfo)
+      throws IOException {
     printWriter.println(renderer.render(exportedName, ruleInfo));
   }
 
   private static void printProviderInfo(
-      PrintWriter printWriter, MarkdownRenderer renderer,
-      String exportedName, ProviderInfo providerInfo) throws IOException {
+      PrintWriter printWriter,
+      MarkdownRenderer renderer,
+      String exportedName,
+      ProviderInfo providerInfo)
+      throws IOException {
     printWriter.println(renderer.render(exportedName, providerInfo));
   }
 
@@ -347,14 +349,12 @@ public class SkydocMain {
     List<ProviderInfo> providerInfoList = new ArrayList<>();
     Environment env = recursiveEval(semantics, label, ruleInfoList, providerInfoList);
 
-    Map<BaseFunction, RuleInfo> ruleFunctions = ruleInfoList.stream()
-        .collect(Collectors.toMap(
-            RuleInfo::getIdentifierFunction,
-            Functions.identity()));
-    Map<BaseFunction, ProviderInfo> providerInfos = providerInfoList.stream()
-        .collect(Collectors.toMap(
-            ProviderInfo::getIdentifier,
-            Functions.identity()));
+    Map<BaseFunction, RuleInfo> ruleFunctions =
+        ruleInfoList.stream()
+            .collect(Collectors.toMap(RuleInfo::getIdentifierFunction, Functions.identity()));
+    Map<BaseFunction, ProviderInfo> providerInfos =
+        providerInfoList.stream()
+            .collect(Collectors.toMap(ProviderInfo::getIdentifier, Functions.identity()));
 
     // Sort the bindings so their ordering is deterministic.
     TreeMap<String, Object> sortedBindings = new TreeMap<>(env.getGlobals().getExportedBindings());
@@ -492,10 +492,11 @@ public class SkydocMain {
    * @param providerInfoList the list of {@link ProviderInfo} objects, to which provider()
    *     invocation information will be added
    */
-  private static GlobalFrame globalFrame(List<RuleInfo> ruleInfoList,
-      List<ProviderInfo> providerInfoList) {
+  private static GlobalFrame globalFrame(
+      List<RuleInfo> ruleInfoList, List<ProviderInfo> providerInfoList) {
     TopLevelBootstrap topLevelBootstrap =
-        new TopLevelBootstrap(new FakeBuildApiGlobals(),
+        new TopLevelBootstrap(
+            new FakeBuildApiGlobals(),
             new FakeSkylarkAttrApi(),
             new FakeSkylarkCommandLineApi(),
             new FakeSkylarkNativeModuleApi(),
@@ -504,16 +505,18 @@ public class SkydocMain {
             new FakeOutputGroupInfoProvider(),
             new FakeActionsInfoProvider(),
             new FakeDefaultInfoProvider());
-    AndroidBootstrap androidBootstrap = new AndroidBootstrap(new FakeAndroidSkylarkCommon(),
-        new FakeApkInfoProvider(),
-        new FakeAndroidInstrumentationInfoProvider(),
-        new FakeAndroidDeviceBrokerInfoProvider(),
-        new FakeAndroidResourcesInfoProvider(),
-        new FakeAndroidNativeLibsInfoProvider());
+    AndroidBootstrap androidBootstrap =
+        new AndroidBootstrap(
+            new FakeAndroidSkylarkCommon(),
+            new FakeApkInfoProvider(),
+            new FakeAndroidInstrumentationInfoProvider(),
+            new FakeAndroidDeviceBrokerInfoProvider(),
+            new FakeAndroidResourcesInfoProvider(),
+            new FakeAndroidNativeLibsInfoProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
-        new ConfigBootstrap(new FakeConfigSkylarkCommon(), new FakeConfigApi(),
-            new FakeConfigGlobalLibrary());
+        new ConfigBootstrap(
+            new FakeConfigSkylarkCommon(), new FakeConfigApi(), new FakeConfigGlobalLibrary());
     CcBootstrap ccBootstrap = new CcBootstrap(new FakeCcModule());
     JavaBootstrap javaBootstrap =
         new JavaBootstrap(
