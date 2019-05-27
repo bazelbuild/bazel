@@ -109,10 +109,6 @@ public abstract class AnalysisMock extends LoadingMock {
 
   public abstract MockPythonSupport pySupport();
 
-  public void setupCcSupport(MockToolsConfig config) throws IOException {
-    get().ccSupport().setup(config);
-  }
-
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
     ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
