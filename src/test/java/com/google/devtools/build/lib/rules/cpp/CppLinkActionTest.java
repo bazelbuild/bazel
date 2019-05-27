@@ -711,7 +711,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 featureConfiguration,
                 MockCppSemantics.INSTANCE)
             .addObjectFiles(nonLibraryInputs)
-            .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
+            .addLibraries(libraryInputs)
             .setLinkType(type)
             .setLinkerFiles(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
             .setLinkingMode(LinkingMode.STATIC);
