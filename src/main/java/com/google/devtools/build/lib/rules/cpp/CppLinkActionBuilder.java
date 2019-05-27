@@ -1386,7 +1386,7 @@ public class CppLinkActionBuilder {
    * Adds multiple artifact to the set of inputs. The artifacts must be archives or shared
    * libraries.
    */
-  public CppLinkActionBuilder addLibraries(Iterable<LinkerInputs.LibraryToLink> inputs) {
+  public CppLinkActionBuilder addLibraries(Collection<LinkerInputs.LibraryToLink> inputs) {
     Preconditions.checkState(librariesToLink.isEmpty());
     for (LinkerInputs.LibraryToLink input : inputs) {
       checkLibrary(input);
