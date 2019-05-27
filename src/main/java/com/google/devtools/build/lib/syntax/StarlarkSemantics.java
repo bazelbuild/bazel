@@ -236,7 +236,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleExpandDirectories(true)
-          .incompatibleNewActionsApi(false)
+          .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
           .incompatibleNoKwargsInBuildFiles(false)
           .incompatibleNoOutputAttrDefault(true)

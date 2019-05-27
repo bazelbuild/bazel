@@ -337,8 +337,8 @@ cat $1 | tr 'a-z' 'A-Z' > $2
 EOF
   cat > rule/to_upper.bzl <<'EOF'
 def _to_upper_impl(ctx):
-  output = ctx.new_file(ctx.label.name + ".txt")
-  ctx.action(
+  output = ctx.actions.declare_file(ctx.label.name + ".txt")
+  ctx.actions.run_shell(
     inputs = ctx.files.src + ctx.files._toupper_sh,
     outputs = [output],
     command = ["/bin/sh"] + [f.path for f in ctx.files._toupper_sh] \
@@ -489,8 +489,8 @@ genrule(
 EOF
   cat > rule/to_html.bzl <<'EOF'
 def _to_html_impl(ctx):
-  output = ctx.new_file(ctx.label.name + ".html")
-  ctx.action(
+  output = ctx.actions.declare_file(ctx.label.name + ".html")
+  ctx.actions.run_shell(
     inputs = ctx.files.src + ctx.files._to_html + ctx.files._preamb + ctx.files._postamb,
     outputs = [output],
     command = ["/bin/sh"] + [f.path for f in ctx.files._to_html] \
@@ -642,8 +642,8 @@ genrule(
 EOF
   cat > rule/add_preamb.bzl <<'EOF'
 def _add_preamb_impl(ctx):
-  output = ctx.new_file(ctx.label.name + ".txt")
-  ctx.action(
+  output = ctx.actions.declare_file(ctx.label.name + ".txt")
+  ctx.actions.run_shell(
     inputs = ctx.files.src + ctx.files._add_preamb + ctx.files._preamb,
     outputs = [output],
     command = ["/bin/sh"] + [f.path for f in ctx.files._add_preamb] \

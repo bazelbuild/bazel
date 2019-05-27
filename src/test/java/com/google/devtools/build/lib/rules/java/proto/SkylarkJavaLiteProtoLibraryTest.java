@@ -89,6 +89,8 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setupSkylarkRule() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
+
     File[] files = Runfiles.location(RULE_DIRECTORY).listFiles();
     for (File file : files) {
       scratch.file(RULE_DIRECTORY + "/" + file.getName(), Files.readAllBytes(file.toPath()));
