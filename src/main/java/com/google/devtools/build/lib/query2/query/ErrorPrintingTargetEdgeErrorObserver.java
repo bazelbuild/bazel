@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.query2;
+package com.google.devtools.build.lib.query2.query;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -31,13 +31,11 @@ import com.google.devtools.build.lib.packages.TargetUtils;
  */
 @ThreadSafety.ConditionallyThreadSafe // condition: only call hasErrors
 // once the visitation is complete.
-public class ErrorPrintingTargetEdgeErrorObserver extends TargetEdgeErrorObserver {
+class ErrorPrintingTargetEdgeErrorObserver extends TargetEdgeErrorObserver {
 
   private final EventHandler eventHandler;
 
-  /**
-   * @param eventHandler eventHandler to route exceptions to as errors.
-   */
+  /** @param eventHandler eventHandler to route exceptions to as errors. */
   public ErrorPrintingTargetEdgeErrorObserver(EventHandler eventHandler) {
     this.eventHandler = eventHandler;
   }
@@ -45,8 +43,9 @@ public class ErrorPrintingTargetEdgeErrorObserver extends TargetEdgeErrorObserve
   @ThreadSafety.ThreadSafe
   @Override
   public void missingEdge(Target target, Label label, NoSuchThingException e) {
-    eventHandler.handle(Event.error(TargetUtils.getLocationMaybe(target),
-        TargetUtils.formatMissingEdge(target, label, e)));
+    eventHandler.handle(
+        Event.error(
+            TargetUtils.getLocationMaybe(target), TargetUtils.formatMissingEdge(target, label, e)));
     super.missingEdge(target, label, e);
   }
 }

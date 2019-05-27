@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.query2;
+package com.google.devtools.build.lib.query2.query;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -71,20 +71,22 @@ import java.util.concurrent.TimeUnit;
  * similar must not be called until the concurrent phase is over, i.e. all external calls to visit()
  * methods have completed.
  */
-public final class LabelVisitor {
+final class LabelVisitor {
+  private static final VisitationAttributes NONE = new VisitationAttributes(ImmutableList.of(), 0);
 
-  /**
-   * Attributes of a visitation which determine whether it is up-to-date or not.
-   */
-  private class VisitationAttributes {
-    private Collection<Target> targetsToVisit;
-    private boolean success = false;
-    private int maxDepth = 0;
+  /** Attributes of a visitation which determine whether it is up-to-date or not. */
+  private static class VisitationAttributes {
+    private final Collection<Target> targetsToVisit;
+    private final int maxDepth;
+    private boolean success;
 
-    /**
-     * Returns true if and only if this visitation attribute is still up-to-date.
-     */
-    boolean current() {
+    VisitationAttributes(Collection<Target> targetsToVisit, int maxDepth) {
+      this.targetsToVisit = targetsToVisit;
+      this.maxDepth = maxDepth;
+    }
+
+    /** Returns true if and only if this visitation attribute is still up-to-date. */
+    boolean current(VisitationAttributes lastVisitation) {
       return targetsToVisit.equals(lastVisitation.targetsToVisit)
           && maxDepth <= lastVisitation.maxDepth;
     }
@@ -148,9 +150,7 @@ public final class LabelVisitor {
 
   private VisitationAttributes lastVisitation;
 
-  /**
-   * Constant for limiting the permitted depth of recursion.
-   */
+  /** Constant for limiting the permitted depth of recursion. */
   private static final int RECURSION_LIMIT = 100;
 
   /**
@@ -162,12 +162,12 @@ public final class LabelVisitor {
   public LabelVisitor(
       TargetProvider targetProvider, DependencyFilter edgeFilter, boolean useForkJoinPool) {
     this.targetProvider = targetProvider;
-    this.lastVisitation = new VisitationAttributes();
+    this.lastVisitation = NONE;
     this.edgeFilter = edgeFilter;
     this.useForkJoinPool = useForkJoinPool;
   }
 
-  public boolean syncWithVisitor(
+  public void syncWithVisitor(
       ExtendedEventHandler eventHandler,
       Collection<Target> targetsToVisit,
       boolean keepGoing,
@@ -175,27 +175,19 @@ public final class LabelVisitor {
       int maxDepth,
       TargetEdgeObserver... observers)
       throws InterruptedException {
-    VisitationAttributes nextVisitation = new VisitationAttributes();
-    nextVisitation.targetsToVisit = targetsToVisit;
-    nextVisitation.maxDepth = maxDepth;
-
-    if (!lastVisitation.success || !nextVisitation.current()) {
-      try {
-        nextVisitation.success = redoVisitation(eventHandler, nextVisitation, keepGoing,
-            parallelThreads, maxDepth, observers);
-        return nextVisitation.success;
-      } finally {
-        lastVisitation = nextVisitation;
-      }
-    } else {
-      return true;
+    VisitationAttributes nextVisitation = new VisitationAttributes(targetsToVisit, maxDepth);
+    if (!lastVisitation.success || !nextVisitation.current(lastVisitation)) {
+      lastVisitation = nextVisitation;
+      lastVisitation.success =
+          redoVisitation(
+              eventHandler, targetsToVisit, keepGoing, parallelThreads, maxDepth, observers);
     }
   }
 
   // Does a bounded transitive visitation starting at the given top-level targets.
   private boolean redoVisitation(
       ExtendedEventHandler eventHandler,
-      VisitationAttributes visitation,
+      Iterable<Target> targetsToVisit,
       boolean keepGoing,
       int parallelThreads,
       int maxDepth,
@@ -208,7 +200,7 @@ public final class LabelVisitor {
     Throwable uncaught = null;
     boolean result;
     try {
-      visitor.visitTargets(visitation.targetsToVisit);
+      visitor.visitTargets(targetsToVisit);
     } catch (Throwable t) {
       visitor.stopNewActions();
       uncaught = t;
@@ -225,7 +217,7 @@ public final class LabelVisitor {
   }
 
   private class Visitor {
-    private final static String THREAD_NAME = "LabelVisitor";
+    private static final String THREAD_NAME = "LabelVisitor";
 
     private final ExecutorService executorService;
     private final QuiescingExecutor executor;
@@ -285,7 +277,10 @@ public final class LabelVisitor {
     }
 
     private void enqueueTarget(
-        final Target from, final Attribute attr, final Label label, final int depth,
+        final Target from,
+        final Attribute attr,
+        final Label label,
+        final int depth,
         final int count) {
       // Don't perform the targetProvider lookup if at the maximum depth already.
       if (depth >= maxDepth) {
@@ -303,8 +298,12 @@ public final class LabelVisitor {
       }
     }
 
-    private Runnable newVisitRunnable(final Target from, final Attribute attr, final Label label,
-        final int depth, final int count) {
+    private Runnable newVisitRunnable(
+        final Target from,
+        final Attribute attr,
+        final Label label,
+        final int depth,
+        final int count) {
       return () -> {
         try {
           try {
@@ -348,9 +347,7 @@ public final class LabelVisitor {
     private void visitRule(final Rule rule, final int depth, final int count)
         throws InterruptedException {
       // Follow all labels defined by this rule:
-      AggregatingAttributeMapper.of(rule)
-          .visitLabels()
-          .stream()
+      AggregatingAttributeMapper.of(rule).visitLabels().stream()
           .filter(depEdge -> edgeFilter.apply(rule, depEdge.getAttribute()))
           .forEach(
               depEdge ->
@@ -374,9 +371,10 @@ public final class LabelVisitor {
         throws InterruptedException {
       if (target == null) {
         throw new NullPointerException(
-            String.format("'%s' attribute '%s'",
-              from == null ? "(null)" : from.getLabel().toString(),
-              attribute == null ? "(null)" : attribute.getName()));
+            String.format(
+                "'%s' attribute '%s'",
+                from == null ? "(null)" : from.getLabel().toString(),
+                attribute == null ? "(null)" : attribute.getName()));
       }
       if (depth > maxDepth) {
         return;
