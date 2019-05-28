@@ -53,7 +53,9 @@ def git_repo(ctx, directory):
     if ctx.attr.shallow_since:
         shallow = "--shallow-since=%s" % ctx.attr.shallow_since
     if ctx.attr.commit:
-        shallow = "--shallow-since=%s" % ctx.attr.commit
+        # We can not use the commit value in --shallow-since;
+        # And since we are fetching HEAD in this case, we can not use --depth=1
+        shallow = ""
 
     reset_ref = ""
     fetch_ref = ""
@@ -85,6 +87,7 @@ def git_repo(ctx, directory):
               ))
 
     _update(ctx, git_repo)
+    ctx.report_progress("Recording actual commit")
     actual_commit = _get_head_commit(ctx, git_repo)
     shallow_date = _get_head_date(ctx, git_repo)
 
@@ -100,6 +103,7 @@ def _update(ctx, git_repo):
     clean(ctx, git_repo)
 
     if git_repo.init_submodules:
+        ctx.report_progress("Updating submodules")
         update_submodules(ctx, git_repo)
 
 def init(ctx, git_repo):
@@ -115,7 +119,7 @@ def fetch(ctx, git_repo):
     _git_maybe_shallow(ctx, git_repo, "fetch", "origin", git_repo.fetch_ref)
 
 def reset(ctx, git_repo):
-    _git_maybe_shallow(ctx, git_repo, "reset", "--hard", git_repo.reset_ref, "--")
+    _git_maybe_shallow(ctx, git_repo, "reset", "--hard", git_repo.reset_ref)
 
 def clean(ctx, git_repo):
     _git(ctx, git_repo, "clean", "-xdf")
