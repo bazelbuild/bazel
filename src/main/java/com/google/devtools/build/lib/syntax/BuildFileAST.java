@@ -49,6 +49,8 @@ public class BuildFileAST extends ASTNode {
    */
   private final boolean containsErrors;
 
+  private final List<Event> stringEscapeEvents;
+
   @Nullable private final String contentHashCode;
 
   private BuildFileAST(
@@ -57,13 +59,15 @@ public class BuildFileAST extends ASTNode {
       String contentHashCode,
       Location location,
       ImmutableList<Comment> comments,
-      @Nullable ImmutableList<SkylarkImport> imports) {
+      @Nullable ImmutableList<SkylarkImport> imports,
+      List<Event> stringEscapeEvents) {
     this.statements = statements;
     this.containsErrors = containsErrors;
     this.contentHashCode = contentHashCode;
     this.comments = comments;
     this.setLocation(location);
     this.imports = imports;
+    this.stringEscapeEvents = stringEscapeEvents;
   }
 
   private static BuildFileAST create(
@@ -98,7 +102,8 @@ public class BuildFileAST extends ASTNode {
         contentHashCode,
         result.location,
         ImmutableList.copyOf(result.comments),
-        skylarkImports.second);
+        skylarkImports.second,
+        result.stringEscapeEvents);
   }
 
   private static BuildFileAST create(
@@ -135,7 +140,8 @@ public class BuildFileAST extends ASTNode {
         null,
         this.statements.get(firstStatement).getLocation(),
         ImmutableList.of(),
-        imports.build());
+        imports.build(),
+        stringEscapeEvents);
   }
 
   /**
@@ -200,6 +206,15 @@ public class BuildFileAST extends ASTNode {
       }
     }
     return imports.build();
+  }
+
+  /** Returns true if there was no error event. */
+  public boolean replayLexerEvents(Environment env, EventHandler eventHandler) {
+    if (env.getSemantics().incompatibleRestrictStringEscapes() && !stringEscapeEvents.isEmpty()) {
+      Event.replayEventsOn(eventHandler, stringEscapeEvents);
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -371,7 +386,8 @@ public class BuildFileAST extends ASTNode {
         /* contentHashCode= */ null,
         result.location,
         ImmutableList.copyOf(result.comments),
-        /* imports= */ null);
+        /* imports= */ null,
+        result.stringEscapeEvents);
   }
 
   /**
@@ -384,7 +400,7 @@ public class BuildFileAST extends ASTNode {
     if (valid || containsErrors) {
       return this;
     }
-    return new BuildFileAST(statements, true, contentHashCode, getLocation(), comments, imports);
+    return new BuildFileAST(statements, true, contentHashCode, getLocation(), comments, imports, stringEscapeEvents);
   }
 
   public static BuildFileAST parseString(EventHandler eventHandler, String... content) {
@@ -446,6 +462,7 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseAndValidateSkylarkString(Environment env, String[] input)
       throws EvalException {
     BuildFileAST ast = parseString(env.getEventHandler(), input);
+    ast.replayLexerEvents(env, env.getEventHandler());
     ValidationEnvironment.validateAst(env, ast.getStatements());
     return ast;
   }

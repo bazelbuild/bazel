@@ -27,7 +27,7 @@ def _remap(remap_paths, path):
     return path
 
 def _quote(filename, protect = "="):
-    """Quote the filename, by escaping = by \= and \ by \\"""
+    """Quote the filename, by escaping = by \\= and \\ by \\\\"""
     return filename.replace("\\", "\\\\").replace(protect, "\\" + protect)
 
 def _pkg_tar_impl(ctx):

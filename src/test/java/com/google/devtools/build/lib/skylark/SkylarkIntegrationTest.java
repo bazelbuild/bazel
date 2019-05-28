@@ -2994,4 +2994,28 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
                   + "//test/skylark:ext3.bzl, //test/skylark:ext4.bzl]");
     }
   }
+
+  @Test
+  public void testUnknownStringEscapesForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=true");
+
+    scratch.file("test/extension.bzl", "y = \"\\z\"");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("invalid escape sequence: \\z");
+  }
+
+  @Test
+  public void testUnknownStringEscapes() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=false");
+
+    scratch.file("test/extension.bzl", "y = \"\\z\"");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
 }

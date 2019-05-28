@@ -43,7 +43,7 @@ def _get_path_env_var(repository_ctx, name):
         return None
 
 def _get_temp_env(repository_ctx):
-    """Returns the value of TMP, or TEMP, or if both undefined then C:\Windows."""
+    """Returns the value of TMP, or TEMP, or if both undefined then C:\\Windows."""
     tmp = _get_path_env_var(repository_ctx, "TMP")
     if not tmp:
         tmp = _get_path_env_var(repository_ctx, "TEMP")
@@ -86,7 +86,7 @@ def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False
     return tool_paths, tool_bin_path, include_directories
 
 def _get_system_root(repository_ctx):
-    """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
+    """Get System root path on Windows, default is C:\\Windows. Doesn't %-escape the result."""
     systemroot = _get_path_env_var(repository_ctx, "SYSTEMROOT")
     if not systemroot:
         systemroot = "C:\\Windows"

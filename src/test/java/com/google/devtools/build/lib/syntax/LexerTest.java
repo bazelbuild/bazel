@@ -281,7 +281,7 @@ public class LexerTest {
         .isEqualTo("STRING(ab) NEWLINE EOF"); // escape end of line
     assertThat(values(tokens("\"ab\\ucd\""))).isEqualTo("STRING(abcd) NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: escape sequence not implemented: \\u");
+        .isEqualTo("/some/path.txt:1: invalid escape sequence: \\u");
   }
 
   @Test
