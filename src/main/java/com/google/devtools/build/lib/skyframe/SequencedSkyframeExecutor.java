@@ -904,7 +904,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
     FileStateValue newFileStateValue = maybeInvalidateWorkspaceFileStateValue(workspacePath);
     WorkspaceFileValue newValue =
         (WorkspaceFileValue) evaluateSingleValue(workspaceFileKey, eventHandler);
-    if (!newValue.getManagedDirectories().isEmpty()
+    if (newValue != null && !newValue.getManagedDirectories().isEmpty()
         && FileStateType.SYMLINK.equals(newFileStateValue.getType())) {
       throw new AbruptExitException(
           "WORKSPACE file can not be a symlink if incrementally updated directories are used.",
