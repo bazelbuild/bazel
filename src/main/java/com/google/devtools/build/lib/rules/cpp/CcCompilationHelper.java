@@ -244,6 +244,7 @@ public final class CcCompilationHelper {
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
+  private final List<CcCompilationContext> ccImplementationCompilationContexts = new ArrayList<>();
   private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> quoteIncludeDirs = new ArrayList<>();
@@ -340,6 +341,14 @@ public final class CcCompilationHelper {
     setLooseIncludeDirs(common.getLooseIncludeDirs());
     addSystemIncludeDirs(common.getSystemIncludeDirs());
     setCoptsFilter(common.getCoptsFilter());
+    return this;
+  }
+
+  /** Sets fields that only exist in cc_library rules. */
+  public CcCompilationHelper fromLibrary(RuleContext ruleContext) {
+    addImplementationCcCompilationContexts(
+        CppHelper.getCompilationContextsFromDeps(
+            ImmutableList.copyOf(ruleContext.getPrerequisites("compile_only_deps", Mode.TARGET))));
     return this;
   }
 
@@ -551,6 +560,15 @@ public final class CcCompilationHelper {
     return this;
   }
 
+  /** For adding CC compilation infos that affect compilation non-transitively, e.g: from dependencies. */
+  public CcCompilationHelper addImplementationCcCompilationContexts(
+      Iterable<CcCompilationContext> ccImplementationCompilationContexts) {
+    Iterables.addAll(
+        this.ccImplementationCompilationContexts,
+        Preconditions.checkNotNull(ccImplementationCompilationContexts));
+    return this;
+  }
+
   /**
    * Sets the given directories to by loose include directories that are only allowed to be
    * referenced when headers checking is {@link HeadersCheckingMode#LOOSE}.
@@ -680,6 +698,15 @@ public final class CcCompilationHelper {
     }
 
     ccCompilationContext = initializeCcCompilationContext();
+    final CcCompilationContext ccCompileActionCompilationContext;
+    if (ccImplementationCompilationContexts.isEmpty()) {
+      ccCompileActionCompilationContext = ccCompilationContext;
+    } else {
+      ImmutableList.Builder contexts = ImmutableList.builder();
+      contexts.add(ccCompilationContext);
+      contexts.addAll(ccImplementationCompilationContexts);
+      ccCompileActionCompilationContext = CcCompilationContext.merge(contexts.build());
+    }
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
     Preconditions.checkState(
@@ -687,7 +714,7 @@ public final class CcCompilationHelper {
         "All cc rules must support module maps.");
 
     // Create compile actions (both PIC and no-PIC).
-    CcCompilationOutputs ccOutputs = createCcCompileActions();
+    CcCompilationOutputs ccOutputs = createCcCompileActions(ccCompileActionCompilationContext);
 
     return new CompilationInfo(ccCompilationContext, ccOutputs);
   }
@@ -1220,7 +1247,7 @@ public final class CcCompilationHelper {
    * file. It takes into account fake-ness, coverage, and PIC, in addition to using the settings
    * specified on the current object. This method should only be called once.
    */
-  private CcCompilationOutputs createCcCompileActions() throws RuleErrorException {
+  private CcCompilationOutputs createCcCompileActions(CcCompilationContext ccCompilationContext) throws RuleErrorException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
@@ -1260,7 +1287,7 @@ public final class CcCompilationHelper {
       CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
 
       builder
-          .setSemantics(semantics)
+          .setCcCompilationContext(ccCompilationContext)
           .addMandatoryInputs(additionalCompilationInputs)
           .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
 
@@ -1491,6 +1518,7 @@ public final class CcCompilationHelper {
     builder.setCcCompilationContext(ccCompilationContext);
     builder.setCoptsFilter(coptsFilter);
     builder.setFeatureConfiguration(featureConfiguration);
+    builder.setSemantics(semantics);
     return builder;
   }
 
@@ -1508,7 +1536,6 @@ public final class CcCompilationHelper {
     boolean pic = module.getFilename().contains(".pic.");
 
     CppCompileActionBuilder builder = initializeCompileAction(module);
-    builder.setSemantics(semantics);
     builder.setPicMode(pic);
     builder.setOutputs(
         actionConstructionContext,
@@ -1615,8 +1642,6 @@ public final class CcCompilationHelper {
       CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap) throws RuleErrorException {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
-
-    builder.setSemantics(semantics);
 
     // A header module compile action is just like a normal compile action, but:
     // - the compiled source file is the module map

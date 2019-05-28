@@ -978,6 +978,15 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "compile_only_deps_test",
+    size = "small",
+    srcs = ["compile_only_deps_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
