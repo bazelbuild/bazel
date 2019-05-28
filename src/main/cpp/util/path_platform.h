@@ -83,8 +83,7 @@ std::pair<std::wstring, std::wstring> SplitPathW(const std::wstring &path);
 
 bool IsRootDirectoryW(const std::wstring &path);
 
-bool TestOnly_NormalizeWindowsPath(const std::string &path,
-                                   std::string *result);
+std::string TestOnly_NormalizeWindowsPath(const std::string &path);
 
 // Converts 'path' to Windows style.
 //
