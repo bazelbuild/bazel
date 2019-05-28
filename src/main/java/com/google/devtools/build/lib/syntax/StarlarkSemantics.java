@@ -246,7 +246,7 @@ public abstract class StarlarkSemantics {
           .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
-          .incompatibleNoKwargsInBuildFiles(false)
+          .incompatibleNoKwargsInBuildFiles(true)
           .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
