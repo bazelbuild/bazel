@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -57,7 +58,13 @@ public class ActionLookupData implements SkyKey {
   }
 
   public Label getLabel() {
-    return ((ActionLookupKey) actionLookupKey.argument()).getLabel();
+    return actionLookupKey.getLabel();
+  }
+
+  @Override
+  public ShareabilityOfValue getShareabilityOfValue() {
+    // If the label is null, this is a weird action. Don't try to share it.
+    return getLabel() != null ? SkyKey.super.getShareabilityOfValue() : ShareabilityOfValue.NEVER;
   }
 
   @Override
