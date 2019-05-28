@@ -334,8 +334,7 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   /**
-   * The test to verify the assertion that WORKSPACE file can not be a symlink,
-   * when managed directories are used.
+   * The test to verify that WORKSPACE file can not be a symlink when managed directories are used.
    *
    * The test of the case, when WORKSPACE file is a symlink, but not managed directories are used,
    * is in {@link WorkspaceBlackBoxTest#testWorkspaceFileIsSymlink()}
@@ -349,15 +348,15 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
 
     Path tempWorkspace = Files.createTempFile(context().getTmpDir(), WORKSPACE, "");
     PathUtils.writeFile(tempWorkspace,
-        "workspace(name = \"fine_grained_user_modules\",\n"
-            + "managed_directories = {'@generated_node_modules': ['node_modules']})\n"
-            + "\n"
-            + "load(\":use_node_modules.bzl\", \"generate_fine_grained_node_modules\")\n"
-            + "\n"
-            + "generate_fine_grained_node_modules(\n"
-            + "    name = \"generated_node_modules\",\n"
-            + "    package_json = \"//:package.json\",\n"
-            + ")\n");
+        "workspace(name = \"fine_grained_user_modules\",",
+            "managed_directories = {'@generated_node_modules': ['node_modules']})",
+            "",
+            "load(\":use_node_modules.bzl\", \"generate_fine_grained_node_modules\")",
+            "",
+            "generate_fine_grained_node_modules(",
+            "    name = \"generated_node_modules\",",
+            "    package_json = \"//:package.json\",",
+            ")");
     Files.createSymbolicLink(workspaceFile, tempWorkspace);
 
     ProcessResult result = bazel().shouldFail().build("//...");
