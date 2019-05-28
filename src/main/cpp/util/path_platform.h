@@ -83,8 +83,6 @@ std::pair<std::wstring, std::wstring> SplitPathW(const std::wstring &path);
 
 bool IsRootDirectoryW(const std::wstring &path);
 
-std::string TestOnly_NormalizeWindowsPath(const std::string &path);
-
 // Converts 'path' to Windows style.
 //
 // 'path' is absolute or relative or current-drive-relative (e.g.
