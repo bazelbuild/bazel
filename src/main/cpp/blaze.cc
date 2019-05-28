@@ -174,11 +174,6 @@ class BlazeServer final {
   // this object will be in connected state.
   bool Connect();
 
-  // Disconnects from an existing server. Only call this when this object is in
-  // connected state. After this call returns, the object will be in connected
-  // state.
-  void Disconnect();
-
   // Send the command line to the server and forward whatever it says to stdout
   // and stderr. Returns the desired exit code. Only call this when the server
   // is in connected state.
@@ -1838,15 +1833,6 @@ unsigned int BlazeServer::Communicate() {
   return pipe_broken
       ? blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR
       : final_response.exit_code();
-}
-
-void BlazeServer::Disconnect() {
-  assert(connected_);
-
-  client_.reset();
-  request_cookie_ = "";
-  response_cookie_ = "";
-  connected_ = false;
 }
 
 void BlazeServer::SendAction(CancelThreadAction action) {
