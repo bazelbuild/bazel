@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MO
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
 
 /**
  * Provides a way to access attributes that are common to all compilation rules.
@@ -387,15 +385,12 @@ final class CompilationAttributes {
   public NestedSet<PathFragment> headerSearchPaths(PathFragment genfilesFragment) {
     NestedSetBuilder<PathFragment> paths = NestedSetBuilder.stableOrder();
     if (packageFragment.isPresent()) {
-      List<PathFragment> rootFragments =
-          ImmutableList.of(
-              packageFragment.get(), genfilesFragment.getRelative(packageFragment.get()));
-
-      Iterable<PathFragment> relativeIncludes =
-          Iterables.filter(includes(), Predicates.not(PathFragment::isAbsolute));
-      for (PathFragment include : relativeIncludes) {
-        for (PathFragment rootFragment : rootFragments) {
-          paths.add(rootFragment.getRelative(include));
+      PathFragment packageFrag = packageFragment.get();
+      PathFragment genfilesFrag = genfilesFragment.getRelative(packageFrag);
+      for (PathFragment include : includes()) {
+        if (!include.isAbsolute()) {
+          paths.add(packageFrag.getRelative(include));
+          paths.add(genfilesFrag.getRelative(include));
         }
       }
     }
