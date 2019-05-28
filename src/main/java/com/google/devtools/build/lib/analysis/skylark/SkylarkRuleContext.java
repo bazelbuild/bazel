@@ -895,6 +895,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           .run(
               outputs,
               inputs,
+              /*unusedInputsList=*/ Runtime.NONE,
               executableUnchecked,
               toolsUnchecked,
               arguments,

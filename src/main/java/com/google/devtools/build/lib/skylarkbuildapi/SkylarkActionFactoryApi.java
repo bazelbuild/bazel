@@ -184,6 +184,23 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             positional = false,
             doc = "List or depset of the input files of the action."),
         @Param(
+            name = "unused_inputs_list",
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+            },
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            positional = false,
+            doc =
+                "File containing list of inputs unused by the action. "
+                    + ""
+                    + "<p>The content of this file (generally one of the outputs of the action) "
+                    + "corresponds to  the list of input files that were not used during the whole "
+                    + "action execution. Any change in those files must not affect in any way the "
+                    + "outputs of the action."),
+        @Param(
             name = "executable",
             type = Object.class,
             allowedTypes = {
@@ -282,6 +299,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
   public void run(
       SkylarkList outputs,
       Object inputs,
+      Object unusedInputsList,
       Object executableUnchecked,
       Object toolsUnchecked,
       Object arguments,
