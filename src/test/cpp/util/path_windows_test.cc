@@ -46,12 +46,7 @@ using std::unique_ptr;
 using std::wstring;
 
 TEST(PathWindowsTest, TestNormalizeWindowsPath) {
-#define ASSERT_NORMALIZE(x, y)                                          \
-  {                                                                     \
-    std::string result;                                                 \
-    EXPECT_TRUE(blaze_util::TestOnly_NormalizeWindowsPath(x, &result)); \
-    EXPECT_EQ(result, y);                                               \
-  }
+#define ASSERT_NORMALIZE(x, y) EXPECT_EQ(TestOnly_NormalizeWindowsPath(x), y);
 
   ASSERT_NORMALIZE("", "");
   ASSERT_NORMALIZE("a", "a");
@@ -115,6 +110,8 @@ TEST(PathWindowsTest, TestNormalizeWindowsPath) {
   ASSERT_NORMALIZE("c:/a/..", "c:\\");
   ASSERT_NORMALIZE("c:/a/../", "c:\\");
   ASSERT_NORMALIZE("c:/a/./../", "c:\\");
+  ASSERT_NORMALIZE("c:/../d:/e", "c:\\d:\\e");
+  ASSERT_NORMALIZE("c:/../d:/../e", "c:\\e");
 
   ASSERT_NORMALIZE("foo", "foo");
   ASSERT_NORMALIZE("foo/", "foo");
