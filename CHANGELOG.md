@@ -1,3 +1,176 @@
+## Release 0.26.0 (2019-05-28)
+
+```
+Baseline: daa8ae565ab2023e49134f0aad233b0a8bd7a5d0
+
+Cherry picks:
+
+   + 61c7ffa60ae9c1937dd6d8ee30a8c0471094ee71:
+     Automated rollback of commit
+     87388e24814b177f54ca7697b4233489f90c587e.
+   + 898d7b6138af73f03daf35b767d252560087de70:
+     Add test for repository overrides, conflicting with managed
+     directories being added when Bazel server is already started.
+   + c2001a4569483596d9dc74ba9cabcbe4b6f1887f:
+     Automated rollback of commit
+     bbe47a1564a832e1a175206f2dfbc92af94c120b.
+   + e67c961905792cd63950c6f6efc33275ad243c49:
+     Fix a non-determinism in create_embedded_tools.py.
+   + 81aefe7ee01cc73646a53f9c72ed40ead09f9f5a:
+     Remove unsupported cpu attribute from cc_toolchains.
+   + 597e289b097d3bfed8eea1cb0924bbeb04877e42:
+     remote: made CombinedCache a composition of Disk and Http Cache
+   + 942f7cf6a0da0a4ecc804615424f039e50963933:
+     C++: Fixes bug in C++ API with external repo aspects
+   + 85a5a2bd569a5274950fc7327a044c395248c024:
+     Configure @androidsdk//:emulator_x86 and :emulator_arm to point
+     to the unified emulator binary
+   + 9835cb4135503768cdf1161746b95d7969ccb938:
+     Automated rollback of commit
+     844e4e297b404d6ff28b818d8150d4b9c47de887.
+   + c963ba21073b514961946b8b4b45b091f08fdaa1:
+     Windows, Python: fix arg. esc. also in host config
+   + a1ea487e0a9e180a36fa4aab57f7c746ddcf367a:
+     Do not pre-cache changed files under managed directories
+   + 7dc78cdd04eedf2f4373b170053ba5fc2a990929:
+     Add explicit execution and target constraints for autodiscovered
+     cc t?
+   + dd9ac13f7e3b71bdf2eca717bc7681bdd12389a2:
+     Fix a bug when a relative path is used for the execution log
+   + 0ff19c6d0adf3c0df94fff59ca3bd13cbcf99897:
+     Fix StandaloneTestStrategy.appendStderr
+   + 7f495315749478e75a3424726cc273a535b7c3b8:
+     Fix the autodetecting Python toolchain on Mac
+   + ddce7235ef29a0aba727c265eae865d15af4ed09:
+     Avoid exporting PATH unnecessarily
+   + 35dd05a059fa7fddfdd888cfc69102994e3c04dc:
+     Allow Starlark rules to be able to use the `exec_compatible_with`
+```
+
+Incompatible changes:
+
+  - Flip --incompatible_windows_escape_jvm_flags to true. See
+    https://github.com/bazelbuild/bazel/issues/7486
+  - Flip --incompatible_windows_style_arg_escaping to true.  See
+    https://github.com/bazelbuild/bazel/issues/7454
+  - --incompatible_windows_escape_jvm_flags is enabled by default,
+    and the flag no longer exists
+  - `--incompatible_no_output_attr_default` is enabled by default.
+  - --incompatible_depset_union is enabled by default.
+  - Python rules now determine the Python runtime using toolchains
+    rather than `--python_top` and `--python_path`, which are
+    deprecated. See
+    [#7899](https://github.com/bazelbuild/bazel/issues/7899) for
+    information on declaring Python toolchains and migrating your
+    code. As a side-benefit, this addresses #4815 (incorrect
+    interpreter version used) on non-Windows platforms. You can
+    temporarily opt out of this change with
+    `--incompatible_use_python_toolchains=false`.
+  - Python rules now determine the Python runtime using toolchains
+    rather than `--python_top` and `--python_path`, which are
+    deprecated. See #7899 for information on declaring Python
+    toolchains and migrating your code. As a side-benefit, this
+    addresses #4815 (incorrect interpreter version used) on
+    non-Windows platforms. You can temporarily opt out of this change
+    with `--incompatible_use_python_toolchains=false`.
+
+New features:
+
+  - Windows, Python: the --incompatible_windows_escape_python_args
+    flag (false by default) builds py_binary and py_test targets with
+    correct command line argument escaping.
+  - cquery supports --output=build
+
+Important changes:
+
+  - Allow debugging C++ features logic.
+  - The --ios_multi_cpus, --watchos_cpus, --macos_cpus and tvos_cpus
+    are now additive. This means that you can now split the
+    --ios_multi_cpus=arm64,armv7 into --ios_multi_cpus=arm64 and
+    --ios_multi_cpus=armv7.
+  - Generated Go protobufs now depend on
+    //net/proto2/go:proto_gendeps instead of //net/proto2/go:proto
+  - Add new options --cs_fdo_instrument and --cs_profile to support
+    LLVM's context-sensitive FDO (CSFDO).
+  - Bazel C++ compile/link Starlark API. Can be used with
+    experimental flag
+    --experimental_cc_skylark_api_enabled_packages=<package_path>,<pac
+    kage_path2>.
+  - `cc_toolchain.static_runtime_lib` and
+    `cc_toolchain.dynamic_runtime_lib` are now exposed to Starlark.
+  - New flag `--incompatible_no_kwargs_in_build_files`. See
+    https://github.com/bazelbuild/bazel/issues/8021
+  - struct.to_proto() converts dict into proto3 text message (map<,>).
+  - Android resource conflicts will no longer be reported between a
+    strong attr resource and a weak attr resource, if the weak attr
+    does not have format specified.
+  - Flag `--incompatible_static_name_resolution_in_build_files` is
+    added. See https://github.com/bazelbuild/bazel/issues/8022
+  - Add --incompatible_objc_framework_cleanup to control whether to
+    enable some objc framework cleanup that changes the API.
+    Specifically, the cleanup changes the objc provider API
+    pertaining to frameworks.  This change is expected to be
+    transparent to most users unless they write their own Starlark
+    rules to handle frameworks.  See
+    https://github.com/bazelbuild/bazel/issues/7594 for details.
+  - Added --incompatible_remove_binary_profile to disable the old
+    binary
+    profiles. Instead use the JSON profile format:
+    https://docs.bazel.build/versions/master/skylark/performance.html#
+    json-profile
+  - Introducing --execution_log_binary_file and
+    --execution_log_json_file that output a stable sorted execution
+    log. They will offer a stable replacement to
+    --experimental_execution_log_file.
+  - Flag `--incompatible_disallow_old_octal_notation` is added. See
+    //github.com/bazelbuild/bazel/issues/8059
+  - Removes the
+    --incompatible_disable_genrule_cc_toolchain_dependency flag.
+  - Android resource conflicts will no longer be reported between a
+    strong attr resource and a weak attr resource, if the weak attr
+    does not have format specified.
+  - Incompatible flag
+    `--incompatible_make_thinlto_command_lines_standalone` has been
+    added. See https://github.com/bazelbuild/bazel/issues/6791 for
+    details.
+  - objc_library does not support resource attributes any more.
+    Please read #7594 for more info.
+  - The `outputs` parameter of the `rule()` function is deprecated
+    and attached to flag `--incompatible_no_rule_outputs_param`.
+    Migrate rules to use `OutputGroupInfo` or `attr.output` instead.
+    See https://github.com/bazelbuild/bazel/issues/7977 for more info.
+  - New platform_mappings ability to allow gradual flag to
+    platforms/toolchains migration. See also
+    https://github.com/bazelbuild/bazel/issues/6426
+  - Added support for compiling against fully qualified R classes
+    from aar_import dependencies.
+  - --tls_enabled flag is deprecated. Please provide 'grpcs' as a
+    scheme in the URLs if TLS should be used for a remote connection.
+  - Adds
+    incompatible_disallow_rule_execution_platform_constraints_allowed,
+     which
+    disallows the use of the "execution_platform_constraints_allowed"
+    attribute when defining new rules.
+  - Flag `--incompatible_restrict_named_params` is added. See
+    https://github.com/bazelbuild/bazel/issues/8147 for details.
+  - The glob function has a new argument `allow_empty`. When set to
+    False, the glob fails when it doesn't match anything.
+  - Adds the "disable_whole_archive_for_static_lib" feature to allow
+    turning off legacy_whole_archive for individual targets.
+  - C++ Starlark API for compilation and linking is no longer
+    whitelisted
+  - Update visibility advice in build-style
+  - --incompatible_disable_objc_provider_resources is now enabled by
+    default.
+  - Fixed an issue where some `py_runtime`s were incompatible with
+    using `--build_python_zip` (#5104).
+  - The `outputs` parameter of the `rule()` function is deprecated
+    and attached to flag `--incompatible_no_rule_outputs_param`.
+    Migrate rules to use `OutputGroupInfo` or `attr.output` instead.
+    See https://github.com/bazelbuild/bazel/issues/7977 for more info.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Brian Topping, clyang82, Dave Lee, George Gensure, Greg Estren, Greg, Guro Bokum, Keith Smiley, Max Vorobev, Michael Hackner, Robert Brown, Robert Sayre, Ryan Beasley, Yannic.
+
 ## Release 0.25.0 (2019-05-01)
 
 ```
