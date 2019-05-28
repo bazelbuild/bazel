@@ -375,5 +375,85 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteJunctionWhoseTargetIsBusy) {
 #undef TOWSTRING
 #undef WLINE
 
+TEST(FileTests, TestNormalize) {
+#define ASSERT_NORMALIZE(x, y) EXPECT_EQ(Normalize(x), y);
+  ASSERT_NORMALIZE("", "");
+  ASSERT_NORMALIZE("a", "a");
+  ASSERT_NORMALIZE("foo/bar", "foo\\bar");
+  ASSERT_NORMALIZE("foo/../bar", "bar");
+  ASSERT_NORMALIZE("a/", "a");
+  ASSERT_NORMALIZE("foo", "foo");
+  ASSERT_NORMALIZE("foo/", "foo");
+  ASSERT_NORMALIZE(".", ".");
+  ASSERT_NORMALIZE("./", ".");
+  ASSERT_NORMALIZE("..", "..");
+  ASSERT_NORMALIZE("../", "..");
+  ASSERT_NORMALIZE("./..", "..");
+  ASSERT_NORMALIZE("./../", "..");
+  ASSERT_NORMALIZE("../.", "..");
+  ASSERT_NORMALIZE(".././", "..");
+  ASSERT_NORMALIZE("...", "...");
+  ASSERT_NORMALIZE(".../", "...");
+  ASSERT_NORMALIZE("a/", "a");
+  ASSERT_NORMALIZE(".a", ".a");
+  ASSERT_NORMALIZE("..a", "..a");
+  ASSERT_NORMALIZE("...a", "...a");
+  ASSERT_NORMALIZE("./a", "a");
+  ASSERT_NORMALIZE("././a", "a");
+  ASSERT_NORMALIZE("./../a", "..\\a");
+  ASSERT_NORMALIZE(".././a", "..\\a");
+  ASSERT_NORMALIZE("../../a", "..\\..\\a");
+  ASSERT_NORMALIZE("../.../a", "..\\...\\a");
+  ASSERT_NORMALIZE(".../../a", "a");
+  ASSERT_NORMALIZE("a/..", "");
+  ASSERT_NORMALIZE("a/../", "");
+  ASSERT_NORMALIZE("a/./../", "");
+
+  ASSERT_NORMALIZE("c:/", "c:\\");
+  ASSERT_NORMALIZE("c:/a", "c:\\a");
+  ASSERT_NORMALIZE("c:/foo/bar", "c:\\foo\\bar");
+  ASSERT_NORMALIZE("c:/foo/../bar", "c:\\bar");
+  ASSERT_NORMALIZE("d:/a/", "d:\\a");
+  ASSERT_NORMALIZE("D:/foo", "D:\\foo");
+  ASSERT_NORMALIZE("c:/foo/", "c:\\foo");
+  ASSERT_NORMALIZE("c:/.", "c:\\");
+  ASSERT_NORMALIZE("c:/./", "c:\\");
+  ASSERT_NORMALIZE("c:/..", "c:\\");
+  ASSERT_NORMALIZE("c:/../", "c:\\");
+  ASSERT_NORMALIZE("c:/./..", "c:\\");
+  ASSERT_NORMALIZE("c:/./../", "c:\\");
+  ASSERT_NORMALIZE("c:/../.", "c:\\");
+  ASSERT_NORMALIZE("c:/.././", "c:\\");
+  ASSERT_NORMALIZE("c:/...", "c:\\...");
+  ASSERT_NORMALIZE("c:/.../", "c:\\...");
+  ASSERT_NORMALIZE("c:/.a", "c:\\.a");
+  ASSERT_NORMALIZE("c:/..a", "c:\\..a");
+  ASSERT_NORMALIZE("c:/...a", "c:\\...a");
+  ASSERT_NORMALIZE("c:/./a", "c:\\a");
+  ASSERT_NORMALIZE("c:/././a", "c:\\a");
+  ASSERT_NORMALIZE("c:/./../a", "c:\\a");
+  ASSERT_NORMALIZE("c:/.././a", "c:\\a");
+  ASSERT_NORMALIZE("c:/../../a", "c:\\a");
+  ASSERT_NORMALIZE("c:/../.../a", "c:\\...\\a");
+  ASSERT_NORMALIZE("c:/.../../a", "c:\\a");
+  ASSERT_NORMALIZE("c:/a/..", "c:\\");
+  ASSERT_NORMALIZE("c:/a/../", "c:\\");
+  ASSERT_NORMALIZE("c:/a/./../", "c:\\");
+  ASSERT_NORMALIZE("c:/../d:/e", "c:\\d:\\e");
+  ASSERT_NORMALIZE("c:/../d:/../e", "c:\\e");
+
+  ASSERT_NORMALIZE("foo", "foo");
+  ASSERT_NORMALIZE("foo/", "foo");
+  ASSERT_NORMALIZE("foo//bar", "foo\\bar");
+  ASSERT_NORMALIZE("../..//foo/./bar", "..\\..\\foo\\bar");
+  ASSERT_NORMALIZE("../foo/baz/../bar", "..\\foo\\bar");
+  ASSERT_NORMALIZE("c:", "c:\\");
+  ASSERT_NORMALIZE("c:/", "c:\\");
+  ASSERT_NORMALIZE("c:\\", "c:\\");
+  ASSERT_NORMALIZE("c:\\..//foo/./bar/", "c:\\foo\\bar");
+  ASSERT_NORMALIZE("../foo", "..\\foo");
+#undef ASSERT_NORMALIZE
+}
+
 }  // namespace windows
 }  // namespace bazel
