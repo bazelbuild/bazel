@@ -2084,6 +2084,29 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testAnalysisFailureInfo_forTest() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "   fail('This Is My Failure Message')",
+        "",
+        "custom_test = rule(implementation = custom_rule_impl,",
+        "    test = True)");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'custom_test')", "", "custom_test(name = 'r')");
+
+    useConfiguration("--allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:r");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure failure = info.getCauses().toList().get(0);
+    assertThat(failure.getMessage()).contains("This Is My Failure Message");
+    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
+  }
+
+  @Test
   public void testAnalysisFailureInfoWithOutput() throws Exception {
     scratch.file(
         "test/extension.bzl",
