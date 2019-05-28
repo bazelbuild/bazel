@@ -500,8 +500,7 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testCcTestCoverageOutputGenerator() throws Exception {
     scratch.file(
         "cc/common/BUILD",
-        "cc_test(name = 'foo_test',",
-        "           srcs = ['foo_test.cc'])");
+        "cc_test(name = 'foo_test', srcs = ['foo_test.cc'])");
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget ct = getConfiguredTarget("//cc/common:foo_test");
     assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", Mode.HOST)).isNull();
@@ -512,8 +511,7 @@ public class CcCommonTest extends BuildViewTestCase {
     useConfiguration("--collect_code_coverage");
     scratch.file(
         "cc/common/BUILD",
-        "cc_test(name = 'foo_test',",
-        "           srcs = ['foo_test.cc'])");
+        "cc_test(name = 'foo_test', srcs = ['foo_test.cc'])");
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget ct = getConfiguredTarget("//cc/common:foo_test");
     assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", Mode.HOST)
