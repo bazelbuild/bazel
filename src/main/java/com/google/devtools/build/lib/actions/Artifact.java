@@ -475,6 +475,10 @@ public abstract class Artifact
     public PathFragment getRootRelativePath() {
       return getExecPath();
     }
+
+    boolean differentOwnerOrRoot(ArtifactOwner owner, ArtifactRoot root) {
+      return !this.getArtifactOwner().equals(owner) || !this.getRoot().equals(root);
+    }
   }
 
   /**

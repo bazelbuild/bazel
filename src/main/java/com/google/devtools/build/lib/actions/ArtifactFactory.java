@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import javax.annotation.Nullable;
@@ -60,15 +59,15 @@ public class ArtifactFactory implements ArtifactResolver {
   private static class SourceArtifactCache {
 
     private class Entry {
-      private final Artifact artifact;
+      private final SourceArtifact artifact;
       private final int idOfBuild;
 
-      Entry(Artifact artifact) {
+      Entry(SourceArtifact artifact) {
         this.artifact = artifact;
         idOfBuild = buildId;
       }
 
-      Artifact getArtifact() {
+      SourceArtifact getArtifact() {
         return artifact;
       }
 
@@ -88,7 +87,7 @@ public class ArtifactFactory implements ArtifactResolver {
 
     /** Returns artifact if it present in the cache, otherwise null. */
     @ThreadSafe
-    Artifact getArtifact(PathFragment execPath) {
+    SourceArtifact getArtifact(PathFragment execPath) {
       Entry cacheEntry = pathToSourceArtifact.get(execPath);
       return cacheEntry == null ? null : cacheEntry.getArtifact();
     }
@@ -111,7 +110,7 @@ public class ArtifactFactory implements ArtifactResolver {
 
     @ThreadCompatible // Calls #putArtifact.
     void markEntryAsValid(PathFragment execPath) {
-      Artifact oldValue = Preconditions.checkNotNull(getArtifact(execPath));
+      SourceArtifact oldValue = Preconditions.checkNotNull(getArtifact(execPath));
       putArtifact(execPath, oldValue);
     }
 
@@ -125,7 +124,7 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     @ThreadCompatible // Concurrent puts do not know which one actually got its artifact in.
-    void putArtifact(PathFragment execPath, Artifact artifact) {
+    void putArtifact(PathFragment execPath, SourceArtifact artifact) {
       pathToSourceArtifact.put(execPath, new Entry(artifact));
     }
   }
@@ -287,20 +286,17 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     // Double-checked locking to avoid locking cost when possible.
-    Artifact artifact = sourceArtifactCache.getArtifact(execPath);
-    if (artifact == null || !Objects.equals(artifact.getArtifactOwner(), owner)
-        || !root.equals(artifact.getRoot())) {
+    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPath);
+    if (artifact == null || artifact.differentOwnerOrRoot(owner, root)) {
       Lock lock = STRIPED_LOCK.get(execPath);
       lock.lock();
       try {
         artifact = sourceArtifactCache.getArtifact(execPath);
-        if (artifact == null
-            || !Objects.equals(artifact.getArtifactOwner(), owner)
-            || !root.equals(artifact.getRoot())) {
+        if (artifact == null || artifact.differentOwnerOrRoot(owner, root)) {
           // There really should be a safety net that makes it impossible to create two Artifacts
           // with the same exec path but a different Owner, but we also need to reuse Artifacts from
           // previous builds.
-          artifact = createArtifact(root, execPath, owner, type);
+          artifact = (SourceArtifact) createArtifact(root, execPath, owner, type);
           sourceArtifactCache.putArtifact(execPath, artifact);
         }
       } finally {
