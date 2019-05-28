@@ -18,7 +18,6 @@
 //src/main/cpp/util:filesystem
 //src/main/native/windows:lib-file
 //src/main/native/windows:lib-process
-//src/main/native/windows:lib-util
 //src/main/cpp/util:strings
 //src/main/cpp/util:errors
 //src/main/cpp/util:port

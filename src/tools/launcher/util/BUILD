@@ -34,7 +34,7 @@ cc_test(
     ],
     deps = [
         ":util",
-        "//src/main/native/windows:lib-util",
+        "//src/main/native/windows:lib-file",
         "@bazel_tools//tools/cpp/runfiles",
         "@com_google_googletest//:gtest_main",
     ],
