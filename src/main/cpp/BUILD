@@ -64,7 +64,6 @@ cc_library(
         "//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
-            "//src/main/native/windows:lib-util",
         ],
         "//conditions:default": [],
     }),
