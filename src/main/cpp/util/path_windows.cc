@@ -275,104 +275,87 @@ void assignNUL(std::wstring* s) { s->assign(L"NUL"); }
 //   just a drive specifier (e.g. when `path` is "c:/" or "c:/foo/.."). The
 //   result will preserve the casing of the input, so "D:/Bar" becomes
 //   "D:\\Bar".
-template <typename char_type>
-static bool NormalizeWindowsPath(const std::basic_string<char_type>& path,
-                                 std::basic_string<char_type>* result) {
-  if (path.empty()) {
-    *result = path;
-    return true;
+template <typename C>
+std::basic_string<C> NormalizeWindowsPath(const std::basic_string<C>& p) {
+  if (p.empty()) {
+    return p;
   }
-  if (IsPathSeparator(path[0])) {
-    return false;
-  }
-
-  static const std::basic_string<char_type> kDot =
-      std::basic_string<char_type>(1, '.');
-  static const std::basic_string<char_type> kDotDot =
-      std::basic_string<char_type>(2, '.');
-
-  std::vector<std::basic_string<char_type> > segments;
-  std::basic_string<char_type>::size_type seg_start = path.size();
-  std::basic_string<char_type>::size_type total_len = 0;
-  for (std::basic_string<char_type>::size_type i =
-           HasUncPrefix(path.c_str()) ? 4 : 0;
-       i <= path.size(); ++i) {
-    if (i == path.size() || IsPathSeparator(path[i])) {
-      // The current character ends a segment.
-      if (seg_start < path.size() && i > seg_start) {
-        std::basic_string<char_type> seg =
-            i == path.size() ? path.substr(seg_start)
-                             : path.substr(seg_start, i - seg_start);
-        if (seg == kDotDot) {
-          if (segments.empty() || segments.back() == kDotDot) {
-            // Preserve ".." if the path is relative and there are only ".."
-            // segment(s) at the front.
-            segments.push_back(seg);
-            total_len += 2;
-          } else if (segments.size() == 1 && segments.back() == kDot) {
-            // Replace the existing "." if that was the only path segment.
-            segments[0] = seg;
-            total_len = 2;
-          } else if (segments.size() > 1 ||
-                     !HasDriveSpecifierPrefix(segments.back().c_str())) {
-            // Remove the last segment unless the path is already at the root
-            // directory.
-            total_len -= segments.back().size();
-            segments.pop_back();
-          }
-        } else if (seg == kDot) {
-          if (segments.empty()) {
-            // Preserve "." if and only if it's the first path segment.
-            // Subsequent segments may replace this segment.
-            segments.push_back(seg);
-            total_len = 1;
-          }
-        } else {
-          // This is a normal path segment, i.e. neither "." nor ".."
-          if (segments.size() == 1 && segments[0] == kDot) {
-            // Replace the only path segment if it was "."
-            segments[0] = seg;
-            total_len = seg.size();
-          } else {
-            // Store the current segment.
-            segments.push_back(seg);
-            total_len += seg.size();
-          }
-        }
-      }
-      // Indicate that there's no segment started.
-      seg_start = path.size();
-    } else {
-      // The current character starts a new segment, or is inside one.
-      if (seg_start == path.size()) {
-        // The current character starts the segment.
+  typedef std::basic_string<C> Str;
+  static const Str kDot(1, '.');
+  static const Str kDotDot(2, '.');
+  std::vector<std::pair<Str::size_type, Str::size_type> > segments;
+  Str::size_type seg_start = Str::npos;
+  bool first = true;
+  bool abs = false;
+  bool starts_with_dot = false;
+  for (Str::size_type i = HasUncPrefix(p.c_str()) ? 4 : 0; i <= p.size(); ++i) {
+    if (seg_start == Str::npos) {
+      if (i < p.size() && p[i] != '/' && p[i] != '\\') {
         seg_start = i;
       }
+    } else {
+      if (i == p.size() || (p[i] == '/' || p[i] == '\\')) {
+        // The current character ends a segment.
+        Str::size_type len = i - seg_start;
+        if (first) {
+          first = false;
+          abs = len == 2 &&
+                ((p[seg_start] >= 'A' && p[seg_start] <= 'Z') ||
+                 (p[seg_start] >= 'a' && p[seg_start] <= 'z')) &&
+                p[seg_start + 1] == ':';
+          segments.push_back(std::make_pair(seg_start, len));
+          starts_with_dot = !abs && p.compare(seg_start, len, kDot) == 0;
+        } else {
+          if (p.compare(seg_start, len, kDot) == 0) {
+            if (segments.empty()) {
+              // Retain "." if that is the first (and possibly only segment).
+              segments.push_back(std::make_pair(seg_start, len));
+              starts_with_dot = true;
+            }
+          } else {
+            if (starts_with_dot) {
+              // Delete the existing "." if that was the only path segment.
+              segments.clear();
+              starts_with_dot = false;
+            }
+            if (p.compare(seg_start, len, kDotDot) == 0) {
+              if (segments.empty() ||
+                  p.compare(segments.back().first, segments.back().second,
+                            kDotDot) == 0) {
+                // Preserve ".." if the path is relative and there are only ".."
+                // segment(s) at the front.
+                segments.push_back(std::make_pair(seg_start, len));
+              } else if (!abs || segments.size() > 1) {
+                // Remove the last segment unless the path is already at the
+                // root directory.
+                segments.pop_back();
+              }  // Ignore ".." otherwise.
+            } else {
+              // This is a normal path segment, i.e. neither "." nor ".."
+              segments.push_back(std::make_pair(seg_start, len));
+            }
+          }
+        }
+        // Indicate that there's no segment started.
+        seg_start = Str::npos;
+      }
     }
   }
-  if (segments.empty()) {
-    result->clear();
-    return true;
-  }
-  if (segments.size() == 1 &&
-      HasDriveSpecifierPrefix(segments.back().c_str())) {
-    *result = segments.back() + std::basic_string<char_type>(1, '\\');
-    return true;
-  }
-  // Reserve enough space for all segments plus separators between them (one
-  // less than segments.size()).
-  *result = std::basic_string<char_type>(total_len + segments.size() - 1, 0);
-  std::basic_string<char_type>::iterator pos = result->begin();
-  std::basic_string<char_type>::size_type idx = 0;
-  for (const auto& seg : segments) {
-    std::copy(seg.cbegin(), seg.cend(), pos);
-    pos += seg.size();
-    if (pos < result->cend() - 1) {
-      // Add a separator if we haven't reached the end of the string yet.
-      *pos++ = '\\';
+  std::basic_stringstream<C> res;
+  first = true;
+  for (const auto& i : segments) {
+    Str s = p.substr(i.first, i.second);
+    if (first) {
+      first = false;
+    } else {
+      res << '\\';
     }
+    res << s;
   }
-  return true;
+  if (abs && segments.size() == 1) {
+    res << '\\';
+  }
+  return res.str();
 }
 
 template <typename char_type>
@@ -424,12 +407,7 @@ static bool AsWindowsPathImpl(const std::basic_string<char_type>& path,
     mutable_path = drive + path;
   }  // otherwise this is a relative path, or absolute Windows path.
 
-  if (!NormalizeWindowsPath(mutable_path, result)) {
-    if (error) {
-      *error = "path normalization failed";
-    }
-    return false;
-  }
+  *result = NormalizeWindowsPath(mutable_path);
   return true;
 }
 
@@ -467,19 +445,11 @@ static bool AsAbsoluteWindowsPathImpl(const std::wstring& path,
     if (result->empty() || (result->size() == 1 && (*result)[0] == '.')) {
       *result = GetCwdW();
     } else {
-      std::wstring wd = RemoveUncPrefixMaybe(GetCwdW().c_str());
-      std::wstring joined = wd + L"\\" + *result;
-      if (!NormalizeWindowsPath(joined, result)) {
-        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "NormalizePath(" << WstringToCstring(joined.c_str()).get()
-            << ")";
-      }
+      *result = GetCwdW() + L"\\" + *result;
     }
   }
 
-  if (!HasUncPrefix(result->c_str())) {
-    *result = std::wstring(L"\\\\?\\") + *result;
-  }
+  *result = std::wstring(L"\\\\?\\") + NormalizeWindowsPath(*result);
   return true;
 }
 
@@ -601,9 +571,8 @@ static char GetCurrentDrive() {
   return 'a' + wdrive - offset;
 }
 
-bool TestOnly_NormalizeWindowsPath(const std::string& path,
-                                   std::string* result) {
-  return NormalizeWindowsPath(path, result);
+std::string TestOnly_NormalizeWindowsPath(const std::string& path) {
+  return NormalizeWindowsPath(path);
 }
 
 }  // namespace blaze_util
