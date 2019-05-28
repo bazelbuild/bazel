@@ -47,6 +47,8 @@ public abstract class StarlarkSemantics {
     EXPERIMENTAL_PLATFORM_API(StarlarkSemantics::experimentalPlatformsApi),
     EXPERIMENTAL_STARLARK_CONFIG_TRANSITION(
         StarlarkSemantics::experimentalStarlarkConfigTransitions),
+    EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST(
+        StarlarkSemantics::experimentalStarlarkUnusedInputsList),
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         StarlarkSemantics::incompatibleDisableObjcProviderResources),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
@@ -132,6 +134,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean experimentalPlatformsApi();
 
   public abstract boolean experimentalStarlarkConfigTransitions();
+
+  public abstract boolean experimentalStarlarkUnusedInputsList();
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
@@ -222,6 +226,7 @@ public abstract class StarlarkSemantics {
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(false)
+          .experimentalStarlarkUnusedInputsList(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(true)
@@ -277,6 +282,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalPlatformsApi(boolean value);
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
+
+    public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 

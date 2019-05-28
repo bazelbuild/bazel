@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
@@ -31,7 +32,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -679,16 +680,54 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.actions.run(\n"
-            + "  inputs = ruleContext.files.srcs,\n"
-            + "  outputs = ruleContext.files.srcs,\n"
-            + "  arguments = ['--a','--b'],\n"
-            + "  executable = ruleContext.executable._idlclass)\n");
-    SpawnAction action =
-        (SpawnAction)
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = ['--a','--b'],",
+        "  executable = ruleContext.executable._idlclass)");
+    StarlarkAction action =
+        (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(action.getCommandFilename()).matches("^.*/IdlClass(\\.exe){0,1}$");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithUnusedInputsList() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_unused_inputs_list=True");
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = 'executable',",
+        "  unused_inputs_list = ruleContext.files.srcs[0])");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getUnusedInputsList()).isPresent();
+    assertThat(action.getUnusedInputsList().get().getFilename()).isEqualTo("a.txt");
+    assertThat(action.discoversInputs()).isTrue();
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithoutUnusedInputsList() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = 'executable',",
+        "  unused_inputs_list = None)");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getUnusedInputsList()).isEmpty();
+    assertThat(action.discoversInputs()).isFalse();
   }
 
   @Test

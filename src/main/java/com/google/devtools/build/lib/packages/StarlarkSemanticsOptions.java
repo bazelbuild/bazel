@@ -154,6 +154,15 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalStarlarkConfigTransitions;
 
   @Option(
+      name = "experimental_starlark_unused_inputs_list",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If set to true, enables use of 'unused_inputs_list' in starlark action.run().")
+  public boolean experimentalStarlarkUnusedInputsList;
+
+  @Option(
       name = "incompatible_bzl_disallow_load_after_statement",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -619,6 +628,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             experimentalJavaCommonCreateProviderEnabledPackages)
         .experimentalPlatformsApi(experimentalPlatformsApi)
         .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
+        .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
