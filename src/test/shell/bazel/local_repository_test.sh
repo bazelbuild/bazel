@@ -903,7 +903,7 @@ genrule(
   name = 'b',
   srcs = [],
   outs = ['bo'],
-  cmd = 'echo ' + native.repository_name() + ' ' + native.package_name() + ' > $@')
+  cmd = 'echo ' + repository_name() + ' ' + package_name() + ' > $@')
 EOF
 
   cat > WORKSPACE <<EOF
