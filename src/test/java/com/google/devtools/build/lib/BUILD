@@ -55,6 +55,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/config:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/objc:srcs",
+        "//src/test/java/com/google/devtools/build/lib/rules/sh:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/python:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
