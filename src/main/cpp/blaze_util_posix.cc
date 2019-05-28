@@ -715,9 +715,14 @@ bool IsEmacsTerminal() {
 // control characters is stderr, so we only care for the stderr descriptor type.
 bool IsStderrStandardTerminal() {
   string term = GetEnv("TERM");
+  bool isEmacs = IsEmacsTerminal();
+
+  if (isEmacs && term == "eterm-color") {
+    return true;
+  }
   if (term.empty() || term == "dumb" || term == "emacs" ||
       term == "xterm-mono" || term == "symbolics" || term == "9term" ||
-      IsEmacsTerminal()) {
+      isEmacs) {
     return false;
   }
   return isatty(STDERR_FILENO);
