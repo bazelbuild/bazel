@@ -1171,40 +1171,4 @@ public class CppLinkActionTest extends BuildViewTestCase {
             "--sysroot=/usr/grte/v1")
         .inOrder();
   }
-
-  @Test
-  @Deprecated
-  // TODO(b/113358321): Remove once #7670 is finished.
-  public void testSplitExecutableLinkCommandDynamicWithSplitting() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
-
-    FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
-
-    CppLinkAction linkAction =
-        createLinkBuilder(
-                ruleContext,
-                LinkTargetType.DYNAMIC_LIBRARY,
-                "dummyRuleContext/out.so",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                featureConfiguration)
-            .setLibraryIdentifier("library")
-            .build();
-    Pair<List<String>, List<String>> result = linkAction.getLinkCommandLine().splitCommandline();
-
-    assertThat(
-            result.first.stream()
-                .map(x -> removeOutDirectory(x))
-                .collect(ImmutableList.toImmutableList()))
-        .containsExactly(
-            "crosstool/gcc_tool",
-            "-shared",
-            "-o",
-            "/k8-fastbuild/bin/dummyRuleContext/out.so",
-            "-Wl,-S",
-            "--sysroot=/usr/grte/v1",
-            "@/k8-fastbuild/bin/dummyRuleContext/out.so-2.params")
-        .inOrder();
-    assertThat(result.second).isEmpty();
-  }
 }

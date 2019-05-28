@@ -250,7 +250,7 @@ public abstract class StarlarkSemantics {
           .incompatibleStaticNameResolutionInBuildFiles(true)
           .incompatibleStringJoinRequiresStrings(true)
           .internalSkylarkFlagTestCanary(false)
-          .incompatibleDoNotSplitLinkingCmdline(false)
+          .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(false)
           .build();
 

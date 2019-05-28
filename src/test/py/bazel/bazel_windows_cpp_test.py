@@ -485,7 +485,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test specifying DEF file in cc_binary
     exit_code, _, stderr = self.RunBazel(['build', '//:lib_dy.dll', '-s'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('/DEF:my_lib.def', ''.join(stderr))
+    filepath = bazel_bin + '/lib_dy.dll-2.params'
+    with open(filepath, 'r', encoding='latin-1') as param_file:
+      self.assertIn('/DEF:my_lib.def', param_file.read())
 
   def testCcImportRule(self):
     self.ScratchFile('WORKSPACE')
