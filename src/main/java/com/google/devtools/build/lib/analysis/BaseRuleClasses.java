@@ -109,11 +109,23 @@ public class BaseRuleClasses {
         TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
 
-  public static LabelLateBoundDefault<TestConfiguration> coverageOutputGenerator(
-      Label defaultValue) {
+  public static LabelLateBoundDefault<BuildConfiguration> getCoverageOutputGeneratorLabel() {
     return LabelLateBoundDefault.fromTargetConfiguration(
-        TestConfiguration.class, defaultValue, COVERAGE_SUPPORT_CONFIGURATION_RESOLVER);
+        BuildConfiguration.class, null,
+        COVERAGE_OUTPUT_GENERATOR_RESOLVER
+    );
   }
+
+  @AutoCodec
+  static final Resolver<BuildConfiguration, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
+    (rule, attributes, configuration) -> {
+      if (configuration.isCodeCoverageEnabled()) {
+        return Label.parseAbsoluteUnchecked(
+            "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main");
+      } else {
+        return null;
+      }
+    };
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */

@@ -47,9 +47,7 @@ public final class BazelCcTestRule implements RuleDefinition {
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .add(
             attr(":lcov_merger", LABEL)
-                .value(
-                    BaseRuleClasses.coverageOutputGenerator(
-                        env.getToolsLabel("//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main"))))
+            .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .add(
             attr("$collect_cc_coverage", LABEL)
                 .cfg(HostTransition.createFactory())

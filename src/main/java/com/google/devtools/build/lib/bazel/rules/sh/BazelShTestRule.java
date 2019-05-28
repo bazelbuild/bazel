@@ -35,10 +35,7 @@ public final class BazelShTestRule implements RuleDefinition {
     builder
         .add(
             attr(":lcov_merger", LABEL)
-                .value(
-                    BaseRuleClasses.coverageOutputGenerator(
-                        environment.getToolsLabel("//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main")
-                    )))
+              .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .add(
             attr("$launcher", LABEL)
                 .cfg(HostTransition.createFactory())

@@ -68,8 +68,7 @@ public final class BazelJavaTestRule implements RuleDefinition {
         // Input files for test actions collecting code coverage
         .add(
             attr(":lcov_merger", LABEL)
-                .value(BaseRuleClasses.coverageOutputGenerator(
-                    env.getToolsLabel("//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main"))))
+                .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .add(
             attr("$jacocorunner", LABEL)
                 .value(env.getToolsLabel("//tools/jdk:JacocoCoverageRunner")))

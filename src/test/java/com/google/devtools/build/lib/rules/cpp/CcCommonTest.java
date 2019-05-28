@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -493,6 +494,30 @@ public class CcCommonTest extends BuildViewTestCase {
     getPackageManager().getPackage(reporter, PackageIdentifier.createInMainRepo("cc/common"));
     assertContainsEvent(
         "//cc/common:testlib: no such attribute 'alwayslink'" + " in 'cc_test' rule");
+  }
+
+  @Test
+  public void testCcTestCoverageOutputGenerator() throws Exception {
+    scratch.file(
+        "cc/common/BUILD",
+        "cc_test(name = 'foo_test',",
+        "           srcs = ['foo_test.cc'])");
+    reporter.removeHandler(failFastHandler);
+    ConfiguredTarget ct = getConfiguredTarget("//cc/common:foo_test");
+    assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", Mode.HOST)).isNull();
+  }
+
+  @Test
+  public void testCcTestCoverageOutputGeneratorCoverageMode() throws Exception {
+    useConfiguration("--collect_code_coverage");
+    scratch.file(
+        "cc/common/BUILD",
+        "cc_test(name = 'foo_test',",
+        "           srcs = ['foo_test.cc'])");
+    reporter.removeHandler(failFastHandler);
+    ConfiguredTarget ct = getConfiguredTarget("//cc/common:foo_test");
+    assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", Mode.HOST)
+        .getLabel().toString()).isEqualTo("@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main");
   }
 
   @Test
