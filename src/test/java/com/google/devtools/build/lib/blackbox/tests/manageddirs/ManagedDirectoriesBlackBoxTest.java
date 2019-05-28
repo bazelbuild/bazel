@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
-import com.google.devtools.build.lib.blackbox.tests.workspace.WorkspaceBlackBoxTest;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 import java.nio.file.Files;
