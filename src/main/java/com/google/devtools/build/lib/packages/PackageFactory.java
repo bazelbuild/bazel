@@ -534,13 +534,13 @@ public final class PackageFactory {
         @Param(
             name = "allow_empty",
             type = Boolean.class,
-            defaultValue = "True",
+            defaultValue = "unbound",
             positional = false,
             named = true,
             doc =
                 "Whether we allow glob patterns to match nothing. If `allow_empty` is False, each"
                     + " individual include pattern must match something and also the final"
-                    + " resultmust be non-empty (after the matches of the `exclude` patterns are"
+                    + " result must be non-empty (after the matches of the `exclude` patterns are"
                     + " excluded).")
       },
       documented = false,
@@ -554,7 +554,7 @@ public final class PackageFactory {
                 SkylarkList include,
                 SkylarkList exclude,
                 Integer excludeDirectories,
-                Boolean allowEmpty,
+                Object allowEmpty,
                 FuncallExpression ast,
                 Environment env)
                 throws EvalException, ConversionException, InterruptedException {
@@ -570,7 +570,7 @@ public final class PackageFactory {
       Object include,
       Object exclude,
       boolean excludeDirs,
-      boolean allowEmpty,
+      Object allowEmptyArgument,
       FuncallExpression ast,
       Environment env)
       throws EvalException, ConversionException, InterruptedException {
@@ -587,6 +587,17 @@ public final class PackageFactory {
     List<String> excludes = Type.STRING_LIST.convert(exclude, "'glob' argument");
 
     List<String> matches;
+    boolean allowEmpty;
+    if (allowEmptyArgument == Runtime.UNBOUND) {
+      allowEmpty = !env.getSemantics().incompatibleDisallowEmptyGlob();
+    } else if (allowEmptyArgument instanceof Boolean) {
+      allowEmpty = (Boolean) allowEmptyArgument;
+    } else {
+      throw new EvalException(
+          ast.getLocation(),
+          "expected boolean for argument `allow_empty`, got `" + allowEmptyArgument + "`");
+    }
+
     try {
       Globber.Token globToken =
           context.globber.runAsync(includes, excludes, excludeDirs, allowEmpty);

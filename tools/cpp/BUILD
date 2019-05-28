@@ -400,10 +400,13 @@ filegroup(
 
 filegroup(
     name = "compile-x64_windows",
-    srcs = glob([
-        "wrapper/bin/msvc_*",
-        "wrapper/bin/pydir/msvc*",
-    ]),
+    srcs = glob(
+        [
+            "wrapper/bin/msvc_*",
+            "wrapper/bin/pydir/msvc*",
+        ],
+        allow_empty = True,
+    ),
 )
 
 filegroup(
