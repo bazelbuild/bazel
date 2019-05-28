@@ -239,7 +239,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowLegacyJavaProvider(false)
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(true)
-          .incompatibleDisallowNativeInBuildFile(false)
+          .incompatibleDisallowNativeInBuildFile(true)
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
           .incompatibleDisallowStructProviderSyntax(false)
