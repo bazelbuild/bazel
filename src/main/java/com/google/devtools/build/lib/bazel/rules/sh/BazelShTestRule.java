@@ -31,13 +31,14 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 public final class BazelShTestRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-    // TODO(bazel-team): Add $lcov_merger to every test rule as opposed to particular rules.
+    // TODO(bazel-team): Add :lcov_merger to every test rule as opposed to particular rules.
     builder
         .add(
-            attr("$lcov_merger", LABEL)
+            attr(":lcov_merger", LABEL)
                 .value(
-                    Label.parseAbsoluteUnchecked(
-                        "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main")))
+                    BaseRuleClasses.coverageOutputGenerator(
+                        environment.getToolsLabel("//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main")
+                    )))
         .add(
             attr("$launcher", LABEL)
                 .cfg(HostTransition.createFactory())

@@ -46,10 +46,10 @@ public final class BazelCcTestRule implements RuleDefinition {
         .override(attr("linkstatic", BOOLEAN).value(OS.getCurrent() == OS.WINDOWS))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .add(
-            attr("$lcov_merger", LABEL)
+            attr(":lcov_merger", LABEL)
                 .value(
-                    Label.parseAbsoluteUnchecked(
-                        "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main")))
+                    BaseRuleClasses.coverageOutputGenerator(
+                        env.getToolsLabel("//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main"))))
         .add(
             attr("$collect_cc_coverage", LABEL)
                 .cfg(HostTransition.createFactory())
