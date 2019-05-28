@@ -255,6 +255,19 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowDictPlus;
 
   @Option(
+      name = "incompatible_disallow_empty_glob",
+      defaultValue = "false",
+      category = "incompatible changes",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, the default value of the `allow_empty` argument of glob() is False.")
+  public boolean incompatibleDisallowEmptyGlob;
+
+  @Option(
       name = "incompatible_disallow_filetype",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -613,6 +626,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
         .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
+        .incompatibleDisallowEmptyGlob(incompatibleDisallowEmptyGlob)
         .incompatibleDisallowFileType(incompatibleDisallowFileType)
         .incompatibleDisallowLegacyJavaInfo(incompatibleDisallowLegacyJavaInfo)
         .incompatibleDisallowLegacyJavaProvider(incompatibleDisallowLegacyJavaProvider)

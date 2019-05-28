@@ -661,7 +661,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "glob()",
         "insufficient arguments received by glob(include: sequence of strings, "
             + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
-            + "allow_empty: bool = True) (got 0, expected at least 1)");
+            + "allow_empty: bool = <unbound>) (got 0, expected at least 1)");
   }
 
   @Test
@@ -671,7 +671,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "glob(['a'], ['b'])",
         "too many (2) positional arguments in call to glob(include: sequence of strings, "
             + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
-            + "allow_empty: bool = True)");
+            + "allow_empty: bool = <unbound>)");
   }
 
   @Test
@@ -681,7 +681,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "glob(1,2,3,4)",
         "too many (4) positional arguments in call to glob(include: sequence of strings, "
             + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
-            + "allow_empty: bool = True)");
+            + "allow_empty: bool = <unbound>)");
   }
 
   @Test
@@ -806,6 +806,48 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         NoSuchPackageException.class,
         () -> packages.eval("pkg", RootedPath.toRootedPath(root, file)));
     events.assertContainsError("Directory is not readable");
+  }
+
+  @Test
+  public void testGlobDisallowEmpty() throws Exception {
+    Path buildFile = scratch.file("/pkg/BUILD", "x = " + "glob(['*.foo'])");
+    Package pkg =
+        packages.createPackage(
+            "pkg",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_disallow_empty_glob=false");
+    assertThat(pkg.containsErrors()).isFalse();
+  }
+
+  @Test
+  public void testGlobAllowEmpty() throws Exception {
+    events.setFailFast(false);
+
+    Path buildFile = scratch.file("/pkg/BUILD", "x = " + "glob(['*.foo'])");
+    Package pkg =
+        packages.createPackage(
+            "pkg",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_disallow_empty_glob=true");
+
+    assertThat(pkg.containsErrors()).isTrue();
+    events.assertContainsError(
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False");
+  }
+
+  @Test
+  public void testGlobNotBoolean() throws Exception {
+    events.setFailFast(false);
+
+    Path buildFile = scratch.file("/pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty = 5)");
+    Package pkg =
+        packages.createPackage(
+            "pkg",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_disallow_empty_glob=true");
+
+    assertThat(pkg.containsErrors()).isTrue();
+    events.assertContainsError("expected boolean for argument `allow_empty`, got `5`");
   }
 
   @Test
