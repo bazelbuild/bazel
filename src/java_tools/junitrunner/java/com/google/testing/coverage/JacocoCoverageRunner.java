@@ -421,6 +421,7 @@ public class JacocoCoverageRunner {
         }
       }
     }
+    System.out.println("deployJars = " + deployJars);
 
     final ImmutableSet<String> pathsForCoverage = pathsForCoverageBuilder.build();
     final String metadataFileFinal = metadataFile;
@@ -523,12 +524,24 @@ public class JacocoCoverageRunner {
               }
             });
 
+    System.out.println("metadataFile = " + metadataFileFinal);
+    if (metadataFiles != null) {
+      System.out.println("metadataFiles = ");
+      for (File f : metadataFiles) {
+        System.out.println(f.getPath());
+      }
+    } else {
+      System.out.println("metadataFiles = null");
+    }
+
+
     // If running inside a deploy jar the classpath contains only that deploy jar.
     // It can happen that multiple deploy jars are on the classpath. In that case we are running
     // from a regular java binary where all the environment (e.g. JACOCO_MAIN_CLASS) is set
     // accordingly.
     boolean insideDeployJar =
         (deployJars == 1) && (metadataFilesFinal == null || metadataFilesFinal.length == 1);
+    System.out.println("insideDeployJar = " + insideDeployJar);
     Class<?> mainClass = getMainClass(insideDeployJar);
     Method main = mainClass.getMethod("main", String[].class);
     main.setAccessible(true);
