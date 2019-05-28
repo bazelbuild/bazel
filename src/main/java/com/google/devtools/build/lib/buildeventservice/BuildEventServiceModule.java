@@ -251,14 +251,10 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     this.buildRequestId = cmdEnv.getBuildRequestId();
     this.reporter = cmdEnv.getReporter();
 
-    for (BlazeModule module : cmdEnv.getRuntime().getBlazeModules()) {
-      if (module instanceof ConnectivityStatusProvider) {
-        this.connectivityProvider = (ConnectivityStatusProvider) module;
-        break;
-      }
-    }
-    Preconditions.checkNotNull(
-        this.connectivityProvider, "No ConnectivityStatusProvider found in modules list");
+    this.connectivityProvider =
+        Preconditions.checkNotNull(
+            cmdEnv.getRuntime().getBlazeModule(ConnectivityStatusProvider.class),
+            "No ConnectivityStatusProvider found in modules list");
 
     OptionsParsingResult parsingResult = cmdEnv.getOptions();
     this.besOptions = Preconditions.checkNotNull(parsingResult.getOptions(optionsClass()));

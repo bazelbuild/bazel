@@ -463,16 +463,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return options;
   }
 
+  /**
+   * Returns the first module that is an instance of a given class or interface.
+   *
+   * @param moduleClass a class or interface that we want to match to a module
+   * @param <T> the type of the module's class
+   * @return a module that is an instance of this class or interface
+   */
   @SuppressWarnings("unchecked")
-  public <T extends BlazeModule> T getBlazeModule(Class<T> moduleClass) {
-    // TODO(steinman): Change this to include subclasses, and clean up places where we're iterating
-    // through all the modules to find an instance of the superclass.
+  public <T> T getBlazeModule(Class<T> moduleClass) {
     for (BlazeModule module : blazeModules) {
-      if (module.getClass() == moduleClass) {
+      if (moduleClass.isInstance(module)) {
         return (T) module;
       }
     }
-
     return null;
   }
 
