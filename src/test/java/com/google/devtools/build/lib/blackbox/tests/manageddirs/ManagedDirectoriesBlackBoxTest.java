@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -329,6 +330,42 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
                 + " for the repositories with managed directories."
                 + "\nThe following overridden external repositories"
                 + " have managed directories: @generated_node_modules");
+  }
+
+  /**
+   * The test to verify that WORKSPACE file can not be a symlink when managed directories are used.
+   *
+   * <p>The test of the case, when WORKSPACE file is a symlink, but not managed directories are
+   * used, is in {@link WorkspaceBlackBoxTest#testWorkspaceFileIsSymlink()}
+   */
+  @Test
+  public void testWorkspaceSymlinkThrowsWithManagedDirectories() throws Exception {
+    generateProject();
+
+    Path workspaceFile = context().getWorkDir().resolve(WORKSPACE);
+    assertThat(workspaceFile.toFile().delete()).isTrue();
+
+    Path tempWorkspace = Files.createTempFile(context().getTmpDir(), WORKSPACE, "");
+    PathUtils.writeFile(
+        tempWorkspace,
+        "workspace(name = \"fine_grained_user_modules\",",
+        "managed_directories = {'@generated_node_modules': ['node_modules']})",
+        "",
+        "load(\":use_node_modules.bzl\", \"generate_fine_grained_node_modules\")",
+        "",
+        "generate_fine_grained_node_modules(",
+        "    name = \"generated_node_modules\",",
+        "    package_json = \"//:package.json\",",
+        ")");
+    Files.createSymbolicLink(workspaceFile, tempWorkspace);
+
+    ProcessResult result = bazel().shouldFail().build("//...");
+    assertThat(
+            findPattern(
+                result,
+                "WORKSPACE file can not be a symlink if incrementally updated directories are"
+                    + " used."))
+        .isTrue();
   }
 
   private void generateProject() throws IOException {
