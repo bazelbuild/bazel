@@ -454,19 +454,25 @@ class ArtifactFunction implements SkyFunction {
         Artifact.DerivedArtifact derivedArtifact, SkyFunction.Environment env)
         throws InterruptedException {
 
-      ActionLookupData generatingActionKey = derivedArtifact.getGeneratingActionKey();
+      ActionLookupKey actionLookupKey = ArtifactFunction.getActionLookupKey(derivedArtifact);
       ActionLookupValue actionLookupValue =
-          ArtifactFunction.getActionLookupValue(
-              generatingActionKey.getActionLookupKey(), env, derivedArtifact);
+          ArtifactFunction.getActionLookupValue(actionLookupKey, env, derivedArtifact);
       if (actionLookupValue == null) {
         return null;
       }
+      Integer actionIndex = actionLookupValue.getGeneratingActionIndex(derivedArtifact);
+      if (derivedArtifact.hasParent() && actionIndex == null) {
+        // If a TreeFileArtifact is created by a templated action, then it should have the proper
+        // reference to its owner. However, if it was created as part of a directory, by the first
+        // TreeArtifact-generating action in a chain, then its parent's generating action also
+        // generated it. This catches that case.
+        actionIndex = actionLookupValue.getGeneratingActionIndex(derivedArtifact.getParent());
+      }
+      Preconditions.checkNotNull(
+          actionIndex, "%s %s %s", derivedArtifact, actionLookupKey, actionLookupValue);
 
       return new ArtifactDependencies(
-          derivedArtifact,
-          generatingActionKey.getActionLookupKey(),
-          actionLookupValue,
-          generatingActionKey.getActionIndex());
+          derivedArtifact, actionLookupKey, actionLookupValue, actionIndex);
     }
 
     Artifact getArtifact() {

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
@@ -191,8 +192,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   @Test
   public void testActionTreeArtifactOutput() throws Throwable {
     SpecialArtifact artifact = createDerivedTreeArtifactWithAction("treeArtifact");
-    TreeFileArtifact treeFileArtifact1 = createFakeTreeFileArtifact(artifact, "child1", "hello1");
-    TreeFileArtifact treeFileArtifact2 = createFakeTreeFileArtifact(artifact, "child2", "hello2");
+    TreeFileArtifact treeFileArtifact1 =
+        createFakeTreeFileArtifact(artifact, ALL_OWNER, "child1", "hello1");
+    TreeFileArtifact treeFileArtifact2 =
+        createFakeTreeFileArtifact(artifact, ALL_OWNER, "child2", "hello2");
 
     TreeArtifactValue value = (TreeArtifactValue) evaluateArtifactValue(artifact);
     assertThat(value.getChildValues()).containsKey(treeFileArtifact1);
@@ -213,11 +216,15 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     TreeFileArtifact treeFileArtifact1 =
         createFakeTreeFileArtifact(
             artifact2,
+            ActionTemplateExpansionValue.ActionTemplateExpansionKey.of(
+                (ActionLookupValue.ActionLookupKey) artifact2.getArtifactOwner(), 1),
             "child1",
             "hello1");
     TreeFileArtifact treeFileArtifact2 =
         createFakeTreeFileArtifact(
             artifact2,
+            ActionTemplateExpansionValue.ActionTemplateExpansionKey.of(
+                (ActionLookupValue.ActionLookupKey) artifact2.getArtifactOwner(), 1),
             "child2",
             "hello2");
 
@@ -250,11 +257,15 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     TreeFileArtifact treeFileArtifact1 =
         createFakeTreeFileArtifact(
             artifact3,
+            ActionTemplateExpansionValue.ActionTemplateExpansionKey.of(
+                (ActionLookupValue.ActionLookupKey) artifact2.getArtifactOwner(), 2),
             "child1",
             "hello1");
     TreeFileArtifact treeFileArtifact2 =
         createFakeTreeFileArtifact(
             artifact3,
+            ActionTemplateExpansionValue.ActionTemplateExpansionKey.of(
+                (ActionLookupValue.ActionLookupKey) artifact2.getArtifactOwner(), 2),
             "child2",
             "hello2");
     actions.add(
@@ -269,23 +280,17 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   @Test
   public void actionExecutionValueSerialization() throws Exception {
-    Artifact.DerivedArtifact artifact1 = createDerivedArtifact("one");
-    artifact1.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
-    Artifact.DerivedArtifact artifact2 = createDerivedArtifact("two");
-    artifact2.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    Artifact artifact1 = createDerivedArtifact("one");
+    Artifact artifact2 = createDerivedArtifact("two");
     ArtifactFileMetadata metadata1 =
         ActionMetadataHandler.fileMetadataFromArtifact(artifact1, null, null);
     SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly("tree");
-    treeArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
-    TreeFileArtifact treeFileArtifact = ActionInputHelper.treeFileArtifact(treeArtifact, "subpath");
-    Path path = treeFileArtifact.getPath();
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
-    writeFile(path, "contents");
+    TreeFileArtifact treeFileArtifact =
+        createFakeTreeFileArtifact(treeArtifact, "subpath", "content");
     TreeArtifactValue treeArtifactValue =
         TreeArtifactValue.create(
             ImmutableMap.of(treeFileArtifact, FileArtifactValue.create(treeFileArtifact)));
-    Artifact.DerivedArtifact artifact3 = createDerivedArtifact("three");
-    artifact3.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    Artifact artifact3 = createDerivedArtifact("three");
     FilesetOutputSymlink filesetOutputSymlink =
         FilesetOutputSymlink.createForTesting(
             PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT);
@@ -321,11 +326,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         ArtifactRoot.asSourceRoot(Root.fromPath(root)), PathFragment.create(path));
   }
 
-  private Artifact.DerivedArtifact createDerivedArtifact(String path) {
+  private Artifact createDerivedArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
-    Artifact.DerivedArtifact output =
+    Artifact output =
         new Artifact.DerivedArtifact(
-            ArtifactRoot.asDerivedRoot(root, root.getRelative("out")), execPath);
+            ArtifactRoot.asDerivedRoot(root, root.getRelative("out")), execPath, ALL_OWNER);
     actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
     return output;
   }
@@ -334,7 +339,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     ArtifactRoot middlemanRoot =
         ArtifactRoot.middlemanRoot(middlemanPath, middlemanPath.getRelative("out"));
     return new Artifact.DerivedArtifact(
-        middlemanRoot, middlemanRoot.getExecPath().getRelative(path));
+        middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
   }
 
   private SpecialArtifact createDerivedTreeArtifactWithAction(String path) {
@@ -348,17 +353,29 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     return new SpecialArtifact(
         ArtifactRoot.asDerivedRoot(root, root.getRelative("out")),
         execPath,
+        ALL_OWNER,
         SpecialArtifactType.TREE);
   }
 
   private TreeFileArtifact createFakeTreeFileArtifact(
+      SpecialArtifact treeArtifact, String parentRelativePath, String content) throws Exception {
+    return createFakeTreeFileArtifact(
+        treeArtifact,
+        ActionTemplateExpansionValue.ActionTemplateExpansionKey.of(
+            (ActionLookupValue.ActionLookupKey) treeArtifact.getArtifactOwner(), 0),
+        parentRelativePath,
+        content);
+  }
+
+  private TreeFileArtifact createFakeTreeFileArtifact(
       SpecialArtifact treeArtifact,
+      ArtifactOwner artifactOwner,
       String parentRelativePath,
       String content)
       throws Exception {
     TreeFileArtifact treeFileArtifact =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            treeArtifact, parentRelativePath);
+        ActionInputHelper.treeFileArtifact(
+            treeArtifact, PathFragment.create(parentRelativePath), artifactOwner);
     Path path = treeFileArtifact.getPath();
     FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
     writeFile(path, content);
@@ -399,8 +416,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           ImmutableMap.of(
               ALL_OWNER,
               new BasicActionLookupValue(
-                  Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                      actionKeyContext, ImmutableList.copyOf(actions), ALL_OWNER),
+                  Actions.filterSharedActionsAndThrowActionConflict(
+                      actionKeyContext, ImmutableList.copyOf(actions)),
                   /*nonceVersion=*/ null)));
     }
   }

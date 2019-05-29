@@ -325,9 +325,9 @@ public class ArtifactFactory implements ArtifactResolver {
     if (type == null) {
       return root.isSourceRoot()
           ? new Artifact.SourceArtifact(root, execPath, owner)
-          : new Artifact.DerivedArtifact(root, execPath);
+          : new Artifact.DerivedArtifact(root, execPath, owner);
     } else {
-      return new Artifact.SpecialArtifact(root, execPath, type);
+      return new Artifact.SpecialArtifact(root, execPath, owner, type);
     }
   }
 

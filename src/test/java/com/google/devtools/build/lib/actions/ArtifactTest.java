@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -108,6 +107,12 @@ public class ArtifactTest {
   }
 
   @Test
+  public void testEmptyLabelIsNone() {
+    Artifact artifact = ActionsTestUtil.createArtifact(rootDir, "src/a");
+    assertThat(artifact.getOwnerLabel()).isNull();
+  }
+
+  @Test
   public void testComparison() {
     PathFragment aPath = PathFragment.create("src/a");
     PathFragment bPath = PathFragment.create("src/b");
@@ -140,7 +145,9 @@ public class ArtifactTest {
     Path f1 = scratch.file("/exec/dir/file.ext");
     assertThrows(
         NullPointerException.class,
-        () -> new Artifact.DerivedArtifact(null, f1.relativeTo(execDir)));
+        () ->
+            new Artifact.DerivedArtifact(
+                null, f1.relativeTo(execDir), ArtifactOwner.NullArtifactOwner.INSTANCE));
   }
 
   @Test
@@ -333,12 +340,13 @@ public class ArtifactTest {
   public void testCodec() throws Exception {
     Artifact.DerivedArtifact artifact =
         (Artifact.DerivedArtifact) ActionsTestUtil.createArtifact(rootDir, "src/a");
-    artifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     ArtifactRoot anotherRoot =
         ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), scratch.dir("/src"));
     Artifact.DerivedArtifact anotherArtifact =
-        new Artifact.DerivedArtifact(anotherRoot, anotherRoot.getExecPath().getRelative("src/c"));
-    anotherArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+        new Artifact.DerivedArtifact(
+            anotherRoot,
+            anotherRoot.getExecPath().getRelative("src/c"),
+            new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar")));
     new SerializationTester(artifact, anotherArtifact)
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .runTests();
@@ -435,26 +443,12 @@ public class ArtifactTest {
   public void hashCodeAndEquals() throws IOException {
     Path execRoot = scratch.getFileSystem().getPath("/");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/newRoot"));
-    ActionLookupValue.ActionLookupKey firstOwner =
-        new ActionLookupValue.ActionLookupKey() {
-          @Override
-          public SkyFunctionName functionName() {
-            return null;
-          }
-        };
-    ActionLookupValue.ActionLookupKey secondOwner =
-        new ActionLookupValue.ActionLookupKey() {
-          @Override
-          public SkyFunctionName functionName() {
-            return null;
-          }
-        };
-    Artifact.DerivedArtifact derived1 =
-        new Artifact.DerivedArtifact(root, PathFragment.create("newRoot/shared"));
-    derived1.setGeneratingActionKey(ActionLookupData.create(firstOwner, 0));
-    Artifact.DerivedArtifact derived2 =
-        new Artifact.DerivedArtifact(root, PathFragment.create("newRoot/shared"));
-    derived2.setGeneratingActionKey(ActionLookupData.create(secondOwner, 0));
+    ArtifactOwner firstOwner = () -> Label.parseAbsoluteUnchecked("//bar:bar");
+    ArtifactOwner secondOwner = () -> Label.parseAbsoluteUnchecked("//foo:foo");
+    Artifact derived1 =
+        new Artifact.DerivedArtifact(root, PathFragment.create("newRoot/shared"), firstOwner);
+    Artifact derived2 =
+        new Artifact.DerivedArtifact(root, PathFragment.create("newRoot/shared"), secondOwner);
     ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(root.getRoot().asPath()));
     Artifact source1 = new SourceArtifact(sourceRoot, PathFragment.create("shared"), firstOwner);
     Artifact source2 = new SourceArtifact(sourceRoot, PathFragment.create("shared"), secondOwner);

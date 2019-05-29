@@ -233,6 +233,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
         new SpecialArtifact(
             ArtifactRoot.asDerivedRoot(root, root.getRelative("out")),
             execPath,
+            ALL_OWNER,
             SpecialArtifactType.TREE);
     actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
     FileSystemUtils.createDirectoryAndParents(fullPath);
@@ -254,8 +255,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           ImmutableMap.of(
               ALL_OWNER,
               new BasicActionLookupValue(
-                  Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                      actionKeyContext, ImmutableList.copyOf(actions), ALL_OWNER),
+                  Actions.filterSharedActionsAndThrowActionConflict(
+                      actionKeyContext, ImmutableList.copyOf(actions)),
                   /*nonceVersion=*/ null)));
     }
   }

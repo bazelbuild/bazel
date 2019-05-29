@@ -222,16 +222,13 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    GeneratingActions generatingActions =
-        Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-            analysisEnvironment.getActionKeyContext(),
-            analysisEnvironment.getRegisteredActions(),
-            ruleContext.getOwner());
+    GeneratingActions generatingActions = Actions.filterSharedActionsAndThrowActionConflict(
+          analysisEnvironment.getActionKeyContext(), analysisEnvironment.getRegisteredActions());
     return new RuleConfiguredTarget(
         ruleContext,
         providers,
         generatingActions.getActions(),
-        generatingActions.getArtifactsByPackageRelativePath());
+        generatingActions.getGeneratingActionIndex());
   }
 
   private NestedSet<Label> transitiveLabels() {
