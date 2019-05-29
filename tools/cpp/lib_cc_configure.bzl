@@ -207,3 +207,8 @@ def build_flags(flags):
 
 def get_starlark_list(values):
     return "\"" + "\",\n    \"".join(values) + "\""
+
+def auto_configure_warning_maybe(repository_ctx, msg):
+    """Output warning message when CC_CONFIGURE_DEBUG is enabled."""
+    if is_cc_configure_debug(repository_ctx):
+        auto_configure_warning(msg)
