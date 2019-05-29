@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 
 /**
@@ -185,7 +186,8 @@ public final class BlazeDirectories {
    * {@link BlazeDirectories} of this server instance. Nothing else should be placed here.
    */
   public ArtifactRoot getBuildDataDirectory(String workspaceName) {
-    return ArtifactRoot.asDerivedRoot(getExecRoot(workspaceName), getOutputPath(workspaceName));
+    return ArtifactRoot.asDerivedRoot(
+        getExecRoot(workspaceName), PathFragment.create(getRelativeOutputPath(productName)));
   }
 
   /**

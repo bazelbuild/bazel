@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -81,10 +83,9 @@ class NamedArtifactGroup implements BuildEvent {
       if (artifact.isMiddlemanArtifact()) {
         continue;
       }
-      String name = artifact.getRootRelativePathString();
       String uri = pathConverter.apply(pathResolver.toPath(artifact));
       if (uri != null) {
-        builder.addFiles(BuildEventStreamProtos.File.newBuilder().setName(name).setUri(uri));
+        builder.addFiles(newFileFromArtifact(artifact).setUri(uri));
       }
     }
     for (NestedSetView<Artifact> child : view.transitives()) {
