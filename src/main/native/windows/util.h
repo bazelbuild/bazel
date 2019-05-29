@@ -148,7 +148,7 @@ wstring AsShortPath(wstring path, wstring* result);
 // `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
 // including null terminator), then that will be the result (plus quotes).
 // Otherwise this function fails and returns an error message.
-wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result);
+wstring AsExecutablePathForCreateProcess(wstring path, wstring* result);
 
 }  // namespace windows
 }  // namespace bazel
