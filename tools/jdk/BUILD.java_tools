@@ -15,7 +15,7 @@ java_toolchain(
         ],
     },
     forcibly_disable_header_compilation = 0,
-    genclass = [":Genclass"],
+    genclass = [":GenClass"],
     header_compiler = [":Turbine"],
     header_compiler_direct = [":TurbineDirect"],
     ijar = [":ijar"],
