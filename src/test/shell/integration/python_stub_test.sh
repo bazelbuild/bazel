@@ -59,6 +59,10 @@ fi
 
 # Tests in this file do not actually start a Python interpreter, but plug in a
 # fake stub executable to serve as the "interpreter".
+#
+# Note that this means this suite cannot be used for tests of the actual stub
+# script under Windows, since the stub script never runs (the launcher uses the
+# mock interpreter rather than a system interpreter, see discussion in #7947).
 
 use_fake_python_runtimes_for_testsuite
 

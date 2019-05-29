@@ -720,10 +720,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = [
-        # Disabled on windows and mac; see TODOs in the test suite.
-        "no_windows",
-    ],
 )
 
 sh_test(

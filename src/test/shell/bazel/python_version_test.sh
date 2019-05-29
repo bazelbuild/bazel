@@ -52,11 +52,6 @@ case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*)
   # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
   declare -r is_windows=true
-  # As of 2019-05-18, this test is disabled on Windows (via "no_windows" tag),
-  # so this code shouldn't even have run.
-  # TODO(#7844): Enable this test for Windows once our autodetecting toolchain
-  # works transparently for this platform.
-  fail "This test does not run on Windows."
   ;;
 *)
   declare -r is_windows=false
@@ -72,7 +67,7 @@ fi
 
 #### TESTS #############################################################
 
-# Sanity test that our environment setup above works.
+# Sanity test that our environment setup works.
 function test_can_run_py_binaries() {
   mkdir -p test
 
@@ -94,7 +89,6 @@ import platform
 print("I am Python " + platform.python_version_tuple()[0])
 EOF
   cp test/main2.py test/main3.py
-  chmod u+x test/main2.py test/main3.py
 
   bazel run //test:main2 \
       &> $TEST_log || fail "bazel run failed"
@@ -142,17 +136,22 @@ EOF
 }
 
 # Regression test for #5104. This test ensures that it's possible to use
-# --build_python_zip in combination with a py_runtime (as opposed to not using
-# a py_runtime, i.e., the legacy --python_path mechanism).
-#
-# Note that with --incompatible_use_python_toolchains flipped, we're always
-# using a py_runtime, so in that case this amounts to a test that
-# --build_python_zip works at all.
+# --build_python_zip in combination with an in-workspace runtime, as opposed to
+# with a system runtime or not using a py_runtime at all (the legacy
+# --python_path mechanism).
 #
 # The specific issue #5104 was caused by file permissions being lost when
 # unzipping runfiles, which led to an unexecutable runtime.
-function test_build_python_zip_works_with_py_runtime() {
+function test_build_python_zip_works_with_workspace_runtime() {
   mkdir -p test
+
+  # The runfiles interpreter is either a sh script or bat script depending on
+  # the current platform.
+  if "$is_windows"; then
+    INTERPRETER_FILE="mockpy.bat"
+  else
+    INTERPRETER_FILE="mockpy.sh"
+  fi
 
   cat > test/BUILD << EOF
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
@@ -164,7 +163,7 @@ py_binary(
 
 py_runtime(
     name = "mock_runtime",
-    interpreter = ":mockpy.sh",
+    interpreter = ":$INTERPRETER_FILE",
     python_version = "PY3",
 )
 
@@ -184,11 +183,17 @@ EOF
 # executes the Python code.
 print("I am pybin!")
 EOF
-  cat > test/mockpy.sh <<EOF
-#!/bin/bash
+  if "$is_windows"; then
+    cat > "test/$INTERPRETER_FILE" << EOF
+@ECHO I am mockpy!
+EOF
+  else
+    cat > "test/$INTERPRETER_FILE" << EOF
+#!/bin/sh
 echo "I am mockpy!"
 EOF
-  chmod u+x test/mockpy.sh
+    chmod u+x test/mockpy.sh
+  fi
 
   bazel run //test:pybin \
       --extra_toolchains=//test:mock_toolchain --build_python_zip \
@@ -197,6 +202,11 @@ EOF
 }
 
 function test_pybin_can_have_different_version_pybin_as_data_dep() {
+  # TODO(#8503): Fix this test for windows.
+  if "$is_windows"; then
+    return
+  fi
+
   mkdir -p test
 
   cat > test/BUILD << EOF
@@ -231,7 +241,6 @@ import platform
 
 print("Inner bin uses Python " + platform.python_version_tuple()[0])
 EOF
-  chmod u+x test/py2bin.py
   cp test/py2bin.py test/py3bin.py
 
   cat > test/py2bin_calling_py3bin.py << EOF
@@ -239,14 +248,15 @@ import platform
 import subprocess
 from bazel_tools.tools.python.runfiles import runfiles
 
+print("Outer bin uses Python " + platform.python_version_tuple()[0])
+
 r = runfiles.Create()
 bin_path = r.Rlocation("$WORKSPACE_NAME/test/py3bin")
+assert bin_path is not None
 
-print("Outer bin uses Python " + platform.python_version_tuple()[0])
 subprocess.call([bin_path])
 EOF
   sed s/py3bin/py2bin/ test/py2bin_calling_py3bin.py > test/py3bin_calling_py2bin.py
-  chmod u+x test/py2bin_calling_py3bin.py test/py3bin_calling_py2bin.py
 
   EXPFLAG="--incompatible_allow_python_version_transitions=true \
 --incompatible_py3_is_default=false \
@@ -267,6 +277,11 @@ EOF
 }
 
 function test_shbin_can_have_different_version_pybins_as_data_deps() {
+  # Uses bash, disable on windows.
+  if "$is_windows"; then
+    return
+  fi
+
   mkdir -p test
 
   cat > test/BUILD << EOF
@@ -394,6 +409,11 @@ EOF
 }
 
 function test_can_build_same_target_for_both_versions_in_one_build() {
+  # Uses bash, disable on windows.
+  if "$is_windows"; then
+    return
+  fi
+
   mkdir -p test
 
   cat > test/BUILD << EOF
