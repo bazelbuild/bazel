@@ -82,6 +82,7 @@ sh_test(
     name = "bazel_windows_example_test",
     size = "large",
     srcs = ["bazel_windows_example_test.sh"],
+    tags = ["no_windows"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
