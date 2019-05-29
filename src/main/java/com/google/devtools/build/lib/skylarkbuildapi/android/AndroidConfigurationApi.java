@@ -181,6 +181,13 @@ public interface AndroidConfigurationApi {
   boolean skipParsingAction();
 
   @SkylarkCallable(
+      name = "omit_resources_info_provider_from_android_binary",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean omitResourcesInfoProviderFromAndroidBinary();
+
+  @SkylarkCallable(
       name = "fixed_resource_neverlinking",
       structField = true,
       doc = "",
