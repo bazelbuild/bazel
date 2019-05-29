@@ -1069,7 +1069,7 @@ public class RemoteSpawnRunnerTest {
 
         @Override
         public void injectRemoteDirectory(
-            Artifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+            Artifact.SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
           throw new UnsupportedOperationException();
         }
 

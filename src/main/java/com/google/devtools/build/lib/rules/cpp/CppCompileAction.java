@@ -167,10 +167,10 @@ public class CppCompileAction extends AbstractAction
   private Iterable<Artifact> additionalInputs = null;
 
   /**
-   * Used only during input discovery, when input discovery requires other actions
-   * to be executed first.
+   * Used only during input discovery, when input discovery requires other actions to be executed
+   * first.
    */
-  private Collection<Artifact> usedModules = null;
+  private Collection<Artifact.DerivedArtifact> usedModules = null;
 
   /**
    * This field is set only for C++ module compiles (compiling .cppmap files into .pcm files). It
@@ -549,7 +549,7 @@ public class CppCompileAction extends AbstractAction
       return additionalInputs;
     }
 
-    Map<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
+    Map<Artifact, NestedSet<? extends Artifact>> transitivelyUsedModules =
         computeTransitivelyUsedModules(
             actionExecutionContext.getEnvironmentForDiscoveringInputs(), usedModules);
     if (transitivelyUsedModules == null) {
@@ -560,7 +560,7 @@ public class CppCompileAction extends AbstractAction
     // used modules. Combining the NestedSets of transitive deps of the top-level modules also
     // gives us an effective way to compute and store discoveredModules.
     Set<Artifact> topLevel = new LinkedHashSet<>(usedModules);
-    for (NestedSet<Artifact> transitive : transitivelyUsedModules.values()) {
+    for (NestedSet<? extends Artifact> transitive : transitivelyUsedModules.values()) {
       // It is better to iterate over each nested set here instead of creating a joint one and
       // iterating over it, as this makes use of NestedSet's memoization (each of them has likely
       // been iterated over before). Don't use Set.removeAll() here as that iterates over the
@@ -1562,13 +1562,14 @@ public class CppCompileAction extends AbstractAction
   /**
    * For the given {@code usedModules}, looks up modules discovered by their generating actions.
    *
-   * <p>The returned value only contains a map from elements of {@code usedModules} to the
-   * {@link #discoveredModules} required to use them. If dependent actions have not been executed
-   * yet (and thus {@link #discoveredModules} aren't known yet, returns null.
+   * <p>The returned value only contains a map from elements of {@code usedModules} to the {@link
+   * #discoveredModules} required to use them. If dependent actions have not been executed yet (and
+   * thus {@link #discoveredModules} aren't known yet, returns null.
    */
   @Nullable
-  private static Map<Artifact, NestedSet<Artifact>> computeTransitivelyUsedModules(
-      SkyFunction.Environment env, Collection<Artifact> usedModules) throws InterruptedException {
+  private static Map<Artifact, NestedSet<? extends Artifact>> computeTransitivelyUsedModules(
+      SkyFunction.Environment env, Collection<Artifact.DerivedArtifact> usedModules)
+      throws InterruptedException {
     // ActionLookupKey → ActionLookupValue
     Map<SkyKey, SkyValue> actionLookupValues =
         env.getValues(
@@ -1595,7 +1596,7 @@ public class CppCompileAction extends AbstractAction
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableMap.Builder<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
+    ImmutableMap.Builder<Artifact, NestedSet<? extends Artifact>> transitivelyUsedModules =
         ImmutableMap.builderWithExpectedSize(usedModules.size());
     int pos = 0;
     for (Artifact module : usedModules) {

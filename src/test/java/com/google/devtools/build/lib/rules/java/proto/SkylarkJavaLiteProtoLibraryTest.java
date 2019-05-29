@@ -312,7 +312,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     useConfiguration("--experimental_action_listener=//xa:al");
     ConfiguredTarget ct = getConfiguredTarget("//x:lite_pb2");
-    Iterable<Artifact> artifacts =
+    Iterable<Artifact.DerivedArtifact> artifacts =
         ct.getProvider(ExtraActionArtifactsProvider.class).getTransitiveExtraActionArtifacts();
 
     Iterable<String> extraActionOwnerLabels =

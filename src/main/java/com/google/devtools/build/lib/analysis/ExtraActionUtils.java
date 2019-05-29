@@ -48,8 +48,8 @@ class ExtraActionUtils {
       return ExtraActionArtifactsProvider.EMPTY;
     }
 
-    ImmutableList<Artifact> extraActionArtifacts = ImmutableList.of();
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    ImmutableList<Artifact.DerivedArtifact> extraActionArtifacts = ImmutableList.of();
+    NestedSetBuilder<Artifact.DerivedArtifact> builder = NestedSetBuilder.stableOrder();
 
     List<Label> actionListenerLabels = configuration.getActionListeners();
     if (!actionListenerLabels.isEmpty()
@@ -79,7 +79,9 @@ class ExtraActionUtils {
     }
 
     return ExtraActionArtifactsProvider.create(
-        NestedSetBuilder.<Artifact>stableOrder().addAll(extraActionArtifacts).build(),
+        NestedSetBuilder.<Artifact.DerivedArtifact>stableOrder()
+            .addAll(extraActionArtifacts)
+            .build(),
         builder.build());
   }
 

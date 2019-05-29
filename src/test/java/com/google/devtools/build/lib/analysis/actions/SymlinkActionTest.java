@@ -45,7 +45,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
   private Path input;
   private Artifact inputArtifact;
   private Path output;
-  private Artifact outputArtifact;
+  private Artifact.DerivedArtifact outputArtifact;
   private SymlinkAction action;
 
   @Before

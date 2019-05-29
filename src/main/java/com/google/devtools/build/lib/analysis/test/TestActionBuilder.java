@@ -321,7 +321,8 @@ public final class TestActionBuilder {
 
     Iterable<Artifact> inputs = inputsBuilder.build();
     int shardRuns = (shards > 0 ? shards : 1);
-    List<Artifact> results = Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
+    List<Artifact.DerivedArtifact> results =
+        Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
 
     for (int run = 0; run < runsPerTest; run++) {
@@ -337,14 +338,14 @@ public final class TestActionBuilder {
           testRunDir += PathFragment.SEPARATOR_CHAR;
           shardRunDir = shardRunDir.isEmpty() ? testRunDir : shardRunDir + "_" + testRunDir;
         }
-        Artifact testLog =
+        Artifact.DerivedArtifact testLog =
             ruleContext.getPackageRelativeArtifact(
                 targetName.getRelative(shardRunDir + "test.log"), root);
-        Artifact cacheStatus =
+        Artifact.DerivedArtifact cacheStatus =
             ruleContext.getPackageRelativeArtifact(
                 targetName.getRelative(shardRunDir + "test.cache_status"), root);
 
-        Artifact coverageArtifact = null;
+        Artifact.DerivedArtifact coverageArtifact = null;
         if (collectCodeCoverage) {
           coverageArtifact = ruleContext.getPackageRelativeArtifact(
               targetName.getRelative(shardRunDir + "coverage.dat"), root);

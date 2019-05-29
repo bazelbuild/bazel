@@ -22,9 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -117,7 +117,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
 
       @Override
-      public ArtifactOwner getOwner() {
+      public ActionLookupValue.ActionLookupKey getOwner() {
         return skylarkActionFactory
             .getActionConstructionContext()
             .getAnalysisEnvironment()

@@ -30,10 +30,6 @@ public class BasicActionLookupValue extends ActionLookupValue {
   protected final ImmutableList<ActionAnalysisMetadata> actions;
   @VisibleForSerialization protected final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
-  protected BasicActionLookupValue(ActionAnalysisMetadata action) {
-    this(Actions.GeneratingActions.fromSingleAction(action), /*nonceVersion=*/ null);
-  }
-
   protected BasicActionLookupValue(
       ImmutableList<ActionAnalysisMetadata> actions,
       ImmutableMap<Artifact, Integer> generatingActionIndex,

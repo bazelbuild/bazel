@@ -347,7 +347,8 @@ public class CriticalPathComputer {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
     if (depComponent != null) {
       if (depComponent.isRunning()) {
-        checkCriticalPathInconsistency(input, depComponent.getAction(), actionStats);
+        checkCriticalPathInconsistency(
+            (Artifact.DerivedArtifact) input, depComponent.getAction(), actionStats);
         return;
       }
       actionStats.addDepInfo(depComponent);
@@ -355,7 +356,7 @@ public class CriticalPathComputer {
   }
 
   protected void checkCriticalPathInconsistency(
-      Artifact input, Action action, CriticalPathComponent actionStats) {
+      Artifact.DerivedArtifact input, Action action, CriticalPathComponent actionStats) {
     // Rare case that an action depending on a previously-cached shared action sees a different
     // shared action that is in the midst of being an action cache hit.
     for (Artifact actionOutput : action.getOutputs()) {

@@ -84,8 +84,7 @@ public class AndroidAssets {
 
     for (TransitiveInfoCollection target : assetTargets) {
       for (Artifact file : target.getProvider(FileProvider.class).getFilesToBuild()) {
-        PathFragment packageFragment =
-            file.getArtifactOwner().getLabel().getPackageIdentifier().getSourceRoot();
+        PathFragment packageFragment = file.getOwnerLabel().getPackageIdentifier().getSourceRoot();
         PathFragment packageRelativePath = file.getRootRelativePath().relativeTo(packageFragment);
         if (packageRelativePath.startsWith(assetsDir)) {
           PathFragment relativePath = packageRelativePath.relativeTo(assetsDir);

@@ -43,8 +43,8 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     implements ActionTemplate<CppCompileAction> {
   private final CppCompileActionBuilder cppCompileActionBuilder;
   private final Artifact sourceTreeArtifact;
-  private final Artifact outputTreeArtifact;
-  private final Artifact dotdTreeArtifact;
+  private final Artifact.SpecialArtifact outputTreeArtifact;
+  private final Artifact.SpecialArtifact dotdTreeArtifact;
   private final CcToolchainProvider toolchain;
   private final Iterable<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
@@ -67,8 +67,8 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
    */
   CppCompileActionTemplate(
       Artifact sourceTreeArtifact,
-      Artifact outputTreeArtifact,
-      Artifact dotdTreeArtifact,
+      Artifact.SpecialArtifact outputTreeArtifact,
+      Artifact.SpecialArtifact dotdTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
       Iterable<ArtifactCategory> categories,

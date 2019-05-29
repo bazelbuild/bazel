@@ -127,7 +127,7 @@ public final class OneVersionCheckActionBuilder {
           args.accept(jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar));
 
   private static String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
-    Label label = checkNotNull(artifact.getArtifactOwner(), artifact).getLabel();
+    Label label = checkNotNull(artifact.getOwnerLabel(), artifact);
     return label.getPackageIdentifier().getRepository().isDefault()
             || label.getPackageIdentifier().getRepository().isMain()
         ? label.toString()
