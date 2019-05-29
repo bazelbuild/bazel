@@ -20,6 +20,16 @@ join the `#ide` channel on the [Bazel Slack](https://slack.bazel.build) or email
 [Official plugin](http://ij.bazel.build) for IntelliJ, Android Studio, and
 CLion. The plugin is [open source](https://github.com/bazelbuild/intellij).
 
+Features:
+
+* Interop with language specific plugins. Supported languages include C++, Java,
+  Scala, Kotlin, Python, Go, and Dart.
+* Import BUILD files into the IDE with semantic awareness of Bazel targets.
+* Make your IDE aware of Starlark, the language used for Bazel's BUILD and bzl
+  files
+* Build, test, and execute binaries directly from the IDE
+* Create configurations for debugging and running binaries.
+
 To install, go to the IDE's plugin browser and search for `Bazel`.
 
 To manually install older versions, download the zip files from JetBrains'
@@ -84,8 +94,8 @@ building Bazel targets when source files change.
 
 ## Building your own IDE plugin
 
-Read the [*IDE support* blog
-post](https://bazel.build/blog/2016/06/10/ide-support.html) to learn more about
+Read the [**IDE support** blog
+post**(https://bazel.build/blog/2016/06/10/ide-support.html) to learn more about
 the Bazel APIs to use when building an IDE plugin.
 
 ## Archived projects
