@@ -441,6 +441,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     // be needed.
     host.applePlatformType = PlatformType.MACOS;
 
+    host.configurationDistinguisher = configurationDistinguisher;
+
     return host;
   }
 
