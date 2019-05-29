@@ -45,14 +45,6 @@ wstring RemoveUncPrefixMaybe(const wstring& path) {
   return bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4) : path;
 }
 
-bool HasDriveSpecifierPrefix(const wstring& p) {
-  if (HasUncPrefix(p.c_str())) {
-    return p.size() >= 7 && iswalpha(p[4]) && p[5] == ':' && p[6] == '\\';
-  } else {
-    return p.size() >= 3 && iswalpha(p[0]) && p[1] == ':' && p[2] == '\\';
-  }
-}
-
 bool IsAbsoluteNormalizedWindowsPath(const wstring& p) {
   if (p.empty()) {
     return false;
@@ -64,7 +56,7 @@ bool IsAbsoluteNormalizedWindowsPath(const wstring& p) {
     return false;
   }
 
-  return HasDriveSpecifierPrefix(p) && p.find(L".\\") != 0 &&
+  return HasDriveSpecifierPrefix(p.c_str()) && p.find(L".\\") != 0 &&
          p.find(L"\\.\\") == wstring::npos && p.find(L"\\.") != p.size() - 2 &&
          p.find(L"..\\") != 0 && p.find(L"\\..\\") == wstring::npos &&
          p.find(L"\\..") != p.size() - 3;
@@ -772,6 +764,22 @@ std::basic_string<C> NormalizeImpl(const std::basic_string<C>& p) {
 std::string Normalize(const std::string& p) { return NormalizeImpl(p); }
 
 std::wstring Normalize(const std::wstring& p) { return NormalizeImpl(p); }
+
+bool GetCwd(std::wstring* result, DWORD* err_code) {
+  // Maximum path is 32767 characters, with null terminator that is 0x8000.
+  static constexpr DWORD kMaxPath = 0x8000;
+  WCHAR buf[kMaxPath];
+  DWORD len = GetCurrentDirectoryW(kMaxPath, buf);
+  if (len > 0 && len < kMaxPath) {
+    *result = buf;
+    return true;
+  } else {
+    if (err_code) {
+      *err_code = GetLastError();
+    }
+    return false;
+  }
+}
 
 }  // namespace windows
 }  // namespace bazel
