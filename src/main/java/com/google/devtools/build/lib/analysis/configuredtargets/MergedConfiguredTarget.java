@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -224,5 +225,10 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<merged target " + getLabel() + ">");
+  }
+
+  @VisibleForTesting
+  public ConfiguredTarget getBaseConfiguredTargetForTesting() {
+    return base;
   }
 }

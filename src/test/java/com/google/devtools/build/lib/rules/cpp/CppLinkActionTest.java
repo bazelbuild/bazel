@@ -24,13 +24,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -901,7 +899,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     return new SpecialArtifact(
         ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 
@@ -919,8 +916,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         new ArtifactExpander() {
@@ -970,8 +971,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         (artifact, output) -> {

@@ -480,7 +480,10 @@ public final class SkylarkRuleConfiguredTargetUtil {
       }
     }
 
+    // If this executable is created by this rule, it may not have a label yet. That is fine. If it
+    // was created by another rule, then it will have a label by now, so we'll catch it.
     if (executable != null
+        && executable.hasArtifactOwnerSet()
         && !executable.getArtifactOwner().equals(context.getRuleContext().getOwner())) {
       throw new EvalException(
           loc,

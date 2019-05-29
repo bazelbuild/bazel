@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.actions.ActionInputHelper.treeFileArtifact;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -425,21 +423,23 @@ public class FilesystemValueCheckerTest {
             batchStatter, ModifiedFileSet.NOTHING_MODIFIED)).isEmpty();
   }
 
-  public void checkDirtyTreeArtifactActions(BatchStat batchStatter)
-      throws Exception {
+  private void checkDirtyTreeArtifactActions(BatchStat batchStatter) throws Exception {
     // Normally, an Action specifies the contents of a TreeArtifact when it executes.
     // To decouple FileSystemValueTester checking from Action execution, we inject TreeArtifact
     // contents into ActionExecutionValues.
 
     SpecialArtifact out1 = createTreeArtifact("one");
-    TreeFileArtifact file11 = treeFileArtifact(out1, "fizz");
+    TreeFileArtifact file11 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(out1, "fizz");
     FileSystemUtils.createDirectoryAndParents(out1.getPath());
     FileSystemUtils.writeContentAsLatin1(file11.getPath(), "buzz");
 
     SpecialArtifact out2 = createTreeArtifact("two");
     FileSystemUtils.createDirectoryAndParents(out2.getPath().getChild("subdir"));
-    TreeFileArtifact file21 = treeFileArtifact(out2, "moony");
-    TreeFileArtifact file22 = treeFileArtifact(out2, "subdir/wormtail");
+    TreeFileArtifact file21 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(out2, "moony");
+    TreeFileArtifact file22 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(out2, "subdir/wormtail");
     FileSystemUtils.writeContentAsLatin1(file21.getPath(), "padfoot");
     FileSystemUtils.writeContentAsLatin1(file22.getPath(), "prongs");
 
@@ -540,11 +540,13 @@ public class FilesystemValueCheckerTest {
         .containsExactly(actionKey1);
 
     // Test that directory contents (and nested contents) matter
-    Artifact out1new = treeFileArtifact(out1, "julius/caesar");
+    Artifact out1new =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(out1, "julius/caesar");
     FileSystemUtils.createDirectoryAndParents(out1.getPath().getChild("julius"));
     FileSystemUtils.writeContentAsLatin1(out1new.getPath(), "octavian");
     // even for empty directories
-    Artifact outEmptyNew = treeFileArtifact(outEmpty, "marcus");
+    Artifact outEmptyNew =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(outEmpty, "marcus");
     FileSystemUtils.writeContentAsLatin1(outEmptyNew.getPath(), "aurelius");
     // so does removing
     file21.getPath().delete();
@@ -636,7 +638,6 @@ public class FilesystemValueCheckerTest {
     return new SpecialArtifact(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 
@@ -802,7 +803,8 @@ public class FilesystemValueCheckerTest {
         ImmutableMap.builder();
     for (Map.Entry<PathFragment, RemoteFileArtifactValue> child : children.entrySet()) {
       childFileValues.put(
-          ActionInputHelper.treeFileArtifact(output, child.getKey()), child.getValue());
+          ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(output, child.getKey()),
+          child.getValue());
     }
     TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(childFileValues.build());
     return ActionExecutionValue.create(
@@ -929,7 +931,8 @@ public class FilesystemValueCheckerTest {
         .isEmpty();
 
     // Create dir/foo on the local disk and test that it invalidates the associated sky key.
-    TreeFileArtifact fooArtifact = treeFileArtifact(treeArtifact, "foo");
+    TreeFileArtifact fooArtifact =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(treeArtifact, "foo");
     FileSystemUtils.writeContentAsLatin1(fooArtifact.getPath(), "new-foo-content");
     assertThat(
             new FilesystemValueChecker(/* tsgm= */ null, /* lastExecutionTimeRange= */ null)

@@ -33,9 +33,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -56,7 +53,6 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -1570,60 +1566,24 @@ public class CppCompileAction extends AbstractAction
   private static Map<Artifact, NestedSet<? extends Artifact>> computeTransitivelyUsedModules(
       SkyFunction.Environment env, Collection<Artifact.DerivedArtifact> usedModules)
       throws InterruptedException {
-    // ActionLookupKey → ActionLookupValue
-    Map<SkyKey, SkyValue> actionLookupValues =
+    Map<SkyKey, SkyValue> actionExecutionValues =
         env.getValues(
-            Iterables.transform(
-                usedModules, module -> (ActionLookupKey) module.getArtifactOwner()));
-    if (env.valuesMissing()) {
-      ImmutableList<SkyKey> missingKeys =
-          actionLookupValues.entrySet().stream()
-              .filter(e -> e.getValue() == null)
-              .map(Map.Entry::getKey)
-              .collect(ImmutableList.toImmutableList());
-      BugReport.sendBugReport(
-          new IllegalStateException("Missing keys: " + missingKeys + ". Modules " + usedModules));
-      return null;
-    }
-    ArrayList<ActionLookupData> executionValueLookups = new ArrayList<>(usedModules.size());
-    for (Artifact module : usedModules) {
-      ActionLookupData lookupData = lookupDataFromModule(actionLookupValues, module);
-      executionValueLookups.add(Preconditions.checkNotNull(lookupData, module));
-    }
-
-    // ActionLookupData → ActionExecutionValue
-    Map<SkyKey, SkyValue> actionExecutionValues = env.getValues(executionValueLookups);
+            Iterables.transform(usedModules, Artifact.DerivedArtifact::getGeneratingActionKey));
     if (env.valuesMissing()) {
       return null;
     }
     ImmutableMap.Builder<Artifact, NestedSet<? extends Artifact>> transitivelyUsedModules =
         ImmutableMap.builderWithExpectedSize(usedModules.size());
-    int pos = 0;
-    for (Artifact module : usedModules) {
-      ActionLookupData lookup = executionValueLookups.get(pos++);
-      ActionExecutionValue value = (ActionExecutionValue) actionExecutionValues.get(lookup);
+    for (Artifact.DerivedArtifact module : usedModules) {
+      Preconditions.checkState(
+          module.isFileType(CppFileTypes.CPP_MODULE), "Non-module? %s", module);
+      ActionExecutionValue value =
+          Preconditions.checkNotNull(
+              (ActionExecutionValue) actionExecutionValues.get(module.getGeneratingActionKey()),
+              module);
       transitivelyUsedModules.put(module, value.getDiscoveredModules());
     }
     return transitivelyUsedModules.build();
-  }
-
-  @Nullable
-  private static ActionLookupData lookupDataFromModule(
-      Map<SkyKey, SkyValue> actionLookupValues, Artifact module) {
-    ActionLookupKey lookupKey = (ActionLookupKey) module.getArtifactOwner();
-    ActionLookupValue lookupValue = (ActionLookupValue) actionLookupValues.get(lookupKey);
-    if (lookupValue == null) {
-      return null;
-    }
-    Preconditions.checkState(
-        module.isFileType(CppFileTypes.CPP_MODULE), "Non-module? %s (%s)", module, lookupValue);
-    return ActionLookupData.create(
-        lookupKey,
-        Preconditions.checkNotNull(
-            lookupValue.getGeneratingActionIndex(module),
-            "%s missing action index for module %s",
-            lookupValue,
-            module));
   }
 
   private static NestedSetBuilder<Artifact> createInputsBuilder(

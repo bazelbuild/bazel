@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -189,9 +188,7 @@ public class ActionMetadataHandlerTest {
   @Test
   public void withUnknownOutputArtifactMissingAllowedTreeArtifact() throws Exception {
     PathFragment path = PathFragment.create("bin/foo/bar");
-    SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ArtifactOwner.NullArtifactOwner.INSTANCE, SpecialArtifactType.TREE);
+    SpecialArtifact treeArtifact = new SpecialArtifact(outputRoot, path, SpecialArtifactType.TREE);
     Artifact artifact = new TreeFileArtifact(treeArtifact, PathFragment.create("baz"));
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler = new ActionMetadataHandler(
@@ -208,9 +205,7 @@ public class ActionMetadataHandlerTest {
   public void withUnknownOutputArtifactStatsFileTreeArtifact() throws Exception {
     scratch.file("/output/bin/foo/bar/baz", "not empty");
     PathFragment path = PathFragment.create("bin/foo/bar");
-    SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ArtifactOwner.NullArtifactOwner.INSTANCE, SpecialArtifactType.TREE);
+    SpecialArtifact treeArtifact = new SpecialArtifact(outputRoot, path, SpecialArtifactType.TREE);
     Artifact artifact = new TreeFileArtifact(treeArtifact, PathFragment.create("baz"));
     assertThat(artifact.getPath().exists()).isTrue();
     ActionInputMap map = new ActionInputMap(1);
@@ -227,9 +222,7 @@ public class ActionMetadataHandlerTest {
   @Test
   public void withUnknownOutputArtifactMissingDisallowedTreeArtifact() throws Exception {
     PathFragment path = PathFragment.create("bin/foo/bar");
-    SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ArtifactOwner.NullArtifactOwner.INSTANCE, SpecialArtifactType.TREE);
+    SpecialArtifact treeArtifact = new SpecialArtifact(outputRoot, path, SpecialArtifactType.TREE);
     Artifact artifact = new TreeFileArtifact(treeArtifact, PathFragment.create("baz"));
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler = new ActionMetadataHandler(
@@ -297,9 +290,8 @@ public class ActionMetadataHandlerTest {
   @Test
   public void injectRemoteTreeArtifactMetadata() throws Exception {
     PathFragment path = PathFragment.create("bin/dir");
-    SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ArtifactOwner.NullArtifactOwner.INSTANCE, SpecialArtifactType.TREE);
+    SpecialArtifact treeArtifact = new SpecialArtifact(outputRoot, path, SpecialArtifactType.TREE);
+    treeArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     OutputStore store = new OutputStore();
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
