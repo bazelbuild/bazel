@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.function.Function;
@@ -116,6 +117,11 @@ public final class TargetCompleteEvent
   private final Iterable<String> tags;
   private final ExecutableTargetData executableTargetData;
   private final boolean bepReportOnlyImportantArtifacts;
+
+  private static final String DISABLE_PREFIX_NAME =
+      "com.google.devtools.build.lib.analysis.TargetCompleteEvent.disable_path_prefix";
+  private static final boolean INCLUDE_PATH_PREFIX =
+      !"1".equals(System.getProperty(DISABLE_PREFIX_NAME));
 
   private TargetCompleteEvent(
       ConfiguredTargetAndData targetAndData,
@@ -305,9 +311,24 @@ public final class TargetCompleteEvent
       String name = artifactNameFunction.apply(artifact);
       String uri = converters.pathConverter().apply(pathResolver.toPath(artifact));
       if (uri != null) {
-        builder.addImportantOutput(File.newBuilder().setName(name).setUri(uri).build());
+        builder.addImportantOutput(newFileFromArtifact(name, artifact).setUri(uri).build());
       }
     }
+  }
+
+  public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
+      String name, Artifact artifact) {
+    File.Builder builder =
+        File.newBuilder().setName(name == null ? artifact.getRootRelativePathString() : name);
+    if (INCLUDE_PATH_PREFIX && artifact.getRoot().getComponents() != null) {
+      builder.addAllPathPrefix(
+          Iterables.transform(artifact.getRoot().getComponents(), PathFragment::getPathString));
+    }
+    return builder;
+  }
+
+  public static BuildEventStreamProtos.File.Builder newFileFromArtifact(Artifact artifact) {
+    return newFileFromArtifact(/* name= */ null, artifact);
   }
 
   @Override

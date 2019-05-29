@@ -384,6 +384,13 @@ message TargetConfigured {
 }
 
 message File {
+  // A sequence of prefixes to apply to the file name to construct a full path.
+  // In most but not all cases, there will be 3 entries:
+  //  1. A root output directory, eg "bazel-out"
+  //  2. A configuration mnemonic, eg "k8-fastbuild"
+  //  3. An output category, eg "genfiles"
+  repeated string path_prefix = 4;
+
   // identifier indicating the nature of the file (e.g., "stdout", "stderr")
   string name = 1;
 
