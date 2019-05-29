@@ -45,15 +45,17 @@ def cc_autoconf_toolchains_impl(repository_ctx):
     env = repository_ctx.os.environ
     cpu_value = get_cpu_value(repository_ctx)
 
+    # Should we try to find C++ toolchain at all? If not, we don't have to generate toolchains for C++ at all.
+    should_detect_cpp_toolchain = "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" not in env or env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] != "1"
+    # Should we unconditionally *not* use xcode? If so, we don't have to run Xcode locator ever.
+    should_use_cpp_only_toolchain = "BAZEL_USE_CPP_ONLY_TOOLCHAIN" in env and env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] == "1"
     # Should we unconditionally use xcode? If so, we don't have to run Xcode locator now.
     should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" in env and env["BAZEL_USE_XCODE_TOOLCHAIN"] == "1"
 
-    if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
+    if not should_detect_cpp_toolchain:
         repository_ctx.file("BUILD", "# C++ toolchain autoconfiguration was disabled by BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN env variable.")
-    elif (cpu_value == "darwin" and
-          ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
-        # Don't detect xcode if the user told us it should be there.
-
+    elif cpu_value == "darwin" and not should_use_cpp_only_toolchain:
+        # Only detect xcode if the user didn't tell us it will be there.
         if not should_use_xcode:
             # TODO(#6926): Unify C++ and ObjC toolchains so we don't have to run xcode locator to generate toolchain targets.
             # And also so we don't have to keep this code in sync with //tools/cpp:osx_cc_configure.bzl.
