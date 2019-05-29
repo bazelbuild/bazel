@@ -144,17 +144,23 @@ public class ResourceCompiler {
     public List<Path> call() throws Exception {
       final String directoryName = file.getParent().getFileName().toString();
       final Qualifiers qualifiers = Qualifiers.parseFrom(directoryName);
-      final String filename = interpolateAapt2Filename(qualifiers, file.getFileName().toString());
+      final ResourceFolderType resourceFolderType = qualifiers.asFolderType();
+      if (resourceFolderType == null) {
+        throw new CompileError(
+            new IllegalArgumentException("Unexpected resource folder for file: " + file));
+      }
 
+      final String filename =
+          interpolateAapt2Filename(resourceFolderType, file.getFileName().toString());
       final List<Path> results = new ArrayList<>();
-      if (qualifiers.asFolderType().equals(ResourceFolderType.VALUES)
-          || (qualifiers.asFolderType().equals(ResourceFolderType.RAW)
+      if (resourceFolderType.equals(ResourceFolderType.VALUES)
+          || (resourceFolderType.equals(ResourceFolderType.RAW)
               && file.getFileName().toString().endsWith(".xml"))) {
         extractAttributes(directoryName, filename, results);
       }
 
       if (qualifiers.containDefaultLocale()
-          && qualifiers.asFolderType().equals(ResourceFolderType.VALUES)) {
+          && resourceFolderType.equals(ResourceFolderType.VALUES)) {
         compile(
             directoryName,
             filename,
@@ -171,9 +177,9 @@ public class ResourceCompiler {
       return results;
     }
 
-    static String interpolateAapt2Filename(Qualifiers qualifiers, String filename) {
+    static String interpolateAapt2Filename(ResourceFolderType resourceFolderType, String filename) {
       // res/<not values>/foo.bar -> foo.bar
-      if (!qualifiers.asFolderType().equals(ResourceFolderType.VALUES)) {
+      if (!resourceFolderType.equals(ResourceFolderType.VALUES)) {
         return filename;
       }
 
