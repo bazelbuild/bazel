@@ -658,8 +658,8 @@ public class BuildView {
   }
 
   /**
-   * Returns a list of actions from 'provider' that were registered by an aspect from
-   * 'aspectClasses'. All actions in 'provider' are considered - both direct and transitive.
+   * Returns a list of artifacts from 'provider' that were registered by an aspect from
+   * 'aspectClasses'. All artifacts in 'provider' are considered - both direct and transitive.
    */
   private ImmutableList<Artifact> filterTransitiveExtraActions(
       ExtraActionArtifactsProvider provider, Set<AspectClass> aspectClasses) {

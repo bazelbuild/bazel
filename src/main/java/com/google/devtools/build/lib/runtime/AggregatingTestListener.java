@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -90,7 +91,7 @@ public class AggregatingTestListener {
     // Add all target runs to the map, assuming 1:1 status artifact <-> result.
     synchronized (summaryLock) {
       for (ConfiguredTarget target : event.getTestTargets()) {
-        Iterable<Artifact> statusArtifacts =
+        ImmutableList<Artifact.DerivedArtifact> statusArtifacts =
             target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
         Preconditions.checkState(
             remainingRuns.putAll(asKey(target), statusArtifacts),

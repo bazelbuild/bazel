@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -528,6 +529,25 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner)
       throws InterruptedException {
     Label label = owner.getLabel();
+    ActionLookupValue.ActionLookupKey actionLookupKey =
+        ConfiguredTargetKey.of(label, owner.getConfigurationKey(), /*isHostConfiguration=*/ false);
+    ActionLookupValue actionLookupValue;
+    try {
+      actionLookupValue =
+          (ActionLookupValue)
+              skyframeExecutor.getEvaluatorForTesting().getExistingValue(actionLookupKey);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
+    PathFragment rootRelativePath = label.getPackageFragment().getRelative(packageRelativePath);
+    for (ActionAnalysisMetadata action : actionLookupValue.getActions()) {
+      for (Artifact output : action.getOutputs()) {
+        if (output.getRootRelativePath().equals(rootRelativePath)) {
+          return output;
+        }
+      }
+    }
+    // Fall back: some tests don't actually need the right owner.
     return buildView
         .getArtifactFactory()
         .getDerivedArtifact(

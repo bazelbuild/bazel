@@ -293,7 +293,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   /** Simple container for a collection of headers and corresponding modules. */
   public static class HeadersAndModules {
     public final Collection<Artifact> headers;
-    public final Collection<Artifact> modules;
+    public final Collection<Artifact.DerivedArtifact> modules;
 
     HeadersAndModules(int expectedHeaderCount) {
       headers = CompactHashSet.createWithExpectedSize(expectedHeaderCount);
@@ -310,7 +310,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     HeadersAndModules result = new HeadersAndModules(includes.size());
     for (int c = 0; c < transitiveHeaderInfoList.size(); c++) {
       HeaderInfo transitiveHeaderInfo = transitiveHeaderInfoList.get(c);
-      Artifact module = transitiveHeaderInfo.getModule(usePic);
+      Artifact.DerivedArtifact module = transitiveHeaderInfo.getModule(usePic);
       // Not using range-based for loops here as often there is exactly one element in this list
       // and the amount of garbage created by SingletonImmutableList.iterator() is significant.
       for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
@@ -726,16 +726,17 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      *
      * @param headerModule The .pcm file generated for this library.
      */
-    public Builder setHeaderModule(Artifact headerModule) {
+    Builder setHeaderModule(Artifact.DerivedArtifact headerModule) {
       this.headerInfoBuilder.setHeaderModule(headerModule);
       return this;
     }
 
     /**
      * Sets the C++ header module in pic mode.
+     *
      * @param picHeaderModule The .pic.pcm file generated for this library.
      */
-    public Builder setPicHeaderModule(Artifact picHeaderModule) {
+    Builder setPicHeaderModule(Artifact.DerivedArtifact picHeaderModule) {
       this.headerInfoBuilder.setPicHeaderModule(picHeaderModule);
       return this;
     }
@@ -843,8 +844,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      * The modules built for this context. If null, then no module is being compiled for this
      * context.
      */
-    private final Artifact headerModule;
-    private final Artifact picHeaderModule;
+    private final Artifact.DerivedArtifact headerModule;
+
+    private final Artifact.DerivedArtifact picHeaderModule;
 
     /** All header files that are compiled into this module. */
     private final ImmutableList<Artifact> modularHeaders;
@@ -852,9 +854,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     /** All header files that are contained in this module. */
     private final ImmutableList<Artifact> textualHeaders;
 
-    public HeaderInfo(
-        Artifact headerModule,
-        Artifact picHeaderModule,
+    HeaderInfo(
+        Artifact.DerivedArtifact headerModule,
+        Artifact.DerivedArtifact picHeaderModule,
         ImmutableList<Artifact> modularHeaders,
         ImmutableList<Artifact> textualHeaders) {
       this.headerModule = headerModule;
@@ -863,7 +865,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       this.textualHeaders = textualHeaders;
     }
 
-    public Artifact getModule(boolean pic) {
+    Artifact.DerivedArtifact getModule(boolean pic) {
       return pic ? picHeaderModule : headerModule;
     }
 
@@ -871,17 +873,17 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      * Builder class for {@link HeaderInfo}.
      */
     public static class Builder {
-      private Artifact headerModule = null;
-      private Artifact picHeaderModule = null;
+      private Artifact.DerivedArtifact headerModule = null;
+      private Artifact.DerivedArtifact picHeaderModule = null;
       private final Set<Artifact> modularHeaders = new HashSet<>();
       private final Set<Artifact> textualHeaders = new HashSet<>();
 
-      public Builder setHeaderModule(Artifact headerModule) {
+      Builder setHeaderModule(Artifact.DerivedArtifact headerModule) {
         this.headerModule = headerModule;
         return this;
       }
 
-      public Builder setPicHeaderModule(Artifact headerModule) {
+      Builder setPicHeaderModule(Artifact.DerivedArtifact headerModule) {
         this.picHeaderModule = headerModule;
         return this;
       }

@@ -224,10 +224,11 @@ public class ArtifactFactory implements ArtifactResolver {
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
   // TODO(bazel-team): Don't allow root == execRootParent.
-  public Artifact getDerivedArtifact(
+  public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    return getArtifact(root, root.getExecPath().getRelative(rootRelativePath), owner, null);
+    return (Artifact.DerivedArtifact)
+        getArtifact(root, root.getExecPath().getRelative(rootRelativePath), owner, null);
   }
 
   /**
@@ -238,11 +239,15 @@ public class ArtifactFactory implements ArtifactResolver {
    * <p>The root must be below the execRootParent, and the execPath of the resulting Artifact is
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
-  public Artifact getFilesetArtifact(
+  public Artifact.DerivedArtifact getFilesetArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    return getArtifact(
-        root, root.getExecPath().getRelative(rootRelativePath), owner, SpecialArtifactType.FILESET);
+    return (Artifact.DerivedArtifact)
+        getArtifact(
+            root,
+            root.getExecPath().getRelative(rootRelativePath),
+            owner,
+            SpecialArtifactType.FILESET);
   }
 
   /**
@@ -252,21 +257,26 @@ public class ArtifactFactory implements ArtifactResolver {
    * <p>The root must be below the execRootParent, and the execPath of the resulting Artifact is
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
-  public Artifact getTreeArtifact(
+  public Artifact.SpecialArtifact getTreeArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    return getArtifact(
-        root, root.getExecPath().getRelative(rootRelativePath), owner, SpecialArtifactType.TREE);
+    return (Artifact.SpecialArtifact)
+        getArtifact(
+            root,
+            root.getExecPath().getRelative(rootRelativePath),
+            owner,
+            SpecialArtifactType.TREE);
   }
 
-  public Artifact getConstantMetadataArtifact(
+  public Artifact.DerivedArtifact getConstantMetadataArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    return getArtifact(
-        root,
-        root.getExecPath().getRelative(rootRelativePath),
-        owner,
-        SpecialArtifactType.CONSTANT_METADATA);
+    return (Artifact.DerivedArtifact)
+        getArtifact(
+            root,
+            root.getExecPath().getRelative(rootRelativePath),
+            owner,
+            SpecialArtifactType.CONSTANT_METADATA);
   }
 
   /**

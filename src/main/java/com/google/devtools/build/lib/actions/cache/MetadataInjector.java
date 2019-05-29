@@ -41,7 +41,8 @@ public interface MetadataInjector {
    * @param children the metadata of the files stored in the directory. The paths must be relative
    *     to the path of {@code output}.
    */
-  void injectRemoteDirectory(Artifact output, Map<PathFragment, RemoteFileArtifactValue> children);
+  void injectRemoteDirectory(
+      Artifact.SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children);
 
   /**
    * Marks an {@link Artifact} as intentionally omitted.

@@ -463,7 +463,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
                 /* locationIndex= */ 1);
         childMetadata.put(p, r);
       }
-      metadataInjector.injectRemoteDirectory(output, childMetadata.build());
+      metadataInjector.injectRemoteDirectory(
+          (Artifact.SpecialArtifact) output, childMetadata.build());
     } else {
       FileMetadata outputMetadata = metadata.file(execRoot.getRelative(output.getExecPathString()));
       if (outputMetadata == null) {
