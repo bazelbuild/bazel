@@ -1278,6 +1278,38 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void omitResourcesInfoProviderFromAndroidBinary_enabled() throws Exception {
+    useConfiguration("--experimental_omit_resources_info_provider_from_android_binary");
+    ConfiguredTarget binary =
+        scratchConfiguredTarget(
+            "java/com/pkg/myapp",
+            "myapp",
+            "android_binary(",
+            "  name = 'myapp',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_files = glob(['res/**/*']),",
+            ")");
+
+    assertThat(binary.get(AndroidResourcesInfo.PROVIDER)).isNull();
+  }
+
+  @Test
+  public void omitResourcesInfoProviderFromAndroidBinary_disabled() throws Exception {
+    useConfiguration("--noexperimental_omit_resources_info_provider_from_android_binary");
+    ConfiguredTarget binary =
+        scratchConfiguredTarget(
+            "java/com/pkg/myapp",
+            "myapp",
+            "android_binary(",
+            "  name = 'myapp',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_files = glob(['res/**/*']),",
+            ")");
+
+    assertThat(binary.get(AndroidResourcesInfo.PROVIDER)).isNotNull();
+  }
+
+  @Test
   public void testResourceConfigurationFilters() throws Exception {
     scratch.file("java/com/google/android/BUILD",
         "android_binary(name = 'b',",
