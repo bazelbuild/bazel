@@ -7,7 +7,7 @@ java_toolchain(
     source_version = "8",
     target_version = "8",
     forcibly_disable_header_compilation = 0,
-    genclass = [":Genclass"],
+    genclass = [":GenClass"],
     header_compiler = [":turbine"],
     header_compiler_direct = [":turbine_direct"],
     ijar = [":ijar"],
