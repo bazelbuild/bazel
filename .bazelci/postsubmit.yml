@@ -88,6 +88,24 @@ platforms:
     include_json_profile:
     - build
     - test
+  ubuntu1804_clang:
+    platform: ubuntu1804
+    name: "Clang"
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+      android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    build_targets:
+    - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
+    test_flags:
+    - "--test_timeout=1200"
+    test_targets:
+    - "--"
+    - "//src/test/shell/bazel:cc_integration_test"
+    include_json_profile:
+    - build
+    - test
   ubuntu1804_javabase9:
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 9 Javabase"
