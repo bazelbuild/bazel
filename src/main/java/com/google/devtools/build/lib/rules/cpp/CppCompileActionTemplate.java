@@ -125,11 +125,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       try {
         String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
         TreeFileArtifact outputTreeFileArtifact =
-            ActionInputHelper.treeFileArtifact(
-                outputTreeArtifact, PathFragment.create(outputName), artifactOwner);
+            ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+                outputTreeArtifact, PathFragment.create(outputName));
         TreeFileArtifact dotdFileArtifact =
-            ActionInputHelper.treeFileArtifact(
-                dotdTreeArtifact, PathFragment.create(outputName + ".d"), artifactOwner);
+            ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+                dotdTreeArtifact, PathFragment.create(outputName + ".d"));
         expandedActions.add(
             createAction(
                 inputTreeFileArtifact, outputTreeFileArtifact, dotdFileArtifact, privateHeaders));

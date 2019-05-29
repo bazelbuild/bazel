@@ -271,8 +271,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
               ImmutableMap.of(
                   ACTION_LOOKUP_KEY,
                   new BasicActionLookupValue(
-                      Actions.filterSharedActionsAndThrowActionConflict(
-                          actionKeyContext, ImmutableList.copyOf(actions)),
+                      Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                          actionKeyContext, ImmutableList.copyOf(actions), ACTION_LOOKUP_KEY),
                       /*nonceVersion=*/ null)));
         }
       }
@@ -384,9 +384,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return new Artifact.DerivedArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
-        execPath,
-        ACTION_LOOKUP_KEY);
+        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")), execPath);
   }
 
   /**

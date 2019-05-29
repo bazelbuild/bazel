@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.Executor;
@@ -132,15 +131,13 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     return new SpecialArtifact(
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 
   private TreeFileArtifact createTreeFileArtifact(
       SpecialArtifact inputTreeArtifact, String parentRelativePath) {
-    return ActionInputHelper.treeFileArtifact(
-        inputTreeArtifact,
-        PathFragment.create(parentRelativePath));
+    return ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+        inputTreeArtifact, PathFragment.create(parentRelativePath));
   }
 
   private ParameterFileWriteAction createParameterFileWriteAction(

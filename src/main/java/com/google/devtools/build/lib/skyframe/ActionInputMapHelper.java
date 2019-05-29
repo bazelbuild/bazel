@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -93,23 +94,42 @@ class ActionInputMapHelper {
   static ImmutableList<FilesetOutputSymlink> getFilesets(
       Environment env, Artifact.SpecialArtifact actionInput) throws InterruptedException {
     Preconditions.checkState(actionInput.isFileset(), actionInput);
-    ActionLookupKey filesetActionLookupKey = (ActionLookupKey) actionInput.getArtifactOwner();
+    ActionLookupData generatingActionKey = actionInput.getGeneratingActionKey();
+    ActionLookupKey filesetActionLookupKey = generatingActionKey.getActionLookupKey();
 
     ActionLookupValue filesetActionLookupValue =
         (ActionLookupValue) env.getValue(filesetActionLookupKey);
 
     ActionAnalysisMetadata generatingAction =
-        filesetActionLookupValue.getGeneratingActionDangerousReadJavadoc(actionInput);
+        filesetActionLookupValue.getAction(generatingActionKey.getActionIndex());
     int filesetManifestActionIndex;
 
     if (generatingAction instanceof SymlinkAction) {
-      Artifact outputManifest = Iterables.getOnlyElement(generatingAction.getInputs());
+      Artifact.DerivedArtifact outputManifest =
+          (Artifact.DerivedArtifact) Iterables.getOnlyElement(generatingAction.getInputs());
+      ActionLookupData manifestGeneratingKey = outputManifest.getGeneratingActionKey();
+      Preconditions.checkState(
+          manifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),
+          "Mismatched actions and artifacts: %s %s %s %s",
+          actionInput,
+          outputManifest,
+          filesetActionLookupKey,
+          manifestGeneratingKey);
       ActionAnalysisMetadata symlinkTreeAction =
-          filesetActionLookupValue.getGeneratingActionDangerousReadJavadoc(outputManifest);
-      Artifact inputManifest = Iterables.getOnlyElement(symlinkTreeAction.getInputs());
-      filesetManifestActionIndex = filesetActionLookupValue.getGeneratingActionIndex(inputManifest);
+          filesetActionLookupValue.getAction(manifestGeneratingKey.getActionIndex());
+      Artifact.DerivedArtifact inputManifest =
+          (Artifact.DerivedArtifact) Iterables.getOnlyElement(symlinkTreeAction.getInputs());
+      ActionLookupData inputManifestGeneratingKey = inputManifest.getGeneratingActionKey();
+      Preconditions.checkState(
+          inputManifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),
+          "Mismatched actions and artifacts: %s %s %s %s",
+          actionInput,
+          inputManifest,
+          filesetActionLookupKey,
+          inputManifestGeneratingKey);
+      filesetManifestActionIndex = inputManifestGeneratingKey.getActionIndex();
     } else {
-      filesetManifestActionIndex = filesetActionLookupValue.getGeneratingActionIndex(actionInput);
+      filesetManifestActionIndex = generatingActionKey.getActionIndex();
     }
 
     SkyKey filesetActionKey =

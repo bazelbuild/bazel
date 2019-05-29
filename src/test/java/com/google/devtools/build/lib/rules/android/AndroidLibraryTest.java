@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -1881,7 +1882,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         getGeneratingSpawnAction(
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
-                a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(compileAction).isNotNull();
 
@@ -1889,7 +1889,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         getGeneratingSpawnAction(
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
-                a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
 
@@ -1898,21 +1897,17 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             sdk.getConfiguredTarget().get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
-                a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
             getImplicitOutputArtifact(
                 b.getConfiguredTarget(),
-                a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(linkAction.getOutputs())
         .containsAtLeast(
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
-                a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT),
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
-                a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_SOURCE_JAR));
   }
 
@@ -1927,16 +1922,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    resource_files = ['res/values/a.xml'],",
         ")");
 
-    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
-    SpawnAction compileAction =
-        getGeneratingSpawnAction(
-            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
-    assertThat(compileAction).isNull();
-
-    SpawnAction linkAction =
-        getGeneratingSpawnAction(
-            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
-    assertThat(linkAction).isNull();
+    RuleConfiguredTarget a = (RuleConfiguredTarget) getConfiguredTarget("//java/a:a");
+    ActionsTestUtil.assertNoArtifactEndingWith(
+        a, getImplicitOutputPath(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+    ActionsTestUtil.assertNoArtifactEndingWith(
+        a, getImplicitOutputPath(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
   }
 
   @Test

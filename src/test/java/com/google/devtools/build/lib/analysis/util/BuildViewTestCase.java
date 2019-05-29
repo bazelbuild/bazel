@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
@@ -789,6 +790,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         mutableActionGraph.getGeneratingAction(artifact);
 
     if (actionAnalysisMetadata == null) {
+      if (artifact.isSourceArtifact() || !artifact.hasArtifactOwnerSet()) {
+        return null;
+      }
       actionAnalysisMetadata = getActionGraph().getGeneratingAction(artifact);
     }
 
@@ -1228,30 +1232,19 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Gets a tree artifact, creating it if necessary. {@code ArtifactOwner} should be a genuine
-   * {@link ConfiguredTargetKey} corresponding to a {@link ConfiguredTarget}. If called from a test
-   * that does not exercise the analysis phase, the convenience methods {@link
-   * #getBinArtifactWithNoOwner} or {@link #getGenfilesArtifactWithNoOwner} should be used instead.
-   */
-  protected Artifact getTreeArtifact(
-      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    return view.getArtifactFactory().getTreeArtifact(rootRelativePath, root, owner);
-  }
-
-  /**
    * Gets a Tree Artifact for testing in the subdirectory of the {@link
    * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So to
    * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
    * "foo.o".
    */
   protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    return getPackageRelativeTreeArtifact(
-        packageRelativePath,
+    ActionLookupValue.ActionLookupKey actionLookupKey =
+        ConfiguredTargetKey.of(owner, owner.getConfigurationKey(), /*isHostConfiguration=*/ false);
+    return getDerivedArtifact(
+        owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.of(
-            owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
+        actionLookupKey);
   }
-
 
   /**
    * Gets a derived Artifact for testing with path of the form
@@ -1262,19 +1255,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private Artifact getPackageRelativeDerivedArtifact(
       String packageRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     return getDerivedArtifact(
-        owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
-        root, owner);
-  }
-
-  /**
-   * Gets a tree Artifact for testing with path of the form
-   * root/owner.getPackageFragment()/packageRelativePath.
-   *
-   * @see #getDerivedArtifact(PathFragment, ArtifactRoot, ArtifactOwner)
-   */
-  private Artifact getPackageRelativeTreeArtifact(
-      String packageRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    return getTreeArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
         root, owner);
   }
@@ -2164,38 +2144,26 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return label.replace(':', '/').substring(1);
   }
 
-  protected Artifact getImplicitOutputArtifact(
+  protected final String getImplicitOutputPath(
       ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
-    return getImplicitOutputArtifact(target, getConfiguration(target), outputFunction);
-  }
-
-  protected final Artifact getImplicitOutputArtifact(
-      ConfiguredTarget target,
-      BuildConfiguration configuration,
-      SafeImplicitOutputsFunction outputFunction) {
     Rule rule;
     try {
       rule = (Rule) skyframeExecutor.getPackageManager().getTarget(reporter, target.getLabel());
     } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
       throw new IllegalStateException(e);
     }
-    Rule associatedRule = rule.getAssociatedRule();
-    RepositoryName repository = associatedRule.getRepository();
+    RawAttributeMapper attr = RawAttributeMapper.of(rule.getAssociatedRule());
 
-    ArtifactRoot root;
-    if (associatedRule.hasBinaryOutput()) {
-      root = configuration.getBinDirectory(repository);
-    } else {
-      root = configuration.getGenfilesDirectory(repository);
+    return Iterables.getOnlyElement(outputFunction.getImplicitOutputs(eventCollector, attr));
+  }
+
+  protected final Artifact getImplicitOutputArtifact(
+      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
+    if (target instanceof MergedConfiguredTarget) {
+      target = ((MergedConfiguredTarget) target).getBaseConfiguredTargetForTesting();
     }
-    ArtifactOwner owner = ConfiguredTargetKey.of(target.getLabel(), getConfiguration(target));
-
-    RawAttributeMapper attr = RawAttributeMapper.of(associatedRule);
-
-    String path = Iterables.getOnlyElement(outputFunction.getImplicitOutputs(eventCollector, attr));
-
-    return view.getArtifactFactory()
-        .getDerivedArtifact(target.getLabel().getPackageFragment().getRelative(path), root, owner);
+    return ((RuleConfiguredTarget) target)
+        .getOutputByPackageRelativePath(getImplicitOutputPath(target, outputFunction));
   }
 
   public Path getExecRoot() {
