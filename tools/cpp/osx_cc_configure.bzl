@@ -64,6 +64,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
     ])
 
     xcode_toolchains = []
+    # Make the following logic in sync with //tools/cpp:cc_configure.bzl#cc_autoconf_toolchains_impl
     (xcode_toolchains, xcodeloc_err) = run_xcode_locator(
         repository_ctx,
         paths["@bazel_tools//tools/osx:xcode_locator.m"],

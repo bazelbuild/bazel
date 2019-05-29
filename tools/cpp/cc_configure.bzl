@@ -21,6 +21,14 @@ load(
     "get_cpu_value",
     "resolve_labels",
 )
+load("@bazel_tools//tools/osx:xcode_configure.bzl", "run_xcode_locator")
+
+def _generate_cpp_only_build_file(repository_ctx, cpu_value):
+    repository_ctx.template(
+        "BUILD",
+        paths["@bazel_tools//tools/cpp:BUILD.toolchains.tpl"],
+        {"%{name}": cpu_value},
+    )
 
 def cc_autoconf_toolchains_impl(repository_ctx):
     """Generate BUILD file with 'toolchain' targets for the local host C++ toolchain.
@@ -32,21 +40,31 @@ def cc_autoconf_toolchains_impl(repository_ctx):
         "@bazel_tools//tools/cpp:BUILD.toolchains.tpl",
         "@bazel_tools//tools/osx/crosstool:BUILD.toolchains",
         "@bazel_tools//tools/osx/crosstool:osx_archs.bzl",
+        "@bazel_tools//tools/osx:xcode_locator.m",
     ])
     env = repository_ctx.os.environ
     cpu_value = get_cpu_value(repository_ctx)
+
     if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
         repository_ctx.file("BUILD", "# C++ toolchain autoconfiguration was disabled by BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN env variable.")
     elif (cpu_value == "darwin" and
           ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
-        repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:BUILD.toolchains"], "BUILD")
-        repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:osx_archs.bzl"], "osx_archs.bzl")
+        # Don't detect xcode if the user told us it should be there.
+        should_detect_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" not in env or env["BAZEL_USE_XCODE_TOOLCHAIN"] != "1":
+            # TODO(#6926): Unify C++ and ObjC toolchains so we don't have to run xcode locator to generate toolchain targets.
+            # And also so we don't have to keep this code in sync with //tools/cpp:osx_cc_configure.bzl.
+            (xcode_toolchains, _xcodeloc_err) = run_xcode_locator(
+                repository_ctx,
+                paths["@bazel_tools//tools/osx:xcode_locator.m"],
+            )
+
+        if not should_detect_xcode or xcode_toolchains:
+            repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:BUILD.toolchains"], "BUILD")
+            repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:osx_archs.bzl"], "osx_archs.bzl")
+        else:
+            _generate_cpp_only_build_file(repository_ctx, cpu_value)
     else:
-        repository_ctx.template(
-            "BUILD",
-            paths["@bazel_tools//tools/cpp:BUILD.toolchains.tpl"],
-            {"%{name}": cpu_value},
-        )
+        _generate_cpp_only_build_file(repository_ctx, cpu_value)
 
 cc_autoconf_toolchains = repository_rule(
     environ = [
