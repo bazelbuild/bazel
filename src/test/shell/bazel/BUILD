@@ -984,6 +984,7 @@ sh_test(
     srcs = ["compile_only_deps_test.sh"],
     data = [
         ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
