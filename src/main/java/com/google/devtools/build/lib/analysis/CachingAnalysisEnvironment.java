@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.PrintWriter;
@@ -77,15 +76,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   private MiddlemanFactory middlemanFactory;
   private ExtendedEventHandler errorEventListener;
   private SkyFunction.Environment skyframeEnv;
-  /**
-   * Map of artifacts to either themselves or to {@code Pair<Artifact, String>} if
-   * --experimental_extended_sanity_checks is enabled. In the latter case, the string will contain
-   * the stack trace of where the artifact was created. In the former case, we'll construct a
-   * generic message in case of error.
-   *
-   * <p>The artifact is stored so that we can deduplicate artifacts created multiple times.
-   */
-  private Map<Artifact, Object> artifacts;
+  private Map<Artifact, String> artifacts;
 
   /**
    * The list of actions registered by the configured target this analysis environment is
@@ -207,21 +198,12 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     // The order of the artifacts.entrySet iteration is unspecified - we use a TreeMap here to
     // guarantee that the return value of this method is deterministic.
     Map<Artifact, String> orphanArtifacts = new TreeMap<>(Artifact.EXEC_PATH_COMPARATOR);
-    for (Map.Entry<Artifact, Object> entry : artifacts.entrySet()) {
+    for (Map.Entry<Artifact, String> entry : artifacts.entrySet()) {
       Artifact a = entry.getKey();
       if (!a.isSourceArtifact() && !artifactsWithActions.contains(a)) {
-        Object value = entry.getValue();
-        if (value instanceof Artifact) {
-          value = "No origin, run with --experimental_extended_sanity_checks";
-        } else {
-          value = ((Pair<?, ?>) value).second;
-        }
-        orphanArtifacts.put(
-            a,
-            String.format(
-                "%s\n%s",
-                a.getExecPathString(), // uncovered artifact
-                value)); // origin of creation
+        orphanArtifacts.put(a, String.format("%s\n%s",
+            a.getExecPathString(),  // uncovered artifact
+            entry.getValue()));  // origin of creation
       }
     }
     return orphanArtifacts;
@@ -258,23 +240,14 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    * sealed (disable()). For performance reasons we only track the originating stacktrace when
    * running with --experimental_extended_sanity_checks.
    */
-  @SuppressWarnings("unchecked") // Cast of artifacts map's value to Pair.
-  private Artifact.DerivedArtifact dedupAndTrackArtifactAndOrigin(
+  private Artifact.DerivedArtifact trackArtifactAndOrigin(
       Artifact.DerivedArtifact a, @Nullable Throwable e) {
-    if (artifacts.containsKey(a)) {
-      Object value = artifacts.get(a);
-      if (e == null) {
-        return (Artifact.DerivedArtifact) value;
-      } else {
-        return ((Pair<Artifact.DerivedArtifact, String>) value).first;
-      }
-    }
-    if ((e != null)) {
+    if ((e != null) && !artifacts.containsKey(a)) {
       StringWriter sw = new StringWriter();
       e.printStackTrace(new PrintWriter(sw));
-      artifacts.put(a, Pair.of(a, sw.toString()));
+      artifacts.put(a, sw.toString());
     } else {
-      artifacts.put(a, a);
+      artifacts.put(a, "No origin, run with --experimental_extended_sanity_checks");
     }
     return a;
   }
@@ -283,7 +256,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
-    return dedupAndTrackArtifactAndOrigin(
+    return trackArtifactAndOrigin(
         artifactFactory.getDerivedArtifact(rootRelativePath, root, getOwner()),
         extendedSanityChecks ? new Throwable() : null);
   }
@@ -292,7 +265,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
     return (SpecialArtifact)
-        dedupAndTrackArtifactAndOrigin(
+        trackArtifactAndOrigin(
             artifactFactory.getTreeArtifact(rootRelativePath, root, getOwner()),
             extendedSanityChecks ? new Throwable() : null);
   }
@@ -301,7 +274,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   public Artifact.DerivedArtifact getFilesetArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
-    return dedupAndTrackArtifactAndOrigin(
+    return trackArtifactAndOrigin(
         artifactFactory.getFilesetArtifact(rootRelativePath, root, getOwner()),
         extendedSanityChecks ? new Throwable() : null);
   }

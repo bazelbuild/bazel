@@ -161,7 +161,6 @@ public final class CoverageReportActionBuilder {
       Collection<ConfiguredTarget> targetsToTest,
       Iterable<Artifact> baselineCoverageArtifacts,
       ArtifactFactory factory,
-      ActionKeyContext actionKeyContext,
       ArtifactOwner artifactOwner,
       String workspaceName,
       ArgsFunc argsFunction,
@@ -194,8 +193,7 @@ public final class CoverageReportActionBuilder {
           CoverageArgs.create(directories, coverageArtifacts, lcovArtifact, factory, artifactOwner,
               reportGenerator, workspaceName, htmlReport),
           argsFunction, locationFunc);
-      return new CoverageReportActionsWrapper(
-          lcovFileAction, coverageReportAction, actionKeyContext);
+      return new CoverageReportActionsWrapper(lcovFileAction, coverageReportAction);
     } else {
       reporter.handle(
           Event.error("Cannot generate coverage report - no coverage information was collected"));

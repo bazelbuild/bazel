@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
@@ -34,7 +36,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroup
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
@@ -69,6 +70,7 @@ import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionExcep
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -158,6 +160,29 @@ public final class ConfiguredTargetFactory {
     return null;
   }
 
+  /** Returns the output artifact for the given file, or null if Skyframe deps are missing. */
+  private Artifact getOutputArtifact(
+      OutputFile outputFile,
+      BuildConfiguration configuration,
+      boolean isFileset,
+      ArtifactFactory artifactFactory) {
+    Rule rule = outputFile.getAssociatedRule();
+    ArtifactRoot root =
+        rule.hasBinaryOutput()
+            ? configuration.getBinDirectory(rule.getRepository())
+            : configuration.getGenfilesDirectory(rule.getRepository());
+    ArtifactOwner owner = ConfiguredTargetKey.of(rule.getLabel(), configuration);
+    PathFragment rootRelativePath =
+        outputFile.getLabel().getPackageIdentifier().getSourceRoot().getRelative(
+            outputFile.getLabel().getName());
+    Artifact result = isFileset
+        ? artifactFactory.getFilesetArtifact(rootRelativePath, root, owner)
+        : artifactFactory.getDerivedArtifact(rootRelativePath, root, owner);
+    // The associated rule should have created the artifact.
+    Preconditions.checkNotNull(result, "no artifact for %s", rootRelativePath);
+    return result;
+  }
+
   /**
    * Invokes the appropriate constructor to create a {@link ConfiguredTarget} instance.
    *
@@ -206,15 +231,14 @@ public final class ConfiguredTargetFactory {
               config,
               prerequisiteMap.get(DependencyResolver.OUTPUT_FILE_RULE_DEPENDENCY),
               visibility);
+      boolean isFileset = outputFile.getGeneratingRule().getRuleClass().equals("Fileset");
+      Artifact artifact = getOutputArtifact(outputFile, config, isFileset, artifactFactory);
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
       }
-      RuleConfiguredTarget rule =
-          (RuleConfiguredTarget)
-              targetContext.findDirectPrerequisite(
-                  outputFile.getGeneratingRule().getLabel(), config);
-      Artifact artifact = rule.getOutputByPackageRelativePath(outputFile.getLabel().getName());
-      return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
+      TransitiveInfoCollection rule = targetContext.findDirectPrerequisite(
+          outputFile.getGeneratingRule().getLabel(), config);
+        return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
       TargetContext targetContext =

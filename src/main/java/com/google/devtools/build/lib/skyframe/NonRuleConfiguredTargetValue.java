@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -51,8 +53,9 @@ public final class NonRuleConfiguredTargetValue extends BasicActionLookupValue
   @VisibleForSerialization
   NonRuleConfiguredTargetValue(
       ImmutableList<ActionAnalysisMetadata> actions,
+      ImmutableMap<Artifact, Integer> generatingActionIndex,
       ConfiguredTarget configuredTarget) {
-    super(actions, /*nonceVersion=*/ null);
+    super(actions, generatingActionIndex, /*nonceVersion=*/ null);
     this.configuredTarget = configuredTarget;
     // Transitive packages are not serialized.
     this.transitivePackagesForPackageRootResolution = null;

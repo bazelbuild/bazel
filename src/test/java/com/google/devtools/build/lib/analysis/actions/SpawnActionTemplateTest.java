@@ -373,11 +373,11 @@ public class SpawnActionTemplateTest {
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
-    SpecialArtifact result =
-        new SpecialArtifact(
-            root, root.getExecPath().getRelative(relpath), SpecialArtifactType.TREE);
-    result.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
-    return result;
+    return new SpecialArtifact(
+        root,
+        root.getExecPath().getRelative(relpath),
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
+        SpecialArtifactType.TREE);
   }
 
   private Artifact createDerivedArtifact(String rootRelativePath) {

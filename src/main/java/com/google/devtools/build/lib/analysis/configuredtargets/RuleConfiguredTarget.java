@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -95,8 +94,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final String ruleClassString;
   private final ImmutableList<ActionAnalysisMetadata> actions;
-  // TODO(b/133160730): can we only populate this map for outputs that have labels?
-  private final ImmutableMap<PathFragment, Artifact> artifactsByPackageRelativePath;
+  private final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
   @Instantiator
   @VisibleForSerialization
@@ -109,9 +107,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       ImmutableSet<ConfiguredTargetKey> implicitDeps,
       String ruleClassString,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<PathFragment, Artifact> artifactsByPackageRelativePath) {
+      ImmutableMap<Artifact, Integer> generatingActionIndex) {
     super(label, configurationKey, visibility);
-    this.artifactsByPackageRelativePath = artifactsByPackageRelativePath;
 
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
@@ -134,13 +131,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     this.implicitDeps = IMPLICIT_DEPS_INTERNER.intern(implicitDeps);
     this.ruleClassString = ruleClassString;
     this.actions = actions;
+    this.generatingActionIndex = generatingActionIndex;
   }
 
   public RuleConfiguredTarget(
       RuleContext ruleContext,
       TransitiveInfoProviderMap providers,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<PathFragment, Artifact> artifactsByPackageRelativePath) {
+      ImmutableMap<Artifact, Integer> generatingActionIndex) {
     this(
         ruleContext.getLabel(),
         ruleContext.getConfigurationKey(),
@@ -150,7 +148,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         Util.findImplicitDeps(ruleContext),
         ruleContext.getRule().getRuleClass(),
         actions,
-        artifactsByPackageRelativePath);
+        generatingActionIndex);
 
     // If this rule is the run_under target, then check that we have an executable; note that
     // run_under is only set in the target configuration, and the target must also be analyzed for
@@ -253,15 +251,10 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   /**
-   * Provide an artifact by its path relative to the package of this target, for use by output file
-   * configured targets.
+   * Returns a map where keys are artifacts that are action outputs of this rule, and values are the
+   * index of the action that generates that artifact.
    */
-  public Artifact getOutputByPackageRelativePath(String packageRelativePath) {
-    return Preconditions.checkNotNull(
-        artifactsByPackageRelativePath.get(PathFragment.create(packageRelativePath)),
-        "%s %s %s",
-        packageRelativePath,
-        this,
-        this.artifactsByPackageRelativePath);
+  public ImmutableMap<Artifact, Integer> getGeneratingActionIndex() {
+    return generatingActionIndex;
   }
 }

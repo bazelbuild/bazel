@@ -46,6 +46,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -813,6 +814,7 @@ public class AbstractRemoteActionCacheTests {
         new SpecialArtifact(
             artifactRoot,
             PathFragment.create("outputs/dir"),
+            ArtifactOwner.NullArtifactOwner.INSTANCE,
             SpecialArtifactType.TREE);
 
     MetadataInjector injector = mock(MetadataInjector.class);
@@ -880,6 +882,7 @@ public class AbstractRemoteActionCacheTests {
         new SpecialArtifact(
             artifactRoot,
             PathFragment.create("outputs/dir"),
+            ArtifactOwner.NullArtifactOwner.INSTANCE,
             SpecialArtifactType.TREE);
     MetadataInjector injector = mock(MetadataInjector.class);
 

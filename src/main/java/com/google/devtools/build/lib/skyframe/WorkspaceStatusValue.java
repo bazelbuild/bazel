@@ -39,8 +39,7 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
       Artifact volatileArtifact,
       WorkspaceStatusAction workspaceStatusAction) {
     super(
-        Actions.GeneratingActions.fromSingleAction(workspaceStatusAction, BUILD_INFO_KEY),
-        /*nonceVersion=*/ null);
+        Actions.GeneratingActions.fromSingleAction(workspaceStatusAction), /*nonceVersion=*/ null);
     this.stableArtifact = stableArtifact;
     this.volatileArtifact = volatileArtifact;
   }

@@ -28,10 +28,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -199,6 +201,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     SpecialArtifact treeArtifact = new SpecialArtifact(
         ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
         PathFragment.create("out/" + path),
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
     assertThat(treeArtifact.isTreeArtifact()).isTrue();
     return treeArtifact;
@@ -206,8 +209,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   private void addNewTreeFileArtifact(SpecialArtifact parent, String relatedPath)
       throws IOException {
-    TreeFileArtifact treeFileArtifact =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(parent, relatedPath);
+    TreeFileArtifact treeFileArtifact = ActionInputHelper.treeFileArtifact(parent, relatedPath);
     artifactFunction.addNewTreeFileArtifact(treeFileArtifact);
   }
 

@@ -901,12 +901,10 @@ public class CustomCommandLineTest {
             .addPlaceholderTreeArtifactExecPath("--argTwo", treeArtifactTwo)
             .build();
 
-    TreeFileArtifact treeFileArtifactOne =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            treeArtifactOne, "children/child1");
-    TreeFileArtifact treeFileArtifactTwo =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            treeArtifactTwo, "children/child2");
+    TreeFileArtifact treeFileArtifactOne = createTreeFileArtifact(
+        treeArtifactOne, "children/child1");
+    TreeFileArtifact treeFileArtifactTwo = createTreeFileArtifact(
+        treeArtifactTwo, "children/child2");
 
     CustomCommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
         ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo));
@@ -976,7 +974,15 @@ public class CustomCommandLineTest {
     return new SpecialArtifact(
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
+  }
+
+  private TreeFileArtifact createTreeFileArtifact(
+      SpecialArtifact inputTreeArtifact, String parentRelativePath) {
+    return ActionInputHelper.treeFileArtifact(
+        inputTreeArtifact,
+        PathFragment.create(parentRelativePath));
   }
 
   private static <T> ImmutableList<T> list(T... objects) {

@@ -14,18 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
@@ -33,15 +29,11 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -88,7 +80,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       // of the ActionTemplate.
       generatingActions =
           checkActionAndArtifactConflicts(
-              actionTemplate.generateActionForInputArtifacts(inputTreeFileArtifacts, key), key);
+              actionTemplate.generateActionForInputArtifacts(inputTreeFileArtifacts, key));
     } catch (ActionConflictException e) {
       e.reportTo(env.getListener());
       throw new ActionTemplateExpansionFunctionException(e);
@@ -118,70 +110,19 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
   }
 
-  private GeneratingActions checkActionAndArtifactConflicts(
-      Iterable<? extends Action> actions, ActionLookupValue.ActionLookupKey actionLookupKey)
+  private GeneratingActions checkActionAndArtifactConflicts(Iterable<? extends Action> actions)
       throws ActionConflictException, ArtifactPrefixConflictException {
     GeneratingActions generatingActions =
-        Actions.assignOwnersAndFindAndThrowActionConflict(
-            actionKeyContext, ImmutableList.copyOf(actions), actionLookupKey);
+        Actions.findAndThrowActionConflict(actionKeyContext, ImmutableList.copyOf(actions));
     Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> artifactPrefixConflictMap =
-        findArtifactPrefixConflicts(getMapForConsistencyCheck(generatingActions.getActions()));
+        Actions.findArtifactPrefixConflicts(
+            ActionLookupValue.getMapForConsistencyCheck(
+                generatingActions.getGeneratingActionIndex(), generatingActions.getActions()));
 
     if (!artifactPrefixConflictMap.isEmpty()) {
       throw artifactPrefixConflictMap.values().iterator().next();
     }
     return generatingActions;
-  }
-
-  private static Map<Artifact, ActionAnalysisMetadata> getMapForConsistencyCheck(
-      List<? extends ActionAnalysisMetadata> actions) {
-    if (actions.isEmpty()) {
-      return ImmutableMap.of();
-    }
-    HashMap<Artifact, ActionAnalysisMetadata> result =
-        Maps.newHashMapWithExpectedSize(actions.size() * actions.get(0).getOutputs().size());
-    for (ActionAnalysisMetadata action : actions) {
-      for (Artifact output : action.getOutputs()) {
-        result.put(output, action);
-      }
-    }
-    return result;
-  }
-
-  /**
-   * Finds Artifact prefix conflicts between generated artifacts. An artifact prefix conflict
-   * happens if one action generates an artifact whose path is a prefix of another artifact's path.
-   * Those two artifacts cannot exist simultaneously in the output tree.
-   *
-   * @param generatingActions a map between generated artifacts and their associated generating
-   *     actions.
-   * @return a map between actions that generated the conflicting artifacts and their associated
-   *     {@link ArtifactPrefixConflictException}.
-   */
-  private static Map<ActionAnalysisMetadata, ArtifactPrefixConflictException>
-      findArtifactPrefixConflicts(Map<Artifact, ActionAnalysisMetadata> generatingActions) {
-    TreeMap<PathFragment, Artifact> artifactPathMap =
-        new TreeMap<>(Actions.comparatorForPrefixConflicts());
-    for (Artifact artifact : generatingActions.keySet()) {
-      artifactPathMap.put(artifact.getExecPath(), artifact);
-    }
-
-    return Actions.findArtifactPrefixConflicts(
-        new MapBasedImmutableActionGraph(generatingActions), artifactPathMap);
-  }
-
-  private static class MapBasedImmutableActionGraph implements ActionGraph {
-    private final Map<Artifact, ActionAnalysisMetadata> generatingActions;
-
-    MapBasedImmutableActionGraph(Map<Artifact, ActionAnalysisMetadata> generatingActions) {
-      this.generatingActions = ImmutableMap.copyOf(generatingActions);
-    }
-
-    @Nullable
-    @Override
-    public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
-      return generatingActions.get(artifact);
-    }
   }
 
   @Nullable

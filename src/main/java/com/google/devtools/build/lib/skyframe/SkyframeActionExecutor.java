@@ -355,9 +355,12 @@ public final class SkyframeActionExecutor {
     ExecutorService executor = Executors.newFixedThreadPool(
         numJobs,
         new ThreadFactoryBuilder().setNameFormat("ActionLookupValue Processor %d").build());
+    Set<ActionAnalysisMetadata> registeredActions = Sets.newConcurrentHashSet();
     for (List<ActionLookupValue> shard : actionShards) {
       executor.execute(
-          wrapper.wrap(actionRegistration(shard, actionGraph, artifactPathMap, badActionMap)));
+          wrapper.wrap(
+              actionRegistration(
+                  shard, actionGraph, artifactPathMap, badActionMap, registeredActions)));
     }
     boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
@@ -371,22 +374,31 @@ public final class SkyframeActionExecutor {
       final List<ActionLookupValue> values,
       final MutableActionGraph actionGraph,
       final ConcurrentMap<PathFragment, Artifact> artifactPathMap,
-      final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
-    return () -> {
-      for (ActionLookupValue value : values) {
-        for (ActionAnalysisMetadata action : value.getActions()) {
-          try {
-            actionGraph.registerAction(action);
-          } catch (ActionConflictException e) {
-            Exception oldException = badActionMap.put(action, new ConflictException(e));
-            Preconditions.checkState(oldException == null, "%s | %s | %s", action, e, oldException);
-            // We skip the rest of the loop, and do not add the path->artifact mapping for this
-            // artifact below -- we don't need to check it since this action is already in
-            // error.
-            continue;
-          }
-          for (Artifact output : action.getOutputs()) {
-            artifactPathMap.put(output.getExecPath(), output);
+      final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap,
+      final Set<ActionAnalysisMetadata> registeredActions) {
+    return new Runnable() {
+      @Override
+      public void run() {
+        for (ActionLookupValue value : values) {
+          for (Map.Entry<Artifact, ActionAnalysisMetadata> entry :
+              value.getMapForConsistencyCheck().entrySet()) {
+            ActionAnalysisMetadata action = entry.getValue();
+            // We have an entry for each <action, artifact> pair. Only try to register each action
+            // once.
+            if (registeredActions.add(action)) {
+              try {
+                actionGraph.registerAction(action);
+              } catch (ActionConflictException e) {
+                Exception oldException = badActionMap.put(action, new ConflictException(e));
+                Preconditions.checkState(
+                    oldException == null, "%s | %s | %s", action, e, oldException);
+                // We skip the rest of the loop, and do not add the path->artifact mapping for this
+                // artifact below -- we don't need to check it since this action is already in
+                // error.
+                continue;
+              }
+            }
+            artifactPathMap.put(entry.getKey().getExecPath(), entry.getKey());
           }
         }
       }
