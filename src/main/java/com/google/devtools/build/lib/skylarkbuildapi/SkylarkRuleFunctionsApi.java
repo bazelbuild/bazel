@@ -325,10 +325,11 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
             valueWhenDisabled = "None",
-            // TODO(juliexxia): Link to in-build testing documentation when it is available.
             doc =
-                "If set, describes what kind of build setting this rule is. "
-                    + "See the <a href='config.html'><code>config</code></a> module. If this is "
+                "If set, describes what kind of "
+                    + "<a href = '../config.$DOC_EXT#user-defined-build-settings'><code>build "
+                    + "setting</code></a> this rule is. See the "
+                    + "<a href='config.html'><code>config</code></a> module. If this is "
                     + "set, a mandatory attribute named \"build_setting_default\" is automatically"
                     + "added to this rule, with a type corresponding to the value passed in here."),
         @Param(
