@@ -152,7 +152,6 @@ function test_symbol_inclusion {
   write_returning_function "main" "$compile_only_dep_function_name()" > target/$cc_binary_name.c
   write_build_file "$cc_binary_name" "srcs" >> target/BUILD
 
-  type bazel
   bazel build //target:$cc_binary_name >& $TEST_log || fail "build should succeed"
 }
 
