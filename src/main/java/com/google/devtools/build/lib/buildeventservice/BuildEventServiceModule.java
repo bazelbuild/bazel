@@ -275,6 +275,12 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                         Integer.parseInt(Iterables.getOnlyElement(perLabelOptions.getOptions()))
                             > RUNS_PER_TEST_LIMIT);
 
+    ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
+    String buildEventUploadStrategy =
+        status.status.equals(ConnectivityStatus.Status.OK)
+            ? this.bepOptions.buildEventUploadStrategy
+            : "local";
+
     CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
     Supplier<BuildEventArtifactUploader> uploaderSupplier =
         Suppliers.memoize(
@@ -282,7 +288,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 cmdEnv
                     .getRuntime()
                     .getBuildEventArtifactUploaderFactoryMap()
-                    .select(bepOptions.buildEventUploadStrategy)
+                    .select(buildEventUploadStrategy)
                     .create(cmdEnv));
 
     // We need to wait for the previous invocation before we check the whitelist of commands to
