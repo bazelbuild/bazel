@@ -717,6 +717,9 @@ bool IsStderrStandardTerminal() {
   string term = GetEnv("TERM");
   bool isEmacs = IsEmacsTerminal();
 
+  // Emacs 22+ terminal emulation uses 'eterm-color' as its terminfo name and,
+  // more importantly, supports color in terminals.
+  // see https://github.com/emacs-mirror/emacs/blob/master/etc/NEWS.22#L331-L333
   if (isEmacs && term == "eterm-color") {
     return true;
   }
