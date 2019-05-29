@@ -45,6 +45,15 @@ bool IsDevNull(const char_type* path) {
          (path[2] == 'L' || path[2] == 'l');
 }
 
+template <typename char_type>
+bool HasDriveSpecifierPrefix(const char_type* p) {
+  if (HasUncPrefix(p)) {
+    return iswalpha(p[4]) && p[5] == ':' && (p[6] == '\\' || p[6] == '/');
+  } else {
+    return iswalpha(p[0]) && p[1] == ':' && (p[2] == '\\' || p[2] == '/');
+  }
+}
+
 std::wstring AddUncPrefixMaybe(const std::wstring& path);
 
 std::wstring RemoveUncPrefixMaybe(const std::wstring& path);
@@ -183,6 +192,8 @@ int DeletePath(const wstring& path, wstring* error);
 //   "D:\\Bar".
 std::string Normalize(const std::string& p);
 std::wstring Normalize(const std::wstring& p);
+
+bool GetCwd(std::wstring* result, DWORD* err_code);
 
 }  // namespace windows
 }  // namespace bazel

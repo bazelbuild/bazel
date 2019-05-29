@@ -754,7 +754,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_require_ctx_in_configure_features",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {

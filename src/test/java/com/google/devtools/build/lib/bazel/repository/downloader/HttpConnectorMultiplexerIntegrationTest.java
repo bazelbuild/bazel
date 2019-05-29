@@ -20,8 +20,8 @@ import static com.google.devtools.build.lib.bazel.repository.downloader.Download
 import static com.google.devtools.build.lib.bazel.repository.downloader.HttpParser.readHttpRequest;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Arrays.asList;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;

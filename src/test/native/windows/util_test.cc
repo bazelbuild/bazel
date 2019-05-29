@@ -256,7 +256,6 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
   ASSERT_SHORTENING_FAILS(L"\"cmd.exe\"", L"path should not be quoted");
   ASSERT_SHORTENING_FAILS(L"/dev/null", L"path is absolute without a drive");
   ASSERT_SHORTENING_FAILS(L"/usr/bin/bash", L"path is absolute without a");
-  ASSERT_SHORTENING_FAILS(L"foo\\bar.exe", L"path is not absolute");
   ASSERT_SHORTENING_FAILS(L"foo\\..\\bar.exe", L"path is not normalized");
   ASSERT_SHORTENING_FAILS(L"\\bar.exe", L"path is absolute");
 
@@ -266,6 +265,13 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
   }
   dummy += L".exe";
   ASSERT_SHORTENING_FAILS(dummy.c_str(), L"a file name but too long");
+
+  // Relative paths are fine, they are absolutized.
+  std::wstring rel(L"foo\\bar.exe");
+  std::wstring actual;
+  EXPECT_EQ(AsExecutablePathForCreateProcess(rel, &actual), L"");
+  EXPECT_GT(actual.size(), rel.size());
+  EXPECT_EQ(actual.rfind(rel), actual.size() - rel.size() - 1);
 }
 
 TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {

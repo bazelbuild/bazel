@@ -8,9 +8,6 @@ title: Aspects
 * ToC
 {:toc}
 
-**Status: Experimental**. We may make breaking changes to the API, but we will
-announce them.
-
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
 

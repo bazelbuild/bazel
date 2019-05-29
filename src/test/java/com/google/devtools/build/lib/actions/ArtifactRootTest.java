@@ -73,9 +73,9 @@ public class ArtifactRootTest {
   }
 
   @Test
-  public void testBadAsDerivedRootNullDir() throws IOException {
+  public void testBadAsDerivedRootIsExecRoot() throws IOException {
     Path execRoot = scratch.dir("/exec");
-    assertThrows(NullPointerException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, null));
+    assertThrows(IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot));
   }
 
   @Test

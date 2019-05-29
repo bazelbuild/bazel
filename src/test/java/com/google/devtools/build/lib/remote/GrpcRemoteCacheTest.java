@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
-import static org.mockito.Mockito.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
@@ -102,6 +102,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -590,12 +591,12 @@ public class GrpcRemoteCacheTest {
     for (int chunkSize = 1; chunkSize <= 6; ++chunkSize) {
       GrpcRemoteCache client = newClient();
       Chunker.setDefaultChunkSizeForTesting(chunkSize);
-      when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
+      when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
           .thenAnswer(blobChunkedWriteAnswer("abcdef", chunkSize));
       assertThat(client.uploadBlob("abcdef".getBytes(UTF_8))).isEqualTo(digest);
     }
     Mockito.verify(mockByteStreamImpl, Mockito.times(6))
-        .write(Mockito.<StreamObserver<WriteResponse>>anyObject());
+        .write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
   }
 
   @Test
@@ -893,7 +894,7 @@ public class GrpcRemoteCacheTest {
         });
     ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
     serviceRegistry.addService(mockByteStreamImpl);
-    when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
+    when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
         .thenAnswer(
             new Answer<StreamObserver<WriteRequest>>() {
               private int numErrors = 4;
@@ -965,7 +966,7 @@ public class GrpcRemoteCacheTest {
         outErr);
     // 4 times for the errors, 3 times for the successful uploads.
     Mockito.verify(mockByteStreamImpl, Mockito.times(7))
-        .write(Mockito.<StreamObserver<WriteResponse>>anyObject());
+        .write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
   }
 
   @Test
