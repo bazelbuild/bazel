@@ -227,6 +227,10 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testWorkspaceFileIsSymlink() throws Exception {
+    if (isWindows()) {
+      // Do not test file symlinks on Windows.
+      return;
+    }
     Path repo = context().getTmpDir().resolve(testName.getMethodName());
     new RepoWithRuleWritingTextGenerator(repo).withOutputText("hi").setupRepository();
 
