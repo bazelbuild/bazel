@@ -50,12 +50,14 @@ def git_repo(ctx, directory):
             fail("shallow_since not allowed if a branch is specified; --depth=1 will be used for branches")
 
     shallow = "--depth=1"
-    if ctx.attr.shallow_since:
-        shallow = "--shallow-since=%s" % ctx.attr.shallow_since
     if ctx.attr.commit:
         # We can not use the commit value in --shallow-since;
         # And since we are fetching HEAD in this case, we can not use --depth=1
         shallow = ""
+
+    # Use shallow-since if given
+    if ctx.attr.shallow_since:
+        shallow = "--shallow-since=%s" % ctx.attr.shallow_since
 
     reset_ref = ""
     fetch_ref = ""
