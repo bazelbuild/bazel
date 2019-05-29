@@ -23,11 +23,14 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -37,6 +40,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -46,6 +50,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -90,7 +95,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** An implementation for the "android_binary" rule. */
@@ -454,8 +458,23 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             derivedJarFunction,
             proguardOutputMap);
 
-    NestedSet<Artifact> nativeLibsAar =
-        AndroidCommon.collectTransitiveNativeLibs(ruleContext).build();
+    Multimap<String, TransitiveInfoCollection> depsByArchitecture =
+        MultimapBuilder.treeKeys().arrayListValues().build();
+    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
+        ruleContext.getSplitPrerequisites("deps").entrySet()) {
+      String cpu = entry.getKey().or(AndroidCommon.getAndroidConfig(ruleContext).getCpu());
+      depsByArchitecture.putAll(cpu, entry.getValue());
+    }
+
+    NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
+    for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry : depsByArchitecture.asMap().entrySet()) {
+      for (AndroidNativeLibsInfo provider : AnalysisUtils.getProviders(
+              entry.getValue(), AndroidNativeLibsInfo.PROVIDER)) {
+        transitiveNativeLibs.addTransitive(provider.getNativeLibs());
+      }
+    }
+
+    NestedSet<Artifact> nativeLibsAar = transitiveNativeLibs.build();
 
     DexPostprocessingOutput dexPostprocessingOutput =
         androidSemantics.postprocessClassesDexZip(
@@ -876,7 +895,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       NestedSetBuilder<Artifact> filesBuilder)
       throws RuleErrorException, InterruptedException {
 
-    Optional<Artifact> maybeShrunkApk =
+    java.util.Optional<Artifact> maybeShrunkApk =
         maybeShrinkResources(
             dataContext,
             resourceApk.getValidatedResources(),
@@ -897,7 +916,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return resourceApk;
   }
 
-  static Optional<Artifact> maybeShrinkResources(
+  static java.util.Optional<Artifact> maybeShrinkResources(
       AndroidDataContext dataContext,
       ValidatedAndroidResources validatedResources,
       ResourceDependencies resourceDeps,
@@ -910,10 +929,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       throws InterruptedException {
 
     if (proguardSpecs.isEmpty()) {
-      return Optional.empty();
+      return java.util.Optional.empty();
     }
 
-    return Optional.of(
+    return java.util.Optional.of(
         new ResourceShrinkerActionBuilder()
             .setResourceApkOut(
                 dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
