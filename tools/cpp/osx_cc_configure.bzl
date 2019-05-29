@@ -75,7 +75,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
     if should_use_xcode and not xcode_toolchains:
         fail("BAZEL_USE_XCODE_TOOLCHAIN is set to 1 but Bazel couldn't find Xcode installed on the " +
              "system. Verify that 'xcode-select -p' is correct.")
-    if xcode_toolchains or should_use_xcode:
+    if xcode_toolchains:
         cc = find_cc(repository_ctx, overriden_tools = {})
         repository_ctx.template(
             "cc_wrapper.sh",

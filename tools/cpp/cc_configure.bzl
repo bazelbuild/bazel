@@ -47,8 +47,10 @@ def cc_autoconf_toolchains_impl(repository_ctx):
 
     # Should we try to find C++ toolchain at all? If not, we don't have to generate toolchains for C++ at all.
     should_detect_cpp_toolchain = "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" not in env or env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] != "1"
+
     # Should we unconditionally *not* use xcode? If so, we don't have to run Xcode locator ever.
     should_use_cpp_only_toolchain = "BAZEL_USE_CPP_ONLY_TOOLCHAIN" in env and env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] == "1"
+
     # Should we unconditionally use xcode? If so, we don't have to run Xcode locator now.
     should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" in env and env["BAZEL_USE_XCODE_TOOLCHAIN"] == "1"
 
