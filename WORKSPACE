@@ -109,9 +109,9 @@ distdir_tar(
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-        "java_tools_javac11_linux-v1.0.zip",
-        "java_tools_javac11_windows-v1.0.zip",
-        "java_tools_javac11_darwin-v1.0.zip",
+        "java_tools_javac11_linux-v2.0-rc1.zip",
+        "java_tools_javac11_windows-v2.0-rc1.zip",
+        "java_tools_javac11_darwin-v2.0-rc1.zip",
         "coverage_output_generator-v1.0.zip",
         "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
@@ -122,14 +122,14 @@ distdir_tar(
     sha256 = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
-        "java_tools_javac11_linux-v1.0.zip": "3e267c90edd526f426755011b4b273122c1b572d24fc92b0eb0135615905c686",
-        "java_tools_javac11_windows-v1.0.zip": "39dbc3381907528306129cd4bbac8765c0a703ef4ec4e3a2b92922cdbe80e390",
-        "java_tools_javac11_darwin-v1.0.zip": "83abe9bbc2ed450410a32368ce18d6ba6713aa0626c7bff0436799108f2a8ce3",
+        "java_tools_javac11_linux-v2.0-rc1.zip": "f70b20a9b8b53e85b00bc78d097663ea825ce58fc0824f4d9639e6e0156a3391",
+        "java_tools_javac11_windows-v2.0-rc1.zip": "8f3c20b8fb2253fc0e14ab72ab2156814f6f326d822937f08bdc89399017ce3d",
+        "java_tools_javac11_darwin-v2.0-rc1.zip": "898f4755287bd63c3c2c43442c5b69f94a1a350d2ece691de94d7d4e942df728",
         "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
         "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz": "4a1318fed4831697b83ce879b3ab70ae09592b167e5bda8edaff45132d1c3b3f",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
-        "android_tools_pkg-0.4.tar.gz": "331e7706f2bcae8a68057d8ddd3e3f1574bca26c67c65802fc4a8ac6164fa912", # built at 0c7c89d43256217cce2a3aa4335efaa8eefcf5c4
+        "android_tools_pkg-0.4.tar.gz": "331e7706f2bcae8a68057d8ddd3e3f1574bca26c67c65802fc4a8ac6164fa912",  # built at 0c7c89d43256217cce2a3aa4335efaa8eefcf5c4
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -140,14 +140,14 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
             "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
         ],
-        "java_tools_javac11_linux-v1.0.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_linux-v1.0.zip",
+        "java_tools_javac11_linux-v2.0-rc1.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v2.0/java_tools_javac11_linux-v2.0-rc1.zip",
         ],
-        "java_tools_javac11_windows-v1.0.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_windows-v1.0.zip",
+        "java_tools_javac11_windows-v2.0-rc1.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v2.0/java_tools_javac11_windows-v2.0-rc1.zip",
         ],
-        "java_tools_javac11_darwin-v1.0.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_darwin-v1.0.zip",
+        "java_tools_javac11_darwin-v2.0-rc1.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v2.0/java_tools_javac11_darwin-v2.0-rc1.zip",
         ],
         "coverage_output_generator-v1.0.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip",
@@ -380,9 +380,9 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz",
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip",
         "jdk10-server-release-1804.tar.xz",
-        "java_tools_javac11_linux-v1.0.zip",
-        "java_tools_javac11_windows-v1.0.zip",
-        "java_tools_javac11_darwin-v1.0.zip",
+        "java_tools_javac11_linux-v2.0-rc1.zip",
+        "java_tools_javac11_windows-v2.0-rc1.zip",
+        "java_tools_javac11_darwin-v2.0-rc1.zip",
         "coverage_output_generator-v1.0.zip",
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz",
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz",
@@ -402,9 +402,9 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz": "e669c9a897413d855b550b4e39d79614392e6fb96f494e8ef99a34297d9d85d3",
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip": "c39e7700a8d41794d60985df5a20352435196e78ecbc6a2b30df7be8637bffd5",
         "jdk10-server-release-1804.tar.xz": "b7098b7aaf6ee1ffd4a2d0371a0be26c5a5c87f6aebbe46fe9a92c90583a84be",
-        "java_tools_javac11_linux-v1.0.zip": "3e267c90edd526f426755011b4b273122c1b572d24fc92b0eb0135615905c686",
-        "java_tools_javac11_windows-v1.0.zip": "39dbc3381907528306129cd4bbac8765c0a703ef4ec4e3a2b92922cdbe80e390",
-        "java_tools_javac11_darwin-v1.0.zip": "83abe9bbc2ed450410a32368ce18d6ba6713aa0626c7bff0436799108f2a8ce3",
+        "java_tools_javac11_linux-v2.0-rc1.zip": "f70b20a9b8b53e85b00bc78d097663ea825ce58fc0824f4d9639e6e0156a3391",
+        "java_tools_javac11_windows-v2.0-rc1.zip": "8f3c20b8fb2253fc0e14ab72ab2156814f6f326d822937f08bdc89399017ce3d",
+        "java_tools_javac11_darwin-v2.0-rc1.zip": "898f4755287bd63c3c2c43442c5b69f94a1a350d2ece691de94d7d4e942df728",
         "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": "232b1c3511f0d26e92582b7c3cc363be7ac633e371854ca2f2e9f2b50eb72a75",
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": "1edf366ee821e5db8e348152fcb337b28dfd6bf0f97943c270dcc6747cedb6cb",
@@ -412,7 +412,7 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": "f3f44b6235508e87b760bf37a49e186cc1fa4e9cd28384c4dbf5a33991921e08",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": "059f8e3484bf07b63a8f2820d5f528f473eff1befdb1896ee4f8ff06be3b8d8f",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": "e1f5b4ce1b9148140fae2fcfb8a96d1c9b7eac5b8df0e13fbcad9b8561284880",
-        "android_tools_pkg-0.4.tar.gz": "331e7706f2bcae8a68057d8ddd3e3f1574bca26c67c65802fc4a8ac6164fa912", # built at 0c7c89d43256217cce2a3aa4335efaa8eefcf5c4
+        "android_tools_pkg-0.4.tar.gz": "331e7706f2bcae8a68057d8ddd3e3f1574bca26c67c65802fc4a8ac6164fa912",  # built at 0c7c89d43256217cce2a3aa4335efaa8eefcf5c4
     },
     urls = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -423,9 +423,9 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz"],
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip"],
         "jdk10-server-release-1804.tar.xz": ["https://mirror.bazel.build/openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz"],
-        "java_tools_javac11_linux-v1.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_linux-v1.0.zip"],
-        "java_tools_javac11_windows-v1.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_windows-v1.0.zip"],
-        "java_tools_javac11_darwin-v1.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_darwin-v1.0.zip"],
+        "java_tools_javac11_linux-v2.0-rc1.zip": ["https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v2.0/java_tools_javac11_linux-v2.0-rc1.zip"],
+        "java_tools_javac11_windows-v2.0-rc1.zip": ["https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v2.0/java_tools_javac11_windows-v2.0-rc1.zip"],
+        "java_tools_javac11_darwin-v2.0-rc1.zip": ["https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v2.0/java_tools_javac11_darwin-v2.0-rc1.zip"],
         "coverage_output_generator-v1.0.zip": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip"],
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-linux_x64.tar.gz"],
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz"],
