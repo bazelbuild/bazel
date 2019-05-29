@@ -63,7 +63,8 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         "@bazel_tools//tools/osx:xcode_locator.m",
     ])
 
-    should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" not in env or env["BAZEL_USE_XCODE_TOOLCHAIN"] != "1"
+    env = repository_ctx.os.environ
+    should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" in env and env["BAZEL_USE_XCODE_TOOLCHAIN"] == "1"
     xcode_toolchains = []
     # Make the following logic in sync with //tools/cpp:cc_configure.bzl#cc_autoconf_toolchains_impl
     (xcode_toolchains, xcodeloc_err) = run_xcode_locator(
