@@ -416,9 +416,10 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "filegroup(name = 'empty')",
         "cc_binary(name = 'main', srcs = [ 'main.cc' ],)",
         "cc_binary(name = 'test', linkstatic = 0, srcs = [ 'test.cc' ],)",
-        "cc_toolchain_suite(",
+        "toolchain(",
         "    name = 'a',",
-        "    toolchains = { 'k8': ':b'},",
+        "    toolchain = ':b',",
+        MockCcSupport.TOOLCHAIN_TYPE_ATTR,
         ")",
         "cc_toolchain(",
         "    name = 'b',",
@@ -443,7 +444,9 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--crosstool_top=//a:a", "--cpu=k8", "--host_cpu=k8");
+
+    useConfiguration("--extra_toolchains=//a:a");
+
     assertThat(getConfiguredTarget("//a:main")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.");
@@ -458,9 +461,10 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "filegroup(name = 'empty')",
         "cc_binary(name = 'main', srcs = [ 'main.cc' ],)",
         "cc_binary(name = 'test', linkstatic = 0, srcs = [ 'test.cc' ],)",
-        "cc_toolchain_suite(",
+        "toolchain(",
         "    name = 'a',",
-        "    toolchains = { 'k8': ':b'},",
+        "    toolchain = ':b',",
+        MockCcSupport.TOOLCHAIN_TYPE_ATTR,
         ")",
         "cc_toolchain(",
         "    name = 'b',",
@@ -487,7 +491,9 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--crosstool_top=//a:a", "--cpu=k8", "--host_cpu=k8", "--dynamic_mode=fully");
+
+    useConfiguration("--extra_toolchains=//a:a", "--dynamic_mode=fully");
+
     assertThat(getConfiguredTarget("//a:test")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.");

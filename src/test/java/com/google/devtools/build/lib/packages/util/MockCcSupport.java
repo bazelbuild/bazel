@@ -58,6 +58,11 @@ public abstract class MockCcSupport {
   /** This feature will prevent bazel from patching the crosstool. */
   public static final String NO_LEGACY_FEATURES_FEATURE = "feature { name: 'no_legacy_features' }";
 
+  public static final String TOOLCHAIN_TYPE =
+          TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type";
+
+  public static final String TOOLCHAIN_TYPE_ATTR = "    toolchain_type = '" + TOOLCHAIN_TYPE + "',";
+
   public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE =
       "feature { name: '" + CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES + "' enabled: true}";
 
