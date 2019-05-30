@@ -29,9 +29,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
+import java.util.logging.Logger;
 
 /** An intermediate worker that sends request and receives response from the worker processes. */
 public class WorkerMultiplexer extends Thread {
+  private static final Logger logger = Logger.getLogger(WorkerMultiplexer.class.getName());
   /**
    * WorkerMultiplexer is running as a thread on its own. When worker process
    * returns the WorkResponse, it is stored in this map and wait for
@@ -170,8 +172,10 @@ public class WorkerMultiplexer extends Thread {
       try {
         waitResponse();
       } catch (Exception e) {
-        // We can't do anything here.
+        logger.warning("Exception was caught while waiting for worker response. "
+            + "It could because the multiplexer was interrupted or the worker returned unparseable response.");
       }
     }
+    logger.warning("Multiplexer thread has been terminated.");
   }
 }

@@ -18,10 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 
-/**
- * An intermediate worker that sends request and receives response from the
- * worker processes.
- */
+/** A manager to instantiate and distroy multiplexers. */
 public class WorkerMultiplexerManager {
   /**
    * There should only be one WorkerMultiplexer corresponding to workers with

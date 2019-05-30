@@ -26,11 +26,13 @@ import java.io.OutputStream;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 /**
  * A proxy that talks to the multiplexers
  */
 final class WorkerProxy extends Worker {
+  private static final Logger logger = Logger.getLogger(WorkerProxy.class.getName());
   private ByteArrayOutputStream request;
   private WorkerMultiplexer workerMultiplexer;
   private Thread shutdownHook;
@@ -79,7 +81,8 @@ final class WorkerProxy extends Worker {
     try {
       WorkerMultiplexerManager.removeInstance(workerKey.hashCode());
     } catch (InterruptedException e) {
-      // We can't do anything here.
+      logger.warning("InterruptedException was caught while destroying multiplexer. "
+          + "It could because the multiplexer was interrupted.");
     }
   }
 
@@ -93,9 +96,13 @@ final class WorkerProxy extends Worker {
       workerMultiplexer.resetResponseChecker(workerId);
       workerMultiplexer.putRequest(requestOutputStream.toByteArray());
     } catch (InterruptedException e) {
-      // We can't throw InterruptedException to WorkerSpawnRunner because of the principle of override.
-      // InterruptedException will happen when Bazel is waiting for semaphore but user terminates the
-      // process, so we do nothing here. 
+      /**
+       * We can't throw InterruptedException to WorkerSpawnRunner because of the principle of override.
+       * InterruptedException will happen when Bazel is waiting for semaphore but user terminates the
+       * process, so we do nothing here.
+       */
+      logger.warning("InterruptedException was caught while sending worker request. "
+          + "It could because the multiplexer was interrupted.");
     }
   }
 
@@ -110,9 +117,13 @@ final class WorkerProxy extends Worker {
       recordingStream = new RecordingInputStream(workerMultiplexer.getResponse(workerId));
       recordingStream.startRecording(4096);
     } catch (InterruptedException e) {
-      // We can't throw InterruptedException to WorkerSpawnRunner because of the principle of override.
-      // InterruptedException will happen when Bazel is waiting for semaphore but user terminates the
-      // process, so we do nothing here. 
+      /**
+       * We can't throw InterruptedException to WorkerSpawnRunner because of the principle of override.
+       * InterruptedException will happen when Bazel is waiting for semaphore but user terminates the
+       * process, so we do nothing here.
+       */
+      logger.warning("InterruptedException was caught while waiting for work response. "
+          + "It could because the multiplexer was interrupted.");
     }
     // response can be null when the worker has already closed stdout at this point and thus
     // the InputStream is at EOF.
