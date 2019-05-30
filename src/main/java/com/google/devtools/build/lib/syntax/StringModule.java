@@ -115,7 +115,11 @@ public final class StringModule {
         if (!(item instanceof String)) {
           throw new EvalException(
               loc,
-              "sequence element must be a string (got '" + EvalUtils.getDataTypeName(item) + "')");
+              "the argument to join() must be a sequence of strings (got a value of type '"
+                  + EvalUtils.getDataTypeName(item) + "'). "
+                  + "See https://github.com/bazelbuild/bazel/issues/7802 for information about "
+                  + "--incompatible_string_join_requires_strings."
+          );
         }
       }
     }
