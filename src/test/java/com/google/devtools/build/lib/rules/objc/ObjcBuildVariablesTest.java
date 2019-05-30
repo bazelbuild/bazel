@@ -68,6 +68,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
         .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
+        .add("--noincompatible_enable_cc_toolchain_resolution")
         .addAll(ImmutableList.copyOf(args))
         .build();
 

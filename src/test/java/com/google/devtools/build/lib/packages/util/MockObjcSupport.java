@@ -63,6 +63,7 @@ public final class MockObjcSupport {
     // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
     // AppleCrosstoolTransition
     argsBuilder
+        .add("--noincompatible_enable_cc_toolchain_resolution")
         .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
         .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
