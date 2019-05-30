@@ -976,7 +976,6 @@ sh_test(
     size = "small",
     srcs = ["bazel_strategy_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -987,6 +986,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["no_windows"],
 )
 
 test_suite(
