@@ -73,8 +73,10 @@ maintained by the Bazel team.
 
 #### <a name="guava-1"></a>Guava project example: external dependencies
 
-Using the `rules_jvm_external` ruleset, we can list the external dependencies of
-the [Guava project](https://github.com/google/guava)
+Using the
+[`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external)
+ruleset, we can list the external dependencies of the
+[Guava project](https://github.com/google/guava).
 
 Add the following snippet to the `WORKSPACE` file:
 
