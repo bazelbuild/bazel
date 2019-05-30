@@ -357,10 +357,10 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-x64_windows_msvc",
-    all_files = ":every-file-x64_windows",
+    all_files = ":empty",
     ar_files = ":empty",
     as_files = ":empty",
-    compiler_files = ":compile-x64_windows",
+    compiler_files = ":empty",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -389,24 +389,6 @@ toolchain(
     ],
     toolchain = ":cc-compiler-x64_windows_msvc",
     toolchain_type = ":toolchain_type",
-)
-
-filegroup(
-    name = "every-file-x64_windows",
-    srcs = [
-        ":compile-x64_windows",
-    ],
-)
-
-filegroup(
-    name = "compile-x64_windows",
-    srcs = glob(
-        [
-            "wrapper/bin/msvc_*",
-            "wrapper/bin/pydir/msvc*",
-        ],
-        allow_empty = True,
-    ),
 )
 
 filegroup(
