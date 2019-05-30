@@ -69,7 +69,9 @@ final class X86Crosstools {
     String gccToolchain = ndkPaths.createGccToolchainPath(x86Arch + "-4.9");
     String llvmTriple = llvmArch + "-none-linux-android";
 
-    return CToolchain.newBuilder()
+    CToolchain.Builder cToolchainBuilder = CToolchain.newBuilder();
+
+    cToolchainBuilder
         .setCompiler("clang" + clangVersion)
         .addCxxBuiltinIncludeDirectory(
             ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
@@ -79,13 +81,7 @@ final class X86Crosstools {
         .addCompilerFlag(gccToolchain)
         .addCompilerFlag("-target")
         .addCompilerFlag(llvmTriple)
-        .addCompilerFlag("-ffunction-sections")
-        .addCompilerFlag("-funwind-tables")
-        .addCompilerFlag("-fstack-protector-strong")
         .addCompilerFlag("-fPIC")
-        .addCompilerFlag("-Wno-invalid-command-line-argument")
-        .addCompilerFlag("-Wno-unused-command-line-argument")
-        .addCompilerFlag("-no-canonical-prefixes")
         .addCompilerFlag(
             "-isystem%ndk%/usr/include/%triple%"
                 .replace("%ndk%", ndkPaths.createBuiltinSysroot())
@@ -97,7 +93,6 @@ final class X86Crosstools {
         .addLinkerFlag(gccToolchain)
         .addLinkerFlag("-target")
         .addLinkerFlag(llvmTriple)
-        .addLinkerFlag("-no-canonical-prefixes")
 
         // Additional release flags
         .addCompilationModeFlags(
@@ -114,5 +109,13 @@ final class X86Crosstools {
                 .addCompilerFlag("-O0")
                 .addCompilerFlag("-g"))
         .setTargetSystemName("x86-linux-android");
+
+    if (Integer.parseInt(ndkPaths.getCorrectedApiLevel(x86Arch)) < 24) {
+      // "For x86 targets prior to Android Nougat (API 24), -mstackrealign is needed to properly align stacks for global constructors. See Issue 635."
+      // https://android.googlesource.com/platform/ndk/+/ndk-release-r19/docs/BuildSystemMaintainers.md#additional-required-arguments
+      cToolchainBuilder.addCompilerFlag("-mstackrealign");
+    }
+
+    return cToolchainBuilder;
   }
 }

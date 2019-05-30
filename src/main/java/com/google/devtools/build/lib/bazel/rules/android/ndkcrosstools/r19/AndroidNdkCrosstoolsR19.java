@@ -62,6 +62,36 @@ final class AndroidNdkCrosstoolsR19 {
           .setAbiVersion(toolchainBuilder.getTargetCpu())
           .setAbiLibcVersion("local");
 
+      toolchainBuilder
+          .addCompilerFlag("-no-canonical-prefixes")
+          .addCompilerFlag("-Wno-invalid-command-line-argument")
+          .addCompilerFlag("-Wno-unused-command-line-argument")
+          .addCompilerFlag("-funwind-tables")
+          .addCompilerFlag("-fstack-protector-strong");
+
+      toolchainBuilder.addLinkerFlag("-no-canonical-prefixes");
+
+      https://android.googlesource.com/platform/ndk/+/ndk-release-r19/docs/BuildSystemMaintainers.md#additional-required-arguments
+      toolchainBuilder
+          // "Clang uses -faddrsig by default, but this produces output that is incompatible with GNU binutils. To workaround this, -fno-addrsig must be passed to Clang when using GNU binutils."
+          .addCompilerFlag("-fno-addrsig")
+          // "All code must be linked with -Wl,-z,relro, which causes relocations to be made read-only after relocation is performed."
+          .addLinkerFlag("-Wl,-z,relro");
+
+      // https://android.googlesource.com/platform/ndk/+/ndk-release-r19/docs/BuildSystemMaintainers.md#controlling-binary-size
+      toolchainBuilder
+          .addCompilerFlag("-ffunction-sections")
+          .addCompilerFlag("-fdata-sections")
+          .addLinkerFlag("-Wl,--gc-sections");
+
+      // https://android.googlesource.com/platform/ndk/+/ndk-release-r19/docs/BuildSystemMaintainers.md#helpful-warnings
+      toolchainBuilder
+          .addCompilerFlag("-Werror=return-type")
+          .addCompilerFlag("-Werror=int-to-pointer-cast")
+          .addCompilerFlag("-Werror=pointer-to-int-cast")
+          .addCompilerFlag("-Werror=implicit-function-declaration");
+
+
       // builtin_sysroot is set individually on each toolchain.
       // platforms/arch sysroot
       toolchainBuilder.addCxxBuiltinIncludeDirectory("%sysroot%/usr/include");

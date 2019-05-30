@@ -70,13 +70,7 @@ final class ArmCrosstools {
         .addCompilerFlag(gccToolchain)
         .addCompilerFlag("-target")
         .addCompilerFlag(llvmTriple)
-        .addCompilerFlag("-ffunction-sections")
-        .addCompilerFlag("-funwind-tables")
-        .addCompilerFlag("-fstack-protector-strong")
         .addCompilerFlag("-fpic")
-        .addCompilerFlag("-Wno-invalid-command-line-argument")
-        .addCompilerFlag("-Wno-unused-command-line-argument")
-        .addCompilerFlag("-no-canonical-prefixes")
         .addCompilerFlag(
             "-isystem%ndk%/usr/include/%triple%"
                 .replace("%ndk%", ndkPaths.createBuiltinSysroot())
@@ -88,7 +82,6 @@ final class ArmCrosstools {
         .addLinkerFlag(gccToolchain)
         .addLinkerFlag("-target")
         .addLinkerFlag(llvmTriple)
-        .addLinkerFlag("-no-canonical-prefixes")
 
         // Additional release flags
         .addCompilationModeFlags(
@@ -132,24 +125,18 @@ final class ArmCrosstools {
         .addCompilerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
         .addCompilerFlag("-march=armv7-a")
         .addCompilerFlag("-mfloat-abi=softfp")
+        // "32-bit ARM targets should use -mfpu=vfpv3-d16 when compiling unless using NEON. This allows the compiler to make use of the FPU."
+        // https://android.googlesource.com/platform/ndk/+/ndk-release-r19/docs/BuildSystemMaintainers.md#additional-required-arguments
         .addCompilerFlag("-mfpu=vfpv3-d16")
         .addCompilerFlag("-gcc-toolchain")
         .addCompilerFlag(gccToolchain)
         .addCompilerFlag("-fpic")
-        .addCompilerFlag("-ffunction-sections")
-        .addCompilerFlag("-funwind-tables")
-        .addCompilerFlag("-fstack-protector-strong")
-        .addCompilerFlag("-Wno-invalid-command-line-argument")
-        .addCompilerFlag("-Wno-unused-command-line-argument")
-        .addCompilerFlag("-no-canonical-prefixes")
 
         // Linker flags
         .addLinkerFlag("-target")
         .addLinkerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
-        .addLinkerFlag("-Wl,--fix-cortex-a8")
         .addLinkerFlag("-gcc-toolchain")
         .addLinkerFlag(gccToolchain)
-        .addLinkerFlag("-no-canonical-prefixes")
 
         // Additional release flags
         .addCompilationModeFlags(
