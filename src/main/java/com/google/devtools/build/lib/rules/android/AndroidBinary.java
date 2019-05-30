@@ -23,7 +23,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -93,6 +92,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** An implementation for the "android_binary" rule. */
@@ -460,7 +460,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // libraries across multiple architectures, e.g. x86 and armeabi-v7a, and need to be packed
     // into the APK.
     NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
-    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
+    for (Map.Entry<com.google.common.base.Optional<String>,
+        ? extends List<? extends TransitiveInfoCollection>> entry :
         ruleContext.getSplitPrerequisites("deps").entrySet()) {
       for (AndroidNativeLibsInfo provider : AnalysisUtils.getProviders(
           entry.getValue(), AndroidNativeLibsInfo.PROVIDER)) {
@@ -888,7 +889,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       NestedSetBuilder<Artifact> filesBuilder)
       throws RuleErrorException, InterruptedException {
 
-    java.util.Optional<Artifact> maybeShrunkApk =
+    Optional<Artifact> maybeShrunkApk =
         maybeShrinkResources(
             dataContext,
             resourceApk.getValidatedResources(),
@@ -909,7 +910,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return resourceApk;
   }
 
-  static java.util.Optional<Artifact> maybeShrinkResources(
+  static Optional<Artifact> maybeShrinkResources(
       AndroidDataContext dataContext,
       ValidatedAndroidResources validatedResources,
       ResourceDependencies resourceDeps,
@@ -922,10 +923,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       throws InterruptedException {
 
     if (proguardSpecs.isEmpty()) {
-      return java.util.Optional.empty();
+      return Optional.empty();
     }
 
-    return java.util.Optional.of(
+    return Optional.of(
         new ResourceShrinkerActionBuilder()
             .setResourceApkOut(
                 dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
