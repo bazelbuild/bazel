@@ -1129,8 +1129,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
      * appropriate SkylarkNestedSet.
      */
     void addElementsFromSkylark(Key<?> key, Object skylarkToAdd) {
-      Iterable<?> toAdd = ObjcProviderSkylarkConverters.convertToJava(key, skylarkToAdd);
-      uncheckedAddAll(key, toAdd, this.items);
+      NestedSet<?> toAdd = ObjcProviderSkylarkConverters.convertToJava(key, skylarkToAdd);
+      uncheckedAddTransitive(key, toAdd, this.items);
       if (ObjcProvider.KEYS_FOR_DIRECT.contains(key)) {
         uncheckedAddAllDirect(key, toAdd, this.directItems);
       }
