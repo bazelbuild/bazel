@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.rules.java.ImportDepsCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
-import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -130,9 +129,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     Artifact nativeLibs = createAarArtifact(ruleContext, "native_libs.zip");
     ruleContext.registerAction(createAarNativeLibsFilterActions(ruleContext, aar, nativeLibs));
-
-    Artifact resourcesClassJar = ruleContext.getImplicitOutputArtifact(
-        AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
 
     JavaRuleOutputJarsProvider.Builder jarProviderBuilder =
         new JavaRuleOutputJarsProvider.Builder()
