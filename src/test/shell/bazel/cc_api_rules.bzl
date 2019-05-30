@@ -100,6 +100,7 @@ cc_lib = rule(
         "alwayslink": attr.bool(default = False),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
+    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
     fragments = ["cpp"],
 )
 
@@ -179,5 +180,6 @@ cc_bin = rule(
         "linkshared": attr.bool(default = False),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
+    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
     fragments = ["cpp"],
 )
