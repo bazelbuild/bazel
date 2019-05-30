@@ -99,33 +99,22 @@ Note that it is an error for a platform to specify more than one value of the
 same constraint setting, such as `@bazel_tools//platforms:x86_64` and
 `@bazel_tools//platforms:arm` for `@bazel_tools//platforms:cpu`.
 
-## Built-in constraints and platforms
+## Generally useful constraints and platforms
 
-Bazel ships with constraint definitions for the most popular CPU architectures
-and operating systems. These are all located in the package
-`@bazel_tools//platforms`:
+To keep the ecosystem consistent, Bazel team maintains a repository with
+constraint definitions for the most popular CPU architectures and operating
+systems. These are all located in
+[https://github.com/bazelbuild/platforms](https://github.com/bazelbuild/platforms).
 
-*  `:cpu` for the CPU architecture, with values `:x86_32`, `:x86_64`, `:ppc`,
-   `:arm`, `:s390x`
-*  `:os` for the operating system, with values `:android`, `:freebsd`, `:ios`,
-   `:linux`, `:osx`, `:windows`
-
-There are also the following special platform definitions:
-
-*  `:host_platform` - represents the CPU and operating system for the host
-   environment
-
-*  `:target_platform` - represents the CPU and operating system for the target
-   environment
-
-The CPU values used by these two platforms can be specified with the
-`--host_cpu` and `--cpu` flags.
+Bazel ships with the following special platform definition:
+`@local_config_platform//:host`. This is the default value of `--platform`
+option, and represents autodetected platform for the system Bazel is running on.
 
 ## Specifying a platform for a build
 
 You can specify the host and target platforms for a build using the following
 command-line flags:
 
-*  `--host_platform` - defaults to `@bazel_tools//platforms:host_platform`
+*  `--host_platform` - defaults to `@local_config_platform//:host`
 
-*  `--platforms` - defaults to `@bazel_tools//platforms:target_platform`
+*  `--platforms` - defaults to `@local_config_platform//:host`
