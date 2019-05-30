@@ -95,6 +95,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** An implementation for the "android_binary" rule. */
@@ -458,22 +459,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             derivedJarFunction,
             proguardOutputMap);
 
-    Multimap<String, TransitiveInfoCollection> depsByArchitecture =
-        MultimapBuilder.treeKeys().arrayListValues().build();
+    // Collect all native shared libraries across split transitions. Some AARs contain shared
+    // libraries across multiple architectures, e.g. x86 and armeabi-v7a, and need to be packed
+    // into the APK.
+    NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
     for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
         ruleContext.getSplitPrerequisites("deps").entrySet()) {
-      String cpu = entry.getKey().or(AndroidCommon.getAndroidConfig(ruleContext).getCpu());
-      depsByArchitecture.putAll(cpu, entry.getValue());
-    }
-
-    NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
-    for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry : depsByArchitecture.asMap().entrySet()) {
       for (AndroidNativeLibsInfo provider : AnalysisUtils.getProviders(
-              entry.getValue(), AndroidNativeLibsInfo.PROVIDER)) {
+          entry.getValue(), AndroidNativeLibsInfo.PROVIDER)) {
         transitiveNativeLibs.addTransitive(provider.getNativeLibs());
       }
     }
-
     NestedSet<Artifact> nativeLibsAar = transitiveNativeLibs.build();
 
     DexPostprocessingOutput dexPostprocessingOutput =
