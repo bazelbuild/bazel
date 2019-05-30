@@ -193,7 +193,7 @@ def _pkg_deb_impl(ctx):
     if ctx.attr.depends_file:
         if ctx.attr.depends:
             fail("Both depends and depends_file attributes were specified")
-        args += ["--depends=@" + ctx.attr.depends_file.path]
+        args += ["--depends=@" + ctx.file.depends_file.path]
         files += [ctx.file.depends_file]
     elif ctx.attr.depends:
         args += ["--depends=" + d for d in ctx.attr.depends]
