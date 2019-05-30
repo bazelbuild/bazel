@@ -328,8 +328,8 @@ http_archive(
 # Creates toolchain configuration for remote execution with BuildKite CI
 # for rbe_ubuntu1604.
 # To run the tests with RBE on BuildKite CI uncomment the two lines below
-# load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
-# rbe_autoconfig(name = "buildkite_config")
+load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
+rbe_autoconfig(name = "buildkite_config")
 
 # We're pinning to a commit because this project does not have a recent release.
 # Nothing special about this commit, though.
