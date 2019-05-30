@@ -110,7 +110,7 @@ EOF
   assert_one_of $apk_contents "res/layout/mylayout.xml"
 }
 
-function test_android_binary_fat_apk_depends_on_aar_contains_shared_libraries() {
+function test_android_binary_fat_apk_contains_all_shared_libraries() {
   create_new_workspace
   setup_android_sdk_support
   setup_android_ndk_support
