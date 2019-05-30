@@ -51,10 +51,8 @@ public class ObjcProviderSkylarkConverters {
     return CONVERTERS.get(javaKey.getType()).valueForSkylark(javaKey, javaValue);
   }
 
-  /**
-   * Returns a value for a java ObjcProvider given a key and a corresponding skylark value.
-   */
-  public static Iterable<?> convertToJava(Key<?> javaKey, Object skylarkValue) {
+  /** Returns a value for a java ObjcProvider given a key and a corresponding skylark value. */
+  public static NestedSet<?> convertToJava(Key<?> javaKey, Object skylarkValue) {
     return CONVERTERS.get(javaKey.getType()).valueForJava(javaKey, skylarkValue);
   }
 
@@ -70,19 +68,13 @@ public class ObjcProviderSkylarkConverters {
     return SkylarkNestedSet.of(String.class, result.build());
   }
 
-  /**
-   * A converter for ObjcProvider values.
-   */
-  private static interface Converter {
-    /**
-     * Translates a java ObjcProvider value to a skylark ObjcProvider value.
-     */
-    abstract Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue);
+  /** A converter for ObjcProvider values. */
+  private interface Converter {
+    /** Translates a java ObjcProvider value to a skylark ObjcProvider value. */
+    Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue);
 
-    /**
-     * Translates a skylark ObjcProvider value to a java ObjcProvider value.
-     */
-    abstract Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue);
+    /** Translates a skylark ObjcProvider value to a java ObjcProvider value. */
+    NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue);
   }
 
   /**
@@ -97,9 +89,9 @@ public class ObjcProviderSkylarkConverters {
     }
 
     @Override
-    public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
+    public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
       validateTypes(skylarkValue, javaKey.getType(), javaKey.getSkylarkKeyName());
-      return ((SkylarkNestedSet) skylarkValue).toCollection();
+      return ((SkylarkNestedSet) skylarkValue).getSet(javaKey.getType());
     }
   }
 
@@ -116,7 +108,7 @@ public class ObjcProviderSkylarkConverters {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
+    public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
       validateTypes(skylarkValue, String.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<PathFragment> result = NestedSetBuilder.stableOrder();
       for (String path : ((SkylarkNestedSet) skylarkValue).toCollection(String.class)) {
@@ -143,7 +135,7 @@ public class ObjcProviderSkylarkConverters {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
+    public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
       validateTypes(skylarkValue, String.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<SdkFramework> result = NestedSetBuilder.stableOrder();
       for (String path : ((SkylarkNestedSet) skylarkValue).toCollection(String.class)) {
