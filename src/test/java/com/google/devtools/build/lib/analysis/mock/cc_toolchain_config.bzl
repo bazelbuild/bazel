@@ -522,7 +522,6 @@ _thin_lto_feature = feature(
             ],
         ),
     ],
-    requires = [feature_set(features = ["nonhost"])],
 )
 
 _simple_thin_lto_feature = feature(

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -217,7 +216,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
                 .withFeatures(
                     CppRuleClasses.THIN_LTO,
                     CppRuleClasses.SUPPORTS_PIC,
-                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_START_END_LIB));
@@ -343,7 +341,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
             CcToolchainConfig.builder()
                 .withFeatures(
                     CppRuleClasses.THIN_LTO,
-                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,

@@ -726,7 +726,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_dont_enable_host_nonhost_crosstool_features",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
