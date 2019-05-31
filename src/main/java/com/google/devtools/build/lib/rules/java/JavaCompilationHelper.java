@@ -269,13 +269,17 @@ public final class JavaCompilationHelper {
   }
 
   public boolean addCoverageSupport() {
-    TransitiveInfoCollection jacocoRunner = javaToolchain.getJacocoRunner();
-    if (jacocoRunner != null
-        && JavaInfo.getProvider(JavaCompilationArgsProvider.class, jacocoRunner) != null) {
-      addLibrariesToAttributes(ImmutableList.of(jacocoRunner));
-      return true;
+    FilesToRunProvider jacocoRunner = javaToolchain.getJacocoRunner();
+    if (jacocoRunner == null) {
+      return false;
     }
-    return false;
+    Artifact jacocoRunnerJar = jacocoRunner.getExecutable();
+    if(isStrict()) {
+      attributes.addDirectJar(jacocoRunnerJar);
+    }
+    attributes.addCompileTimeClassPathEntry(jacocoRunnerJar);
+    attributes.addRuntimeClassPathEntry(jacocoRunnerJar);
+    return true;
   }
 
   /**

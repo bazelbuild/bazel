@@ -106,7 +106,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites(
                 "package_configuration", Mode.HOST, JavaPackageConfigurationProvider.class));
 
-    TransitiveInfoCollection jacocoRunner = ruleContext.getPrerequisite("jacocorunner", Mode.HOST);
+    FilesToRunProvider jacocoRunner = ruleContext.getExecutablePrerequisite("jacocorunner", Mode.HOST);
 
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(

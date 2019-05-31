@@ -671,21 +671,9 @@ public class BazelJavaSemantics implements JavaSemantics {
     // This method can be called only for *_binary/*_test targets.
     Preconditions.checkNotNull(executable);
     if (!helper.addCoverageSupport()) {
-      // Fallback to $jacocorunner attribute if no jacocorunner was found in the toolchain.
-
-      // Add the coverage runner to the list of dependencies when compiling in coverage mode.
-      TransitiveInfoCollection runnerTarget =
-          helper.getRuleContext().getPrerequisite("$jacocorunner", Mode.TARGET);
-      if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, runnerTarget) != null) {
-        helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
-      } else {
-        helper
-            .getRuleContext()
-            .ruleError(
-                "this rule depends on "
-                    + helper.getRuleContext().attributes().get("$jacocorunner", BuildType.LABEL)
-                    + " which is not a java_library rule, or contains errors");
-      }
+      helper
+          .getRuleContext()
+          .ruleError("No jacocorunner attribute was found on the java_toolchain");
     }
 
     // We do not add the instrumented jar to the runtime classpath, but provide it in the shell
