@@ -38,6 +38,7 @@ JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 if [[ $# -gt 0 ]]; then
     JAVABASE_VALUE="$1"; shift
     add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
+    add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
 fi
 
 function set_up() {
