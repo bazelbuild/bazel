@@ -13,7 +13,7 @@ def _path_ignoring_repository(f):
 
 def _gensource_impl(ctx):
     if len(ctx.attr.srcs) > 1:
-        fail("Only one src value supported", "srcs")
+        fail("attribute srcs: Only one src value supported")
     for s in ctx.attr.srcs:
         if s.label.package != ctx.label.package:
             print(("in srcs attribute of {0}: Proto source with label {1} should be in " +

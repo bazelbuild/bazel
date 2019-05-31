@@ -665,7 +665,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     checkErrorContains(
         createRuleContext("//foo:foo"),
         "attribute srcs: message",
-        "fail(attr='srcs', msg='message')");
+        "fail('attribute srcs', 'message', sep=': ')");
   }
 
   @Test

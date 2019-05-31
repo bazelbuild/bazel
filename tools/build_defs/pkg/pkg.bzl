@@ -75,7 +75,7 @@ def _pkg_tar_impl(ctx):
     for target, f_dest_path in ctx.attr.files.items():
         target_files = target.files.to_list()
         if len(target_files) != 1:
-            fail("Each input must describe exactly one file.", attr = "files")
+            fail("attribute files: Each input must describe exactly one file.")
         file_inputs += target_files
         args += ["--file=%s=%s" % (_quote(target_files[0].path), f_dest_path)]
     if ctx.attr.modes:

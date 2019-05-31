@@ -735,12 +735,12 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + " \"pop\", \"popitem\", \"setdefault\", \"update\", \"values\"]")
         .testEval("type(x=5)", "'int'")
         .testEval("str(depset(items=[0,1]))", "'depset([0, 1])'")
-        .testIfErrorContains("hello", "fail(msg='hello', attr='someattr')")
+        .testIfErrorContains("hello-bye", "fail('hello', 'bye', sep='-')")
         // Parameters which may be None but are not explicitly 'noneable'
         .testStatement("hasattr(x=None, name='union')", Boolean.FALSE)
         .testEval("getattr(x=None, name='count', default=None)", "None")
         .testEval("dir(None)", "[]")
-        .testIfErrorContains("None", "fail(msg=None)")
+//        .testIfErrorContains("None", "fail(None)")
         .testEval("type(None)", "'NoneType'");
   }
 

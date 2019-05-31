@@ -740,27 +740,19 @@ public class MethodLibrary {
               + "both in the loading phase and in the analysis phase.",
       parameters = {
         @Param(
-            name = "msg",
-            type = Object.class,
-            doc = "Error to display for the user. The object is converted to a string.",
-            defaultValue = "None",
-            named = true,
-            noneable = true),
-        @Param(
-            name = "attr",
+            name = "sep",
             type = String.class,
-            noneable = true,
-            defaultValue = "None",
-            doc =
-                "The name of the attribute that caused the error. This is used only for "
-                    + "error reporting.",
-            named = true)
+            defaultValue = "\" \"",
+            named = true,
+            positional = false,
+            doc = "The separator string between the objects, default is space (\" \").")
       },
+      extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useLocation = true)
-  public Runtime.NoneType fail(Object msg, Object attr, Location loc) throws EvalException {
-    String str = Printer.str(msg);
-    if (attr != Runtime.NONE) {
-      str = String.format("attribute %s: %s", attr, str);
+  public Runtime.NoneType fail(String sep, SkylarkList<?> starargs, Location loc) throws EvalException {
+    String str = starargs.stream().map(Printer::debugPrint).collect(joining(sep));
+    if (str.isEmpty()){
+      str = "None";
     }
     throw new EvalException(loc, str);
   }

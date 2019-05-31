@@ -97,7 +97,7 @@ def _proto_gen_impl(ctx):
         if not lang and plugin.basename.startswith("protoc-gen-"):
             lang = plugin.basename[len("protoc-gen-"):]
         if not lang:
-            fail("cannot infer the target language of plugin", "plugin_language")
+            fail("attribute plugin_language: cannot infer the target language of plugin")
 
         outdir = gen_dir
         if ctx.attr.plugin_options:

@@ -17,7 +17,7 @@
 
 def _java_library_srcs_impl(ctx):
     if len(ctx.attr.deps) != 1:
-        fail("Only one deps value supported", "deps")
+        fail("attribute deps: Only one deps value supported")
     dep = ctx.attr.deps[0]
     return [DefaultInfo(files = depset(dep.java.source_jars))]
 
