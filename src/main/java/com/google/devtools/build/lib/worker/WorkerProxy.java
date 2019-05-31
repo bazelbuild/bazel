@@ -106,7 +106,6 @@ final class WorkerProxy extends Worker {
   /** Wait for WorkResponse from multiplexer. */
   @Override
   WorkResponse getResponse() throws IOException {
-    RecordingInputStream recordingStream = new RecordingInputStream(new ByteArrayInputStream(new byte[0]));
     try {
       recordingStream = new RecordingInputStream(workerMultiplexer.getResponse(workerId));
       recordingStream.startRecording(4096);

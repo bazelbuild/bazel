@@ -148,10 +148,7 @@ public class WorkerMultiplexer extends Thread {
    * workerProcessResponse and signal responseChecker.
    */
   private void waitResponse() throws InterruptedException, IOException {
-    InputStream stdout = process.getInputStream();
-    WorkResponse parsedResponse = WorkResponse.parseDelimitedFrom(stdout);
-
-    if (parsedResponse == null) return;
+    WorkResponse parsedResponse = WorkResponse.parseDelimitedFrom(process.getInputStream());
 
     Integer workerId = parsedResponse.getRequestId();
     ByteArrayOutputStream tempOs = new ByteArrayOutputStream();
