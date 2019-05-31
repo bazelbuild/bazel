@@ -92,6 +92,9 @@ function get_coverage_file_path_from_test_log() {
 }
 
 function test_java_test_coverage() {
+  # TODO(iirina): Remove this statement after new java tools versions are
+  # released (#8498).
+  [[ "${JAVA_TOOLS_ZIP}" == "released" ]] && echo "Skipping test" && return
   cat <<EOF > BUILD
 java_test(
     name = "test",
@@ -180,7 +183,9 @@ EOF
 }
 
 function test_java_test_coverage_combined_report() {
-
+  # TODO(iirina): Remove this statement after new java tools versions are
+  # released (#8498).
+  [[ "${JAVA_TOOLS_ZIP}" == "released" ]] && echo "Skipping test" && return
   cat <<EOF > BUILD
 java_test(
     name = "test",
@@ -268,7 +273,9 @@ EOF
 }
 
 function test_java_test_java_import_coverage() {
-
+  # TODO(iirina): Remove this statement after new java tools versions are
+  # released (#8498).
+  [[ "${JAVA_TOOLS_ZIP}" == "released" ]] && echo "Skipping test" && return
   cat <<EOF > BUILD
 java_test(
     name = "test",
