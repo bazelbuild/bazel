@@ -66,6 +66,9 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
         // Input files for test actions collecting code coverage
         .add(attr(":lcov_merger", LABEL).value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
+        .add(
+            attr("$jacocorunner", LABEL)
+                .value(env.getToolsLabel("//tools/jdk:JacocoCoverageRunner")))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
         The Java class to be loaded by the test runner.<br/>
         <p>
