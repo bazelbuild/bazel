@@ -187,6 +187,14 @@ skydoc_test(
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
 
+skydoc_test(
+    name = "py_rule_test",
+    golden_file = "testdata/py_rule_test/golden.txt",
+    input_file = "testdata/py_rule_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+    whitelisted_symbols = ["py_related_rule"],
+)
+
 genrule(
     name = "generate_bzl_test_dep",
     srcs = ["testdata/generated_bzl_test/dep.bzl.tpl"],
