@@ -23,6 +23,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 JAVA_TOOLCHAIN="$1"; shift
 add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
+add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
@@ -37,6 +38,7 @@ JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 if [[ $# -gt 0 ]]; then
     JAVABASE_VALUE="$1"; shift
     add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
+    add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
 fi
 
 function set_up() {

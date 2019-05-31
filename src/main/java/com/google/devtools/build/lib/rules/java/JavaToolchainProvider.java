@@ -91,7 +91,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
-      TransitiveInfoCollection jacocoRunner,
+      FilesToRunProvider jacocoRunner,
       JavaSemantics javaSemantics) {
     return new JavaToolchainProvider(
         label,
@@ -142,7 +142,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableList<String> javabuilderJvmOptions;
   private final boolean javacSupportsWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
-  private final TransitiveInfoCollection jacocoRunner;
+  private final FilesToRunProvider jacocoRunner;
   private final JavaSemantics javaSemantics;
 
   @VisibleForSerialization
@@ -169,7 +169,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javabuilderJvmOptions,
       boolean javacSupportsWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
-      TransitiveInfoCollection jacocoRunner,
+      FilesToRunProvider jacocoRunner,
       JavaSemantics javaSemantics) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
@@ -339,7 +339,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     return packageConfiguration;
   }
 
-  public TransitiveInfoCollection getJacocoRunner() {
+  public FilesToRunProvider getJacocoRunner() {
     return jacocoRunner;
   }
 

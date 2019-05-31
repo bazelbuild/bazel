@@ -59,7 +59,7 @@ java_toolchain(
         ":java_compiler_jar",
         ":jdk_compiler_jar",
     ],
-    jacocorunner = ":jacoco_coverage_runner"
+    jacocorunner = ":jacoco_coverage_runner_filegroup"
 )
 
 filegroup(
@@ -70,6 +70,11 @@ filegroup(
 filegroup(
     name = "GenClass",
     srcs = ["java_tools/GenClass_deploy.jar"],
+)
+
+filegroup(
+    name = "jacoco_coverage_runner_filegroup",
+    srcs = ["java_tools/JacocoCoverage_jarjar_deploy.jar"],
 )
 
 java_import(
