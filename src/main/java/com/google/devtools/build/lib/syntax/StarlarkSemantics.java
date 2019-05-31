@@ -259,7 +259,7 @@ public abstract class StarlarkSemantics {
           .incompatibleStringJoinRequiresStrings(true)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
-          .incompatibleDepsetForLibrariesToLinkGetter(false)
+          .incompatibleDepsetForLibrariesToLinkGetter(true)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
