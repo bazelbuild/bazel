@@ -248,7 +248,7 @@ public abstract class StarlarkSemantics {
           .incompatibleNoAttrLicense(true)
           .incompatibleNoKwargsInBuildFiles(true)
           .incompatibleNoOutputAttrDefault(true)
-          .incompatibleNoSupportToolsInActionInputs(false)
+          .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(true)
           .incompatibleObjcFrameworkCleanup(true)
