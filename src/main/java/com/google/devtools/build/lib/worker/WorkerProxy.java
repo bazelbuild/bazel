@@ -43,17 +43,6 @@ final class WorkerProxy extends Worker {
     this.workerMultiplexer = workerMultiplexer;
 
     final WorkerProxy self = this;
-    this.shutdownHook =
-      new Thread(
-        () -> {
-          try {
-            self.shutdownHook = null;
-            self.destroy();
-          } catch (IOException e) {
-            // We can't do anything here.
-          }
-        });
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
   }
 
   @Override
@@ -75,9 +64,7 @@ final class WorkerProxy extends Worker {
 
   @Override
   synchronized void destroy() throws IOException {
-    if (shutdownHook != null) {
-      Runtime.getRuntime().removeShutdownHook(shutdownHook);
-    }
+    super.destroy();
     try {
       WorkerMultiplexerManager.removeInstance(workerKey.hashCode());
     } catch (InterruptedException e) {
