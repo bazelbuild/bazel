@@ -63,6 +63,8 @@ http_archive(
          "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v2.0/java_tools_javac11_darwin-v2.0.zip",
     ],
 )
+
+############################################## JDK 9 ###############################################
 http_archive(
     name = "openjdk9_linux_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
@@ -88,6 +90,8 @@ http_archive(
         "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64.zip",
     ],
 )
+
+############################################## JDK 10 ##############################################
 http_archive(
     name = "openjdk10_linux_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
@@ -113,6 +117,8 @@ http_archive(
         "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64.zip",
     ],
 )
+
+############################################## JDK 11 ##############################################
 http_archive(
     name = "openjdk11_linux_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
@@ -135,5 +141,31 @@ http_archive(
     strip_prefix = "zulu11.31.11-ca-jdk11.0.3-win_x64",
     urls = [
         "https://mirror.bazel.build/openjdk/azul-zulu11.31.11-ca-jdk11.0.3/zulu11.31.11-ca-jdk11.0.3-win_x64.zip",
+    ],
+)
+
+############################################## JDK 12 ##############################################
+http_archive(
+    name = "openjdk12_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-linux_x64.tar.gz",
+    ],
+)
+http_archive(
+    name = "openjdk12_darwin_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-macosx_x64.tar.gz",
+    ],
+)
+http_archive(
+    name = "openjdk12_windows_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-win_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-win_x64.zip",
     ],
 )
