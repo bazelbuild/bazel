@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
@@ -31,7 +32,7 @@ import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.logging.Logger;
 
-/** An intermediate worker that sends request and receives response from the worker processes. */
+/** An intermediate worker that sends request and receives response from the worker process. */
 public class WorkerMultiplexer extends Thread {
   private static final Logger logger = Logger.getLogger(WorkerMultiplexer.class.getName());
   /**
@@ -114,20 +115,19 @@ public class WorkerMultiplexer extends Thread {
     return !this.process.finished();
   }
 
-  /** Pass the WorkRequest to worker process. */
-  public synchronized void putRequest(byte[] request) throws IOException {
-    OutputStream stdin = process.getOutputStream();
-    stdin.write(request);
-    stdin.flush();
+  /** Send the WorkRequest to worker process. */
+  public synchronized void putRequest(WorkRequest request) throws IOException {
+    request.writeDelimitedTo(process.getOutputStream());
+    process.getOutputStream().flush();
   }
 
-  /** A WorkerProxy waits on a semaphore for the WorkResponse returned from worker process. */
+  /** Wait on a semaphore for the WorkResponse returned from worker process. */
   public InputStream getResponse(Integer workerId) throws InterruptedException {
     semResponseChecker.acquire();
     Semaphore waitForResponse = responseChecker.get(workerId);
     semResponseChecker.release();
 
-    // The semaphore will throw InterruptedException when the process is terminated.
+    // The semaphore will throw InterruptedException when the multiplexer is terminated.
     waitForResponse.acquire();
 
     semWorkerProcessResponse.acquire();
@@ -136,7 +136,7 @@ public class WorkerMultiplexer extends Thread {
     return response;
   }
 
-  /** Reset the map that indicates if the WorkResponses have been returned. */
+  /** Reset the semaphore map before sending request to worker process. */
   public void resetResponseChecker(Integer workerId) throws InterruptedException {
     semResponseChecker.acquire();
     responseChecker.put(workerId, new Semaphore(0));
@@ -166,16 +166,20 @@ public class WorkerMultiplexer extends Thread {
     semResponseChecker.release();
   }
 
-  /** A multiplexer thread that listens to the WorkResponses from worker process. */
+  /** A multiplexer thread that listens to the WorkResponse from worker process. */
   public void run() {
     while (!this.interrupted()) {
       try {
         waitResponse();
-      } catch (Exception e) {
-        logger.warning("Exception was caught while waiting for worker response. "
-            + "It could because the multiplexer was interrupted or the worker returned unparseable response.");
+      } catch (IOException e) {
+        logger.warning("IOException was caught while waiting for worker response. "
+            + "It could because the worker returned unparseable response.");
+      } catch (InterruptedException e) {
+        logger.warning("InterruptedException was caught while waiting for worker response. "
+            + "It could because the multiplexer was interrupted.");
       }
     }
-    logger.warning("Multiplexer thread has been terminated.");
+    logger.warning("Multiplexer thread has been terminated. It could because the memory is running low on your machine. "
+        + "There may be other reasons.");
   }
 }

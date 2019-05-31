@@ -29,7 +29,7 @@ import java.util.Set;
 import java.util.logging.Logger;
 
 /**
- * A proxy that talks to the multiplexers
+ * A proxy that talks to the multiplexer
  */
 final class WorkerProxy extends Worker {
   private static final Logger logger = Logger.getLogger(WorkerProxy.class.getName());
@@ -86,15 +86,12 @@ final class WorkerProxy extends Worker {
     }
   }
 
-  /** Send the WorkRequest to worker process. */
+  /** Send the WorkRequest to multiplexer. */
   @Override
   void putRequest(WorkRequest request) throws IOException {
-    ByteArrayOutputStream requestOutputStream = new ByteArrayOutputStream();
-    request.writeDelimitedTo(requestOutputStream);
-    requestOutputStream.flush();
     try {
       workerMultiplexer.resetResponseChecker(workerId);
-      workerMultiplexer.putRequest(requestOutputStream.toByteArray());
+      workerMultiplexer.putRequest(request);
     } catch (InterruptedException e) {
       /**
        * We can't throw InterruptedException to WorkerSpawnRunner because of the principle of override.
@@ -106,10 +103,7 @@ final class WorkerProxy extends Worker {
     }
   }
 
-  /**
-   * Wait for WorkResponse. We have to set the semaphore to 0
-   * in order to pause the WorkerProxy thread.
-   */
+  /** Wait for WorkResponse from multiplexer. */
   @Override
   WorkResponse getResponse() throws IOException {
     RecordingInputStream recordingStream = new RecordingInputStream(new ByteArrayInputStream(new byte[0]));
