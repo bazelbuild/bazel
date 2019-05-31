@@ -23,6 +23,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 JAVA_TOOLCHAIN="$1"; shift
 add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
+add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
