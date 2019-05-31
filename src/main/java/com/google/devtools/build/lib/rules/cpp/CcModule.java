@@ -167,6 +167,13 @@ public abstract class CcModule
   }
 
   @Override
+  public SkylarkList<String> getExecutionRequirements(
+      FeatureConfigurationForStarlark featureConfiguration, String actionName) {
+    return SkylarkList.createImmutable(
+        featureConfiguration.getFeatureConfiguration().getToolRequirementsForAction(actionName));
+  }
+
+  @Override
   public boolean isEnabled(
       FeatureConfigurationForStarlark featureConfiguration, String featureName) {
     return featureConfiguration.getFeatureConfiguration().isEnabled(featureName);

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
@@ -231,6 +232,48 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext.getFragment(CppConfiguration.class));
     assertThat(actionToolPath)
         .isEqualTo(featureConfiguration.getToolPathForAction(CppActionNames.CPP_COMPILE));
+  }
+
+  @Test
+  public void testExecutionRequirements() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(MockCcSupport.CPP_COMPILE_ACTION_WITH_REQUIREMENTS));
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = toolchain,",
+        "  )",
+        "  return [MyInfo(",
+        "    requirements = cc_common.get_execution_requirements(",
+        "        feature_configuration = feature_configuration,",
+        "        action_name = 'yolo_action_with_requirements'))]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    SkylarkList<String> requirements =
+        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("requirements");
+    assertThat(requirements).containsExactly("requires-yolo");
   }
 
   @Test
