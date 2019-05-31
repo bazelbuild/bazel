@@ -190,7 +190,7 @@ sh_test(
     ],
 )
 
-JAVA_VERSIONS = ("9", "10", "11")
+JAVA_VERSIONS = ("9", "10", "11", "12")
 
 [
     sh_test(
@@ -246,7 +246,7 @@ JAVA_VERSIONS = ("9", "10", "11")
         # This test is only run by the java_tools binaries pipeline.
         tags = ["manual"],
     )
-    for java_version in ("9", "10", "11")
+    for java_version in JAVA_VERSIONS
 ]
 
 sh_test(

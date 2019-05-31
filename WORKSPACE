@@ -496,6 +496,14 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "java_tools_langtools_javac12",
+    sha256 = "99b107105165a91df82cd7cf82a8efb930d803fb7de1663cf7f780142104cd14",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk12.zip",
+    ],
+)
+
 load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")
 
 skydoc_repositories()
