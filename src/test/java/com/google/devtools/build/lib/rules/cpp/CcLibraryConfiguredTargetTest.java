@@ -1229,64 +1229,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(flags).containsNoneOf("-fastbuild", "-opt");
   }
 
-  private List<String> getHostAndTargetFlags(boolean useHost, boolean isDisabledByFlag)
-      throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
-                    CppRuleClasses.SUPPORTS_PIC));
-    scratch.overwriteFile("mode/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
-    useConfiguration(
-        "--cpu=k8",
-        isDisabledByFlag
-            ? "--incompatible_dont_enable_host_nonhost_crosstool_features"
-            : "--noincompatible_dont_enable_host_nonhost_crosstool_features");
-    ConfiguredTarget target;
-    String objectPath;
-    if (useHost) {
-      target = getHostConfiguredTarget("//mode:a");
-      objectPath = "_objs/a/a.o";
-    } else {
-      target = getConfiguredTarget("//mode:a");
-      objectPath = "_objs/a/a.pic.o";
-    }
-    Artifact objectArtifact = getBinArtifact(objectPath, target);
-    CppCompileAction action = (CppCompileAction) getGeneratingAction(objectArtifact);
-    assertThat(action).isNotNull();
-    return action.getCompilerOptions();
-  }
-
-  @Test
-  public void testHostAndNonHostFeatures() throws Exception {
-    useConfiguration();
-    List<String> flags;
-
-    flags = getHostAndTargetFlags(/* useHost= */ true, /* isDisabledByFlag= */ false);
-    assertThat(flags).contains("-host");
-    assertThat(flags).doesNotContain("-nonhost");
-
-    flags = getHostAndTargetFlags(/* useHost= */ false, /* isDisabledByFlag= */ false);
-    assertThat(flags).contains("-nonhost");
-    assertThat(flags).doesNotContain("-host");
-  }
-
-  @Test
-  public void testHostAndNonHostFeaturesDisabledByTheFlag() throws Exception {
-    List<String> flags;
-
-    flags = getHostAndTargetFlags(/* useHost= */ true, /* isDisabledByFlag= */ true);
-    assertThat(flags).doesNotContain("-host");
-    assertThat(flags).doesNotContain("-nonhost");
-
-    flags = getHostAndTargetFlags(/* useHost= */ false, /* isDisabledByFlag= */ true);
-    assertThat(flags).doesNotContain("-nonhost");
-    assertThat(flags).doesNotContain("-host");
-  }
-
   @Test
   public void testIncludePathsOutsideExecutionRoot() throws Exception {
     scratchRule(

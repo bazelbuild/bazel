@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -220,8 +219,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
                     "fission_flags_for_lto_backend",
                     CppRuleClasses.PER_OBJECT_DEBUG_INFO,
                     CppRuleClasses.SUPPORTS_START_END_LIB,
-                    CppRuleClasses.THIN_LTO,
-                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES));
+                    CppRuleClasses.THIN_LTO));
     useConfiguration("--fission=yes", "--features=thin_lto");
 
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
