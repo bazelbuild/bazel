@@ -45,9 +45,9 @@ OSX_TOOLS_CONSTRAINTS = {
     "tvos_x86_64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:x86_64"],
     "armeabi-v7a": ["@bazel_tools//platforms:arm"],
     "ios_armv7": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
-    "ios_arm64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
-    "ios_arm64e": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
+    "ios_arm64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:aarch64"],
+    "ios_arm64e": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:aarch64"],
     "watchos_armv7k": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
-    "watchos_arm64_32": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
-    "tvos_arm64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:arm"],
+    "watchos_arm64_32": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:aarch64"],
+    "tvos_arm64": ["@bazel_tools//platforms:ios", "@bazel_tools//platforms:aarch64"],
 }
