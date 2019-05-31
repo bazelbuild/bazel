@@ -177,16 +177,8 @@ static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
           url, version, expandedVersion);
 
     NSURL *versionPlistUrl = [url URLByAppendingPathComponent:@"Contents/version.plist"];
-
-    // macOS 10.13 changed the signature of initWithContentsOfURL,
-    // and deprecated the old one.
-    NSDictionary *versionPlistContents;
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_12
-    versionPlistContents = [[NSDictionary alloc] initWithContentsOfURL:versionPlistUrl error:nil];
-#else
-    versionPlistContents = [[NSDictionary alloc] initWithContentsOfURL:versionPlistUrl];
-#endif
-
+    NSDictionary *versionPlistContents =
+        [[NSDictionary alloc] initWithContentsOfURL:versionPlistUrl];
     NSString *productVersion = [versionPlistContents objectForKey:@"ProductBuildVersion"];
     if (productVersion) {
       expandedVersion = [expandedVersion stringByAppendingFormat:@".%@", productVersion];
