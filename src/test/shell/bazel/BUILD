@@ -385,6 +385,8 @@ sh_test(
     ],
 )
 
+JAVA_VERSIONS_RELEASED = ("9", "10", "11")
+
 # Test java coverage with the java_toolchain in the released java_tools versions.
 [
     sh_test(
@@ -413,7 +415,7 @@ sh_test(
             "no_windows",
         ],
     )
-    for java_version in JAVA_VERSIONS
+    for java_version in JAVA_VERSIONS_RELEASED
 ]
 
 # Test java coverage with the java_toolchain in the java_tools zip built at head.
