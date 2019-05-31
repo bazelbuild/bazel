@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
@@ -73,6 +74,12 @@ public class FakeCcModule
   @Override
   public String getToolForAction(FeatureConfigurationApi featureConfiguration, String actionName) {
     return "";
+  }
+
+  @Override
+  public SkylarkList<String> getExecutionRequirements(
+      FeatureConfigurationApi featureConfiguration, String actionName) {
+    return SkylarkList.createImmutable(ImmutableList.of());
   }
 
   @Override
