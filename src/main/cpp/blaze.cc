@@ -1180,8 +1180,6 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
         << "') failed: " << GetLastErrorString();
   }
 
-  globals->lockfile =
-      blaze_util::JoinPath(globals->options->output_base, "lock");
   if (!globals->options->server_jvm_out.empty()) {
     globals->jvm_log_file = globals->options->server_jvm_out;
     globals->jvm_log_file_append = true;

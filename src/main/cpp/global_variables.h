@@ -50,9 +50,6 @@ struct GlobalVariables {
     return extracted_binaries.empty() ? "" : extracted_binaries[0];
   }
 
-  // Used to make concurrent invocations of this program safe.
-  std::string lockfile;  // = <output_base>/lock
-
   // Whrere to write the server's JVM's output. Default value is
   // <output_base>/server/jvm.out.
   std::string jvm_log_file;

@@ -218,14 +218,14 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
-          .experimentalBuildSettingApi(false)
+          .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalAllowIncrementalRepositoryUpdates(false)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
-          .experimentalStarlarkConfigTransitions(false)
+          .experimentalStarlarkConfigTransitions(true)
           .experimentalStarlarkUnusedInputsList(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(false)
@@ -248,10 +248,10 @@ public abstract class StarlarkSemantics {
           .incompatibleNoAttrLicense(true)
           .incompatibleNoKwargsInBuildFiles(true)
           .incompatibleNoOutputAttrDefault(true)
-          .incompatibleNoSupportToolsInActionInputs(false)
+          .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(true)
-          .incompatibleObjcFrameworkCleanup(false)
+          .incompatibleObjcFrameworkCleanup(true)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRestrictNamedParams(false)
@@ -259,7 +259,7 @@ public abstract class StarlarkSemantics {
           .incompatibleStringJoinRequiresStrings(true)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
-          .incompatibleDepsetForLibrariesToLinkGetter(false)
+          .incompatibleDepsetForLibrariesToLinkGetter(true)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */

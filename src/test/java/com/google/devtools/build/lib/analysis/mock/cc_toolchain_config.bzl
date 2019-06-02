@@ -98,6 +98,7 @@ _FEATURE_NAMES = struct(
     strip_debug_symbols = "strip_debug_symbols",
     disable_pbh = "disable_pbh",
     optional_cc_flags_feature = "optional_cc_flags_feature",
+    cpp_compile_with_requirements = "cpp_compile_with_requirements",
 )
 
 _disable_pbh_feature = feature(name = _FEATURE_NAMES.disable_pbh)
@@ -243,6 +244,8 @@ _header_module_compile_feature = feature(
         ),
     ],
 )
+
+_cpp_compile_with_requirements = feature(name = _FEATURE_NAMES.cpp_compile_with_requirements)
 
 _header_module_codegen_feature = feature(
     name = _FEATURE_NAMES.header_module_codegen,
@@ -522,7 +525,6 @@ _thin_lto_feature = feature(
             ],
         ),
     ],
-    requires = [feature_set(features = ["nonhost"])],
 )
 
 _simple_thin_lto_feature = feature(
@@ -973,6 +975,16 @@ _multiple_tools_action_config = action_config(
     ],
 )
 
+_cpp_compile_with_requirements_action_config = action_config(
+    action_name = "yolo_action_with_requirements",
+    tools = [
+        tool(
+            path = "yolo_tool",
+            execution_requirements = ["requires-yolo"],
+        ),
+    ],
+)
+
 _foo_feature = feature(
     name = _FEATURE_NAMES.foo,
 )
@@ -1186,6 +1198,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.strip_debug_symbols: _strip_debug_symbols_feature,
     _FEATURE_NAMES.disable_pbh: _disable_pbh_feature,
     _FEATURE_NAMES.optional_cc_flags_feature: _optional_cc_flags_feature,
+    _FEATURE_NAMES.cpp_compile_with_requirements: _cpp_compile_with_requirements,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
@@ -1316,10 +1329,13 @@ def _impl(ctx):
     features = [default_compile_flags_feature, default_link_flags_feature]
 
     should_add_multiple_tools_action_config = False
+    should_add_requirements = False
 
     for name in ctx.attr.feature_names:
         if name == _FEATURE_NAMES.change_tool:
             should_add_multiple_tools_action_config = True
+        if name == _FEATURE_NAMES.cpp_compile_with_requirements:
+            should_add_requirements = True
 
         features.extend(_get_features_for_configuration(name))
 
@@ -1345,6 +1361,9 @@ def _impl(ctx):
             )
     if should_add_multiple_tools_action_config:
         action_configs.append(_multiple_tools_action_config)
+
+    if should_add_requirements:
+        action_configs.append(_cpp_compile_with_requirements_action_config)
 
     make_variables = [
         make_variable(name = name, value = value)

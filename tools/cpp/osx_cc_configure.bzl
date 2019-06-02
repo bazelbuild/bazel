@@ -63,11 +63,18 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         "@bazel_tools//tools/osx:xcode_locator.m",
     ])
 
+    env = repository_ctx.os.environ
+    should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" in env and env["BAZEL_USE_XCODE_TOOLCHAIN"] == "1"
     xcode_toolchains = []
+
+    # Make the following logic in sync with //tools/cpp:cc_configure.bzl#cc_autoconf_toolchains_impl
     (xcode_toolchains, xcodeloc_err) = run_xcode_locator(
         repository_ctx,
         paths["@bazel_tools//tools/osx:xcode_locator.m"],
     )
+    if should_use_xcode and not xcode_toolchains:
+        fail("BAZEL_USE_XCODE_TOOLCHAIN is set to 1 but Bazel couldn't find Xcode installed on the " +
+             "system. Verify that 'xcode-select -p' is correct.")
     if xcode_toolchains:
         cc = find_cc(repository_ctx, overriden_tools = {})
         repository_ctx.template(

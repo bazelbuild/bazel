@@ -92,7 +92,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
-          public Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+          public Artifact.DerivedArtifact getDerivedArtifact(
+              PathFragment rootRelativePath, ArtifactRoot root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
           }

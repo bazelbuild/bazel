@@ -338,14 +338,16 @@ public class ArtifactTest {
 
   @Test
   public void testCodec() throws Exception {
+    Artifact.DerivedArtifact artifact =
+        (Artifact.DerivedArtifact) ActionsTestUtil.createArtifact(rootDir, "src/a");
     ArtifactRoot anotherRoot =
         ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), scratch.dir("/src"));
-    new SerializationTester(
-            ActionsTestUtil.createArtifact(rootDir, "src/a"),
-            new Artifact.DerivedArtifact(
-                anotherRoot,
-                anotherRoot.getExecPath().getRelative("src/c"),
-                new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"))))
+    Artifact.DerivedArtifact anotherArtifact =
+        new Artifact.DerivedArtifact(
+            anotherRoot,
+            anotherRoot.getExecPath().getRelative("src/c"),
+            new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar")));
+    new SerializationTester(artifact, anotherArtifact)
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .runTests();
   }

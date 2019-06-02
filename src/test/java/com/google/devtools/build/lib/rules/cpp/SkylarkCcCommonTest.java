@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.MakeV
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -230,6 +232,48 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext.getFragment(CppConfiguration.class));
     assertThat(actionToolPath)
         .isEqualTo(featureConfiguration.getToolPathForAction(CppActionNames.CPP_COMPILE));
+  }
+
+  @Test
+  public void testExecutionRequirements() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(MockCcSupport.CPP_COMPILE_ACTION_WITH_REQUIREMENTS));
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = toolchain,",
+        "  )",
+        "  return [MyInfo(",
+        "    requirements = cc_common.get_execution_requirements(",
+        "        feature_configuration = feature_configuration,",
+        "        action_name = 'yolo_action_with_requirements'))]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    SkylarkList<String> requirements =
+        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("requirements");
+    assertThat(requirements).containsExactly("requires-yolo");
   }
 
   @Test
@@ -1212,6 +1256,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       List<String> dynamicLibraryList)
       throws Exception {
     useConfiguration("--features=-supports_interface_shared_libraries");
+    setSkylarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
     setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 
@@ -1229,8 +1274,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("b.lds", "d.lds");
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLink> librariesToLink =
-        (SkylarkList<LibraryToLink>) info.getValue("libraries_to_link", SkylarkList.class);
+    Collection<LibraryToLink> librariesToLink =
+        info.getValue("libraries_to_link", SkylarkNestedSet.class)
+            .toCollection(LibraryToLink.class);
     assertThat(
             librariesToLink.stream()
                 .filter(x -> x.getStaticLibrary() != null)

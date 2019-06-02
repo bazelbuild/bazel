@@ -121,11 +121,36 @@ public interface CcModuleApi<
             name = "action_name",
             doc =
                 "Name of the action. Has to be one of the names in "
-                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl.",
+                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl "
+                    + "(https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/"
+                    + "action_names.bzl)",
             named = true,
             positional = false),
       })
   String getToolForAction(FeatureConfigurationT featureConfiguration, String actionName);
+
+  @SkylarkCallable(
+      name = "get_execution_requirements",
+      doc = "Returns execution requirements for given action.",
+      parameters = {
+        @Param(
+            name = "feature_configuration",
+            doc = "Feature configuration to be queried.",
+            positional = false,
+            named = true,
+            type = FeatureConfigurationApi.class),
+        @Param(
+            name = "action_name",
+            doc =
+                "Name of the action. Has to be one of the names in "
+                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl "
+                    + "(https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/"
+                    + "action_names.bzl)",
+            named = true,
+            positional = false),
+      })
+  SkylarkList<String> getExecutionRequirements(
+      FeatureConfigurationT featureConfiguration, String actionName);
 
   @SkylarkCallable(
       name = "is_enabled",
@@ -181,7 +206,9 @@ public interface CcModuleApi<
             name = "action_name",
             doc =
                 "Name of the action. Has to be one of the names in "
-                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl.",
+                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl "
+                    + "(https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/"
+                    + "action_names.bzl)",
             named = true,
             positional = false),
         @Param(
@@ -211,7 +238,9 @@ public interface CcModuleApi<
             name = "action_name",
             doc =
                 "Name of the action. Has to be one of the names in "
-                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl.",
+                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl "
+                    + "(https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/"
+                    + "action_names.bzl)",
             named = true,
             positional = false),
         @Param(

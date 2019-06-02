@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -96,6 +97,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -223,6 +225,15 @@ public final class ActionsTestUtil {
     return root.isSourceRoot()
         ? new Artifact.SourceArtifact(root, execPath, ArtifactOwner.NullArtifactOwner.INSTANCE)
         : new Artifact.DerivedArtifact(root, execPath, ArtifactOwner.NullArtifactOwner.INSTANCE);
+  }
+
+  public static void assertNoArtifactEndingWith(RuleConfiguredTarget target, String path) {
+    Pattern endPattern = Pattern.compile(path + "$");
+    for (ActionAnalysisMetadata action : target.getActions()) {
+      for (Artifact output : action.getOutputs()) {
+        assertThat(output.getExecPathString()).doesNotMatch(endPattern);
+      }
+    }
   }
 
   /**
@@ -560,7 +571,7 @@ public final class ActionsTestUtil {
    * suffix and returns the Artifact.
    */
   public static Artifact getFirstArtifactEndingWith(
-      Iterable<Artifact> artifacts, String suffix) {
+      Iterable<? extends Artifact> artifacts, String suffix) {
     for (Artifact a : artifacts) {
       if (a.getExecPath().getPathString().endsWith(suffix)) {
         return a;
@@ -766,7 +777,7 @@ public final class ActionsTestUtil {
 
     @Override
     public void injectRemoteDirectory(
-        Artifact treeArtifact, Map<PathFragment, RemoteFileArtifactValue> children) {
+        SpecialArtifact treeArtifact, Map<PathFragment, RemoteFileArtifactValue> children) {
       throw new UnsupportedOperationException();
     }
 

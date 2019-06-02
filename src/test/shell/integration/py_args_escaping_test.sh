@@ -345,7 +345,7 @@ def _impl(ctx):
     tool_inputs, tool_input_mfs = ctx.resolve_tools(tools = [ctx.attr.tool])
     ctx.actions.run(
         outputs = [ctx.outputs.out],
-        inputs = tool_inputs,
+        tools = tool_inputs,
         executable = ctx.executable.tool,
         arguments = [ctx.outputs.out.path, "a", "", "\"b \\\"c", "z"],
         use_default_shell_env = True,

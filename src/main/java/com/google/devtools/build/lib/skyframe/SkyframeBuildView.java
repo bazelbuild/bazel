@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRoots;
@@ -727,7 +726,7 @@ public final class SkyframeBuildView {
   /** Returns null if any build-info values are not ready. */
   @Nullable
   CachingAnalysisEnvironment createAnalysisEnvironment(
-      ArtifactOwner owner,
+      ActionLookupValue.ActionLookupKey owner,
       boolean isSystemEnv,
       ExtendedEventHandler eventHandler,
       Environment env,

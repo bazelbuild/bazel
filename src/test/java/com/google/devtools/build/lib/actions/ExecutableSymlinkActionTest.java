@@ -122,9 +122,12 @@ public class ExecutableSymlinkActionTest {
     Path file = inputRoot.getRoot().getRelative("some-file");
     FileSystemUtils.createEmptyFile(file);
     file.setExecutable(/*executable=*/ false);
-    Artifact input = ActionsTestUtil.createArtifact(inputRoot, file);
-    Artifact output =
-        ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("some-output"));
+    Artifact.DerivedArtifact input =
+        (Artifact.DerivedArtifact) ActionsTestUtil.createArtifact(inputRoot, file);
+    Artifact.DerivedArtifact output =
+        (Artifact.DerivedArtifact)
+            ActionsTestUtil.createArtifact(
+                outputRoot, outputRoot.getRoot().getRelative("some-output"));
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
     new SerializationTester(action)
         .addDependency(FileSystem.class, scratch.getFileSystem())

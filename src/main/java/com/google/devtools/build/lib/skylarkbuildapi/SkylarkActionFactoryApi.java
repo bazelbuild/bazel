@@ -317,7 +317,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
       doc =
           "Creates an action that runs a shell command. "
               + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
-              + "shell_command/size.bzl\">See example of use</a>.",
+              + "shell_command/rules.bzl\">See example of use</a>.",
       parameters = {
         @Param(
             name = "outputs",

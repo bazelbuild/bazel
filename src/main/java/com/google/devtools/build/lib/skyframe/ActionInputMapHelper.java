@@ -50,7 +50,8 @@ class ActionInputMapHelper {
         Artifact artifact = entry.first;
         inputMap.put(artifact, entry.second, /*depOwner=*/ key);
         if (artifact.isFileset()) {
-          ImmutableList<FilesetOutputSymlink> expandedFileset = getFilesets(env, artifact);
+          ImmutableList<FilesetOutputSymlink> expandedFileset =
+              getFilesets(env, (Artifact.SpecialArtifact) artifact);
           if (expandedFileset != null) {
             expandedFilesets.put(artifact, expandedFileset);
           }
@@ -89,8 +90,8 @@ class ActionInputMapHelper {
     }
   }
 
-  static ImmutableList<FilesetOutputSymlink> getFilesets(Environment env,
-      Artifact actionInput) throws InterruptedException {
+  static ImmutableList<FilesetOutputSymlink> getFilesets(
+      Environment env, Artifact.SpecialArtifact actionInput) throws InterruptedException {
     Preconditions.checkState(actionInput.isFileset(), actionInput);
     ActionLookupKey filesetActionLookupKey = (ActionLookupKey) actionInput.getArtifactOwner();
 

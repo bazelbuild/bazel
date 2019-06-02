@@ -39,7 +39,7 @@ bat_test = rule(
 def _exe_test_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + "." + ctx.file.src.extension)
     ctx.actions.run(
-        inputs = [ctx.file.src],
+        tools = [ctx.file.src],
         outputs = [out],
         executable = "cmd.exe",
         arguments = ["/C", "copy /Y %IN% %OUT%"],

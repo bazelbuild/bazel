@@ -726,7 +726,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_dont_enable_host_nonhost_crosstool_features",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -864,6 +864,20 @@ public class CppOptions extends FragmentOptions {
       help = "Save the state of enabled and requested feautres as an output of compilation.")
   public boolean saveFeatureState;
 
+  @Option(
+      name = "incompatible_use_specific_tool_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Use cc toolchain's compiler_files, as_files, and ar_files as inputs to appropriate "
+              + "actions. See https://github.com/bazelbuild/bazel/issues/8531")
+  public boolean useSpecificToolFiles;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -918,6 +932,7 @@ public class CppOptions extends FragmentOptions {
     host.dontEnableHostNonhost = dontEnableHostNonhost;
     host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
     host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
+    host.useSpecificToolFiles = useSpecificToolFiles;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;

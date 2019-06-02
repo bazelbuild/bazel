@@ -58,7 +58,8 @@ public final class TestProvider implements TransitiveInfoProvider {
    * @param target the configured target. Should belong to a test rule.
    * @return the test status artifacts
    */
-  public static ImmutableList<Artifact> getTestStatusArtifacts(TransitiveInfoCollection target) {
+  public static ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(
+      TransitiveInfoCollection target) {
     return target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
   }
 
@@ -70,16 +71,20 @@ public final class TestProvider implements TransitiveInfoProvider {
     private final int shards;
     private final TestTimeout timeout;
     private final String testRuleClass;
-    private final ImmutableList<Artifact> testStatusArtifacts;
+    private final ImmutableList<Artifact.DerivedArtifact> testStatusArtifacts;
     private final ImmutableList<Artifact> coverageArtifacts;
     private final FilesToRunProvider coverageReportGenerator;
 
     /**
-     * Don't call this directly. Instead use
-     * {@link com.google.devtools.build.lib.analysis.test.TestActionBuilder}.
+     * Don't call this directly. Instead use {@link
+     * com.google.devtools.build.lib.analysis.test.TestActionBuilder}.
      */
-    TestParams(int runs, int shards, TestTimeout timeout, String testRuleClass,
-        ImmutableList<Artifact> testStatusArtifacts,
+    TestParams(
+        int runs,
+        int shards,
+        TestTimeout timeout,
+        String testRuleClass,
+        ImmutableList<Artifact.DerivedArtifact> testStatusArtifacts,
         ImmutableList<Artifact> coverageArtifacts,
         FilesToRunProvider coverageReportGenerator) {
       this.runs = runs;
@@ -123,7 +128,7 @@ public final class TestProvider implements TransitiveInfoProvider {
      * Returns a list of test status artifacts that represent serialized test status protobuffers
      * produced by testing this target.
      */
-    public ImmutableList<Artifact> getTestStatusArtifacts() {
+    public ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts() {
       return testStatusArtifacts;
     }
 

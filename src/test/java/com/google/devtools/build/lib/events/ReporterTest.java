@@ -89,6 +89,17 @@ public class ReporterTest extends EventTestTemplate {
   }
 
   @Test
+  public void reporterShowsEventsWithShowOnceIgnoringFilter() {
+    reporter.setOutputFilter(OutputFilter.OUTPUT_NOTHING);
+    EventCollector collector = new EventCollector();
+    reporter.addHandler(collector);
+    reporter.handle(Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
+
+    ImmutableList<Event> got = ImmutableList.copyOf(collector);
+    assertThat(got).containsExactly(Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
+  }
+
+  @Test
   public void reporterCopyConstructorCopiesHandlersList() {
     reporter.addHandler(outAppender);
     reporter.addHandler(outAppender);

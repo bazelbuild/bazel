@@ -92,17 +92,12 @@ public final class NestedSetBuilder<E> {
   public NestedSetBuilder<E> addAll(Iterable<? extends E> elements) {
     Preconditions.checkNotNull(elements);
     if (elements instanceof NestedSet) {
-      NestedSet<? extends E> elementsAsNestedSet = (NestedSet<? extends E>) elements;
       if (order.equals(Order.STABLE_ORDER)) {
         // If direct/transitive order doesn't matter, add the nested set as a transitive member to
         // avoid copying its elements.
-        return addTransitive(elementsAsNestedSet);
-      } else {
-        // Direct/transitive order matters, but we might be able to save an iteration if we hit the
-        // Iterables.size call below with a list instead of a nested set.
-        // TODO(jhorvitz): Are callers doing this intentionally?
-        elements = elementsAsNestedSet.toList();
+        return addTransitive((NestedSet<? extends E>) elements);
       }
+      throw new IllegalArgumentException("NestedSet should be added as a transitive member");
     }
     if (items == null) {
       items = CompactHashSet.createWithExpectedSize(Iterables.size(elements));

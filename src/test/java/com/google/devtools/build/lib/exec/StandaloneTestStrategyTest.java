@@ -148,7 +148,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   private TestRunnerAction getTestAction(String target) throws Exception {
     ConfiguredTarget configuredTarget = getConfiguredTarget(target);
-    List<Artifact> testStatusArtifacts =
+    ImmutableList<Artifact.DerivedArtifact> testStatusArtifacts =
         configuredTarget.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
     Artifact testStatusArtifact = Iterables.getOnlyElement(testStatusArtifacts);
     TestRunnerAction action = (TestRunnerAction) getGeneratingAction(testStatusArtifact);
