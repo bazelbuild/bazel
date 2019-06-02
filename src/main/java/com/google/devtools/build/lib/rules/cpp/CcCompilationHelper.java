@@ -270,6 +270,7 @@ public final class CcCompilationHelper {
   private String includePrefix = null;
 
   private CcCompilationContext ccCompilationContext;
+  private CcCompilationContext ccCompileActionCompilationContext;
 
   private final RuleErrorConsumer ruleErrorConsumer;
   private final ActionRegistry actionRegistry;
@@ -698,7 +699,6 @@ public final class CcCompilationHelper {
     }
 
     ccCompilationContext = initializeCcCompilationContext();
-    final CcCompilationContext ccCompileActionCompilationContext;
     if (ccCompileActionCompilationContexts.isEmpty()) {
       ccCompileActionCompilationContext = ccCompilationContext;
     } else {
@@ -714,7 +714,7 @@ public final class CcCompilationHelper {
         "All cc rules must support module maps.");
 
     // Create compile actions (both PIC and no-PIC).
-    CcCompilationOutputs ccOutputs = createCcCompileActions(ccCompileActionCompilationContext);
+    CcCompilationOutputs ccOutputs = createCcCompileActions();
 
     return new CompilationInfo(ccCompilationContext, ccOutputs);
   }
@@ -1247,15 +1247,15 @@ public final class CcCompilationHelper {
    * file. It takes into account fake-ness, coverage, and PIC, in addition to using the settings
    * specified on the current object. This method should only be called once.
    */
-  private CcCompilationOutputs createCcCompileActions(CcCompilationContext ccCompilationContext) throws RuleErrorException {
+  private CcCompilationOutputs createCcCompileActions() throws RuleErrorException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
-    Preconditions.checkNotNull(ccCompilationContext);
+    Preconditions.checkNotNull(ccCompileActionCompilationContext);
 
     if (shouldProvideHeaderModules()) {
       Label moduleMapLabel =
-          Label.parseAbsoluteUnchecked(ccCompilationContext.getCppModuleMap().getName());
+          Label.parseAbsoluteUnchecked(ccCompileActionCompilationContext.getCppModuleMap().getName());
       Collection<Artifact> modules =
-          createModuleAction(result, ccCompilationContext.getCppModuleMap());
+          createModuleAction(result, ccCompileActionCompilationContext.getCppModuleMap());
       if (featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_CODEGEN)) {
         for (Artifact module : modules) {
           // TODO(djasper): Investigate whether we need to use a label separate from that of the
@@ -1263,9 +1263,9 @@ public final class CcCompilationHelper {
           createModuleCodegenAction(result, moduleMapLabel, module);
         }
       }
-    } else if (ccCompilationContext.getVerificationModuleMap() != null) {
+    } else if (ccCompileActionCompilationContext.getVerificationModuleMap() != null) {
       Collection<Artifact> modules =
-          createModuleAction(result, ccCompilationContext.getVerificationModuleMap());
+          createModuleAction(result, ccCompileActionCompilationContext.getVerificationModuleMap());
       for (Artifact module : modules) {
         result.addHeaderTokenFile(module);
       }
@@ -1287,7 +1287,7 @@ public final class CcCompilationHelper {
       CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
 
       builder
-          .setCcCompilationContext(ccCompilationContext)
+          .setCcCompilationContext(ccCompileActionCompilationContext)
           .addMandatoryInputs(additionalCompilationInputs)
           .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
 
@@ -1316,7 +1316,7 @@ public final class CcCompilationHelper {
                 source.getType() == CppSource.Type.CLIF_INPUT_PROTO
                     ? ArtifactCategory.CLIF_OUTPUT_PROTO
                     : ArtifactCategory.OBJECT_FILE,
-                ccCompilationContext.getCppModuleMap(),
+                ccCompileActionCompilationContext.getCppModuleMap(),
                 /* addObject= */ true,
                 isCodeCoverageEnabled,
                 // The source action does not generate dwo when it has bitcode
@@ -1495,11 +1495,11 @@ public final class CcCompilationHelper {
         dotdFileExecPath,
         ImmutableList.copyOf(variablesExtensions),
         allAdditionalBuildVariables.build(),
-        ccCompilationContext.getDirectModuleMaps(),
-        ccCompilationContext.getIncludeDirs(),
-        ccCompilationContext.getQuoteIncludeDirs(),
-        ccCompilationContext.getSystemIncludeDirs(),
-        ccCompilationContext.getDefines());
+        ccCompileActionCompilationContext.getDirectModuleMaps(),
+        ccCompileActionCompilationContext.getIncludeDirs(),
+        ccCompileActionCompilationContext.getQuoteIncludeDirs(),
+        ccCompileActionCompilationContext.getSystemIncludeDirs(),
+        ccCompileActionCompilationContext.getDefines());
   }
 
   private static String toPathString(Artifact a) {
