@@ -26,7 +26,6 @@
 
 namespace blaze {
 
-class OptionProcessor;
 class StartupOptions;
 
 // The reason for a blaze server restart.
@@ -42,7 +41,7 @@ enum RestartReason {
 };
 
 struct GlobalVariables {
-  GlobalVariables(OptionProcessor *option_processor);
+  GlobalVariables();
 
   std::string ServerJarPath() const {
     // The server jar is called "A-server.jar" so it's the first binary we
@@ -60,10 +59,6 @@ struct GlobalVariables {
   // The nearest enclosing workspace directory, starting from cwd.
   // If not under a workspace directory, this is equal to cwd.
   std::string workspace;
-
-  // Option processor responsible for parsing RC files and converting them into
-  // the argument list passed on to the server.
-  OptionProcessor *option_processor;
 
   // The path of the JVM executable that should be used to launch Blaze.
   std::string jvm_path;
