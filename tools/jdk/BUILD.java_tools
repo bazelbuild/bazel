@@ -53,8 +53,8 @@ java_toolchain(
         "-parameters",
     ],
     singlejar = [":singlejar"],
-    source_version = "8",
-    target_version = "8",
+    source_version = "JAVA_LANGUAGE_LEVEL",
+    target_version = "JAVA_LANGUAGE_LEVEL",
     tools = [
         ":java_compiler_jar",
         ":jdk_compiler_jar",

@@ -64,6 +64,11 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "remote_java_tools_javac12_test_linux",
+    urls = ["https://mirror.bazel.build/bazel_java_tools/release_candidates/javac12/v1.0/java_tools_javac12_linux-v1.0-rc1.zip"],
+)
+
 ############################################## JDK 9 ###############################################
 http_archive(
     name = "openjdk9_linux_archive",

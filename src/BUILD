@@ -625,19 +625,32 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
     for java_version in JAVA_VERSIONS
 ]
 
-genrule(
-    name = "create_java_tools_build",
-    srcs = ["//tools/jdk:BUILD.java_tools"],
-    outs = ["remote_java_tools/BUILD"],
-    cmd = "cp $< $@",
-)
+JAVA_VERSIONS_TO_SOURCE_VERSION = {
+    "9": "8",
+    "10": "8",
+    "11": "8",
+    "12": "12"
+}
 
-genrule(
-    name = "java_tools_build_zip",
-    srcs = ["remote_java_tools/BUILD"],
-    outs = ["java_tools_build.zip"],
-    cmd = "zip -jX $@ $<",
-)
+[
+    genrule(
+        name = "create_java_tools_build_java" + java_version,
+        srcs = ["//tools/jdk:BUILD.java_tools"],
+        outs = ["remote_java_tools_java" + java_version + "/BUILD"],
+        cmd = "sed 's/JAVA_LANGUAGE_LEVEL/" + source_version + "/g' $< > $@",
+    )
+    for (java_version, source_version) in JAVA_VERSIONS_TO_SOURCE_VERSION.items()
+]
+
+[
+    genrule(
+        name = "java_tools_java" + java_version + "_build_zip",
+        srcs = ["remote_java_tools_java" + java_version + "/BUILD"],
+        outs = ["java_tools_java_" + java_version + "_build.zip"],
+        cmd = "zip -jX $@ $<",
+    )
+    for java_version in JAVA_VERSIONS
+]
 
 # Builds the remote Java tools archive. Not embedded or used in Bazel, but used
 # by the Java tools release process.
@@ -665,7 +678,7 @@ genrule(
         name = "java_tools_java" + java_version + "_zip",
         srcs = [
             "java_tools_java" + java_version + "_no_build.zip",
-            "java_tools_build.zip",
+            "java_tools_java_" + java_version + "_build.zip",
         ],
         outs = ["java_tools_java" + java_version + ".zip"],
         cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",

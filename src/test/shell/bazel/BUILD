@@ -147,6 +147,27 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java12_test",
+    srcs = ["bazel_java12_test.sh"],
+    args = select({
+       "//src/conditions:darwin": ["@remote_java_tools_javac12_test_darwin//:toolchain"],
+       "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac12_test_darwin//:toolchain"],
+       "//src/conditions:windows": ["@remote_java_tools_javac12_test_windows//:toolchain"],
+       "//src/conditions:linux_x86_64": ["@remote_java_tools_javac12_test_linux//:toolchain"],
+   }) + select({
+       "//src/conditions:darwin": ["@openjdk12_darwin_archive//:runtime"],
+       "//src/conditions:darwin_x86_64": ["@openjdk12_darwin_archive//:runtime"],
+       "//src/conditions:windows": ["@openjdk12_windows_archive//:runtime"],
+       "//src/conditions:linux_x86_64": ["@openjdk12_linux_archive//:runtime"],
+   }),
+    data = [
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_java_test",
     # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
