@@ -432,6 +432,17 @@ public class CppOptions extends FragmentOptions {
   public String csFdoInstrumentForBuild;
 
   @Option(
+      name = "cs_fdo_absolute_path",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Use CSFDO profile information to optimize compilation. Specify the absolute path name "
+              + "of the zip file containing the profile file, a raw or an indexed "
+              + "LLVM profile file.")
+  public String csFdoAbsolutePathForBuild;
+
+  @Option(
       name = "xbinary_fdo",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
