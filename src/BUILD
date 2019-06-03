@@ -633,6 +633,10 @@ JAVA_VERSIONS_TO_SOURCE_VERSION = {
 }
 
 [
+    # The java_tools releases can have BUILD files that vary depending on the
+    # javac version they embed. Currently the only difference is in the
+    # java_toolchain source version which has to be 12 for javac 12 to be able
+    # to build new Java 12 features.
     genrule(
         name = "create_java_tools_build_java" + java_version,
         srcs = ["//tools/jdk:BUILD.java_tools"],
