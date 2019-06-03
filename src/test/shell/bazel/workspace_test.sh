@@ -673,7 +673,7 @@ def _print_aspect_impl(target, ctx):
   if hasattr(ctx.rule.attr, 'srcs'):
     # Output '1' for each file in srcs.
     for src in ctx.rule.attr.srcs:
-      for f in src.files:
+      for f in src.files.to_list():
         print(1)
   return []
 

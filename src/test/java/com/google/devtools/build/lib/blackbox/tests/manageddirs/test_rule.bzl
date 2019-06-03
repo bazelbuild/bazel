@@ -18,7 +18,7 @@ def _test_rule(ctx):
     out = ctx.actions.declare_file("out.txt")
     files = ctx.attr.module_source.files
     found = False
-    for file_ in files:
+    for file_ in files.to_list():
         if file_.basename == "package.json":
             compare_version(ctx.actions, file_, out, ctx.attr.version)
             found = True
