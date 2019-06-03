@@ -150,11 +150,13 @@ sh_test(
     name = "bazel_java12_test",
     srcs = ["bazel_java12_test.sh"],
     args = select({
+        # --java_toolchain and --host_java_toolchain values
        "//src/conditions:darwin": ["@remote_java_tools_javac12_test_darwin//:toolchain"],
        "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac12_test_darwin//:toolchain"],
        "//src/conditions:windows": ["@remote_java_tools_javac12_test_windows//:toolchain"],
        "//src/conditions:linux_x86_64": ["@remote_java_tools_javac12_test_linux//:toolchain"],
    }) + select({
+       # --javabase and --host_javabase values
        "//src/conditions:darwin": ["@openjdk12_darwin_archive//:runtime"],
        "//src/conditions:darwin_x86_64": ["@openjdk12_darwin_archive//:runtime"],
        "//src/conditions:windows": ["@openjdk12_windows_archive//:runtime"],
@@ -406,8 +408,6 @@ sh_test(
     ],
 )
 
-JAVA_VERSIONS_RELEASED = ("9", "10", "11")
-
 # Test java coverage with the java_toolchain in the released java_tools versions.
 [
     sh_test(
@@ -436,7 +436,7 @@ JAVA_VERSIONS_RELEASED = ("9", "10", "11")
             "no_windows",
         ],
     )
-    for java_version in JAVA_VERSIONS_RELEASED
+    for java_version in JAVA_VERSIONS
 ]
 
 # Test java coverage with the java_toolchain in the java_tools zip built at head.

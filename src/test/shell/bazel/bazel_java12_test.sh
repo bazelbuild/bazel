@@ -111,4 +111,4 @@ EOF
   expect_log "Associated day number is 6"
 }
 
-run_suite "Tests Java 12 language new API changes"
+run_suite "Tests new Java 12 language features"
