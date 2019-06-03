@@ -43,12 +43,6 @@ enum RestartReason {
 struct GlobalVariables {
   GlobalVariables();
 
-  std::string ServerJarPath() const {
-    // The server jar is called "A-server.jar" so it's the first binary we
-    // extracted.
-    return extracted_binaries.empty() ? "" : extracted_binaries[0];
-  }
-
   // Whrere to write the server's JVM's output. Default value is
   // <output_base>/server/jvm.out.
   std::string jvm_log_file;
@@ -60,17 +54,10 @@ struct GlobalVariables {
   // If not under a workspace directory, this is equal to cwd.
   std::string workspace;
 
-  // The path of the JVM executable that should be used to launch Blaze.
-  std::string jvm_path;
-
   // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of here and wherever
   // else it appears. Find some way to not have to declare a pid_t here, either
   // by making PID handling platform-independent or some other idea.
   pid_t server_pid;
-
-  // Contains the relative paths of all the files in the attached zip, and is
-  // populated during GetInstallBase().
-  std::vector<std::string> extracted_binaries;
 
   // Parsed startup options.
   StartupOptions *options;  // TODO(jmmv): This should really be const.
