@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.CustomFunctionQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
@@ -54,6 +55,15 @@ public class SamePkgDirectRdepsFunction implements QueryFunction {
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {
+    if (env instanceof CustomFunctionQueryEnvironment) {
+      return env.eval(
+          args.get(0).getExpression(),
+          context,
+          partialResult -> {
+            ((CustomFunctionQueryEnvironment<T>) env)
+                .samePkgDirectRdeps(partialResult, expression, callback);
+          });
+    }
     Uniquifier<T> uniquifier = env.createUniquifier();
     return env.eval(
         args.get(0).getExpression(),

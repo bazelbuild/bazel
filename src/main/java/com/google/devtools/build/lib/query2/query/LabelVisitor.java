@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.query;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -40,7 +42,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
-import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -72,15 +74,15 @@ import java.util.concurrent.TimeUnit;
  * methods have completed.
  */
 final class LabelVisitor {
-  private static final VisitationAttributes NONE = new VisitationAttributes(ImmutableList.of(), 0);
+  private static final VisitationAttributes NONE = new VisitationAttributes(ImmutableSet.of(), 0);
 
   /** Attributes of a visitation which determine whether it is up-to-date or not. */
   private static class VisitationAttributes {
-    private final Collection<Target> targetsToVisit;
+    private final Set<Target> targetsToVisit;
     private final int maxDepth;
     private boolean success;
 
-    VisitationAttributes(Collection<Target> targetsToVisit, int maxDepth) {
+    VisitationAttributes(Set<Target> targetsToVisit, int maxDepth) {
       this.targetsToVisit = targetsToVisit;
       this.maxDepth = maxDepth;
     }
@@ -169,7 +171,7 @@ final class LabelVisitor {
 
   public void syncWithVisitor(
       ExtendedEventHandler eventHandler,
-      Collection<Target> targetsToVisit,
+      Set<Target> targetsToVisit,
       boolean keepGoing,
       int parallelThreads,
       int maxDepth,
@@ -182,6 +184,22 @@ final class LabelVisitor {
           redoVisitation(
               eventHandler, targetsToVisit, keepGoing, parallelThreads, maxDepth, observers);
     }
+  }
+
+  /**
+   * Performs a bounded transitive closure visitation, similar to syncWithVisitor, but does not
+   * cache the result.
+   */
+  public void syncUncached(
+      ErrorSensingEventHandler eventHandler,
+      Iterable<Target> targetsToVisit,
+      boolean keepGoing,
+      int parallelThreads,
+      int maxDepth,
+      TargetEdgeObserver... observers)
+      throws InterruptedException {
+    lastVisitation = NONE;
+    redoVisitation(eventHandler, targetsToVisit, keepGoing, parallelThreads, maxDepth, observers);
   }
 
   // Does a bounded transitive visitation starting at the given top-level targets.

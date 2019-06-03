@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -72,9 +71,11 @@ import java.util.UUID;
 
 /** An implementation of AbstractQueryHelper to support testing bazel query. */
 public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
-  protected SkyframeExecutor skyframeExecutor;
+  protected SkyframeExecutor<?> skyframeExecutor;
   protected FileSystem fileSystem = new InMemoryFileSystem(BlazeClock.instance());
   protected Path rootDirectory;
+  protected BlazeDirectories directories;
+  private String toolsRepository;
 
   protected AnalysisMock analysisMock;
   private QueryEnvironmentFactory queryEnvironmentFactory;
@@ -93,11 +94,22 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     super.setUp();
     rootDirectory = createDir(getRootDirectoryNameForSetup());
     analysisMock = AnalysisMock.get();
+    directories =
+        new BlazeDirectories(
+            new ServerDirectories(
+                fileSystem.getPath("/install"),
+                fileSystem.getPath("/output"),
+                fileSystem.getPath("/user_root")),
+            rootDirectory,
+            /* defaultSystemJavabase= */ null,
+            analysisMock.getProductName());
 
     initTargetPatternEvaluator(analysisMock.createRuleClassProvider());
 
     MockToolsConfig mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
+    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
+    analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.ccSupport().setup(mockToolsConfig);
     analysisMock.pySupport().setup(mockToolsConfig);
     performAdditionalClientSetup(mockToolsConfig);
@@ -106,6 +118,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   protected abstract String getRootDirectoryNameForSetup();
+
   protected abstract void performAdditionalClientSetup(MockToolsConfig mockToolsConfig)
       throws IOException;
 
@@ -143,12 +156,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   @Override
-  public void writeFile(String fileName, String... lines)
-      throws IOException {
+  public void writeFile(String fileName, String... lines) throws IOException {
     Path file = rootDirectory.getRelative(fileName);
     if (file.exists()) {
-      throw new IOException("Could not create scratch file (file exists) "
-          + fileName);
+      throw new IOException("Could not create scratch file (file exists) " + fileName);
     }
     file.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(file, Joiner.on('\n').join(lines));
@@ -241,11 +252,17 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   @Override
+  public String getToolsRepository() {
+    return toolsRepository;
+  }
+
+  @Override
   public String getLabel(Target target) {
     return target.getLabel().toString();
   }
 
   protected void initTargetPatternEvaluator(ConfiguredRuleClassProvider ruleClassProvider) {
+    this.toolsRepository = ruleClassProvider.getToolsRepository();
     skyframeExecutor = createSkyframeExecutor(ruleClassProvider);
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
     packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
@@ -278,15 +295,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   protected SkyframeExecutor createSkyframeExecutor(ConfiguredRuleClassProvider ruleClassProvider) {
-    BlazeDirectories directories =
-        new BlazeDirectories(
-            new ServerDirectories(
-                fileSystem.getPath("/install"),
-                fileSystem.getPath("/output"),
-                fileSystem.getPath("/user_root")),
-            rootDirectory,
-            /* defaultSystemJavabase= */ null,
-            analysisMock.getProductName());
     PackageFactory pkgFactory =
         TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
             .builder(directories)
@@ -301,17 +309,23 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setBuildInfoFactories(ruleClassProvider.getBuildInfoFactories())
             .setDefaultBuildOptions(getDefaultBuildOptions(ruleClassProvider))
             .setAdditionalBlacklistedPackagePrefixesFile(additionalBlacklistedPackagePrefixesFile)
+            .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
-              PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                  Optional.<RootedPath>absent())));
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.absent()),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     return skyframeExecutor;
   }
 
   protected abstract Iterable<EnvironmentExtension> getEnvironmentExtensions();
+
   protected abstract BuildOptions getDefaultBuildOptions(
       ConfiguredRuleClassProvider ruleClassProvider);
 

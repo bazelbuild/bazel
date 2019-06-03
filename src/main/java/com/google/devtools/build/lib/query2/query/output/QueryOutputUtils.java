@@ -52,7 +52,7 @@ public class QueryOutputUtils {
       OutputFormatterCallback.processAllTargets(
           streamedFormatter.createPostFactoStreamCallback(outputStream, queryOptions),
           targetsResult);
-    } else {
+    } else if (result instanceof DigraphQueryEvalResult) {
       @SuppressWarnings("unchecked")
       DigraphQueryEvalResult<Target> digraphQueryEvalResult =
           (DigraphQueryEvalResult<Target>) result;
@@ -76,6 +76,14 @@ public class QueryOutputUtils {
 
       try (SilentCloseable closeable = Profiler.instance().profile("formatter.output")) {
         formatter.output(queryOptions, subgraph, outputStream, aspectResolver, conditionalEdges);
+      }
+    } else {
+      if (formatter instanceof GraphOutputFormatter) {
+        throw new IllegalStateException();
+      }
+
+      try (SilentCloseable closeable = Profiler.instance().profile("formatter.outputUnordered")) {
+        formatter.outputUnordered(queryOptions, targetsResult, outputStream, aspectResolver);
       }
     }
   }
