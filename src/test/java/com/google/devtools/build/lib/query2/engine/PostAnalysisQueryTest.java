@@ -254,7 +254,6 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         .doesNotContain(evalToListOfStrings(implicits));
   }
 
-  @Override
   @Test
   public void testNoImplicitDeps_computedDefault() throws Exception {
     MockRule computedDefaultRule =

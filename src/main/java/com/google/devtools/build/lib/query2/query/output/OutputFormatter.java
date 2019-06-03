@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -172,6 +173,16 @@ public abstract class OutputFormatter implements Serializable {
       ConditionalEdges conditionalEdges)
       throws IOException, InterruptedException;
 
+  /** Format the result, and print it to "out". */
+  public void outputUnordered(
+      QueryOptions options,
+      Iterable<Target> result,
+      OutputStream out,
+      AspectResolver aspectProvider)
+      throws IOException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
+
   /**
    * Unordered streamed output formatter (wrt. dependency ordering).
    *
@@ -219,15 +230,6 @@ public abstract class OutputFormatter implements Serializable {
     protected AspectResolver aspectResolver;
     protected DependencyFilter dependencyFilter;
 
-    protected Iterable<Target> getOrderedTargets(
-        Digraph<Target> result, QueryOptions options) {
-      Iterable<Node<Target>> orderedResult =
-          options.orderOutput == OrderOutput.DEPS
-              ? result.getTopologicalOrder()
-              : result.getTopologicalOrder(new TargetOrdering());
-      return Iterables.transform(orderedResult, EXTRACT_NODE_LABEL);
-    }
-
     @Override
     public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
       this.options = options;
@@ -246,6 +248,27 @@ public abstract class OutputFormatter implements Serializable {
       setOptions(options, aspectResolver);
       OutputFormatterCallback.processAllTargets(
           createPostFactoStreamCallback(out, options), getOrderedTargets(result, options));
+    }
+
+    protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {
+      Iterable<Node<Target>> orderedResult =
+          options.orderOutput == OrderOutput.DEPS
+              ? result.getTopologicalOrder()
+              : result.getTopologicalOrder(new TargetOrdering());
+      return Iterables.transform(orderedResult, EXTRACT_NODE_LABEL);
+    }
+
+    @Override
+    public void outputUnordered(
+        QueryOptions options,
+        Iterable<Target> result,
+        OutputStream out,
+        AspectResolver aspectProvider)
+        throws IOException, InterruptedException {
+      Preconditions.checkState(options.orderOutput == OrderOutput.NO);
+      setOptions(options, aspectResolver);
+      OutputFormatterCallback.processAllTargets(
+          createPostFactoStreamCallback(out, options), result);
     }
   }
 

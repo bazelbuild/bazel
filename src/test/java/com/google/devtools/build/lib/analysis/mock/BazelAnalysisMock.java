@@ -379,6 +379,19 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   @Override
+  public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
+    config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    config.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
+    config.create(
+        "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
+        "def http_archive(**kwargs):",
+        "  pass",
+        "",
+        "def http_file(**kwargs):",
+        "  pass");
+  }
+
+  @Override
   public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
     return ImmutableList.of(
         new CppConfigurationLoader(CpuTransformer.IDENTITY),
