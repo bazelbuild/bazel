@@ -130,7 +130,7 @@ function test_top_level_aspect() {
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
 def _simple_aspect_impl(target, ctx):
   result=[]
-  for orig_out in target.files:
+  for orig_out in target.files.to_list():
     aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
     ctx.actions.write(
         output=aspect_out,
@@ -303,11 +303,11 @@ def _create(ctx):
   files_to_build = depset(ctx.outputs.outs)
   intemediate_outputs = [ctx.actions.declare_file("bar")]
   intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
-  action_cmd = "touch " + list(files_to_build)[0].path
+  action_cmd = "touch " + files_to_build.to_list()[0].path
   ctx.actions.run_shell(outputs=list(intemediate_outputs),
                         command=intermediate_cmd)
   ctx.actions.run_shell(inputs=list(intemediate_outputs),
-                        outputs=list(files_to_build),
+                        outputs=files_to_build.to_list(),
                         command=action_cmd)
   struct(files=files_to_build,
          data_runfiles=ctx.runfiles(transitive_files=files_to_build))

@@ -125,7 +125,7 @@ simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
 cat > failingaspect.bzl <<'EOF'
 def _failing_aspect_impl(target, ctx):
-    for orig_out in ctx.rule.attr.outs:
+    for orig_out in ctx.rule.attr.outs.to_list():
         aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
         ctx.actions.run_shell(
             inputs = [],
