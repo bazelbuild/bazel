@@ -258,6 +258,9 @@ string GetEmbeddedBinariesRoot(const string &install_base) {
 
 // Returns the JVM command argument array.
 static vector<string> GetArgumentArray(
+    const string &jvm_path,
+    const string &server_jar_path,
+    const vector<string> &archive_contents,
     const WorkspaceLayout *workspace_layout) {
   vector<string> result;
 
@@ -269,7 +272,7 @@ static vector<string> GetArgumentArray(
   blaze_util::ToLower(&product);
   result.push_back(product + "(" + workspace + ")");
   globals->options->AddJVMArgumentPrefix(
-      blaze_util::Dirname(blaze_util::Dirname(globals->jvm_path)), &result);
+      blaze_util::Dirname(blaze_util::Dirname(jvm_path)), &result);
 
   result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
   string heap_crash_path = globals->options->output_base;
@@ -315,7 +318,7 @@ static vector<string> GetArgumentArray(
       GetEmbeddedBinariesRoot(globals->options->install_base);
 
   bool first = true;
-  for (const auto &it : globals->extracted_binaries) {
+  for (const auto &it : archive_contents) {
     if (IsSharedLibrary(it)) {
       string libpath(blaze_util::PathAsJvmFlag(
           blaze_util::JoinPath(real_install_dir, blaze_util::Dirname(it))));
@@ -345,8 +348,8 @@ static vector<string> GetArgumentArray(
   }
   result.insert(result.end(), user_options.begin(), user_options.end());
 
-  globals->options->AddJVMArgumentSuffix(real_install_dir,
-                                         globals->ServerJarPath(), &result);
+  globals->options->AddJVMArgumentSuffix(
+      real_install_dir, server_jar_path, &result);
 
   // JVM arguments are complete. Now pass in Blaze startup options.
   // Note that we always use the --flag=ARG form (instead of the --flag ARG one)
@@ -537,9 +540,14 @@ static void GoToWorkspace(const WorkspaceLayout *workspace_layout) {
 }
 
 // Starts the Blaze server.
-static int StartServer(const WorkspaceLayout *workspace_layout,
-                        BlazeServerStartup **server_startup) {
-  vector<string> jvm_args_vector = GetArgumentArray(workspace_layout);
+static int StartServer(
+    const string &jvm_path,
+    const string &server_jar_path,
+    const vector<string> &archive_contents,
+    const WorkspaceLayout *workspace_layout,
+    BlazeServerStartup **server_startup) {
+  vector<string> jvm_args_vector = GetArgumentArray(
+      jvm_path, server_jar_path, archive_contents, workspace_layout);
   string argument_string = GetArgumentString(jvm_args_vector);
   const string binaries_dir =
       GetEmbeddedBinariesRoot(globals->options->install_base);
@@ -558,8 +566,7 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
     globals->restart_reason = NO_DAEMON;
   }
 
-  string exe =
-      globals->options->GetExe(globals->jvm_path, globals->ServerJarPath());
+  string exe = globals->options->GetExe(jvm_path, server_jar_path);
   // Go to the workspace before we daemonize, so
   // we can still print errors to the terminal.
   GoToWorkspace(workspace_layout);
@@ -576,6 +583,9 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
 // This function passes the commands array to the blaze process.
 // This array should start with a command ("build", "info", etc.).
 static void StartStandalone(
+    const string &jvm_path,
+    const string &server_jar_path,
+    const vector<string> &archive_contents,
     const WorkspaceLayout *workspace_layout,
     const OptionProcessor &option_processor,
     const uint64_t start_time,
@@ -605,7 +615,9 @@ static void StartStandalone(
         << globals->options->product_name << " server, run \"" << product
         << " shutdown\" from the directory where\nit was started.";
   }
-  vector<string> jvm_args_vector = GetArgumentArray(workspace_layout);
+
+  vector<string> jvm_args_vector = GetArgumentArray(
+      jvm_path, server_jar_path, archive_contents, workspace_layout);
   if (!command.empty()) {
     jvm_args_vector.push_back(command);
     AddLoggingArgs(&jvm_args_vector);
@@ -615,8 +627,7 @@ static void StartStandalone(
                          command_arguments.end());
 
   GoToWorkspace(workspace_layout);
-  string exe =
-      globals->options->GetExe(globals->jvm_path, globals->ServerJarPath());
+  string exe = globals->options->GetExe(jvm_path, server_jar_path);
 
   {
     WithEnvVars env_obj(PrepareEnvironmentForJvm());
@@ -669,6 +680,9 @@ static void SetRestartReasonIfNotSet(RestartReason restart_reason) {
 
 // Starts up a new server and connects to it. Exits if it didn't work out.
 static void StartServerAndConnect(
+    const string &jvm_path,
+    const string &server_jar_path,
+    const vector<string> &archive_contents,
     const WorkspaceLayout *workspace_layout,
     const OptionProcessor &option_processor,
     BlazeServer *server) {
@@ -714,7 +728,12 @@ static void StartServerAndConnect(
                 globals->options->io_nice_level);
 
   BlazeServerStartup *server_startup;
-  server_pid = StartServer(workspace_layout, &server_startup);
+  server_pid = StartServer(
+      jvm_path,
+      server_jar_path,
+      archive_contents,
+      workspace_layout,
+      &server_startup);
   BAZEL_LOG(USER) << "Starting local " << globals->options->product_name
                   << " server and connecting to it...";
 
@@ -822,7 +841,9 @@ static void MoveFiles(const string &embedded_binaries) {
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
 // becomes visible automically at the new path.
-static void ExtractData(const string &self_path) {
+static void ExtractData(
+    const string &self_path,
+    const vector<string> &archive_contents) {
   // If the install dir doesn't exist, create it, if it does, we know it's good.
   if (!blaze_util::PathExists(globals->options->install_base)) {
     uint64_t st = GetMillisecondsMonotonic();
@@ -880,7 +901,7 @@ static void ExtractData(const string &self_path) {
         blaze_util::CreateFileMtime());
     string real_install_dir = blaze_util::JoinPath(
         globals->options->install_base, "_embedded_binaries");
-    for (const auto &it : globals->extracted_binaries) {
+    for (const auto &it : archive_contents) {
       string path = blaze_util::JoinPath(real_install_dir, it);
       if (!mtime->IsUntampered(path)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -977,7 +998,11 @@ static bool AreStartupOptionsDifferent(
 
 // Kills the running Blaze server, if any, if the startup options do not match.
 static void KillRunningServerIfDifferentStartupOptions(
-    const WorkspaceLayout *workspace_layout, BlazeServer *server) {
+    const string &jvm_path,
+    const string &server_jar_path,
+    const vector<string> &archive_contents,
+    const WorkspaceLayout *workspace_layout,
+    BlazeServer *server) {
   if (!server->Connected()) {
     return;
   }
@@ -997,7 +1022,10 @@ static void KillRunningServerIfDifferentStartupOptions(
   // the same, the server can stay alive, otherwise, it needs shuffle off this
   // mortal coil.
   if (AreStartupOptionsDifferent(old_arguments,
-                                 GetArgumentArray(workspace_layout))) {
+                                 GetArgumentArray(jvm_path,
+                                                  server_jar_path,
+                                                  archive_contents,
+                                                  workspace_layout))) {
     globals->restart_reason = NEW_OPTIONS;
     BAZEL_LOG(WARNING) << "Running " << globals->options->product_name
                        << " server needs to be killed, because the startup "
@@ -1056,13 +1084,22 @@ static void CancelServer() { blaze_server->Cancel(); }
 // Performs all I/O for a single client request to the server, and
 // shuts down the client (by exit or signal).
 static ATTRIBUTE_NORETURN void SendServerRequest(
+    const string &jvm_path,
+    const string &server_jar_path,
+    const vector<string> &archive_contents,
     const WorkspaceLayout *workspace_layout,
     const OptionProcessor &option_processor,
     const uint64_t start_time,
     BlazeServer *server) {
   while (true) {
     if (!server->Connected()) {
-      StartServerAndConnect(workspace_layout, option_processor, server);
+      StartServerAndConnect(
+          jvm_path,
+          server_jar_path,
+          archive_contents,
+          workspace_layout,
+          option_processor,
+          server);
     }
 
     // Check for the case when the workspace directory deleted and then gets
@@ -1137,20 +1174,15 @@ static string GetCanonicalCwd() {
 
 // Figure out the base directories based on embedded data, username, cwd, etc.
 // Ensures that all of globals->options->install_base,
-// globals->options->output_base, globals->extracted_binaries,
-// globals->lockfile, globals->jvm_log_file, and globals->install_md5 are set.
+// globals->options->output_base, globals->jvm_log_file, and
+// globals->install_md5 are set.
 static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
-                                   const string &self_path) {
-  // Only start a server when in a workspace because otherwise we won't do more
-  // than emit a help message.
-  if (!workspace_layout->InWorkspace(globals->workspace)) {
-    globals->options->batch = true;
-  }
-
+                                   const string &self_path,
+                                   vector<string> *archive_contents) {
   DetermineArchiveContents(
       self_path,
       globals->options->product_name,
-      &globals->extracted_binaries,
+      archive_contents,
       &globals->install_md5);
 
   // The default install_base is <output_user_root>/install/<md5(blaze)>
@@ -1376,7 +1408,14 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 
-  ComputeBaseDirectories(workspace_layout, self_path);
+  // Only start a server when in a workspace because otherwise we won't do more
+  // than emit a help message.
+  if (!workspace_layout->InWorkspace(globals->workspace)) {
+    globals->options->batch = true;
+  }
+
+  vector<string> archive_contents;
+  ComputeBaseDirectories(workspace_layout, self_path, &archive_contents);
 
   blaze_server = static_cast<BlazeServer *>(
       new BlazeServer(globals->options->connect_timeout_secs));
@@ -1387,8 +1426,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
   WarnFilesystemType(globals->options->output_base);
 
-  ExtractData(self_path);
-  globals->jvm_path = globals->options->GetJvm();
+  ExtractData(self_path, archive_contents);
 
   blaze_server->Connect();
 
@@ -1398,17 +1436,37 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
     return 0;
   }
 
+  const string jvm_path = globals->options->GetJvm();
+  const string server_jar_path = GetServerJarPath(archive_contents);
+
   EnsureCorrectRunningVersion(blaze_server);
-  KillRunningServerIfDifferentStartupOptions(workspace_layout, blaze_server);
+  KillRunningServerIfDifferentStartupOptions(
+      jvm_path,
+      server_jar_path,
+      archive_contents,
+      workspace_layout,
+      blaze_server);
 
   if (globals->options->batch) {
     SetScheduling(globals->options->batch_cpu_scheduling,
                   globals->options->io_nice_level);
     StartStandalone(
-        workspace_layout, *option_processor, start_time, blaze_server);
+        jvm_path,
+        server_jar_path,
+        archive_contents,
+        workspace_layout,
+        *option_processor,
+        start_time,
+        blaze_server);
   } else {
     SendServerRequest(
-        workspace_layout, *option_processor, start_time, blaze_server);
+        jvm_path,
+        server_jar_path,
+        archive_contents,
+        workspace_layout,
+        *option_processor,
+        start_time,
+        blaze_server);
   }
   return 0;
 }

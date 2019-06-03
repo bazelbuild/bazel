@@ -287,4 +287,13 @@ void ExtractBuildLabel(const string &archive_path,
   }
 }
 
+std::string GetServerJarPath(
+    const std::vector<std::string> &archive_contents) {
+  if (archive_contents.empty()) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Couldn't find server jar in archive";
+  }
+  return archive_contents[0];
+}
+
 }  // namespace blaze
