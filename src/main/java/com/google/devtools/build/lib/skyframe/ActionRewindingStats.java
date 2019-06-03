@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,9 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.skyframe;
 
-/** Interface for objects that wish to be notified when a skyframe evaluation has finished. */
-public interface CompletionReceiver {
-  void complete();
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+
+/** Event that encapsulates data about action rewinding during a build. */
+public class ActionRewindingStats implements ExtendedEventHandler.Postable {
+  private final int lostInputsCount;
+
+  ActionRewindingStats(int lostInputsCount) {
+    this.lostInputsCount = lostInputsCount;
+  }
+
+  public int lostInputsCount() {
+    return lostInputsCount;
+  }
 }
