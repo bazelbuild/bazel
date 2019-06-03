@@ -177,7 +177,10 @@ class BlazeServer final {
   // Send the command line to the server and forward whatever it says to stdout
   // and stderr. Returns the desired exit code. Only call this when the server
   // is in connected state.
-  unsigned int Communicate();
+  unsigned int Communicate(
+      const StartupOptions &startup_options,
+      const std::string &command,
+      const std::vector<std::string> &command_args);
 
   // Disconnects and kills an existing server. Only call this when this object
   // is in connected state.
@@ -572,8 +575,11 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
 //
 // This function passes the commands array to the blaze process.
 // This array should start with a command ("build", "info", etc.).
-static void StartStandalone(const WorkspaceLayout *workspace_layout,
-                            BlazeServer *server, uint64_t start_time) {
+static void StartStandalone(
+    const WorkspaceLayout *workspace_layout,
+    const OptionProcessor &option_processor,
+    const uint64_t start_time,
+    BlazeServer *server) {
   if (server->Connected()) {
     server->KillRunningServer();
   }
@@ -584,9 +590,9 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
   BAZEL_LOG(INFO) << "Starting " << globals->options->product_name
                   << " in batch mode.";
 
-  string command = globals->option_processor->GetCommand();
+  const string command = option_processor.GetCommand();
   const vector<string> command_arguments =
-      globals->option_processor->GetCommandArguments();
+      option_processor.GetCommandArguments();
 
   if (!command_arguments.empty() && command == "shutdown") {
     string product = globals->options->product_name;
@@ -662,8 +668,10 @@ static void SetRestartReasonIfNotSet(RestartReason restart_reason) {
 }
 
 // Starts up a new server and connects to it. Exits if it didn't work out.
-static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
-                                  BlazeServer *server) {
+static void StartServerAndConnect(
+    const WorkspaceLayout *workspace_layout,
+    const OptionProcessor &option_processor,
+    BlazeServer *server) {
   string server_dir =
       blaze_util::JoinPath(globals->options->output_base, "server");
 
@@ -739,7 +747,7 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
 
     std::this_thread::sleep_until(next_attempt_time);
     if (!server_startup->IsStillAlive()) {
-      globals->option_processor->PrintStartupOptionsProvenanceMessage();
+      option_processor.PrintStartupOptionsProvenanceMessage();
       if (globals->jvm_log_file_append) {
         // Don't dump the log if we were appending - the user should know where
         // to find it, and who knows how much content they may have accumulated.
@@ -1048,11 +1056,13 @@ static void CancelServer() { blaze_server->Cancel(); }
 // Performs all I/O for a single client request to the server, and
 // shuts down the client (by exit or signal).
 static ATTRIBUTE_NORETURN void SendServerRequest(
-    const WorkspaceLayout *workspace_layout, BlazeServer *server,
-    uint64_t start_time) {
+    const WorkspaceLayout *workspace_layout,
+    const OptionProcessor &option_processor,
+    const uint64_t start_time,
+    BlazeServer *server) {
   while (true) {
     if (!server->Connected()) {
-      StartServerAndConnect(workspace_layout, server);
+      StartServerAndConnect(workspace_layout, option_processor, server);
     }
 
     // Check for the case when the workspace directory deleted and then gets
@@ -1090,23 +1100,29 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
   globals->startup_time = GetMillisecondsMonotonic() - start_time;
 
   SignalHandler::Get().Install(globals, CancelServer);
-  SignalHandler::Get().PropagateSignalOrExit(server->Communicate());
+  SignalHandler::Get().PropagateSignalOrExit(
+      server->Communicate(
+          *option_processor.GetParsedStartupOptions(),
+          option_processor.GetCommand(),
+          option_processor.GetCommandArguments()));
 }
 
-// Parse the options, storing parsed values into globals->options.
-static void ParseOptions(const string &cwd, int argc, const char *argv[]) {
+// Parse the options.
+static void ParseOptionsOrDie(
+    const string &cwd,
+    OptionProcessor &option_processor,
+    int argc,
+    const char *argv[]) {
   std::string error;
   std::vector<std::string> args;
   args.insert(args.end(), argv, argv + argc);
   const blaze_exit_code::ExitCode parse_exit_code =
-      globals->option_processor->ParseOptions(
-          args, globals->workspace, cwd, &error);
+      option_processor.ParseOptions(args, globals->workspace, cwd, &error);
 
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
-    globals->option_processor->PrintStartupOptionsProvenanceMessage();
+    option_processor.PrintStartupOptionsProvenanceMessage();
     BAZEL_DIE(parse_exit_code) << error;
   }
-  globals->options = globals->option_processor->GetParsedStartupOptions();
 }
 
 static string GetCanonicalCwd() {
@@ -1313,7 +1329,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
     return blaze_exit_code::SUCCESS;
   }
 
-  globals = new GlobalVariables(option_processor);
+  globals = new GlobalVariables();
   blaze::SetupStdStreams();
   if (argc == 1 && blaze::WarnIfStartedFromDesktop()) {
     // Only check and warn for from-desktop start if there were no args.
@@ -1335,13 +1351,14 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
 #if defined(_WIN32) || defined(__CYGWIN__)
   // Must be done before command line parsing.
-  // ParseOptions already populate --client_env, so detect bash before it
+  // ParseOptionsOrDie already populate --client_env, so detect bash before it
   // happens.
   (void)DetectBashAndExportBazelSh();
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
   globals->binary_path = CheckAndGetBinaryPath(cwd, argv[0]);
-  ParseOptions(cwd, argc, argv);
+  ParseOptionsOrDie(cwd, *option_processor, argc, argv);
+  globals->options = option_processor->GetParsedStartupOptions();
 
   SetDebugLog(globals->options->client_debug);
   // If client_debug was false, this is ignored, so it's accurate.
@@ -1349,7 +1366,8 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
                      "statements to stderr";
   // TODO(b/79206210): Can't log this before SetDebugLog is called, since the
   // warning might get swallowed. Once the bug is fixed, move this call to
-  // OptionProcessor::ParseOptions where the order of operations is more clear.
+  // OptionProcessor::ParseOptionsOrDie where the order of operations is more
+  // clear.
   globals->options->MaybeLogStartupOptionWarnings();
 
   if (globals->options->unlimit_coredumps) {
@@ -1375,7 +1393,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   blaze_server->Connect();
 
   if (!globals->options->batch &&
-      "shutdown" == globals->option_processor->GetCommand() &&
+      "shutdown" == option_processor->GetCommand() &&
       !blaze_server->Connected()) {
     return 0;
   }
@@ -1386,9 +1404,11 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   if (globals->options->batch) {
     SetScheduling(globals->options->batch_cpu_scheduling,
                   globals->options->io_nice_level);
-    StartStandalone(workspace_layout, blaze_server, start_time);
+    StartStandalone(
+        workspace_layout, *option_processor, start_time, blaze_server);
   } else {
-    SendServerRequest(workspace_layout, blaze_server, start_time);
+    SendServerRequest(
+        workspace_layout, *option_processor, start_time, blaze_server);
   }
   return 0;
 }
@@ -1666,19 +1686,19 @@ void BlazeServer::KillRunningServer() {
   connected_ = false;
 }
 
-unsigned int BlazeServer::Communicate() {
+unsigned int BlazeServer::Communicate(
+    const StartupOptions &startup_options,
+    const string &command,
+    const vector<string> &command_args) {
   assert(connected_);
   assert(globals->server_pid > 0);
 
   vector<string> arg_vector;
-  string command = globals->option_processor->GetCommand();
   if (!command.empty()) {
     arg_vector.push_back(command);
     AddLoggingArgs(&arg_vector);
   }
 
-  const vector<string> command_args =
-      globals->option_processor->GetCommandArguments();
   if (!command_args.empty()) {
     arg_vector.insert(arg_vector.end(),
                       command_args.begin(),
@@ -1696,10 +1716,8 @@ unsigned int BlazeServer::Communicate() {
     request.set_invocation_policy(globals->options->invocation_policy);
   }
 
-  const StartupOptions *startup_options(
-      globals->option_processor->GetParsedStartupOptions());
   for (const auto &startup_option :
-       startup_options->original_startup_options_) {
+       startup_options.original_startup_options_) {
     command_server::StartupOption *proto_option_field =
         request.add_startup_options();
     request.add_startup_options();
