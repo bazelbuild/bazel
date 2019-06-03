@@ -879,7 +879,7 @@ def _intermediate_aspect_imp(target, ctx):
   if hasattr(ctx.rule.attr, 'srcs'):
     out = ctx.actions.declare_file('out_jpl_{}'.format(target))
     ctx.actions.run(
-      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],
+      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],
       outputs = [out],
       executable = 'dummy',
       mnemonic = 'MyIntermediateAspect'
@@ -909,7 +909,7 @@ def _aspect_impl(target, ctx):
   if hasattr(ctx.rule.attr, 'srcs'):
     out = ctx.actions.declare_file('out{}'.format(target))
     ctx.actions.run(
-      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],
+      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],
       outputs = [out],
       executable = 'dummy',
       mnemonic = 'MyAspect'

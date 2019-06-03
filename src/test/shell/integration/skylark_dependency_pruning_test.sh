@@ -55,7 +55,7 @@ def _impl(ctx):
     arguments = []
     arguments += [output.path]
     arguments += [unused_inputs_list.path]
-    for input in inputs:
+    for input in inputs.to_list():
         arguments += [input.path]
     ctx.actions.run(
         inputs = inputs,
