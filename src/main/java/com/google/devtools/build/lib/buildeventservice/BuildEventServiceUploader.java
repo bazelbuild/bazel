@@ -154,6 +154,10 @@ public final class BuildEventServiceUploader implements Runnable {
     this.clock = clock;
     this.namer = namer;
     this.eventBus = eventBus;
+    // Ensure the half-close future is closed once the upload is complete. This is usually a no-op,
+    // but makes sure we half-close in case of error / interrupt.
+    closeFuture.addListener(
+        () -> halfCloseFuture.setFuture(closeFuture), MoreExecutors.directExecutor());
   }
 
   BuildEventArtifactUploader getLocalFileUploader() {
@@ -253,6 +257,10 @@ public final class BuildEventServiceUploader implements Runnable {
         uploadThread.interrupt();
       }
     }
+  }
+
+  ListenableFuture<Void> getHalfCloseFuture() {
+    return halfCloseFuture;
   }
 
   private void logAndExitAbruptly(String message, ExitCode exitCode, Throwable cause) {
@@ -422,6 +430,7 @@ public final class BuildEventServiceUploader implements Runnable {
               streamContext.sendOverStream(request);
               streamContext.halfCloseStream();
               halfCloseFuture.set(null);
+              logger.info("BES uploader is half-closed");
             }
             break;
 
