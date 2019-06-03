@@ -44,20 +44,23 @@ http_archive(
 
 http_archive(
     name = "remote_java_tools_javac11_test_linux",
+    sha256 = "5714c0a34c99b5a474b281c5e0f2019c8a24594a8288062dc307faefd1738fac",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_linux-v1.0.zip",
+         "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v2.0/java_tools_javac11_linux-v2.0-rc3.zip",
     ],
 )
 http_archive(
     name = "remote_java_tools_javac11_test_windows",
+    sha256 = "ff5f13b93a048518f7263932d5a26d60c4d56d0a969cf8b226015bc85dedb57d",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_windows-v1.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v2.0/java_tools_javac11_windows-v2.0-rc3.zip",
     ],
 )
 http_archive(
     name = "remote_java_tools_javac11_test_darwin",
+    sha256 = "b94f14d0b1d491da988af1f2f63abe1fee42a880d7e8ca666a1df4a1e03ba37a",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v1.0/java_tools_javac11_darwin-v1.0.zip",
+         "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v2.0/java_tools_javac11_darwin-v2.0-rc3.zip",
     ],
 )
 http_archive(
