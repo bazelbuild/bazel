@@ -1,0 +1,144 @@
+Incompatible changes:
+
+  - --incompatible_disable_objc_provider_resources no longer has
+    effect. Use of deprecated resource fields on the Objc provider is
+    now disallowed regardless of this flag.
+  - deleted deprecated --experimental-remote-retry* flags, please use
+    --remote_retries instead
+  - flipped --incompatible_list_based_execution_strategy_selection
+    flag to be true by default. See
+    https://github.com/bazelbuild/bazel/issues/7480 for details.
+  - Octal integer literals in Starlark are required to start with
+    "Oo".
+  - The "native" module is no longer available in BUILD files, all
+    its members can be accessed directly as global symbols. This can
+    be temporarily reverted by providing
+    --incompatible_disallow_native_in_build_file=false as a flag to
+    Blaze.
+  - The "native" module is no longer available in BUILD files, all
+    its members can be accessed directly as global symbols. This can
+    be temporarily reverted by providing
+    --incompatible_disallow_native_in_build_file=false as a flag to
+    Blaze.
+  - Turn off binary style profile format.
+  - The "native" module is no longer available in BUILD files, all
+    its members can be accessed directly as global symbols. This can
+    be temporarily reverted by providing
+    --incompatible_disallow_native_in_build_f...
+  - cleanup that affects user provided apple frameworks is
+    now enabled by default.  See
+    https://github.com/bazelbuild/bazel/issues/7944 for more info.
+  - Python rules now determine the Python runtime using toolchains
+    rather than `--python_top` and `--python_path`, which are
+    deprecated. See
+    [#7899](https://github.com/bazelbuild/bazel/issues/7899) for
+    information on declaring Python toolchains and migrating your
+    code. As a side-benefit, this addresses
+    [#4815](https://github.com/bazelbuild/bazel/issues/4815)
+    (incorrect interpreter version used) on non-Windows platforms.
+    Note however that some builds break due to getting the version
+    they asked for -- consider setting `python_version = "PY2"` on
+    Python 2 targets and `--host_force_python=PY2` if any Python 2
+    targets are used in the host configuration. You can temporarily
+    opt out of this change with
+    `--incompatible_use_python_toolchains=false`.
+  - Depsets can't be iterated over unless they're converted to lists
+    using the .to_list() method. Use
+    --incompatible_depset_is_not_iterable=false to
+    temporarily restore the previous behaviour.
+
+New features:
+
+  - Bash, runfiles: the copy-pasted init code of the Bash runfiles
+    library is now shorter, see `tools/bash/runfiles/runfiles.bash`.
+    The rlocation() implementation is the same.
+  - Bash, runfiles: the copy-pasted init code of the Bash runfiles
+    library is now shorter, see `tools/bash/runfiles/runfiles.bash`.
+    The rlocation() implementation is the same.
+  - Bash, runfiles: the copy-pasted init code of the Bash runfiles
+    library is now shorter, see `tools/bash/runfiles/runfiles.bash`.
+    To use the new init code, you need Bazel 0.27 or newer. The old
+    (longer) init code still works.
+
+Important changes:
+
+  - The `outputs` parameter of the `rule()` function is deprecated
+    and attached to flag `--incompatible_no_rule_outputs_param`.
+    Migrate rules to use `OutputGroupInfo` or `attr.output` instead.
+    See https://github.com/bazelbuild/bazel/issues/7977 for more info.
+  - The --incompatible_disable_objc_library_resources flag is being
+    removed. Please remove it from your configs as it otherwise will
+    fail the build.
+  - Add a generic additional_linker_inputs attribute on cc_binary
+    rules.
+  - Windows, C++ autoconfigure: BAZEL_VC and BAZEL_VS may now have
+    quotes, so if you set these envvars' values in cmd.exe via
+    TAB-completion then you no longer need to remove the surrounding
+    quotes.
+  - pkg_deb has new attributes: `config` and `templates` that can be
+    used for integration with debconf
+  - Allow cc_import() of a DLL with no interface library on Windows,
+    used to document runtime dependencies.
+  - All host-configured Python tools that are built for the wrong
+    Python version will now emit a warning message when they exit
+    with non-zero status. See #7899.
+  - deprecated --remote_local_fallback_strategy. Use
+    `--strategy=remote,local` instead. See
+    https://github.com/bazelbuild/bazel/issues/7480.
+  - Introduce --incompatible_disable_native_android_rules flag
+  - The Android desugaring actions now support a persistent worker
+    mode for faster local build performance. Enable it with
+    `--strategy=Desugar=worker`.
+  - --incompatible_static_name_resolution_in_build_files is now
+    enabled by default
+  - --incompatible_disable_deprecated_attr_params is now enabled by
+    default (#5818)
+  - Repository containing autoconfigured C++ toolchain
+    `@local_config_cc` has been split in 2 - see
+    `local_config_cc_toolchains`.
+  - --incompatible_string_join_requires_strings is now enabled by
+    default
+  - Flag --incompatible_new_actions_api is enabled by dewfault (#5825)
+  - New flag `--incompatible_disallow_empty_glob`. See
+    https://github.com/bazelbuild/bazel/issues/8195
+  - --incompatible_no_kwargs_in_build_files is enabled by default
+  - Incompatible flag
+    `--incompatible_require_ctx_in_configure_features` has been
+    flipped. See https://github.com/bazelbuild/bazel/issues/7793 for
+    more information.
+  - `BAZEL_USE_XCODE_TOOLCHAIN=1` tells Bazel not to look for Xcode to
+    decide whether to enable toolchains for Apple rules, but to
+    assume Xcode is
+    available. Can be also used when building on Darwin and no C++ or
+    ObjC is being
+    built, so there is no need to detect Xcode.
+  - Android desugaring actions now use persistent workers by default.
+    This has been measured to provide up to 20% reduction in build
+    times. To disable it, use the `--strategy=Desugar=sandboxed`
+    flag. See https://github.com/bazelbuild/bazel/issues/8342 and
+    https://github.com/bazelbuild/bazel/issues/8427 for more details
+    on local build speed optimization for Android apps.
+  - Fixed an issue with Android builds where `--fat_apk_cpu` doesn't
+    pack all selected shared libraries from `aar_import` targets into
+    the APK. See
+    [#8283](https://github.com/bazelbuild/bazel/issues/8283).
+  - Turn on --experimental_starlark_config_transitions by default for
+    starlark transitions (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-transitions for more info)
+  - Turn on --experimental_build_setting_api by default for starlark
+    build settings (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-build-settings for more info)
+  - Incompatible flag
+    `--incompatible_dont_enable_host_nonhost_crosstool_features` has
+    been flipped. See https://github.com/bazelbuild/bazel/issues/7407
+    for more information.
+  - Added support for Android NDK 19 and 20.
+  - Flip --incompatible_no_support_tools_in_action_inputs
+  - --remote_executor, --remote_cache or --bes_backend=someurl.com
+    would be treated as grpcs://someurl.com, if the
+    --incompatible_tls_enabled_removed flag enabled. See
+    https://github.com/bazelbuild/bazel/issues/8061 for details.
+
+This release contains contributions from many people at Google, as well as Alex Thompson, Andy Scott, Benjamin Peterson, David McNett, Drew Gassaway, Ira Shikhman, James deBoer, Jay Vercellone, Jingwen Chen, Josh Rosen, Keith Smiley, Laurent Le Brun, Lee Mracek, Marwan Tammam, Matt Passell, Michael Hackner, Michal Majcherski, Patrick Niklaus, Peter Mounce, Steeve Morin, szakmary, Takuto Ikuta, Vladimir Chebotarev, Yen-Chi Chen.
