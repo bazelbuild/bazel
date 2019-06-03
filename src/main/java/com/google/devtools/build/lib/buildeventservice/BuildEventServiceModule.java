@@ -190,6 +190,18 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       return;
     }
 
+    ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
+    if (status.status != ConnectivityStatus.Status.OK) {
+      reporter.handle(
+          Event.info(
+              String.format(
+                  "The Build Event Protocol encountered a connectivity problem: %s. Cancelling"
+                      + " previous background uploads",
+                  status)));
+      cancelPendingUploads();
+      return;
+    }
+
     Stopwatch stopwatch = Stopwatch.createStarted();
     try {
       // TODO(b/234994611): It would be better to report before we wait, but the current
@@ -616,8 +628,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       clearBesClient();
       String message =
           String.format(
-              "Build Event Service uploads disabled due to a connectivity problem: %s",
-              status.toString());
+              "Build Event Service uploads disabled due to a connectivity problem: %s", status);
       reporter.handle(Event.warn(message));
       googleLogger.atWarning().log(message);
       return null;
