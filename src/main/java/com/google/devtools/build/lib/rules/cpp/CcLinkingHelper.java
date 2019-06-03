@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -871,32 +870,13 @@ public final class CcLinkingHelper {
       PathFragment artifactFragment =
           PathFragment.create(label.getName()).getParentDirectory().getRelative(linkedName);
 
-    Artifact result =
-        actionConstructionContext.getPackageRelativeArtifact(
-            artifactFragment,
-            configuration.getBinDirectory(label.getPackageIdentifier().getRepository()));
-
-    // If the linked artifact is not the linux default, then a FailAction is generated for the
-    // linux default to satisfy the requirement of the implicit output.
-    // TODO(b/30132703): Remove the implicit outputs of cc_library.
-    Artifact linuxDefault =
-        CppHelper.getLinuxLinkedArtifact(
-            label,
-            actionConstructionContext,
-            configuration,
-            linkTargetType,
-            linkedArtifactNameSuffix);
-    if (!result.equals(linuxDefault)) {
-      actionConstructionContext.registerAction(
-          new FailAction(
-              actionConstructionContext.getActionOwner(),
-              ImmutableList.of(linuxDefault),
-              String.format(
-                  "the given toolchain supports creation of %s instead of %s",
-                  linuxDefault.getExecPathString(), result.getExecPathString())));
-    }
-
-    return result;
+    return CppHelper.getLinkedArtifact(
+        label,
+        actionConstructionContext,
+        configuration,
+        linkTargetType,
+        linkedArtifactNameSuffix,
+        artifactFragment);
   }
 
   private static List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLinkerInputList(
