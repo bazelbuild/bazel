@@ -108,7 +108,7 @@ sorted(deps.to_list())  # recommended
 ```
 
 *   Flag: `--incompatible_depset_is_not_iterable`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5816](https://github.com/bazelbuild/bazel/issues/5816)
 
 

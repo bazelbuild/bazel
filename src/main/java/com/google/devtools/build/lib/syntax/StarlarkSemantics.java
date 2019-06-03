@@ -228,7 +228,7 @@ public abstract class StarlarkSemantics {
           .experimentalStarlarkConfigTransitions(true)
           .experimentalStarlarkUnusedInputsList(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
-          .incompatibleDepsetIsNotIterable(false)
+          .incompatibleDepsetIsNotIterable(true)
           .incompatibleDepsetUnion(true)
           .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(true)
