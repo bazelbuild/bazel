@@ -37,19 +37,21 @@ import com.google.devtools.build.skyframe.SkyValue;
 public class RecursivePkgValue implements SkyValue {
   @AutoCodec
   static final RecursivePkgValue EMPTY =
-      new RecursivePkgValue(NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER));
+      new RecursivePkgValue(NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER), false);
 
   private final NestedSet<String> packages;
+  private final boolean hasErrors;
 
-  private RecursivePkgValue(NestedSet<String> packages) {
+  private RecursivePkgValue(NestedSet<String> packages, boolean hasErrors) {
     this.packages = packages;
+    this.hasErrors = hasErrors;
   }
 
-  static RecursivePkgValue create(NestedSetBuilder<String> packages) {
-    if (packages.isEmpty()) {
+  static RecursivePkgValue create(NestedSetBuilder<String> packages, boolean hasErrors) {
+    if (packages.isEmpty() && !hasErrors) {
       return EMPTY;
     }
-    return new RecursivePkgValue(packages.build());
+    return new RecursivePkgValue(packages.build(), hasErrors);
   }
 
   /** Create a transitive package lookup request. */
@@ -63,6 +65,10 @@ public class RecursivePkgValue implements SkyValue {
 
   public NestedSet<String> getPackages() {
     return packages;
+  }
+
+  public boolean hasErrors() {
+    return hasErrors;
   }
 
   @AutoCodec.VisibleForSerialization

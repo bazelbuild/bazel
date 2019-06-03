@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Maps;
 import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -58,7 +59,6 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -70,8 +70,10 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -1026,8 +1028,147 @@ public class LoadingPhaseRunnerTest {
     runTestPackageLoadingError(/*keepGoing=*/ false, "//bad/...");
   }
 
+  @Test
+  public void testPackageLoadingError_KeepGoing_SomeGoodTargetsBeneathDirectory() throws Exception {
+    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    runTestPackageLoadingError(/*keepGoing=*/ true, "//...");
+  }
+
+  @Test
+  public void testPackageLoadingError_NoKeepGoing_SomeGoodTargetsBeneathDirectory()
+      throws Exception {
+    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    runTestPackageLoadingError(/*keepGoing=*/ false, "//...");
+  }
+
+  private void runTestPackageFileInconsistencyError(boolean keepGoing, String... patterns)
+      throws Exception {
+    tester.addFile("bad/BUILD", "sh_library(name = 't')\n");
+    IOException ioExn = new IOException("nope");
+    tester.throwExceptionOnGetInputStream(tester.getWorkspace().getRelative("bad/BUILD"), ioExn);
+    if (keepGoing) {
+      TargetPatternPhaseValue value = tester.loadKeepGoing(patterns);
+      assertThat(value.hasError()).isTrue();
+      tester.assertContainsWarning("Target pattern parsing failed");
+      tester.assertContainsError("error loading package 'bad': nope");
+    } else {
+      TargetParsingException exn =
+          assertThrows(TargetParsingException.class, () -> tester.load(patterns));
+      assertThat(exn).hasCauseThat().isInstanceOf(BuildFileContainsErrorsException.class);
+      assertThat(exn).hasCauseThat().hasMessageThat().contains("error loading package 'bad': nope");
+    }
+  }
+
+  @Test
+  public void testPackageFileInconsistencyError_KeepGoing_ExplicitTarget() throws Exception {
+    runTestPackageFileInconsistencyError(true, "//bad:BUILD");
+  }
+
+  @Test
+  public void testPackageFileInconsistencyError_NoKeepGoing_ExplicitTarget() throws Exception {
+    runTestPackageFileInconsistencyError(false, "//bad:BUILD");
+  }
+
+  @Test
+  public void testPackageFileInconsistencyError_KeepGoing_TargetsInPackage() throws Exception {
+    runTestPackageFileInconsistencyError(true, "//bad:all");
+  }
+
+  @Test
+  public void testPackageFileInconsistencyError_NoKeepGoing_TargetsInPackage() throws Exception {
+    runTestPackageFileInconsistencyError(false, "//bad:all");
+  }
+
+  @Test
+  public void testPackageFileInconsistencyError_KeepGoing_argetsBeneathDirectory()
+      throws Exception {
+    runTestPackageFileInconsistencyError(true, "//bad/...");
+  }
+
+  @Test
+  public void testPackageFileInconsistencyError_NoKeepGoing_TargetsBeneathDirectory()
+      throws Exception {
+    runTestPackageFileInconsistencyError(false, "//bad/...");
+  }
+
+  @Test
+  public void testPackageFileInconsistencyError_KeepGoing_SomeGoodTargetsBeneathDirectory()
+      throws Exception {
+    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    runTestPackageFileInconsistencyError(true, "//...");
+  }
+
+  @Test
+  public void testPackageFileInconsistencyError_NoKeepGoing_SomeGoodTargetsBeneathDirectory()
+      throws Exception {
+    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    runTestPackageFileInconsistencyError(false, "//...");
+  }
+
+  private void runTestExtensionLoadingError(boolean keepGoing, String... patterns)
+      throws Exception {
+    tester.addFile("bad/f1.bzl", "nope");
+    tester.addFile("bad/BUILD", "load(\":f1.bzl\", \"not_a_symbol\")");
+    if (keepGoing) {
+      TargetPatternPhaseValue value = tester.loadKeepGoing(patterns);
+      assertThat(value.hasError()).isTrue();
+      tester.assertContainsWarning("Target pattern parsing failed");
+    } else {
+      TargetParsingException exn =
+          assertThrows(TargetParsingException.class, () -> tester.load(patterns));
+      assertThat(exn).hasCauseThat().isInstanceOf(BuildFileContainsErrorsException.class);
+      assertThat(exn).hasCauseThat().hasMessageThat().contains("Extension 'bad/f1.bzl' has errors");
+    }
+    tester.assertContainsError("/workspace/bad/f1.bzl:1:1: name 'nope' is not defined");
+  }
+
+  @Test
+  public void testExtensionLoadingError_KeepGoing_ExplicitTarget() throws Exception {
+    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad:BUILD");
+  }
+
+  @Test
+  public void testExtensionLoadingError_NoKeepGoing_ExplicitTarget() throws Exception {
+    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad:BUILD");
+  }
+
+  @Test
+  public void testExtensionLoadingError_KeepGoing_TargetsInPackage() throws Exception {
+    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad:all");
+  }
+
+  @Test
+  public void testExtensionLoadingError_NoKeepGoing_TargetsInPackage() throws Exception {
+    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad:all");
+  }
+
+  @Test
+  public void testExtensionLoadingError_KeepGoing_TargetsBeneathDirectory() throws Exception {
+    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad/...");
+  }
+
+  @Test
+  public void testExtensionLoadingError_NoKeepGoing_TargetsBeneathDirectory() throws Exception {
+    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad/...");
+  }
+
+  @Test
+  public void testExtensionLoadingError_KeepGoing_SomeGoodTargetsBeneathDirectory()
+      throws Exception {
+    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    runTestExtensionLoadingError(/*keepGoing=*/ true, "//...");
+  }
+
+  @Test
+  public void testExtensionLoadingError_NoKeepGoing_SomeGoodTargetsBeneathDirectory()
+      throws Exception {
+    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    runTestExtensionLoadingError(/*keepGoing=*/ false, "//...");
+  }
+
   private static class LoadingPhaseTester {
     private final ManualClock clock = new ManualClock();
+    private final CustomInMemoryFs fs = new CustomInMemoryFs(clock);
     private final Path workspace;
 
     private final AnalysisMock analysisMock;
@@ -1047,7 +1188,6 @@ public class LoadingPhaseRunnerTest {
     private MockToolsConfig mockToolsConfig;
 
     public LoadingPhaseTester() throws IOException {
-      FileSystem fs = new InMemoryFileSystem(clock);
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
       mockToolsConfig = new MockToolsConfig(workspace);
@@ -1234,6 +1374,10 @@ public class LoadingPhaseRunnerTest {
       return loadingPhaseCompleteEvent.getFilteredLabels();
     }
 
+    void throwExceptionOnGetInputStream(Path path, IOException exn) {
+      fs.throwExceptionOnGetInputStream(path, exn);
+    }
+
     private Iterable<Event> filteredEvents() {
       return Iterables.filter(storedErrors.getEvents(), new Predicate<Event>() {
         @Override
@@ -1273,6 +1417,32 @@ public class LoadingPhaseRunnerTest {
           .filter(clazz::isInstance)
           .map(clazz::cast)
           .collect(MoreCollectors.onlyElement());
+    }
+  }
+
+  /**
+   * Custom {@link InMemoryFileSystem} that can be pre-configured per-file to throw a supplied
+   * IOException instead of the usual behavior.
+   */
+  private static class CustomInMemoryFs extends InMemoryFileSystem {
+
+    private final Map<Path, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+
+    CustomInMemoryFs(ManualClock manualClock) {
+      super(manualClock);
+    }
+
+    synchronized void throwExceptionOnGetInputStream(Path path, IOException exn) {
+      pathsToErrorOnGetInputStream.put(path, exn);
+    }
+
+    @Override
+    protected synchronized InputStream getInputStream(Path path) throws IOException {
+      IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
+      if (exnToThrow != null) {
+        throw exnToThrow;
+      }
+      return super.getInputStream(path);
     }
   }
 }
