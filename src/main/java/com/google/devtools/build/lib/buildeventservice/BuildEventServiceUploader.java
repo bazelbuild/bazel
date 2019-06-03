@@ -65,7 +65,6 @@ import java.util.Deque;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -99,7 +98,7 @@ public final class BuildEventServiceUploader implements Runnable {
   private final Clock clock;
   private final ArtifactGroupNamer namer;
   private final EventBus eventBus;
-  private final AtomicBoolean startedClose = new AtomicBoolean(false);
+  private boolean startedClose = false;
 
   /**
    * The event queue contains two types of events: - Build events, sorted by sequence number, that
@@ -171,18 +170,14 @@ public final class BuildEventServiceUploader implements Runnable {
     ListenableFuture<PathConverter> localFileUploadFuture =
         localFileUploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
 
-    if (startedClose.get()) {
-      if (!localFileUploadFuture.isDone()) {
-        localFileUploadFuture.cancel(true);
-      }
-      return;
-    }
-
     // The generation of the sequence number and the addition to the {@link #eventQueue} should be
     // atomic since BES expects the events in that exact order.
     // More details can be found in b/131393380.
     // TODO(bazel-team): Consider relaxing this invariant by having a more relaxed order.
     synchronized (lock) {
+      if (startedClose) {
+        return;
+      }
       // BuildCompletingEvent marks the end of the build in the BEP event stream.
       if (event instanceof BuildCompletingEvent) {
         this.buildStatus = extractBuildStatus((BuildCompletingEvent) event);
@@ -208,10 +203,6 @@ public final class BuildEventServiceUploader implements Runnable {
    * <p>The returned future completes when the upload completes. It's guaranteed to never fail.
    */
   public ListenableFuture<Void> close() {
-    if (startedClose.getAndSet(true)) {
-      return closeFuture;
-    }
-
     ensureUploadThreadStarted();
 
     // The generation of the sequence number and the addition to the {@link #eventQueue} should be
@@ -219,6 +210,10 @@ public final class BuildEventServiceUploader implements Runnable {
     // More details can be found in b/131393380.
     // TODO(bazel-team): Consider relaxing this invariant by having a more relaxed order.
     synchronized (lock) {
+      if (startedClose) {
+        return closeFuture;
+      }
+      startedClose = true;
       // Enqueue the last event which will terminate the upload.
       // TODO(b/131393380): {@link #nextSeqNum} doesn't need to be an AtomicInteger if it's
       //  always used under lock. It would be cleaner and more performant to update the sequence
