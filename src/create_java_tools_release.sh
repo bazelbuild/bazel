@@ -76,8 +76,6 @@ for platform in linux windows darwin; do
   rc_url="release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
   rc_sources_url="release_candidates/javac${java_version}/v${java_tools_version}/sources/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
 
-  echo "$rc_url"
-
   if [[ $release == "true" ]]; then
     release_artifact="releases/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
     release_sources_artifact="releases/javac${java_version}/v${java_tools_version}/sources/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
