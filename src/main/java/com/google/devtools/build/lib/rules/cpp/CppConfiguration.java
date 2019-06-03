@@ -147,6 +147,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
 
+  private final PathFragment csFdoAbsolutePath;
+
   private final ImmutableList<String> conlyopts;
 
   private final ImmutableList<String> copts;
@@ -197,6 +199,22 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       }
     }
 
+    PathFragment csFdoAbsolutePath = null;
+    if (cppOptions.csFdoAbsolutePathForBuild != null) {
+      csFdoAbsolutePath = PathFragment.create(cppOptions.csFdoAbsolutePathForBuild);
+      if (!csFdoAbsolutePath.isAbsolute()) {
+        throw new InvalidConfigurationException(
+            "Path of '"
+                + csFdoAbsolutePath.getPathString()
+                + "' in --cs_fdo_absolute_path is not an absolute path.");
+      }
+      try {
+        FileSystemUtils.checkBaseName(csFdoAbsolutePath.getBaseName());
+      } catch (IllegalArgumentException e) {
+        throw new InvalidConfigurationException(e);
+      }
+    }
+
     return new CppConfiguration(
         cppOptions.doNotUseCpuTransformer
             ? commonOptions.cpu
@@ -204,6 +222,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         Preconditions.checkNotNull(commonOptions.cpu),
         fdoPath,
         fdoProfileLabel,
+        csFdoAbsolutePath,
         ImmutableList.copyOf(cppOptions.conlyoptList),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),
@@ -224,6 +243,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       String desiredCpu,
       PathFragment fdoPath,
       Label fdoOptimizeLabel,
+      PathFragment csFdoAbsolutePath,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
       ImmutableList<String> cxxopts,
@@ -239,6 +259,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
+    this.csFdoAbsolutePath = csFdoAbsolutePath;
     this.conlyopts = conlyopts;
     this.copts = copts;
     this.cxxopts = cxxopts;
@@ -546,6 +567,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public String getCSFdoInstrument() {
     return cppOptions.csFdoInstrumentForBuild;
+  }
+
+  public PathFragment getCSFdoAbsolutePath() {
+    return csFdoAbsolutePath;
   }
 
   Label getFdoPrefetchHintsLabel() {
