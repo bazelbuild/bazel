@@ -18,9 +18,9 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "auto_configure_fail",
     "auto_configure_warning",
+    "auto_configure_warning_maybe",
     "escape_string",
     "execute",
-    "is_cc_configure_debug",
     "resolve_labels",
 )
 
@@ -54,11 +54,6 @@ def _get_temp_env(repository_ctx):
         )
     return tmp
 
-def _auto_configure_warning_maybe(repository_ctx, msg):
-    """Output warning message when CC_CONFIGURE_DEBUG is enabled."""
-    if is_cc_configure_debug(repository_ctx):
-        auto_configure_warning(msg)
-
 def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False):
     """Return the content of msys cc toolchain rule."""
     msys_root = ""
@@ -90,7 +85,7 @@ def _get_system_root(repository_ctx):
     systemroot = _get_path_env_var(repository_ctx, "SYSTEMROOT")
     if not systemroot:
         systemroot = "C:\\Windows"
-        _auto_configure_warning_maybe(
+        auto_configure_warning_maybe(
             repository_ctx,
             "SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows",
         )
@@ -112,7 +107,7 @@ def find_vc_path(repository_ctx):
         if repository_ctx.path(bazel_vc).exists:
             return bazel_vc
         else:
-            _auto_configure_warning_maybe(
+            auto_configure_warning_maybe(
                 repository_ctx,
                 "%BAZEL_VC% is set to non-existent path, ignoring.",
             )
@@ -124,17 +119,17 @@ def find_vc_path(repository_ctx):
             if repository_ctx.path(bazel_vc).exists:
                 return bazel_vc
             else:
-                _auto_configure_warning_maybe(
+                auto_configure_warning_maybe(
                     repository_ctx,
                     "No 'VC' directory found under %BAZEL_VS%, ignoring.",
                 )
         else:
-            _auto_configure_warning_maybe(
+            auto_configure_warning_maybe(
                 repository_ctx,
                 "%BAZEL_VS% is set to non-existent path, ignoring.",
             )
 
-    _auto_configure_warning_maybe(
+    auto_configure_warning_maybe(
         repository_ctx,
         "Neither %BAZEL_VC% nor %BAZEL_VS% are set, start looking for the latest Visual C++" +
         " installed.",
@@ -142,8 +137,8 @@ def find_vc_path(repository_ctx):
 
     # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
     # vcvarsqueryregistry.bat / VsDevCmd.bat to detect VC++.
-    _auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
-                                                  "eg. VS140COMNTOOLS")
+    auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
+                                                 "eg. VS140COMNTOOLS")
     for vscommontools_env, script in [
         ("VS160COMNTOOLS", "VsDevCmd.bat"),
         ("VS150COMNTOOLS", "VsDevCmd.bat"),
@@ -168,13 +163,13 @@ def find_vc_path(repository_ctx):
         env = _add_system_root(repository_ctx, repository_ctx.os.environ)
         vc_dir = execute(repository_ctx, ["./get_vc_dir.bat"], environment = env)
 
-        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+        auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
     # 3. User might have purged all environment variables. If so, look for Visual C++ in registry.
     # Works for Visual Studio 2017 and older. (Does not work for Visual Studio 2019 Preview.)
     # TODO(laszlocsomor): check if "16.0" also has this registry key, after VS 2019 is released.
-    _auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
+    auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
     for key, suffix in (("VC7", ""), ("VS7", "\\VC")):
@@ -182,23 +177,23 @@ def find_vc_path(repository_ctx):
             if vc_dir:
                 break
             result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\" + key, "/v", version])
-            _auto_configure_warning_maybe(repository_ctx, "registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
-                                                          (version, result.stdout, result.stderr))
+            auto_configure_warning_maybe(repository_ctx, "registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                         (version, result.stdout, result.stderr))
             if not result.stderr:
                 for line in result.stdout.split("\n"):
                     line = line.strip()
                     if line.startswith(version) and line.find("REG_SZ") != -1:
                         vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip() + suffix
     if vc_dir:
-        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+        auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
     # 4. Check default directories for VC installation
-    _auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
+    auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
     program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)")
     if not program_files_dir:
         program_files_dir = "C:\\Program Files (x86)"
-        _auto_configure_warning_maybe(
+        auto_configure_warning_maybe(
             repository_ctx,
             "'PROGRAMFILES(X86)' environment variable is not set, using '%s' as default" % program_files_dir,
         )
@@ -220,9 +215,9 @@ def find_vc_path(repository_ctx):
             break
 
     if not vc_dir:
-        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools not found.")
+        auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools not found.")
         return None
-    _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+    auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
     return vc_dir
 
 def _is_vs_2017_or_2019(vc_path):
@@ -284,7 +279,7 @@ def _get_latest_subversion(repository_ctx, vc_path):
     This function should return 14.16.27023 in this case."""
     versions = [path.basename for path in repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()]
     if len(versions) < 1:
-        _auto_configure_warning_maybe(repository_ctx, "Cannot find any VC installation under BAZEL_VC(%s)" % vc_path)
+        auto_configure_warning_maybe(repository_ctx, "Cannot find any VC installation under BAZEL_VC(%s)" % vc_path)
         return None
 
     # Parse the version string into integers, then sort the integers to prevent textual sorting.
@@ -296,7 +291,7 @@ def _get_latest_subversion(repository_ctx, vc_path):
     version_list = sorted(version_list)
     latest_version = version_list[-1][1]
 
-    _auto_configure_warning_maybe(repository_ctx, "Found the following VC verisons:\n%s\n\nChoosing the latest version = %s" % ("\n".join(versions), latest_version))
+    auto_configure_warning_maybe(repository_ctx, "Found the following VC verisons:\n%s\n\nChoosing the latest version = %s" % ("\n".join(versions), latest_version))
     return latest_version
 
 def _get_vc_full_version(repository_ctx, vc_path):
@@ -350,31 +345,31 @@ def find_llvm_path(repository_ctx):
     if bazel_llvm:
         return bazel_llvm
 
-    _auto_configure_warning_maybe(repository_ctx, "'BAZEL_LLVM' is not set, " +
-                                                  "start looking for LLVM installation on machine.")
+    auto_configure_warning_maybe(repository_ctx, "'BAZEL_LLVM' is not set, " +
+                                                 "start looking for LLVM installation on machine.")
 
     # 2. Look for LLVM installation through registry.
-    _auto_configure_warning_maybe(repository_ctx, "Looking for LLVM installation through registry")
+    auto_configure_warning_maybe(repository_ctx, "Looking for LLVM installation through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     llvm_dir = None
     result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\LLVM\\LLVM"])
-    _auto_configure_warning_maybe(repository_ctx, "registry query result for LLVM:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
-                                                  (result.stdout, result.stderr))
+    auto_configure_warning_maybe(repository_ctx, "registry query result for LLVM:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                 (result.stdout, result.stderr))
     if not result.stderr:
         for line in result.stdout.split("\n"):
             line = line.strip()
             if line.startswith("(Default)") and line.find("REG_SZ") != -1:
                 llvm_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
     if llvm_dir:
-        _auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
+        auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
         return llvm_dir
 
     # 3. Check default directories for LLVM installation
-    _auto_configure_warning_maybe(repository_ctx, "Looking for default LLVM installation directory")
+    auto_configure_warning_maybe(repository_ctx, "Looking for default LLVM installation directory")
     program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES")
     if not program_files_dir:
         program_files_dir = "C:\\Program Files"
-        _auto_configure_warning_maybe(
+        auto_configure_warning_maybe(
             repository_ctx,
             "'PROGRAMFILES' environment variable is not set, using '%s' as default" % program_files_dir,
         )
@@ -383,9 +378,9 @@ def find_llvm_path(repository_ctx):
         llvm_dir = path
 
     if not llvm_dir:
-        _auto_configure_warning_maybe(repository_ctx, "LLVM installation not found.")
+        auto_configure_warning_maybe(repository_ctx, "LLVM installation not found.")
         return None
-    _auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
+    auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
     return llvm_dir
 
 def find_llvm_tool(repository_ctx, llvm_path, tool):
