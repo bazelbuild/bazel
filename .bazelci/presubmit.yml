@@ -95,6 +95,7 @@ platforms:
     platform: ubuntu1804
     environment:
       CC: clang
+      CC_CONFIGURE_DEBUG: 1
     name: "Clang"
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
