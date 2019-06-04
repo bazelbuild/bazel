@@ -136,6 +136,11 @@ public final class AnalysisUtils {
     return Iterables.filter(prerequisites, target -> target.get(provider) != null);
   }
 
+  /** Returns the iterable of collections that have the specified provider. */
+  public static <S extends TransitiveInfoCollection, C extends InfoInterface>
+      Iterable<S> filterByProvider(Iterable<S> prerequisites, final BuiltinProvider<C> provider) {
+    return Iterables.filter(prerequisites, target -> target.get(provider) != null);
+  }
 
   /**
    * Returns the path of the associated manifest file for the path of a Fileset. Works for both
