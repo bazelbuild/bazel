@@ -200,7 +200,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     differencer = new SequencedRecordingDifferencer();
 
     ActionExecutionStatusReporter statusReporter =
-        ActionExecutionStatusReporter.create(new StoredEventHandler());
+        ActionExecutionStatusReporter.create(new StoredEventHandler(), eventBus);
     final SkyframeActionExecutor skyframeActionExecutor =
         new SkyframeActionExecutor(
             actionKeyContext,

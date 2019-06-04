@@ -2606,6 +2606,11 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     return directories;
   }
 
+  @VisibleForTesting
+  ActionExecutionStatusReporter getActionExecutionStatusReporterForTesting() {
+    return statusReporterRef.get();
+  }
+
   /**
    * Initializes and syncs the graph with the given options, readying it for the next evaluation.
    */
