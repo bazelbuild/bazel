@@ -99,11 +99,11 @@ _common_attrs = {
     "patches": attr.label_list(
         default = [],
         doc =
-            "A list of files that are to be applied as patches afer " +
+            "A list of files that are to be applied as patches after " +
             "extracting the archive.",
     ),
     "patch_tool": attr.string(
-        default = "patch",
+        default = "",
         doc = "The patch(1) utility to use.",
     ),
     "patch_args": attr.string_list(
@@ -115,7 +115,13 @@ _common_attrs = {
     ),
     "patch_cmds": attr.string_list(
         default = [],
-        doc = "Sequence of commands to be applied after patches are applied.",
+        doc = "Sequence of Bash commands to be applied on Linux/Macos after patches are applied.",
+    ),
+    "patch_cmds_win": attr.string_list(
+        default = [],
+        doc = "Sequence of Powershell commands to be applied on Windows after patches are " +
+              "applied. If this attribute is not set, patch_cmds will be executed on Windows, " +
+              "which requires Bash binary to exist.",
     ),
 }
 

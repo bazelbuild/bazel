@@ -63,12 +63,6 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-
-if $is_windows; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 set_up() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
@@ -648,6 +642,111 @@ EOF
   bazel build :foo.sh
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'New version' $foopath || fail "expected patch to be applied"
+}
+
+test_native_patch() {
+  if "$is_windows"; then
+    # Bazel client detects MSYS2 installed and sets BAZEL_SH, in order to make sure we don't depend
+    # on Bash in repository rules, we set BAZEL_SH to a fake path intentionally.
+    export BAZEL_SH=C:/bash/does/not/exist
+  fi
+
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  mkdir main
+  cd main
+  ls -al
+  cat > remove-dragons.patch <<'EOF'
+diff --git a/foo.sh b/foo.sh
+index 1f4c41e..9d548ff 100644
+--- a/foo.sh
++++ b/foo.sh
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo New version of foo.sh, no more dangerous animals...
+EOF
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-0.1.2",
+  urls=["${EXTREPOURL}/ext.zip"],
+  build_file_content="exports_files([\"foo.sh\"])",
+  patches = ["//:remove-dragons.patch"],
+  patch_args = ["-p1"],
+  patch_cmds = [
+    "find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +",
+    "chmod u+x ./foo.sh",
+  ],
+  patch_cmds_win = ["(Get-Content -path foo.sh -Raw) -replace '/usr/bin/env sh','/bin/sh' | Set-Content -Path foo.sh"],
+)
+EOF
+  cat > BUILD <<'EOF'
+sh_binary(
+  name = "foo.sh",
+  srcs = ["@ext//:foo.sh"],
+)
+EOF
+  # Building sh_binary doesn't need to execute Bash so we are fine here with a fake BAZEL_SH.
+  bazel build :foo.sh
+  foopath=`bazel info bazel-bin`/foo.sh
+  grep -q 'New version' $foopath || fail "expected patch to be applied"
+  grep env $foopath && fail "expected patch commands to be executed" || :
+}
+
+test_fallback_to_bash_patch_tool() {
+  # In this test, we have "-b" in patch_args. Because Bazel's native patch implementation doesn't
+  # support "-b" (back up original file), the repository rule should fallback to use the patch
+  # command line tool.
+  # Besides, we don't have patch_cmds_win, on Windows, the repository rule should fall back to
+  # execute patch_cmds via Bash.
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  mkdir main
+  cd main
+  ls -al
+  cat > remove-dragons.patch <<'EOF'
+diff --git a/foo.sh b/foo.sh
+index 1f4c41e..9d548ff 100644
+--- a/foo.sh
++++ b/foo.sh
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo New version of foo.sh, no more dangerous animals...
+EOF
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-0.1.2",
+  urls=["${EXTREPOURL}/ext.zip"],
+  build_file_content="exports_files([\"foo.sh\"])",
+  patches = ["//:remove-dragons.patch"],
+  patch_args = ["-p1", "-b"],
+  patch_cmds = [
+    "find . -name '*.sh' -exec sed -i.bak '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +",
+    "chmod u+x ./foo.sh",
+  ],
+)
+EOF
+  cat > BUILD <<'EOF'
+sh_binary(
+  name = "foo.sh",
+  srcs = ["@ext//:foo.sh"],
+)
+EOF
+  # Building sh_binary doesn't need to execute Bash so we are fine here with a fake BAZEL_SH.
+  bazel build :foo.sh
+  foopath=`bazel info bazel-bin`/foo.sh
+  orig_foopath=`bazel info output_base`/external/ext/foo.sh.orig
+  grep -q 'Here be dragons' $orig_foopath || fail "expected original file is backed up"
+  grep env $foopath && fail "expected patch commands to be executed" || :
 }
 
 run_suite "external patching tests"

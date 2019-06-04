@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
+import com.google.devtools.build.lib.bazel.repository.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
@@ -69,6 +70,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+
+import difflib.PatchFailedException;
 
 /** Skylark API for the repository_rule's context. */
 public class SkylarkRepositoryContext
@@ -396,6 +399,26 @@ public class SkylarkRepositoryContext
       FileSystem fileSystem = path.getFileSystem();
       fileSystem.deleteTreesBelow(path);
       return fileSystem.delete(path);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @Override
+  public void patch(Object patchFile, Integer strip, Location location)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    SkylarkPath skylarkPath = getPath("patch()", patchFile);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newPatchEvent(
+            skylarkPath.toString(), strip, rule.getLabel().toString(), location);
+    env.getListener().post(w);
+    try {
+      PatchUtil.apply(skylarkPath.getPath(), strip, outputDirectory);
+    } catch (PatchFailedException e) {
+      throw new RepositoryFunctionException(
+          new EvalException(Location.BUILTIN,
+              "Error applying patch " + skylarkPath.toString() + ": " + e.getLocalizedMessage()),
+          Transience.TRANSIENT);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

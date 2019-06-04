@@ -188,11 +188,11 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     "patches": attr.label_list(
         default = [],
         doc =
-            "A list of files that are to be applied as patches afer " +
+            "A list of files that are to be applied as patches after " +
             "extracting the archive.",
     ),
     "patch_tool": attr.string(
-        default = "patch",
+        default = "",
         doc = "The patch(1) utility to use.",
     ),
     "patch_args": attr.string_list(
@@ -201,7 +201,13 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     ),
     "patch_cmds": attr.string_list(
         default = [],
-        doc = "Sequence of commands to be applied after patches are applied.",
+        doc = "Sequence of Bash commands to be applied on Linux/Macos after patches are applied.",
+    ),
+    "patch_cmds_win": attr.string_list(
+        default = [],
+        doc = "Sequence of Powershell commands to be applied on Windows after patches are " +
+              "applied. If this attribute is not set, patch_cmds will be executed on Windows, " +
+              "which requires Bash binary to exist.",
     ),
     "build_file": attr.label(
         allow_single_file = True,
