@@ -40,9 +40,9 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
   private EventCollector stderr = new EventCollector(EventKind.STDERR);
   private Path workspaceScript;
 
-  // Unchecked warnings are silenced by default.
-  private void enableUncheckedWarnings() throws Exception {
-    addOptions("--javacopt=\"-Xlint:unchecked\"");
+  // Cast warnings are silenced by default.
+  private void enableCastWarnings() throws Exception {
+    addOptions("--javacopt=\"-Xlint:cast\"");
   }
 
   // Deprecation warnings are silenced by default.
@@ -93,26 +93,28 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
         "java_library(name = 'd',",
         "             srcs = ['D.java'],",
         "             deps = ['//java/e'])");
-    write("java/d/D.java",
+    write(
+        "java/d/D.java",
         "package d;",
         "import java.lang.Integer;",
         "import java.util.ArrayList;",
         "public class D {",
         "  public static void d() {",
-        "    ArrayList<Integer> l = new ArrayList();",
+        "    int i = (int) 0;",
         "    e.E.e();",
         "  }",
         "}");
     write("java/e/BUILD",
         "java_library(name = 'e',",
         "             srcs = ['E.java'])");
-    write("java/e/E.java",
+    write(
+        "java/e/E.java",
         "package e;",
         "import java.lang.Integer;",
         "import java.util.LinkedList;",
         "public class E {",
         "  public static void e() {",
-        "    LinkedList<Integer> l = new LinkedList();",
+        "    int i = (int) 0;",
         "  }",
         "}");
     write("javatests/a/BUILD",
@@ -153,20 +155,21 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
     write("javatests/e/BUILD",
         "java_library(name = 'e',",
         "             srcs = ['ETest.java'])");
-    write("javatests/e/ETest.java",
+    write(
+        "javatests/e/ETest.java",
         "package e;",
         "import java.lang.Integer;",
         "import java.util.LinkedList;",
         "public class ETest {",
         "  public static void eTest() {",
-        "    LinkedList<Integer> l = new LinkedList();",
+        "    int i = (int) 0;",
         "  }",
         "}");
     workspaceScript = write("wrk", "echo STATUS_CMD_HAS_RUN >&2");
     workspaceScript.setExecutable(true);
 
-    // Always enable unchecked warnings.
-    enableUncheckedWarnings();
+    // Always enable cast warnings.
+    enableCastWarnings();
   }
 
   @Test
@@ -188,8 +191,8 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
     env.getReporter().addHandler(stderr);
     buildTarget("//java/d");
 
-    assertEvent("D.java:6: warning: [unchecked] unchecked conversion");
-    assertNoEvent("E.java:6: warning: [unchecked] unchecked conversion");
+    assertEvent("D.java:6: warning: [cast] redundant cast to int");
+    assertNoEvent("E.java:6: warning: [cast] redundant cast to int");
   }
 
   @Test
@@ -235,8 +238,8 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
     env.getReporter().addHandler(stderr);
     buildTarget("//java/d");
 
-    assertEvent("D.java:6: warning: [unchecked] unchecked conversion");
-    assertNoEvent("E.java:6: warning: [unchecked] unchecked conversion");
+    assertEvent("D.java:6: warning: [cast] redundant cast to int");
+    assertNoEvent("E.java:6: warning: [cast] redundant cast to int");
   }
 
   @Test
@@ -320,9 +323,9 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
     env.getReporter().addHandler(stderr);
     buildTarget("//javatests/d");
 
-    assertEvent("D.java:6: warning: [unchecked] unchecked conversion");
-    assertNoEvent("E.java:6: warning: [unchecked] unchecked conversion");
-    assertNoEvent("ETest.java:6: warning: [unchecked] unchecked conversion");
+    assertEvent("D.java:6: warning: [cast] redundant cast to int");
+    assertNoEvent("E.java:6: warning: [cast] redundant cast to int");
+    assertNoEvent("ETest.java:6: warning: [cast] redundant cast to int");
   }
 
   @Test
