@@ -150,6 +150,8 @@ public class WorkerMultiplexer extends Thread {
   private void waitResponse() throws InterruptedException, IOException {
     WorkResponse parsedResponse = WorkResponse.parseDelimitedFrom(process.getInputStream());
 
+    if (parsedResponse == null) return;
+
     Integer workerId = parsedResponse.getRequestId();
     ByteArrayOutputStream tempOs = new ByteArrayOutputStream();
     parsedResponse.writeDelimitedTo(tempOs);
