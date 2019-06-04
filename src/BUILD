@@ -437,6 +437,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib:srcs",
         "//src/main/java/com/google/devtools/build/lib/includescanning:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
+        "//src/main/java/com/google/devtools/build/lib/outputfilter:srcs",
         "//src/main/java/com/google/devtools/build/skydoc:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",

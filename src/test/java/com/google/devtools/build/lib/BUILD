@@ -44,6 +44,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/buildeventstream:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
+        "//src/test/java/com/google/devtools/build/lib/outputfilter:srcs",
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
