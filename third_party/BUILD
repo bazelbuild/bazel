@@ -522,7 +522,7 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:darwin": "*.so *.dll",
     "//src/conditions:darwin_x86_64": "*.so *.dll",
     "//src/conditions:linux_x86_64": "*.jnilib *.dll",
-    # The .so file is an x86 one, so we can just remove it the CPU is not x86
+    # The .so file is an x86 one, so we can just remove it if the CPU is not x86
     "//src/conditions:arm": "*.so *.jnilib *.dll",
     "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
     # Play it safe -- better have a big binary than a slow binary
