@@ -317,11 +317,11 @@ http_archive(
 
 http_archive(
     name = "bazel_rbe_toolchains",
-    sha256 = "f575778fb1366718f5e1204200ecf35796c558998c15303945d351f0b42669e5",
-    strip_prefix = "bazel_rbe_toolchains-f50471a57cd05a313a953fa54756db6e8fd93673",
+    #sha256 = "",
+    strip_prefix = "bazel_rbe_toolchains-01529a65d21abdf71635ff0c2472043a567ecded",
     urls = [
-        "https://mirror.bazel.build/github.com/buchgr/bazel_rbe_toolchains/archive/f50471a57cd05a313a953fa54756db6e8fd93673.tar.gz",
-        "https://github.com/buchgr/bazel_rbe_toolchains/archive/f50471a57cd05a313a953fa54756db6e8fd93673.tar.gz",
+        "https://mirror.bazel.build/github.com/buchgr/bazel_rbe_toolchains/archive/01529a65d21abdf71635ff0c2472043a567ecded.tar.gz",
+        "https://github.com/buchgr/bazel_rbe_toolchains/archive/01529a65d21abdf71635ff0c2472043a567ecded.tar.gz",
     ],
 )
 
