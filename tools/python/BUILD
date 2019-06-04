@@ -28,7 +28,9 @@ test_suite(
 expand_pyversion_template(
     name = "_generate_wrappers",
     out2 = ":py2wrapper.sh",
+    out2_nonstrict = ":py2wrapper_nonstrict.sh",
     out3 = ":py3wrapper.sh",
+    out3_nonstrict = ":py3wrapper_nonstrict.sh",
     template = "pywrapper_template.txt",
     visibility = ["//visibility:private"],
 )
@@ -36,7 +38,10 @@ expand_pyversion_template(
 py_test(
     name = "pywrapper_test",
     srcs = ["pywrapper_test.py"],
-    data = [":py2wrapper.sh"],
+    data = [
+        ":py2wrapper.sh",
+        ":py2wrapper_nonstrict.sh",
+    ],
     python_version = "PY2",
     deps = ["//src/test/py/bazel:test_base"],
 )
