@@ -64,10 +64,11 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
   }
 
   @Before
-  public void setupMyInfo() throws Exception {
+  public void setup() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
+    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
   }
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
