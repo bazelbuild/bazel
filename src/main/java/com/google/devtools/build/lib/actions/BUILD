@@ -30,6 +30,7 @@ java_library(
     deps = [
         ":commandline_item",
         ":localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib:command-utils",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",

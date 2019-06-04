@@ -14,24 +14,17 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
-/**
- * Notifies that an in-flight action has started being scanned for discovered inputs.
- *
- * <p>This phase ends when an {@link StoppedScanningActionEvent} is posted for this action.
- */
-public class ScanningActionEvent implements ProgressLike {
+/** Counterpart to {@link ScanningActionEvent}: indicates that scanning is over. */
+public class StoppedScanningActionEvent implements ExtendedEventHandler.ProgressLike {
+  private final Action action;
 
-  private final ActionExecutionMetadata action;
-
-  /** Constructs a new event. */
-  public ScanningActionEvent(ActionExecutionMetadata action) {
+  public StoppedScanningActionEvent(Action action) {
     this.action = action;
   }
 
-  /** Gets the metadata associated with the action being analyzed. */
-  public ActionExecutionMetadata getActionMetadata() {
+  public Action getAction() {
     return action;
   }
 }

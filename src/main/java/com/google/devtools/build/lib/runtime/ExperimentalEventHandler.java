@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
+import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -772,6 +773,13 @@ public class ExperimentalEventHandler implements EventHandler {
   @AllowConcurrentEvents
   public void scanningAction(ScanningActionEvent event) {
     stateTracker.scanningAction(event);
+    refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void stopScanningAction(StoppedScanningActionEvent event) {
+    stateTracker.stopScanningAction(event);
     refresh();
   }
 
