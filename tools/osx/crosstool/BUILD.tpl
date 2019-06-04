@@ -62,8 +62,8 @@ cc_toolchain_suite(
     apple_cc_toolchain(
         name = "cc-compiler-" + arch,
         all_files = ":osx_tools_" + arch,
-        ar_files = ":empty",
-        as_files = ":empty",
+        ar_files = ":osx_tools_" + arch,
+        as_files = ":osx_tools_" + arch,
         compiler_files = ":osx_tools_" + arch,
         dwp_files = ":empty",
         linker_files = ":osx_tools_" + arch,
