@@ -62,18 +62,6 @@ struct GlobalVariables {
   // Parsed startup options.
   StartupOptions *options;  // TODO(jmmv): This should really be const.
 
-  // The time in ms the launcher spends before sending the request to the blaze
-  // server.
-  uint64_t startup_time;
-
-  // The time in ms spent on extracting the new blaze version.
-  // This is part of startup_time.
-  uint64_t extract_data_time;
-
-  // The time in ms a command had to wait on a busy Blaze server process.
-  // This is part of startup_time.
-  uint64_t command_wait_time;
-
   // The reason for the server restart.
   RestartReason restart_reason;
 
