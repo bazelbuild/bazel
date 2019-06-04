@@ -69,6 +69,13 @@ filegroup(
     srcs = [],
 )
 
+config_setting(
+    name = "disable_static_cc_toolchains",
+    values = {
+        "incompatible_disable_static_cc_toolchains": "true",
+    },
+)
+
 # This is the entry point for --crosstool_top.  Toolchains are found
 # by lopping off the name of --crosstool_top and searching for
 # "cc-compiler-${CPU}" in this BUILD file, where CPU is the target CPU
@@ -128,6 +135,10 @@ cc_toolchain_config(
     name = "local_linux",
     compiler = "compiler",
     cpu = "local",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
@@ -269,6 +280,10 @@ cc_toolchain_config(
     name = "local_darwin",
     compiler = "compiler",
     cpu = "darwin",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
@@ -304,6 +319,10 @@ cc_toolchain_config(
     name = "local_freebsd",
     compiler = "compiler",
     cpu = "freebsd",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
@@ -339,6 +358,10 @@ cc_toolchain_config(
     name = "local_windows_msys64",
     compiler = "windows_msys64",
     cpu = "x64_windows",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
@@ -374,6 +397,10 @@ cc_toolchain_config(
     name = "vc_14_0_x64",
     compiler = "cl",
     cpu = "x64_windows_msvc",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
