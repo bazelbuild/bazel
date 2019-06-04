@@ -247,7 +247,7 @@ public abstract class BuildIntegrationTestCase {
    * that may not have been initialized yet.
    */
   protected PathFragment getDesiredWorkspaceRelative() {
-    return PathFragment.create("workspace");
+    return PathFragment.create(TestConstants.WORKSPACE_NAME);
   }
 
   protected InternalTestExecutionMode getInternalTestExecutionMode() {
