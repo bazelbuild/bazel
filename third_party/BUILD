@@ -531,7 +531,7 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
 })
 
 # Remove native libraries that are for a platform different from the one we are
-# building Bazel for
+# building Bazel for.
 genrule(
     name = "filter_netty_dynamic_libs",
     srcs = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
