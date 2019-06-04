@@ -517,6 +517,28 @@ java_import(
     ],
 )
 
+UNNECESSARY_DYNAMIC_LIBRARIES = select({
+    "//src/conditions:windows": "*.so *.jnilib",
+    "//src/conditions:darwin": "*.so *.dll",
+    "//src/conditions:darwin_x86_64": "*.so *.dll",
+    "//src/conditions:linux_x86_64": "*.jnilib *.dll",
+    # The .so file is an x86 one, so we can just remove it the CPU is not x86
+    "//src/conditions:arm": "*.so *.jnilib *.dll",
+    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
+    # Play it safe -- better have a big binary than a slow binary
+    # zip -d does require an argument. Supply something bogus.
+    "//conditions:default": "*.bogusextension",
+})
+
+# Remove native libraries that are for a platform different from the one we are
+# building Bazel for
+genrule(
+    name = "filter_netty_dynamic_libs",
+    srcs = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
+    outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
+    cmd = "cp $< $@ && zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES,
+)
+
 java_import(
     name = "netty",
     jars = ["netty/netty-all-4.1.34.Final.jar"],
@@ -524,7 +546,7 @@ java_import(
 
 java_import(
     name = "netty_tcnative",
-    jars = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
+    jars = ["netty_tcnative/netty-tcnative-filtered.jar"],
 )
 
 java_import(
