@@ -1,0 +1,4 @@
+Patch release on top of 0.26.0, fixing
+- https://github.com/bazelbuild/bazel/issues/8475
+- https://github.com/bazelbuild/bazel/issues/8520
+- https://github.com/bazelbuild/intellij/issues/845
