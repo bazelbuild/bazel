@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
+import com.google.devtools.build.lib.actions.CompletionContext;
+import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
@@ -53,15 +54,6 @@ import javax.annotation.Nullable;
  */
 public final class CompletionFunction<TValue extends SkyValue, TResult extends SkyValue>
     implements SkyFunction {
-
-  interface PathResolverFactory {
-    ArtifactPathResolver createPathResolverForArtifactValues(
-        ActionInputMap actionInputMap,
-        Map<Artifact, Collection<Artifact>> expandedArtifacts,
-        Iterable<Artifact> filesets);
-
-    boolean shouldCreatePathResolverForArtifactValues();
-  }
 
   /** A strategy for completing the build. */
   interface Completor<TValue, TResult extends SkyValue> {
@@ -107,7 +99,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     ExtendedEventHandler.Postable createSucceeded(
         SkyKey skyKey,
         TValue value,
-        ArtifactPathResolver pathResolver,
+        CompletionContext completionContext,
         TopLevelArtifactContext topLevelArtifactContext,
         Environment env)
         throws InterruptedException;
@@ -201,7 +193,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     public ExtendedEventHandler.Postable createSucceeded(
         SkyKey skyKey,
         ConfiguredTargetValue value,
-        ArtifactPathResolver pathResolver,
+        CompletionContext completionContext,
         TopLevelArtifactContext topLevelArtifactContext,
         Environment env)
         throws InterruptedException {
@@ -215,10 +207,14 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
           TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext);
       if (((TargetCompletionKey) skyKey.argument()).willTest()) {
         return TargetCompleteEvent.successfulBuildSchedulingTest(
-            configuredTargetAndData, pathResolver, artifactsToBuild.getAllArtifactsByOutputGroup());
+            configuredTargetAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup());
       } else {
         return TargetCompleteEvent.successfulBuild(
-            configuredTargetAndData, pathResolver, artifactsToBuild.getAllArtifactsByOutputGroup());
+            configuredTargetAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup());
       }
     }
   }
@@ -309,7 +305,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     public ExtendedEventHandler.Postable createSucceeded(
         SkyKey skyKey,
         AspectValue value,
-        ArtifactPathResolver pathResolver,
+        CompletionContext completionContext,
         TopLevelArtifactContext topLevelArtifactContext,
         Environment env)
         throws InterruptedException {
@@ -322,7 +318,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       }
 
       return AspectCompleteEvent.createSuccessful(
-          value, pathResolver, artifacts, configurationEventId);
+          value, completionContext, artifacts, configurationEventId);
     }
   }
 
@@ -359,15 +355,9 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
             MissingInputFileException.class,
             ActionExecutionException.class);
 
-    boolean createPathResolver = pathResolverFactory.shouldCreatePathResolverForArtifactValues();
-    ActionInputMap inputMap = null;
-    Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = null;
-    if (createPathResolver) {
-      inputMap = new ActionInputMap(inputDeps.size());
-      expandedArtifacts = new HashMap<>();
-      expandedFilesets = new HashMap<>();
-    }
+    ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
+    Map<Artifact, Collection<Artifact>> expandedArtifacts = new HashMap<>();
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
 
     int missingCount = 0;
     ActionExecutionException firstActionExecutionException = null;
@@ -378,7 +368,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       Artifact input = ArtifactSkyKey.artifact(depsEntry.getKey());
       try {
         SkyValue artifactValue = depsEntry.getValue().get();
-        if (createPathResolver && artifactValue != null) {
+        if (artifactValue != null) {
           ActionInputMapHelper.addToMap(
               inputMap,
               expandedArtifacts,
@@ -437,14 +427,12 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       return null;
     }
 
-    ArtifactPathResolver pathResolver =
-        createPathResolver
-            ? pathResolverFactory.createPathResolverForArtifactValues(
-                inputMap, expandedArtifacts, expandedFilesets.keySet())
-            : ArtifactPathResolver.IDENTITY;
+    CompletionContext ctx =
+        CompletionContext.create(
+            expandedArtifacts, expandedFilesets, inputMap, pathResolverFactory);
 
     ExtendedEventHandler.Postable postable =
-        completor.createSucceeded(skyKey, value, pathResolver, topLevelContext, env);
+        completor.createSucceeded(skyKey, value, ctx, topLevelContext, env);
     if (postable == null) {
       return null;
     }
