@@ -53,11 +53,13 @@ documentation for py_runtime_pair \
 (https://github.com/bazelbuild/bazel/blob/master/tools/python/toolchain.bzl)."
 fi
 
-# Verify that we grabbed an interpreter with the right version.
-VERSION_STR=`"$PYTHON_BIN" -V 2>&1` \
-    || die "Could not get interpreter version via '$PYTHON_BIN -V'"
-if ! echo "$VERSION_STR" | grep -q " %VERSION%\." ; then
-    die "According to '$PYTHON_BIN -V', version is '$VERSION_STR', but we \
+STRICT=%STRICT%
+if [ "$STRICT" = "1" ]; then
+  # Verify that we grabbed an interpreter with the right version.
+  VERSION_STR=`"$PYTHON_BIN" -V 2>&1` \
+      || die "Could not get interpreter version via '$PYTHON_BIN -V'"
+  if ! echo "$VERSION_STR" | grep -q " %VERSION%\." ; then
+      die "According to '$PYTHON_BIN -V', version is '$VERSION_STR', but we \
 need version %VERSION%. PATH is:
 
 $PATH
@@ -65,7 +67,17 @@ $PATH
 Please ensure an interpreter with version %VERSION% is available on this \
 platform as 'python%VERSION%' or 'python', or else register an appropriate \
 Python toolchain as per the documentation for py_runtime_pair \
-(https://github.com/bazelbuild/bazel/blob/master/tools/python/toolchain.bzl)."
+(https://github.com/bazelbuild/bazel/blob/master/tools/python/toolchain.bzl).
+
+Note that prior to Bazel 0.27, there was no check to ensure that the \
+interpreter's version matched the version declared by the target (#4815). If \
+your build worked prior to Bazel 0.27, and you're sure your targets do not \
+require Python %VERSION%, you can opt out of this version check by using the \
+non-strict autodetecting toolchain instead of the standard autodetecting \
+toolchain. This can be done by passing the flag \
+`--extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain_nonstrict` \
+on the command line or adding it to your bazelrc."
+  fi
 fi
 
 exec "$PYTHON_BIN" "$@"
