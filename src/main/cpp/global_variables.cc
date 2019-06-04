@@ -19,9 +19,6 @@ namespace blaze {
 GlobalVariables::GlobalVariables()
     : server_pid(-1),
       options(NULL), /* Initialized after parsing with option_processor. */
-      startup_time(0),
-      extract_data_time(0),
-      command_wait_time(0),
       restart_reason(NO_RESTART) {}
 
 }  // namespace blaze
