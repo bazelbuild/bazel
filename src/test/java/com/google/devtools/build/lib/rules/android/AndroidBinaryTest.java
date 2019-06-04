@@ -81,7 +81,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Before
-  public void createFiles() throws Exception {
+  public void setup() throws Exception {
     scratch.file("java/android/BUILD",
         "android_binary(name = 'app',",
         "               srcs = ['A.java'],",
@@ -92,6 +92,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     scratch.file("java/android/A.java",
         "package android; public class A {};");
+    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
   }
 
   @Test

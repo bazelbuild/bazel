@@ -2728,6 +2728,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    '_attr': attr.label(",
         "        cfg = android_common.multi_cpu_configuration,",
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
 

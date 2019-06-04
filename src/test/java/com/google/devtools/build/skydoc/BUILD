@@ -77,6 +77,9 @@ skydoc_test(
     name = "android_basic_test",
     golden_file = "testdata/android_basic_test/golden.txt",
     input_file = "testdata/android_basic_test/input.bzl",
+    semantic_flags = [
+        "--experimental_google_legacy_api",
+    ],
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
     whitelisted_symbols = ["android_related_rule"],
 )
