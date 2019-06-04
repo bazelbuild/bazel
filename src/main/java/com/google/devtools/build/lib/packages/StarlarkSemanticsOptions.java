@@ -612,6 +612,18 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "returns a depset instead.")
   public boolean incompatibleDepsetForLibrariesToLinkGetter;
 
+  @Option(
+      name = "incompatible_restrict_string_escapes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, unknown string escapes like `\\a` become rejected.")
+  public boolean incompatibleRestrictStringEscapes;
+
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
   public StarlarkSemantics toSkylarkSemantics() {
     return StarlarkSemantics.builder()
@@ -662,6 +674,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
         .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
         .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
+        .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
         .build();
   }
 }
