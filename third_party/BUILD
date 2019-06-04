@@ -342,7 +342,7 @@ java_import(
 
 java_import(
     name = "compile_testing",
-    jars = ["compile_testing/compile-testing-0.13.jar"],
+    jars = ["compile_testing/compile-testing-0.18.jar"],
 )
 
 java_import(
@@ -607,7 +607,7 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.44.jar"],
+    jars = ["truth/truth-0.45.jar"],
     deps = [
         ":diffutils",
     ],
@@ -615,7 +615,7 @@ java_import(
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-0.44.jar"],
+    jars = ["truth8/truth-java8-extension-0.45.jar"],
 )
 
 java_import(
