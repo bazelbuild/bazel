@@ -44,7 +44,16 @@ Before completing the steps in this document, ensure the following:
 
 2.  Add the[`bazel-toolchains`](https://github.com/bazelbuild/bazel-toolchains)
     GitHub repository to your `WORKSPACE` file, pinned to the
-    [latest release](https://releases.bazel.build/bazel-toolchains.html).
+    [latest release](https://releases.bazel.build/bazel-toolchains.html). Also
+    add an `rbe_autoconfig` target with name `buildkite_config`:
+
+```
+load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
+
+# Creates toolchain configuration for remote execution with BuildKite CI
+# for rbe_ubuntu1604.
+rbe_autoconfig(name = "buildkite_config")
+```
 
 3.  Send a pull request with your changes to the `presubmit.yml` file. (See
     [example pull request](https://github.com/bazelbuild/rules_rust/commit/db141526d89d00748404856524cedd7db8939c35).)
@@ -203,35 +212,8 @@ Container Registry as follows:
 
 You must include a [Bazel platform](platforms.html) configuration in your
 custom toolchain configuration, which allows Bazel to select a toolchain
-appropriate to the desired hardware/software platform. See this
-[example platform configuration](https://github.com/tensorflow/tensorflow/blob/master/third_party/toolchains/BUILD)
-for the TensorFlow `ubuntu16-04` container.
-
-Create a similar configuration (that is, using the same constraints) but replace
-the value of the `container-image` property with the name of your custom
-container, as well as your GCR project ID and container image checksum. For
-example:
-
-```
-docker://gcr.io/<project-id>/<custom-container-name> @sha256:<sha256sum>
-```
-
-Once you have created a `BUILD` file with the platform rule, place it within
-your project tree. For example, `/platforms/BUILD`.
-
-### Configuring Buildkite
-
-Add the appropriate `build_flag` and `test_flag` entries to the
-`.bazelci/presubmit.yml` file in your `rbe_ubuntu1604 `config to switch your
-builds to using your custom container.
-See [example](https://github.com/bazelbuild/rules_docker/pull/484).
-
-**Note:** The example linked above uses a platform definition from the
-`@bazel_toolchains` repo. If your platform rule is in `/platforms/BUILD`, the
-entries would look as follows:
-
-```
-"--extra_execution_platforms=//platforms:<your_platform_target>"
-"--host_platform=//platforms:<your_platform_target>"
-"--platforms=//platforms:<your_platform_target>"
-```
+appropriate to the desired hardware/software platform. To generate
+automatically a valid platform, you can add  to your `WORKSPACE` an
+`rbe_autoconfig` target with name `buildkite_config` which includes additional
+attrs to select your custom container. For details on this setup please read
+the up-to-date documentation for [`rbe_autoconfig`](https://github.com/bazelbuild/bazel-toolchains/blob/master/rules/rbe_repo.bzl)
