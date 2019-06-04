@@ -90,7 +90,6 @@ public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact, J
                 .addTransitive(javaCompilationArgsProvider.getTransitiveFullCompileTimeJars())
                 .build(),
             NestedSetBuilder.<Artifact>naiveLinkOrder()
-                .add(rJar)
                 .addTransitive(javaCompilationArgsProvider.getCompileTimeJavaDependencyArtifacts())
                 .build());
     return JavaInfo.Builder.copyOf(javaInfo)
