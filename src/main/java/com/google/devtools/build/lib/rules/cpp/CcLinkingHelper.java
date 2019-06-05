@@ -348,18 +348,14 @@ public final class CcLinkingHelper {
     Preconditions.checkNotNull(ccOutputs);
 
     // Create link actions (only if there are object files or if explicitly requested).
-    CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
+    //
     // On some systems, the linker gives an error message if there are no input files. Even with
     // the check above, this can still happen if there is a .nopic.o or .o files in srcs, but no
     // other files. To fix that, we'd have to check for each link action individually.
     //
     // An additional pre-existing issue is that the header check tokens are dropped if we don't
     // generate any link actions, effectively disabling header checking in some cases.
-    if (staticLinkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
-      // TODO(bazel-team): This can't create the link action for a cc_binary yet.
-      ccLinkingOutputs = createCcLinkActions(ccOutputs);
-    }
-    return ccLinkingOutputs;
+    return createCcLinkActions(ccOutputs);
   }
 
   public CcLinkingContext buildCcLinkingContextFromLibrariesToLink(
