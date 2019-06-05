@@ -588,30 +588,31 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     result = (List<String>) evalRuleContextCode(
         createRuleContext("//test/getrule:genrule_attr"), "ruleContext.attr.s");
-    assertThat(result).containsExactly(
-        "name",
-        "visibility",
-        "transitive_configs",
-        "tags",
-        "generator_name",
-        "generator_function",
-        "generator_location",
-        "features",
-        "compatible_with",
-        "restricted_to",
-        "srcs",
-        "tools",
-        "toolchains",
-        "outs",
-        "cmd",
-        "output_to_bindir",
-        "local",
-        "message",
-        "executable",
-        "stamp",
-        "heuristic_label_expansion",
-        "kind",
-        "exec_compatible_with");
+    assertThat(result)
+        .containsAtLeast(
+            "name",
+            "visibility",
+            "transitive_configs",
+            "tags",
+            "generator_name",
+            "generator_function",
+            "generator_location",
+            "features",
+            "compatible_with",
+            "restricted_to",
+            "srcs",
+            "tools",
+            "toolchains",
+            "outs",
+            "cmd",
+            "output_to_bindir",
+            "local",
+            "message",
+            "executable",
+            "stamp",
+            "heuristic_label_expansion",
+            "kind",
+            "exec_compatible_with");
   }
 
   @Test
