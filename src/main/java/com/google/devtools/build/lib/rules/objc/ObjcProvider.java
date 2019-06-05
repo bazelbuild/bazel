@@ -1131,7 +1131,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
      */
     void addElementsFromSkylark(Key<?> key, Object skylarkToAdd) throws EvalException {
       NestedSet<?> toAdd = ObjcProviderSkylarkConverters.convertToJava(key, skylarkToAdd);
-      uncheckedAddTransitive(key, toAdd, this.items);
+      // TODO(b/134586996): toAdd should be added as a transitive member, but this causes breakages.
+      uncheckedAddAll(key, toAdd.toList(), this.items);
       if (ObjcProvider.KEYS_FOR_DIRECT.contains(key)) {
         uncheckedAddAllDirect(key, toAdd, this.directItems);
       }
