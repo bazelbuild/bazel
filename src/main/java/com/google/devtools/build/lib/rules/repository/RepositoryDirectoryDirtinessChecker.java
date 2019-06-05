@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
  */
 @VisibleForTesting
 public class RepositoryDirectoryDirtinessChecker extends SkyValueDirtinessChecker {
-  private Path workspaceRoot;
+  private final Path workspaceRoot;
   private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
   public RepositoryDirectoryDirtinessChecker(

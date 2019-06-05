@@ -78,9 +78,11 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -116,7 +118,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     managedDirectoriesKnowledge = new TestManagedDirectoriesKnowledge();
     HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-    testSkylarkRepositoryFunction = new TestSkylarkRepositoryFunction(downloader);
+    testSkylarkRepositoryFunction =
+        new TestSkylarkRepositoryFunction(rootPath, downloader, managedDirectoriesKnowledge);
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
     delegatorFunction =
@@ -244,7 +247,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     TestManagedDirectoriesKnowledge knowledge = new TestManagedDirectoriesKnowledge();
 
     RepositoryDirectoryDirtinessChecker checker =
-        new RepositoryDirectoryDirtinessChecker(directories.getWorkspace(), knowledge);
+        new RepositoryDirectoryDirtinessChecker(rootPath, knowledge);
     RepositoryName repositoryName = RepositoryName.create("@repo");
     RepositoryDirectoryValue.Key key = RepositoryDirectoryValue.key(repositoryName);
 
@@ -273,12 +276,18 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
 
+    Path managedDirectoryM = rootPath.getRelative("m");
+    assertThat(managedDirectoryM.createDirectory()).isTrue();
+
     knowledge.setManagedDirectories(
         ImmutableMap.of(PathFragment.create("m"), RepositoryName.create("@other")));
     assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
 
     knowledge.setManagedDirectories(ImmutableMap.of(PathFragment.create("m"), repositoryName));
     assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isFalse();
+
+    managedDirectoryM.deleteTree();
+    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
   }
 
   @Test
@@ -314,8 +323,22 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     testSkylarkRepositoryFunction.reset();
 
     loadRepo("repo1");
+    // Nothing changed, fetch does not happen.
     assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isFalse();
     testSkylarkRepositoryFunction.reset();
+
+    // Delete managed directory, fetch should happen again.
+    Path managedDirectory = rootPath.getRelative("dir1");
+    managedDirectory.deleteTree();
+    loadRepo("repo1");
+    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isTrue();
+    testSkylarkRepositoryFunction.reset();
+
+    // Change managed directories declaration, fetch should happen.
+    // NB: we are making sure that managed directories exist to check only the declaration changes
+    // were percepted.
+    rootPath.getRelative("dir1").createDirectory();
+    rootPath.getRelative("dir2").createDirectory();
 
     managedDirectoriesKnowledge.setManagedDirectories(
         ImmutableMap.of(
@@ -355,9 +378,16 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
   private static class TestSkylarkRepositoryFunction extends SkylarkRepositoryFunction {
     private boolean fetchCalled = false;
+    private final Path workspaceRoot;
+    private final TestManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
-    private TestSkylarkRepositoryFunction(HttpDownloader downloader) {
+    private TestSkylarkRepositoryFunction(
+        Path workspaceRoot,
+        HttpDownloader downloader,
+        TestManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
       super(downloader);
+      this.workspaceRoot = workspaceRoot;
+      this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
     }
 
     public void reset() {
@@ -379,7 +409,18 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         SkyKey key)
         throws RepositoryFunctionException, InterruptedException {
       fetchCalled = true;
-      return super.fetch(rule, outputDirectory, directories, env, markerData, key);
+      RepositoryDirectoryValue.Builder builder = super
+          .fetch(rule, outputDirectory, directories, env, markerData, key);
+      ImmutableSet<PathFragment> managedDirectories = managedDirectoriesKnowledge
+          .getManagedDirectories((RepositoryName) key.argument());
+      try {
+        for (PathFragment managedDirectory : managedDirectories) {
+          workspaceRoot.getRelative(managedDirectory).createDirectory();
+        }
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      }
+      return builder;
     }
   }
 
