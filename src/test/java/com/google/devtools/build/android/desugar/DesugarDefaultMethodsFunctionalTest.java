@@ -98,8 +98,11 @@ public final class DesugarDefaultMethodsFunctionalTest extends DesugarJava8Funct
 
     List<Annotation> annotations = Arrays.asList(method.getAnnotations());
 
-    assertThat(Iterables.getOnlyElement(annotations))
-        .isInstanceOf(InterfaceMethodWithParam.Foo.class);
+    Annotation parameterAnnotation = Iterables.getOnlyElement(annotations);
+    assertThat(parameterAnnotation).isInstanceOf(InterfaceMethodWithParam.Foo.class);
+
+    InterfaceMethodWithParam.Foo fooInstance = (InterfaceMethodWithParam.Foo) parameterAnnotation;
+    assertThat(fooInstance.value()).isEqualTo("custom-attr-value-2");
   }
 
   @Test
@@ -144,7 +147,7 @@ public final class DesugarDefaultMethodsFunctionalTest extends DesugarJava8Funct
   }
 
   @Test
-  public void methodAnnotationsArePreservedOnStaticMethodCompanions() throws Exception {
+  public void methodParameterAnnotationsArePreservedOnStaticMethodCompanions() throws Exception {
     Method method = InterfaceMethodWithParam.MethodInvocations.inspectCompanionOfStaticMethod();
     Annotation[] parameterAnnotations = method.getAnnotations();
     assertThat(parameterAnnotations).hasLength(1);
@@ -201,8 +204,11 @@ public final class DesugarDefaultMethodsFunctionalTest extends DesugarJava8Funct
         InterfaceMethodWithParam.MethodInvocations.inspectCompanionMethodOfDefaultMethod();
 
     List<Annotation> annotations = Arrays.asList(method.getAnnotations());
-    assertThat(Iterables.getOnlyElement(annotations))
-        .isInstanceOf(InterfaceMethodWithParam.Foo.class);
+    Annotation methodAnnotation = Iterables.getOnlyElement(annotations);
+    assertThat(methodAnnotation).isInstanceOf(InterfaceMethodWithParam.Foo.class);
+
+    InterfaceMethodWithParam.Foo fooInstance = (InterfaceMethodWithParam.Foo) methodAnnotation;
+    assertThat(fooInstance.value()).isEqualTo("custom-attr-value-2");
   }
 
   @Test
