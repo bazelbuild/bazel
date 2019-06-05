@@ -62,21 +62,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Dispatches to the Blaze commands; that is, given a command line, this
- * abstraction looks up the appropriate command object, parses the options
- * required by the object, and calls its exec method. Also, this object provides
- * the runtime state (BlazeRuntime) to the commands.
+ * Dispatches to the Blaze commands; that is, given a command line, this abstraction looks up the
+ * appropriate command object, parses the options required by the object, and calls its exec method.
+ * Also, this object provides the runtime state (BlazeRuntime) to the commands.
  */
-public class BlazeCommandDispatcher {
+public class BlazeCommandDispatcher implements CommandDispatcher {
   private static final Logger logger = Logger.getLogger(BlazeCommandDispatcher.class.getName());
-
-  /**
-   * What to do if the command lock is not available.
-   */
-  public enum LockingMode {
-    WAIT,  // Wait until it is available
-    ERROR_OUT,  // Return with an error
-  }
 
   private static final ImmutableList<String> HELP_COMMAND = ImmutableList.of("help");
 
@@ -120,11 +111,7 @@ public class BlazeCommandDispatcher {
     this.commandLock = new Object();
   }
 
-  /**
-   * Executes a single command. Returns a {@link BlazeCommandResult} to indicate either an exit
-   * code, the desire to shut down the server, or that a given binary should be executed by the
-   * client.
-   */
+  @Override
   public BlazeCommandResult exec(
       InvocationPolicy invocationPolicy,
       List<String> args,
