@@ -23,9 +23,19 @@ option java_outer_classname = "SemverProto";
 option java_package = "build.bazel.semver";
 option objc_class_prefix = "SMV";
 
+// The full version of a given tool.
 message SemVer {
+  // The major version, e.g 10 for 10.2.3.
   int32 major = 1;
+
+  // The minor version, e.g. 2 for 10.2.3.
   int32 minor = 2;
+
+  // The patch version, e.g 3 for 10.2.3.
   int32 patch = 3;
+
+  // The pre-release version. Either this field or major/minor/patch fields
+  // must be filled. They are mutually exclusive. Pre-release versions are
+  // assumed to be earlier than any released versions.
   string prerelease = 4;
 }
