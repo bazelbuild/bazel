@@ -113,7 +113,8 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               Iterable<QueryFunction> extraFunctions,
               @Nullable PathPackageLocator packagePath,
               boolean blockUniverseEvaluationErrors,
-              boolean useForkJoinPool) {
+              boolean useForkJoinPool,
+              boolean useGraphlessQuery) {
             return new GraphlessBlazeQueryEnvironment(
                 transitivePackageLoader,
                 targetProvider,

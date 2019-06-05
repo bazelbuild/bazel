@@ -344,7 +344,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   /*extraFunctions=*/ ImmutableList.of(),
                   /*packagePath=*/ null,
                   /*blockUniverseEvaluationErrors=*/ false,
-                  /*useForkJoinPool=*/ false);
+                  /*useForkJoinPool=*/ false,
+                  /*useGraphlessQuery=*/ false);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);

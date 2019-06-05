@@ -200,7 +200,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         getExtraQueryFunctions(),
         pkgManager.getPackagePath(),
         blockUniverseEvaluationErrors,
-        /*useForkJoinPool=*/ false);
+        /*useForkJoinPool=*/ false,
+        /*useGraphlessQuery=*/ false);
   }
 
   protected abstract Iterable<QueryFunction> getExtraQueryFunctions();
