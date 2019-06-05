@@ -64,11 +64,11 @@ We recommend installing:
 
     *   Visual C++ Build Tools 2015 (or newer) and Windows 10 SDK
 
-*   Java SE Development Kit 8 (JDK) for Windows x64
+*   Java SE Development Kit 10 (JDK) for Windows x64
 
     You will need this to build Java code on Windows.
 
-    Also supported: Java JDK 9 or newer
+    Also supported: Java 8, 9
 
 *   [Python 2.7 for Windows x86-64](https://www.python.org/downloads/windows/)
 
