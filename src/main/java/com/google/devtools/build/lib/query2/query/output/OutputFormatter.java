@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -116,6 +117,13 @@ public abstract class OutputFormatter implements Serializable {
 
   public static String formatterNames(Iterable<OutputFormatter> formatters) {
     return Streams.stream(formatters).map(OutputFormatter::getName).collect(joining(", "));
+  }
+
+  public static String streamingFormatterNames(Iterable<OutputFormatter> formatters) {
+    return Streams.stream(formatters)
+        .filter(Predicates.instanceOf(StreamedFormatter.class))
+        .map(OutputFormatter::getName)
+        .collect(joining(", "));
   }
 
   /**
