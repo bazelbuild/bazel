@@ -21,11 +21,11 @@ ${funcInfo.docString}
     <tr id="${funcInfo.name}-${param.name}">
       <td><code>${param.name}</code></td>
       <td>
-        ${param.mandatoryString}.#if($param.hasDefaultValueString()) default is <code>${param.defaultString}</code>#end
+        ${util.mandatoryString($param)}.#if(!$param.getDefaultValue().isEmpty()) default is <code>$param.getDefaultValue()</code>#end
 
 #if (!$param.docString.isEmpty())
         <p>
-          ${param.docString}
+          ${param.docString.trim()}
         </p>
 #end
       </td>
