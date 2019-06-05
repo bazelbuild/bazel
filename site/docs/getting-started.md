@@ -13,6 +13,8 @@ not already done so, first read the [Bazel Overview](bazel-overview.html).
 To install Bazel, see [Installing Bazel](install.html).
 If you use Windows, please read also [Using Bazel on Windows](windows.html).
 
+You might also want to [integrate Bazel with your IDE](ide.html).
+
 ## Bazel container
 
 To try out Bazel inside a [Docker](https://www.docker.com/) container, check out
