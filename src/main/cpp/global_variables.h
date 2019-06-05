@@ -59,9 +59,6 @@ struct GlobalVariables {
   // by making PID handling platform-independent or some other idea.
   pid_t server_pid;
 
-  // Parsed startup options.
-  StartupOptions *options;  // TODO(jmmv): This should really be const.
-
   // The reason for the server restart.
   RestartReason restart_reason;
 

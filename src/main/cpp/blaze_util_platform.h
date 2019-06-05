@@ -79,8 +79,12 @@ class SignalHandler {
   static SignalHandler& Get() { return INSTANCE; }
   GlobalVariables* GetGlobals() { return _globals; }
   void CancelServer() { _cancel_server(); }
-  void Install(GlobalVariables* globals, Callback cancel_server);
+  void Install(const std::string &product_name, const std::string &output_base,
+               GlobalVariables* globals, Callback cancel_server);
   ATTRIBUTE_NORETURN void PropagateSignalOrExit(int exit_code);
+
+  std::string _product_name;
+  std::string _output_base;
 
  private:
   static SignalHandler INSTANCE;

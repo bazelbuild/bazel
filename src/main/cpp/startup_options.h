@@ -221,7 +221,7 @@ class StartupOptions {
   std::map<std::string, std::string> option_sources;
 
   // Returns the embedded JDK, or an empty string.
-  std::string GetEmbeddedJavabase();
+  std::string GetEmbeddedJavabase() const;
 
   // Returns the GetHostJavabase. This should be called after parsing
   // the --server_javabase option.
