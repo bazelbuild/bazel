@@ -19,9 +19,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.skylark.common.DocstringUtils;
 import com.google.devtools.skylark.common.DocstringUtils.DocstringInfo;
 import com.google.devtools.skylark.common.DocstringUtils.DocstringParseError;
@@ -29,6 +32,7 @@ import com.google.devtools.skylark.common.DocstringUtils.ParameterDoc;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Encapsulates information about a user-defined Starlark function. */
 public class UserDefinedFunctionInfo {
@@ -108,6 +112,35 @@ public class UserDefinedFunctionInfo {
         functionDescription);
   }
 
+  /** Constructor to be used for normal parameters. */
+  public static FunctionParamInfo forParam(
+      String name, String docString, @Nullable Object defaultValue) {
+    FunctionParamInfo.Builder paramBuilder =
+        FunctionParamInfo.newBuilder().setName(name).setDocString(docString);
+    if (defaultValue == null) {
+      paramBuilder.setMandatory(true);
+    } else {
+      BasePrinter printer = Printer.getSimplifiedPrinter();
+      printer.repr(defaultValue);
+      String defaultValueString = printer.toString();
+
+      if (defaultValueString.isEmpty()) {
+        defaultValueString = "{unknown object}";
+      }
+      paramBuilder.setDefaultValue(defaultValueString).setMandatory(false);
+    }
+    return paramBuilder.build();
+  }
+
+  /** Constructor to be used for *args or **kwargs. */
+  public static FunctionParamInfo forSpecialParam(String name, String docString) {
+    return FunctionParamInfo.newBuilder()
+        .setName(name)
+        .setDocString(docString)
+        .setMandatory(false)
+        .build();
+  }
+
   private static List<FunctionParamInfo> parameterInfos(
       UserDefinedFunction userDefinedFunction,
       Map<String, String> paramNameToDocMap)  {
@@ -126,7 +159,7 @@ public class UserDefinedFunctionInfo {
     for (paramIndex = 0; paramIndex < numMandatoryParams; paramIndex++) {
       String paramName = paramNames.get(paramIndex);
       String paramDoc = paramNameToDocMap.getOrDefault(paramName, "");
-      parameterInfos.add(FunctionParamInfo.forParam(paramName, paramDoc, /*default param*/ null));
+      parameterInfos.add(forParam(paramName, paramDoc, /*default param*/ null));
     }
 
     // Parameters with defaults.
@@ -138,7 +171,7 @@ public class UserDefinedFunctionInfo {
         if (paramNameToDocMap.containsKey(paramName)) {
           paramDoc = paramNameToDocMap.get(paramName);
         }
-        parameterInfos.add(FunctionParamInfo.forParam(paramName, paramDoc, defaultParamValue));
+        parameterInfos.add(forParam(paramName, paramDoc, defaultParamValue));
         paramIndex++;
       }
     }
@@ -152,7 +185,7 @@ public class UserDefinedFunctionInfo {
       } else if (paramNameToDocMap.containsKey("*" + paramName)) {
         paramDoc = paramNameToDocMap.get("*" + paramName);
       }
-      parameterInfos.add(FunctionParamInfo.forSpecialParam(paramName, paramDoc));
+      parameterInfos.add(forSpecialParam(paramName, paramDoc));
       paramIndex++;
     }
 
@@ -165,7 +198,7 @@ public class UserDefinedFunctionInfo {
       } else if (paramNameToDocMap.containsKey("**" + paramName)) {
         paramDoc = paramNameToDocMap.get("**" + paramName);
       }
-      parameterInfos.add(FunctionParamInfo.forSpecialParam(paramName, paramDoc));
+      parameterInfos.add(forSpecialParam(paramName, paramDoc));
       paramIndex++;
     }
     return parameterInfos.build();
