@@ -124,28 +124,33 @@ public class DottedVersionTest {
 
   @Test
   public void testIllegalVersion_noLeadingInteger() throws Exception {
-    IllegalArgumentException expected =
-        assertThrows(IllegalArgumentException.class, () -> DottedVersion.fromString("a"));
+    Throwable expected =
+        assertThrows(
+            DottedVersion.InvalidDottedVersionException.class, () -> DottedVersion.fromString("a"));
     assertThat(expected).hasMessageThat().contains("a");
   }
 
   @Test
   public void testIllegalVersion_empty() throws Exception {
-    assertThrows(IllegalArgumentException.class, () -> DottedVersion.fromString(""));
+    assertThrows(
+        DottedVersion.InvalidDottedVersionException.class, () -> DottedVersion.fromString(""));
   }
 
   @Test
   public void testIllegalVersion_punctuation() throws Exception {
-    assertThrows(IllegalArgumentException.class, () -> DottedVersion.fromString("2:3"));
+    assertThrows(
+        DottedVersion.InvalidDottedVersionException.class, () -> DottedVersion.fromString("2:3"));
   }
 
   @Test
   public void testIllegalVersion_emptyComponent() throws Exception {
-    assertThrows(IllegalArgumentException.class, () -> DottedVersion.fromString("1..3"));
+    assertThrows(
+        DottedVersion.InvalidDottedVersionException.class, () -> DottedVersion.fromString("1..3"));
   }
 
   @Test
   public void testIllegalVersion_negativeComponent() throws Exception {
-    assertThrows(IllegalArgumentException.class, () -> DottedVersion.fromString("1.-1"));
+    assertThrows(
+        DottedVersion.InvalidDottedVersionException.class, () -> DottedVersion.fromString("1.-1"));
   }
 }

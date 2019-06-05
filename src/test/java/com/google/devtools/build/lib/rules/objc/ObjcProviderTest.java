@@ -112,7 +112,7 @@ public class ObjcProviderTest {
   }
 
   @Test
-  public void directFieldsAddFromSkylark() {
+  public void directFieldsAddFromSkylark() throws Exception {
     ImmutableList<Artifact> artifacts =
         ImmutableList.of(createArtifact("/foo"), createArtifact("/bar"));
     SkylarkNestedSet set =

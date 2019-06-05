@@ -130,46 +130,54 @@ public final class MethodDescriptor {
   public Object call(Object obj, Object[] args, Location loc, Environment env)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(obj);
+    Object result;
     try {
-      Object result = method.invoke(obj, args);
-      if (method.getReturnType().equals(Void.TYPE)) {
-        return Runtime.NONE;
-      }
-      if (result == null) {
-        if (isAllowReturnNones()) {
-          return Runtime.NONE;
-        } else {
-          throw new EvalException(
-              loc,
-              "method invocation returned None, please file a bug report: "
-                  + getName()
-                  + Printer.printAbbreviatedList(ImmutableList.copyOf(args), "(", ", ", ")", null));
-        }
-      }
-      // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
-      result = SkylarkType.convertToSkylark(result, method, env);
-      if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
-        throw new EvalException(
-            loc,
-            Printer.format(
-                "method '%s' returns an object of invalid type %r", getName(), result.getClass()));
-      }
-      return result;
+      result = method.invoke(obj, args);
     } catch (IllegalAccessException e) {
       // TODO(bazel-team): Print a nice error message. Maybe the method exists
       // and an argument is missing or has the wrong type.
       throw new EvalException(loc, "Method invocation failed: " + e);
-    } catch (InvocationTargetException e) {
-      if (e.getCause() instanceof FuncallExpression.FuncallException) {
-        throw new EvalException(loc, e.getCause().getMessage());
-      } else if (e.getCause() != null) {
-        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-        throw new EvalException.EvalExceptionWithJavaCause(loc, e.getCause());
+    } catch (InvocationTargetException x) {
+      Throwable e = x.getCause();
+      if (e == null) {
+        // This is unlikely to happen.
+        throw new IllegalStateException(
+            String.format(
+                "causeless InvocationTargetException when calling %s with arguments %s at %s",
+                obj, Arrays.toString(args), loc),
+            x);
+      }
+      Throwables.propagateIfPossible(e, InterruptedException.class);
+      if (e instanceof FuncallExpression.FuncallException) {
+        throw new EvalException(loc, e.getMessage());
+      }
+      if (e instanceof EvalException) {
+        throw ((EvalException) e).ensureLocation(loc);
+      }
+      throw new EvalException.EvalExceptionWithJavaCause(loc, e);
+    }
+    if (method.getReturnType().equals(Void.TYPE)) {
+      return Runtime.NONE;
+    }
+    if (result == null) {
+      if (isAllowReturnNones()) {
+        return Runtime.NONE;
       } else {
-        // This is unlikely to happen
-        throw new EvalException(loc, "method invocation failed: " + e);
+        throw new IllegalStateException(
+            "method invocation returned None "
+                + getName()
+                + Printer.printAbbreviatedList(ImmutableList.copyOf(args), "(", ", ", ")", null));
       }
     }
+    // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
+    result = SkylarkType.convertToSkylark(result, method, env);
+    if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
+      throw new EvalException(
+          loc,
+          Printer.format(
+              "method '%s' returns an object of invalid type %r", getName(), result.getClass()));
+    }
+    return result;
   }
 
   /** @see SkylarkCallable#name() */
