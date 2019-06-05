@@ -31,6 +31,14 @@ public final class ConnectivityStatus {
     }
   }
 
+  /**
+   * A string containing the names of the failing statuses, so that places that refer to them in a
+   * static context (ie. help for options that take these values as inputs) can stay in sync if
+   * {@link Status} is changed.
+   */
+  public static final String FAILING_STATUSES =
+      "'NO_CREDENTIALS', 'NO_NETWORK', and 'NOT_REACHABLE'";
+
   /** Service-specific information for this status. */
   public String serviceInfo;
 
