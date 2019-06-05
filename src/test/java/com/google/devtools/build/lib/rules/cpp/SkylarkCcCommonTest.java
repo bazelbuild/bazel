@@ -5277,7 +5277,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
     assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
-        .containsAllOf("bin foo/libdep1.a", "bin foo/libdep2.a");
+        .containsAtLeast("bin foo/libdep1.a", "bin foo/libdep2.a");
   }
 
   @Test

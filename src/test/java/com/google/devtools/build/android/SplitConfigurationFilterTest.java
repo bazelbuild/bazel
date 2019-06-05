@@ -159,7 +159,7 @@ public final class SplitConfigurationFilterTest {
                 SplitConfigurationFilter.fromFilenameSuffix("d-v7_b-v2_c"),
                 // Number of configs is the main criterion, so more sets of configs means later sort
                 SplitConfigurationFilter.fromFilenameSuffix("a_b_c_d_e_f_g_h_i_j_k_l_m")))
-        .isStrictlyOrdered();
+        .isInStrictOrder();
 
     // if they are actually equal, they will compare equal
     assertThat(SplitConfigurationFilter.fromFilenameSuffix("c-v13"))
@@ -264,7 +264,7 @@ public final class SplitConfigurationFilterTest {
                 ResourceConfiguration.fromString("b-v13"),
                 // wildcards ("any") are ignored when considering specifier order
                 ResourceConfiguration.fromString("any-c-v13")))
-        .isStrictlyOrdered();
+        .isInStrictOrder();
 
     // if they are actually equal, they will compare equal
     assertThat(ResourceConfiguration.fromString("c-v13"))
