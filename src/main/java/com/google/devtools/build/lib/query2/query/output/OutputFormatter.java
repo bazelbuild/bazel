@@ -112,7 +112,8 @@ public abstract class OutputFormatter implements Serializable {
         new LocationOutputFormatter(),
         new GraphOutputFormatter(),
         new XmlOutputFormatter(),
-        new ProtoOutputFormatter());
+        new ProtoOutputFormatter(),
+        new StreamedProtoOutputFormatter());
   }
 
   public static String formatterNames(Iterable<OutputFormatter> formatters) {
