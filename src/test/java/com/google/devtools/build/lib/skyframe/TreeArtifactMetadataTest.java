@@ -144,7 +144,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       Artifact treeArtifact = createTreeArtifact("out");
       TreeArtifactValue value = evaluateTreeArtifact(treeArtifact, children);
       assertThat(value.getChildPaths()).containsExactlyElementsIn(children);
-      assertThat(value.getChildPaths()).isOrdered(Comparator.naturalOrder());
+      assertThat(value.getChildPaths()).isInOrder(Comparator.naturalOrder());
     }
   }
 

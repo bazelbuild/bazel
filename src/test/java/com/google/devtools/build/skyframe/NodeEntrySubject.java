@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.truth.Truth.assertWithMessage;
-
 import com.google.common.collect.Iterables;
 import com.google.common.truth.ComparableSubject;
 import com.google.common.truth.FailureMetadata;
@@ -25,7 +23,7 @@ import javax.annotation.Nullable;
 /**
  * {@link Subject} for {@link NodeEntry}. Please add to this class if you need more functionality!
  */
-public class NodeEntrySubject extends Subject<NodeEntrySubject, NodeEntry> {
+public class NodeEntrySubject extends Subject {
   private final NodeEntry actual;
 
   NodeEntrySubject(FailureMetadata failureMetadata, NodeEntry nodeEntry) {
@@ -33,22 +31,18 @@ public class NodeEntrySubject extends Subject<NodeEntrySubject, NodeEntry> {
     this.actual = nodeEntry;
   }
 
-  public Subject<?, ?> hasVersionThat() {
-    return check("getVersion()").withMessage(detail("Version")).that(actual.getVersion());
+  public Subject hasVersionThat() {
+    return check("getVersion()").that(actual.getVersion());
   }
 
   public IterableSubject hasTemporaryDirectDepsThat() {
-    return assertWithMessage(detail("TemporaryDirectDeps"))
+    return check("getTemporaryDirectDeps()")
         .that(Iterables.concat(actual.getTemporaryDirectDeps()));
   }
 
   public ComparableSubject<?, NodeEntry.DependencyState> addReverseDepAndCheckIfDone(
       @Nullable SkyKey reverseDep) throws InterruptedException {
-    return assertWithMessage(detail("AddReverseDepAndCheckIfDone"))
+    return check("addReverseDepAndCheckIfDone()")
         .that(actual.addReverseDepAndCheckIfDone(reverseDep));
-  }
-
-  private String detail(String descriptor) {
-    return descriptor + " for" + actualAsString();
   }
 }

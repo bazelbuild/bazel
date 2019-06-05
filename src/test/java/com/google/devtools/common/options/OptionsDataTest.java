@@ -514,7 +514,7 @@ public class OptionsDataTest {
         Correspondence.from((obj1, obj2) -> obj1 == obj2, "is the same object as");
     assertThat(optionDefinitionsFromData)
         .comparingElementsUsing(referenceEquality)
-        .containsAllIn(optionDefinitions);
+        .containsAtLeastElementsIn(optionDefinitions);
 
     // Construct options data for each class separately, and check again.
     IsolatedOptionsData data1 = construct(class1);
@@ -534,7 +534,7 @@ public class OptionsDataTest {
 
     assertThat(optionDefinitionsFromGroupedData)
         .comparingElementsUsing(referenceEquality)
-        .containsAllIn(optionDefinitions);
+        .containsAtLeastElementsIn(optionDefinitions);
   }
 
   /** Dummy options class. */
