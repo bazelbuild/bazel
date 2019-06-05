@@ -34,7 +34,8 @@ import com.google.devtools.build.lib.packages.RuleClass;
  */
 public class ConfigFeatureFlagTaggedTrimmingTransitionFactory implements TransitionFactory<Rule> {
 
-  private static final class ConfigFeatureFlagTaggedTrimmingTransition implements PatchTransition {
+  /** Applies manual trimming to the given set of flags. */
+  public static final class ConfigFeatureFlagTaggedTrimmingTransition implements PatchTransition {
     public static final ConfigFeatureFlagTaggedTrimmingTransition EMPTY =
         new ConfigFeatureFlagTaggedTrimmingTransition(ImmutableSortedSet.of());
 
