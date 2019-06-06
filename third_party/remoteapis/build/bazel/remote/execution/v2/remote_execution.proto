@@ -1084,14 +1084,10 @@ message ExecuteResponse {
   string message = 5;
 }
 
-// Metadata about an ongoing
-// [execution][build.bazel.remote.execution.v2.Execution.Execute], which
-// will be contained in the [metadata
-// field][google.longrunning.Operation.response] of the
-// [Operation][google.longrunning.Operation].
-message ExecuteOperationMetadata {
-  // The current stage of execution.
-  enum Stage {
+// The current stage of action execution.
+message ExecutionStage {
+  enum Value {
+    // Invalid value.
     UNKNOWN = 0;
 
     // Checking the result against the cache.
@@ -1106,8 +1102,16 @@ message ExecuteOperationMetadata {
     // Finished execution.
     COMPLETED = 4;
   }
+}
 
-  Stage stage = 1;
+// Metadata about an ongoing
+// [execution][build.bazel.remote.execution.v2.Execution.Execute], which
+// will be contained in the [metadata
+// field][google.longrunning.Operation.response] of the
+// [Operation][google.longrunning.Operation].
+message ExecuteOperationMetadata {
+  // The current stage of execution.
+  ExecutionStage.Value stage = 1;
 
   // The digest of the [Action][build.bazel.remote.execution.v2.Action]
   // being executed.
@@ -1350,18 +1354,24 @@ message ServerCapabilities {
 
 // The digest function used for converting values into keys for CAS and Action
 // Cache.
-enum DigestFunction {
-  // It is an error for the server to return this value.
-  UNKNOWN = 0;
+message DigestFunction {
+  enum Value {
+    // It is an error for the server to return this value.
+    UNKNOWN = 0;
 
-  // The Sha-256 digest function.
-  SHA256 = 1;
+    // The Sha-256 digest function.
+    SHA256 = 1;
 
-  // The Sha-1 digest function.
-  SHA1 = 2;
+    // The Sha-1 digest function.
+    SHA1 = 2;
 
-  // The MD5 digest function.
-  MD5 = 3;
+    // The MD5 digest function.
+    MD5 = 3;
+
+    // The Microsoft "VSO-Hash" paged SHA256 digest function.
+    // See https://github.com/microsoft/BuildXL/blob/master/Documentation/Specs/PagedHash.md .
+    VSO = 4;
+  }
 }
 
 // Describes the server/instance capabilities for updating the action cache.
@@ -1381,10 +1391,10 @@ message PriorityCapabilities {
   repeated PriorityRange priorities = 1;
 }
 
-// Capabilities of the remote cache system.
-message CacheCapabilities {
-  // Describes how the server treats absolute symlink targets.
-  enum SymlinkAbsolutePathStrategy {
+// Describes how the server treats absolute symlink targets.
+message SymlinkAbsolutePathStrategy {
+  enum Value {
+    // Invalid value.
     UNKNOWN = 0;
 
     // Server will return an `INVALID_ARGUMENT` on input symlinks with absolute
@@ -1397,10 +1407,13 @@ message CacheCapabilities {
     // resulting in non-hermetic builds.
     ALLOWED = 2;
   }
+}
 
+// Capabilities of the remote cache system.
+message CacheCapabilities {
   // All the digest functions supported by the remote cache.
   // Remote cache may support multiple digest functions simultaneously.
-  repeated DigestFunction digest_function = 1;
+  repeated DigestFunction.Value digest_function = 1;
 
   // Capabilities for updating the action cache.
   ActionCacheUpdateCapabilities action_cache_update_capabilities = 2;
@@ -1415,13 +1428,13 @@ message CacheCapabilities {
   int64 max_batch_total_size_bytes = 4;
 
   // Whether absolute symlink targets are supported.
-  SymlinkAbsolutePathStrategy symlink_absolute_path_strategy = 5;
+  SymlinkAbsolutePathStrategy.Value symlink_absolute_path_strategy = 5;
 }
 
 // Capabilities of the remote execution system.
 message ExecutionCapabilities {
   // Remote execution may only support a single digest function.
-  DigestFunction digest_function = 1;
+  DigestFunction.Value digest_function = 1;
 
   // Whether remote execution is enabled for the particular server/instance.
   bool exec_enabled = 2;
