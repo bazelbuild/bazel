@@ -78,7 +78,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "register_toolchains('@bazel_tools//tools/cpp:all')",
             "register_toolchains('@bazel_tools//tools/jdk:all')",
-            "register_toolchains('@bazel_tools//tools/python:all')",
+            "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
             "local_repository(name = 'local_config_platform', path = '"
                 + localConfigPlatformWorkspace
                 + "')"));

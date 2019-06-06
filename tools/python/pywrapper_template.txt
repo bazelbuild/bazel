@@ -5,14 +5,22 @@
 # https://groups.google.com/forum/?nomobile=true#!topic/bazel-dev/4Ql_7eDcLC0
 # We do lose the ability to set -o pipefail.
 
-FAILURE_HEADER="\
+STRICT=%STRICT%
+
+if [ "$STRICT" = "1" ]; then
+  FAILURE_HEADER="\
 Error occurred while attempting to use the default Python toolchain \
 (@bazel_tools//tools/python:autodetecting_toolchain)."
+else
+  FAILURE_HEADER="\
+Error occurred while attempting to use the non-strict autodetecting Python \
+toolchain (@bazel_tools//tools/python:autodetecting_toolchain_nonstrict)."
+fi
 
 die() {
-    echo "$FAILURE_HEADER" 1>&2
-    echo "$1" 1>&2
-    exit 1
+  echo "$FAILURE_HEADER" 1>&2
+  echo "$1" 1>&2
+  exit 1
 }
 
 # We use `which` to locate the Python interpreter command on PATH. `command -v`
@@ -38,11 +46,11 @@ die() {
 PYTHON_BIN=`PATH="$PATH" which python%VERSION% || echo ""`
 USED_FALLBACK=0
 if [ -z "${PYTHON_BIN:-}" ]; then
-    PYTHON_BIN=`PATH="$PATH" which python || echo ""`
-    USED_FALLBACK=1
+  PYTHON_BIN=`PATH="$PATH" which python || echo ""`
+  USED_FALLBACK=1
 fi
 if [ -z "${PYTHON_BIN:-}" ]; then
-    die "Neither 'python%VERSION%' nor 'python' were found on the target \
+  die "Neither 'python%VERSION%' nor 'python' were found on the target \
 platform's PATH, which is:
 
 $PATH
@@ -53,7 +61,6 @@ documentation for py_runtime_pair \
 (https://github.com/bazelbuild/bazel/blob/master/tools/python/toolchain.bzl)."
 fi
 
-STRICT=%STRICT%
 if [ "$STRICT" = "1" ]; then
   # Verify that we grabbed an interpreter with the right version.
   VERSION_STR=`"$PYTHON_BIN" -V 2>&1` \
@@ -75,7 +82,7 @@ your build worked prior to Bazel 0.27, and you're sure your targets do not \
 require Python %VERSION%, you can opt out of this version check by using the \
 non-strict autodetecting toolchain instead of the standard autodetecting \
 toolchain. This can be done by passing the flag \
-`--extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain_nonstrict` \
+\`--extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain_nonstrict\` \
 on the command line or adding it to your bazelrc."
   fi
 fi
