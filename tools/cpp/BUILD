@@ -265,7 +265,7 @@ cc_toolchain(
     name = "cc-compiler-darwin",
     all_files = ":osx_wrapper",
     ar_files = ":empty",
-    as_files = ":empty",
+    as_files = ":osx_wrapper",
     compiler_files = ":osx_wrapper",
     dwp_files = ":empty",
     linker_files = ":osx_wrapper",
