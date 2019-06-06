@@ -20,7 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -277,7 +277,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
     try {
       getTarget("@androidsdk//:files");
       fail("android_sdk_repository should have failed due to missing SDK api level.");
-    } catch (BuildFileNotFoundException e) {
+    } catch (RepositoryFetchException e) {
       assertThat(e.getMessage())
           .contains(
               "Android SDK api level 25 was requested but it is not installed in the Android SDK "
@@ -318,7 +318,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
     try {
       getTarget("@androidsdk//:files");
       fail("android_sdk_repository should have failed due to missing SDK platforms dir.");
-    } catch (BuildFileNotFoundException e) {
+    } catch (RepositoryFetchException e) {
       assertThat(e.getMessage())
           .contains("Expected directory at /sdk/platforms but it is not a directory or it does "
               + "not exist.");
@@ -340,7 +340,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
     try {
       getTarget("@androidsdk//:files");
       fail("android_sdk_repository should have failed due to missing SDK build tools dir.");
-    } catch (BuildFileNotFoundException e) {
+    } catch (RepositoryFetchException e) {
       assertThat(e.getMessage())
           .contains("Expected directory at /sdk/build-tools but it is not a directory or it does "
               + "not exist.");
