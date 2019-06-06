@@ -1,43 +1,10 @@
 ## Release 0.26.1 (2019-06-06)
 
 ```
-Baseline: c2001a4569483596d9dc74ba9cabcbe4b6f1887f
+Baseline: cb82ed84d44db0169a8fbf15f9cee434b77002bb
 
 Cherry picks:
 
-   + e67c961905792cd63950c6f6efc33275ad243c49:
-     Fix a non-determinism in create_embedded_tools.py.
-   + 81aefe7ee01cc73646a53f9c72ed40ead09f9f5a:
-     Remove unsupported cpu attribute from cc_toolchains.
-   + 597e289b097d3bfed8eea1cb0924bbeb04877e42:
-     remote: made CombinedCache a composition of Disk and Http Cache
-   + 942f7cf6a0da0a4ecc804615424f039e50963933:
-     C++: Fixes bug in C++ API with external repo aspects
-   + 85a5a2bd569a5274950fc7327a044c395248c024:
-     Configure @androidsdk//:emulator_x86 and :emulator_arm to point
-     to the unified emulator binary
-   + 9835cb4135503768cdf1161746b95d7969ccb938:
-     Automated rollback of commit
-     844e4e297b404d6ff28b818d8150d4b9c47de887.
-   + c963ba21073b514961946b8b4b45b091f08fdaa1:
-     Windows, Python: fix arg. esc. also in host config
-   + a1ea487e0a9e180a36fa4aab57f7c746ddcf367a:
-     Do not pre-cache changed files under managed directories
-   + 7dc78cdd04eedf2f4373b170053ba5fc2a990929:
-     Add explicit execution and target constraints for autodiscovered
-     cc t?
-   + dd9ac13f7e3b71bdf2eca717bc7681bdd12389a2:
-     Fix a bug when a relative path is used for the execution log
-   + 0ff19c6d0adf3c0df94fff59ca3bd13cbcf99897:
-     Fix StandaloneTestStrategy.appendStderr
-   + 7f495315749478e75a3424726cc273a535b7c3b8:
-     Fix the autodetecting Python toolchain on Mac
-   + ddce7235ef29a0aba727c265eae865d15af4ed09:
-     Avoid exporting PATH unnecessarily
-   + 35dd05a059fa7fddfdd888cfc69102994e3c04dc:
-     Allow Starlark rules to be able to use the `exec_compatible_with`
-   + cb82ed84d44db0169a8fbf15f9cee434b77002bb:
-     Release 0.26.0 (2019-05-28)
    + d1c0d205945f5a765efb0a48593b1cd82699ce32:
      Allow WORKSPACE file to be a symlink if no managed directories
      is used.
