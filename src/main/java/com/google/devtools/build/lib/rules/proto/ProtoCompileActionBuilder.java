@@ -69,7 +69,6 @@ public class ProtoCompileActionBuilder {
   private final String langPrefix;
   private final Iterable<Artifact> outputs;
   private Iterable<Artifact> inputs;
-  private String langParameter;
   private String langPluginName;
   private Supplier<String> langPluginParameter;
   private boolean hasServices;
@@ -84,11 +83,6 @@ public class ProtoCompileActionBuilder {
 
   public ProtoCompileActionBuilder setInputs(Iterable<Artifact> inputs) {
     this.inputs = inputs;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setLangParameter(String langParameter) {
-    this.langParameter = langParameter;
     return this;
   }
 
@@ -277,10 +271,6 @@ public class ProtoCompileActionBuilder {
 
     if (langPluginParameter != null) {
       result.addLazyString(new LazyLangPluginFlag(langPrefix, langPluginParameter));
-    }
-
-    if (langParameter != null) {
-      result.addDynamicString(langParameter);
     }
 
     result.addAll(ruleContext.getFragment(ProtoConfiguration.class).protocOpts());
