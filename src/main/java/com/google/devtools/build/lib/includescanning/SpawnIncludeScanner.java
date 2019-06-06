@@ -54,6 +54,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
 /**
@@ -380,6 +381,7 @@ public class SpawnIncludeScanner {
 
   /** Extracts and returns inclusions from "file" using a spawn. */
   public ListenableFuture<Collection<Inclusion>> extractInclusionsAsync(
+      Executor executor,
       Artifact file,
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
@@ -399,6 +401,7 @@ public class SpawnIncludeScanner {
 
     ListenableFuture<InputStream> dotIncludeStreamFuture =
         spawnGrepAsync(
+            executor,
             file,
             execPath(output),
             inMemoryOutput,
@@ -439,6 +442,7 @@ public class SpawnIncludeScanner {
    * @throws ExecException if scanning fails
    */
   private static ListenableFuture<InputStream> spawnGrepAsync(
+      Executor executor,
       Artifact input,
       PathFragment outputExecPath,
       boolean inMemoryOutput,
@@ -484,6 +488,7 @@ public class SpawnIncludeScanner {
     ActionExecutionContext grepContext = actionExecutionContext.withFileOutErr(grepOutErr);
     try {
       process(
+          executor,
           future,
           SpawnContinuation.ofBeginExecution(spawn, grepContext).execute(),
           output,
@@ -500,6 +505,7 @@ public class SpawnIncludeScanner {
   }
 
   private static void process(
+      Executor executor,
       SettableFuture<InputStream> future,
       SpawnContinuation continuation,
       ActionInput output,
@@ -524,7 +530,12 @@ public class SpawnIncludeScanner {
                 try {
                   SpawnContinuation next = continuation.execute();
                   process(
-                      future, next, output, actionExecutionContext, originalActionExecutionContext);
+                      executor,
+                      future,
+                      next,
+                      output,
+                      actionExecutionContext,
+                      originalActionExecutionContext);
                 } catch (ExecException e) {
                   dump(actionExecutionContext, originalActionExecutionContext);
                   future.setException(e);
@@ -533,7 +544,7 @@ public class SpawnIncludeScanner {
                   future.cancel(false);
                 }
               },
-              MoreExecutors.directExecutor());
+              executor);
     }
   }
 
