@@ -255,8 +255,11 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           ImmutableMap.of(
               ALL_OWNER,
               new BasicActionLookupValue(
-                  Actions.filterSharedActionsAndThrowActionConflict(
-                      actionKeyContext, ImmutableList.copyOf(actions)),
+                  Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                      actionKeyContext,
+                      ImmutableList.copyOf(actions),
+                      ALL_OWNER,
+                      /*outputFiles=*/ null),
                   /*nonceVersion=*/ null)));
     }
   }

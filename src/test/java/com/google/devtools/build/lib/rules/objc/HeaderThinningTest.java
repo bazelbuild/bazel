@@ -23,9 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -208,12 +208,12 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
   }
 
   private Artifact getTreeArtifact(String name) {
-    Artifact treeArtifactBase =
+    DerivedArtifact treeArtifactBase =
         getDerivedArtifact(
             PathFragment.create(name),
             ArtifactRoot.asDerivedRoot(
                 directories.getExecRoot(), directories.getExecRoot().getChild("out")),
-            ArtifactOwner.NullArtifactOwner.INSTANCE);
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     return new SpecialArtifact(
         treeArtifactBase.getRoot(),
         treeArtifactBase.getExecPath(),

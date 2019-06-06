@@ -942,9 +942,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // rule implementation).
       try {
         generatingActions =
-            Actions.filterSharedActionsAndThrowActionConflict(
+            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
                 analysisEnvironment.getActionKeyContext(),
-                analysisEnvironment.getRegisteredActions());
+                analysisEnvironment.getRegisteredActions(),
+                configuredTargetKey,
+                /*outputFiles=*/ null);
       } catch (ActionConflictException e) {
         throw new ConfiguredTargetFunctionException(e);
       }
