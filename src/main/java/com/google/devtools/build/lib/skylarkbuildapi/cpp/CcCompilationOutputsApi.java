@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /** Interface for a structured representation of the compilation outputs of a C++ rule. */
 @SkylarkModule(
-    name = "cc_compilation_outputs",
+    name = "CcCompilationOutputs",
     category = SkylarkModuleCategory.BUILTIN,
     documented = false,
     doc = "Helper class containing CC compilation outputs.")
