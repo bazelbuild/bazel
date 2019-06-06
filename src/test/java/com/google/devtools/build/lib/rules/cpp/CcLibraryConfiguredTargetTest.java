@@ -1488,4 +1488,17 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "alwayslink should not be True for a target with the disable_whole_archive_for_static_lib"
             + " feature enabled");
   }
+
+  @Test
+  public void checkWarningEmptyLibrary() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "package(features = ['header_modules'])",
+        "cc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.o'],",
+        ")");
+    getConfiguredTarget("//a:foo");
+    assertNoEvents();
+  }
 }
