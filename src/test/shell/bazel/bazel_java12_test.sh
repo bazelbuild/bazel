@@ -55,7 +55,21 @@ if "$is_windows"; then
 fi
 
 JAVA_TOOLCHAIN="$1"; shift
+JAVA_TOOLS_ZIP="$1"; shift
 JAVA_RUNTIME="$1"; shift
+
+echo "JAVA_TOOLS_ZIP=$JAVA_TOOLS_ZIP"
+
+
+JAVA_TOOLS_RLOCATION=$(rlocation io_bazel/$JAVA_TOOLS_ZIP)
+
+if "$is_windows"; then
+    JAVA_TOOLS_ZIP_FILE_URL="file:///${JAVA_TOOLS_RLOCATION}"
+else
+    JAVA_TOOLS_ZIP_FILE_URL="file://${JAVA_TOOLS_RLOCATION}"
+fi
+JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
+
 add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
 add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
 add_to_bazelrc "build --javabase=${JAVA_RUNTIME}"
@@ -65,6 +79,11 @@ function set_up() {
     cat >>WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # java_tools versions only used to test Bazel with various JDK toolchains.
+
+http_archive(
+    name = "local_java_tools",
+    urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
 EOF
     cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }

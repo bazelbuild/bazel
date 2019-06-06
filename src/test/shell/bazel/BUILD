@@ -149,13 +149,12 @@ sh_test(
 sh_test(
     name = "bazel_java12_test",
     srcs = ["bazel_java12_test.sh"],
-    args = select({
+    args = [
         # --java_toolchain and --host_java_toolchain values
-       "//src/conditions:darwin": ["@remote_java_tools_javac12_test_darwin//:toolchain"],
-       "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac12_test_darwin//:toolchain"],
-       "//src/conditions:windows": ["@remote_java_tools_javac12_test_windows//:toolchain"],
-       "//src/conditions:linux_x86_64": ["@remote_java_tools_javac12_test_linux//:toolchain"],
-   }) + select({
+        "@local_java_tools//:toolchain_jdk_12",
+        # java_tools zip to test
+        "src/java_tools_java12.zip",
+    ] + select({
        # --javabase and --host_javabase values
        "//src/conditions:darwin": ["@openjdk12_darwin_archive//:runtime"],
        "//src/conditions:darwin_x86_64": ["@openjdk12_darwin_archive//:runtime"],
@@ -164,6 +163,7 @@ sh_test(
    }),
     data = [
         ":test-deps",
+        "//src:java_tools_java12_zip",
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
