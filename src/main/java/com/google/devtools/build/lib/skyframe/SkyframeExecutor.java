@@ -1122,7 +1122,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
-  protected void setSkylarkSemantics(StarlarkSemantics starlarkSemantics) {
+  private void setSkylarkSemantics(StarlarkSemantics starlarkSemantics) {
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
@@ -1388,7 +1388,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
-    setSkylarkSemantics(starlarkSemanticsOptions.toSkylarkSemantics());
+    setSkylarkSemantics(getEffectiveStarlarkSemantics(starlarkSemanticsOptions));
     setPackageLocator(pkgLocator);
 
     syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
@@ -1407,6 +1407,11 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
     cyclesReporter.set(createCyclesReporter());
+  }
+
+  public StarlarkSemantics getEffectiveStarlarkSemantics(
+      StarlarkSemanticsOptions starlarkSemanticsOptions) {
+    return starlarkSemanticsOptions.toSkylarkSemantics();
   }
 
   @SuppressWarnings("unchecked")
