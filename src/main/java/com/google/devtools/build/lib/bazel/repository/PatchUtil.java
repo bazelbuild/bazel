@@ -25,9 +25,13 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import difflib.Chunk;
+import difflib.Delta;
+import difflib.DeltaComparator;
 import difflib.DiffUtils;
 import difflib.Patch;
 import difflib.PatchFailedException;
@@ -40,7 +44,7 @@ public class PatchUtil {
   public enum Result {
     COMPLETE,  // The entire chunk is read
     CONTINUE,  // Should continue reading the chunk
-    ERROR,     // The chunk body doesn't match the chunk header's description
+    ERROR,     // The chunk body doesn't match the chunk header's size description
   }
 
   private static class ChunkHeader {
@@ -64,6 +68,75 @@ public class PatchUtil {
         newSize = Integer.parseInt(m.group(4));
       } else {
         throw new PatchFailedException("Wrong chunk header: " + header);
+      }
+    }
+  }
+
+  /**
+   * Sometimes the line number in patch file is not completely correct, but we might still be able
+   * to find a content match with an offset.
+   */
+  private static class OffsetPatch {
+    private List<Delta<String>> deltas;
+
+    public OffsetPatch(Patch<String> patch) {
+      this.deltas = patch.getDeltas();
+    }
+
+    public List<String> applyTo(List<String> target) throws PatchFailedException {
+      List<String> result = new ArrayList<>(target);
+      this.deltas.sort(DeltaComparator.INSTANCE);
+      ListIterator<Delta<String>> it = this.deltas.listIterator(this.deltas.size());
+
+      while(it.hasPrevious()) {
+        Delta<String> delta = it.previous();
+        applyTo(delta, result);
+      }
+
+      return result;
+    }
+
+    /**
+     * This function first tries to apply the Delta without any offset, if that fails, then
+     * it tries to apply the Delta with an offset, starting from 1, up to the total lines in
+     * the original content. For every offset, we try both forwards and backwards.
+     */
+    private void applyTo(Delta<String> delta, List<String> result) throws PatchFailedException {
+      PatchFailedException e = applyDelta(delta, result);
+      if (e == null) {
+        return;
+      }
+
+      Chunk<String> original = delta.getOriginal();
+      Chunk<String> revised = delta.getRevised();
+      int[] direction = {1, -1};
+      int maxOffset = result.size();
+      for (int i = 1; i < maxOffset; i++) {
+        for (int j = 0; j < 2; j++) {
+          int offset = i * direction[j];
+          if (offset + original.getPosition() < 0 || offset + revised.getPosition() < 0) {
+            continue;
+          }
+          delta.setOriginal(
+              new Chunk<>(original.getPosition() + offset, original.getLines()));
+          delta.setRevised(
+              new Chunk<>(revised.getPosition() + offset, revised.getLines()));
+          PatchFailedException exception = applyDelta(delta, result);
+          if (exception == null) {
+            return;
+          }
+        }
+      }
+
+      throw e;
+    }
+
+    private PatchFailedException applyDelta(Delta<String> delta, List<String> result) {
+      try {
+        delta.applyTo(result);
+        return null;
+      } catch (PatchFailedException e) {
+        return e;
       }
     }
   }
@@ -106,11 +179,11 @@ public class PatchUtil {
     return LineType.UNKNOWN;
   }
 
-  @VisibleForTesting
   /**
    * If file is not null and the file exists, return the file content as a list for String.
    * Otherwise, return an empty list.
    */
+  @VisibleForTesting
   public static List<String> readFile(Path file) throws IOException {
     List<String> content = new ArrayList<>();
     if (file != null && file.exists()) {
@@ -145,7 +218,7 @@ public class PatchUtil {
 
     List<String> oldContent = readFile(oldFile);
     Patch<String> patch = DiffUtils.parseUnifiedDiff(patchContent);
-    List<String> newContent = DiffUtils.patch(oldContent, patch);
+    List<String> newContent = new OffsetPatch(patch).applyTo(oldContent);
 
     if (newContent.isEmpty() && newFile == null) {
       oldFile.delete();

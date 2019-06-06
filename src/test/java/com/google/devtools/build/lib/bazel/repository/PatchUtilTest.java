@@ -157,6 +157,90 @@ public class PatchUtilTest {
   }
 
   @Test
+  public void testMatchWithOffset() throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.cc",
+        "#include <stdio.h>",
+        "",
+        "void main(){",
+        "  printf(\"Hello foo\");",
+        "}");
+    Path patchFile = scratch.file("/root/patchfile",
+        "diff --git a/foo.cc b/foo.cc",
+        "index f3008f9..ec4aaa0 100644",
+        "--- a/foo.cc",
+        "+++ b/foo.cc",
+        "@@ -6,4 +6,5 @@", // Should match with offset -4, original is "@@ -2,4 +2,5 @@"
+        " ",
+        " void main(){",
+        "   printf(\"Hello foo\");",
+        "+  printf(\"Hello from patch\");",
+        " }");
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> newFoo = ImmutableList.of(
+        "#include <stdio.h>",
+        "",
+        "void main(){",
+        "  printf(\"Hello foo\");",
+        "  printf(\"Hello from patch\");",
+        "}"
+    );
+    assertThat(PatchUtil.readFile(foo)).containsExactlyElementsIn(newFoo);
+  }
+
+  @Test
+  public void testMultipleChunksWithDifferentOffset() throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo",
+        "1",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "13",
+        "14");
+    Path patchFile = scratch.file("/root/patchfile",
+        "diff --git a/foo b/foo",
+        "index c20ab12..b83bdb1 100644",
+        "--- a/foo",
+        "+++ b/foo",
+        "@@ -3,4 +3,5 @@", // Should match with offset -2, original is "@@ -1,4 +1,5 @@"
+        " 1",
+        "+2",
+        " 3",
+        " 4",
+        " 5",
+        "@@ -4,5 +5,6 @@", // Should match with offset 4, original is "@@ -8,4 +9,5 @@"
+        " 9",
+        " 10",
+        " 11",
+        "+12",
+        " 13",
+        " 14");
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> newFoo = ImmutableList.of(
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14"
+    );
+    assertThat(PatchUtil.readFile(foo)).containsExactlyElementsIn(newFoo);
+  }
+
+  @Test
   public void testChunkDoesNotMatch() throws IOException {
     Path foo = scratch.file("/root/foo.cc",
         "#include <stdio.h>",
