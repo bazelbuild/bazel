@@ -209,6 +209,20 @@ public abstract class StarlarkSemantics {
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
 
+  /**
+   * Returns a deterministic {@link String} representation of this object's values.
+   *
+   * <p>Strictly speaking, {@link AutoValue}'s generated toString implementations are unspecified.
+   * Therefore it is free to e.g. randomly shuffle the order of "property=value" entries on each
+   * call. In practice, it doesn't. The entries are printed in method declaration order.
+   *
+   * <p>We could attempt our own implementation via reflection but it's likely to be more fragile
+   * than relying on the unspecified behavior to be, at least, non-pathological. YAGNI.
+   */
+  public String toDeterministicString() {
+    return toString();
+  }
+
   public static Builder builder() {
     return new AutoValue_StarlarkSemantics.Builder();
   }
