@@ -5,10 +5,11 @@ title: Skylint
 
 # Skylint
 
-This document explains how to use Skylint, a Starlark linter.
+ -->
 
-Skylint is no longer maintained. It will be replaced soon with [Buildifier](
-https://github.com/bazelbuild/buildtools/tree/master/buildifier#linter).
+Skylint is deprecated in favor of [Buildifier](https://github.com/bazelbuild/buildtools/tree/master/buildifier#linter)
+
+This document explains how to use Skylint, a Starlark linter.
 
 <!-- [TOC] -->
 
