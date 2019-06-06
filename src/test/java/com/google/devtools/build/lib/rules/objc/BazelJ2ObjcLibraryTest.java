@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpans
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -1168,7 +1168,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     return ImmutableList.<CommandAction>builder()
         .addAll(
             template.generateActionForInputArtifacts(
-                ImmutableList.of(treeFileArtifact), ArtifactOwner.NullArtifactOwner.INSTANCE))
+                ImmutableList.of(treeFileArtifact), ActionsTestUtil.NULL_ARTIFACT_OWNER))
         .build();
   }
 

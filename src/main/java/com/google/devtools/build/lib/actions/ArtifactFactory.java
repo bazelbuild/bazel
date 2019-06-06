@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Striped;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -325,9 +326,9 @@ public class ArtifactFactory implements ArtifactResolver {
     if (type == null) {
       return root.isSourceRoot()
           ? new Artifact.SourceArtifact(root, execPath, owner)
-          : new Artifact.DerivedArtifact(root, execPath, owner);
+          : new Artifact.DerivedArtifact(root, execPath, (ActionLookupKey) owner);
     } else {
-      return new Artifact.SpecialArtifact(root, execPath, owner, type);
+      return new Artifact.SpecialArtifact(root, execPath, (ActionLookupKey) owner, type);
     }
   }
 

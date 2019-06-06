@@ -271,8 +271,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
               ImmutableMap.of(
                   ACTION_LOOKUP_KEY,
                   new BasicActionLookupValue(
-                      Actions.filterSharedActionsAndThrowActionConflict(
-                          actionKeyContext, ImmutableList.copyOf(actions)),
+                      Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                          actionKeyContext,
+                          ImmutableList.copyOf(actions),
+                          ACTION_LOOKUP_KEY,
+                          /*outputFiles=*/ null),
                       /*nonceVersion=*/ null)));
         }
       }

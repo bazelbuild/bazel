@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import javax.annotation.Nullable;
@@ -78,7 +79,7 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    *     TreeFileArtifact}
    */
   Iterable<T> generateActionForInputArtifacts(
-      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner)
+      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
       throws ActionTemplateExpansionException;
 
   /** Returns the input TreeArtifact. */

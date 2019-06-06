@@ -21,7 +21,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -144,19 +146,10 @@ public final class ActionInputHelper {
    */
   public static TreeFileArtifact treeFileArtifact(
       Artifact.SpecialArtifact parent, PathFragment relativePath) {
-    Preconditions.checkState(parent.isTreeArtifact(),
-        "Given parent %s must be a TreeArtifact", parent);
-    return new TreeFileArtifact(parent, relativePath);
-  }
-
-  public static TreeFileArtifact treeFileArtifact(
-      Artifact.SpecialArtifact parent, PathFragment relativePath, ArtifactOwner artifactOwner) {
-    Preconditions.checkState(parent.isTreeArtifact(),
-        "Given parent %s must be a TreeArtifact", parent);
-    return new TreeFileArtifact(
-        parent,
-        relativePath,
-        artifactOwner);
+    TreeFileArtifact result =
+        treeFileArtifactWithNoGeneratingActionSet(parent, relativePath, parent.getArtifactOwner());
+    result.setGeneratingActionKey(parent.getGeneratingActionKey());
+    return result;
   }
 
   /**
@@ -166,6 +159,13 @@ public final class ActionInputHelper {
   public static TreeFileArtifact treeFileArtifact(
       Artifact.SpecialArtifact parent, String relativePath) {
     return treeFileArtifact(parent, PathFragment.create(relativePath));
+  }
+
+  public static TreeFileArtifact treeFileArtifactWithNoGeneratingActionSet(
+      SpecialArtifact parent, PathFragment relativePath, ActionLookupKey artifactOwner) {
+    Preconditions.checkState(
+        parent.isTreeArtifact(), "Given parent %s must be a TreeArtifact", parent);
+    return new TreeFileArtifact(parent, relativePath, artifactOwner);
   }
 
   /** Returns an Iterable of TreeFileArtifacts with the given parent and parent relative paths. */

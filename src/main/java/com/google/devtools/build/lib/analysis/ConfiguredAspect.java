@@ -64,18 +64,15 @@ import javax.annotation.Nullable;
 public final class ConfiguredAspect {
   private final AspectDescriptor descriptor;
   private final ImmutableList<ActionAnalysisMetadata> actions;
-  private final ImmutableMap<Artifact, Integer> generatingActionIndex;
   private final TransitiveInfoProviderMap providers;
 
   @AutoCodec.VisibleForSerialization
   ConfiguredAspect(
       AspectDescriptor descriptor,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<Artifact, Integer> generatingActionIndex,
       TransitiveInfoProviderMap providers) {
     this.descriptor = descriptor;
     this.actions = actions;
-    this.generatingActionIndex = generatingActionIndex;
     this.providers = providers;
 
     // Initialize every SkylarkApiProvider
@@ -103,14 +100,6 @@ public final class ConfiguredAspect {
 
   public ImmutableList<ActionAnalysisMetadata> getActions() {
     return actions;
-  }
-
-  /**
-   * Returns a map where keys are artifacts that are action outputs of this rule, and values are the
-   * index of the action that generates that artifact.
-   */
-  public ImmutableMap<Artifact, Integer> getGeneratingActionIndex() {
-    return generatingActionIndex;
   }
 
   /** Returns the providers created by the aspect. */
@@ -145,15 +134,13 @@ public final class ConfiguredAspect {
   }
 
   public static ConfiguredAspect forAlias(ConfiguredAspect real) {
-    return new ConfiguredAspect(
-        real.descriptor, real.getActions(), real.getGeneratingActionIndex(), real.getProviders());
+    return new ConfiguredAspect(real.descriptor, real.getActions(), real.getProviders());
   }
 
   public static ConfiguredAspect forNonapplicableTarget(AspectDescriptor descriptor) {
     return new ConfiguredAspect(
         descriptor,
         ImmutableList.of(),
-        ImmutableMap.of(),
         new TransitiveInfoProviderMapBuilder().add().build());
   }
 
@@ -289,14 +276,15 @@ public final class ConfiguredAspect {
 
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
       GeneratingActions generatingActions =
-          Actions.filterSharedActionsAndThrowActionConflict(
+          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
               analysisEnvironment.getActionKeyContext(),
-              analysisEnvironment.getRegisteredActions());
+              analysisEnvironment.getRegisteredActions(),
+              ruleContext.getOwner(),
+              /*outputFiles=*/ null);
 
       return new ConfiguredAspect(
           descriptor,
           generatingActions.getActions(),
-          generatingActions.getGeneratingActionIndex(),
           providers.build());
     }
   }

@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -50,16 +48,14 @@ public class CoverageReportFunction implements SkyFunction {
       return null;
     }
 
-    ImmutableSet.Builder<Artifact> outputs = new ImmutableSet.Builder<>();
-
-    for (ActionAnalysisMetadata action : actions) {
-      outputs.addAll(action.getOutputs());
-    }
-
     GeneratingActions generatingActions;
     try {
       generatingActions =
-          Actions.filterSharedActionsAndThrowActionConflict(actionKeyContext, actions);
+          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+              actionKeyContext,
+              actions,
+              CoverageReportValue.COVERAGE_REPORT_KEY,
+              /*outputFiles=*/ null);
     } catch (ActionConflictException e) {
       throw new IllegalStateException("Action conflicts not expected in coverage: " + skyKey, e);
     }

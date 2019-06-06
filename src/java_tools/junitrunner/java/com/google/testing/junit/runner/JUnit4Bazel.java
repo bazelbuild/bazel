@@ -59,8 +59,8 @@ import org.junit.runner.Request;
 import org.junit.runner.notification.RunListener;
 
 /**
- * Utility class to create a JUnit4Runner instance from a {@link Builder}. All required 
- * dependencies are being injected automatically.
+ * Utility class to create a JUnit4Runner instance from a {@link Builder}. All required dependencies
+ * are being injected automatically.
  */
 public final class JUnit4Bazel {
   private Supplier<Class<?>> topLevelSuiteSupplier;

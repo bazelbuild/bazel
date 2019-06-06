@@ -17,8 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.math.BigInteger;
 import javax.annotation.Nullable;
 
@@ -28,22 +26,18 @@ import javax.annotation.Nullable;
  */
 public class BasicActionLookupValue extends ActionLookupValue {
   protected final ImmutableList<ActionAnalysisMetadata> actions;
-  @VisibleForSerialization protected final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
   protected BasicActionLookupValue(
       ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<Artifact, Integer> generatingActionIndex,
       @Nullable BigInteger nonceVersion) {
     super(nonceVersion);
     this.actions = actions;
-    this.generatingActionIndex = generatingActionIndex;
   }
 
   @VisibleForTesting
   public BasicActionLookupValue(
       Actions.GeneratingActions generatingActions, @Nullable BigInteger nonceVersion) {
-    this(
-        generatingActions.getActions(), generatingActions.getGeneratingActionIndex(), nonceVersion);
+    this(generatingActions.getActions(), nonceVersion);
   }
 
   @Override
@@ -51,14 +45,7 @@ public class BasicActionLookupValue extends ActionLookupValue {
     return actions;
   }
 
-  @Override
-  protected ImmutableMap<Artifact, Integer> getGeneratingActionIndex() {
-    return generatingActionIndex;
-  }
-
   protected ToStringHelper getStringHelper() {
-    return MoreObjects.toStringHelper(this)
-        .add("actions", actions)
-        .add("generatingActionIndex", generatingActionIndex);
+    return MoreObjects.toStringHelper(this).add("actions", actions);
   }
 }
