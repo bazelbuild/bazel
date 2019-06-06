@@ -83,3 +83,13 @@ message FunctionParamInfo {
   // special parameter such as *args and **kwargs"
   bool mandatory = 4;
 }
+
+// Representation of a Starlark provider field definition, comprised of
+// the field name and provider description.
+message ProviderFieldInfo {
+  // The name of the field.
+  string name = 1;
+
+  // The description of the provider.
+  string doc_string = 2;
+}

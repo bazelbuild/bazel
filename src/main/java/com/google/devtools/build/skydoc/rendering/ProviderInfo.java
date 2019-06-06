@@ -15,6 +15,7 @@
 package com.google.devtools.build.skydoc.rendering;
 
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import java.util.Collection;
 
 /**

@@ -33,11 +33,11 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.skydoc.rendering.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -84,7 +84,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
               SkylarkList.class, String.class, location,
               "Expected list of strings or dictionary of string -> string for 'fields'");
       for (String fieldName : fieldNames) {
-        providerFieldInfos.add(new ProviderFieldInfo(fieldName));
+        providerFieldInfos.add(asProviderFieldInfo(fieldName, "(Undocumented)"));
       }
     } else if (fields instanceof SkylarkDict) {
       Map<String, String> dict = SkylarkType.castMap(
@@ -92,13 +92,18 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
           String.class, String.class,
           "Expected list of strings or dictionary of string -> string for 'fields'");
       for (Map.Entry<String, String> fieldEntry : dict.entrySet()) {
-        providerFieldInfos.add(new ProviderFieldInfo(fieldEntry.getKey(), fieldEntry.getValue()));
+        providerFieldInfos.add(asProviderFieldInfo(fieldEntry.getKey(), fieldEntry.getValue()));
       }
     } else {
       // fields is NONE, so there is no field information to add.
     }
     providerInfoList.add(new ProviderInfo(fakeProvider, doc, providerFieldInfos.build()));
     return fakeProvider;
+  }
+
+  /** Constructor for ProviderFieldInfo. */
+  public ProviderFieldInfo asProviderFieldInfo(String name, String docString) {
+    return ProviderFieldInfo.newBuilder().setName(name).setDocString(docString).build();
   }
 
   @Override
