@@ -291,7 +291,7 @@ string GetEmbeddedBinariesRoot(const string &install_base) {
 }
 
 // Returns the JVM command argument array.
-static vector<string> GetArgumentArray(
+static vector<string> GetServerExeArgs(
     const string &jvm_path,
     const string &server_jar_path,
     const vector<string> &archive_contents,
@@ -575,42 +575,34 @@ static void GoToWorkspace(const WorkspaceLayout *workspace_layout) {
 
 // Starts the Blaze server.
 static int StartServer(
-    const string &jvm_path,
-    const string &server_jar_path,
-    const vector<string> &archive_contents,
+    const string &server_exe,
+    const vector<string> &server_exe_args,
     const WorkspaceLayout *workspace_layout,
-    StartupOptions *startup_options,
+    const StartupOptions *startup_options,
     BlazeServerStartup **server_startup) {
-  vector<string> jvm_args_vector = GetArgumentArray(
-      jvm_path,
-      server_jar_path,
-      archive_contents,
-      workspace_layout,
-      startup_options);
-  string argument_string = GetArgumentString(jvm_args_vector);
-  const string binaries_dir =
-      GetEmbeddedBinariesRoot(startup_options->install_base);
-  string server_dir =
-      blaze_util::JoinPath(startup_options->output_base, "server");
   // Write the cmdline argument string to the server dir. If we get to this
   // point, there is no server running, so we don't overwrite the cmdline file
   // for the existing server. If might be that the server dies and the cmdline
   // file stays there, but that is not a problem, since we always check the
   // server, too.
-  blaze_util::WriteFile(argument_string,
+  const string server_dir =
+      blaze_util::JoinPath(startup_options->output_base, "server");
+  blaze_util::WriteFile(GetArgumentString(server_exe_args),
                         blaze_util::JoinPath(server_dir, "cmdline"));
+
+  const string binaries_dir =
+      GetEmbeddedBinariesRoot(startup_options->install_base);
 
   // unless we restarted for a new-version, mark this as initial start
   if (globals->restart_reason == NO_RESTART) {
     globals->restart_reason = NO_DAEMON;
   }
 
-  string exe = startup_options->GetExe(jvm_path, server_jar_path);
   // Go to the workspace before we daemonize, so
   // we can still print errors to the terminal.
   GoToWorkspace(workspace_layout);
 
-  return ExecuteDaemon(exe, jvm_args_vector, PrepareEnvironmentForJvm(),
+  return ExecuteDaemon(server_exe, server_exe_args, PrepareEnvironmentForJvm(),
                        globals->jvm_log_file, globals->jvm_log_file_append,
                        binaries_dir, server_dir, startup_options,
                        server_startup);
@@ -622,12 +614,11 @@ static int StartServer(
 // This function passes the commands array to the blaze process.
 // This array should start with a command ("build", "info", etc.).
 static void StartStandalone(
-    const string &jvm_path,
-    const string &server_jar_path,
-    const vector<string> &archive_contents,
+    const string &server_exe,
+    const vector<string> &server_exe_args,
     const WorkspaceLayout *workspace_layout,
     const OptionProcessor &option_processor,
-    StartupOptions *startup_options,
+    const StartupOptions *startup_options,
     TimingInfo &timing_info,
     BlazeServer *server) {
   if (server->Connected()) {
@@ -655,12 +646,10 @@ static void StartStandalone(
         << " shutdown\" from the directory where\nit was started.";
   }
 
-  vector<string> jvm_args_vector = GetArgumentArray(
-      jvm_path,
-      server_jar_path,
-      archive_contents,
-      workspace_layout,
-      startup_options);
+  vector<string> jvm_args_vector;
+  jvm_args_vector.insert(
+      jvm_args_vector.end(), server_exe_args.begin(), server_exe_args.end());
+
   if (!command.empty()) {
     jvm_args_vector.push_back(command);
     AddLoggingArgs(timing_info, &jvm_args_vector);
@@ -670,13 +659,12 @@ static void StartStandalone(
                          command_arguments.end());
 
   GoToWorkspace(workspace_layout);
-  string exe = startup_options->GetExe(jvm_path, server_jar_path);
 
   {
     WithEnvVars env_obj(PrepareEnvironmentForJvm());
-    ExecuteProgram(exe, jvm_args_vector);
+    ExecuteProgram(server_exe, jvm_args_vector);
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "execv of '" << exe << "' failed: " << GetLastErrorString();
+        << "execv of '" << server_exe << "' failed: " << GetLastErrorString();
   }
 }
 
@@ -723,12 +711,11 @@ static void SetRestartReasonIfNotSet(RestartReason restart_reason) {
 
 // Starts up a new server and connects to it. Exits if it didn't work out.
 static void StartServerAndConnect(
-    const string &jvm_path,
-    const string &server_jar_path,
-    const vector<string> &archive_contents,
+    const string &server_exe,
+    const vector<string> &server_exe_args,
     const WorkspaceLayout *workspace_layout,
     const OptionProcessor &option_processor,
-    StartupOptions *startup_options,
+    const StartupOptions *startup_options,
     BlazeServer *server) {
   const string server_dir =
       blaze_util::JoinPath(startup_options->output_base, "server");
@@ -773,9 +760,8 @@ static void StartServerAndConnect(
 
   BlazeServerStartup *server_startup;
   server_pid = StartServer(
-      jvm_path,
-      server_jar_path,
-      archive_contents,
+      server_exe,
+      server_exe_args,
       workspace_layout,
       startup_options,
       &server_startup);
@@ -977,7 +963,7 @@ static bool AreStartupOptionsDifferent(
   // having the default value, since this command line is the canonical one for
   // this version of Bazel: either the default value is listed explicitly or it
   // is not, but this has nothing to do with the user's command line: it is
-  // defined by GetArgumentArray(). Same applies for argument ordering.
+  // defined by GetServerExeArgs(). Same applies for argument ordering.
   bool options_different = false;
   if (running_server_args.size() != requested_args.size()) {
     BAZEL_LOG(INFO) << "The new command line has a different length from the "
@@ -1045,11 +1031,8 @@ static bool AreStartupOptionsDifferent(
 
 // Kills the running Blaze server, if any, if the startup options do not match.
 static void KillRunningServerIfDifferentStartupOptions(
-    const string &jvm_path,
-    const string &server_jar_path,
-    const vector<string> &archive_contents,
-    const WorkspaceLayout *workspace_layout,
-    StartupOptions *startup_options,
+    const StartupOptions *startup_options,
+    const vector<string> &server_exe_args,
     BlazeServer *server) {
   if (!server->Connected()) {
     return;
@@ -1069,12 +1052,7 @@ static void KillRunningServerIfDifferentStartupOptions(
   // These strings contain null-separated command line arguments. If they are
   // the same, the server can stay alive, otherwise, it needs shuffle off this
   // mortal coil.
-  if (AreStartupOptionsDifferent(old_arguments,
-                                 GetArgumentArray(jvm_path,
-                                                  server_jar_path,
-                                                  archive_contents,
-                                                  workspace_layout,
-                                                  startup_options))) {
+  if (AreStartupOptionsDifferent(old_arguments, server_exe_args)) {
     globals->restart_reason = NEW_OPTIONS;
     BAZEL_LOG(WARNING) << "Running " << startup_options->product_name
                        << " server needs to be killed, because the startup "
@@ -1135,20 +1113,18 @@ static void CancelServer() { blaze_server->Cancel(); }
 // Performs all I/O for a single client request to the server, and
 // shuts down the client (by exit or signal).
 static ATTRIBUTE_NORETURN void SendServerRequest(
-    const string &jvm_path,
-    const string &server_jar_path,
-    const vector<string> &archive_contents,
+    const string &server_exe,
+    const vector<string> &server_exe_args,
     const WorkspaceLayout *workspace_layout,
     const OptionProcessor &option_processor,
-    StartupOptions *startup_options,
+    const StartupOptions *startup_options,
     TimingInfo &timing_info,
     BlazeServer *server) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(
-          jvm_path,
-          server_jar_path,
-          archive_contents,
+          server_exe,
+          server_exe_args,
           workspace_layout,
           option_processor,
           startup_options,
@@ -1492,28 +1468,32 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   if (!startup_options->batch &&
       "shutdown" == option_processor->GetCommand() &&
       !blaze_server->Connected()) {
+    // No server, nothing to do.
     return 0;
   }
 
+  EnsureCorrectRunningVersion(startup_options, blaze_server);
+
   const string jvm_path = startup_options->GetJvm();
   const string server_jar_path = GetServerJarPath(archive_contents);
-
-  EnsureCorrectRunningVersion(startup_options, blaze_server);
-  KillRunningServerIfDifferentStartupOptions(
+  const vector<string> server_exe_args = GetServerExeArgs(
       jvm_path,
       server_jar_path,
       archive_contents,
       workspace_layout,
-      startup_options,
-      blaze_server);
+      startup_options);
+
+  KillRunningServerIfDifferentStartupOptions(
+      startup_options, server_exe_args, blaze_server);
+
+  const string server_exe = startup_options->GetExe(jvm_path, server_jar_path);
 
   if (startup_options->batch) {
     SetScheduling(startup_options->batch_cpu_scheduling,
                   startup_options->io_nice_level);
     StartStandalone(
-        jvm_path,
-        server_jar_path,
-        archive_contents,
+        server_exe,
+        server_exe_args,
         workspace_layout,
         *option_processor,
         startup_options,
@@ -1521,9 +1501,8 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
         blaze_server);
   } else {
     SendServerRequest(
-        jvm_path,
-        server_jar_path,
-        archive_contents,
+        server_exe,
+        server_exe_args,
         workspace_layout,
         *option_processor,
         startup_options,
