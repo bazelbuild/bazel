@@ -625,13 +625,6 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
     for java_version in JAVA_VERSIONS
 ]
 
-JAVA_VERSIONS_TO_SOURCE_VERSION = {
-    "9": "8",
-    "10": "8",
-    "11": "8",
-    "12": "12"
-}
-
 [
     # The java_tools releases can have BUILD files that vary depending on the
     # javac version they embed. Currently the only difference is in the
@@ -641,9 +634,9 @@ JAVA_VERSIONS_TO_SOURCE_VERSION = {
         name = "create_java_tools_build_java" + java_version,
         srcs = ["//tools/jdk:BUILD.java_tools"],
         outs = ["remote_java_tools_java" + java_version + "/BUILD"],
-        cmd = "sed 's/JAVA_LANGUAGE_LEVEL/" + source_version + "/g' $< > $@",
+        cmd = "sed 's/JAVA_LANGUAGE_LEVEL/" + java_version + "/g' $< > $@",
     )
-    for (java_version, source_version) in JAVA_VERSIONS_TO_SOURCE_VERSION.items()
+    for java_version in JAVA_VERSIONS
 ]
 
 [
