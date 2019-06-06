@@ -131,7 +131,8 @@ public class SkylarkRepositoryContextTest {
             ImmutableMap.of("FOO", "BAR"),
             downloader,
             1.0,
-            new HashMap<>());
+            new HashMap<>(),
+            false);
   }
 
   protected void setUpContexForRule(String name) throws Exception {

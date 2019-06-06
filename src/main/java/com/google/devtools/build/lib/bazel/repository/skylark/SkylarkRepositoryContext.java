@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -40,6 +41,9 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
+import com.google.devtools.build.lib.shell.Command;
+import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -66,6 +70,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -87,6 +92,7 @@ public class SkylarkRepositoryContext
   private final HttpDownloader httpDownloader;
   private final double timeoutScaling;
   private final Map<String, String> markerData;
+  private final boolean useNativePatch;
 
   /**
    * Create a new context (repository_ctx) object for a skylark repository rule ({@code rule}
@@ -101,7 +107,8 @@ public class SkylarkRepositoryContext
       Map<String, String> env,
       HttpDownloader httpDownloader,
       double timeoutScaling,
-      Map<String, String> markerData)
+      Map<String, String> markerData,
+      boolean useNativePatch)
       throws EvalException {
     this.rule = rule;
     this.packageLocator = packageLocator;
@@ -112,6 +119,7 @@ public class SkylarkRepositoryContext
     this.httpDownloader = httpDownloader;
     this.timeoutScaling = timeoutScaling;
     this.markerData = markerData;
+    this.useNativePatch = useNativePatch;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -413,8 +421,26 @@ public class SkylarkRepositoryContext
             skylarkPath.toString(), strip, rule.getLabel().toString(), location);
     env.getListener().post(w);
     try {
-      PatchUtil.apply(skylarkPath.getPath(), strip, outputDirectory);
-    } catch (PatchFailedException e) {
+      if (useNativePatch) {
+        PatchUtil.apply(skylarkPath.getPath(), strip, outputDirectory);
+      } else {
+        Map<String, String> envBuilder = Maps.newLinkedHashMap();
+        envBuilder.putAll(osObject.getEnvironmentVariables());
+        Command command = new Command(
+            new String[] {"patch", "-p" + strip, "-i", skylarkPath.getPath().getPathString()},
+            envBuilder,
+            outputDirectory.getPathFile(),
+            Duration.ofSeconds(60));
+        CommandResult result = command.execute();
+        if (!result.getTerminationStatus().success()) {
+          throw new RepositoryFunctionException(
+              new EvalException(Location.BUILTIN,
+                  "Error applying patch " + skylarkPath.toString() + ": "
+                      + new String(result.getStderr())),
+              Transience.TRANSIENT);
+        }
+      }
+    } catch (CommandException | PatchFailedException e) {
       throw new RepositoryFunctionException(
           new EvalException(Location.BUILTIN,
               "Error applying patch " + skylarkPath.toString() + ": " + e.getLocalizedMessage()),

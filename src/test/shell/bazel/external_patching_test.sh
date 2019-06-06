@@ -691,7 +691,7 @@ sh_binary(
 )
 EOF
   # Building sh_binary doesn't need to execute Bash so we are fine here with a fake BAZEL_SH.
-  bazel build :foo.sh
+  bazel build --incompatible_use_native_patch :foo.sh
   foopath=`bazel info bazel-bin`/foo.sh
   grep -q 'New version' $foopath || fail "expected patch to be applied"
   grep env $foopath && fail "expected patch commands to be executed" || :
