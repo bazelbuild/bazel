@@ -79,6 +79,8 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "compatible_javacopts": COMPATIBLE_JAVACOPTS,
     "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
     "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
+    "source_version": "8",
+    "target_version": "8",
 }
 
 def default_java_toolchain(name, **kwargs):

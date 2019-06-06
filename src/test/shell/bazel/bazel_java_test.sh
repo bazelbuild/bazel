@@ -1727,4 +1727,8 @@ EOF
   bazel build java/com/google/foo:my_skylark_rule >& "$TEST_log" || fail "Expected success"
 }
 
+function test_default_java_toolchain_target_version() {
+
+}
+
 run_suite "Java integration tests"
