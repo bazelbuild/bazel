@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -340,9 +341,12 @@ public class PackageLookupFunction implements SkyFunction {
       if (repositoryValue == null) {
         return null;
       }
-    } catch (NoSuchPackageException | IOException | EvalException e) {
+    } catch (NoSuchPackageException e) {
       throw new PackageLookupFunctionException(new BuildFileNotFoundException(id, e.getMessage()),
           Transience.PERSISTENT);
+    } catch (IOException | EvalException e) {
+      throw new PackageLookupFunctionException(
+          new RepositoryFetchException(id, e.getMessage()), Transience.PERSISTENT);
     }
     if (!repositoryValue.repositoryExists()) {
       // TODO(ulfjack): Maybe propagate the error message from the repository delegator function?
@@ -375,6 +379,10 @@ public class PackageLookupFunction implements SkyFunction {
    */
   private static final class PackageLookupFunctionException extends SkyFunctionException {
     public PackageLookupFunctionException(BuildFileNotFoundException e, Transience transience) {
+      super(e, transience);
+    }
+
+    public PackageLookupFunctionException(RepositoryFetchException e, Transience transience) {
       super(e, transience);
     }
 

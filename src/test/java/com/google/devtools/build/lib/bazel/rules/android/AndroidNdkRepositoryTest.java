@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -206,8 +206,8 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         "    path = '/ndk',",
         ")");
     invalidatePackages(false);
-    BuildFileNotFoundException e =
-        assertThrows(BuildFileNotFoundException.class, () -> getTarget("@androidndk//:files"));
+    RepositoryFetchException e =
+        assertThrows(RepositoryFetchException.class, () -> getTarget("@androidndk//:files"));
     assertThat(e)
         .hasMessageThat()
         .contains(
