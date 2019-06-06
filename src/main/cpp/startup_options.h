@@ -225,7 +225,7 @@ class StartupOptions {
 
   // Returns the GetHostJavabase. This should be called after parsing
   // the --server_javabase option.
-  std::string GetServerJavabase();
+  std::string GetServerJavabase() const;
 
   // Returns the explicit value of the --server_javabase startup option or the
   // empty string if it was not specified on the command line.
@@ -331,8 +331,12 @@ class StartupOptions {
                                        bool *is_space_separated,
                                        std::string *error);
 
-  std::string server_javabase_;
-  std::string default_server_javabase_;
+  // The server javabase as provided on the commandline.
+  std::string explicit_server_javabase_;
+
+  // The server javabase to be used (computed lazily).
+  mutable std::string default_server_javabase_;
+
   // Contains the collection of startup flags that Bazel accepts.
   std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
 };

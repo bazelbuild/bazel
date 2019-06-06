@@ -658,7 +658,7 @@ int ExecuteDaemon(const string& exe,
                   const bool daemon_out_append,
                   const string& binaries_dir,
                   const string& server_dir,
-                  const StartupOptions* options,
+                  const StartupOptions &options,
                   BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
   string error;

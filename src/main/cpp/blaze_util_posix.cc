@@ -339,7 +339,7 @@ bool SocketBlazeServerStartup::IsStillAlive() {
 // Returns zero on success or -1 on error, in which case errno is set to the
 // corresponding error details.
 int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
-                           const StartupOptions* options);
+                           const StartupOptions &options);
 
 void WriteSystemSpecificProcessIdentifier(
     const string& server_dir, pid_t server_pid);
@@ -351,7 +351,7 @@ int ExecuteDaemon(const string& exe,
                   const bool daemon_output_append,
                   const string& binaries_dir,
                   const string& server_dir,
-                  const StartupOptions* options,
+                  const StartupOptions &options,
                   BlazeServerStartup** server_startup) {
   const string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
   const string daemonize = blaze_util::JoinPath(binaries_dir, "daemonize");

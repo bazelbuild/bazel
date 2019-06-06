@@ -238,7 +238,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              NULL) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
-    server_javabase_ = blaze::AbsolutePathFromFlag(value);
+    explicit_server_javabase_ = blaze::AbsolutePathFromFlag(value);
     option_sources["server_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              NULL) {
@@ -492,10 +492,10 @@ string StartupOptions::GetEmbeddedJavabase() const {
   return "";
 }
 
-string StartupOptions::GetServerJavabase() {
+string StartupOptions::GetServerJavabase() const {
   // 1) Allow overriding the server_javabase via --server_javabase.
-  if (!server_javabase_.empty()) {
-    return server_javabase_;
+  if (!explicit_server_javabase_.empty()) {
+    return explicit_server_javabase_;
   }
   if (default_server_javabase_.empty()) {
     string bundled_jre_path = GetEmbeddedJavabase();
@@ -517,7 +517,7 @@ string StartupOptions::GetServerJavabase() {
 }
 
 string StartupOptions::GetExplicitServerJavabase() const {
-  return server_javabase_;
+  return explicit_server_javabase_;
 }
 
 string StartupOptions::GetJvm() {
