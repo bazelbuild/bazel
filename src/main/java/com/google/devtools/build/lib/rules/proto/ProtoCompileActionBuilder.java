@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -268,19 +267,20 @@ public class ProtoCompileActionBuilder {
   CustomCommandLine.Builder createProtoCompilerCommandLine() throws MissingPrerequisiteException {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
-    if (langPluginName == null) {
-      if (langParameter != null) {
-        result.addDynamicString(langParameter);
-      }
-    } else {
+    if (langPluginName != null) {
       FilesToRunProvider langPluginTarget = getLangPluginTarget();
-      Preconditions.checkArgument(langParameter == null);
-      Preconditions.checkArgument(langPluginParameter != null);
       // We pass a separate langPluginName as there are plugins that cannot be overridden
       // and thus we have to deal with "$xx_plugin" and "xx_plugin".
       result.addFormatted(
           "--plugin=protoc-gen-%s=%s", langPrefix, langPluginTarget.getExecutable().getExecPath());
+    }
+
+    if (langPluginParameter != null) {
       result.addLazyString(new LazyLangPluginFlag(langPrefix, langPluginParameter));
+    }
+
+    if (langParameter != null) {
+      result.addDynamicString(langParameter);
     }
 
     result.addAll(ruleContext.getFragment(ProtoConfiguration.class).protocOpts());
