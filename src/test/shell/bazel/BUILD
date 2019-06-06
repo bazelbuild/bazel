@@ -147,6 +147,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java_test_defaults",
+    srcs = ["bazel_java_test_defaults.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_java_test",
     # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
