@@ -38,7 +38,8 @@ to make your files easy to process, both by humans and tools.
 
 ## General advice
 
-*   Use [skylint](skylint.md).
+*   Use [Buildifier](https://github.com/bazelbuild/buildtools/tree/master/buildifier#linter)
+    as a formatter and linter.
 *   Follow [testing guidelines](testing.md).
 
 ## Style
