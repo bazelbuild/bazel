@@ -165,9 +165,10 @@ to/from your GCS bucket.
 
 4. Connect to Cloud Storage by adding the following flags to your Bazel command:
    * Pass the following URL to Bazel by using the flag:
-       `--remote_cache=https://storage.googleapis.com/bucket-name`
+       `--remote_http_cache=https://storage.googleapis.com/bucket-name`
        where `bucket-name` is the name of your storage bucket.
-   * Pass the authentication key using the flag: `--google_credentials=/path/to/your/secret-key.json`.
+   * Pass the authentication key using the flag: `--google_credentials=/path/to/your/secret-key.json`, or
+     `--google_default_credentials` to use [Application Default Credentials].
 
 5. You can configure Cloud Storage to automatically delete old files. To do so, see
 [Managing Object Lifecycles](https://cloud.google.com/storage/docs/managing-lifecycles).
@@ -393,4 +394,4 @@ watch [issue #4558] for updates.
 [Buildfarm]: https://github.com/bazelbuild/bazel-buildfarm
 [BuildGrid]: https://gitlab.com/BuildGrid/buildgrid
 [issue #4558]: https://github.com/bazelbuild/bazel/issues/4558
-
+[Application Default Credentials]: https://cloud.google.com/docs/authentication/production

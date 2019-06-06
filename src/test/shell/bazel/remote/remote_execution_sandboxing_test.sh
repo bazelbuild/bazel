@@ -85,8 +85,8 @@ function tear_down() {
 function test_genrule() {
   bazel build \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       examples/genrule:simple &> $TEST_log \
     || fail "Hermetic genrule failed: examples/genrule:simple"
 }
@@ -94,8 +94,8 @@ function test_genrule() {
 function test_genrule_can_write_to_path() {
   bazel build \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       examples/genrule:writes_to_writable_path &> $TEST_log \
     || fail "Hermetic genrule failed: examples/genrule:writes_to_writable_path"
   [ -f "$(cat examples/genrule/writable_path.txt)/out.txt" ] \
@@ -105,8 +105,8 @@ function test_genrule_can_write_to_path() {
 function test_genrule_cannot_write_to_other_path() {
   bazel build \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       examples/genrule:writes_to_readonly_path &> $TEST_log \
     && fail "Non-hermetic genrule succeeded: examples/genrule:writes_to_readonly_path" || true
   [ -f "$(cat examples/genrule/readonly_path.txt)/out.txt" ] \

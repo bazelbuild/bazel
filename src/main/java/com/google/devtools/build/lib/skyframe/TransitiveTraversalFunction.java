@@ -117,12 +117,6 @@ public class TransitiveTraversalFunction
   }
 
   @Override
-  TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
-      throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
-    return TargetMarkerFunction.computeTargetMarkerValue(targetMarkerKey, env);
-  }
-
-  @Override
   Collection<SkyKey> getLabelDepKeys(
       SkyFunction.Environment env, TargetAndErrorIfAny targetAndErrorIfAny)
       throws InterruptedException {

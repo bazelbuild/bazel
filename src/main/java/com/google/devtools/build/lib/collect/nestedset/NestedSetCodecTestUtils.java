@@ -115,7 +115,7 @@ public class NestedSetCodecTestUtils {
 
   private static void verifyStructure(Object lhs, Object rhs) {
     if (lhs == NestedSet.EMPTY_CHILDREN) {
-      assertThat(rhs).isSameAs(NestedSet.EMPTY_CHILDREN);
+      assertThat(rhs).isSameInstanceAs(NestedSet.EMPTY_CHILDREN);
     } else if (lhs instanceof Object[]) {
       assertThat(rhs).isInstanceOf(Object[].class);
       Object[] lhsArray = (Object[]) lhs;

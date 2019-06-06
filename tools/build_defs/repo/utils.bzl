@@ -48,23 +48,19 @@ def workspace_and_buildfile(ctx):
         ctx.fail("Only one of workspace_file and workspace_file_content can be provided.")
 
     if ctx.attr.workspace_file:
-        bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-        ctx.execute([bash_exe, "-c", "rm -f WORKSPACE"])
+        ctx.delete("WORKSPACE")
         ctx.symlink(ctx.attr.workspace_file, "WORKSPACE")
     elif ctx.attr.workspace_file_content:
-        bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-        ctx.execute([bash_exe, "-c", "rm -f WORKSPACE"])
+        ctx.delete("WORKSPACE")
         ctx.file("WORKSPACE", ctx.attr.workspace_file_content)
     else:
         ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
 
     if ctx.attr.build_file:
-        bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-        ctx.execute([bash_exe, "-c", "rm -f BUILD BUILD.bazel"])
+        ctx.delete("BUILD.bazel")
         ctx.symlink(ctx.attr.build_file, "BUILD.bazel")
     elif ctx.attr.build_file_content:
-        bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-        ctx.execute([bash_exe, "-c", "rm -f BUILD.bazel"])
+        ctx.delete("BUILD.bazel")
         ctx.file("BUILD.bazel", ctx.attr.build_file_content)
 
 def patch(ctx):

@@ -115,7 +115,7 @@ public class AndroidDataConverterTest {
 
   private static <T> Function<String, T> getFunction(T t) {
     return x -> {
-      assertThat(x).isSameAs(TO_MAP);
+      assertThat(x).isSameInstanceAs(TO_MAP);
       return t;
     };
   }

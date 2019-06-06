@@ -91,6 +91,14 @@ public final class NestedSetBuilder<E> {
    */
   public NestedSetBuilder<E> addAll(Iterable<? extends E> elements) {
     Preconditions.checkNotNull(elements);
+    if (elements instanceof NestedSet) {
+      if (order.equals(Order.STABLE_ORDER)) {
+        // If direct/transitive order doesn't matter, add the nested set as a transitive member to
+        // avoid copying its elements.
+        return addTransitive((NestedSet<? extends E>) elements);
+      }
+      throw new IllegalArgumentException("NestedSet should be added as a transitive member");
+    }
     if (items == null) {
       items = CompactHashSet.createWithExpectedSize(Iterables.size(elements));
     }

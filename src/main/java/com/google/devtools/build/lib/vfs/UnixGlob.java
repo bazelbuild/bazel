@@ -216,7 +216,7 @@ public final class UnixGlob {
    */
   private static Pattern makePatternFromWildcard(String pattern) {
     StringBuilder regexp = new StringBuilder();
-    for(int i = 0, len = pattern.length(); i < len; i++) {
+    for (int i = 0, len = pattern.length(); i < len; i++) {
       char c = pattern.charAt(i);
       switch(c) {
         case '*':
@@ -258,8 +258,8 @@ public final class UnixGlob {
    * Filesystem calls required for glob().
    */
   public interface FilesystemCalls {
-    /** Get directory entries and their types. */
-    Collection<Dirent> readdir(Path path, Symlinks symlinks) throws IOException;
+    /** Get directory entries and their types. Does not follow symlinks. */
+    Collection<Dirent> readdir(Path path) throws IOException;
 
     /** Return the stat() for the given path, or null. */
     FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException;
@@ -274,8 +274,8 @@ public final class UnixGlob {
   public static final FilesystemCalls DEFAULT_SYSCALLS =
       new FilesystemCalls() {
         @Override
-        public Collection<Dirent> readdir(Path path, Symlinks symlinks) throws IOException {
-          return path.readdir(symlinks);
+        public Collection<Dirent> readdir(Path path) throws IOException {
+          return path.readdir(Symlinks.NOFOLLOW);
         }
 
         @Override
@@ -813,7 +813,7 @@ public final class UnixGlob {
         return;
       }
 
-      Collection<Dirent> dents = context.syscalls.readdir(base, Symlinks.NOFOLLOW);
+      Collection<Dirent> dents = context.syscalls.readdir(base);
       for (Dirent dent : dents) {
         Dirent.Type childType = dent.getType();
         if (childType == Dirent.Type.UNKNOWN) {

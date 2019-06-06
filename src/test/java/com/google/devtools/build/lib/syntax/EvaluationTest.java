@@ -703,20 +703,19 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testIfStatementForbiddenInBuild() throws Exception {
-    new BuildTest()
-        .testIfErrorContains("if statements are not allowed in BUILD files", "if False: pass");
+    new BuildTest().testIfErrorContains("if statements are not allowed", "if False: pass");
   }
 
   @Test
   public void testKwargsForbiddenInBuild() throws Exception {
     new BuildTest()
-        .testIfErrorContains("**kwargs arguments are not allowed in BUILD files", "func(**dict)");
+        .testIfErrorContains("**kwargs arguments are not allowed in BUILD files", "print(**dict)");
   }
 
   @Test
   public void testArgsForbiddenInBuild() throws Exception {
     new BuildTest()
-        .testIfErrorContains("*args arguments are not allowed in BUILD files", "func(*array)");
+        .testIfErrorContains("*args arguments are not allowed in BUILD files", "print(*['a'])");
   }
 
   @Test

@@ -34,7 +34,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -63,8 +62,8 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -84,6 +83,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.query2.query.BlazeTargetAccessor;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
@@ -95,12 +95,13 @@ import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalValue;
 import com.google.devtools.build.lib.skyframe.TraversalInfoRootPackageExtractor;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
+import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.InterruptibleSupplier;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -136,7 +137,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   // 10k is likely a good balance between using batch efficiently and not blowing up memory.
   // TODO(janakr): Unify with RecursivePackageProviderBackedTargetPatternResolver's constant.
   protected static final int BATCH_CALLBACK_SIZE = 10000;
-  protected static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+  public static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
   private static final int MAX_QUERY_EXPRESSION_LOG_CHARS = 1000;
   private static final Logger logger = Logger.getLogger(SkyQueryEnvironment.class.getName());
 
@@ -258,7 +259,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       checkEvaluationResult(roots, result);
       packageSemaphore = makeFreshPackageMultisetSemaphore();
       graph = result.getWalkableGraph();
-      blacklistPatternsSupplier = InterruptibleSupplier.Memoize.of(new BlacklistSupplier(graph));
+      blacklistPatternsSupplier = MemoizingInterruptibleSupplier.of(new BlacklistSupplier(graph));
       graphBackedRecursivePackageProvider =
           new GraphBackedRecursivePackageProvider(
               graph, universeTargetPatternKeys, pkgPath, new TraversalInfoRootPackageExtractor());
@@ -278,7 +279,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         new RecursivePackageProviderBackedTargetPatternResolver(
             graphBackedRecursivePackageProvider,
             eventHandler,
-            TargetPatternEvaluator.DEFAULT_FILTERING_POLICY,
+            FilteringPolicies.NO_FILTER,
             packageSemaphore);
   }
 
@@ -327,7 +328,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     QueryExpressionMapper<Void> mapper = getQueryExpressionMapper();
-    QueryExpression transformedQueryExpression = queryExpression.accept(mapper);
+    QueryExpression transformedQueryExpression;
+    try (AutoProfiler p =
+        AutoProfiler.logged(
+            "transforming query", logger, /*minTimeForLoggingInMilliseconds=*/ 50)) {
+      transformedQueryExpression = queryExpression.accept(mapper);
+    }
     logger.info(
         String.format(
             "transformed query [%s] to [%s]",
@@ -593,9 +599,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   }
 
-  private <R> ListenableFuture<R> safeSubmitAsync(AsyncCallable<R> callable) {
+  @SuppressWarnings("unchecked")
+  private <R> ListenableFuture<R> safeSubmitAsync(QueryTaskAsyncCallable<R> callable) {
     try {
-      return Futures.submitAsync(callable, executor);
+      return Futures.submitAsync(() -> (ListenableFuture<R>) callable.call(), executor);
     } catch (RejectedExecutionException e) {
       return Futures.immediateCancelledFuture();
     }
@@ -609,14 +616,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       final Callback<Target> callback) {
     // TODO(bazel-team): As in here, use concurrency for the async #eval of other QueryEnvironment
     // implementations.
-    AsyncCallable<Void> task =
-        () -> (QueryTaskFutureImpl<Void>) expr.eval(SkyQueryEnvironment.this, context, callback);
-    return QueryTaskFutureImpl.ofDelegate(safeSubmitAsync(task));
+    return executeAsync(() -> expr.eval(SkyQueryEnvironment.this, context, callback));
   }
 
   @Override
-  public <R> QueryTaskFuture<R> executeAsync(QueryTaskCallable<R> callable) {
+  public <R> QueryTaskFuture<R> execute(QueryTaskCallable<R> callable) {
     return QueryTaskFutureImpl.ofDelegate(safeSubmit(callable));
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> executeAsync(QueryTaskAsyncCallable<R> callable) {
+    return QueryTaskFutureImpl.ofDelegate(safeSubmitAsync(callable));
   }
 
   @Override
@@ -658,7 +668,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @ThreadSafe
   @Override
   public NonExceptionalUniquifier<Target> createUniquifier() {
-    return new UniquifierImpl<>(TargetKeyExtractor.INSTANCE);
+    return new UniquifierImpl<>(TargetKeyExtractor.INSTANCE, queryEvaluationParallelismLevel);
   }
 
   @ThreadSafe
@@ -676,7 +686,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @ThreadSafe
   public Uniquifier<SkyKey> createSkyKeyUniquifier() {
-    return new UniquifierImpl<>(SkyKeyKeyExtractor.INSTANCE);
+    return new UniquifierImpl<>(SkyKeyKeyExtractor.INSTANCE, queryEvaluationParallelismLevel);
   }
 
   private ImmutableSet<PathFragment> getBlacklistedExcludes(TargetPatternKey targetPatternKey)
@@ -696,8 +706,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpression owner, String pattern, Callback<Target> callback) {
     TargetPatternKey targetPatternKey;
     try {
-      targetPatternKey = TargetPatternValue.key(
-          pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix);
+      targetPatternKey = TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, parserPrefix);
     } catch (TargetParsingException tpe) {
       try {
         reportBuildFileError(owner, tpe.getMessage());
@@ -818,6 +827,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new FakeLoadTarget(label, pkg);
   }
 
+  int getQueryEvaluationParallelismLevel() {
+    return queryEvaluationParallelismLevel;
+  }
+
   @ThreadSafe
   @Override
   public TargetAccessor<Target> getAccessor() {
@@ -858,6 +871,31 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     } catch (NoSuchThingException e) {
       throw new TargetNotFoundException(e);
     }
+  }
+
+  @Override
+  public Map<Label, Target> getTargets(Iterable<Label> labels) throws InterruptedException {
+    Multimap<PackageIdentifier, Label> packageIdToLabelMap = ArrayListMultimap.create();
+    labels.forEach(label -> packageIdToLabelMap.put(label.getPackageIdentifier(), label));
+    Map<PackageIdentifier, Package> packageIdToPackageMap =
+        bulkGetPackages(packageIdToLabelMap.keySet());
+    ImmutableMap.Builder<Label, Target> resultBuilder = ImmutableMap.builder();
+    for (PackageIdentifier pkgId : packageIdToLabelMap.keySet()) {
+      Package pkg = packageIdToPackageMap.get(pkgId);
+      if (pkg == null) {
+        continue;
+      }
+      for (Label label : packageIdToLabelMap.get(pkgId)) {
+        Target target;
+        try {
+          target = pkg.getTarget(label.getName());
+        } catch (NoSuchTargetException e) {
+          continue;
+        }
+        resultBuilder.put(label, target);
+      }
+    }
+    return resultBuilder.build();
   }
 
   @ThreadSafe

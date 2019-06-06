@@ -23,14 +23,16 @@ alias(
     actual = "emulator/emulator",
 )
 
+# emulator v29+ removed the arm and x86 specific binaries.
+# Keeping these aliases around for backwards compatibility.
 alias(
     name = "emulator_arm",
-    actual = "emulator/emulator64-arm",
+    actual = "emulator/emulator",
 )
 
 alias(
     name = "emulator_x86",
-    actual = "emulator/emulator64-x86",
+    actual = "emulator/emulator",
 )
 
 filegroup(
@@ -55,7 +57,7 @@ filegroup(
 
 filegroup(
     name = "qemu2_x86",
-    srcs = ["emulator/emulator"] + select({
+    srcs = ["emulator/emulator"] + glob(["emulator/lib64/**", "emulator/lib/**"]) + select({
         "@bazel_tools//src/conditions:darwin": ["emulator/qemu/darwin-x86_64/qemu-system-i386"],
         "@bazel_tools//src/conditions:darwin_x86_64": ["emulator/qemu/darwin-x86_64/qemu-system-i386"],
         "//conditions:default": ["emulator/qemu/linux-x86_64/qemu-system-i386"],
@@ -68,4 +70,4 @@ create_system_images_filegroups(
 )
 
 exports_files([
-%exported_files%] + glob(["system-images/**"]))
+%exported_files%] + glob(["system-images/**", "tools/**", "emulator/**"]))

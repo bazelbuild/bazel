@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
@@ -86,22 +87,18 @@ public class DesugarObjectsRequireNonNullTest {
 
   @Test
   public void testInliningImplicitCallToObjectsRequireNonNull() {
-    try {
-      ClassCallingRequireNonNull.getStringLengthWithMethodReference(null);
-      fail ("NullPointerException expected");
-    } catch (NullPointerException e) {
-      // Expected
-    }
+    assertThrows(
+        NullPointerException.class,
+        () -> ClassCallingRequireNonNull.getStringLengthWithMethodReference(null));
 
     assertThat(ClassCallingRequireNonNull.getStringLengthWithMethodReference("")).isEqualTo(0);
     assertThat(ClassCallingRequireNonNull.getStringLengthWithMethodReference("1")).isEqualTo(1);
 
-    try {
-      ClassCallingRequireNonNull.getStringLengthWithLambdaAndExplicitCallToRequireNonNull(null);
-      fail ("NullPointerException expected");
-    } catch (NullPointerException e) {
-      // Expected
-    }
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            ClassCallingRequireNonNull.getStringLengthWithLambdaAndExplicitCallToRequireNonNull(
+                null));
 
     assertThat(
             ClassCallingRequireNonNull.getStringLengthWithLambdaAndExplicitCallToRequireNonNull(""))
@@ -114,33 +111,19 @@ public class DesugarObjectsRequireNonNullTest {
 
   @Test
   public void testInliningExplicitCallToObjectsRequireNonNull() {
-    try {
-      ClassCallingRequireNonNull.getFirstCharVersionOne(null);
-      fail ("NullPointerException expected");
-    } catch (NullPointerException e) {
-      // Expected
-    }
+    assertThrows(
+        NullPointerException.class, () -> ClassCallingRequireNonNull.getFirstCharVersionOne(null));
 
-    try {
-      ClassCallingRequireNonNull.getFirstCharVersionTwo(null);
-      fail ("NullPointerException expected");
-    } catch (NullPointerException e) {
-      // Expected
-    }
+    assertThrows(
+        NullPointerException.class, () -> ClassCallingRequireNonNull.getFirstCharVersionTwo(null));
 
-    try {
-      ClassCallingRequireNonNull.callRequireNonNullWithArgumentString(null);
-      fail ("NullPointerException expected");
-    } catch (NullPointerException e) {
-      // Expected
-    }
+    assertThrows(
+        NullPointerException.class,
+        () -> ClassCallingRequireNonNull.callRequireNonNullWithArgumentString(null));
 
-    try {
-      ClassCallingRequireNonNull.callRequireNonNullWithArgumentSupplier(null);
-      fail ("NullPointerException expected");
-    } catch (NullPointerException e) {
-      // Expected
-    }
+    assertThrows(
+        NullPointerException.class,
+        () -> ClassCallingRequireNonNull.callRequireNonNullWithArgumentSupplier(null));
 
     assertThat(ClassCallingRequireNonNull.getFirstCharVersionOne("hello")).isEqualTo('h');
     assertThat(ClassCallingRequireNonNull.getFirstCharVersionTwo("hello")).isEqualTo('h');

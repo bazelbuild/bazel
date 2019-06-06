@@ -135,7 +135,7 @@ src/my/app/tests/test.cc
   precise meaning of such relationships is often quite complex and
   language- or rule-dependent, but intuitively it is simple: a C++
   library rule A might have another C++ library rule B for an input.
-  The effect of this dependency is that the B's header files are
+  The effect of this dependency is that B's header files are
   available to A during compilation, B's symbols are available to A
   during linking, and B's runtime data is available to A during
   execution.
@@ -284,7 +284,7 @@ testdata/input.txt
 
 <p><code>target-name</code> is the name of the target within the package.
   The name of a rule is the value of the <code>name</code>
-  parameter in the rule's declaration in a BUILD file; the name
+  attribute in the rule's declaration in a BUILD file; the name
   of a file is its pathname relative to the directory containing
   the BUILD file.
   Target names must be composed entirely of

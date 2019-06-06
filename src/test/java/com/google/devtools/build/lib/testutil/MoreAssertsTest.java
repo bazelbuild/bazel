@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsSublist;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainSublist;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import java.util.Arrays;
 import java.util.List;
@@ -49,26 +49,14 @@ public class MoreAssertsTest {
   public void testAssertContainsSublistFailure() {
     List<String> actual = Arrays.asList("a", "b", "c");
 
-    try {
-      assertContainsSublist(actual, "d");
-      fail("no exception thrown");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().startsWith("Did not find [d] as a sublist of [a, b, c]");
-    }
+    AssertionError e = assertThrows(AssertionError.class, () -> assertContainsSublist(actual, "d"));
+    assertThat(e).hasMessageThat().startsWith("Did not find [d] as a sublist of [a, b, c]");
 
-    try {
-      assertContainsSublist(actual, "a", "c");
-      fail("no exception thrown");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().startsWith("Did not find [a, c] as a sublist of [a, b, c]");
-    }
+    e = assertThrows(AssertionError.class, () -> assertContainsSublist(actual, "a", "c"));
+    assertThat(e).hasMessageThat().startsWith("Did not find [a, c] as a sublist of [a, b, c]");
 
-    try {
-      assertContainsSublist(actual, "b", "c", "d");
-      fail("no exception thrown");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().startsWith("Did not find [b, c, d] as a sublist of [a, b, c]");
-    }
+    e = assertThrows(AssertionError.class, () -> assertContainsSublist(actual, "b", "c", "d"));
+    assertThat(e).hasMessageThat().startsWith("Did not find [b, c, d] as a sublist of [a, b, c]");
   }
 
   @Test
@@ -84,46 +72,24 @@ public class MoreAssertsTest {
     List<String> actual = Arrays.asList("a", "b", "c");
 
     // All single-string combinations.
-    try {
-      assertDoesNotContainSublist(actual, "a");
-      fail("no exception thrown");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().isEqualTo("Found [a] as a sublist of [a, b, c]");
-    }
-    try {
-      assertDoesNotContainSublist(actual, "b");
-      fail("no exception thrown");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().isEqualTo("Found [b] as a sublist of [a, b, c]");
-    }
-    try {
-      assertDoesNotContainSublist(actual, "c");
-      fail("no exception thrown");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().isEqualTo("Found [c] as a sublist of [a, b, c]");
-    }
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> assertDoesNotContainSublist(actual, "a"));
+    assertThat(e).hasMessageThat().isEqualTo("Found [a] as a sublist of [a, b, c]");
+    e = assertThrows(AssertionError.class, () -> assertDoesNotContainSublist(actual, "b"));
+    assertThat(e).hasMessageThat().isEqualTo("Found [b] as a sublist of [a, b, c]");
+    e = assertThrows(AssertionError.class, () -> assertDoesNotContainSublist(actual, "c"));
+    assertThat(e).hasMessageThat().isEqualTo("Found [c] as a sublist of [a, b, c]");
 
     // All two-string combinations.
-    try {
-      assertDoesNotContainSublist(actual, "a", "b");
-      fail("no exception thrown");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().isEqualTo("Found [a, b] as a sublist of [a, b, c]");
-    }
-    try {
-      assertDoesNotContainSublist(actual, "b", "c");
-      fail("no exception thrown");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().isEqualTo("Found [b, c] as a sublist of [a, b, c]");
-    }
+    e = assertThrows(AssertionError.class, () -> assertDoesNotContainSublist(actual, "a", "b"));
+    assertThat(e).hasMessageThat().isEqualTo("Found [a, b] as a sublist of [a, b, c]");
+    e = assertThrows(AssertionError.class, () -> assertDoesNotContainSublist(actual, "b", "c"));
+    assertThat(e).hasMessageThat().isEqualTo("Found [b, c] as a sublist of [a, b, c]");
 
     // The whole list.
-    try {
-      assertDoesNotContainSublist(actual, "a", "b", "c");
-      fail("no exception thrown");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().isEqualTo("Found [a, b, c] as a sublist of [a, b, c]");
-    }
+    e =
+        assertThrows(
+            AssertionError.class, () -> assertDoesNotContainSublist(actual, "a", "b", "c"));
+    assertThat(e).hasMessageThat().isEqualTo("Found [a, b, c] as a sublist of [a, b, c]");
   }
-
 }

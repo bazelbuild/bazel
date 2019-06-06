@@ -583,8 +583,6 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     return ruleContext.getHostConfiguration();
   }
 
-  // TODO(juliexxia): special-case label-typed build settings so they return the providers of the
-  // target represented by the label instead of the actual label.
   @Override
   @Nullable
   public Object getBuildSettingValue() throws EvalException {
@@ -895,6 +893,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           .run(
               outputs,
               inputs,
+              /*unusedInputsList=*/ Runtime.NONE,
               executableUnchecked,
               toolsUnchecked,
               arguments,

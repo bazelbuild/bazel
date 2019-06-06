@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.WindowsOsPathPolicy.ShortPathResolver;
 import java.util.HashMap;
 import java.util.Map;
@@ -101,8 +101,7 @@ public class WindowsPathTest extends PathAbstractTest {
     assertThat(create("C:/foo").relativeTo(create("C:/")).getPathString()).isEqualTo("foo");
     // Case insensitivity test
     assertThat(create("C:/foo/bar").relativeTo(create("C:/FOO")).getPathString()).isEqualTo("bar");
-    MoreAsserts.assertThrows(
-        IllegalArgumentException.class, () -> create("D:/foo").relativeTo(create("C:/")));
+    assertThrows(IllegalArgumentException.class, () -> create("D:/foo").relativeTo(create("C:/")));
   }
 
   @Test

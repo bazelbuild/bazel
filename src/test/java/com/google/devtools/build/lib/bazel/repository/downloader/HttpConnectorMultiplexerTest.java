@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.makeUrl;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
-import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.same;
 import static org.mockito.Mockito.doAnswer;
@@ -153,12 +153,9 @@ public class HttpConnectorMultiplexerTest {
   @Test
   public void multipleUrlsFail_throwsIOException() throws Exception {
     when(connector.connect(any(URL.class), any(ImmutableMap.class))).thenThrow(new IOException());
-    try {
-      multiplexer.connect(asList(URL1, URL2, URL3), "");
-      fail("Expected IOException");
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().contains("All mirrors are down");
-    }
+    IOException e =
+        assertThrows(IOException.class, () -> multiplexer.connect(asList(URL1, URL2, URL3), ""));
+    assertThat(e).hasMessageThat().contains("All mirrors are down");
     verify(connector, times(3)).connect(any(URL.class), any(ImmutableMap.class));
     verify(sleeper, times(2)).sleepMillis(anyLong());
     verifyNoMoreInteractions(sleeper, connector, streamFactory);

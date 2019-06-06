@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -71,14 +71,14 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             /*env=*/ null,
             new AttributeContainer(ruleClass));
 
-    assertThat(rule.getAssociatedRule()).isSameAs(rule);
+    assertThat(rule.getAssociatedRule()).isSameInstanceAs(rule);
 
     // pkg.getRules() = [rule]
     Package pkg = pkgBuilder.build();
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class))).hasSize(1);
     assertThat(pkg.getTargets(Rule.class).iterator().next()).isEqualTo(rule);
 
-    assertThat(pkg.getTarget("foo")).isSameAs(rule);
+    assertThat(pkg.getTarget("foo")).isSameInstanceAs(rule);
 
     assertThat(rule.getLabel()).isEqualTo(Label.parseAbsolute("//mypkg:foo", ImmutableMap.of()));
     assertThat(rule.getName()).isEqualTo("foo");
@@ -91,18 +91,8 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     // Attr with explicitly-supplied value:
     AttributeMap attributes = RawAttributeMapper.of(rule);
     assertThat(attributes.get("alwayslink", Type.BOOLEAN)).isTrue();
-    try {
-      attributes.get("alwayslink", Type.STRING); // type error: boolean, not string!
-      fail();
-    } catch (Exception e) {
-      /* Class of exception and error message are not specified by API. */
-    }
-    try {
-      attributes.get("nosuchattr", Type.STRING); // no such attribute
-      fail();
-    } catch (Exception e) {
-      /* Class of exception and error message are not specified by API. */
-    }
+    assertThrows(Exception.class, () -> attributes.get("alwayslink", Type.STRING));
+    assertThrows(Exception.class, () -> attributes.get("nosuchattr", Type.STRING));
 
     // Attrs with default values:
     // cc_library linkstatic default=0 according to build encyc.
@@ -149,20 +139,20 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     attributeValues.put("actual", "//bar:baz");
 
     RuleClass ruleClass = provider.getRuleClassMap().get("bind");
-    try {
-      RuleFactory.createAndAddRule(
-          pkgBuilder,
-          ruleClass,
-          new BuildLangTypedAttributeValuesMap(attributeValues),
-          new Reporter(new EventBus()),
-          /*ast=*/ null,
-          LOCATION_42,
-          /*env=*/ null,
-          new AttributeContainer(ruleClass));
-      fail();
-    } catch (RuleFactory.InvalidRuleException e) {
-      assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
-    }
+    RuleFactory.InvalidRuleException e =
+        assertThrows(
+            RuleFactory.InvalidRuleException.class,
+            () ->
+                RuleFactory.createAndAddRule(
+                    pkgBuilder,
+                    ruleClass,
+                    new BuildLangTypedAttributeValuesMap(attributeValues),
+                    new Reporter(new EventBus()),
+                    /*ast=*/ null,
+                    LOCATION_42,
+                    /*env=*/ null,
+                    new AttributeContainer(ruleClass)));
+    assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
   }
 
   @Test
@@ -178,20 +168,20 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     attributeValues.put("alwayslink", true);
 
     RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
-    try {
-      RuleFactory.createAndAddRule(
-          pkgBuilder,
-          ruleClass,
-          new BuildLangTypedAttributeValuesMap(attributeValues),
-          new Reporter(new EventBus()),
-          /*ast=*/ null,
-          Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
-          /*env=*/ null,
-          new AttributeContainer(ruleClass));
-      fail();
-    } catch (RuleFactory.InvalidRuleException e) {
-      assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
-    }
+    RuleFactory.InvalidRuleException e =
+        assertThrows(
+            RuleFactory.InvalidRuleException.class,
+            () ->
+                RuleFactory.createAndAddRule(
+                    pkgBuilder,
+                    ruleClass,
+                    new BuildLangTypedAttributeValuesMap(attributeValues),
+                    new Reporter(new EventBus()),
+                    /*ast=*/ null,
+                    Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
+                    /*env=*/ null,
+                    new AttributeContainer(ruleClass)));
+    assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
 
   private void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) throws Exception {
@@ -219,22 +209,22 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     attributeValues.put("outs", Lists.newArrayList("."));
     attributeValues.put("name", "some");
     RuleClass ruleClass = provider.getRuleClassMap().get("genrule");
-    try {
-      RuleFactory.createAndAddRule(
-          pkgBuilder,
-          ruleClass,
-          new BuildLangTypedAttributeValuesMap(attributeValues),
-          new Reporter(new EventBus()),
-          /*ast=*/ null,
-          Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
-          /*env=*/ null,
-          new AttributeContainer(ruleClass));
-      fail();
-    } catch (RuleFactory.InvalidRuleException e) {
-      assertWithMessage(e.getMessage())
-          .that(e.getMessage().contains("output file name can't be equal '.'"))
-          .isTrue();
-    }
+    RuleFactory.InvalidRuleException e =
+        assertThrows(
+            RuleFactory.InvalidRuleException.class,
+            () ->
+                RuleFactory.createAndAddRule(
+                    pkgBuilder,
+                    ruleClass,
+                    new BuildLangTypedAttributeValuesMap(attributeValues),
+                    new Reporter(new EventBus()),
+                    /*ast=*/ null,
+                    Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
+                    /*env=*/ null,
+                    new AttributeContainer(ruleClass)));
+    assertWithMessage(e.getMessage())
+        .that(e.getMessage().contains("output file name can't be equal '.'"))
+        .isTrue();
   }
 
   /**

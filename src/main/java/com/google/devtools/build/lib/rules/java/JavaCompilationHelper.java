@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.OFF;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -32,7 +31,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -87,7 +86,7 @@ public final class JavaCompilationHelper {
     this.hostJavabase = Preconditions.checkNotNull(hostJavabase);
     this.attributes = attributes;
     this.customJavacOpts = javacOpts;
-    this.customJavacJvmOpts = javaToolchain.getJvmOptions();
+    this.customJavacJvmOpts = javaToolchain.getJavabuilderJvmOptions();
     this.semantics = semantics;
     this.additionalJavaBaseInputs = additionalJavaBaseInputs;
     this.strictJavaDeps =
@@ -214,7 +213,8 @@ public final class JavaCompilationHelper {
         NestedSetBuilder.fromNestedSet(hostJavabase.javaBaseInputsMiddleman())
             .addAll(additionalJavaBaseInputs)
             .build());
-    builder.setTargetLabel(ruleContext.getLabel());
+    Label label = ruleContext.getLabel();
+    builder.setTargetLabel(label);
     builder.setArtifactForExperimentalCoverage(maybeCreateExperimentalCoverageArtifact(outputJar));
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(getBootclasspathOrDefault());
@@ -234,9 +234,9 @@ public final class JavaCompilationHelper {
     builder.setJavacJvmOpts(customJavacJvmOpts);
     builder.setJavacExecutionInfo(getExecutionInfo());
     builder.setCompressJar(true);
-    builder.setSourceGenDirectory(sourceGenDir(classJar));
-    builder.setTempDirectory(tempDir(classJar));
-    builder.setClassDirectory(classDir(classJar));
+    builder.setSourceGenDirectory(sourceGenDir(classJar, label));
+    builder.setTempDirectory(tempDir(classJar, label));
+    builder.setClassDirectory(classDir(classJar, label));
     builder.setPlugins(attributes.plugins().plugins());
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
@@ -244,7 +244,7 @@ public final class JavaCompilationHelper {
     builder.setDirectJars(attributes.getDirectJars());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setTargetLabel(
-        attributes.getTargetLabel() == null ? ruleContext.getLabel() : attributes.getTargetLabel());
+        attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
     return builder.build(ruleContext, semantics);
   }
@@ -264,8 +264,22 @@ public final class JavaCompilationHelper {
     if (!attributes.getBootClassPath().isEmpty()) {
       return attributes.getBootClassPath();
     } else {
-      return getBootClasspath();
+      return getBootClasspath(javaToolchain);
     }
+  }
+
+  public boolean addCoverageSupport() {
+    FilesToRunProvider jacocoRunner = javaToolchain.getJacocoRunner();
+    if (jacocoRunner == null) {
+      return false;
+    }
+    Artifact jacocoRunnerJar = jacocoRunner.getExecutable();
+    if (isStrict()) {
+      attributes.addDirectJar(jacocoRunnerJar);
+    }
+    attributes.addCompileTimeClassPathEntry(jacocoRunnerJar);
+    attributes.addRuntimeClassPathEntry(jacocoRunnerJar);
+    return true;
   }
 
   /**
@@ -362,7 +376,7 @@ public final class JavaCompilationHelper {
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
     builder.setJavacOpts(getJavacOpts());
-    builder.setTempDirectory(tempDir(headerJar));
+    builder.setTempDirectory(tempDir(headerJar, ruleContext.getLabel()));
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
@@ -465,7 +479,7 @@ public final class JavaCompilationHelper {
                         .addExecPath("--class_jar", classJar)
                         .addExecPath("--output_jar", genClassJar)
                         .add("--temp_dir")
-                        .addPath(tempDir(genClassJar))
+                        .addPath(tempDir(genClassJar, ruleContext.getLabel()))
                         .build())
                 .setProgressMessage("Building genclass jar %s", genClassJar.prettyPrint())
                 .setMnemonic("JavaSourceJar")
@@ -531,31 +545,31 @@ public final class JavaCompilationHelper {
    * Produces a derived directory where source files generated by annotation processors should be
    * stored.
    */
-  private static PathFragment sourceGenDir(Artifact outputJar) {
-    return workDir(outputJar, "_sourcegenfiles");
+  private static PathFragment sourceGenDir(Artifact outputJar, Label label) {
+    return workDir(outputJar, "_sourcegenfiles", label);
   }
 
-  private static PathFragment tempDir(Artifact outputJar) {
-    return workDir(outputJar, "_temp");
+  private static PathFragment tempDir(Artifact outputJar, Label label) {
+    return workDir(outputJar, "_temp", label);
   }
 
   /** Produces a derived directory where class outputs should be stored. */
-  public static PathFragment classDir(Artifact outputJar) {
-    return workDir(outputJar, "_classes");
+  public static PathFragment classDir(Artifact outputJar, Label label) {
+    return workDir(outputJar, "_classes", label);
   }
 
   /**
-   * For an output jar and a suffix, produces a derived directory under the same root as the output
-   * jar.
+   * For an output jar and a suffix, produces a derived directory under the same root as {@code
+   * label} with directory name composed of {@code outputJar}'s basename and {@code suffix}.
    *
    * <p>Note that this won't work if a rule produces two jars with the same basename.
    */
-  private static PathFragment workDir(Artifact outputJar, String suffix) {
+  private static PathFragment workDir(Artifact outputJar, String suffix, Label label) {
     String basename = FileSystemUtils.removeExtension(outputJar.getExecPath().getBaseName());
     return outputJar
         .getRoot()
         .getExecPath()
-        .getRelative(AnalysisUtils.getUniqueDirectory(outputJar.getOwnerLabel(), JAVAC))
+        .getRelative(AnalysisUtils.getUniqueDirectory(label, JAVAC))
         .getRelative(basename + suffix);
   }
 
@@ -659,7 +673,7 @@ public final class JavaCompilationHelper {
   }
 
   private boolean isStrict() {
-    return getStrictJavaDeps() != OFF;
+    return getStrictJavaDeps() != StrictDepsMode.OFF;
   }
 
   private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromCollection(
@@ -757,16 +771,12 @@ public final class JavaCompilationHelper {
    * Returns the javac bootclasspath artifacts from the given toolchain (if it has any) or the rule.
    */
   public static ImmutableList<Artifact> getBootClasspath(JavaToolchainProvider javaToolchain) {
-    return ImmutableList.copyOf(javaToolchain.getBootclasspath());
-  }
-
-  private ImmutableList<Artifact> getBootClasspath() {
-    return ImmutableList.copyOf(javaToolchain.getBootclasspath());
+    return javaToolchain.getBootclasspath().toList();
   }
 
   /** Returns the extdir artifacts. */
   private final ImmutableList<Artifact> getExtdirInputs() {
-    return ImmutableList.copyOf(javaToolchain.getExtclasspath());
+    return javaToolchain.getExtclasspath().toList();
   }
 
   /**

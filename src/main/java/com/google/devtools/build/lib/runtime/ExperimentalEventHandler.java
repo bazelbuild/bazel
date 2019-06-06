@@ -20,10 +20,12 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.AnalyzingActionEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
+import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -111,6 +113,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private boolean buildRunning;
   // Number of open build even protocol transports.
   private boolean progressBarNeedsRefresh;
+  private volatile boolean shutdown;
   private final AtomicReference<Thread> updateThread;
   private byte[] stdoutBuffer;
   private byte[] stderrBuffer;
@@ -768,8 +771,15 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   @AllowConcurrentEvents
-  public void analyzingAction(AnalyzingActionEvent event) {
-    stateTracker.analyzingAction(event);
+  public void scanningAction(ScanningActionEvent event) {
+    stateTracker.scanningAction(event);
+    refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void stopScanningAction(StoppedScanningActionEvent event) {
+    stateTracker.stopScanningAction(event);
     refresh();
   }
 
@@ -785,6 +795,13 @@ public class ExperimentalEventHandler implements EventHandler {
   public void runningAction(RunningActionEvent event) {
     stateTracker.runningAction(event);
     refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionCompletion(ActionScanningCompletedEvent event) {
+    stateTracker.actionCompletion(event);
+    refreshSoon();
   }
 
   @Subscribe
@@ -982,7 +999,7 @@ public class ExperimentalEventHandler implements EventHandler {
           new Thread(
               () -> {
                 try {
-                  while (true) {
+                  while (!shutdown) {
                     Thread.sleep(minimalUpdateInterval);
                     if (lastRefreshMillis < mustRefreshAfterMillis
                         && mustRefreshAfterMillis < clock.currentTimeMillis()) {
@@ -1007,6 +1024,7 @@ public class ExperimentalEventHandler implements EventHandler {
    * NOT CALL from a SYNCHRONIZED block, as this will give the opportunity for dead locks.
    */
   private void stopUpdateThread() {
+    shutdown = true;
     Thread threadToWaitFor = updateThread.getAndSet(null);
     if (threadToWaitFor != null) {
       threadToWaitFor.interrupt();

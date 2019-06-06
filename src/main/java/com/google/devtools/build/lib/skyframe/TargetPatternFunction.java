@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider.MissingDepException;
@@ -32,7 +30,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -66,12 +63,14 @@ public class TargetPatternFunction implements SkyFunction {
               MultisetSemaphore.<PackageIdentifier>unbounded());
       TargetPattern parsedPattern = patternKey.getParsedPattern();
       ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();
-      final Set<Target> results = CompactHashSet.create();
+      ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();
       BatchCallback<Target, RuntimeException> callback =
           new BatchCallback<Target, RuntimeException>() {
             @Override
             public void process(Iterable<Target> partialResult) {
-              Iterables.addAll(results, partialResult);
+              for (Target target : partialResult) {
+                resolvedTargetsBuilder.add(target);
+              }
             }
           };
       parsedPattern.eval(
@@ -82,8 +81,6 @@ public class TargetPatternFunction implements SkyFunction {
           // The exception type here has to match the one on the BatchCallback. Since the callback
           // defined above never throws, the exact type here is not really relevant.
           RuntimeException.class);
-      ResolvedTargets.Builder<Target> resolvedTargetsBuilder =
-          ResolvedTargets.<Target>builder().addAll(results);
       if (provider.encounteredPackageErrors()) {
         resolvedTargetsBuilder.setError();
       }

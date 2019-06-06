@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylark.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -147,7 +147,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     for (Artifact artifact : artifacts) {
       artifactFilenames.add(artifact.getFilename());
     }
-    assertThat(artifactFilenames.build()).containsAllIn(Lists.newArrayList(expected));
+    assertThat(artifactFilenames.build()).containsAtLeastElementsIn(Lists.newArrayList(expected));
   }
 
   protected Object evalRuleClassCode(String... lines) throws Exception {
@@ -164,41 +164,28 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
 
   protected void checkError(SkylarkRuleContext ruleContext, String errorMsg, String... lines)
       throws Exception {
-    try {
-      evalRuleContextCode(ruleContext, lines);
-      fail();
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().isEqualTo(errorMsg);
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> evalRuleContextCode(ruleContext, lines));
+    assertThat(e).hasMessageThat().isEqualTo(errorMsg);
   }
 
   protected void checkErrorStartsWith(
       SkylarkRuleContext ruleContext, String errorMsg, String... lines) throws Exception {
-    try {
-      evalRuleContextCode(ruleContext, lines);
-      fail();
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().startsWith(errorMsg);
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> evalRuleContextCode(ruleContext, lines));
+    assertThat(e).hasMessageThat().startsWith(errorMsg);
   }
 
   protected void checkErrorContains(String errorMsg, String... lines) throws Exception {
     ev.setFailFast(false);
-    try {
-      eval(lines);
-      fail("checkErrorContains(String, String...): There was no error");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains(errorMsg);
-    }
+    EvalException e = assertThrows(EvalException.class, () -> eval(lines));
+    assertThat(e).hasMessageThat().contains(errorMsg);
   }
 
   protected void checkErrorContains(
       SkylarkRuleContext ruleContext, String errorMsg, String... lines) throws Exception {
-    try {
-      evalRuleContextCode(ruleContext, lines);
-      fail("checkErrorContains(SkylarkRuleContext, String, String...): There was no error");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains(errorMsg);
-    }
+    EvalException e =
+        assertThrows(EvalException.class, () -> evalRuleContextCode(ruleContext, lines));
+    assertThat(e).hasMessageThat().contains(errorMsg);
   }
 }

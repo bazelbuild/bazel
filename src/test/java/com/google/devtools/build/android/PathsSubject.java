@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static com.google.common.truth.Fact.fact;
+import static com.google.common.truth.Fact.simpleFact;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
@@ -45,7 +48,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 /** A testing utility that allows assertions against Paths. */
-public class PathsSubject extends Subject<PathsSubject, Path> {
+public class PathsSubject extends Subject {
 
   private static final String PATH_NORMALIZER =
       String.format(
@@ -55,66 +58,84 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
               .map(p -> String.format("(?:%s)", p))
               .collect(joining("|")));
 
+  private final Path actual;
+
   PathsSubject(FailureMetadata failureMetadata, @Nullable Path subject) {
     super(failureMetadata, subject);
+    this.actual = subject;
   }
 
   void exists() {
-    if (actual() == null) {
-      fail("should not be null.");
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
     }
-    if (!Files.exists(getSubject())) {
-      fail("exists.");
+    if (!Files.exists(actual)) {
+      failWithActual(simpleFact("expected to exist"));
     }
+  }
+
+  void containsExactlyUncompressedFilesIn(String... paths) throws IOException {
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
+    }
+    exists();
+    assertThat(
+            new ZipFile(actual.toFile())
+                .stream()
+                    .filter(entry -> entry.getMethod() == ZipEntry.STORED)
+                    .map(ZipEntry::getName)
+                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
+                    .collect(Collectors.toSet()))
+        .containsExactlyElementsIn(paths);
   }
 
   void containsAllArchivedFilesIn(String... paths) throws IOException {
-    if (actual() == null) {
-      fail("should not be null.");
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
 
     assertThat(
-            new ZipFile(actual().toFile())
+            new ZipFile(actual.toFile())
                 .stream()
-                .map(ZipEntry::getName)
-                .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
-                .collect(Collectors.toSet()))
-        .containsAllIn(Arrays.asList(paths));
+                    .map(ZipEntry::getName)
+                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
+                    .collect(Collectors.toSet()))
+        .containsAtLeastElementsIn(Arrays.asList(paths));
   }
 
   void containsExactlyArchivedFilesIn(String... paths) throws IOException {
-    if (actual() == null) {
-      fail("should not be null.");
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
 
     assertThat(
-            new ZipFile(actual().toFile())
+            new ZipFile(actual.toFile())
                 .stream()
-                .map(ZipEntry::getName)
-                .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
-                .collect(Collectors.toSet()))
+                    .map(ZipEntry::getName)
+                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
+                    .collect(Collectors.toSet()))
         .containsExactly(Arrays.asList(paths));
   }
 
   void containsNoArchivedFilesIn(String... paths) throws IOException {
-    if (actual() == null) {
-      fail("should not be null.");
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
     assertThat(
-            new ZipFile(actual().toFile())
+            new ZipFile(actual.toFile())
                 .stream()
-                .map(ZipEntry::getName)
-                .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
-                .collect(Collectors.toSet()))
+                    .map(ZipEntry::getName)
+                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
+                    .collect(Collectors.toSet()))
         .containsNoneIn(Arrays.asList(paths));
   }
 
   void xmlContentsIsEqualTo(String... contents) {
-    if (actual() == null) {
-      fail("should not be null.");
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
     try {
@@ -125,11 +146,14 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
 
       assertThat(
               normalizeXml(
-                  newXmlDocument(factory, Files.readAllLines(getSubject(), StandardCharsets.UTF_8)),
+                  newXmlDocument(factory, Files.readAllLines(actual, StandardCharsets.UTF_8)),
                   transformer))
           .isEqualTo(normalizeXml(newXmlDocument(factory, Arrays.asList(contents)), transformer));
     } catch (IOException | SAXException | ParserConfigurationException | TransformerException e) {
-      fail(e.toString());
+      failWithoutActual(
+          fact("expected to have contents", asList(contents)),
+          fact("but failed to read file with", e),
+          fact("path was", actual));
     }
   }
 
@@ -147,7 +171,6 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
   }
 
   public void containsExactlyTheseLines(String... lines) throws IOException {
-    assertThat(Files.readAllLines(actual(), StandardCharsets.UTF_8))
-        .containsExactlyElementsIn(lines);
+    assertThat(Files.readAllLines(actual, StandardCharsets.UTF_8)).containsExactlyElementsIn(lines);
   }
 }

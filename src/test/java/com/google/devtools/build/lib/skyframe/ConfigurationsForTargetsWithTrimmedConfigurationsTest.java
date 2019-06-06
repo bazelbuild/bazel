@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -75,7 +76,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       BuildOptions result = buildOptions.clone();
-      result.get(BuildConfiguration.Options.class).hostCpu = "SET BY SPLIT";
+      result.get(CoreOptions.class).hostCpu = "SET BY SPLIT";
       return ImmutableList.of(result);
     }
   }
@@ -85,7 +86,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       BuildOptions result = buildOptions.clone();
-      result.get(BuildConfiguration.Options.class).cpu = "SET BY SPLIT";
+      result.get(CoreOptions.class).cpu = "SET BY SPLIT";
       return ImmutableList.of(result);
     }
   }
@@ -95,7 +96,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     @Override
     public BuildOptions patch(BuildOptions options) {
       BuildOptions result = options.clone();
-      result.get(BuildConfiguration.Options.class).cpu = "SET BY PATCH";
+      result.get(CoreOptions.class).cpu = "SET BY PATCH";
       return result;
     }
   }
@@ -587,10 +588,6 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ConfigurationResolver.applyTransition(
             getTargetConfiguration().getOptions(),
             transition,
-            ruleClassProvider.getAllFragments(),
-            ruleClassProvider,
-            false,
-            ImmutableMap.of(),
             ImmutableMap.of())) {
       outValues.add(toOptions.get(TestConfiguration.TestOptions.class).testFilter);
     }

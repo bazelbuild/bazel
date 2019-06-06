@@ -60,7 +60,6 @@ import javax.annotation.Nullable;
  *
  * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */
-@VisibleForTesting
 public abstract class FileStateValue implements SkyValue {
   public static final SkyFunctionName FILE_STATE = SkyFunctionName.createNonHermetic("FILE_STATE");
 

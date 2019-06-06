@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -58,17 +59,17 @@ public class CompositeRunfilesSupplierTest {
     assertThat(
             CompositeRunfilesSupplier.of(
                 EmptyRunfilesSupplier.INSTANCE, EmptyRunfilesSupplier.INSTANCE))
-        .isSameAs(EmptyRunfilesSupplier.INSTANCE);
+        .isSameInstanceAs(EmptyRunfilesSupplier.INSTANCE);
     assertThat(CompositeRunfilesSupplier.of(EmptyRunfilesSupplier.INSTANCE, mockFirst))
-        .isSameAs(mockFirst);
+        .isSameInstanceAs(mockFirst);
     assertThat(CompositeRunfilesSupplier.of(mockFirst, EmptyRunfilesSupplier.INSTANCE))
-        .isSameAs(mockFirst);
+        .isSameInstanceAs(mockFirst);
   }
 
   @Test
   public void fromSuppliersSeleton() {
     assertThat(CompositeRunfilesSupplier.fromSuppliers(ImmutableList.of(mockFirst)))
-        .isSameAs(mockFirst);
+        .isSameInstanceAs(mockFirst);
   }
 
   @Test
@@ -152,19 +153,15 @@ public class CompositeRunfilesSupplierTest {
   private static Map<PathFragment, Artifact> mkMappings(ArtifactRoot rootDir, String... paths) {
     ImmutableMap.Builder<PathFragment, Artifact> builder = ImmutableMap.builder();
     for (String path : paths) {
-      builder.put(PathFragment.create(path), mkArtifact(rootDir, path));
+      builder.put(PathFragment.create(path), ActionsTestUtil.createArtifact(rootDir, path));
     }
     return builder.build();
-  }
-
-  private static Artifact mkArtifact(ArtifactRoot rootDir, String path) {
-    return new Artifact(PathFragment.create(path), rootDir);
   }
 
   private static NestedSet<Artifact> mkArtifacts(ArtifactRoot rootDir, String... paths) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (String path : paths) {
-      builder.add(mkArtifact(rootDir, path));
+      builder.add(ActionsTestUtil.createArtifact(rootDir, path));
     }
     return builder.build();
   }

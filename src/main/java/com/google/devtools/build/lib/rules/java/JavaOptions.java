@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelMapConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
@@ -419,6 +419,16 @@ public class JavaOptions extends FragmentOptions {
   public Map<String, Label> bytecodeOptimizers;
 
   @Option(
+      name = "enforce_proguard_file_extension",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If enabled, requires that ProGuard configuration files outside of third_party/ use the"
+              + " *.pgcfg file extension.")
+  public boolean enforceProguardFileExtension;
+
+  @Option(
       name = "translations",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -673,6 +683,12 @@ public class JavaOptions extends FragmentOptions {
     host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
 
     host.disallowResourceJars = disallowResourceJars;
+
+    // Save host options for further use.
+    host.hostJavaBase = hostJavaBase;
+    host.hostJavacOpts = hostJavacOpts;
+    host.hostJavaLauncher = hostJavaLauncher;
+    host.hostJavaToolchain = hostJavaToolchain;
 
     return host;
   }

@@ -14,7 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.common.options.Converters.LogLevelConverter;
 import java.util.logging.Level;
@@ -38,24 +38,20 @@ public class LogLevelConverterTest {
 
   @Test
   public void throwsExceptionWhenInputIsNotANumber() {
-    try {
-      converter.convert("oops - not a number.");
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Not a log level: oops - not a number.");
-    }
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> converter.convert("oops - not a number."));
+    assertThat(e).hasMessageThat().isEqualTo("Not a log level: oops - not a number.");
   }
 
   @Test
   public void throwsExceptionWhenInputIsInvalidInteger() {
     for (int example : new int[] {-1, 100, 50000}) {
-      try {
-        converter.convert(Integer.toString(example));
-        fail();
-      } catch (OptionsParsingException e) {
-        String expected = "Not a log level: " + Integer.toString(example);
-        assertThat(e).hasMessageThat().isEqualTo(expected);
-      }
+      OptionsParsingException e =
+          assertThrows(
+              OptionsParsingException.class, () -> converter.convert(Integer.toString(example)));
+      String expected = "Not a log level: " + Integer.toString(example);
+      assertThat(e).hasMessageThat().isEqualTo(expected);
     }
   }
 

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.remote.logging;
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -426,13 +426,7 @@ public class LoggingInterceptorTest {
         });
     clock.advanceMillis(20000000000001L);
     Iterator<Operation> replies = ExecutionGrpc.newBlockingStub(loggedChannel).execute(request);
-    assertThrows(
-        StatusRuntimeException.class,
-        () -> {
-          while (replies.hasNext()) {
-            replies.next();
-          }
-        });
+    assertThrows(StatusRuntimeException.class, () -> replies.hasNext());
     LogEntry expectedEntry =
         LogEntry.newBuilder()
             .setMethodName(ExecutionGrpc.getExecuteMethod().getFullMethodName())
@@ -695,13 +689,9 @@ public class LoggingInterceptorTest {
     clock.advanceMillis(2000);
     Iterator<Operation> replies =
         ExecutionGrpc.newBlockingStub(loggedChannel).waitExecution(request);
-    assertThrows(
-        StatusRuntimeException.class,
-        () -> {
-          while (replies.hasNext()) {
-            replies.next();
-          }
-        });
+    assertThat(replies.hasNext()).isTrue();
+    assertThat(replies.next()).isEqualTo(response);
+    assertThrows(StatusRuntimeException.class, () -> replies.hasNext());
 
     LogEntry expectedEntry =
         LogEntry.newBuilder()
@@ -783,13 +773,9 @@ public class LoggingInterceptorTest {
           }
         });
     Iterator<ReadResponse> replies = ByteStreamGrpc.newBlockingStub(loggedChannel).read(request);
-    assertThrows(
-        StatusRuntimeException.class,
-        () -> {
-          while (replies.hasNext()) {
-            replies.next();
-          }
-        });
+    assertThat(replies.hasNext()).isTrue();
+    assertThat(replies.next()).isEqualTo(response1);
+    assertThrows(StatusRuntimeException.class, () -> replies.hasNext());
 
     LogEntry expectedEntry =
         LogEntry.newBuilder()

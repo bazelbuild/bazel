@@ -269,9 +269,9 @@ public final class TestActionBuilder {
       extraTestEnv.put(BAZEL_CC_COVERAGE_TOOL, GCOV_TOOL);
 
       // We don't add this attribute to non-supported test target
-      if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
+      if (ruleContext.isAttrDefined(":lcov_merger", LABEL)) {
         TransitiveInfoCollection lcovMerger =
-            ruleContext.getPrerequisite("$lcov_merger", Mode.TARGET);
+            ruleContext.getPrerequisite(":lcov_merger", Mode.TARGET);
         FilesToRunProvider lcovFilesToRun = lcovMerger.getProvider(FilesToRunProvider.class);
         if (lcovFilesToRun != null) {
           extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
@@ -285,7 +285,8 @@ public final class TestActionBuilder {
             extraTestEnv.put(LCOV_MERGER, lcovMergerArtifact.getExecPathString());
             inputsBuilder.add(lcovMergerArtifact);
           } else {
-            ruleContext.attributeError("$lcov_merger",
+            ruleContext.attributeError(
+                ":lcov_merger",
                 "the LCOV merger should be either an executable or a single artifact");
           }
         }
@@ -320,7 +321,8 @@ public final class TestActionBuilder {
 
     Iterable<Artifact> inputs = inputsBuilder.build();
     int shardRuns = (shards > 0 ? shards : 1);
-    List<Artifact> results = Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
+    List<Artifact.DerivedArtifact> results =
+        Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
 
     for (int run = 0; run < runsPerTest; run++) {
@@ -336,21 +338,20 @@ public final class TestActionBuilder {
           testRunDir += PathFragment.SEPARATOR_CHAR;
           shardRunDir = shardRunDir.isEmpty() ? testRunDir : shardRunDir + "_" + testRunDir;
         }
-        Artifact testLog =
+        Artifact.DerivedArtifact testLog =
             ruleContext.getPackageRelativeArtifact(
                 targetName.getRelative(shardRunDir + "test.log"), root);
-        Artifact cacheStatus =
+        Artifact.DerivedArtifact cacheStatus =
             ruleContext.getPackageRelativeArtifact(
                 targetName.getRelative(shardRunDir + "test.cache_status"), root);
 
-        Artifact coverageArtifact = null;
+        Artifact.DerivedArtifact coverageArtifact = null;
         if (collectCodeCoverage) {
           coverageArtifact = ruleContext.getPackageRelativeArtifact(
               targetName.getRelative(shardRunDir + "coverage.dat"), root);
           coverageArtifacts.add(coverageArtifact);
         }
 
-        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
         env.registerAction(
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
@@ -369,7 +370,10 @@ public final class TestActionBuilder {
                 run,
                 config,
                 ruleContext.getWorkspaceName(),
-                shExecutable));
+                (!isUsingTestWrapperInsteadOfTestSetupScript
+                        || executionSettings.needsShell(isExecutedOnWindows))
+                    ? ShToolchain.getPathOrError(ruleContext)
+                    : null));
         results.add(cacheStatus);
       }
     }

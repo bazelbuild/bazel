@@ -15,10 +15,10 @@
 #include "src/main/native/unix_jni.h"
 
 #include <assert.h>
-#include <jni.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <jni.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,9 +33,10 @@
 #include <string>
 #include <vector>
 
-#include "src/main/native/macros.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/port.h"
+#include "src/main/native/latin1_jni_path.h"
+#include "src/main/native/macros.h"
 
 #if defined(O_DIRECTORY)
 #define PORTABLE_O_DIRECTORY O_DIRECTORY
@@ -44,105 +45,6 @@
 #endif
 
 using blaze_util::Md5Digest;
-
-////////////////////////////////////////////////////////////////////////
-// Latin1 <--> java.lang.String conversion functions.
-// Derived from similar routines in Sun JDK.  See:
-// j2se/src/solaris/native/java/io/UnixFileSystem_md.c
-// j2se/src/share/native/common/jni_util.c
-//
-// Like the Sun JDK in its usual configuration, we assume all UNIX
-// filenames are Latin1 encoded.
-
-/**
- * Returns a new Java String for the specified Latin1 characters.
- */
-static jstring NewStringLatin1(JNIEnv *env, const char *str) {
-    int len = strlen(str);
-    jchar buf[512];
-    jchar *str1;
-
-    if (len > 512) {
-      str1 = new jchar[len];
-    } else {
-      str1 = buf;
-    }
-
-    for (int i = 0; i < len ; i++) {
-      str1[i] = (unsigned char) str[i];
-    }
-    jstring result = env->NewString(str1, len);
-    if (str1 != buf) {
-      delete[] str1;
-    }
-    return result;
-}
-
-static jfieldID String_coder_field;
-static jfieldID String_value_field;
-
-static bool CompactStringsEnabled(JNIEnv *env) {
-  if (jclass klass = env->FindClass("java/lang/String")) {
-    if (jfieldID csf = env->GetStaticFieldID(klass, "COMPACT_STRINGS", "Z")) {
-      if (env->GetStaticBooleanField(klass, csf)) {
-        if ((String_coder_field = env->GetFieldID(klass, "coder", "B"))) {
-          if ((String_value_field = env->GetFieldID(klass, "value", "[B"))) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  env->ExceptionClear();
-  return false;
-}
-
-/**
- * Returns a nul-terminated Latin1-encoded byte array for the
- * specified Java string, or null on failure.  Unencodable characters
- * are replaced by '?'.  Must be followed by a call to
- * ReleaseStringLatin1Chars.
- */
-static char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
-  jint len = env->GetStringLength(jstr);
-
-  // Fast path for latin1 strings.
-  static bool cs_enabled = CompactStringsEnabled(env);
-  const int LATIN1 = 0;
-  if (cs_enabled && env->GetByteField(jstr, String_coder_field) == LATIN1) {
-    char *result = new char[len + 1];
-    if (jobject jvalue = env->GetObjectField(jstr, String_value_field)) {
-      env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte *)result);
-    }
-    result[len] = 0;
-    return result;
-  }
-
-  const jchar *str = env->GetStringCritical(jstr, NULL);
-  if (str == NULL) {
-    return NULL;
-  }
-
-  char *result = new char[len + 1];
-  for (int i = 0; i < len; i++) {
-    jchar unicode = str[i];  // (unsigned)
-    result[i] = unicode <= 0x00ff ? unicode : '?';
-  }
-
-  result[len] = 0;
-  env->ReleaseStringCritical(jstr, str);
-  return result;
-}
-
-/**
- * Release the Latin1 chars returned by a prior call to
- * GetStringLatin1Chars.
- */
-static void ReleaseStringLatin1Chars(const char *s) {
-  delete[] s;
-}
-
-////////////////////////////////////////////////////////////////////////
 
 // See unix_jni.h.
 void PostException(JNIEnv *env, int error_number, const std::string& message) {
@@ -333,7 +235,8 @@ static jobject NewFileStatus(JNIEnv *env,
                              const portable_stat_struct &stat_ref) {
   static jclass file_status_class = NULL;
   if (file_status_class == NULL) {  // note: harmless race condition
-    jclass local = env->FindClass("com/google/devtools/build/lib/unix/FileStatus");
+    jclass local =
+        env->FindClass("com/google/devtools/build/lib/unix/FileStatus");
     CHECK(local != NULL);
     file_status_class = static_cast<jclass>(env->NewGlobalRef(local));
   }
@@ -358,7 +261,8 @@ static jobject NewErrnoFileStatus(JNIEnv *env,
                                   const portable_stat_struct &stat_ref) {
   static jclass errno_file_status_class = NULL;
   if (errno_file_status_class == NULL) {  // note: harmless race condition
-    jclass local = env->FindClass("com/google/devtools/build/lib/unix/ErrnoFileStatus");
+    jclass local =
+        env->FindClass("com/google/devtools/build/lib/unix/ErrnoFileStatus");
     CHECK(local != NULL);
     errno_file_status_class = static_cast<jclass>(env->NewGlobalRef(local));
   }
@@ -409,9 +313,9 @@ Java_com_google_devtools_build_lib_unix_ErrnoFileStatus_00024ErrnoConstants_init
   SetIntField(env, clazz, errno_constants, "ENAMETOOLONG", ENAMETOOLONG);
 }
 
-static jobject StatCommon(JNIEnv *env,
-                          jstring path,
-                          int (*stat_function)(const char *, portable_stat_struct *),
+static jobject StatCommon(JNIEnv *env, jstring path,
+                          int (*stat_function)(const char *,
+                                               portable_stat_struct *),
                           bool should_throw) {
   portable_stat_struct statbuf;
   const char *path_chars = GetStringLatin1Chars(env, path);
@@ -659,7 +563,8 @@ static jobject NewDirents(JNIEnv *env,
 
   static jmethodID ctor = NULL;
   if (ctor == NULL) {  // note: harmless race condition
-    ctor = env->GetMethodID(dirents_class, "<init>", "([Ljava/lang/String;[B)V");
+    ctor =
+        env->GetMethodID(dirents_class, "<init>", "([Ljava/lang/String;[B)V");
     CHECK(ctor != NULL);
   }
 

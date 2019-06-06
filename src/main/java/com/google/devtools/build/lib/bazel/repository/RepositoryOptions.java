@@ -70,6 +70,14 @@ public class RepositoryOptions extends OptionsBase {
   public List<PathFragment> experimentalDistdir;
 
   @Option(
+      name = "http_timeout_scaling",
+      defaultValue = "1.0",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Scale all timeouts related to http downloads by the given factor")
+  public double httpTimeoutScaling;
+
+  @Option(
     name = "override_repository",
     defaultValue = "null",
     allowMultiple = true,

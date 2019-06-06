@@ -36,8 +36,8 @@ def _java_library_impl(ctx):
 
     jars = ctx.files.jars
     neverlink_jars = ctx.files.neverlink_jars
-    compile_time_jars += jars + neverlink_jars
-    runtime_jars += jars
+    compile_time_jars = depset(jars + neverlink_jars, transitive = [compile_time_jars])
+    runtime_jars = depset(jars, transitive = [runtime_jars])
     compile_time_jars_list = compile_time_jars.to_list()  # TODO: This is weird.
 
     build_output = class_jar.path + ".build_output"
@@ -120,14 +120,14 @@ def _java_binary_impl(ctx):
 
     # Cleaning build output directory
     cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
-    for jar in library_result[1].runtime_jars:
+    for jar in library_result[1].runtime_jars.to_list():
         cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
     cmd += (jar_path + " cmf " + manifest.path + " " +
             deploy_jar.path + " -C " + build_output + " .\n" +
             "touch " + build_output + "\n")
 
     ctx.actions.run_shell(
-        inputs = list(library_result[1].runtime_jars) + [manifest] + ctx.files._jdk,
+        inputs = library_result[1].runtime_jars.to_list() + [manifest] + ctx.files._jdk,
         outputs = [deploy_jar],
         mnemonic = "Deployjar",
         command = cmd,

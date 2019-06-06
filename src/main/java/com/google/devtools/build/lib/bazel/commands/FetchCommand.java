@@ -101,7 +101,10 @@ public final class FetchCommand implements BlazeCommand {
             false,
             Lists.<String>newArrayList(),
             threadsOption.threads,
-            EnumSet.noneOf(Setting.class));
+            EnumSet.noneOf(Setting.class),
+            // TODO(ulfjack): flip both these flags for improved performance.
+            /* useForkJoinPool= */ false,
+            /* useGraphlessQuery= */ false);
 
     // 1. Parse query:
     QueryExpression expr;
@@ -154,7 +157,7 @@ public final class FetchCommand implements BlazeCommand {
     }
 
     if (queryEvalResult.getSuccess()) {
-      env.getReporter().handle(Event.progress("All external dependencies fetched successfully."));
+      env.getReporter().handle(Event.info("All external dependencies fetched successfully."));
     }
     ExitCode exitCode =
         queryEvalResult.getSuccess() ? ExitCode.SUCCESS : ExitCode.COMMAND_LINE_ERROR;

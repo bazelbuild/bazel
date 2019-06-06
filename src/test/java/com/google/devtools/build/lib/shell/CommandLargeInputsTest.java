@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -133,14 +133,8 @@ public class CommandLargeInputsTest {
   }
 
   private void assertOutAndErrNotAvailable(final CommandResult result) {
-    try {
-      result.getStdout();
-      fail();
-    } catch (IllegalStateException e){}
-    try {
-      result.getStderr();
-      fail();
-    } catch (IllegalStateException e){}
+    assertThrows(IllegalStateException.class, () -> result.getStdout());
+    assertThrows(IllegalStateException.class, () -> result.getStderr());
   }
 
   @Test

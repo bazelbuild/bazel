@@ -96,12 +96,13 @@ public final class RemoteOptions extends OptionsBase {
           "Whether to fall back to standalone local execution strategy if remote execution fails.")
   public boolean remoteLocalFallback;
 
+  @Deprecated
   @Option(
       name = "remote_local_fallback_strategy",
       defaultValue = "local",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The strategy to use when remote execution has to fallback to local execution.")
+      help = "No-op, deprecated. See https://github.com/bazelbuild/bazel/issues/7480 for details.")
   public String remoteLocalFallbackStrategy;
 
   @Option(
@@ -120,36 +121,6 @@ public final class RemoteOptions extends OptionsBase {
       help = "Value to pass as instance_name in the remote execution API.")
   public String remoteInstanceName;
 
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
-  public boolean experimentalRemoteRetry;
-
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry_start_delay_millis",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The initial delay before retrying a transient error. Use --remote_retries instead.")
-  public long experimentalRemoteRetryStartDelayMillis;
-
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry_max_delay_millis",
-      defaultValue = "5000",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
-  public long experimentalRemoteRetryMaxDelayMillis;
-
   @Option(
       name = "remote_retries",
       oldName = "experimental_remote_retry_max_attempts",
@@ -160,26 +131,6 @@ public final class RemoteOptions extends OptionsBase {
           "The maximum number of attempts to retry a transient error. "
               + "If set to 0, retries are disabled.")
   public int remoteMaxRetryAttempts;
-
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry_multiplier",
-      defaultValue = "2",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
-  public double experimentalRemoteRetryMultiplier;
-
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry_jitter",
-      defaultValue = "0.1",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
-  public double experimentalRemoteRetryJitter;
 
   @Option(
       name = "disk_cache",

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.config;
 
+import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -29,6 +31,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -108,16 +111,17 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    boolean nativeFlagsMatch =
-        matchesConfig(
-            nativeFlagSettings.entries(),
-            BuildConfigurationOptionDetails.get(ruleContext.getConfiguration()),
-            ruleContext);
+    TransitiveOptionDetails optionDetails =
+        BuildConfigurationOptionDetails.get(ruleContext.getConfiguration());
 
-    ConfigFeatureFlagMatch featureFlags =
-        ConfigFeatureFlagMatch.fromAttributeValueAndPrerequisites(
+    boolean nativeFlagsMatch =
+        matchesConfig(nativeFlagSettings.entries(), optionDetails, ruleContext);
+
+    UserDefinedFlagMatch userDefinedFlags =
+        UserDefinedFlagMatch.fromAttributeValueAndPrerequisites(
             userDefinedFlagSettings,
             ruleContext.getPrerequisites(ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET),
+            optionDetails,
             ruleContext);
 
     boolean constraintValuesMatch = constraintValuesMatch(ruleContext);
@@ -130,8 +134,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         new ConfigMatchingProvider(
             ruleContext.getLabel(),
             nativeFlagSettings,
-            featureFlags.getSpecifiedFlagValues(),
-            nativeFlagsMatch && featureFlags.matches() && constraintValuesMatch);
+            userDefinedFlags.getSpecifiedFlagValues(),
+            nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
@@ -368,14 +372,13 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     return actualList.contains(expectedSingleValue);
   }
 
-  private static final class ConfigFeatureFlagMatch {
+  private static final class UserDefinedFlagMatch {
     private final boolean matches;
     private final ImmutableMap<Label, String> specifiedFlagValues;
 
     private static final Joiner QUOTED_COMMA_JOINER = Joiner.on("', '");
 
-    private ConfigFeatureFlagMatch(
-        boolean matches, ImmutableMap<Label, String> specifiedFlagValues) {
+    private UserDefinedFlagMatch(boolean matches, ImmutableMap<Label, String> specifiedFlagValues) {
       this.matches = matches;
       this.specifiedFlagValues = specifiedFlagValues;
     }
@@ -386,7 +389,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     }
 
     /** Gets the specified flag values, with aliases converted to their original targets' labels. */
-    public ImmutableMap<Label, String> getSpecifiedFlagValues() {
+    ImmutableMap<Label, String> getSpecifiedFlagValues() {
       return specifiedFlagValues;
     }
 
@@ -401,20 +404,26 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       return targetsToAliases.build();
     }
 
-    public static ConfigFeatureFlagMatch fromAttributeValueAndPrerequisites(
+    /**
+     * The 'flag_values' attribute takes a label->string dictionary of feature flags and
+     * starlark-defined settings to their values in string form.
+     *
+     * @param attributeValue map of user-defined flag labels to their values as set in the
+     *     'flag_values' attribute
+     * @param prerequisites targets that match the keyset of the attributeValue map
+     * @param optionDetails information about the configuration to match against
+     * @param errors error consumer
+     */
+    static UserDefinedFlagMatch fromAttributeValueAndPrerequisites(
         Map<Label, String> attributeValue,
         Iterable<? extends TransitiveInfoCollection> prerequisites,
+        TransitiveOptionDetails optionDetails,
         RuleErrorConsumer errors) {
       Map<Label, String> specifiedFlagValues = new LinkedHashMap<>();
       boolean matches = true;
       boolean foundDuplicate = false;
 
       for (TransitiveInfoCollection target : prerequisites) {
-        ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.fromTarget(target);
-        // We know the provider exists because only labels with ConfigFeatureFlagProvider can be
-        // added to this attribute.
-        assert provider != null;
-
         Label actualLabel = target.getLabel();
         Label specifiedLabel = AliasProvider.getDependencyLabel(target);
         String specifiedValue = attributeValue.get(specifiedLabel);
@@ -423,17 +432,53 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         }
         specifiedFlagValues.put(actualLabel, specifiedValue);
 
-        if (!provider.isValidValue(specifiedValue)) {
+        if (target.satisfies(ConfigFeatureFlagProvider.REQUIRE_CONFIG_FEATURE_FLAG_PROVIDER)) {
+          // config_feature_flag
+          ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.fromTarget(target);
+          if (!provider.isValidValue(specifiedValue)) {
+            errors.attributeError(
+                ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                String.format(
+                    "error while parsing user-defined configuration values: "
+                        + "'%s' is not a valid value for '%s'",
+                    specifiedValue, specifiedLabel));
+            matches = false;
+            continue;
+          }
+          if (!provider.getFlagValue().equals(specifiedValue)) {
+            matches = false;
+          }
+        } else if (target.satisfies(BuildSettingProvider.REQUIRE_BUILD_SETTING_PROVIDER)) {
+          // build setting
+          BuildSettingProvider provider = target.getProvider(BuildSettingProvider.class);
+          Object configurationValue =
+              optionDetails.getOptionValue(specifiedLabel) != null
+                  ? optionDetails.getOptionValue(specifiedLabel)
+                  : provider.getDefaultValue();
+          Object convertedSpecifiedValue;
+          try {
+            convertedSpecifiedValue =
+                BUILD_SETTING_CONVERTERS.get(provider.getType()).convert(specifiedValue);
+          } catch (OptionsParsingException e) {
+            errors.attributeError(
+                ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                String.format(
+                    "error while parsing user-defined configuration values: "
+                        + "'%s' cannot be converted to %s type %s",
+                    specifiedValue, specifiedLabel, provider.getType()));
+            matches = false;
+            continue;
+          }
+          if (!configurationValue.equals(convertedSpecifiedValue)) {
+            matches = false;
+          }
+        } else {
           errors.attributeError(
               ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
               String.format(
                   "error while parsing user-defined configuration values: "
-                      + "'%s' is not a valid value for '%s'",
-                  specifiedValue, specifiedLabel));
-          matches = false;
-          continue;
-        }
-        if (!provider.getFlagValue().equals(specifiedValue)) {
+                      + "%s keys must be build settings or feature flags and %s is not",
+                  ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, specifiedLabel));
           matches = false;
         }
       }
@@ -454,11 +499,10 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
                     actualLabel, QUOTED_COMMA_JOINER.join(aliasList)));
           }
         }
-
         matches = false;
       }
 
-      return new ConfigFeatureFlagMatch(matches, ImmutableMap.copyOf(specifiedFlagValues));
+      return new UserDefinedFlagMatch(matches, ImmutableMap.copyOf(specifiedFlagValues));
     }
   }
 }

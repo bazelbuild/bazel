@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.dexer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
@@ -133,9 +134,9 @@ public class DexFileSplitterTest {
       for (int i = 0; i < len; ++i) {
         ZipEntry expected = expectedEntries.get(i);
         ZipEntry actual = actualEntries.get(i);
-        assertThat(actual.getName()).named(actual.getName()).isEqualTo(expected.getName());
-        assertThat(actual.getSize()).named(actual.getName()).isEqualTo(expected.getSize());
-        assertThat(actual.getCrc()).named(actual.getName()).isEqualTo(expected.getCrc());
+        assertWithMessage(actual.getName()).that(actual.getName()).isEqualTo(expected.getName());
+        assertWithMessage(actual.getName()).that(actual.getSize()).isEqualTo(expected.getSize());
+        assertWithMessage(actual.getName()).that(actual.getCrc()).isEqualTo(expected.getCrc());
       }
     }
   }
@@ -155,7 +156,7 @@ public class DexFileSplitterTest {
     ImmutableSet<String> expectedEntries = dexEntries(dexArchive);
     assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
     assertThat(dexEntries(outputArchives.get(0)))
-        .containsAllIn(expectedMainDexEntries());
+        .containsAtLeastElementsIn(expectedMainDexEntries());
     assertExpectedEntries(outputArchives, expectedEntries);
   }
 

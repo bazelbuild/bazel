@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -57,7 +56,6 @@ import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionBuilder.JavaCompileExtraActionInfoSupplier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
@@ -69,7 +67,6 @@ import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -192,7 +189,8 @@ public class JavaCompileAction extends AbstractAction
    */
   @VisibleForTesting
   ReducedClasspath getReducedClasspath(
-      ActionExecutionContext actionExecutionContext, JavaCompileActionContext context) {
+      ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
+      throws IOException {
     HashSet<String> direct = new HashSet<>();
     for (Artifact directJar : directJars) {
       direct.add(directJar.getExecPathString());
@@ -203,7 +201,7 @@ public class JavaCompileAction extends AbstractAction
         direct.add(dep.getPath());
       }
     }
-    Collection<Artifact> transitiveCollection = transitiveInputs.toCollection();
+    ImmutableList<Artifact> transitiveCollection = transitiveInputs.toList();
     ImmutableList<Artifact> reducedJars =
         ImmutableList.copyOf(
             Iterables.filter(
@@ -292,8 +290,15 @@ public class JavaCompileAction extends AbstractAction
       if (classpathMode == JavaClasspathMode.BAZEL) {
         JavaCompileActionContext context =
             actionExecutionContext.getContext(JavaCompileActionContext.class);
-        reducedClasspath = getReducedClasspath(actionExecutionContext, context);
-        spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
+        try {
+          reducedClasspath = getReducedClasspath(actionExecutionContext, context);
+          spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
+        } catch (IOException e) {
+          // There was an error reading some of the dependent .jdeps files. Fall back to a
+          // compilation with the full classpath.
+          reducedClasspath = null;
+          spawn = getFullSpawn(actionExecutionContext);
+        }
       } else {
         reducedClasspath = null;
         spawn = getFullSpawn(actionExecutionContext);
@@ -309,17 +314,6 @@ public class JavaCompileAction extends AbstractAction
     return continuation.execute();
   }
 
-  // TODO(b/119813262): Move this method to AbstractAction.
-  @Override
-  public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    ActionContinuationOrResult continuation = beginExecution(actionExecutionContext);
-    while (!continuation.isDone()) {
-      continuation = continuation.execute();
-    }
-    return continuation.get();
-  }
-
   @Override
   protected String getRawProgressMessage() {
     StringBuilder sb = new StringBuilder("Building ");
@@ -327,7 +321,7 @@ public class JavaCompileAction extends AbstractAction
     sb.append(" (");
     boolean first = true;
     first = appendCount(sb, first, sourceFiles.size(), "source file");
-    first = appendCount(sb, first, sourceJars.size(), "source jar");
+    appendCount(sb, first, sourceJars.size(), "source jar");
     sb.append(")");
     sb.append(getProcessorNames(plugins.processorClasses()));
     return sb.toString();
@@ -468,19 +462,6 @@ public class JavaCompileAction extends AbstractAction
     return outputDepsProto;
   }
 
-  private ActionExecutionException printIOExceptionAndConvertToActionExecutionException(
-      ActionExecutionContext actionExecutionContext, IOException e) {
-    // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-    // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-    String stackTrace = Throwables.getStackTraceAsString(e);
-    actionExecutionContext
-        .getEventHandler()
-        .handle(Event.error("Unexpected I/O exception:\n" + stackTrace));
-    return toActionExecutionException(
-        new EnvironmentalExecException("unexpected I/O exception", e),
-        actionExecutionContext.getVerboseFailures());
-  }
-
   private ActionExecutionException toActionExecutionException(
       ExecException e, boolean verboseFailures) {
     String failMessage = getRawProgressMessage();
@@ -543,11 +524,13 @@ public class JavaCompileAction extends AbstractAction
           throw new ActionExecutionException(e, JavaCompileAction.this, /*catastrophe=*/ false);
         }
         return new JavaFallbackActionContinuation(
-            actionExecutionContext,
-            results,
-            SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext));
+                actionExecutionContext,
+                results,
+                SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext))
+            .execute();
       } catch (IOException e) {
-        throw printIOExceptionAndConvertToActionExecutionException(actionExecutionContext, e);
+        throw toActionExecutionException(
+            new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
       } catch (ExecException e) {
         throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
       }

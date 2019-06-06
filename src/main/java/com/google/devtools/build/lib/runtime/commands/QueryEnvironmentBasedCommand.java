@@ -24,9 +24,9 @@ import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
-import com.google.devtools.build.lib.query2.output.OutputFormatter;
-import com.google.devtools.build.lib.query2.output.QueryOptions;
-import com.google.devtools.build.lib.query2.output.QueryOutputUtils;
+import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
+import com.google.devtools.build.lib.query2.query.output.QueryOptions;
+import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -139,6 +139,16 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
 
     Set<Setting> settings = queryOptions.toSettings();
     boolean streamResults = QueryOutputUtils.shouldStreamResults(queryOptions, formatter);
+    if (queryOptions.useGraphlessQuery && !streamResults) {
+      env.getReporter()
+          .handle(
+              Event.error(
+                  String.format(
+                      "--experimental_graphless_query requires --order_output=no and an --output"
+                          + " option that supports streaming; valid values are: %s",
+                      OutputFormatter.streamingFormatterNames(formatters))));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+    }
 
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
@@ -150,7 +160,9 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               !streamResults,
               queryOptions.universeScope,
               options.getOptions(LoadingPhaseThreadsOption.class).threads,
-              settings)) {
+              settings,
+              queryOptions.useForkJoinPool,
+              queryOptions.useGraphlessQuery)) {
         result =
             doQuery(
                 query, env, queryOptions, streamResults, formatter, queryEnv, queryRuntimeHelper);
@@ -192,9 +204,15 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       AbstractBlazeQueryEnvironment<Target> queryEnv,
       QueryRuntimeHelper queryRuntimeHelper);
 
-  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(CommandEnvironment env,
-      boolean keepGoing, boolean orderedResults, List<String> universeScope,
-      int loadingPhaseThreads, Set<Setting> settings) {
+  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(
+      CommandEnvironment env,
+      boolean keepGoing,
+      boolean orderedResults,
+      List<String> universeScope,
+      int loadingPhaseThreads,
+      Set<Setting> settings,
+      boolean useForkJoinPool,
+      boolean useGraphlessQuery) {
 
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
@@ -216,7 +234,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             env.getSkyframeExecutor(),
             targetProviderForQueryEnvironment,
             env.getPackageManager(),
-            env.newTargetPatternPreloader(),
+            env.getPackageManager().newTargetPatternPreloader(),
             env.getRelativeWorkingDirectory(),
             keepGoing,
             /*strictScope=*/ true,
@@ -228,6 +246,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             settings,
             env.getRuntime().getQueryFunctions(),
             env.getPackageManager().getPackagePath(),
-            /*blockUniverseEvaluationErrors=*/ false);
+            /*blockUniverseEvaluationErrors=*/ false,
+            useForkJoinPool,
+            useGraphlessQuery);
   }
 }

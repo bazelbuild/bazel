@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportFunction;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportValue;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportValue;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
@@ -48,6 +46,19 @@ import java.io.IOException;
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "incompatible_disable_crosstool_file",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE
+        },
+        help = "Deprecated no-op.")
+    public boolean disableCrosstool;
 
     @Option(
         name = "incompatible_disable_legacy_crosstool_fields",
@@ -355,8 +366,6 @@ public class BazelRulesModule extends BlazeModule {
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.addSkyFunction(
         CcSkyframeFdoSupportValue.SKYFUNCTION, new CcSkyframeFdoSupportFunction(directories));
-    builder.addSkyFunction(
-        CcSkyframeCrosstoolSupportValue.SKYFUNCTION, new CcSkyframeCrosstoolSupportFunction());
   }
 
   @Override

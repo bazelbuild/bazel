@@ -90,7 +90,10 @@ public class FdoHelper {
       }
 
       Pair<FdoInputFile, Artifact> csFdoInputs = null;
-      if (cppConfiguration.getCSFdoProfileLabel() != null) {
+      PathFragment csFdoZip = cppConfiguration.getCSFdoAbsolutePath();
+      if (csFdoZip != null) {
+        csFdoInputFile = FdoInputFile.fromAbsolutePath(csFdoZip);
+      } else if (cppConfiguration.getCSFdoProfileLabel() != null) {
         csFdoInputs = getFdoInputs(ruleContext, attributes.getCSFdoProfileProvider());
       }
       if (csFdoInputs != null) {

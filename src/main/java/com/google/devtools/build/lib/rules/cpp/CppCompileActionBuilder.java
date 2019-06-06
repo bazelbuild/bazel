@@ -160,7 +160,7 @@ public class CppCompileActionBuilder {
     return mandatoryInputsBuilder.build();
   }
 
-  private String getActionName() {
+  public String getActionName() {
     if (actionName != null) {
       return actionName;
     }
@@ -218,7 +218,7 @@ public class CppCompileActionBuilder {
         ruleErrorConsumer.ruleError(errorMessage);
       }
 
-      throw new RuleErrorException();
+      throw new RuleErrorException(errorMessages.get(0));
     }
 
     return result;

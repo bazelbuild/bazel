@@ -285,10 +285,16 @@ public abstract class DirtyBuildingState {
     return result.build();
   }
 
+  /**
+   * Resets counters that track evaluation state. May only be called when its corresponding node has
+   * no outstanding unsignaled deps, because otherwise this resetting and that signalling would
+   * race.
+   */
   final void resetForRestartFromScratch() {
     Preconditions.checkState(
         dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
     signaledDeps = 0;
+    externalDeps = 0;
     dirtyDirectDepIndex = 0;
   }
 
@@ -312,12 +318,11 @@ public abstract class DirtyBuildingState {
 
   /** Returns whether all known children of this node have signaled that they are done. */
   boolean isReady(int numDirectDeps) {
-    Preconditions.checkState(
-        signaledDeps <= numDirectDeps + externalDeps,
-        "%s %s %s",
-        numDirectDeps,
-        externalDeps,
-        this);
+    // Avoids calling Preconditions.checkState because it showed up in garbage profiles due to
+    // boxing of the int format args.
+    if (signaledDeps > numDirectDeps + externalDeps) {
+      throw new IllegalStateException(String.format("%s %s %s", numDirectDeps, externalDeps, this));
+    }
     return signaledDeps == numDirectDeps + externalDeps;
   }
 

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.android.AndroidDataBuilder.ResourceType;
+import com.google.devtools.build.android.AndroidDataMerger.ContentComparingChecker;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidDataMerger.SourceChecker;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
@@ -32,6 +33,7 @@ import com.google.devtools.build.android.xml.SimpleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import java.io.IOException;
 import java.nio.file.FileSystem;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -397,6 +399,41 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
     merger.merge(transitiveDependency, directDependency, primary, false, true);
+
+    assertThat(loggingHandler.warnings).isEmpty();
+  }
+
+  @Test
+  public void mergeDirectConflictWithPseudoLocale() throws Exception {
+    fqnFactory = FullyQualifiedName.Factory.from(ImmutableList.of("en-rXA"));
+    Path primaryRoot = fileSystem.getPath("primary");
+    Path directRoot = fileSystem.getPath("direct");
+
+    ParsedAndroidData transitiveDependency = ParsedAndroidDataBuilder.empty();
+
+    ParsedAndroidData directDependency =
+        ParsedAndroidDataBuilder.buildOn(directRoot, fqnFactory)
+            // Two string/exit will create conflict.
+            .overwritable(
+                xml("string/exit")
+                    .source("values/strings.xml")
+                    .value(
+                        SimpleXmlResourceValue.createWithValue(
+                            SimpleXmlResourceValue.Type.STRING, "wrong way out")),
+                xml("string/exit")
+                    .source("values/strings.xml")
+                    .value(
+                        SimpleXmlResourceValue.createWithValue(
+                            SimpleXmlResourceValue.Type.STRING, "no way out")))
+            .build();
+
+    UnvalidatedAndroidData primary =
+        AndroidDataBuilder.of(primaryRoot)
+            .createManifest("AndroidManifest.xml", "com.google.mergetest")
+            .buildUnvalidated();
+
+    AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
 
     assertThat(loggingHandler.warnings).isEmpty();
   }
@@ -824,6 +861,87 @@ public class AndroidDataMergerTest {
                     DataValueFile.of(directRoot.resolve("res/drawable/rounded_corners.png")),
                     DataValueFile.of(transitiveRoot.resolve("res/drawable/rounded_corners.9.png")))
                 .toConflictMessage());
+  }
+
+  @Test
+  public void mergeDirectAndTransitiveFileConflict() throws Exception {
+    Path primaryRoot = fileSystem.getPath("primary");
+    Path directRoot = fileSystem.getPath("direct");
+    Path transitiveRoot = fileSystem.getPath("transitive");
+
+    Path transitiveDrawableRoot = Files.createDirectories(transitiveRoot.resolve("res/drawable"));
+    Files.write(transitiveDrawableRoot.resolve("app_icon.png"), new byte[] {0x01, 0x02, 0x03});
+    ParsedAndroidData transitiveDependency =
+        ParsedAndroidDataBuilder.buildOn(transitiveRoot, fqnFactory)
+            .overwritable(file("drawable/app_icon").source("drawable/app_icon.png"))
+            .build();
+
+    Path directDrawableRoot = Files.createDirectories(directRoot.resolve("res/drawable"));
+    Files.write(directDrawableRoot.resolve("app_icon.png"), new byte[] {0x01, 0x02, 0x04});
+    ParsedAndroidData directDependency =
+        ParsedAndroidDataBuilder.buildOn(directRoot, fqnFactory)
+            .overwritable(file("drawable/app_icon").source("drawable/app_icon.png"))
+            .build();
+
+    UnvalidatedAndroidData primary =
+        AndroidDataBuilder.of(primaryRoot)
+            .createManifest("AndroidManifest.xml", "com.google.mergetest")
+            .buildUnvalidated();
+
+    AndroidDataMerger merger =
+        AndroidDataMerger.createWithDefaultThreadPool(ContentComparingChecker.create());
+
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
+
+    assertThat(loggingHandler.warnings)
+        .containsExactly(
+            MergeConflict.of(
+                    fqnFactory.parse("drawable/app_icon"),
+                    DataValueFile.from(transitiveRoot.resolve("res/drawable/app_icon.png")),
+                    DataValueFile.from(directRoot.resolve("res/drawable/app_icon.png")))
+                .toConflictMessage());
+  }
+
+  @Test
+  public void mergeDirectAndTransitiveFileConflictDuplicatedContent() throws Exception {
+    Path primaryRoot = fileSystem.getPath("primary");
+    Path directRoot = fileSystem.getPath("direct");
+    Path transitiveRoot = fileSystem.getPath("transitive");
+
+    Path transitiveDrawableRoot = Files.createDirectories(transitiveRoot.resolve("res/drawable"));
+    Files.write(transitiveDrawableRoot.resolve("app_icon.png"), new byte[] {0x01, 0x02, 0x03});
+    ParsedAndroidData transitiveDependency =
+        ParsedAndroidDataBuilder.buildOn(transitiveRoot, fqnFactory)
+            .overwritable(file("drawable/app_icon").source("drawable/app_icon.png"))
+            .build();
+
+    Path directDrawableRoot = Files.createDirectories(directRoot.resolve("res/drawable"));
+    Files.write(directDrawableRoot.resolve("app_icon.png"), new byte[] {0x01, 0x02, 0x03});
+    ParsedAndroidData directDependency =
+        ParsedAndroidDataBuilder.buildOn(directRoot, fqnFactory)
+            .overwritable(file("drawable/app_icon").source("drawable/app_icon.png"))
+            .build();
+
+    UnvalidatedAndroidData primary =
+        AndroidDataBuilder.of(primaryRoot)
+            .createManifest("AndroidManifest.xml", "com.google.mergetest")
+            .buildUnvalidated();
+
+    AndroidDataMerger merger =
+        AndroidDataMerger.createWithDefaultThreadPool(ContentComparingChecker.create());
+
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
+
+    assertAbout(unwrittenMergedAndroidData)
+        .that(merger.merge(transitiveDependency, directDependency, primary, false, true))
+        .isEqualTo(
+            UnwrittenMergedAndroidData.of(
+                primary.getManifest(),
+                ParsedAndroidDataBuilder.empty(),
+                ParsedAndroidDataBuilder.buildOn(fqnFactory)
+                    .overwritable(
+                        file("drawable/app_icon").root(directRoot).source("drawable/app_icon.png"))
+                    .build()));
   }
 
   @Test
@@ -1397,7 +1515,7 @@ public class AndroidDataMergerTest {
     UnwrittenMergedAndroidData data =
         AndroidDataMerger.createWithDefaults()
             .merge(transitiveDependency, directDependency, primary, true, true);
-    
+
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
             primary.getManifest(),

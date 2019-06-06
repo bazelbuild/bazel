@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore.http;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.auth.Credentials;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -392,7 +391,12 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean containsKey(String key) {
+  public boolean contains(String key) {
+    throw new UnsupportedOperationException("HTTP Caching does not use this method.");
+  }
+
+  @Override
+  public boolean containsActionResult(String key) {
     throw new UnsupportedOperationException("HTTP Caching does not use this method.");
   }
 
@@ -509,9 +513,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean getActionResult(String actionKey, OutputStream out)
-      throws IOException, InterruptedException {
-    return getFromFuture(get(actionKey, out, false));
+  public ListenableFuture<Boolean> getActionResult(String actionKey, OutputStream out) {
+    return get(actionKey, out, false);
   }
 
   @Override

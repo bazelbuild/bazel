@@ -14,8 +14,8 @@
 package com.google.devtools.build.android.ziputils;
 
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.fail;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -50,7 +50,7 @@ public class ViewTest {
     ByteBuffer buffer = ByteBuffer.allocate(100);
     TestView instance = new TestView(buffer);
     View<TestView> result = instance.at(fileOffset);
-    assertWithMessage("didn't return this").that(result).isSameAs(instance);
+    assertWithMessage("didn't return this").that(result).isSameInstanceAs(instance);
 
     long resultValue = instance.fileOffset();
     assertWithMessage("didn't return set value").that(resultValue).isEqualTo(fileOffset);
@@ -110,18 +110,9 @@ public class ViewTest {
     byte[] expResult = "lo wo".getBytes(UTF_8);
     byte[] result = instance.getBytes(off, len);
     assertWithMessage("incorrect bytes returned").that(result).isEqualTo(expResult);
-    try {
-      instance.getBytes(bytes.length - len + 1, len);
-      fail("expected Exception");
-    } catch (IndexOutOfBoundsException ex) {
-      // expected
-    }
-    try {
-      instance.getBytes(-1, len);
-      fail("expected Exception");
-    } catch (IndexOutOfBoundsException ex) {
-      // expected
-    }
+    assertThrows(
+        IndexOutOfBoundsException.class, () -> instance.getBytes(bytes.length - len + 1, len));
+    assertThrows(IndexOutOfBoundsException.class, () -> instance.getBytes(-1, len));
   }
 
   @Test
@@ -134,18 +125,8 @@ public class ViewTest {
     String expResult = "world";
     String result = instance.getString(off, len);
     assertWithMessage("didn't return this").that(result).isEqualTo(expResult);
-    try {
-      instance.getString(off + 1, len);
-      fail("expected Exception");
-    } catch (IndexOutOfBoundsException ex) {
-      // expected
-    }
-    try {
-      instance.getString(-1, len);
-      fail("expected Exception");
-    } catch (IndexOutOfBoundsException ex) {
-      // expected
-    }
+    assertThrows(IndexOutOfBoundsException.class, () -> instance.getString(off + 1, len));
+    assertThrows(IndexOutOfBoundsException.class, () -> instance.getString(-1, len));
   }
 
   @Test

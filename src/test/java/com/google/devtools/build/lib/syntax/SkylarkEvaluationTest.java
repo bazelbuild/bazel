@@ -511,6 +511,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       return "with_args_and_kwargs(" + foo + ", " + argsString + ", " + kwargsString + ")";
     }
 
+    @SkylarkCallable(name = "raise_unchecked_exception", documented = false)
+    public void raiseUncheckedException() {
+      throw new InternalError("buggy code");
+    }
+
     @Override
     public String toString() {
       return "<mock>";
@@ -1309,6 +1314,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testCallingMethodThatRaisesUncheckedException() throws Exception {
+    update("mock", new Mock());
+    assertThrows(InternalError.class, () -> eval("mock.raise_unchecked_exception()"));
+  }
+
+  @Test
   public void testJavaFunctionWithExtraInterpreterParams() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1470,12 +1481,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaFunctionReturnsNullFails() throws Exception {
-    new SkylarkTest()
-        .update("mock", new Mock())
-        .testIfErrorContains(
-            "method invocation returned None,"
-                + " please file a bug report: nullfunc_failing(\"abc\", 1)",
-            "mock.nullfunc_failing('abc', 1)");
+    update("mock", new Mock());
+    IllegalStateException e =
+        assertThrows(IllegalStateException.class, () -> eval("mock.nullfunc_failing('abc', 1)"));
+    assertThat(e).hasMessageThat().contains("method invocation returned None");
   }
 
   @Test
@@ -1487,8 +1496,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testInSet() throws Exception {
-    new SkylarkTest()
+  public void testInSetDeprecated() throws Exception {
+    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
         .testStatement("'b' in depset(['a', 'b'])", Boolean.TRUE)
         .testStatement("'c' in depset(['a', 'b'])", Boolean.FALSE)
         .testStatement("1 in depset(['a', 'b'])", Boolean.FALSE);
@@ -1496,7 +1505,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testUnionSet() throws Exception {
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_depset_union=false")
         .testStatement("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
         .testStatement("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
         .testIfExactError("unsupported operand type(s) for |: 'int' and 'int'", "2 | 4");
@@ -1947,6 +1956,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "nullfunc_failing",
             "nullfunc_working",
             "proxy_methods_object",
+            "raise_unchecked_exception",
             "return_bad",
             "string",
             "string_list",

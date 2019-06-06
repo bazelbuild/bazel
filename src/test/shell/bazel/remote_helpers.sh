@@ -16,19 +16,6 @@
 
 set -eu
 
-case "${PLATFORM}" in
-  darwin|freebsd)
-    function nc_l() {
-      nc -l $1
-    }
-    ;;
-  *)
-    function nc_l() {
-      nc -l -p $1 -q 1
-    }
-    ;;
-esac
-
 # Serves $1 as a file on localhost:$nc_port.  Sets the following variables:
 #   * nc_port - the port nc is listening on.
 #   * nc_log - the path to nc's log.
@@ -153,6 +140,19 @@ function serve_not_found() {
   nc_port=$(head -n 1 $port_file)
   fileserver_port=$nc_port
   wait_for_server_startup
+  cd -
+}
+
+# Simulates a server timeing out while trying to generate a response.
+function serve_timeout() {
+  port_file=server-port.$$
+  cd "${TEST_TMPDIR}"
+  rm -f $port_file
+  python $python_server timeout  > $port_file &
+  nc_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  nc_port=$(head -n 1 $port_file)
+  fileserver_port=$nc_port
   cd -
 }
 

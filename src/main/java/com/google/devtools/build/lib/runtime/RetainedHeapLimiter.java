@@ -14,89 +14,116 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.management.ListenerNotFoundException;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
 import javax.management.NotificationListener;
 import javax.management.openmbean.CompositeData;
 
 /**
- * Monitor the size of the retained heap and exit promptly if it grows too large.  Specifically,
- * check the size of the tenured space after each major GC; if it exceeds 90%, call
- * {@code System.gc()} to trigger a stop-the-world collection; if it's still more than 90% full,
- * exit with an {@link OutOfMemoryError}.
+ * Monitor the size of the retained heap and exit promptly if it grows too large. Specifically,
+ * check the size of the tenured space after each major GC; if it exceeds {@link
+ * #occupiedHeapPercentageThreshold}%, call {@code System.gc()} to trigger a stop-the-world
+ * collection; if it's still more than {@link #occupiedHeapPercentageThreshold}% full, exit with an
+ * {@link OutOfMemoryError}.
  */
 class RetainedHeapLimiter implements NotificationListener {
-  private static final Logger logger = Logger.getLogger(RetainedHeapLimiter.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final long MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS = 60000;
 
-  private static int registeredOccupiedHeapPercentageThreshold = -1;
-
-  static void maybeInstallRetainedHeapLimiter(int occupiedHeapPercentageThreshold)
-      throws OptionsParsingException {
-    if (registeredOccupiedHeapPercentageThreshold == -1) {
-      registeredOccupiedHeapPercentageThreshold = occupiedHeapPercentageThreshold;
-      new RetainedHeapLimiter(occupiedHeapPercentageThreshold).install();
-    }
-    if (registeredOccupiedHeapPercentageThreshold != occupiedHeapPercentageThreshold) {
-      throw new OptionsParsingException(
-          "Old threshold of "
-              + registeredOccupiedHeapPercentageThreshold
-              + " not equal to new threshold of "
-              + occupiedHeapPercentageThreshold
-              + ". To change the threshold, shut down the server and restart it with the desired "
-              + "value");
-    }
-  }
-
-  private boolean installed = false;
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
-  private long lastTriggeredGcInMilliseconds = 0;
-  private final int occupiedHeapPercentageThreshold;
+  private final ImmutableList<NotificationEmitter> tenuredGcEmitters;
+  private OptionalInt occupiedHeapPercentageThreshold = OptionalInt.empty();
+  private final AtomicLong lastTriggeredGcInMilliseconds = new AtomicLong();
 
-  RetainedHeapLimiter(int occupiedHeapPercentageThreshold) {
-    this.occupiedHeapPercentageThreshold = occupiedHeapPercentageThreshold;
+  RetainedHeapLimiter() {
+    this(ManagementFactory.getGarbageCollectorMXBeans());
   }
 
-  void install() {
-    Preconditions.checkState(!installed, "RetainedHeapLimiter installed twice");
-    installed = true;
-    List<GarbageCollectorMXBean> gcbeans = ManagementFactory.getGarbageCollectorMXBeans();
-    boolean foundTenured = false;
+  @VisibleForTesting
+  RetainedHeapLimiter(List<GarbageCollectorMXBean> gcBeans) {
+    tenuredGcEmitters = findTenuredCollectorBeans(gcBeans);
+    Preconditions.checkState(
+        !tenuredGcEmitters.isEmpty(),
+        "Can't find tenured space; update this class for a new collector");
+  }
+
+  @ThreadSafety.ThreadCompatible // Can only be called on the logical main Bazel thread.
+  void updateThreshold(int occupiedHeapPercentageThreshold) throws AbruptExitException {
+    if (occupiedHeapPercentageThreshold < 0 || occupiedHeapPercentageThreshold > 100) {
+      throw new AbruptExitException(
+          "--experimental_oom_more_eagerly_threshold must be a percent between 0 and 100 but was "
+              + occupiedHeapPercentageThreshold,
+          ExitCode.COMMAND_LINE_ERROR);
+    }
+    boolean alreadyInstalled = this.occupiedHeapPercentageThreshold.isPresent();
+    this.occupiedHeapPercentageThreshold =
+        occupiedHeapPercentageThreshold < 100
+            ? OptionalInt.of(occupiedHeapPercentageThreshold)
+            : OptionalInt.empty();
+    boolean shouldBeInstalled = this.occupiedHeapPercentageThreshold.isPresent();
+    if (alreadyInstalled && !shouldBeInstalled) {
+      for (NotificationEmitter emitter : tenuredGcEmitters) {
+        try {
+          emitter.removeNotificationListener(this, null, null);
+        } catch (ListenerNotFoundException e) {
+          logger.atWarning().log("Couldn't remove self as listener from %s", emitter);
+        }
+      }
+    } else if (!alreadyInstalled && shouldBeInstalled) {
+      tenuredGcEmitters.forEach(e -> e.addNotificationListener(this, null, null));
+    }
+  }
+
+  @VisibleForTesting
+  static ImmutableList<NotificationEmitter> findTenuredCollectorBeans(
+      List<GarbageCollectorMXBean> gcBeans) {
+    ImmutableList.Builder<NotificationEmitter> builder = ImmutableList.builder();
     // Examine all collectors and register for notifications from those which collect the tenured
     // space. Normally there is one such collector.
-    for (GarbageCollectorMXBean gcbean : gcbeans) {
-      boolean collectsTenured = false;
-      for (String name : gcbean.getMemoryPoolNames()) {
-        collectsTenured |= isTenuredSpace(name);
-      }
-      if (collectsTenured) {
-        foundTenured = true;
-        NotificationEmitter emitter = (NotificationEmitter) gcbean;
-        emitter.addNotificationListener(this, null, null);
+    for (GarbageCollectorMXBean gcBean : gcBeans) {
+      for (String name : gcBean.getMemoryPoolNames()) {
+        if (isTenuredSpace(name)) {
+          builder.add((NotificationEmitter) gcBean);
+        }
       }
     }
-    if (!foundTenured) {
-      throw new IllegalStateException(
-          "Can't find tenured space; update this class for a new collector");
-    }
+    return builder.build();
   }
 
+  // Can be called concurrently, handles concurrent calls with #updateThreshold gracefully.
+  @ThreadSafety.ThreadSafe
   @Override
   public void handleNotification(Notification notification, Object handback) {
     if (!notification
         .getType()
         .equals(GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION)) {
+      return;
+    }
+    // Get a local reference to guard against concurrent modifications.
+    OptionalInt occupiedHeapPercentageThreshold = this.occupiedHeapPercentageThreshold;
+    if (!occupiedHeapPercentageThreshold.isPresent()) {
+      // Presumably failure above to uninstall this listener, or a racy GC.
+      logger.atInfo().atMostEvery(1, TimeUnit.MINUTES).log(
+          "Got notification %s when should be disabled", notification);
       return;
     }
     GarbageCollectionNotificationInfo info =
@@ -106,36 +133,30 @@ class RetainedHeapLimiter implements NotificationListener {
       if (isTenuredSpace(entry.getKey())) {
         MemoryUsage space = entry.getValue();
         if (space.getMax() == 0) {
-          // The CMS collector sometimes passes us nonsense stats.
+          // The collector sometimes passes us nonsense stats.
           continue;
         }
 
         long percentUsed = 100 * space.getUsed() / space.getMax();
-        if (percentUsed > occupiedHeapPercentageThreshold) {
+        if (percentUsed > occupiedHeapPercentageThreshold.getAsInt()) {
           if (info.getGcCause().equals("System.gc()") && !throwingOom.getAndSet(true)) {
             // Assume we got here from a GC initiated by the other branch.
             String exitMsg =
                 String.format(
                     "RetainedHeapLimiter forcing exit due to GC thrashing: tenured space "
                         + "%s out of %s (>%s%%) occupied after back-to-back full GCs",
-                    space.getUsed(),
-                    space.getMax(),
-                    occupiedHeapPercentageThreshold);
+                    space.getUsed(), space.getMax(), occupiedHeapPercentageThreshold.getAsInt());
             System.err.println(exitMsg);
-            logger.info(exitMsg);
+            logger.atInfo().log(exitMsg);
             // Exits the runtime.
             BugReport.handleCrash(new OutOfMemoryError(exitMsg));
-          } else if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds
+          } else if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
               > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
-            logger.info(
-                "Triggering a full GC with "
-                    + space.getUsed()
-                    + " out of "
-                    + space.getMax()
-                    + " used");
+            logger.atInfo().log(
+                "Triggering a full GC with %s out of %s used", space.getUsed(), space.getMax());
             // Force a full stop-the-world GC and see if it can get us below the threshold.
             System.gc();
-            lastTriggeredGcInMilliseconds = System.currentTimeMillis();
+            lastTriggeredGcInMilliseconds.set(System.currentTimeMillis());
           }
         }
       }

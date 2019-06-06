@@ -14,7 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.testing.ConverterTester;
@@ -57,11 +57,8 @@ public class RegexPatternConverterTest {
 
   @Test
   public void throwsForWrongPattern() {
-    try {
-      new RegexPatternConverter().convert("{");
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().startsWith("Not a valid regular expression:");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> new RegexPatternConverter().convert("{"));
+    assertThat(e).hasMessageThat().startsWith("Not a valid regular expression:");
   }
 }

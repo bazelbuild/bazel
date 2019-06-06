@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -124,6 +125,6 @@ public class TopLevelArtifactHelperTest {
   }
 
   private Artifact newArtifact() {
-    return new Artifact(path.getRelative(Integer.toString(artifactIdx++)), root);
+    return ActionsTestUtil.createArtifact(root, path.getRelative(Integer.toString(artifactIdx++)));
   }
 }

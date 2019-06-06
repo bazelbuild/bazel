@@ -18,9 +18,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.TreeDeleter;
-import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.util.OS;
@@ -60,10 +58,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     super(cmdEnv);
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
-    this.localEnvProvider =
-        OS.getCurrent() == OS.DARWIN
-            ? new XcodeLocalEnvProvider(cmdEnv.getClientEnv())
-            : new PosixLocalEnvProvider(cmdEnv.getClientEnv());
+    this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
     this.timeoutKillDelay = timeoutKillDelay;
     this.treeDeleter = treeDeleter;

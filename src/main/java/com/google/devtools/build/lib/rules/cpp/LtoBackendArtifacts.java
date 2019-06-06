@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * LtoBackendArtifacts represents a set of artifacts for a single ThinLTO backend compile.
@@ -59,14 +59,14 @@ public final class LtoBackendArtifacts {
 
   // A file containing mapping of symbol => bitcode file containing the symbol.
   // It will be null when this is a shared non-lto backend.
-  private final Artifact index;
+  @Nullable private final Artifact index;
 
   // The bitcode file which is the input of the compile.
   private final Artifact bitcodeFile;
 
   // A file containing a list of bitcode files necessary to run the backend step.
   // It will be null when this is a shared non-lto backend.
-  private final Artifact imports;
+  @Nullable private final Artifact imports;
 
   // The result of executing the above command line, an ELF object file.
   private final Artifact objectFile;
@@ -80,7 +80,7 @@ public final class LtoBackendArtifacts {
       CppConfiguration cppConfiguration,
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
-      Map<PathFragment, Artifact> allBitCodeFiles,
+      BitcodeFiles allBitcodeFiles,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
       BuildConfiguration configuration,
@@ -124,7 +124,7 @@ public final class LtoBackendArtifacts {
         configuration,
         linkArtifactFactory,
         userCompileFlags,
-        allBitCodeFiles);
+        allBitcodeFiles);
   }
 
   // Interface to create an LTO backend that does not perform any cross-module optimization.
@@ -167,7 +167,7 @@ public final class LtoBackendArtifacts {
         configuration,
         linkArtifactFactory,
         userCompileFlags,
-        null);
+        /*bitcodeFiles=*/ null);
   }
 
   public Artifact getObjectFile() {
@@ -207,7 +207,7 @@ public final class LtoBackendArtifacts {
       BuildConfiguration configuration,
       LinkArtifactFactory linkArtifactFactory,
       List<String> userCompileFlags,
-      Map<PathFragment, Artifact> bitcodeFiles)
+      @Nullable BitcodeFiles bitcodeFiles)
       throws RuleErrorException {
     LtoBackendAction.Builder builder = new LtoBackendAction.Builder();
 

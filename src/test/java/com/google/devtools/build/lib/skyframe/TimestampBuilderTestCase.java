@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -114,6 +114,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -148,7 +149,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     inMemoryCache = new InMemoryActionCache();
     tsgm = new TimestampGranularityMonitor(clock);
     ResourceManager.instance().setAvailableResources(ResourceSet.createWithRamCpu(100, 1));
-    actions = new HashSet<>();
+    actions = new LinkedHashSet<>();
     actionTemplateExpansionFunction = new ActionTemplateExpansionFunction(actionKeyContext);
   }
 
@@ -199,7 +200,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     differencer = new SequencedRecordingDifferencer();
 
     ActionExecutionStatusReporter statusReporter =
-        ActionExecutionStatusReporter.create(new StoredEventHandler());
+        ActionExecutionStatusReporter.create(new StoredEventHandler(), eventBus);
     final SkyframeActionExecutor skyframeActionExecutor =
         new SkyframeActionExecutor(
             actionKeyContext,
@@ -270,8 +271,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
               ImmutableMap.of(
                   ACTION_LOOKUP_KEY,
                   new BasicActionLookupValue(
-                      Actions.filterSharedActionsAndThrowActionConflict(
-                          actionKeyContext, ImmutableList.copyOf(actions)),
+                      Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                          actionKeyContext,
+                          ImmutableList.copyOf(actions),
+                          ACTION_LOOKUP_KEY,
+                          /*outputFiles=*/ null),
                       /*nonceVersion=*/ null)));
         }
       }
@@ -371,10 +375,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   private static Artifact createSourceArtifact(FileSystem fs, String name) {
     Path root = fs.getPath(TestUtils.tmpDir());
-    return new Artifact.SourceArtifact(
-        ArtifactRoot.asSourceRoot(Root.fromPath(root)),
-        PathFragment.create(name),
-        ArtifactOwner.NullArtifactOwner.INSTANCE);
+    return ActionsTestUtil.createArtifactWithExecPath(
+        ArtifactRoot.asSourceRoot(Root.fromPath(root)), PathFragment.create(name));
   }
 
   protected Artifact createDerivedArtifact(String name) {
@@ -384,7 +386,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   Artifact createDerivedArtifact(FileSystem fs, String name) {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    return new Artifact(
+    return new Artifact.DerivedArtifact(
         ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
         ACTION_LOOKUP_KEY);

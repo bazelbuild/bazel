@@ -76,7 +76,7 @@ readonly WORKSPACE_DIR
 if [[ -e "${WORKSPACE_DIR}/WORKSPACE" ]]; then
   readonly WRAPPER="${WORKSPACE_DIR}/tools/bazel"
 
-  if [[ -x "${WRAPPER}" ]]; then
+  if [[ -x "${WRAPPER}" && ! -d "${WRAPPER}" ]]; then
     exec -a "$0" "${WRAPPER}" "$@"
   fi
 fi

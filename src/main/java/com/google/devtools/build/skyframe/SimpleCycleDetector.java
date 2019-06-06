@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
@@ -133,6 +134,9 @@ public class SimpleCycleDetector implements CycleDetector {
               removeIncompleteChildrenForCycle(
                   key, entry, Iterables.concat(entry.getTemporaryDirectDeps()), evaluatorContext);
         }
+        if (maybeHandleVerifiedCleanNode(key, entry, evaluatorContext, graphPath)) {
+          continue;
+        }
         maybeMarkRebuilding(entry);
         GroupedList<SkyKey> directDeps = entry.getTemporaryDirectDeps();
         // Find out which children have errors. Similar logic to that in Evaluate#run().
@@ -186,13 +190,34 @@ public class SimpleCycleDetector implements CycleDetector {
         Iterable<SkyKey> cycle = graphPath.subList(cycleStart, graphPath.size());
         logger.info("Found cycle : " + cycle + " from " + graphPath);
         // Put this node into a consistent state for building if it is dirty.
-        if (entry.isDirty() && entry.getDirtyState() == NodeEntry.DirtyState.CHECK_DEPENDENCIES) {
-          // In the check deps state, entry has exactly one child not done yet. Note that this node
-          // must be part of the path to the cycle we have found (since done nodes cannot be in
-          // cycles, and this is the only missing one). Thus, it will not be removed below in
-          // removeDescendantsOfCycleValue, so it is safe here to signal that it is done.
-          entry.signalDep(evaluatorContext.getGraphVersion(), null);
-          maybeMarkRebuilding(entry);
+        if (entry.isDirty()) {
+          // If this loop runs more than once, we are in the peculiar position of entry not needing
+          // rebuilding even though it was signaled with the graph version. This can happen when the
+          // entry was previously evaluated at this version, but then invalidated anyway, even
+          // though nothing changed.
+          int loopCount = 0;
+          Version graphVersion = evaluatorContext.getGraphVersion();
+          while (entry.getDirtyState() == NodeEntry.DirtyState.CHECK_DEPENDENCIES) {
+            entry.signalDep(graphVersion, null);
+            loopCount++;
+          }
+          if (loopCount > 1 && !entry.getVersion().equals(graphVersion)) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "Entry needed multiple signaling but didn't have the graph version: "
+                        + key
+                        + ", "
+                        + entry
+                        + ", "
+                        + graphVersion
+                        + ", "
+                        + graphPath));
+          }
+          if (entry.getDirtyState() == NodeEntry.DirtyState.NEEDS_REBUILDING) {
+            entry.markRebuilding();
+          } else if (maybeHandleVerifiedCleanNode(key, entry, evaluatorContext, graphPath)) {
+            continue;
+          }
         }
         if (evaluatorContext.keepGoing()) {
           // Any children of this node that we haven't already visited are not worth visiting,
@@ -292,6 +317,39 @@ public class SimpleCycleDetector implements CycleDetector {
     return evaluatorContext.keepGoing()
         ? getAndCheckDoneForCycle(root, evaluatorContext).getErrorInfo()
         : null;
+  }
+
+  /**
+   * Fully process {@code entry} if it is dirty but verified to be clean. This can only happen in
+   * rare circumstances where a node with a cycle is invalidated at the same version. Returns true
+   * if the entry was successfully processed, meaning that its value has been set and all reverse
+   * deps signaled.
+   */
+  private static boolean maybeHandleVerifiedCleanNode(
+      SkyKey key,
+      NodeEntry entry,
+      ParallelEvaluatorContext evaluatorContext,
+      List<SkyKey> graphPathForDebugging)
+      throws InterruptedException {
+    if (entry.getDirtyState() != NodeEntry.DirtyState.VERIFIED_CLEAN) {
+      return false;
+    }
+    Set<SkyKey> rdeps = entry.markClean();
+    evaluatorContext.signalValuesAndEnqueueIfReady(
+        key, rdeps, entry.getVersion(), EnqueueParentBehavior.SIGNAL);
+    ErrorInfo error = entry.getErrorInfo();
+    if (error.getCycleInfo().isEmpty()) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Entry was unchanged from last build, but cycle was found this time and not"
+                  + " last time: "
+                  + key
+                  + ", "
+                  + entry
+                  + ", "
+                  + graphPathForDebugging));
+    }
+    return true;
   }
 
   /**

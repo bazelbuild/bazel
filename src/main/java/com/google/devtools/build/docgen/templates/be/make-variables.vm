@@ -172,6 +172,18 @@ title: Make Variables
   </li>
   <li>
     <p>
+      <code>RULEDIR</code>: The output directory of the rule, that is, the
+      directory corresponding to the name of the package containing the rule
+      under the <code>genfiles</code> or the <code>bin</code> tree.
+    </p>
+  </li>
+  <li>
+    <p>
+      <b>WARNING:</b> The Make variable <code>RULEDIR</code> should be used
+      instead because it has simpler semantics and behaves in the same way
+      regardless of the number of output files of the rule.
+    </p>
+    <p>
       <code>@D</code>: The output directory.  If there is only one file name in
       <a
       href="$expander.expandRef("genrule.outs")">outs</a></code>, this expands

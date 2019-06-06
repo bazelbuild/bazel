@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -53,11 +55,11 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * instances, and must be used through the thread safe {@link
    * #getAllOptionDefinitionsForClass(Class)}
    */
-  private static final Map<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>>
-      allOptionsFields = new HashMap<>();
+  private static final ConcurrentMap<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>>
+      allOptionsFields = new ConcurrentHashMap<>();
 
   /** Returns all {@code optionDefinitions}, ordered by their option name (not their field name). */
-  public static synchronized ImmutableList<OptionDefinition> getAllOptionDefinitionsForClass(
+  public static ImmutableList<OptionDefinition> getAllOptionDefinitionsForClass(
       Class<? extends OptionsBase> optionsClass) {
     return allOptionsFields.computeIfAbsent(
         optionsClass,

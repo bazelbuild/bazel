@@ -709,10 +709,21 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
 
+  /**
+   * Returns a unique path fragment for j2objc headers. The slightly shorter path is
+   * useful for very large app builds, which otherwise may have command lines that are
+   * too long to be executable.
+   */
+  private static String j2objcHeaderBase(RuleContext ruleContext) {
+    boolean shorterPath =
+        ruleContext.getFragment(J2ObjcConfiguration.class).experimentalShorterHeaderPath();
+    return shorterPath ? "_ios" : "_j2objc";
+  }
+
   private static Artifact j2objcSourceJarTranslatedHeaderFiles(RuleContext ruleContext) {
-    PathFragment rootRelativePath = ruleContext
-        .getUniqueDirectory("_j2objc/src_jar_files")
-        .getRelative("header_files");
+    String uniqueDirectoryPath = j2objcHeaderBase(ruleContext) + "/src_jar_files";
+    PathFragment rootRelativePath =
+        ruleContext.getUniqueDirectory(uniqueDirectoryPath).getRelative("header_files");
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
 
@@ -720,7 +731,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       RuleContext ruleContext,
       Iterable<Artifact> javaInputSourceFiles,
       Iterable<Artifact> javaSourceJarFiles) {
-    PathFragment objcFileRootRelativePath = ruleContext.getUniqueDirectory("_j2objc");
+    PathFragment objcFileRootRelativePath =
+        ruleContext.getUniqueDirectory(j2objcHeaderBase(ruleContext));
     PathFragment objcFileRootExecPath = ruleContext
         .getConfiguration()
         .getBinFragment()

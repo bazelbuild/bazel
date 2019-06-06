@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
@@ -26,16 +28,19 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesValue;
+import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -81,21 +86,35 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
+    if (env.valuesMissing()) {
       return null;
     }
 
     Set<String> verificationRules =
         RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES.get(env);
-    if (verificationRules == null) {
+    if (env.valuesMissing()) {
       return null;
     }
     ResolvedHashesValue resolvedHashesValue =
         (ResolvedHashesValue) env.getValue(ResolvedHashesValue.key());
-    if (resolvedHashesValue == null) {
+    if (env.valuesMissing()) {
       return null;
     }
-    Map<String, String> resolvedHashes = resolvedHashesValue.getHashes();
+    Map<String, String> resolvedHashes =
+        Preconditions.checkNotNull(resolvedHashesValue).getHashes();
+
+    PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    BlacklistedPackagePrefixesValue blacklistedPackagesValue =
+        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+    if (env.valuesMissing()) {
+      return null;
+    }
+    ImmutableSet<PathFragment> blacklistedPatterns =
+        Preconditions.checkNotNull(blacklistedPackagesValue).getPatterns();
 
     try (Mutability mutability = Mutability.create("Starlark repository")) {
       com.google.devtools.build.lib.syntax.Environment buildEnv =
@@ -114,7 +133,9 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
               rule,
+              packageLocator,
               outputDirectory,
+              blacklistedPatterns,
               env,
               clientEnvironment,
               httpDownloader,
@@ -125,12 +146,11 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       // all label-arguments can be resolved to paths.
       try {
         skylarkRepositoryContext.enforceLabelAttributes();
+      } catch (RepositoryMissingDependencyException e) {
+        // Missing values are expected; just restart before we actually start the rule
+        return null;
       } catch (EvalException e) {
-        if (e instanceof RepositoryMissingDependencyException) {
-          // Missing values are expected; just restart before we actually start the rule
-          return null;
-        }
-        // Other EvalExceptions indicate labels not referring to existing files. This is fine,
+        // EvalExceptions indicate labels not referring to existing files. This is fine,
         // as long as they are never resolved to files in the execution of the rule; we allow
         // non-strict rules. So now we have to start evaluating the actual rule, even if that
         // means the rule might get restarted for legitimate reasons.
@@ -154,6 +174,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue);
       if (resolved.isNewInformationReturned()) {
         env.getListener().handle(Event.debug(resolved.getMessage()));
+        env.getListener().handle(Event.debug(rule.getDefinitionInformation()));
       }
 
       String ruleClass =
@@ -171,18 +192,17 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
         }
       }
       env.getListener().post(resolved);
-    } catch (EvalException e) {
-      if (e.getCause() instanceof RepositoryMissingDependencyException) {
-        // A dependency is missing, cleanup and returns null
-        try {
-          if (outputDirectory.exists()) {
-            outputDirectory.deleteTree();
-          }
-        } catch (IOException e1) {
-          throw new RepositoryFunctionException(e1, Transience.TRANSIENT);
+    } catch (RepositoryMissingDependencyException e) {
+      // A dependency is missing, cleanup and returns null
+      try {
+        if (outputDirectory.exists()) {
+          outputDirectory.deleteTree();
         }
-        return null;
+      } catch (IOException e1) {
+        throw new RepositoryFunctionException(e1, Transience.TRANSIENT);
       }
+      return null;
+    } catch (EvalException e) {
       env.getListener()
           .handle(
               Event.error(

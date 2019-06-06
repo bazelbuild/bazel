@@ -228,7 +228,9 @@ class NativeProcess {
       stdout_process = CreateFileW(
           /* lpFileName */ stdout_redirect.c_str(),
           /* dwDesiredAccess */ GENERIC_WRITE,
-          /* dwShareMode */ 0,
+          // Must share for reading, otherwise symlink-following file existence
+          // checks (e.g. java.nio.file.Files.exists()) fail.
+          /* dwShareMode */ FILE_SHARE_READ,
           /* lpSecurityAttributes */ &sa,
           /* dwCreationDisposition */ OPEN_ALWAYS,
           /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
@@ -280,7 +282,9 @@ class NativeProcess {
       stderr_process = CreateFileW(
           /* lpFileName */ stderr_redirect.c_str(),
           /* dwDesiredAccess */ GENERIC_WRITE,
-          /* dwShareMode */ 0,
+          // Must share for reading, otherwise symlink-following file existence
+          // checks (e.g. java.nio.file.Files.exists()) fail.
+          /* dwShareMode */ FILE_SHARE_READ,
           /* lpSecurityAttributes */ &sa,
           /* dwCreationDisposition */ OPEN_ALWAYS,
           /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,

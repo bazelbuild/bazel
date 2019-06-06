@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
@@ -47,16 +45,6 @@ public class StarlarkConfig implements StarlarkConfigApi {
   @Override
   public BuildSetting stringListSetting(Boolean flag) {
     return new BuildSetting(flag, STRING_LIST);
-  }
-
-  @Override
-  public BuildSetting labelSetting(Boolean flag) {
-    return new BuildSetting(flag, LABEL);
-  }
-
-  @Override
-  public BuildSetting labelListSetting(Boolean flag) {
-    return new BuildSetting(flag, LABEL_LIST);
   }
 
   @Override

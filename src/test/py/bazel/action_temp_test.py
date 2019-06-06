@@ -171,8 +171,8 @@ class ActionTempTest(test_base.TestBase):
         'foorule = rule(',
         '    implementation=_impl,',
         '    attrs={"tool": attr.label(executable=True, cfg="host",',
-        '                              allow_files=True, single_file=True),',
-        '           "src": attr.label(allow_files=True, single_file=True)},',
+        '                              allow_single_file=True),',
+        '           "src": attr.label(allow_single_file=True)},',
         '    outputs={"out": "%{name}.txt"},',
         ')',
     ])
@@ -197,14 +197,12 @@ class ActionTempTest(test_base.TestBase):
 
   def _SpawnStrategies(self):
     """Returns the list of supported --spawn_strategy values."""
-    # TODO(b/37617303): make test UI-independent
     exit_code, _, stderr = self.RunBazel([
-        'build', '--color=no', '--curses=no', '--spawn_strategy=foo',
-        '--noexperimental_ui'
+        'build', '--color=no', '--curses=no', '--spawn_strategy=foo'
     ])
     self.AssertExitCode(exit_code, 2, stderr)
     pattern = re.compile(
-        r'^ERROR:.*is an invalid value for.*Valid values are: (.*)\.$')
+        r'^ERROR:.*is an invalid value for.*Valid values are: (.*)$')
     for line in stderr:
       m = pattern.match(line)
       if m:
@@ -222,11 +220,9 @@ class ActionTempTest(test_base.TestBase):
       with open(path, 'rt') as f:
         return [l.strip() for l in f]
 
-    # TODO(b/37617303): make test UI-independent
     exit_code, _, stderr = self.RunBazel([
         'build',
         '--verbose_failures',
-        '--noexperimental_ui',
         '--spawn_strategy=%s' % strategy,
         '//foo:genrule',
         '//foo:skylark',

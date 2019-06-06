@@ -208,11 +208,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRequiresDefined_validVersion() throws Exception {
+  public void testValidVersion() throws Exception {
     scratch.file("xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
-        "    require_defined_version = 1,",
         "    versions = [':version512'],",
         "    default = ':version512',",
         ")",
@@ -228,11 +227,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRequiresDefined_validAlias_dottedVersion() throws Exception {
+  public void testValidAlias_dottedVersion() throws Exception {
     scratch.file("xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
-        "    require_defined_version = 1,",
         "    versions = [':version512'],",
         "    default = ':version512',",
         ")",
@@ -248,11 +246,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRequiresDefined_validAlias_nonNumerical() throws Exception {
+  public void testValidAlias_nonNumerical() throws Exception {
     scratch.file("xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
-        "    require_defined_version = 1,",
         "    versions = [':version512'],",
         "    default = ':version512',",
         ")",
@@ -268,30 +265,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRequiresDefined_validDefault() throws Exception {
-    scratch.file("xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    default = ':version512',",
-        "    versions = [':version512'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        ")");
-    useConfiguration("--xcode_version_config=//xcode:foo");
-
-    assertXcodeVersion("5.1.2");
-  }
-
-  @Test
   public void testInvalidXcodeSpecified() throws Exception {
     scratch.file("xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
-        "    require_defined_version = 1,",
         "    versions = [':version512', ':version84'],",
         "    default = ':version512',",
         ")",
@@ -317,7 +294,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file("xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
-        "    require_defined_version = 1,",
         "    versions = [':version512'],",
         ")",
         "",

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
 import static org.junit.Assume.assumeTrue;
@@ -141,7 +142,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name = 'c_lib',",
         "    srcs = ['foo.cc'],",
         "    copts = [ '-Wmy-warning', '-frun-faster' ])");
-    assertThat(getCopts("//copts:c_lib")).containsAllOf("-Wmy-warning", "-frun-faster");
+    assertThat(getCopts("//copts:c_lib")).containsAtLeast("-Wmy-warning", "-frun-faster");
   }
 
   @Test
@@ -152,7 +153,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "    srcs = ['foo.cc'],",
         "    copts = ['-Wmy-warning -frun-faster'])");
     List<String> copts = getCopts("//copts:c_lib");
-    assertThat(copts).containsAllOf("-Wmy-warning", "-frun-faster");
+    assertThat(copts).containsAtLeast("-Wmy-warning", "-frun-faster");
   }
 
   @Test
@@ -187,7 +188,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'archive_in_srcs_lib',",
             "           srcs = ['libstatic.a', 'libboth.a', 'libboth.so'])");
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(archiveInSrcsTest));
-    assertThat(artifactNames).containsAllOf("libboth.so", "libstatic.a");
+    assertThat(artifactNames).containsAtLeast("libboth.so", "libstatic.a");
     assertThat(artifactNames).doesNotContain("libboth.a");
   }
 
@@ -306,7 +307,8 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "ananas/BUILD",
         "cc_library(name='ananas',",
-        "           srcs=['1.c', '2.cc', '3.cpp', '4.S', '5.h', '6.hpp', '7.inc', '8.inl'])");
+        "           srcs=['1.c', '2.cc', '3.cpp', '4.S', '5.h', '6.hpp', '7.inc', '8.inl',",
+        "                 '9.tlh', 'A.tli'])");
 
     ConfiguredTarget ananas = getConfiguredTarget("//ananas:ananas");
     Iterable<String> temps =
@@ -331,7 +333,7 @@ public class CcCommonTest extends BuildViewTestCase {
         ActionsTestUtil.baseArtifactNames(getOutputGroup(target, OutputGroupInfo.TEMP_FILES));
 
     // Return the IterableSubject for the temp files.
-    return assertThat(temps).named("k8");
+    return assertWithMessage("k8").that(temps);
   }
 
   @Test
@@ -419,7 +421,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     String includesRoot = "bang/bang_includes";
     assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
-        .containsAllOf(
+        .containsAtLeast(
             PathFragment.create(includesRoot),
             targetConfig.getGenfilesFragment().getRelative(includesRoot));
   }
@@ -767,7 +769,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'mylib',",
             "           srcs = ['libshared.so', 'libshared.so.1.1', 'foo.cc'])");
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
-    assertThat(artifactNames).containsAllOf("libshared.so", "libshared.so.1.1");
+    assertThat(artifactNames).containsAtLeast("libshared.so", "libshared.so.1.1");
   }
 
   @Test

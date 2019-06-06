@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -51,12 +51,18 @@ public class DirectoryListingStateFunction implements SkyFunction {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
 
     try {
-      externalFilesHelper.maybeHandleExternalFile(dirRootedPath, true, env);
+      FileType fileType = externalFilesHelper.maybeHandleExternalFile(dirRootedPath, true, env);
       if (env.valuesMissing()) {
         return null;
       }
-      return DirectoryListingStateValue.create(
-          syscallCache.get().readdir(dirRootedPath.asPath(), Symlinks.NOFOLLOW));
+      if (fileType == FileType.EXTERNAL_REPO
+          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
+        // Do not use syscallCache as files under repositories get generated during the build,
+        // while syscallCache is used independently from Skyframe and generally assumes
+        // the file system is frozen at the beginning of the build command.
+        return DirectoryListingStateValue.create(dirRootedPath);
+      }
+      return DirectoryListingStateValue.create(syscallCache.get().readdir(dirRootedPath.asPath()));
     } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
       // DirectoryListingStateValue.key assumes the path exists. This exception here is therefore
       // indicative of a programming bug.

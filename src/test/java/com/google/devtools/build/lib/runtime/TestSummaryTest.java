@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.AdditionalMatchers.find;
 import static org.mockito.AdditionalMatchers.not;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Matchers.contains;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -198,7 +198,7 @@ public class TestSummaryTest {
     // No need to copy if built twice in a row; no direct setters on the object.
     TestSummary summary = basicBuilder.build();
     TestSummary sameSummary = basicBuilder.build();
-    assertThat(sameSummary).isSameAs(summary);
+    assertThat(sameSummary).isSameInstanceAs(summary);
 
     basicBuilder.addTestTimes(ImmutableList.of(40L));
 
@@ -206,7 +206,7 @@ public class TestSummaryTest {
     assertThat(summaryCopy.getTarget()).isEqualTo(summary.getTarget());
     assertThat(summaryCopy.getStatus()).isEqualTo(summary.getStatus());
     assertThat(summaryCopy.numCached()).isEqualTo(summary.numCached());
-    assertThat(summaryCopy).isNotSameAs(summary);
+    assertThat(summaryCopy).isNotSameInstanceAs(summary);
     assertThat(summary.totalRuns()).isEqualTo(0);
     assertThat(summaryCopy.totalRuns()).isEqualTo(1);
 

@@ -101,6 +101,7 @@ public final class StringModule {
         @Param(name = "self", type = String.class),
         @Param(
             name = "elements",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             type = SkylarkList.class,
             doc = "The objects to join.")
@@ -114,7 +115,10 @@ public final class StringModule {
         if (!(item instanceof String)) {
           throw new EvalException(
               loc,
-              "sequence element must be a string (got '" + EvalUtils.getDataTypeName(item) + "')");
+              "sequence element must be a string (got '"
+                  + EvalUtils.getDataTypeName(item)
+                  + "'). See https://github.com/bazelbuild/bazel/issues/7802 for information about "
+                  + "--incompatible_string_join_requires_strings.");
         }
       }
     }
@@ -177,7 +181,8 @@ public final class StringModule {
       name = "lstrip",
       doc =
           "Returns a copy of the string where leading characters that appear in "
-              + "<code>chars</code> are removed."
+              + "<code>chars</code> are removed. Note that <code>chars</code> "
+              + "is not a prefix: all combinations of its value are removed:"
               + "<pre class=\"language-python\">"
               + "\"abcba\".lstrip(\"ba\") == \"cba\""
               + "</pre>",
@@ -186,6 +191,7 @@ public final class StringModule {
         @Param(
             name = "chars",
             type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             doc = "The characters to remove, or all whitespace if None.",
@@ -200,7 +206,8 @@ public final class StringModule {
       name = "rstrip",
       doc =
           "Returns a copy of the string where trailing characters that appear in "
-              + "<code>chars</code> are removed."
+              + "<code>chars</code> are removed. Note that <code>chars</code> "
+              + "is not a suffix: all combinations of its value are removed:"
               + "<pre class=\"language-python\">"
               + "\"abcbaa\".rstrip(\"ab\") == \"abc\""
               + "</pre>",
@@ -209,6 +216,7 @@ public final class StringModule {
         @Param(
             name = "chars",
             type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             doc = "The characters to remove, or all whitespace if None.",
@@ -223,7 +231,9 @@ public final class StringModule {
       name = "strip",
       doc =
           "Returns a copy of the string where leading or trailing characters that appear in "
-              + "<code>chars</code> are removed."
+              + "<code>chars</code> are removed. Note that <code>chars</code> "
+              + "is neither a prefix nor a suffix: all combinations of its value "
+              + "are removed:"
               + "<pre class=\"language-python\">"
               + "\"aabcbcbaa\".strip(\"ab\") == \"cbc\""
               + "</pre>",
@@ -232,6 +242,7 @@ public final class StringModule {
         @Param(
             name = "chars",
             type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             doc = "The characters to remove, or all whitespace if None.",
@@ -250,15 +261,24 @@ public final class StringModule {
               + "restricting the number of replacements to <code>maxsplit</code>.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "old", legacyNamed = true, type = String.class,
+        @Param(
+            name = "old",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
+            type = String.class,
             doc = "The string to be replaced."),
-        @Param(name = "new", legacyNamed = true,
-            type = String.class, doc = "The string to replace with."),
+        @Param(
+            name = "new",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
+            type = String.class,
+            doc = "The string to replace with."),
         @Param(
             name = "maxsplit",
             type = Integer.class,
             noneable = true,
             defaultValue = "None",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             doc = "The maximum number of replacements.")
       },
@@ -289,11 +309,16 @@ public final class StringModule {
               + "separator, optionally limiting the number of splits to <code>maxsplit</code>.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sep", legacyNamed = true, type = String.class,
+        @Param(
+            name = "sep",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
+            type = String.class,
             doc = "The string to split on."),
         @Param(
             name = "maxsplit",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             defaultValue = "None",
@@ -320,11 +345,16 @@ public final class StringModule {
               + "Except for splitting from the right, this method behaves like split().",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sep", legacyNamed = true, type = String.class,
+        @Param(
+            name = "sep",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
+            type = String.class,
             doc = "The string to split on."),
         @Param(
             name = "maxsplit",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             defaultValue = "None",
@@ -400,6 +430,7 @@ public final class StringModule {
         @Param(
             name = "sep",
             type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "\" \"",
             doc = "The string to split on, default is space (\" \").")
@@ -422,6 +453,7 @@ public final class StringModule {
         @Param(
             name = "sep",
             type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "\" \"",
             doc = "The string to split on, default is space (\" \").")
@@ -561,17 +593,23 @@ public final class StringModule {
               + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sub", type = String.class, legacyNamed = true,
+        @Param(
+            name = "sub",
+            type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
             doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             defaultValue = "None",
@@ -590,17 +628,23 @@ public final class StringModule {
               + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sub", type = String.class, legacyNamed = true,
+        @Param(
+            name = "sub",
+            type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
             doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             defaultValue = "None",
@@ -619,17 +663,23 @@ public final class StringModule {
               + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sub", type = String.class, legacyNamed = true,
+        @Param(
+            name = "sub",
+            type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
             doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             defaultValue = "None",
@@ -653,17 +703,23 @@ public final class StringModule {
               + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sub", type = String.class, legacyNamed = true,
+        @Param(
+            name = "sub",
+            type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
             doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             defaultValue = "None",
@@ -689,6 +745,7 @@ public final class StringModule {
         @Param(
             name = "keepends",
             type = Boolean.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "False",
             doc = "Whether the line breaks should be included in the resulting list.")
@@ -849,17 +906,23 @@ public final class StringModule {
               + "being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sub", type = String.class, legacyNamed = true,
+        @Param(
+            name = "sub",
+            type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
             doc = "The substring to count."),
         @Param(
             name = "start",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             defaultValue = "None",
@@ -909,17 +972,20 @@ public final class StringModule {
               @ParamType(type = String.class),
               @ParamType(type = Tuple.class, generic1 = String.class),
             },
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             doc = "The substring to check."),
         @Param(
             name = "start",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             defaultValue = "None",
@@ -999,17 +1065,20 @@ public final class StringModule {
               @ParamType(type = String.class),
               @ParamType(type = Tuple.class, generic1 = String.class),
             },
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             doc = "The substring(s) to check."),
         @Param(
             name = "start",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
             type = Integer.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true,
             defaultValue = "None",

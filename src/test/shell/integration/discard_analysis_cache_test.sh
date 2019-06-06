@@ -80,18 +80,18 @@ EOF
 
 function test_compile_helloworld() {
   write_hello_world_files
-  bazel run --noexperimental_ui --discard_analysis_cache hello:hello >&$TEST_log \
+  bazel run --experimental_ui_debug_all_events --discard_analysis_cache hello:hello >&$TEST_log \
       || fail "Build failed"
   expect_log "Loading package: hello"
   expect_log 'hello!'
 
-  bazel run --noexperimental_ui --discard_analysis_cache hello:hello >&$TEST_log \
+  bazel run --experimental_ui_debug_all_events --discard_analysis_cache hello:hello >&$TEST_log \
       || fail "Build failed"
   expect_not_log "Loading package: hello"
   expect_log 'hello!'
 
   # Check that further incremental builds work fine.
-  bazel run --noexperimental_ui hello:hello >&$TEST_log \
+  bazel run --experimental_ui_debug_all_events hello:hello >&$TEST_log \
       || fail "Build failed"
   expect_not_log "Loading package: hello"
   expect_log 'hello!'
@@ -110,15 +110,16 @@ function test_aspect_and_configured_target_cleared() {
   mkdir -p "foo" || fail "Couldn't make directory"
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
 def _simple_aspect_impl(target, ctx):
-  result=depset()
-  for orig_out in target.files:
+  result=[]
+  for orig_out in target.files.to_list():
     aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
     ctx.actions.write(
         output=aspect_out,
         content = "Hello from aspect for %s" % orig_out.basename)
     result += [aspect_out]
-  for src in ctx.rule.attr.srcs:
-    result += src.aspectouts
+
+  result = depset(result,
+      transitive = [src.aspectouts for src in ctx.rule.attr.srcs])
 
   return struct(output_groups={
       "aspect-out" : result }, aspectouts = result)

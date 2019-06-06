@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
@@ -52,6 +53,7 @@ public final class WorkspaceBuilder {
   private final ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
       ImmutableList.builder();
   private AllocationTracker allocationTracker;
+  private ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -79,7 +81,8 @@ public final class WorkspaceBuilder {
             ruleClassProvider.getBuildInfoFactories(),
             diffAwarenessFactories.build(),
             skyFunctions.build(),
-            customDirtinessCheckers.build());
+            customDirtinessCheckers.build(),
+            managedDirectoriesKnowledge);
     return new BlazeWorkspace(
         runtime,
         directories,
@@ -151,6 +154,12 @@ public final class WorkspaceBuilder {
   public WorkspaceBuilder addCustomDirtinessChecker(
       SkyValueDirtinessChecker customDirtinessChecker) {
     this.customDirtinessCheckers.add(Preconditions.checkNotNull(customDirtinessChecker));
+    return this;
+  }
+
+  public WorkspaceBuilder setManagedDirectoriesKnowledge(
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+    this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
     return this;
   }
 }

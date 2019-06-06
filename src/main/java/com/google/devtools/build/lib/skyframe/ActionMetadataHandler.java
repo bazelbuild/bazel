@@ -493,7 +493,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public void injectRemoteDirectory(
-      Artifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+      SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
     Preconditions.checkArgument(
         isKnownOutput(output), output + " is not a declared output of this action");
     Preconditions.checkArgument(output.isTreeArtifact(), "output must be a tree artifact");

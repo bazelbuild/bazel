@@ -72,6 +72,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       Label label,
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
+      ImmutableList<String> javabuilderJvmOptions,
       boolean javacSupportsWorkers,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
@@ -90,6 +91,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
+      FilesToRunProvider jacocoRunner,
       JavaSemantics javaSemantics) {
     return new JavaToolchainProvider(
         label,
@@ -111,8 +113,10 @@ public class JavaToolchainProvider extends ToolchainInfo
         compatibleJavacOptions,
         javacOptions,
         jvmOptions,
+        javabuilderJvmOptions,
         javacSupportsWorkers,
         packageConfiguration,
+        jacocoRunner,
         javaSemantics);
   }
 
@@ -135,8 +139,10 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableListMultimap<String, String> compatibleJavacOptions;
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> jvmOptions;
+  private final ImmutableList<String> javabuilderJvmOptions;
   private final boolean javacSupportsWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
+  private final FilesToRunProvider jacocoRunner;
   private final JavaSemantics javaSemantics;
 
   @VisibleForSerialization
@@ -160,8 +166,10 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
+      ImmutableList<String> javabuilderJvmOptions,
       boolean javacSupportsWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
+      FilesToRunProvider jacocoRunner,
       JavaSemantics javaSemantics) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
@@ -184,8 +192,10 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.compatibleJavacOptions = compatibleJavacOptions;
     this.javacOptions = javacOptions;
     this.jvmOptions = jvmOptions;
+    this.javabuilderJvmOptions = javabuilderJvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.packageConfiguration = packageConfiguration;
+    this.jacocoRunner = jacocoRunner;
     this.javaSemantics = javaSemantics;
   }
 
@@ -314,6 +324,11 @@ public class JavaToolchainProvider extends ToolchainInfo
     return jvmOptions;
   }
 
+  /** Returns the list of JVM options for running JavaBuilder. */
+  public ImmutableList<String> getJavabuilderJvmOptions() {
+    return javabuilderJvmOptions;
+  }
+
   /** @return whether JavaBuilders supports running as a persistent worker or not */
   public boolean getJavacSupportsWorkers() {
     return javacSupportsWorkers;
@@ -322,6 +337,10 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns the global {@code java_plugin_configuration} data. */
   public ImmutableList<JavaPackageConfigurationProvider> packageConfiguration() {
     return packageConfiguration;
+  }
+
+  public FilesToRunProvider getJacocoRunner() {
+    return jacocoRunner;
   }
 
   public JavaSemantics getJavaSemantics() {

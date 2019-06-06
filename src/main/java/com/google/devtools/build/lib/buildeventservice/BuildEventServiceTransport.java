@@ -34,6 +34,7 @@ import javax.annotation.Nullable;
 /** A {@link BuildEventTransport} that streams {@link BuildEvent}s to BuildEventService. */
 public class BuildEventServiceTransport implements BuildEventTransport {
   private final BuildEventServiceUploader besUploader;
+  private final Duration besTimeout;
 
   private BuildEventServiceTransport(
       BuildEventServiceClient besClient,
@@ -46,6 +47,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       EventBus eventBus,
       Duration closeTimeout,
       Sleeper sleeper) {
+    this.besTimeout = closeTimeout;
     this.besUploader =
         new BuildEventServiceUploader.Builder()
             .besClient(besClient)
@@ -57,13 +59,17 @@ public class BuildEventServiceTransport implements BuildEventTransport {
             .sleeper(sleeper)
             .artifactGroupNamer(artifactGroupNamer)
             .eventBus(eventBus)
-            .closeTimeout(closeTimeout)
             .build();
   }
 
   @Override
   public ListenableFuture<Void> close() {
     return besUploader.close();
+  }
+
+  @Override
+  public ListenableFuture<Void> getHalfCloseFuture() {
+    return besUploader.getHalfCloseFuture();
   }
 
   @Override
@@ -79,6 +85,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   @Override
   public void sendBuildEvent(BuildEvent event) {
     besUploader.enqueueEvent(event);
+  }
+
+  @Override
+  public Duration getTimeout() {
+    return besTimeout;
   }
 
   /** A builder for {@link BuildEventServiceTransport}. */

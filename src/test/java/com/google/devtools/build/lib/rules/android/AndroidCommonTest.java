@@ -93,13 +93,14 @@ public class AndroidCommonTest extends BuildViewTestCase {
   public void testMultidexModeEnum() throws Exception {
     assertThat(MultidexMode.getValidValues()).containsExactly("native", "legacy", "manual_main_dex",
         "off");
-    assertThat(MultidexMode.fromValue("native")).isSameAs(MultidexMode.NATIVE);
+    assertThat(MultidexMode.fromValue("native")).isSameInstanceAs(MultidexMode.NATIVE);
     assertThat(MultidexMode.NATIVE.getAttributeValue()).isEqualTo("native");
-    assertThat(MultidexMode.fromValue("legacy")).isSameAs(MultidexMode.LEGACY);
+    assertThat(MultidexMode.fromValue("legacy")).isSameInstanceAs(MultidexMode.LEGACY);
     assertThat(MultidexMode.LEGACY.getAttributeValue()).isEqualTo("legacy");
-    assertThat(MultidexMode.fromValue("manual_main_dex")).isSameAs(MultidexMode.MANUAL_MAIN_DEX);
+    assertThat(MultidexMode.fromValue("manual_main_dex"))
+        .isSameInstanceAs(MultidexMode.MANUAL_MAIN_DEX);
     assertThat(MultidexMode.MANUAL_MAIN_DEX.getAttributeValue()).isEqualTo("manual_main_dex");
-    assertThat(MultidexMode.fromValue("off")).isSameAs(MultidexMode.OFF);
+    assertThat(MultidexMode.fromValue("off")).isSameInstanceAs(MultidexMode.OFF);
     assertThat(MultidexMode.OFF.getAttributeValue()).isEqualTo("off");
   }
 

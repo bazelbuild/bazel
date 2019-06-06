@@ -512,8 +512,7 @@ public final class Profiler {
       Clock clock,
       long execStartTimeNanos,
       boolean enabledCpuUsageProfiling,
-      boolean slimProfile,
-      boolean enableJsonMetadata)
+      boolean slimProfile)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -544,8 +543,7 @@ public final class Profiler {
           break;
         case JSON_TRACE_FILE_FORMAT:
           writer =
-              new JsonTraceFileWriter(
-                  stream, execStartTimeNanos, slimProfile, enableJsonMetadata, outputBase, buildID);
+              new JsonTraceFileWriter(stream, execStartTimeNanos, slimProfile, outputBase, buildID);
           break;
         case JSON_TRACE_FILE_COMPRESSED_FORMAT:
           writer =
@@ -553,7 +551,6 @@ public final class Profiler {
                   new GZIPOutputStream(stream),
                   execStartTimeNanos,
                   slimProfile,
-                  enableJsonMetadata,
                   outputBase,
                   buildID);
       }
@@ -1010,7 +1007,6 @@ public final class Profiler {
     private final ThreadLocal<Boolean> metadataPosted =
         ThreadLocal.withInitial(() -> Boolean.FALSE);
     private final boolean slimProfile;
-    private final boolean enableJsonMetadata;
     private final UUID buildID;
     private final String outputBase;
 
@@ -1025,13 +1021,11 @@ public final class Profiler {
         OutputStream outStream,
         long profileStartTimeNanos,
         boolean slimProfile,
-        boolean enableJsonMetadata,
         String outputBase,
         UUID buildID) {
       this.outStream = outStream;
       this.profileStartTimeNanos = profileStartTimeNanos;
       this.slimProfile = slimProfile;
-      this.enableJsonMetadata = enableJsonMetadata;
       this.buildID = buildID;
       this.outputBase = outputBase;
     }
@@ -1157,16 +1151,14 @@ public final class Profiler {
                 // The buffer size of 262144 is chosen at random.
                 new OutputStreamWriter(
                     new BufferedOutputStream(outStream, 262144), StandardCharsets.UTF_8))) {
-          if (enableJsonMetadata) {
-            writer.beginObject();
-            writer.name("otherData");
-            writer.beginObject();
-            writer.name("build_id").value(buildID.toString());
-            writer.name("output_base").value(outputBase);
-            writer.name("date").value(new Date().toString());
-            writer.endObject();
-            writer.name("traceEvents");
-          }
+          writer.beginObject();
+          writer.name("otherData");
+          writer.beginObject();
+          writer.name("build_id").value(buildID.toString());
+          writer.name("output_base").value(outputBase);
+          writer.name("date").value(new Date().toString());
+          writer.endObject();
+          writer.name("traceEvents");
           writer.beginArray();
           TaskData data;
 
@@ -1249,9 +1241,7 @@ public final class Profiler {
           receivedPoisonPill = true;
           writer.setIndent("  ");
           writer.endArray();
-          if (enableJsonMetadata) {
-            writer.endObject();
-          }
+          writer.endObject();
         } catch (IOException e) {
           this.savedException = e;
           if (!receivedPoisonPill) {

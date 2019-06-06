@@ -181,9 +181,9 @@ EOF
 
   chmod +x $pkg/foo/bar/test.sh
 
-  # TODO(b/37617303): make tests UI-independent
-  bazel test --noexperimental_ui --output_filter="dummy" $pkg/foo/bar:test >&"$TEST_log" || fail
-  expect_log "PASS: //$pkg/foo/bar:test"
+  bazel test --experimental_ui_debug_all_events --output_filter="dummy" \
+      $pkg/foo/bar:test >&"$TEST_log" || fail
+  expect_log "PASS.*: //$pkg/foo/bar:test"
 }
 
 function test_output_filter_build() {

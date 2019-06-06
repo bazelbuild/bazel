@@ -696,7 +696,7 @@ EOF
 def impl(ctx):
     ctx.actions.run_shell(
         command = "cat %s > %s" % (ctx.file._dep.path, ctx.outputs.sh.path),
-        inputs = [ctx.file._dep],
+        tools = [ctx.file._dep],
         outputs = [ctx.outputs.sh]
     )
 
@@ -706,8 +706,7 @@ sample_bin = rule(
             default=Label("@other//:a/b"),
             executable=True,
             cfg="host",
-            allow_files=True,
-            single_file=True)
+            allow_single_file=True)
     },
     outputs = {'sh': "%{name}.sh"},
     implementation = impl,
@@ -904,7 +903,7 @@ genrule(
   name = 'b',
   srcs = [],
   outs = ['bo'],
-  cmd = 'echo ' + native.repository_name() + ' ' + native.package_name() + ' > $@')
+  cmd = 'echo ' + repository_name() + ' ' + package_name() + ' > $@')
 EOF
 
   cat > WORKSPACE <<EOF

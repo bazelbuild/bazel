@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.collect;
 
 import static com.google.common.truth.Truth.assertThat;
-import static junit.framework.TestCase.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
@@ -34,8 +34,8 @@ public final class ImmutableSharedKeyMapTest {
     ImmutableSharedKeyMap<String, Object> map =
         ImmutableSharedKeyMap.<String, Object>builder().put("a", valueA).put("b", valueB).build();
 
-    assertThat(map.get("a")).isSameAs(valueA);
-    assertThat(map.get("b")).isSameAs(valueB);
+    assertThat(map.get("a")).isSameInstanceAs(valueA);
+    assertThat(map.get("b")).isSameInstanceAs(valueB);
     assertThat(map.get("c")).isNull();
 
     // Verify that we can find all items both by iteration and indexing
@@ -98,12 +98,7 @@ public final class ImmutableSharedKeyMapTest {
             .put("key", valueB)
             .put("key", valueC);
 
-    try {
-      map.build();
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected
-    }
+    assertThrows(IllegalArgumentException.class, () -> map.build());
   }
 
   private static class SameHashCodeClass {
@@ -124,7 +119,7 @@ public final class ImmutableSharedKeyMapTest {
             .put(keyA, valueA)
             .put(keyB, valueB)
             .build();
-    assertThat(map.get(keyA)).isSameAs(valueA);
-    assertThat(map.get(keyB)).isSameAs(valueB);
+    assertThat(map.get(keyA)).isSameInstanceAs(valueA);
+    assertThat(map.get(keyB)).isSameInstanceAs(valueB);
   }
 }

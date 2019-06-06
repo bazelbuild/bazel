@@ -115,6 +115,7 @@ public class MethodLibrary {
             type = Object.class,
             noneable = true,
             doc = "A string or a collection of elements.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
       },
       useLocation = true,
@@ -136,6 +137,7 @@ public class MethodLibrary {
             type = Object.class,
             noneable = true,
             doc = "A string or a collection of elements.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
       },
       useLocation = true,
@@ -163,7 +165,12 @@ public class MethodLibrary {
               + "It is an error if elements are not comparable (for example int with string)."
               + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
       parameters = {
-        @Param(name = "self", type = Object.class, doc = "This collection.", legacyNamed = true)
+        @Param(
+            name = "self",
+            type = Object.class,
+            doc = "This collection.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true)
       },
       useLocation = true,
       useEnvironment = true)
@@ -186,6 +193,7 @@ public class MethodLibrary {
             name = "sequence",
             type = Object.class,
             doc = "The sequence to be reversed (string, list or tuple).",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true),
       },
       useLocation = true,
@@ -212,7 +220,13 @@ public class MethodLibrary {
               + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.", legacyNamed = true)},
+      parameters = {
+        @Param(
+            name = "x",
+            doc = "The object to convert.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true)
+      },
       useLocation = true,
       useEnvironment = true)
   public Tuple<?> tuple(Object x, Location loc, Environment env) throws EvalException {
@@ -226,7 +240,13 @@ public class MethodLibrary {
               + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
               + "list((2, 3, 2)) == [2, 3, 2]\n"
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.", legacyNamed = true)},
+      parameters = {
+        @Param(
+            name = "x",
+            doc = "The object to convert.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true)
+      },
       useLocation = true,
       useEnvironment = true)
   public MutableList<?> list(Object x, Location loc, Environment env) throws EvalException {
@@ -236,7 +256,13 @@ public class MethodLibrary {
   @SkylarkCallable(
       name = "len",
       doc = "Returns the length of a string, list, tuple, depset, or dictionary.",
-      parameters = {@Param(name = "x", doc = "The object to check length of.", legacyNamed = true)},
+      parameters = {
+        @Param(
+            name = "x",
+            doc = "The object to check length of.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true)
+      },
       useLocation = true,
       useEnvironment = true)
   public Integer len(Object x, Location loc, Environment env) throws EvalException {
@@ -271,7 +297,12 @@ public class MethodLibrary {
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
       parameters = {
-        @Param(name = "x", doc = "The object to convert.", legacyNamed = true, noneable = true)
+        @Param(
+            name = "x",
+            doc = "The object to convert.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
+            noneable = true)
       })
   public String str(Object x) {
     return Printer.str(x);
@@ -283,7 +314,12 @@ public class MethodLibrary {
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
       parameters = {
-        @Param(name = "x", doc = "The object to convert.", legacyNamed = true, noneable = true)
+        @Param(
+            name = "x",
+            doc = "The object to convert.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
+            noneable = true)
       })
   public String repr(Object x) {
     return Printer.repr(x);
@@ -298,7 +334,12 @@ public class MethodLibrary {
               + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
               + "Otherwise, it returns <code>True</code>.",
       parameters = {
-        @Param(name = "x", doc = "The variable to convert.", legacyNamed = true, noneable = true)
+        @Param(
+            name = "x",
+            doc = "The variable to convert.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
+            noneable = true)
       })
   public Boolean bool(Object x) throws EvalException {
     return EvalUtils.toBoolean(x);
@@ -347,7 +388,12 @@ public class MethodLibrary {
               + "int(\"-0x10\", 0) == -16"
               + "</pre>",
       parameters = {
-        @Param(name = "x", type = Object.class, doc = "The string to convert.", legacyNamed = true),
+        @Param(
+            name = "x",
+            type = Object.class,
+            doc = "The string to convert.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true),
         @Param(
             name = "base",
             type = Object.class,
@@ -357,7 +403,7 @@ public class MethodLibrary {
                     + "and 36 (inclusive), or 0 to detect the base as if <code>x</code> were an "
                     + "integer literal. This parameter must not be supplied if the value is not a "
                     + "string.",
-            legacyNamed = true)
+            named = true)
       },
       useLocation = true)
   public Integer convertToInt(Object x, Object base, Location loc) throws EvalException {
@@ -470,6 +516,7 @@ public class MethodLibrary {
             doc =
                 "Either a dictionary or a list of entries. Entries must be tuples or lists with "
                     + "exactly two elements: key, value.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
@@ -491,7 +538,9 @@ public class MethodLibrary {
               + " the input list.\n<pre class=\"language-python\">"
               + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
       parameters = {
-        @Param(name = "list", type = SkylarkList.class, doc = "input list.", legacyNamed = true)
+        // Note Python uses 'sequence' keyword instead of 'list'. We may want to change tihs
+        // some day.
+        @Param(name = "list", type = SkylarkList.class, doc = "input list.", named = true)
       },
       useEnvironment = true)
   public MutableList<?> enumerate(SkylarkList<?> input, Environment env) throws EvalException {
@@ -519,6 +568,7 @@ public class MethodLibrary {
             name = "value",
             type = String.class,
             doc = "String value to hash.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
       })
   public Integer hash(String value) throws EvalException {
@@ -541,6 +591,7 @@ public class MethodLibrary {
             doc =
                 "Value of the start element if stop is provided, "
                     + "otherwise value of stop and the actual start is 0",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true),
         @Param(
             name = "stop_or_none",
@@ -550,12 +601,14 @@ public class MethodLibrary {
             doc =
                 "optional index of the first item <i>not</i> to be included in the resulting "
                     + "list; generation of the list stops before <code>stop</code> is reached.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true),
         @Param(
             name = "step",
             type = Integer.class,
             defaultValue = "1",
             doc = "The increment (default is 1). It may be negative.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
       },
       useLocation = true,
@@ -586,11 +639,17 @@ public class MethodLibrary {
               + "<code>name</code>, otherwise False. Example:<br>"
               + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
       parameters = {
-        @Param(name = "x", doc = "The object to check.", legacyNamed = true, noneable = true),
+        @Param(
+            name = "x",
+            doc = "The object to check.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
+            noneable = true),
         @Param(
             name = "name",
             type = String.class,
             doc = "The name of the attribute.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
       },
       useEnvironment = true)
@@ -616,15 +675,21 @@ public class MethodLibrary {
         @Param(
             name = "x",
             doc = "The struct whose attribute is accessed.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true),
-        @Param(name = "name", doc = "The name of the struct attribute.", legacyNamed = true),
+        @Param(
+            name = "name",
+            doc = "The name of the struct attribute.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true),
         @Param(
             name = "default",
             defaultValue = "unbound",
             doc =
                 "The default value to return in case the struct "
                     + "doesn't have an attribute of the given name.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true)
       },
@@ -648,7 +713,12 @@ public class MethodLibrary {
           "Returns a list of strings: the names of the attributes and "
               + "methods of the parameter object.",
       parameters = {
-        @Param(name = "x", doc = "The object to check.", legacyNamed = true, noneable = true)
+        @Param(
+            name = "x",
+            doc = "The object to check.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true,
+            noneable = true)
       },
       useLocation = true,
       useEnvironment = true)
@@ -674,7 +744,7 @@ public class MethodLibrary {
             type = Object.class,
             doc = "Error to display for the user. The object is converted to a string.",
             defaultValue = "None",
-            legacyNamed = true,
+            named = true,
             noneable = true),
         @Param(
             name = "attr",
@@ -684,7 +754,7 @@ public class MethodLibrary {
             doc =
                 "The name of the attribute that caused the error. This is used only for "
                     + "error reporting.",
-            legacyNamed = true)
+            named = true)
       },
       useLocation = true)
   public Runtime.NoneType fail(Object msg, Object attr, Location loc) throws EvalException {
@@ -752,6 +822,7 @@ public class MethodLibrary {
         @Param(
             name = "x",
             doc = "The object to check type of.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true)
       })
@@ -792,7 +863,7 @@ public class MethodLibrary {
                     + "the new depset, in left-to-right order, or else a depset that becomes "
                     + "a transitive element of the new depset. In the latter case, "
                     + "<code>transitive</code> cannot be specified.",
-            legacyNamed = true),
+            named = true),
         @Param(
             name = "order",
             type = String.class,
@@ -800,7 +871,7 @@ public class MethodLibrary {
             doc =
                 "The traversal strategy for the new depset. See "
                     + "<a href=\"depset.html\">here</a> for the possible values.",
-            legacyNamed = true),
+            named = true),
         @Param(
             name = "direct",
             type = SkylarkList.class,
@@ -887,17 +958,24 @@ public class MethodLibrary {
             name = "x",
             type = SkylarkDict.class,
             doc = "The parameter to convert.",
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true),
         @Param(
             name = "no_match_error",
             type = String.class,
             defaultValue = "''",
             doc = "Optional custom error to report if no condition matches.",
-            legacyNamed = true)
+            named = true)
       },
       useLocation = true)
   public Object select(SkylarkDict<?, ?> dict, String noMatchError, Location loc)
       throws EvalException {
+    if (dict.isEmpty()) {
+      throw new EvalException(
+          loc,
+          "select({}) with an empty dictionary can never resolve because it includes no conditions "
+              + "to match");
+    }
     for (Object key : dict.keySet()) {
       if (!(key instanceof String)) {
         throw new EvalException(
@@ -958,7 +1036,7 @@ public class MethodLibrary {
               + "<pre class=\"language-python\">"
               + "153\n"
               + "0x2A  # hexadecimal literal\n"
-              + "054  # octal literal\n"
+              + "0o54  # octal literal\n"
               + "23 * 2 + 5\n"
               + "100 / -7\n"
               + "100 % -7  # -5 (unlike in some other languages)\n"

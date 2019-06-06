@@ -43,9 +43,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# TODO(bazelbuild/continuous-integration#578): Enable this test for Mac and
-# Windows.
-
 # `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
 # `tr` converts all upper case letters to lower case.
 # `case` matches the result if the `uname | tr` expression to string prefixes
@@ -55,17 +52,6 @@ case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*)
   # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
   declare -r is_windows=true
-  # As of 2018-12-17, this test is disabled on windows (via "no_windows" tag),
-  # so this code shouldn't even have run. See the TODO at
-  # use_system_python_2_3_runtimes.
-  fail "This test does not run on Windows."
-  ;;
-darwin*)
-  # As of 2018-12-17, this test is disabled on mac, but there's no "no_mac" tag
-  # so we just have to trivially succeed. See the TODO at
-  # use_system_python_2_3_runtimes.
-  echo "This test does not run on Mac; exiting early." >&2
-  exit 0
   ;;
 *)
   declare -r is_windows=false
@@ -79,47 +65,9 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-# Use a py_runtime that invokes either the system's Python 2 or Python 3
-# interpreter based on the Python mode. On Unix this is a workaround for #4815.
-#
-# TODO(brandjon): Replace this with the autodetecting Python toolchain.
-function use_system_python_2_3_runtimes() {
-  PYTHON2_BIN=$(which python2 || echo "")
-  PYTHON3_BIN=$(which python3 || echo "")
-  # Debug output.
-  echo "Python 2 interpreter: ${PYTHON2_BIN:-"Not found"}"
-  echo "Python 3 interpreter: ${PYTHON3_BIN:-"Not found"}"
-  # Fail if either isn't present.
-  if [[ -z "${PYTHON2_BIN:-}" || -z "${PYTHON3_BIN:-}" ]]; then
-    fail "Can't use system interpreter: Could not find one or both of \
-'python2', 'python3'"
-  fi
-
-  # Point Python builds at a py_runtime target defined in a //tools package of
-  # the main repo. This is not related to @bazel_tools//tools/python.
-  add_to_bazelrc "build --python_top=//tools/python:default_runtime"
-
-  mkdir -p tools/python
-
-  cat > tools/python/BUILD << EOF
-package(default_visibility=["//visibility:public"])
-
-py_runtime(
-    name = "default_runtime",
-    files = [],
-    interpreter_path = select({
-        "@bazel_tools//tools/python:PY2": "${PYTHON2_BIN}",
-        "@bazel_tools//tools/python:PY3": "${PYTHON3_BIN}",
-    }),
-)
-EOF
-}
-
-use_system_python_2_3_runtimes
-
 #### TESTS #############################################################
 
-# Sanity test that our environment setup above works.
+# Sanity test that our environment setup works.
 function test_can_run_py_binaries() {
   mkdir -p test
 
@@ -141,7 +89,6 @@ import platform
 print("I am Python " + platform.python_version_tuple()[0])
 EOF
   cp test/main2.py test/main3.py
-  chmod u+x test/main2.py test/main3.py
 
   bazel run //test:main2 \
       &> $TEST_log || fail "bazel run failed"
@@ -188,7 +135,78 @@ EOF
   expect_log "File contents: abcdefg"
 }
 
+# Regression test for #5104. This test ensures that it's possible to use
+# --build_python_zip in combination with an in-workspace runtime, as opposed to
+# with a system runtime or not using a py_runtime at all (the legacy
+# --python_path mechanism).
+#
+# The specific issue #5104 was caused by file permissions being lost when
+# unzipping runfiles, which led to an unexecutable runtime.
+function test_build_python_zip_works_with_workspace_runtime() {
+  mkdir -p test
+
+  # The runfiles interpreter is either a sh script or bat script depending on
+  # the current platform.
+  if "$is_windows"; then
+    INTERPRETER_FILE="mockpy.bat"
+  else
+    INTERPRETER_FILE="mockpy.sh"
+  fi
+
+  cat > test/BUILD << EOF
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
+py_binary(
+    name = "pybin",
+    srcs = ["pybin.py"],
+)
+
+py_runtime(
+    name = "mock_runtime",
+    interpreter = ":$INTERPRETER_FILE",
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "mock_runtime_pair",
+    py3_runtime = ":mock_runtime",
+)
+
+toolchain(
+    name = "mock_toolchain",
+    toolchain = ":mock_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+EOF
+  cat > test/pybin.py << EOF
+# This doesn't actually run because we use a mock Python runtime that never
+# executes the Python code.
+print("I am pybin!")
+EOF
+  if "$is_windows"; then
+    cat > "test/$INTERPRETER_FILE" << EOF
+@ECHO I am mockpy!
+EOF
+  else
+    cat > "test/$INTERPRETER_FILE" << EOF
+#!/bin/sh
+echo "I am mockpy!"
+EOF
+    chmod u+x test/mockpy.sh
+  fi
+
+  bazel run //test:pybin \
+      --extra_toolchains=//test:mock_toolchain --build_python_zip \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am mockpy!"
+}
+
 function test_pybin_can_have_different_version_pybin_as_data_dep() {
+  # TODO(#8503): Fix this test for windows.
+  if "$is_windows"; then
+    return
+  fi
+
   mkdir -p test
 
   cat > test/BUILD << EOF
@@ -223,7 +241,6 @@ import platform
 
 print("Inner bin uses Python " + platform.python_version_tuple()[0])
 EOF
-  chmod u+x test/py2bin.py
   cp test/py2bin.py test/py3bin.py
 
   cat > test/py2bin_calling_py3bin.py << EOF
@@ -231,14 +248,15 @@ import platform
 import subprocess
 from bazel_tools.tools.python.runfiles import runfiles
 
+print("Outer bin uses Python " + platform.python_version_tuple()[0])
+
 r = runfiles.Create()
 bin_path = r.Rlocation("$WORKSPACE_NAME/test/py3bin")
+assert bin_path is not None
 
-print("Outer bin uses Python " + platform.python_version_tuple()[0])
 subprocess.call([bin_path])
 EOF
   sed s/py3bin/py2bin/ test/py2bin_calling_py3bin.py > test/py3bin_calling_py2bin.py
-  chmod u+x test/py2bin_calling_py3bin.py test/py3bin_calling_py2bin.py
 
   EXPFLAG="--incompatible_allow_python_version_transitions=true \
 --incompatible_py3_is_default=false \
@@ -259,6 +277,11 @@ EOF
 }
 
 function test_shbin_can_have_different_version_pybins_as_data_deps() {
+  # Uses bash, disable on windows.
+  if "$is_windows"; then
+    return
+  fi
+
   mkdir -p test
 
   cat > test/BUILD << EOF
@@ -386,6 +409,11 @@ EOF
 }
 
 function test_can_build_same_target_for_both_versions_in_one_build() {
+  # Uses bash, disable on windows.
+  if "$is_windows"; then
+    return
+  fi
+
   mkdir -p test
 
   cat > test/BUILD << EOF
@@ -567,6 +595,174 @@ function test_default_output_root_is_bazel_bin() {
   expect_log "bazel-out/.*/bin"
   expect_not_log "bazel-out/.*-py2.*/bin"
   expect_not_log "bazel-out/.*-py3.*/bin"
+}
+
+# Tests that we get a warning when host tools fail due to being built for the
+# wrong Python version. See #7899 and #8549 for context, as well as
+# {@link PyCommon#shouldWarnAboutHostVersionUponFailure}.
+# TODO(#6443): Delete this once we no longer have the host configuration.
+function test_host_version_mismatch_warning() {
+  mkdir -p test
+
+  cat > test/BUILD << 'EOF'
+py_binary(
+    name = "passing_tool_using_py2_explicitly",
+    srcs = ["success.py"],
+    main = "success.py",
+    python_version = "PY2",
+)
+
+py_binary(
+    name = "failing_tool_using_py2_explicitly",
+    srcs = ["fail.py"],
+    main = "fail.py",
+    python_version = "PY2",
+)
+
+py_binary(
+    name = "failing_tool_using_py3_explicitly",
+    srcs = ["fail.py"],
+    main = "fail.py",
+    python_version = "PY3",
+)
+
+py_binary(
+    name = "failing_tool_using_py3_implicitly",
+    srcs = ["fail.py"],
+    main = "fail.py",
+)
+
+# For each tool, a genrule target that uses it.
+
+genrule(
+    name = "invoke_passing_tool_using_py2_explicitly",
+    cmd = "$(location :passing_tool_using_py2_explicitly) > $@",
+    tools = [":passing_tool_using_py2_explicitly"],
+    outs = ["passing_tool_using_py2_explicitly.txt"],
+)
+
+genrule(
+    name = "invoke_failing_tool_using_py2_explicitly",
+    cmd = "$(location :failing_tool_using_py2_explicitly) > $@",
+    tools = [":failing_tool_using_py2_explicitly"],
+    outs = ["failing_tool_using_py2_explicitly.txt"],
+)
+
+genrule(
+    name = "invoke_failing_tool_using_py3_explicitly",
+    cmd = "$(location :failing_tool_using_py3_explicitly) > $@",
+    tools = [":failing_tool_using_py3_explicitly"],
+    outs = ["failing_tool_using_py3_explicitly.txt"],
+)
+
+genrule(
+    name = "invoke_failing_tool_using_py3_implicitly",
+    cmd = "$(location :failing_tool_using_py3_implicitly) > $@",
+    tools = [":failing_tool_using_py3_implicitly"],
+    outs = ["failing_tool_using_py3_implicitly.txt"],
+)
+EOF
+  cat > test/success.py << EOF
+print("Successfully did nothing.")
+EOF
+  cat > test/fail.py << EOF
+import sys
+sys.exit(1)
+EOF
+
+  # Relies on --incompatible_py3_is_default being true (flipped in Bazel 0.25).
+
+  # The warning should be present if the tool
+  #   1) was built with toolchains enabled,
+  #   2) in the host config,
+  #   3) with a mismatched version, or a version set implicitly,
+  #   4) and it failed during execution.
+
+  # Warning should be present due to explicit version mismatch with host config.
+  bazel build //test:invoke_failing_tool_using_py2_explicitly \
+      --incompatible_use_python_toolchains=true --host_force_python=PY3 \
+      &> $TEST_log && fail "bazel build succeeded (expected failure)"
+  expect_log "it is a Python 2 program that was built in the host \
+configuration, which uses Python 3"
+
+  # Warning should be present due to implicitly set version, even though it
+  # matches host config.
+  bazel build //test:invoke_failing_tool_using_py3_implicitly \
+      --incompatible_use_python_toolchains=true --host_force_python=PY3 \
+      &> $TEST_log && fail "bazel build succeeded (expected failure)"
+  expect_log "it is running under Python 3 instead of Python 2"
+
+  # No warning if version was set explicitly and matches host config.
+  bazel build //test:invoke_failing_tool_using_py2_explicitly \
+      --incompatible_use_python_toolchains=true --host_force_python=PY2 \
+      &> $TEST_log && fail "bazel build succeeded (expected failure)"
+  expect_not_log "Note: The above Python target's failure"
+
+  # No warning if toolchains are disabled.
+  bazel build //test:invoke_failing_tool_using_py2_explicitly \
+      --incompatible_use_python_toolchains=false --host_force_python=PY3 \
+      &> $TEST_log && fail "bazel build succeeded (expected failure)"
+  expect_not_log "Note: The above Python target's failure"
+
+  # No warning if it succeeded during execution.
+  bazel build //test:invoke_passing_tool_using_py2_explicitly \
+      --incompatible_use_python_toolchains=true --host_force_python=PY3 \
+      &> $TEST_log || fail "bazel build failed (expected success)"
+  expect_not_log "Note: The above Python target's failure"
+}
+
+# Regression test for (bazelbuild/continuous-integration#578): Ensure that a
+# py_binary built with the autodetecting toolchain works when used as a tool
+# from Starlark rule. In particular, the wrapper script that launches the real
+# second-stage interpreter must be able to tolerate PATH not being set.
+function test_py_binary_with_autodetecting_toolchain_usable_as_tool() {
+  mkdir -p test
+
+  cat > test/BUILD << 'EOF'
+load(":tooluser.bzl", "tooluser_rule")
+
+py_binary(
+    name = "tool",
+    srcs = ["tool.py"],
+)
+
+tooluser_rule(
+    name = "tooluser",
+    out = "out.txt",
+)
+EOF
+  cat > test/tooluser.bzl << EOF
+def _tooluser_rule_impl(ctx):
+    ctx.actions.run(
+        inputs = [],
+        outputs = [ctx.outputs.out],
+        executable = ctx.executable._tool,
+        arguments = [ctx.outputs.out.path],
+    )
+
+tooluser_rule = rule(
+    implementation = _tooluser_rule_impl,
+    attrs = {
+        "_tool": attr.label(
+            executable = True,
+            default = "//test:tool",
+            # cfg param is required but its value doesn't matter
+            cfg = "target"),
+        "out": attr.output(),
+    },
+)
+EOF
+  cat > test/tool.py << EOF
+import sys
+with open(sys.argv[1], 'wt') as out:
+    print("Tool output", file=out)
+EOF
+
+  bazel build //test:tooluser \
+      --incompatible_use_python_toolchains=true \
+      || fail "bazel build failed"
+  cat bazel-bin/test/out.txt &> $TEST_log
+  expect_log "Tool output"
 }
 
 run_suite "Tests for how the Python rules handle Python 2 vs Python 3"

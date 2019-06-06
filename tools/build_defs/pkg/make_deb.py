@@ -66,6 +66,10 @@ gflags.DEFINE_string('prerm', None,
                      'The prerm script (prefix with @ to provide a path).')
 gflags.DEFINE_string('postrm', None,
                      'The postrm script (prefix with @ to provide a path).')
+gflags.DEFINE_string('config', None,
+                     'The config script (prefix with @ to provide a path).')
+gflags.DEFINE_string('templates', None,
+                     'The templates file (prefix with @ to provide a path).')
 
 # size of chunks for copying package content to final .deb file
 # This is a wild guess, but I am not convinced of the value of doing much work
@@ -182,6 +186,8 @@ def CreateDeb(output,
               postinst=None,
               prerm=None,
               postrm=None,
+              config=None,
+              templates=None,
               conffiles=None,
               **kwargs):
   """Create a full debian package."""
@@ -194,6 +200,10 @@ def CreateDeb(output,
     extrafiles['prerm'] = (prerm, 0o755)
   if postrm:
     extrafiles['postrm'] = (postrm, 0o755)
+  if config:
+    extrafiles['config'] = (config, 0o755)
+  if templates:
+    extrafiles['templates'] = (templates, 0o755)
   if conffiles:
     extrafiles['conffiles'] = ('\n'.join(conffiles) + '\n', 0o644)
   control = CreateDebControl(extrafiles=extrafiles, **kwargs)
@@ -322,6 +332,8 @@ def main(unused_argv):
       postinst=GetFlagValue(FLAGS.postinst, False),
       prerm=GetFlagValue(FLAGS.prerm, False),
       postrm=GetFlagValue(FLAGS.postrm, False),
+      config=GetFlagValue(FLAGS.config, False),
+      templates=GetFlagValue(FLAGS.templates, False),
       conffiles=GetFlagValues(FLAGS.conffile),
       package=FLAGS.package,
       version=GetFlagValue(FLAGS.version),
@@ -329,7 +341,7 @@ def main(unused_argv):
       maintainer=FLAGS.maintainer,
       section=FLAGS.section,
       architecture=FLAGS.architecture,
-      depends=FLAGS.depends,
+      depends=GetFlagValues(FLAGS.depends),
       suggests=FLAGS.suggests,
       enhances=FLAGS.enhances,
       preDepends=FLAGS.pre_depends,

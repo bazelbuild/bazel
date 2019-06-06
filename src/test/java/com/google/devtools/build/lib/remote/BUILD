@@ -15,9 +15,25 @@ filegroup(
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
+# Do not run NativeSslTest on platforms where native SSL is not available.
+
+NATIVE_SSL_TEST = ["NativeSslTest.java"]
+
+NATIVE_SSL_TEST_MAYBE = select({
+    "//src/conditions:windows": NATIVE_SSL_TEST,
+    "//src/conditions:darwin": NATIVE_SSL_TEST,
+    "//src/conditions:darwin_x86_64": NATIVE_SSL_TEST,
+    "//src/conditions:linux_x86_64": NATIVE_SSL_TEST,
+    "//conditions:default": [],
+})
+
 java_test(
     name = "remote",
-    srcs = glob(["**/*.java"]),
+    size = "small",
+    srcs = glob(
+        ["**/*.java"],
+        exclude = NATIVE_SSL_TEST,
+    ) + NATIVE_SSL_TEST_MAYBE,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -40,6 +56,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:remote_execution_log_java_proto",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib:testutil",
@@ -47,6 +64,7 @@ java_test(
         "//third_party:api_client",
         "//third_party:guava",
         "//third_party:mockito",
+        "//third_party:netty",
         "//third_party:truth",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",

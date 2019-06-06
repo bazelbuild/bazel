@@ -571,37 +571,36 @@ EOF
   chmod +x true.sh flaky.sh false.sh
 
   # We do not use sandboxing so we can trick to be deterministically flaky
-  # TODO(b/37617303): make test UI-independent
-  bazel --nomaster_bazelrc test --noexperimental_ui --spawn_strategy=standalone //:flaky &> $TEST_log \
+  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events \
+      --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
 
-  expect_log_once "FAIL: //:flaky (.*/flaky/test_attempts/attempt_1.log)"
-  expect_log_once "PASS: //:flaky"
-  expect_log_once "FLAKY"
+  expect_log_once "FAIL.*: //:flaky (.*/flaky/test_attempts/attempt_1.log)"
+  expect_log_once "PASS.*: //:flaky"
+  expect_log_once "FLAKY: //:flaky"
   cat bazel-testlogs/flaky/test_attempts/attempt_1.log &> $TEST_log
   assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
   assert_equals 1 $(ls bazel-testlogs/flaky/test_attempts/*.log | wc -l)
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 
-  # TODO(b/37617303): make test UI-independent
-  bazel --nomaster_bazelrc test --noexperimental_ui //:pass &> $TEST_log \
-      || fail "//:pass should have passed"
-  expect_log_once "PASS: //:pass"
-  expect_log_once PASSED
+  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:pass \
+      &> $TEST_log || fail "//:pass should have passed"
+  expect_log_once "PASS.*: //:pass"
+  expect_log_once "PASSED"
   [ ! -d bazel-test_logs/pass/test_attempts ] \
     || fail "Got test attempts while expected non for non-flaky tests"
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  # TODO(b/37617303): make test UI-independent
-  bazel --nomaster_bazelrc test --noexperimental_ui //:fail &> $TEST_log \
-      && fail "//:fail should have failed" \
+  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:fail \
+      &> $TEST_log && fail "//:fail should have failed" \
       || true
-  expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
-  expect_log_once "FAIL: //:fail (.*/fail/test.log)"
-  expect_log_once "FAILED"
+  expect_log_n "FAIL.*: //:fail (.*/fail/test_attempts/attempt_..log)" 2
+  expect_log_once "FAIL.*: //:fail (.*/fail/test.log)"
+  expect_log_once "FAILED: //:fail"
+  expect_log_n ".*/fail/test.log$" 2
   cat bazel-testlogs/fail/test_attempts/attempt_1.log &> $TEST_log
   assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
   assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
@@ -717,12 +716,12 @@ EOF
   bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
   # Check that the undeclared outputs directory doesn't exist.
-  outputs_dir=bazel-testlogs/dir/test/test.outputs/
-  [ ! -d $outputs_dir ] || fail "$outputs_dir was present after test"
+  outputs_zip=bazel-testlogs/dir/test/test.outputs/outputs.zip
+  [ ! -e $outputs_zip ] || fail "$outputs_zip was present after test"
 
   # Check that the undeclared outputs manifest directory doesn't exist.
-  outputs_manifest_dir=bazel-testlogs/dir/test/test.outputs_manifest/
-  [ ! -d $outputs_manifest_dir ] || fail "$outputs_manifest_dir was present after test"
+  outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
+  [ ! -d $outputs_manifest ] || fail "$outputs_manifest was present after test"
 }
 
 function test_test_with_nobuild_runfile_manifests() {

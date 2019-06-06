@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** A collection of global skylark build API functions that apply to WORKSPACE files. */
 @SkylarkGlobalLibrary
@@ -42,11 +44,31 @@ public interface WorkspaceGlobalsApi {
             type = String.class,
             doc = "the name of the workspace.",
             named = true,
-            positional = false)
+            positional = false),
+        @Param(
+            name = "managed_directories",
+            type = SkylarkDict.class,
+            generic1 = String.class,
+            noneable = true,
+            named = true,
+            positional = false,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES,
+            defaultValue = "{}",
+            valueWhenDisabled = "{}",
+            doc =
+                "Dict (strings to list of strings) for defining the mappings between external"
+                    + " repositories and relative (to the workspace root) paths to directories"
+                    + " they incrementally update."
+                    + "\nManaged directories must be excluded from the source tree by listing"
+                    + " them (or their parent directories) in the .bazelignore file."),
       },
       useAst = true,
       useEnvironment = true)
-  NoneType workspace(String name, FuncallExpression ast, Environment env)
+  NoneType workspace(
+      String name,
+      SkylarkDict<String, Object> managedDirectories,
+      FuncallExpression ast,
+      Environment env)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

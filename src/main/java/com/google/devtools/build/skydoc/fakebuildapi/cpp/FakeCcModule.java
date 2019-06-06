@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
@@ -51,7 +52,7 @@ public class FakeCcModule
         CcCompilationOutputsApi<FileApi>,
         CcLinkingOutputsApi<FileApi>,
         LibraryToLinkApi<FileApi>,
-        CcLinkingContextApi<FileApi, LibraryToLinkApi<FileApi>>,
+        CcLinkingContextApi<FileApi>,
         CcToolchainVariablesApi,
         CcToolchainConfigInfoApi> {
 
@@ -73,6 +74,12 @@ public class FakeCcModule
   @Override
   public String getToolForAction(FeatureConfigurationApi featureConfiguration, String actionName) {
     return "";
+  }
+
+  @Override
+  public SkylarkList<String> getExecutionRequirements(
+      FeatureConfigurationApi featureConfiguration, String actionName) {
+    return SkylarkList.createImmutable(ImmutableList.of());
   }
 
   @Override
@@ -199,15 +206,15 @@ public class FakeCcModule
       CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
       CcCompilationOutputsApi<FileApi> compilationOutputs,
       SkylarkList<String> userLinkFlags,
-      SkylarkList<CcLinkingContextApi<FileApi, LibraryToLinkApi<FileApi>>> ccLinkingContextApis,
+      SkylarkList<CcLinkingContextApi<FileApi>> ccLinkingContextApis,
       String name,
       String language,
       boolean alwayslink,
       SkylarkList<FileApi> nonCodeInputs,
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
+      Object grepIncludes,
       Location location,
-      Environment environment,
       StarlarkContext starlarkContext)
       throws InterruptedException, EvalException {
     return null;
@@ -218,9 +225,9 @@ public class FakeCcModule
       SkylarkActionFactoryApi skylarkActionFactoryApi,
       FeatureConfigurationApi skylarkFeatureConfiguration,
       CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
-      CcCompilationOutputsApi<FileApi> compilationOutputs,
+      Object compilationOutputs,
       SkylarkList<String> userLinkFlags,
-      SkylarkList<CcLinkingContextApi<FileApi, LibraryToLinkApi<FileApi>>> linkingContexts,
+      SkylarkList<CcLinkingContextApi<FileApi>> linkingContexts,
       String name,
       String language,
       String outputType,
@@ -253,6 +260,18 @@ public class FakeCcModule
       Object builtinSysroot,
       Object ccTargetOs)
       throws EvalException {
+    return null;
+  }
+
+  @Override
+  public CcCompilationOutputsApi<FileApi> createCompilationOutputsFromSkylark(
+      Object objectsObject, Object picObjectsObject, Location location) {
+    return null;
+  }
+
+  @Override
+  public CcCompilationOutputsApi<FileApi> mergeCcCompilationOutputsFromSkylark(
+      SkylarkList<CcCompilationOutputsApi<FileApi>> compilationOutputs) {
     return null;
   }
 }

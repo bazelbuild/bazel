@@ -30,8 +30,13 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi {
 
   @Override
-  public SkylarkList<?> glob(SkylarkList<?> include, SkylarkList<?> exclude,
-      Integer excludeDirectories, FuncallExpression ast, Environment env)
+  public SkylarkList<?> glob(
+      SkylarkList<?> include,
+      SkylarkList<?> exclude,
+      Integer excludeDirectories,
+      Object allowEmpty,
+      FuncallExpression ast,
+      Environment env)
       throws EvalException, InterruptedException {
     return MutableList.of(env);
   }

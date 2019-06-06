@@ -20,11 +20,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
@@ -824,6 +824,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean skipParsingAction;
 
     @Option(
+        name = "experimental_omit_resources_info_provider_from_android_binary",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "Omit AndroidResourcesInfo provider from android_binary rules."
+                + " Propagating resources out to other binaries is usually unintentional.")
+    public boolean omitResourcesInfoProviderFromAndroidBinary;
+
+    @Option(
         name = "android_fixed_resource_neverlinking",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -854,8 +864,25 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           OptionEffectTag.EAGERNESS_TO_EXIT,
         },
         help =
-            "If enabled, strict usage of the Starlark migration tag is enabled for android rules.")
+            "If enabled, strict usage of the Starlark migration tag is enabled for android rules. "
+                + "Prefer using --incompatible_disable_native_android_rules.")
     public boolean checkForMigrationTag;
+
+    @Option(
+        name = "incompatible_disable_native_android_rules",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        effectTags = {
+          OptionEffectTag.EAGERNESS_TO_EXIT,
+        },
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "If enabled, direct usage of the native Android rules is disabled. Please use the"
+                + " Starlark Android rules from https://github.com/bazelbuild/rules_android")
+    public boolean disableNativeAndroidRules;
 
     @Option(
         name = "experimental_filter_r_jars_from_android_test",
@@ -997,6 +1024,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       host.persistentBusyboxTools = persistentBusyboxTools;
+
+      // Once this has been set to ANDROID, the crosstool_top is the android crosstool, even after
+      // a host transition. In that case, allowing the distinguisher to reset creates the action
+      // conflicts that this was added to stop.
+      host.configurationDistinguisher = configurationDistinguisher;
       return host;
     }
   }
@@ -1050,6 +1082,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
   private final boolean skipParsingAction;
+  private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
   private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
   private final boolean checkForMigrationTag;
@@ -1099,9 +1132,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
     this.skipParsingAction = options.skipParsingAction;
+    this.omitResourcesInfoProviderFromAndroidBinary =
+        options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
     this.robolectricTestDeprecationLevel = options.robolectricTestDeprecationLevel;
-    this.checkForMigrationTag = options.checkForMigrationTag;
+    // use --incompatible_disable_native_android_rules, and also the old flag for backwards
+    // compatibility
+    this.checkForMigrationTag = options.checkForMigrationTag || options.disableNativeAndroidRules;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.dataBindingV2 = options.dataBindingV2;
@@ -1302,6 +1339,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean skipParsingAction() {
     return this.skipParsingAction;
+  }
+
+  @Override
+  public boolean omitResourcesInfoProviderFromAndroidBinary() {
+    return this.omitResourcesInfoProviderFromAndroidBinary;
   }
 
   @Override

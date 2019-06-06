@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpans
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -470,7 +470,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     assertThat(sources.isTreeArtifact()).isTrue();
 
     SpawnAction j2objcAction = (SpawnAction) getGeneratingAction(headers);
-    assertThat(j2objcAction.getOutputs()).containsAllOf(headers, sources);
+    assertThat(j2objcAction.getOutputs()).containsAtLeast(headers, sources);
 
     assertContainsSublist(
         ImmutableList.copyOf(paramFileArgsForAction(j2objcAction)),
@@ -511,7 +511,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     String execPath =
         getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
     assertThat(Artifact.toRootRelativePaths(headerMappingAction.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             "java/com/google/transpile/libOne.java", "java/com/google/transpile/jar.srcjar");
     assertThat(headerMappingAction.getArguments())
         .containsExactly(
@@ -530,7 +530,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
       throws Exception {
     CommandAction compileAction = getObjcCompileAction(archiveFile, objFileName);
     assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
-        .containsAllIn(compilationInputExecPaths);
+        .containsAtLeastElementsIn(compilationInputExecPaths);
   }
 
   protected CommandAction getObjcCompileAction(Artifact archiveFile, String objFileName)
@@ -723,7 +723,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     String binDir =
         getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPathString();
     assertThat(paramFileArgsForAction(linkAction))
-        .containsAllOf(
+        .containsAtLeast(
             binDir + "/java/c/y/libylib_j2objc.a",
             // All jre libraries mus appear after java libraries in the link order.
             binDir
@@ -883,11 +883,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     Artifact archive = j2objcArchive("//java/com/google/dummy/test:transpile", "test");
     CommandAction compileAction = getObjcCompileAction(archive, "test.o");
     assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
-        .containsAllOf(
+        .containsAtLeast(
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
             "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h",
             "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.m");
-    assertThat(compileAction.getArguments()).containsAllOf("-fno-objc-arc", "-fno-strict-overflow");
+    assertThat(compileAction.getArguments())
+        .containsAtLeast("-fno-objc-arc", "-fno-strict-overflow");
   }
 
   @Test
@@ -1167,7 +1168,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     return ImmutableList.<CommandAction>builder()
         .addAll(
             template.generateActionForInputArtifacts(
-                ImmutableList.of(treeFileArtifact), ArtifactOwner.NullArtifactOwner.INSTANCE))
+                ImmutableList.of(treeFileArtifact), ActionsTestUtil.NULL_ARTIFACT_OWNER))
         .build();
   }
 

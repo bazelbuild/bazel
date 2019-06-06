@@ -205,7 +205,6 @@ public class LexerTest {
     assertThat(values(tokens("12345-"))).isEqualTo("INT(12345) MINUS NEWLINE EOF");
 
     // octal
-    assertThat(values(tokens("012345-"))).isEqualTo("INT(5349) MINUS NEWLINE EOF");
     assertThat(values(tokens("0o12345-"))).isEqualTo("INT(5349) MINUS NEWLINE EOF");
     assertThat(values(tokens("0O77"))).isEqualTo("INT(63) NEWLINE EOF");
 
@@ -217,6 +216,10 @@ public class LexerTest {
     assertThat(values(tokens("0o"))).isEqualTo("INT(0) NEWLINE EOF");
     assertThat(lastError.toString())
         .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 0o");
+
+    assertThat(values(tokens("012345"))).isEqualTo("INT(5349) NEWLINE EOF");
+    assertThat(lastError.toString())
+        .isEqualTo("/some/path.txt:1: invalid octal value `012345`, should be: `0o12345`");
 
     // hexadecimal (uppercase)
     assertThat(values(tokens("0X12345F-"))).isEqualTo("INT(1193055) MINUS NEWLINE EOF");
@@ -277,8 +280,7 @@ public class LexerTest {
     assertThat(values(tokens("'a\\\nb'")))
         .isEqualTo("STRING(ab) NEWLINE EOF"); // escape end of line
     assertThat(values(tokens("\"ab\\ucd\""))).isEqualTo("STRING(abcd) NEWLINE EOF");
-    assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: escape sequence not implemented: \\u");
+    assertThat(lastError).isEqualTo("/some/path.txt:1: invalid escape sequence: \\u");
   }
 
   @Test
@@ -499,6 +501,17 @@ public class LexerTest {
   public void testUnterminatedRawStringWithEscapingError() throws Exception {
     assertThat(names(tokens("r'\\"))).isEqualTo("STRING NEWLINE EOF");
     assertThat(lastError).isEqualTo("/some/path.txt:1: unterminated string literal at eof");
+  }
+
+  @Test
+  public void testFirstCharIsTab() {
+    assertThat(names(tokens("\t"))).isEqualTo("NEWLINE EOF");
+    assertThat(lastErrorLocation.getStartOffset()).isEqualTo(0);
+    assertThat(lastErrorLocation.getEndOffset()).isEqualTo(0);
+    assertThat(lastError)
+        .isEqualTo(
+            "/some/path.txt:1: Tab characters are not allowed for indentation. Use spaces"
+                + " instead.");
   }
 
   @Test

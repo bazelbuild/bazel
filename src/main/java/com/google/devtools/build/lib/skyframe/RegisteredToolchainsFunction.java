@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -155,11 +156,19 @@ public class RegisteredToolchainsFunction implements SkyFunction {
           // the platform configuration. In theory, this means toolchains could use platforms, but
           // the current expectation is that toolchains should not use anything at all, so better
           // to go with the stricter expectation for now.
+          String extraFragmentDescription =
+              target.getConfigurationKey().getFragments().stream()
+                  .map(cl -> cl.getSimpleName())
+                  .collect(joining(","));
+
           throw new RegisteredToolchainsFunctionException(
               new InvalidToolchainLabelException(
                   toolchainLabel,
                   "this toolchain uses configuration, which is forbidden in retroactive trimming "
-                      + "mode"),
+                      + "mode: "
+                      + "extra fragments are ["
+                      + extraFragmentDescription
+                      + "]"),
               Transience.PERSISTENT);
         }
         DeclaredToolchainInfo toolchainInfo = target.getProvider(DeclaredToolchainInfo.class);

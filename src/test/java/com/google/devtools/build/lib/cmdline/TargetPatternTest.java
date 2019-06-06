@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.cmdline.TargetPattern.ContainsTBDForTBDResult;
 import org.junit.Test;
@@ -26,11 +26,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class TargetPatternTest {
   private void expectError(String pattern) {
-    try {
-      parse(pattern);
-      fail();
-    } catch (TargetParsingException expected) {
-    }
+    assertThrows(TargetParsingException.class, () -> parse(pattern));
   }
 
   @Test

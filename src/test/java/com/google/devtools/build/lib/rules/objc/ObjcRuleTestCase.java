@@ -85,8 +85,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
 
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
-      DottedVersion.fromString(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
-
+      DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
   /**
    * Returns the configuration obtained by applying the apple crosstool configuration transtion to
@@ -726,10 +725,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction protoActionC = (CommandAction) getGeneratingAction(protoHeaderC);
     CommandAction protoActionD = (CommandAction) getGeneratingAction(protoHeaderD);
 
-    assertThat(protoActionA.getInputs()).containsAllIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionB.getInputs()).containsAllIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionC.getInputs()).containsAllIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionD.getInputs()).containsAllIn(protoProvider.getPortableProtoFilters());
+    assertThat(protoActionA.getInputs())
+        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
+    assertThat(protoActionB.getInputs())
+        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
+    assertThat(protoActionC.getInputs())
+        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
+    assertThat(protoActionD.getInputs())
+        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
 
     assertThat(Artifact.toExecPaths(protoActionA.getInputs())).contains("protos/data_a.proto");
     assertThat(Artifact.toExecPaths(protoActionA.getInputs()))
@@ -745,7 +748,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     assertThat(Artifact.toExecPaths(protoActionD.getInputs())).contains("protos/data_d.proto");
     assertThat(Artifact.toExecPaths(protoActionD.getInputs()))
-        .containsAllOf("protos/data_a.proto", "protos/data_c.proto");
+        .containsAtLeast("protos/data_a.proto", "protos/data_c.proto");
     assertThat(Artifact.toExecPaths(protoActionD.getInputs()))
         .doesNotContain("protos/data_b.proto");
   }
@@ -1026,7 +1029,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction compileActionA = compileAction("//x:x", "a.o");
 
     assertThat(compileActionA.getArguments())
-        .containsAllIn(allExpectedCoptsBuilder.build());
+        .containsAtLeastElementsIn(allExpectedCoptsBuilder.build());
   }
 
   protected void checkClangCoptsForDebugModeWithoutGlib(RuleType ruleType) throws Exception {
@@ -1043,8 +1046,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction compileActionA = compileAction("//x:x", "a.o");
 
     assertThat(compileActionA.getArguments())
-        .containsAllIn(allExpectedCoptsBuilder.build()).inOrder();
-
+        .containsAtLeastElementsIn(allExpectedCoptsBuilder.build())
+        .inOrder();
   }
 
   private void addTransitiveDefinesUsage(RuleType topLevelRuleType) throws Exception {
@@ -1091,7 +1094,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .write();
 
     CommandAction compileAction = compileAction("//objc:x", "a.o");
-    assertThat(compileAction.getArguments()).containsAllOf("-Dfoo", "-Dbar");
+    assertThat(compileAction.getArguments()).containsAtLeast("-Dfoo", "-Dbar");
   }
 
   protected void checkSdkIncludesUsedInCompileAction(RuleType ruleType) throws Exception {
@@ -1410,13 +1413,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     verifyObjlist(x8664BinAction, "package/libcclib.a");
 
     assertThat(Artifact.toExecPaths(i386BinAction.getInputs()))
-        .containsAllOf(
-            i386Prefix + "package/libcclib.a",
-            i386Prefix + "x/x-linker.objlist");
+        .containsAtLeast(i386Prefix + "package/libcclib.a", i386Prefix + "x/x-linker.objlist");
     assertThat(Artifact.toExecPaths(x8664BinAction.getInputs()))
-        .containsAllOf(
-            x8664Prefix + "package/libcclib.a",
-            x8664Prefix + "x/x-linker.objlist");
+        .containsAtLeast(x8664Prefix + "package/libcclib.a", x8664Prefix + "x/x-linker.objlist");
   }
 
   // Regression test for b/32310268.
@@ -1620,7 +1619,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
 
     assertAppleSdkPlatformEnv(objcLibCompileAction, "WatchSimulator");
-    assertThat(objcLibCompileAction.getArguments()).containsAllOf("-arch_only", "i386").inOrder();
+    assertThat(objcLibCompileAction.getArguments()).containsAtLeast("-arch_only", "i386").inOrder();
   }
 
   protected void checkWatchSimulatorLinkAction(RuleType ruleType) throws Exception {
@@ -1642,7 +1641,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     assertAppleSdkPlatformEnv(linkAction, "WatchSimulator");
     assertThat(normalizeBashArgs(linkAction.getArguments()))
-        .containsAllOf("-arch", "i386").inOrder();
+        .containsAtLeast("-arch", "i386")
+        .inOrder();
   }
 
   protected void checkWatchSimulatorLipoAction(RuleType ruleType) throws Exception {
@@ -1664,7 +1664,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
-    assertThat(action.getArguments()).containsAllOf(armv7kBin, i386Bin);
+    assertThat(action.getArguments()).containsAtLeast(armv7kBin, i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         "-o", execPathEndingWith(action.getOutputs(), "x_lipobin")));
 

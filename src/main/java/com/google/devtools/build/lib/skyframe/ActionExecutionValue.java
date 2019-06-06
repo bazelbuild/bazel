@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -22,8 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
@@ -37,7 +34,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.math.BigInteger;
 import java.util.Comparator;
@@ -234,18 +230,6 @@ public class ActionExecutionValue implements SkyValue {
       Map<Artifact, T> inputMap) {
     return inputMap.entrySet().stream()
         .sorted(Comparator.comparing(Entry::getKey, Artifact.EXEC_PATH_COMPARATOR));
-  }
-
-  /**
-   * @param lookupKey A {@link SkyKey} whose argument is an {@code ActionLookupKey}, whose
-   *     corresponding {@code ActionLookupValue} contains the action to be executed.
-   * @param index the index of the action to be executed in the {@code ActionLookupValue}, to be
-   *     passed to {@code ActionLookupValue#getAction}.
-   */
-  @ThreadSafe
-  @VisibleForTesting
-  public static ActionLookupData key(ActionLookupValue.ActionLookupKey lookupKey, int index) {
-    return ActionLookupData.create(lookupKey, index);
   }
 
   @Override

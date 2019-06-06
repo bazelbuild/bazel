@@ -18,11 +18,12 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -31,26 +32,14 @@ import java.util.Set;
  * This class encapsulates logic behind computing final target set based on separate results from a
  * list of target patterns (eg, //foo:all -//bar/... //foo:test).
  */
-abstract class TargetPatternsResultBuilder {
-  private Map<PackageIdentifier, Package> packages = null;
-  private boolean hasError = false;
-
-  /**
-   * Sets that there was an error, during evaluation. 
-   */
-  public void setError() {
-    hasError = true;
-  }
+class TargetPatternsResultBuilder {
+  private final Set<Label> resolvedLabelsBuilder = CompactHashSet.create();
+  private Map<PackageIdentifier, Package> packages;
 
   /** Returns final set of targets and sets error flag if required. */
-  public ResolvedTargets<Target> build(WalkableGraph walkableGraph)
-      throws TargetParsingException, InterruptedException {
+  public Collection<Target> build(WalkableGraph walkableGraph) throws InterruptedException {
     precomputePackages(walkableGraph);
-    ResolvedTargets.Builder<Target> resolvedTargetsBuilder = buildInternal();
-    if (hasError) {
-      resolvedTargetsBuilder.setError();
-    }
-    return resolvedTargetsBuilder.build();
+    return transformLabelsIntoTargets(resolvedLabelsBuilder);
   }
 
   /**
@@ -58,18 +47,14 @@ abstract class TargetPatternsResultBuilder {
    * method is using information about packages, so {@link #precomputePackages} has to be called
    * before this method.
    */
-  protected ResolvedTargets.Builder<Target> transformLabelsIntoTargets(
-      ResolvedTargets<Label> resolvedLabels) {
+  private Collection<Target> transformLabelsIntoTargets(Set<Label> resolvedLabels) {
     // precomputePackages has to be called before this method.
-    ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();
+    Set<Target> targets = CompactHashSet.create();
     Preconditions.checkNotNull(packages);
-    for (Label label : resolvedLabels.getTargets()) {
-      resolvedTargetsBuilder.add(getExistingTarget(label));
+    for (Label label : resolvedLabels) {
+      targets.add(getExistingTarget(label));
     }
-    for (Label label : resolvedLabels.getFilteredTargets()) {
-      resolvedTargetsBuilder.remove(getExistingTarget(label));
-    }
-    return resolvedTargetsBuilder;
+    return targets;
   }
 
   private void precomputePackages(WalkableGraph walkableGraph) throws InterruptedException {
@@ -94,7 +79,7 @@ abstract class TargetPatternsResultBuilder {
 
   private Set<PackageIdentifier> getPackagesIdentifiers() {
     Set<PackageIdentifier> packagesIdentifiers = new HashSet<>();
-    for (Label label : getLabels()) {
+    for (Label label : resolvedLabelsBuilder) {
       packagesIdentifiers.add(label.getPackageIdentifier());
     }
     return packagesIdentifiers;
@@ -107,24 +92,9 @@ abstract class TargetPatternsResultBuilder {
         .getPackage();
   }
 
-  /**
-   * Adds the result from expansion of positive target pattern (eg, "//foo:all").
-   */
-  abstract void addLabelsOfNegativePattern(ResolvedTargets<Label> labels);
-
-  /**
-   * Adds the result from expansion of negative target pattern (eg, "-//foo:all").
-   */
-  abstract void addLabelsOfPositivePattern(ResolvedTargets<Label> labels);
-
-  /**
-   * Returns {@code ResolvedTargets.Builder<Target>} with final set of targets. Note that this
-   * method doesn't set error flag in result.
-   */
-  abstract ResolvedTargets.Builder<Target> buildInternal() throws TargetParsingException;
-
-  /**
-   * Returns target labels from all individual results.
-   */
-  protected abstract Iterable<Label> getLabels();
+  /** Adds the result from expansion of negative target pattern (eg, "-//foo:all"). */
+  void addLabelsOfPositivePattern(ResolvedTargets<Label> labels) {
+    Preconditions.checkArgument(labels.getFilteredTargets().isEmpty());
+    resolvedLabelsBuilder.addAll(labels.getTargets());
+  }
 }

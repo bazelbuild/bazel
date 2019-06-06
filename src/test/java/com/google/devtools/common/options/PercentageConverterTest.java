@@ -15,8 +15,8 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 import com.google.devtools.common.options.Converters.PercentageConverter;
 import org.junit.Test;
@@ -39,31 +39,23 @@ public final class PercentageConverterTest {
 
   @Test
   public void throwsExceptionWhenInputIsLessThanZero() {
-    try {
-      converter.convert("-1");
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("'-1' should be >= 0");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> converter.convert("-1"));
+    assertThat(e).hasMessageThat().isEqualTo("'-1' should be >= 0");
   }
 
   @Test
   public void throwsExceptionWhenInputIsGreaterThanHundred() {
-    try {
-      converter.convert("101");
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("'101' should be <= 100");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> converter.convert("101"));
+    assertThat(e).hasMessageThat().isEqualTo("'101' should be <= 100");
   }
 
   @Test
   public void throwsExceptionWhenInputIsNotANumber() {
-    try {
-      converter.convert("oops - not a number.");
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("'oops - not a number.' is not an int");
-    }
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> converter.convert("oops - not a number."));
+    assertThat(e).hasMessageThat().isEqualTo("'oops - not a number.' is not an int");
   }
 }

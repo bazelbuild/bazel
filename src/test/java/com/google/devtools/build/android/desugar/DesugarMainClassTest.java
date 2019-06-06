@@ -15,7 +15,7 @@ package com.google.devtools.build.android.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.android.desugar.LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Strings;
 import java.io.IOError;
@@ -48,12 +48,9 @@ public class DesugarMainClassTest {
           System.setProperty(LAMBDA_METAFACTORY_DUMPER_PROPERTY, path.toString());
           return path;
         };
-    try {
-      Desugar.verifyLambdaDumpDirectoryRegistered(supplier.get());
-      fail("Expected NullPointerException");
-    } catch (NullPointerException e) {
-      // Expected
-    }
+    assertThrows(
+        NullPointerException.class,
+        () -> Desugar.verifyLambdaDumpDirectoryRegistered(supplier.get()));
   }
 
   /**

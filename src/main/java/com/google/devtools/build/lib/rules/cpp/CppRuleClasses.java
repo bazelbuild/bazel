@@ -363,6 +363,9 @@ public class CppRuleClasses {
   /** A string constant for the autofdo feature. */
   public static final String AUTOFDO = "autofdo";
 
+  /** A string constant for the build_interface_libraries feature. */
+  public static final String BUILD_INTERFACE_LIBRARIES = "build_interface_libraries";
+
   /** A string constant for the xbinaryfdo feature. */
   public static final String XBINARYFDO = "xbinaryfdo";
 
@@ -392,6 +395,13 @@ public class CppRuleClasses {
 
   /** A feature marking that the target needs to link its deps in --whole-archive block. */
   public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
+
+  /**
+   * A feature marking that the target generates libraries that should not be put in a
+   * --whole-archive block.
+   */
+  public static final String DISABLE_WHOLE_ARCHIVE_FOR_STATIC_LIB =
+      "disable_whole_archive_for_static_lib";
 
   /**
    * TODO(b/113358321): This feature should be enabled for CROSSTOOLs that work without linking

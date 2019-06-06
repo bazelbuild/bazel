@@ -38,6 +38,13 @@ java_test(
 )
 
 skydoc_test(
+    name = "cc_api_test",
+    golden_file = "testdata/cc_api_test/golden.txt",
+    input_file = "testdata/cc_api_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
     name = "simple_test",
     golden_file = "testdata/simple_test/golden.txt",
     input_file = "testdata/simple_test/input.bzl",
@@ -70,6 +77,9 @@ skydoc_test(
     name = "android_basic_test",
     golden_file = "testdata/android_basic_test/golden.txt",
     input_file = "testdata/android_basic_test/input.bzl",
+    semantic_flags = [
+        "--experimental_google_legacy_api",
+    ],
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
     whitelisted_symbols = ["android_related_rule"],
 )
@@ -185,6 +195,14 @@ skydoc_test(
     golden_file = "testdata/macro_kwargs_test/golden.txt",
     input_file = "testdata/macro_kwargs_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
+    name = "py_rule_test",
+    golden_file = "testdata/py_rule_test/golden.txt",
+    input_file = "testdata/py_rule_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+    whitelisted_symbols = ["py_related_rule"],
 )
 
 genrule(

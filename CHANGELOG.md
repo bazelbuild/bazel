@@ -1,3 +1,496 @@
+## Release 0.26.0 (2019-05-28)
+
+```
+Baseline: daa8ae565ab2023e49134f0aad233b0a8bd7a5d0
+
+Cherry picks:
+
+   + 61c7ffa60ae9c1937dd6d8ee30a8c0471094ee71:
+     Automated rollback of commit
+     87388e24814b177f54ca7697b4233489f90c587e.
+   + 898d7b6138af73f03daf35b767d252560087de70:
+     Add test for repository overrides, conflicting with managed
+     directories being added when Bazel server is already started.
+   + c2001a4569483596d9dc74ba9cabcbe4b6f1887f:
+     Automated rollback of commit
+     bbe47a1564a832e1a175206f2dfbc92af94c120b.
+   + e67c961905792cd63950c6f6efc33275ad243c49:
+     Fix a non-determinism in create_embedded_tools.py.
+   + 81aefe7ee01cc73646a53f9c72ed40ead09f9f5a:
+     Remove unsupported cpu attribute from cc_toolchains.
+   + 597e289b097d3bfed8eea1cb0924bbeb04877e42:
+     remote: made CombinedCache a composition of Disk and Http Cache
+   + 942f7cf6a0da0a4ecc804615424f039e50963933:
+     C++: Fixes bug in C++ API with external repo aspects
+   + 85a5a2bd569a5274950fc7327a044c395248c024:
+     Configure @androidsdk//:emulator_x86 and :emulator_arm to point
+     to the unified emulator binary
+   + 9835cb4135503768cdf1161746b95d7969ccb938:
+     Automated rollback of commit
+     844e4e297b404d6ff28b818d8150d4b9c47de887.
+   + c963ba21073b514961946b8b4b45b091f08fdaa1:
+     Windows, Python: fix arg. esc. also in host config
+   + a1ea487e0a9e180a36fa4aab57f7c746ddcf367a:
+     Do not pre-cache changed files under managed directories
+   + 7dc78cdd04eedf2f4373b170053ba5fc2a990929:
+     Add explicit execution and target constraints for autodiscovered
+     cc t?
+   + dd9ac13f7e3b71bdf2eca717bc7681bdd12389a2:
+     Fix a bug when a relative path is used for the execution log
+   + 0ff19c6d0adf3c0df94fff59ca3bd13cbcf99897:
+     Fix StandaloneTestStrategy.appendStderr
+   + 7f495315749478e75a3424726cc273a535b7c3b8:
+     Fix the autodetecting Python toolchain on Mac
+   + ddce7235ef29a0aba727c265eae865d15af4ed09:
+     Avoid exporting PATH unnecessarily
+   + 35dd05a059fa7fddfdd888cfc69102994e3c04dc:
+     Allow Starlark rules to be able to use the `exec_compatible_with`
+```
+
+### Incompatible changes
+
+- [`--incompatible_windows_escape_jvm_flags`](https://github.com/bazelbuild/bazel/issues/7486)
+  is enabled by default, and removed.
+
+- [`--incompatible_windows_style_arg_escaping`](https://github.com/bazelbuild/bazel/issues/7454)
+  is enabled by default.
+
+- [`--incompatible_no_output_attr_default`](https://github.com/bazelbuild/bazel/issues/7950)
+  is enabled by default.
+
+- [`--incompatible_depset_union`](https://github.com/bazelbuild/bazel/issues/5817)
+  is enabled by default.
+
+- [`--incompatible_disable_genrule_cc_toolchain_dependency`](https://github.com/bazelbuild/bazel/issues/6867) removed
+
+- [`--Incompatible_disallow_rule_execution_platform_constraints_allowed`](https://github.com/bazelbuild/bazel/issues/8136):
+  When enabled, disallows the use of the `execution_platform_constraints_allowed`
+  attribute when defining new rules.
+
+- [`--incompatible_disable_objc_provider_resources`](https://github.com/bazelbuild/bazel/issues/5710)
+  is now enabled by default.
+
+### Apple
+
+- The `--ios_multi_cpus`, `--watchos_cpus`, `--macos_cpus` and `--tvos_cpus` are
+  now additive. This means that you can now split the `--ios_multi_cpus=arm64,armv7`
+  into `--ios_multi_cpus=arm64` and `--ios_multi_cpus=armv7`.
+
+- Add `--incompatible_objc_framework_cleanup` to control whether to enable some
+  objc framework cleanup that changes the API. Specifically, the cleanup changes
+  the objc provider API pertaining to frameworks. This change is expected to be
+  transparent to most users unless they write their own Starlark rules to handle
+  frameworks. See https://github.com/bazelbuild/bazel/issues/7594 for details.
+
+- `objc_library` does not support resource attributes any more. Please read
+  [#7594](https://github.com/bazelbuild/bazel/issues/7594) for more info.
+
+### Android
+
+- Android resource conflicts will no longer be reported between a strong attr
+  resource and a weak attr resource, if the weak attr does not have format
+  specified.
+
+### C++
+
+- [Allow debugging C++ features logic](https://github.com/bazelbuild/bazel/commit/53156db1e30fe7197889c3cbc8d1321ff9b85143
+
+- Add new options [`--cs_fdo_instrument`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--cs_fdo_instrument)
+  and [`--cs_fdo_profile`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--cs_fdo_profile)
+  to support LLVM's context-sensitive FDO (CSFDO).
+
+- [Bazel C++ compile/link Starlark API](https://github.com/bazelbuild/bazel/issues/4570).
+  Can be used with experimental flag `--experimental_cc_skylark_api_enabled_packages`.
+
+- `cc_toolchain.static_runtime_lib` and `cc_toolchain.dynamic_runtime_lib` are
+  now exposed to Starlark.
+
+- C++ Starlark API for compilation and linking is no longer whitelisted
+
+- Incompatible flag `--incompatible_make_thinlto_command_lines_standalone` has
+  been added. See https://github.com/bazelbuild/bazel/issues/6791 for details.
+
+- Feature `disable_whole_archive_for_static_lib` has been added to allow turning
+  off legacy_whole_archive for individual targets.
+  https://github.com/bazelbuild/bazel/issues/7362
+
+### Python
+
+- Fixed an issue where some `py_runtimes` were incompatible with using
+  `--build_python_zip` ([#5104](https://github.com/bazelbuild/bazel/issues/5104)).
+
+### Starlark
+
+- The flag [`--incompatible_restrict_named_params`](https://github.com/bazelbuild/bazel/issues/8147)
+  is added. [Buildifier](https://github.com/bazelbuild/buildtools) will soon be
+  updated to automatically fix this in your code.
+
+- The flag [`--incompatible_no_kwargs_in_build_files`](https://github.com/bazelbuild/bazel/issues/8021)
+  is added. It fixes a bug where the `**kwarg` notation was allowed in `BUILD`
+  files.
+
+- The flag [`--incompatible_static_name_resolution_in_build_files`](https://github.com/bazelbuild/bazel/issues/8022)
+  is added. This fixes a bug where invalid code was silently accepted.
+
+- The flag [`--incompatible_disallow_old_octal_notation`](https://github.com/bazelbuild/bazel/issues/8059)
+  is added. It removes a deprecated notation for octal numbers.
+  [Buildifier](https://github.com/bazelbuild/buildtools) can update your code
+  automatically.
+
+- [`struct.to_proto()`](https://docs.bazel.build/versions/master/skylark/lib/struct.html#to_proto)
+  can now convert dictionaries into proto3 text message.
+
+- The [`glob`](https://docs.bazel.build/versions/master/be/functions.html#glob)
+  function has a new argument `allow_empty`. When set to `False` (this will be
+  the default in the future), the glob fails when it doesn't match anything.
+  Please explicitly set `allow_empty = True` to the globs that need it.
+
+### Windows
+
+- Windows, Python: the new `--incompatible_windows_escape_python_args` flag
+  (`false` by default) builds `py_binary` and `py_test` targets with correct
+  command line argument escaping. Similar to
+  https://github.com/bazelbuild/bazel/issues/7486 but for `py_*` rules.
+
+### Other changes
+
+- cquery supports `--output=build`
+
+- Generated Go protobufs now depend on `//net/proto2/go:proto_gendeps` instead
+  of `//net/proto2/go:proto`
+
+- Added `--incompatible_remove_binary_profile` to disable the old binary
+  profiles. Instead use the JSON profile format:
+  https://docs.bazel.build/versions/master/skylark/performance.html#json-profile
+
+- Introducing `--execution_log_binary_file` and `--execution_log_json_file`
+  that output a stable sorted execution log. They will offer a stable
+  replacement to `--experimental_execution_log_file`.
+
+- New platform_mappings ability to allow gradual flag to platforms/toolchains
+  migration. See also https://github.com/bazelbuild/bazel/issues/6426
+
+- Added support for compiling against fully qualified `R` classes from
+  `aar_import` dependencies.
+
+- `--tls_enabled` flag is deprecated. Please provide `grpcs` as a scheme in
+  the URLs if TLS should be used for a remote connection.
+
+### Community
+
+- Alex Eagle gave a talk at ng-conf:
+  [The Bazel Opt-in Preview is Here!](https://www.youtube.com/watch?v=J1lnp-nU4wM)
+
+- The latest release of
+  [rules_haskell](https://github.com/tweag/rules_haskell/releases/tag/v0.9)
+  includes many new improvements, including an initial Windows support.
+
+- The latest
+  [Buildifier release](https://github.com/bazelbuild/buildtools/releases/tag/0.25.1)
+  includes Windows binaries, as well as a JSON output for diagnostics.
+
+- Natan Silnitsky gave the talk
+  [How to successfully migrate to Bazel from Maven or Gradle](https://www.youtube.com/watch?v=2UOFm-Cc_cU)
+  at the Java Eastern Europe Conference.
+
+This release contains contributions from many people at Google, as well as
+Benjamin Peterson, Brian Topping, clyang82, Dave Lee, George Gensure,, Greg,
+Guro Bokum, Keith Smiley, Max Vorobev, Michael Hackner, Robert Brown, Robert
+Sayre, Ryan Beasley, and Yannic.
+
+
+## Release 0.25.3 (2019-05-23)
+
+```
+Baseline: 03662462941953dad23af88693804b8b1d4430b9
+
+Cherry picks:
+
+   + 3f7f255f9a8345b8898e3953e7e53d68106cc63d:
+     Windows: fix native test wrapper's arg. escaping
+   + afeb8d0b7fef619159fc8fbaaeb8bd41dd2619bd:
+     Flip --incompatible_windows_escape_jvm_flags
+   + 4299b6549cbc1b3e4494c91ed2f51d49b14c7980:
+     Sort DirectoryNode children to ensure validity.
+   + 231270c67d5aa771462245531fa9b2ee7d3d0ae8:
+     Conditionally use deprecated signature for initWithContentsOfURL
+   + 75a3a531b08e727ade4fa3cb0a574bd142727cce:
+     Add http_archive entries for testing with various JDK versions.
+   + 4a6354a3a5ca23583f8b62e3e439a04ce75b863f:
+     Now that ubuntu1804 uses JDK 11, remove explicit
+     ubuntu1804_java11 tests.
+   + ae102fbde3c1ff87e4f67007a275fb30792a4e8d:
+     Fix wrong name of ubuntu1804_javabase9 task.
+   + 0020a97fdc20ca099ec6386771b20d3236f9890d:
+     Remove @executable_path/Frameworks from rpaths
+   + 130f86ded1ce84f959f0b78c065211902faed546:
+     Download stderr/stdout to a temporary FileOutErr
+   + 2ab38663592a9ccbcc1f6f75ed135ae315f4d9d9:
+     Release 0.25.0 (2019-05-01)
+   + ed48a4a5fddbd93b057c3aa726e15720d79dcf8f:
+     Add implementation to removed methods to address
+     https://github.com/bazelbuild/bazel/issues/8226
+   + 81aefe7ee01cc73646a53f9c72ed40ead09f9f5a:
+     Remove unsupported cpu attribute from cc_toolchains.
+   + cccced1e7fc7eaf4ba8f2c9d73dbac72b2686df9:
+     Release 0.25.1 (2019-05-07)
+   + 0900660d67b53a56a13d1fa16a788e4cecbb1c0e:
+     Use package identifier instead of package name
+   + 85a5a2bd569a5274950fc7327a044c395248c024:
+     Configure @androidsdk//:emulator_x86 and :emulator_arm to point
+     to the unified emulator binary
+   + 6549ac5bba3eef2b1813b5a75757437383bf38f0:
+     Release 0.25.2 (2019-05-10)
+   + 0ff19c6d0adf3c0df94fff59ca3bd13cbcf99897:
+     Fix StandaloneTestStrategy.appendStderr
+```
+
+Incompatible changes:
+
+  - Flip --incompatible_windows_escape_jvm_flags to true. See
+    https://github.com/bazelbuild/bazel/issues/7486
+
+This release contains contributions from many people at Google, as well as George Gensure, Keith Smiley, Robert Sayre.
+
+## Release 0.25.2 (2019-05-10)
+
+```
+Baseline: 03662462941953dad23af88693804b8b1d4430b9
+
+Cherry picks:
+
+   + 3f7f255f9a8345b8898e3953e7e53d68106cc63d:
+     Windows: fix native test wrapper's arg. escaping
+   + afeb8d0b7fef619159fc8fbaaeb8bd41dd2619bd:
+     Flip --incompatible_windows_escape_jvm_flags
+   + 4299b6549cbc1b3e4494c91ed2f51d49b14c7980:
+     Sort DirectoryNode children to ensure validity.
+   + 231270c67d5aa771462245531fa9b2ee7d3d0ae8:
+     Conditionally use deprecated signature for initWithContentsOfURL
+   + 75a3a531b08e727ade4fa3cb0a574bd142727cce:
+     Add http_archive entries for testing with various JDK versions.
+   + 4a6354a3a5ca23583f8b62e3e439a04ce75b863f:
+     Now that ubuntu1804 uses JDK 11, remove explicit
+     ubuntu1804_java11 tests.
+   + ae102fbde3c1ff87e4f67007a275fb30792a4e8d:
+     Fix wrong name of ubuntu1804_javabase9 task.
+   + 0020a97fdc20ca099ec6386771b20d3236f9890d:
+     Remove @executable_path/Frameworks from rpaths
+   + 130f86ded1ce84f959f0b78c065211902faed546:
+     Download stderr/stdout to a temporary FileOutErr
+   + 2ab38663592a9ccbcc1f6f75ed135ae315f4d9d9:
+     Release 0.25.0 (2019-05-01)
+   + ed48a4a5fddbd93b057c3aa726e15720d79dcf8f:
+     Add implementation to removed methods to address
+     https://github.com/bazelbuild/bazel/issues/8226
+   + 81aefe7ee01cc73646a53f9c72ed40ead09f9f5a:
+     Remove unsupported cpu attribute from cc_toolchains.
+   + cccced1e7fc7eaf4ba8f2c9d73dbac72b2686df9:
+     Release 0.25.1 (2019-05-07)
+   + 0900660d67b53a56a13d1fa16a788e4cecbb1c0e:
+     Use package identifier instead of package name
+   + 85a5a2bd569a5274950fc7327a044c395248c024:
+     Configure @androidsdk//:emulator_x86 and :emulator_arm to point
+     to the unified emulator binary
+```
+
+* Add fix for https://github.com/bazelbuild/bazel/issues/8254
+* Add fix for https://github.com/bazelbuild/bazel/issues/8280
+
+## Release 0.25.1 (2019-05-07)
+
+```
+Baseline: 03662462941953dad23af88693804b8b1d4430b9
+
+Cherry picks:
+
+   + 3f7f255f9a8345b8898e3953e7e53d68106cc63d:
+     Windows: fix native test wrapper's arg. escaping
+   + afeb8d0b7fef619159fc8fbaaeb8bd41dd2619bd:
+     Flip --incompatible_windows_escape_jvm_flags
+   + 4299b6549cbc1b3e4494c91ed2f51d49b14c7980:
+     Sort DirectoryNode children to ensure validity.
+   + 231270c67d5aa771462245531fa9b2ee7d3d0ae8:
+     Conditionally use deprecated signature for initWithContentsOfURL
+   + 75a3a531b08e727ade4fa3cb0a574bd142727cce:
+     Add http_archive entries for testing with various JDK versions.
+   + 4a6354a3a5ca23583f8b62e3e439a04ce75b863f:
+     Now that ubuntu1804 uses JDK 11, remove explicit
+     ubuntu1804_java11 tests.
+   + ae102fbde3c1ff87e4f67007a275fb30792a4e8d:
+     Fix wrong name of ubuntu1804_javabase9 task.
+   + 0020a97fdc20ca099ec6386771b20d3236f9890d:
+     Remove @executable_path/Frameworks from rpaths
+   + 130f86ded1ce84f959f0b78c065211902faed546:
+     Download stderr/stdout to a temporary FileOutErr
+   + 2ab38663592a9ccbcc1f6f75ed135ae315f4d9d9:
+     Release 0.25.0 (2019-05-01)
+   + ed48a4a5fddbd93b057c3aa726e15720d79dcf8f:
+     Add implementation to removed methods to address
+     https://github.com/bazelbuild/bazel/issues/8226
+   + 81aefe7ee01cc73646a53f9c72ed40ead09f9f5a:
+     Remove unsupported cpu attribute from cc_toolchains.
+```
+
+Adding a commit which reintroduces the implementation for cc_common.compile and cc_common.link https://github.com/bazelbuild/bazel/issues/8226
+
+## Release 0.25.0 (2019-05-01)
+
+```
+Baseline: 03662462941953dad23af88693804b8b1d4430b9
+
+Cherry picks:
+
+   + 3f7f255f9a8345b8898e3953e7e53d68106cc63d:
+     Windows: fix native test wrapper's arg. escaping
+   + afeb8d0b7fef619159fc8fbaaeb8bd41dd2619bd:
+     Flip --incompatible_windows_escape_jvm_flags
+   + 4299b6549cbc1b3e4494c91ed2f51d49b14c7980:
+     Sort DirectoryNode children to ensure validity.
+   + 231270c67d5aa771462245531fa9b2ee7d3d0ae8:
+     Conditionally use deprecated signature for initWithContentsOfURL
+   + 75a3a531b08e727ade4fa3cb0a574bd142727cce:
+     Add http_archive entries for testing with various JDK versions.
+   + 4a6354a3a5ca23583f8b62e3e439a04ce75b863f:
+     Now that ubuntu1804 uses JDK 11, remove explicit
+     ubuntu1804_java11 tests.
+   + ae102fbde3c1ff87e4f67007a275fb30792a4e8d:
+     Fix wrong name of ubuntu1804_javabase9 task.
+   + 0020a97fdc20ca099ec6386771b20d3236f9890d:
+     Remove @executable_path/Frameworks from rpaths
+   + 130f86ded1ce84f959f0b78c065211902faed546:
+     Download stderr/stdout to a temporary FileOutErr
+```
+
+Incompatible changes:
+
+  - (Starlark rules) The legacy "py" provider can no longer be passed
+    to or produced by native Python rules; use
+    [PyInfo](https://docs.bazel.build/versions/master/skylark/lib/PyIn
+    fo.html) instead. See
+    [#7298](https://github.com/bazelbuild/bazel/issues/7298) for more
+    information.
+  - (Python rules) The `default_python_version` attribute of the
+    `py_binary` and `py_test` rules has been renamed to
+    `python_version`. Also, the `--force_python` flag has been
+    renamed to `--python_version`. See
+    [#7308](https://github.com/bazelbuild/bazel/issues/7308) for more
+    information.
+  - (Python rules) The python version now changes to whatever version
+    is specified in a `py_binary` or `py_test`'s `python_version`
+    attribute, instead of being forced to the value set by a command
+    line flag. You can temporarily revert this change with
+    `--incompatible_allow_python_version_transitions=false`. See
+    [#7307](https://github.com/bazelbuild/bazel/issues/7307) for more
+    information.
+  - --incompatible_disable_third_party_license_checking` is enabled
+    by default
+  - Introduced --incompatible_use_python_toolchains, which supersedes
+    --python_top/--python_path. See #7899 and #7375 for more
+    information.
+  - Python 3 is now the default Python version (for `py_binary` and
+    `py_test` targets that don't specify the `python_version`
+    attribute). Targets that are built for Python 3 will no longer
+    have their output put in a separate `-py3` directory; instead
+    there is now a separate `-py2` directory for Python 2 targets.
+    See #7359 and #7593 for more information.
+  - objc_library resource attributes are now disabled by default.
+    Please migrate them to data instead. See
+    https://github.com/bazelbuild/bazel/issues/7594 for more info.
+  - Flip --incompatible_windows_escape_jvm_flags to true. See
+    https://github.com/bazelbuild/bazel/issues/7486
+
+New features:
+
+  - genrules now support a $(RULEDIR) variable that resolves to the
+    directory where the outputs of the rule are put.
+  - Added --incompatible_windows_native_test_wrapper flag: enables
+    using the Bash-less test wrapper on Windows. (No-op on other
+    platforms.)
+
+Important changes:
+
+  - incompatible_use_jdk11_as_host_javabase: makes JDK 11 the default
+    --host_javabase for remote jdk
+    (https://github.com/bazelbuild/bazel/issues/7219)
+  - Makes genquery somepath output deterministic.
+  - Tristate attributes of native rules now reject True/False (use
+    1/0)
+  - Rollback of "Tristate attributes of native rules now reject
+    True/False (use 1/0)"
+  - Tristate attributes of native rules now reject True/False (use
+    1/0)
+  - Added -incompatible_do_not_split_linking_cmdline flag. See #7670
+  - Tristate attributes of native rules now temporarily accept
+    True/False again
+  - `--incompatible_disable_legacy_crosstool_fields` has been flipped
+    (https://github.com/bazelbuild/bazel/issues/6861)
+    `--incompatible_disable_expand_if_all_available_in_flag_set` has
+    been flipped (https://github.com/bazelbuild/bazel/issues/7008)
+  - `--incompatible_disable_legacy_crosstool_fields` has been flipped
+    (https://github.com/bazelbuild/bazel/issues/6861)
+    `--incompatible_disable_expand_if_all_available_in_flag_set...
+    RELNOTES: None.
+  - --incompatible_no_transitive_loads is enabled by default.
+  - Makes TreeArtifact deterministic.
+  - --incompatible_no_transitive_loads is enabled by default.
+  - Android NDK C++ toolchain is now configured in Starlark. This
+    should be a backwards compatible change, but in case of bugs
+    blame unknown commit.
+  - `--incompatible_disable_legacy_crosstool_fields` has been flipped
+    (https://github.com/bazelbuild/bazel/issues/6861)
+    `--incompatible_disable_expand_if_all_available_in_flag_set` has
+    been flipped (https://github.com/bazelbuild/bazel/issues/7008)
+  - --incompatible_no_transitive_loads is enabled by default.
+  - --incompatible_bzl_disallow_load_after_statement is enabled
+  - Added `--incompatible_require_ctx_in_configure_features`, see
+    https://github.com/bazelbuild/bazel/issues/7793 for details.
+  - Flag --incompatible_merge_genfiles_directory is flipped. This
+    removes the directory `bazel-genfiles` in favor of `bazel-bin`.
+  - previously deprecated flag --experimental_remote_spawn_cache was
+    removed
+  - `--incompatible_disallow_load_labels_to_cross_package_boundaries`
+    is enabled by default
+  - Fix an issue where the Android resource processor did not surface
+    errors from aapt2 compile and link actions.
+  - --incompatible_no_attr_license is enabled by default
+  - `--incompatible_disable_crosstool_file` has been flipped
+    (https://github.com/bazelbuild/bazel/issues/7320)
+  - A new flag `--incompatible_string_join_requires_strings` is
+    introduced. The sequence argument of `string.join` must contain
+    only string elements.
+  - --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfile
+    s_tree has been flipped
+  - Incompatible flag `--incompatible_disable_legacy_cc_provider` has
+    been flipped (see https://github.com/bazelbuild/bazel/issues/7036
+    for details).
+  - Don't drop the analysis cache when the same --define flag is set
+    multiple times and the last value is the same (e.g. if the
+    current invocation was run with "--define foo=bar" and the
+    previous one was run with "--define foo=baz --define foo=bar").
+  - The --incompatible_disable_genrule_cc_toolchain_dependency flag
+    has been flipped (see
+    https://github.com/bazelbuild/bazel/issues/6867 for details).
+  - Incompatible change
+    `--incompatible_remove_cpu_and_compiler_attributes_from_cc_toolcha
+    in` has been flipped (see
+    https://github.com/bazelbuild/bazel/issues/7075 for details).
+  - --noexperimental_java_coverage is a no-op flag.
+  - --experimental_java_coverage/--incompatible_java_coverage flag was
+    removed. See #7425.
+  - incompatible_use_toolchain_providers_in_java_common: pass
+    JavaToolchainInfo and JavaRuntimeInfo providers to java_common
+    APIs instead of configured targets
+    (https://github.com/bazelbuild/bazel/issues/7186.)
+  - --incompatible_remote_symlinks has been flipped. The remote
+    caching and execution protocol will now represent symlinks in
+    outputs as such. See
+    https://github.com/bazelbuild/bazel/issues/7917 for more details.
+  - Bazel is now ~20MiB smaller, from unbundling the Android rules'
+    runtime dependencies.
+
+This release contains contributions from many people at Google, as well as Andreas Herrmann, Andrew Suffield, Andy Scott, Benjamin Peterson, Ed Baunton, George Gensure, Ian McGinnis, Ity Kaul, Jingwen Chen, John Millikin, Keith Smiley, Marwan Tammam, Mike Fourie, Oscar Bonilla, perwestling, petros, Robert Sayre, Ryan Beasley, silvergasp, Stanimir Mladenov, Travis Cline, Vladimir Chebotarev, ??.
+
 ## Release 0.24.1 (2019-04-02)
 
 ```

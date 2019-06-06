@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -259,5 +261,49 @@ public class JavaSkylarkCommon
         .getOptions()
         .get(PlatformOptions.class)
         .useToolchainResolutionForJavaRules;
+  }
+
+  @Override
+  public ProviderApi getMessageBundleInfo() {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return null;
+  }
+
+  @Override
+  public JavaInfo addConstraints(JavaInfo javaInfo, SkylarkList<String> constraints) {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return null;
+  }
+
+  @Override
+  public JavaInfo removeAnnotationProcessors(JavaInfo javaInfo) {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return null;
+  }
+
+  @Override
+  public NestedSet<Artifact> getCompileTimeJavaDependencyArtifacts(JavaInfo javaInfo) {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return null;
+  }
+
+  @Override
+  public JavaInfo addCompileTimeJavaDependencyArtifacts(
+      JavaInfo javaInfo, SkylarkList<Artifact> compileTimeJavaDependencyArtifacts) {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return null;
+  }
+
+  @Override
+  public Label getJavaToolchainLabel(
+      JavaToolchainSkylarkApiProviderApi toolchain, Location location) throws EvalException {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return null;
   }
 }

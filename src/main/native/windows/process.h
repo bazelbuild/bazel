@@ -40,6 +40,9 @@ class WaitableProcess {
   WaitableProcess() : pid_(0), exit_code_(STILL_ACTIVE) {}
 
   bool Create(const std::wstring& argv0, const std::wstring& argv_rest,
+              void* env, const std::wstring& wcwd, std::wstring* error);
+
+  bool Create(const std::wstring& argv0, const std::wstring& argv_rest,
               void* env, const std::wstring& wcwd, HANDLE stdin_process,
               HANDLE stdout_process, HANDLE stderr_process,
               LARGE_INTEGER* opt_out_start_time, std::wstring* error);
@@ -54,6 +57,12 @@ class WaitableProcess {
   DWORD GetPid() const { return pid_; }
 
  private:
+  bool Create(const std::wstring& argv0, const std::wstring& argv_rest,
+              void* env, const std::wstring& wcwd, HANDLE stdin_process,
+              HANDLE stdout_process, HANDLE stderr_process,
+              LARGE_INTEGER* opt_out_start_time, bool create_window,
+              std::wstring* error);
+
   AutoHandle process_, job_, ioport_;
   DWORD pid_, exit_code_;
 };

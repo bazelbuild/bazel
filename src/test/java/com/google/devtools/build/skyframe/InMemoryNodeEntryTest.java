@@ -15,8 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.NodeEntrySubjectFactory.assertThatNodeEntry;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -166,12 +166,9 @@ public class InMemoryNodeEntryTest {
     NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
-    try {
-      setValue(entry, /*value=*/null, /*errorInfo=*/null, /*graphVersion=*/0L);
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> setValue(entry, /*value=*/ null, /*errorInfo=*/ null, /*graphVersion=*/ 0L));
   }
 
   @Test
@@ -179,12 +176,7 @@ public class InMemoryNodeEntryTest {
     InMemoryNodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
-    try {
-      entry.signalDep(ZERO_VERSION, null);
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(IllegalStateException.class, () -> entry.signalDep(ZERO_VERSION, null));
   }
 
   @Test
@@ -194,12 +186,9 @@ public class InMemoryNodeEntryTest {
     entry.markRebuilding();
     setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L);
     assertThat(entry.isDone()).isTrue();
-    try {
-      setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 1L);
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 1L));
   }
 
   @Test
@@ -211,12 +200,9 @@ public class InMemoryNodeEntryTest {
     entry.markDirty(DirtyType.CHANGE);
     entry.addReverseDepAndCheckIfDone(null);
     entry.markRebuilding();
-    try {
-      setValue(entry, new IntegerValue(2), /*errorInfo=*/ null, /*graphVersion=*/ 0L);
-      fail();
-    } catch (ChangedValueAtSameVersionException e) {
-      // Expected.
-    }
+    assertThrows(
+        ChangedValueAtSameVersionException.class,
+        () -> setValue(entry, new IntegerValue(2), /*errorInfo=*/ null, /*graphVersion=*/ 0L));
   }
 
   @Test
@@ -378,12 +364,10 @@ public class InMemoryNodeEntryTest {
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
     entry.markDirty(DirtyType.CHANGE);
-    try {
-      entry.markDirty(DirtyType.CHANGE);
-      fail("Cannot mark entry changed twice");
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        "Cannot mark entry changed twice",
+        IllegalStateException.class,
+        () -> entry.markDirty(DirtyType.CHANGE));
   }
 
   @Test
@@ -396,12 +380,10 @@ public class InMemoryNodeEntryTest {
     entry.signalDep(ZERO_VERSION, dep);
     setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L);
     entry.markDirty(DirtyType.DIRTY);
-    try {
-      entry.markDirty(DirtyType.DIRTY);
-      fail("Cannot mark entry dirty twice");
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        "Cannot mark entry dirty twice",
+        IllegalStateException.class,
+        () -> entry.markDirty(DirtyType.DIRTY));
   }
 
   @Test
@@ -425,15 +407,14 @@ public class InMemoryNodeEntryTest {
     SkyKey parent = key("parent");
     assertThat(entry.addReverseDepAndCheckIfDone(parent))
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
-    try {
-      entry.addReverseDepAndCheckIfDone(parent);
-      entry.markRebuilding();
-      assertThat(setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L))
-          .containsExactly(parent);
-      fail("Cannot add same dep twice");
-    } catch (IllegalStateException e) {
-      assertThat(e).hasMessageThat().contains("Duplicate reverse deps");
-    }
+    entry.addReverseDepAndCheckIfDone(parent);
+    entry.markRebuilding();
+    IllegalStateException e =
+        assertThrows(
+            "Cannot add same dep twice",
+            IllegalStateException.class,
+            () -> setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L));
+    assertThat(e).hasMessageThat().contains("Duplicate reverse deps");
   }
 
   @Test
@@ -444,14 +425,13 @@ public class InMemoryNodeEntryTest {
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     SkyKey parent = key("parent");
     assertThat(entry.addReverseDepAndCheckIfDone(parent)).isEqualTo(DependencyState.DONE);
-    try {
-      entry.addReverseDepAndCheckIfDone(parent);
-      // We only check for duplicates when we request all the reverse deps.
-      entry.getReverseDepsForDoneEntry();
-      fail("Cannot add same dep twice");
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    entry.addReverseDepAndCheckIfDone(parent);
+    assertThrows(
+        "Cannot add same dep twice",
+        IllegalStateException.class,
+        () ->
+            // We only check for duplicates when we request all the reverse deps.
+            entry.getReverseDepsForDoneEntry());
   }
 
   @Test
@@ -462,14 +442,13 @@ public class InMemoryNodeEntryTest {
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
     entry.markRebuilding();
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
-    try {
-      entry.addReverseDepAndCheckIfDone(parent);
-      // We only check for duplicates when we request all the reverse deps.
-      entry.getReverseDepsForDoneEntry();
-      fail("Cannot add same dep twice");
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    entry.addReverseDepAndCheckIfDone(parent);
+    assertThrows(
+        "Cannot add same dep twice",
+        IllegalStateException.class,
+        () ->
+            // We only check for duplicates when we request all the reverse deps.
+            entry.getReverseDepsForDoneEntry());
   }
 
   @Test
@@ -843,7 +822,7 @@ public class InMemoryNodeEntryTest {
   }
 
   @Test
-  public void getGroupedDirectDeps() throws InterruptedException {
+  public void getCompressedDirectDepsForDoneEntry() throws InterruptedException {
     InMemoryNodeEntry entry = new InMemoryNodeEntry();
     ImmutableList<ImmutableSet<SkyKey>> groupedDirectDeps = ImmutableList.of(
         ImmutableSet.of(key("1A")),
@@ -868,8 +847,10 @@ public class InMemoryNodeEntryTest {
       }
     }
     entry.setValue(new IntegerValue(42), IntVersion.of(42L), null);
+    assertThat(entry.getNumberOfDirectDepGroups()).isEqualTo(groupedDirectDeps.size());
     int i = 0;
-    GroupedList<SkyKey> entryGroupedDirectDeps = entry.getGroupedDirectDeps();
+    GroupedList<SkyKey> entryGroupedDirectDeps =
+        GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
     assertThat(Iterables.size(entryGroupedDirectDeps)).isEqualTo(groupedDirectDeps.size());
     for (Iterable<SkyKey> depGroup : entryGroupedDirectDeps) {
       assertThat(depGroup).containsExactlyElementsIn(groupedDirectDeps.get(i++));

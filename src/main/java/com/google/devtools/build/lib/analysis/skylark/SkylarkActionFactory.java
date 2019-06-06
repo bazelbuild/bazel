@@ -22,9 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -75,6 +75,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -116,7 +117,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
 
       @Override
-      public ArtifactOwner getOwner() {
+      public ActionLookupValue.ActionLookupKey getOwner() {
         return skylarkActionFactory
             .getActionConstructionContext()
             .getAnalysisEnvironment()
@@ -214,6 +215,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   public void run(
       SkylarkList outputs,
       Object inputs,
+      Object unusedInputsList,
       Object executableUnchecked,
       Object toolsUnchecked,
       Object arguments,
@@ -249,6 +251,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     registerStarlarkAction(
         outputs,
         inputs,
+        unusedInputsList,
         toolsUnchecked,
         mnemonicUnchecked,
         progressMessage,
@@ -287,6 +290,10 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
    * #registerAction(Location, ActionAnalysisMetadata...)}.
    */
   public ActionConstructionContext getActionConstructionContext() {
+    return ruleContext;
+  }
+
+  public RuleContext getRuleContext() {
     return ruleContext;
   }
 
@@ -355,6 +362,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     registerStarlarkAction(
         outputs,
         inputs,
+        /*unusedInputsList=*/ Runtime.NONE,
         toolsUnchecked,
         mnemonicUnchecked,
         progressMessage,
@@ -408,6 +416,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   private void registerStarlarkAction(
       SkylarkList outputs,
       Object inputs,
+      Object unusedInputsList,
       Object toolsUnchecked,
       Object mnemonicUnchecked,
       Object progressMessage,
@@ -428,6 +437,26 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       inputArtifacts = inputSet;
     }
     builder.addOutputs(outputs.getContents(Artifact.class, "outputs"));
+
+    if (unusedInputsList != Runtime.NONE) {
+      if (!starlarkSemantics.experimentalStarlarkUnusedInputsList()) {
+        throw new EvalException(
+            location,
+            "'unused_inputs_list' attribute is experimental and disabled by default. "
+                + "This API is in development and subject to change at any time. "
+                + "Use --experimental_starlark_unused_inputs_list to use this experimental API.");
+      }
+      if (unusedInputsList instanceof Artifact) {
+        builder.setUnusedInputsList(Optional.of((Artifact) unusedInputsList));
+      } else {
+        throw new EvalException(
+            location,
+            "expected value of type 'File' for "
+                + "a member of parameter 'unused_inputs_list' but got "
+                + EvalUtils.getDataTypeName(unusedInputsList)
+                + " instead");
+      }
+    }
 
     if (toolsUnchecked != Runtime.UNBOUND) {
       @SuppressWarnings("unchecked")

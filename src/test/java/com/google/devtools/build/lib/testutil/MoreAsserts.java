@@ -321,6 +321,13 @@ public class MoreAsserts {
     fail(failureMessage);
   }
 
+  public static void assertNotContainsEventRegex(
+      Iterable<Event> eventCollector, String unexpectedEventRegex) {
+    for (Event event : eventCollector) {
+      assertThat(event.toString()).doesNotMatch(unexpectedEventRegex);
+    }
+  }
+
   /**
    * If the specified EventCollector contains an event which has
    * 'expectedEvent' as a substring, an informative assertion fails.
@@ -475,6 +482,17 @@ public class MoreAsserts {
    */
   public static <T extends Throwable> T assertThrows(
       Class<T> expectedThrowable, ThrowingRunnable runnable) {
+    return assertThrows("", expectedThrowable, runnable);
+  }
+
+  /*
+   * This method will be in JUnit 4.13. Instead of patching Bazel's JUnit jar to contain the
+   * <a href="https://github.com/junit-team/junit4/commit/bdb1799">patch</a>, we define it here.
+   * Once JUnit 4.13 is released, we will switcher callers to use org.junit.Assert#assertThrows
+   * instead. See https://github.com/bazelbuild/bazel/issues/3729.
+   */
+  public static <T extends Throwable> T assertThrows(
+      String message, Class<T> expectedThrowable, ThrowingRunnable runnable) {
     try {
       runnable.run();
     } catch (Throwable actualThrown) {
@@ -484,16 +502,23 @@ public class MoreAsserts {
         return retVal;
       } else {
         throw new AssertionError(
-            String.format(
-                "expected %s to be thrown, but %s was thrown",
-                expectedThrowable.getSimpleName(), actualThrown.getClass().getSimpleName()),
+            buildPrefix(message)
+                + String.format(
+                    "expected %s to be thrown, but %s was thrown",
+                    expectedThrowable.getSimpleName(), actualThrown.getClass().getSimpleName()),
             actualThrown);
       }
     }
-    String message =
-        String.format(
-            "expected %s to be thrown, but nothing was thrown", expectedThrowable.getSimpleName());
-    throw new AssertionError(message);
+    String mismatchMessage =
+        buildPrefix(message)
+            + String.format(
+                "expected %s to be thrown, but nothing was thrown",
+                expectedThrowable.getSimpleName());
+    throw new AssertionError(mismatchMessage);
+  }
+
+  private static String buildPrefix(String message) {
+    return message != null && message.length() != 0 ? message + ": " : "";
   }
 
   /** A helper interface for {@link #assertThrows}. */

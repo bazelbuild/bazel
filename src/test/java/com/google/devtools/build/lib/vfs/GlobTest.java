@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -205,7 +205,7 @@ public class GlobTest {
           }
 
           @Override
-          public Collection<Dirent> readdir(Path path, Symlinks symlinks) {
+          public Collection<Dirent> readdir(Path path) {
             throw new IllegalStateException();
           }
 
@@ -215,15 +215,15 @@ public class GlobTest {
           }
         };
 
-    try {
-      new UnixGlob.Builder(tmpPath)
-          .addPattern("foo/bar/wiz/file")
-          .setFilesystemCalls(new AtomicReference<>(syscalls))
-          .glob();
-      fail("Expected failure");
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().isEqualTo("EIO");
-    }
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                new UnixGlob.Builder(tmpPath)
+                    .addPattern("foo/bar/wiz/file")
+                    .setFilesystemCalls(new AtomicReference<>(syscalls))
+                    .glob());
+    assertThat(e).hasMessageThat().isEqualTo("EIO");
   }
 
   @Test
@@ -236,7 +236,7 @@ public class GlobTest {
           }
 
           @Override
-          public Collection<Dirent> readdir(Path path, Symlinks symlinks) {
+          public Collection<Dirent> readdir(Path path) {
             throw new IllegalStateException();
           }
 
@@ -322,14 +322,11 @@ public class GlobTest {
   }
 
   private void assertIllegalPattern(String pattern) throws Exception {
-    try {
-      new UnixGlob.Builder(tmpPath)
-          .addPattern(pattern)
-          .globInterruptible();
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().containsMatch("in glob pattern");
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new UnixGlob.Builder(tmpPath).addPattern(pattern).globInterruptible());
+    assertThat(e).hasMessageThat().containsMatch("in glob pattern");
   }
 
   @Test
@@ -346,24 +343,17 @@ public class GlobTest {
   public void testIOException() throws Exception {
     throwOnReaddir = fs.getPath("/throw_on_readdir");
     throwOnReaddir.createDirectory();
-    try {
-      new UnixGlob.Builder(throwOnReaddir).addPattern("**").glob();
-      fail();
-    } catch (IOException e) {
-      // Expected.
-    }
+    assertThrows(
+        IOException.class, () -> new UnixGlob.Builder(throwOnReaddir).addPattern("**").glob());
   }
 
   @Test
   public void testFastFailureithInterrupt() throws Exception {
     Thread.currentThread().interrupt();
     throwOnStat = tmpPath;
-    try {
-      new UnixGlob.Builder(tmpPath).glob();
-      fail();
-    } catch (FileNotFoundException e) {
-      assertThat(e).hasMessageThat().contains("globtmp");
-    }
+    FileNotFoundException e =
+        assertThrows(FileNotFoundException.class, () -> new UnixGlob.Builder(tmpPath).glob());
+    assertThat(e).hasMessageThat().contains("globtmp");
   }
 
   @Test
@@ -380,27 +370,17 @@ public class GlobTest {
           }
         };
 
-    Future<?> globResult = null;
-    try {
-      globResult =
-          new UnixGlob.Builder(tmpPath)
-              .addPattern("**")
-              .setDirectoryFilter(interrupterPredicate)
-              .setExecutor(executor)
-              .globAsync();
-      globResult.get();
-      fail(); // Should have received InterruptedException
-    } catch (InterruptedException e) {
-      // good
-    }
+    Future<?> globResult =
+        new UnixGlob.Builder(tmpPath)
+            .addPattern("**")
+            .setDirectoryFilter(interrupterPredicate)
+            .setExecutor(executor)
+            .globAsync();
+    assertThrows(InterruptedException.class, () -> globResult.get());
 
     globResult.cancel(true);
-    try {
-      Uninterruptibles.getUninterruptibly(globResult);
-      fail();
-    } catch (CancellationException e) {
-      // Expected.
-    }
+    assertThrows(
+        CancellationException.class, () -> Uninterruptibles.getUninterruptibly(globResult));
 
     Thread.interrupted();
     assertThat(executor.isShutdown()).isFalse();
@@ -469,7 +449,7 @@ public class GlobTest {
     ImmutableList<String> paths = ImmutableList.of("a/A.java", "a/B.java", "a/b/C.java", "c.cc");
     assertThat(removeExcludes(paths, "**/*.java")).containsExactly("c.cc");
     assertThat(removeExcludes(paths, "a/**/*.java")).containsExactly("c.cc");
-    assertThat(removeExcludes(paths, "**/nomatch.*")).containsAllIn(paths);
+    assertThat(removeExcludes(paths, "**/nomatch.*")).containsAtLeastElementsIn(paths);
     assertThat(removeExcludes(paths, "a/A.java")).containsExactly("a/B.java", "a/b/C.java", "c.cc");
     assertThat(removeExcludes(paths, "a/?.java")).containsExactly("a/b/C.java", "c.cc");
     assertThat(removeExcludes(paths, "a/*/C.java")).containsExactly("a/A.java", "a/B.java", "c.cc");
@@ -483,3 +463,4 @@ public class GlobTest {
         .containsExactly("a/b/*.java", "c.cc");
   }
 }
+

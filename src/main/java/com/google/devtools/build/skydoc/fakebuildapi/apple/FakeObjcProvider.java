@@ -27,16 +27,6 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
 
   @Override
-  public NestedSet<FileApi> assetCatalog() {
-    return null;
-  }
-
-  @Override
-  public SkylarkNestedSet bundleFile() {
-    return null;
-  }
-
-  @Override
   public NestedSet<String> define() {
     return null;
   }
@@ -162,11 +152,6 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public NestedSet<FileApi> rootMergeZip() {
-    return null;
-  }
-
-  @Override
   public NestedSet<String> sdkDylib() {
     return null;
   }
@@ -192,37 +177,12 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public NestedSet<FileApi> storyboard() {
-    return null;
-  }
-
-  @Override
-  public NestedSet<FileApi> strings() {
-    return null;
-  }
-
-  @Override
   public NestedSet<FileApi> umbrellaHeader() {
     return null;
   }
 
   @Override
   public SkylarkNestedSet weakSdkFramework() {
-    return null;
-  }
-
-  @Override
-  public SkylarkNestedSet xcassetsDir() {
-    return null;
-  }
-
-  @Override
-  public NestedSet<FileApi> xcdatamodel() {
-    return null;
-  }
-
-  @Override
-  public NestedSet<FileApi> xib() {
     return null;
   }
 

@@ -63,7 +63,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     BuildOptions original = getOptionsWithoutFlagFragment();
     BuildOptions converted = transition.patch(original);
 
-    assertThat(converted).isSameAs(original);
+    assertThat(converted).isSameInstanceAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
   }
 
@@ -85,7 +85,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     BuildOptions original = getOptionsWithoutFlagFragment();
     BuildOptions converted = transition.patch(original);
 
-    assertThat(converted).isSameAs(original);
+    assertThat(converted).isSameInstanceAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
   }
 
@@ -99,7 +99,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
     BuildOptions converted = transition.patch(original);
 
-    assertThat(converted).isNotSameAs(original);
+    assertThat(converted).isNotSameInstanceAs(original);
     assertThat(FeatureFlagValue.getFlagValues(original)).containsExactlyEntriesIn(originalFlagMap);
     assertThat(FeatureFlagValue.getFlagValues(converted)).isEmpty();
   }
@@ -127,7 +127,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
     BuildOptions converted = transition.patch(original);
 
-    assertThat(converted).isNotSameAs(original);
+    assertThat(converted).isNotSameInstanceAs(original);
     assertThat(FeatureFlagValue.getFlagValues(original)).containsExactlyEntriesIn(originalFlagMap);
     assertThat(FeatureFlagValue.getFlagValues(converted)).containsExactlyEntriesIn(expectedFlagMap);
   }

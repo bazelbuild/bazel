@@ -188,6 +188,8 @@ def get_cpu_value(repository_ctx):
     result = repository_ctx.execute(["uname", "-m"])
     if result.stdout.strip() in ["power", "ppc64le", "ppc", "ppc64"]:
         return "ppc"
+    if result.stdout.strip() in ["s390x"]:
+        return "s390x"
     if result.stdout.strip() in ["arm", "armv7l"]:
         return "arm"
     if result.stdout.strip() in ["aarch64"]:
@@ -205,3 +207,8 @@ def build_flags(flags):
 
 def get_starlark_list(values):
     return "\"" + "\",\n    \"".join(values) + "\""
+
+def auto_configure_warning_maybe(repository_ctx, msg):
+    """Output warning message when CC_CONFIGURE_DEBUG is enabled."""
+    if is_cc_configure_debug(repository_ctx):
+        auto_configure_warning(msg)

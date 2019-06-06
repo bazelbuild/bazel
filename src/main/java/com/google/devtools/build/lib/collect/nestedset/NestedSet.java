@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static java.util.stream.Collectors.joining;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -32,7 +31,6 @@ import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -210,7 +208,7 @@ public final class NestedSet<E> implements Iterable<E> {
         System.err.println(
             "An interrupted exception occurred during nested set deserialization, "
                 + "exiting abruptly.");
-        BugReport.handleCrash(e, ExitCode.INTERRUPTED.getNumericExitCode());
+        BugReport.handleCrash(e, ExitCode.INTERRUPTED);
         throw new IllegalStateException("Server should have shut down.", e);
       }
     } else {
@@ -264,31 +262,21 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
-   * Returns a collection of all unique elements of this set (including subsets) in an
-   * implementation-specified order as a {@code Collection}.
-   *
-   * <p>If you do not need a Collection and an Iterable is enough, use the nested set itself as an
-   * Iterable.
-   */
-  public Collection<E> toCollection() {
-    return toList();
-  }
-
-  /**
-   * Returns a collection of all unique elements of the this set, similar to {@link #toCollection},
+   * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
    * but will propagate an {@code InterruptedException} if one is thrown.
    */
-  public Collection<E> toCollectionInterruptibly() throws InterruptedException {
+  public ImmutableList<E> toListInterruptibly() throws InterruptedException {
     return toList(/*handleInterruptedException=*/ false);
   }
 
   /**
-   * Returns a collection of all unique elements of this set (including subsets) in an
-   * implementation-specified order as a {code List}.
+   * Returns an immutable list of all unique elements of this set (including subsets) in an
+   * implementation-specified order.
    *
-   * <p>Use {@link #toCollection} when possible for better efficiency.
+   * <p>Prefer calling this method over {@link ImmutableList#copyOf} on this set for better
+   * efficiency, as it saves an iteration.
    */
-  public List<E> toList() {
+  public ImmutableList<E> toList() {
     try {
       return toList(/*handleInterruptedException=*/ true);
     } catch (InterruptedException e) {
@@ -301,7 +289,7 @@ public final class NestedSet<E> implements Iterable<E> {
    * one occurs while waiting for a {@code Future} in {@link #getChildren} or will have {@link
    * #getChildren(boolean)} handle it.
    */
-  private List<E> toList(boolean handleInterruptedException) throws InterruptedException {
+  private ImmutableList<E> toList(boolean handleInterruptedException) throws InterruptedException {
     if (isSingleton()) {
       // No need to check for ListenableFuture members - singletons can't have them.
       return ImmutableList.of((E) children);
@@ -315,12 +303,10 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
-   * Returns a collection of all unique elements of this set (including subsets) in an
-   * implementation-specified order as a {@code Set}.
-   *
-   * <p>Use {@link #toCollection} when possible for better efficiency.
+   * Returns an immutable set of all unique elements of this set (including subsets) in an
+   * implementation-specified order.
    */
-  public Set<E> toSet() {
+  public ImmutableSet<E> toSet() {
     return ImmutableSet.copyOf(toList());
   }
 
@@ -394,19 +380,10 @@ public final class NestedSet<E> implements Iterable<E> {
     }
   }
 
-  private enum Stringer implements Function<Object, String> {
-    INSTANCE;
-
-    @Override
-    public String apply(Object o) {
-      return childrenToString(o);
-    }
-  }
-
   @Override
   public Iterator<E> iterator() {
     // TODO: would it help to have a proper lazy iterator?  seems like it might reduce garbage.
-    return toCollection().iterator();
+    return toList().iterator();
   }
 
   /**

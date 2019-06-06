@@ -50,7 +50,10 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "MyInfo = provider()",
         "def _impl(ctx):",
         "  provider = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(cc_toolchain = provider)",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = provider,",
+        "  )",
         "  return MyInfo(",
         "    dirs = provider.built_in_include_directories,",
         "    sysroot = provider.sysroot,",
@@ -63,7 +66,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "",
         "my_rule = rule(",
         "  _impl,",
-        "  attrs = {'_cc_toolchain': attr.label(default=Label('//test:toolchain')) }",
+        "  attrs = {'_cc_toolchain': attr.label(default=Label('//test:toolchain'))},",
+        "  fragments = [ 'cpp' ],",
         ")");
 
     scratch.file("test/BUILD",

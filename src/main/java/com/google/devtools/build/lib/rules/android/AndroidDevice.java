@@ -82,9 +82,16 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
   private static final Predicate<Artifact> SOURCE_PROPERTIES_FILTER =
       Predicates.not(SOURCE_PROPERTIES_SELECTOR);
 
+  private final AndroidSemantics androidSemantics;
+
+  protected AndroidDevice(AndroidSemantics androidSemantics) {
+    this.androidSemantics = androidSemantics;
+  }
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    androidSemantics.checkForMigrationTag(ruleContext);
     checkWhitelist(ruleContext);
     Artifact executable = ruleContext.createOutputArtifact();
     Artifact metadata =

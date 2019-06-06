@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -217,11 +217,7 @@ public final class AndroidRuleClasses {
       AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
 
       CppOptions cppOptions = options.get(CppOptions.class);
-      if (androidOptions.androidCrosstoolTop != null
-          && !cppOptions.crosstoolTop.equals(androidOptions.androidCrosstoolTop)) {
-        if (cppOptions.hostCrosstoolTop == null) {
-          cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
-        }
+      if (androidOptions.androidCrosstoolTop != null) {
         cppOptions.crosstoolTop = androidOptions.androidCrosstoolTop;
       }
 
@@ -246,7 +242,7 @@ public final class AndroidRuleClasses {
         } else {
 
           BuildOptions splitOptions = buildOptions.clone();
-          splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
+          splitOptions.get(CoreOptions.class).cpu = androidOptions.cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
           return ImmutableList.of(splitOptions);
         }
@@ -262,7 +258,7 @@ public final class AndroidRuleClasses {
           // Set the cpu & android_cpu.
           // TODO(bazel-team): --android_cpu doesn't follow --cpu right now; it should.
           splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
-          splitOptions.get(BuildConfiguration.Options.class).cpu = cpu;
+          splitOptions.get(CoreOptions.class).cpu = cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
           result.add(splitOptions);
         }
@@ -983,7 +979,12 @@ public final class AndroidRuleClasses {
 
     private final Label[] compatibleWithAndroidEnvironments;
 
-    public AndroidToolsDefaultsJarRule(Label... compatibleWithAndroidEnvironments) {
+    private final Class<? extends AndroidToolsDefaultsJar> factoryClass;
+
+    public AndroidToolsDefaultsJarRule(
+        Class<? extends AndroidToolsDefaultsJar> factoryClass,
+        Label... compatibleWithAndroidEnvironments) {
+      this.factoryClass = factoryClass;
       this.compatibleWithAndroidEnvironments = compatibleWithAndroidEnvironments;
     }
 
@@ -1006,7 +1007,7 @@ public final class AndroidRuleClasses {
       return Metadata.builder()
           .name("android_tools_defaults_jar")
           .ancestors(BaseRuleClasses.BaseRule.class)
-          .factoryClass(AndroidToolsDefaultsJar.class)
+          .factoryClass(factoryClass)
           .build();
     }
   }

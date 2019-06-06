@@ -146,7 +146,7 @@ public class MavenJarFunction extends RepositoryFunction {
       Path outputDirectory,
       MavenServerValue serverValue,
       ExtendedEventHandler eventHandler)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
     MavenDownloader mavenDownloader = downloader;
 
     createDirectory(outputDirectory);

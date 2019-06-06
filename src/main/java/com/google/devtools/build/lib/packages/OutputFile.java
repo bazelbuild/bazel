@@ -39,14 +39,6 @@ public final class OutputFile extends FileTarget {
    * Constructs an output file with the given label, which must be in the given
    * package.
    */
-  OutputFile(Package pkg, Label label, Rule generatingRule) {
-    this(pkg, label, Kind.FILE, generatingRule);
-  }
-
-  /**
-   * Constructs an output file with the given label, which must be in the given
-   * package.
-   */
   OutputFile(Package pkg, Label label,
       Kind kind, Rule generatingRule) {
     super(pkg, label);

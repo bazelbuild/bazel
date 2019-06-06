@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.trimming.ConfigurationComparer;
 import com.google.devtools.build.lib.skyframe.trimming.TrimmableTestConfigurationFragments.AOptions;
 import com.google.devtools.build.lib.skyframe.trimming.TrimmableTestConfigurationFragments.BOptions;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Objects;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -459,13 +459,13 @@ public final class BuildOptionsCompareFragmentsTest {
       OptionsDiffForReconstruction diffB = BuildOptions.diffForReconstruction(baseB, newB);
 
       IllegalArgumentException forwardException =
-          MoreAsserts.assertThrows(
+          assertThrows(
               IllegalArgumentException.class,
               () -> OptionsDiffForReconstruction.compareFragments(diffA, diffB));
       assertThat(forwardException).hasMessageThat().contains("diffs with different bases");
 
       IllegalArgumentException reverseException =
-          MoreAsserts.assertThrows(
+          assertThrows(
               IllegalArgumentException.class,
               () -> OptionsDiffForReconstruction.compareFragments(diffB, diffA));
       assertThat(reverseException).hasMessageThat().contains("diffs with different bases");

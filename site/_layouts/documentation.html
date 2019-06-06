@@ -47,7 +47,7 @@ nav: docs
               <li><a href="/versions/{{ current_version }}/backward-compatibility.html">Backward Compatibility</a></li>
             </ul>
 
-            <h3>Using Bazel</h3>
+            <h3>Installing and Using Bazel</h3>
             <ul class="sidebar-nav">
 
               <li>
@@ -65,8 +65,25 @@ nav: docs
                    <li><a href="/versions/{{ current_version }}/install-compile-source.html">Compiling from Source</a></li>
                    <li><a href="/versions/{{ current_version }}/completion.html">Command-Line Completion</a></li>
                    <li><a href="/versions/{{ current_version }}/ide.html">Integrating with IDEs</a></li>
-                 </ul>
-                </li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#using-menu" aria-expanded="false"
+                    aria-controls="using-menu">
+                  Using Bazel<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="using-menu">
+                  <li><a href="/versions/{{ current_version }}/build-ref.html">Bazel Concepts</a></li>
+                  <li><a href="/versions/{{ current_version }}/guide.html">User's Guide (Bazel commands)</a></li>
+                  <li><a href="/versions/{{ current_version }}/external.html">External Dependencies</a></li>
+                  <li><a href="/versions/{{ current_version }}/configurable-attributes.html">Configurable Attributes</a></li>
+                  <li><a href="/versions/{{ current_version }}/best-practices.html">Best Practices</a></li>
+                  <li><a href="/versions/{{ current_version }}/memory-saving-mode.html">Memory-saving Mode</a></li>
+                  <li><a href="/versions/{{ current_version }}/windows.html">Using Bazel on Windows</a></li>
+                </ul>
+              </li>
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
@@ -84,10 +101,6 @@ nav: docs
                  </ul>
               </li>
 
-              <li><a href="/versions/{{ current_version }}/build-ref.html">Bazel Concepts</a></li>
-              <li><a href="/versions/{{ current_version }}/guide.html">User's Guide</a></li>
-              <li><a href="/versions/{{ current_version }}/external.html">External Dependencies</a></li>
-
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#query-menu" aria-expanded="false"
@@ -102,8 +115,6 @@ nav: docs
                 </ul>
               </li>
 
-              <li><a href="/versions/{{ current_version }}/configurable-attributes.html">Configurable Attributes</a></li>
-              <li><a href="/versions/{{ current_version }}/best-practices.html">Best Practices</a></li>
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#remote-execution-menu" aria-expanded="false"
@@ -256,6 +267,7 @@ nav: docs
                   <li><a href="/versions/{{ current_version }}/skylark/depsets.html">Depsets</a></li>
                   <li><a href="/versions/{{ current_version }}/skylark/aspects.html">Aspects</a></li>
                   <li><a href="/versions/{{ current_version }}/skylark/repository_rules.html">Repository Rules</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/config.html">Configurations</a></li>
                   <li><a href="/versions/{{ current_version }}/skylark/faq.html">FAQ</a></li>
                 </ul>
               </li>
@@ -273,6 +285,7 @@ nav: docs
                   <li><a href="/versions/{{ current_version }}/skylark/skylint.html">Linter</a></li>
                   <li><a href="/versions/{{ current_version }}/skylark/performance.html">Optimizing Performance</a></li>
                   <li><a href="/versions/{{ current_version }}/skylark/deploying.html">Deploying Rules</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/windows_tips.html">Writing rules on Windows</a></li>
                 </ul>
               </li>
 

@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts.ThrowingRunnable;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -47,8 +47,8 @@ public class PyStructUtilsTest extends FoundationTestCase {
   @Before
   public void setUp() {
     this.dummyArtifact =
-        new Artifact(
-            PathFragment.create("dummy"), ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)));
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)), "dummy");
   }
 
   /**
@@ -107,7 +107,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
         makeStruct(
             ImmutableMap.of(
                 PyStructUtils.TRANSITIVE_SOURCES, SkylarkNestedSet.of(Artifact.class, sources)));
-    assertThat(PyStructUtils.getTransitiveSources(info)).isSameAs(sources);
+    assertThat(PyStructUtils.getTransitiveSources(info)).isSameInstanceAs(sources);
   }
 
   @Test
@@ -162,7 +162,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
     StructImpl info =
         makeStruct(
             ImmutableMap.of(PyStructUtils.IMPORTS, SkylarkNestedSet.of(String.class, imports)));
-    assertThat(PyStructUtils.getImports(info)).isSameAs(imports);
+    assertThat(PyStructUtils.getImports(info)).isSameInstanceAs(imports);
   }
 
   @Test

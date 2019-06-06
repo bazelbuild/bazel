@@ -46,12 +46,9 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
   protected abstract AndroidSemantics createAndroidSemantics();
 
-  protected abstract AndroidMigrationSemantics createAndroidMigrationSemantics();
-
   /** Checks expected rule invariants, throws rule errors if anything is set wrong. */
   private static void validateRuleContext(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-
     /**
      * TODO(b/14473160): Remove when deps are no longer implicitly exported.
      *
@@ -115,15 +112,13 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    validateRuleContext(ruleContext);
-
     // Create semantics objects, which are different between Blaze and Bazel.
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
+    androidSemantics.checkForMigrationTag(ruleContext);
     androidSemantics.validateAndroidLibraryRuleContext(ruleContext);
-    createAndroidMigrationSemantics().validateRuleContext(ruleContext);
-
     AndroidSdkProvider.verifyPresence(ruleContext);
+    validateRuleContext(ruleContext);
 
     // Create wrappers for the ProGuard configuration files.
     NestedSetBuilder<Artifact> proguardConfigsbuilder = NestedSetBuilder.stableOrder();

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -33,7 +34,7 @@ public interface CppIncludeScanningContext extends ActionContext {
    * <p>Returns null if additional inputs will only be found during action execution, not before.
    */
   @Nullable
-  Iterable<Artifact> findAdditionalInputs(
+  ListenableFuture<Iterable<Artifact>> findAdditionalInputs(
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
       IncludeProcessing includeProcessing,

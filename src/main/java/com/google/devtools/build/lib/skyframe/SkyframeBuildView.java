@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRoots;
@@ -52,6 +51,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.causes.Cause;
@@ -228,7 +228,7 @@ public final class SkyframeBuildView {
       // detection.
       optionsWithCacheInvalidatingDifferences =
           optionsWithCacheInvalidatingDifferences.filter(
-              (definition) -> !BuildConfiguration.Options.CPU.equals(definition));
+              (definition) -> !CoreOptions.CPU.equals(definition));
       ImmutableSet<String> oldCpus =
           oldTargetConfigs.stream().map(BuildConfiguration::getCpu).collect(toImmutableSet());
       ImmutableSet<String> newCpus =
@@ -304,6 +304,12 @@ public final class SkyframeBuildView {
         eventHandler.handle(Event.info(diff + ", discarding analysis cache."));
         skyframeExecutor.handleAnalysisInvalidatingChange();
       }
+    }
+    if (configurations.getTargetConfigurations().stream()
+        .anyMatch(BuildConfiguration::trimConfigurationsRetroactively)) {
+      skyframeExecutor.activateRetroactiveTrimming();
+    } else {
+      skyframeExecutor.deactivateRetroactiveTrimming();
     }
     skyframeAnalysisWasDiscarded = false;
     this.configurations = configurations;
@@ -429,7 +435,7 @@ public final class SkyframeBuildView {
     }
     PackageRoots packageRoots =
         singleSourceRoot == null
-            ? new MapAsPackageRoots(collectPackageRoots(packages.build().toCollection()))
+            ? new MapAsPackageRoots(collectPackageRoots(packages.build().toList()))
             : new PackageRootsNoSymlinkCreation(singleSourceRoot);
 
     if (!result.hasError() && badActions.isEmpty()) {
@@ -720,7 +726,7 @@ public final class SkyframeBuildView {
   /** Returns null if any build-info values are not ready. */
   @Nullable
   CachingAnalysisEnvironment createAnalysisEnvironment(
-      ArtifactOwner owner,
+      ActionLookupValue.ActionLookupKey owner,
       boolean isSystemEnv,
       ExtendedEventHandler eventHandler,
       Environment env,

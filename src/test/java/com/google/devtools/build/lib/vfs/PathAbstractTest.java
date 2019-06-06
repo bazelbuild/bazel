@@ -60,11 +60,11 @@ public abstract class PathAbstractTest {
   @Test
   public void testNormalStringsDoNotAllocate() {
     String normal1 = "/a/b/hello.txt";
-    assertThat(create(normal1).getPathString()).isSameAs(normal1);
+    assertThat(create(normal1).getPathString()).isSameInstanceAs(normal1);
 
     // Sanity check our testing strategy
     String notNormal = "/a/../b";
-    assertThat(create(notNormal).getPathString()).isNotSameAs(notNormal);
+    assertThat(create(notNormal).getPathString()).isNotSameInstanceAs(notNormal);
   }
 
   @Test

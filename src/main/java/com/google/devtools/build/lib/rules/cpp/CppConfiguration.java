@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
@@ -139,13 +139,15 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   private final String transformedCpuFromOptions;
   // TODO(lberki): desiredCpu *should* be always the same as targetCpu, except that we don't check
-  // that the CPU we get from the toolchain matches BuildConfiguration.Options.cpu . So we store
+  // that the CPU we get from the toolchain matches CoreOptions.cpu . So we store
   // it here so that the output directory doesn't depend on the CToolchain. When we will eventually
   // verify that the two are the same, we can remove one of desiredCpu and targetCpu.
   private final String desiredCpu;
 
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
+
+  private final PathFragment csFdoAbsolutePath;
 
   private final ImmutableList<String> conlyopts;
 
@@ -168,7 +170,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
 
-    Options commonOptions = options.get(Options.class);
+    CoreOptions commonOptions = options.get(CoreOptions.class);
     CompilationMode compilationMode = commonOptions.compilationMode;
 
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
@@ -197,6 +199,22 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       }
     }
 
+    PathFragment csFdoAbsolutePath = null;
+    if (cppOptions.csFdoAbsolutePathForBuild != null) {
+      csFdoAbsolutePath = PathFragment.create(cppOptions.csFdoAbsolutePathForBuild);
+      if (!csFdoAbsolutePath.isAbsolute()) {
+        throw new InvalidConfigurationException(
+            "Path of '"
+                + csFdoAbsolutePath.getPathString()
+                + "' in --cs_fdo_absolute_path is not an absolute path.");
+      }
+      try {
+        FileSystemUtils.checkBaseName(csFdoAbsolutePath.getBaseName());
+      } catch (IllegalArgumentException e) {
+        throw new InvalidConfigurationException(e);
+      }
+    }
+
     return new CppConfiguration(
         cppOptions.doNotUseCpuTransformer
             ? commonOptions.cpu
@@ -204,6 +222,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         Preconditions.checkNotNull(commonOptions.cpu),
         fdoPath,
         fdoProfileLabel,
+        csFdoAbsolutePath,
         ImmutableList.copyOf(cppOptions.conlyoptList),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),
@@ -224,6 +243,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       String desiredCpu,
       PathFragment fdoPath,
       Label fdoOptimizeLabel,
+      PathFragment csFdoAbsolutePath,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
       ImmutableList<String> cxxopts,
@@ -239,6 +259,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
+    this.csFdoAbsolutePath = csFdoAbsolutePath;
     this.conlyopts = conlyopts;
     this.copts = copts;
     this.cxxopts = cxxopts;
@@ -493,7 +514,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
     // This is an assertion check vs. user error because users can't trigger this state.
     Verify.verify(
-        !(buildOptions.get(BuildConfiguration.Options.class).isHost && cppOptions.isFdo()),
+        !(buildOptions.get(CoreOptions.class).isHost && cppOptions.isFdo()),
         "FDO state should not propagate to the host configuration");
   }
 
@@ -546,6 +567,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public String getCSFdoInstrument() {
     return cppOptions.csFdoInstrumentForBuild;
+  }
+
+  public PathFragment getCSFdoAbsolutePath() {
+    return csFdoAbsolutePath;
   }
 
   Label getFdoPrefetchHintsLabel() {
@@ -635,10 +660,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return !cppOptions.disableLegacyCcProvider;
   }
 
-  public boolean disableCrosstool() {
-    return cppOptions.disableCrosstool;
-  }
-
   public boolean dontEnableHostNonhost() {
     return cppOptions.dontEnableHostNonhost;
   }
@@ -668,5 +689,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean useStandaloneLtoIndexingCommandLines() {
     return cppOptions.useStandaloneLtoIndexingCommandLines;
+  }
+
+  public boolean useSpecificToolFiles() {
+    return cppOptions.useSpecificToolFiles;
   }
 }

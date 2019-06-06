@@ -48,7 +48,7 @@ DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/ja
 EXCLUDE_FILES="src/main/java/com/google/devtools/build/lib/server/GrpcServerImpl.java src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/*"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
-EXCLUDE_DIRS="src/main/java/com/google/devtools/build/skydoc"
+EXCLUDE_DIRS="src/main/java/com/google/devtools/build/skydoc src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing"
 for d in $EXCLUDE_DIRS ; do
   for f in $(find $d -type f) ; do
     EXCLUDE_FILES+=" $f"
@@ -226,7 +226,13 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   cat <<EOF >${BAZEL_TOOLS_REPO}/WORKSPACE
 workspace(name = 'bazel_tools')
 EOF
-  link_dir ${PWD}/src ${BAZEL_TOOLS_REPO}/src
+
+  mkdir -p "${BAZEL_TOOLS_REPO}/src/conditions"
+  link_file "${PWD}/src/conditions/BUILD.tools" \
+      "${BAZEL_TOOLS_REPO}/src/conditions/BUILD"
+  link_children "${PWD}" src/conditions "${BAZEL_TOOLS_REPO}"
+  link_children "${PWD}" src "${BAZEL_TOOLS_REPO}"
+
   link_dir ${PWD}/third_party ${BAZEL_TOOLS_REPO}/third_party
 
   # Create @bazel_tools//tools/cpp/runfiles
@@ -266,7 +272,7 @@ EOF
 
   # Set up @bazel_tools//platforms properly
   mkdir -p ${BAZEL_TOOLS_REPO}/platforms
-  cp tools/platforms/platforms.BUILD ${BAZEL_TOOLS_REPO}/platforms/BUILD
+  cp tools/platforms/BUILD.tools ${BAZEL_TOOLS_REPO}/platforms/BUILD
 
   # Overwrite tools.WORKSPACE, this is only for the bootstrap binary
   chmod u+w "${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE"

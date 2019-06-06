@@ -186,7 +186,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   }
 
   public boolean containsKey(Digest digest) throws IOException, InterruptedException {
-    return blobStore.containsKey(digest.getHash());
+    return blobStore.contains(digest.getHash());
   }
 
   @Override
@@ -206,7 +206,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     }
     // This unconditionally downloads the whole blob into memory!
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    boolean success = blobStore.getActionResult(digest.getHash(), out);
+    boolean success = getFromFuture(blobStore.getActionResult(digest.getHash(), out));
     if (!success) {
       throw new CacheNotFoundException(digest, digestUtil);
     }

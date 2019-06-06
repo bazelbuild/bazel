@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -25,22 +24,14 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.ArtifactNamePattern;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
-import com.google.protobuf.Descriptors.FieldDescriptor;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Information describing the C++ compiler derived from the CToolchain proto.
@@ -157,137 +148,6 @@ public final class CppToolchainInfo {
   @VisibleForTesting
   static CompilationMode importCompilationMode(CrosstoolConfig.CompilationMode mode) {
     return CompilationMode.valueOf(mode.name());
-  }
-
-  // TODO(bazel-team): Remove this once bazel supports all crosstool flags through
-  // feature configuration, and all crosstools have been converted.
-  public static CToolchain addLegacyFeatures(
-      CToolchain toolchain,
-      boolean doNotSplitLinkingCmdLine,
-      PathFragment crosstoolTopPathFragment) {
-    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-
-    Set<ArtifactCategory> definedCategories = new HashSet<>();
-    for (ArtifactNamePattern pattern : toolchainBuilder.getArtifactNamePatternList()) {
-      try {
-        definedCategories.add(
-            ArtifactCategory.valueOf(pattern.getCategoryName().toUpperCase(Locale.ENGLISH)));
-      } catch (IllegalArgumentException e) {
-        // Invalid category name, will be detected later.
-        continue;
-      }
-    }
-
-    for (ArtifactCategory category : ArtifactCategory.values()) {
-      if (!definedCategories.contains(category)
-          && category.getDefaultPrefix() != null
-          && category.getDefaultExtension() != null) {
-        toolchainBuilder.addArtifactNamePattern(
-            ArtifactNamePattern.newBuilder()
-                .setCategoryName(category.toString().toLowerCase())
-                .setPrefix(category.getDefaultPrefix())
-                .setExtension(category.getDefaultExtension())
-                .build());
-      }
-    }
-
-    ImmutableSet<String> featureNames =
-        toolchain.getFeatureList().stream()
-            .map(feature -> feature.getName())
-            .collect(ImmutableSet.toImmutableSet());
-    if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
-      String gccToolPath = "DUMMY_GCC_TOOL";
-      String linkerToolPath = "DUMMY_LINKER_TOOL";
-      String arToolPath = "DUMMY_AR_TOOL";
-      String stripToolPath = "DUMMY_STRIP_TOOL";
-      for (ToolPath tool : toolchain.getToolPathList()) {
-        if (tool.getName().equals(CppConfiguration.Tool.GCC.getNamePart())) {
-          gccToolPath = tool.getPath();
-          linkerToolPath =
-              crosstoolTopPathFragment
-                  .getRelative(PathFragment.create(tool.getPath()))
-                  .getPathString();
-        }
-        if (tool.getName().equals(CppConfiguration.Tool.AR.getNamePart())) {
-          arToolPath = tool.getPath();
-        }
-        if (tool.getName().equals(CppConfiguration.Tool.STRIP.getNamePart())) {
-          stripToolPath = tool.getPath();
-        }
-      }
-
-      // TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there are no legacy
-      // crosstools.
-      // Existing projects depend on flags from legacy toolchain fields appearing first on the
-      // compile command line. 'legacy_compile_flags' feature contains all these flags, and so it
-      // needs to appear before other features from {@link CppActionConfigs}.
-      if (featureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS)) {
-        CToolchain.Feature legacyCompileFlags =
-            toolchain.getFeatureList().stream()
-                .filter(feature -> feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
-                .findFirst()
-                .get();
-        if (legacyCompileFlags != null) {
-          toolchainBuilder.addFeature(legacyCompileFlags);
-        }
-      }
-      if (featureNames.contains(CppRuleClasses.DEFAULT_COMPILE_FLAGS)) {
-        CToolchain.Feature defaultCompileFlags =
-            toolchain.getFeatureList().stream()
-                .filter(feature -> feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
-                .findFirst()
-                .get();
-        if (defaultCompileFlags != null) {
-          toolchainBuilder.addFeature(defaultCompileFlags);
-        }
-      }
-      toolchain = removeSpecialFeatureFromToolchain(toolchain);
-
-      CppPlatform platform =
-          toolchain.getTargetLibc().equals(CppActionConfigs.MACOS_TARGET_LIBC)
-              ? CppPlatform.MAC
-              : CppPlatform.LINUX;
-
-      toolchainBuilder.addAllActionConfig(
-          CppActionConfigs.getLegacyActionConfigs(
-              platform,
-              gccToolPath,
-              arToolPath,
-              stripToolPath,
-              toolchain.getSupportsInterfaceSharedObjects()));
-
-      toolchainBuilder.addAllFeature(
-          CppActionConfigs.getLegacyFeatures(
-              platform,
-              featureNames,
-              linkerToolPath,
-              toolchain.getSupportsEmbeddedRuntimes(),
-              toolchain.getSupportsInterfaceSharedObjects(),
-              doNotSplitLinkingCmdLine));
-    }
-
-    toolchainBuilder.mergeFrom(toolchain);
-
-    if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
-      toolchainBuilder.addAllFeature(
-          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
-              featureNames, doNotSplitLinkingCmdLine));
-    }
-
-    return toolchainBuilder.build();
-  }
-
-  private static CToolchain removeSpecialFeatureFromToolchain(CToolchain toolchain) {
-    FieldDescriptor featuresFieldDescriptor = CToolchain.getDescriptor().findFieldByName("feature");
-    return toolchain
-        .toBuilder()
-        .setField(
-            featuresFieldDescriptor,
-            toolchain.getFeatureList().stream()
-                .filter(feature -> !feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
-                .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
-                .collect(ImmutableList.toImmutableList()))
-        .build();
   }
 
   /**

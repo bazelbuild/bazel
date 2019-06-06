@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ActionInputHelper.asTreeFileArtifacts;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
@@ -144,7 +144,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       Artifact treeArtifact = createTreeArtifact("out");
       TreeArtifactValue value = evaluateTreeArtifact(treeArtifact, children);
       assertThat(value.getChildPaths()).containsExactlyElementsIn(children);
-      assertThat(value.getChildPaths()).isOrdered(Comparator.naturalOrder());
+      assertThat(value.getChildPaths()).isInOrder(Comparator.naturalOrder());
     }
   }
 
@@ -163,7 +163,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       }
     });
     TreeArtifactValue valueTwo = evaluateTreeArtifact(treeArtifact, children);
-    assertThat(valueOne.getDigest()).isNotSameAs(valueTwo.getDigest());
+    assertThat(valueOne.getDigest()).isNotSameInstanceAs(valueTwo.getDigest());
     assertThat(valueOne).isEqualTo(valueTwo);
   }
 
@@ -213,14 +213,12 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
             return super.statIfFound(path, followSymlinks);
           }
         });
-    try {
-      Artifact artifact = createTreeArtifact("outOne");
-      TreeArtifactValue value = evaluateTreeArtifact(artifact,
-          ImmutableList.of(PathFragment.create("one")));
-      fail("MissingInputFileException expected, got " + value);
-    } catch (Exception e) {
-      assertThat(Throwables.getRootCause(e)).hasMessageThat().contains(exception.getMessage());
-    }
+    Artifact artifact = createTreeArtifact("outOne");
+    Exception e =
+        assertThrows(
+            Exception.class,
+            () -> evaluateTreeArtifact(artifact, ImmutableList.of(PathFragment.create("one"))));
+    assertThat(Throwables.getRootCause(e)).hasMessageThat().contains(exception.getMessage());
   }
 
   private void file(Path path, String contents) throws Exception {
@@ -257,8 +255,11 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           ImmutableMap.of(
               ALL_OWNER,
               new BasicActionLookupValue(
-                  Actions.filterSharedActionsAndThrowActionConflict(
-                      actionKeyContext, ImmutableList.copyOf(actions)),
+                  Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                      actionKeyContext,
+                      ImmutableList.copyOf(actions),
+                      ALL_OWNER,
+                      /*outputFiles=*/ null),
                   /*nonceVersion=*/ null)));
     }
   }

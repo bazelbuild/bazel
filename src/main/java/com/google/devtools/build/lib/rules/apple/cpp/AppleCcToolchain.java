@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.apple.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -74,7 +74,7 @@ public class AppleCcToolchain extends CcToolchain {
     AppleConfiguration.Loader appleConfigurationLoader = new AppleConfiguration.Loader();
     AppleConfiguration appleConfiguration = appleConfigurationLoader.create(buildOptions);
     ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
-    String cpu = buildOptions.get(Options.class).cpu;
+    String cpu = buildOptions.get(CoreOptions.class).cpu;
 
     Map<String, String> appleEnv = getEnvironmentBuildVariables(xcodeConfig, cpu);
     CcToolchainVariables.Builder variables = CcToolchainVariables.builder();
@@ -145,7 +145,8 @@ public class AppleCcToolchain extends CcToolchain {
     if (XcodeConfig.getXcodeConfigProvider(ruleContext).getXcodeVersion() == null) {
       ruleContext.throwWithRuleError(
           "Xcode version must be specified to use an Apple CROSSTOOL. If your Xcode version has "
-              + "changed recently, try: \"bazel clean --expunge\" to re-run Xcode configuration");
+              + "changed recently, verify that \"xcode-select -p\" is correct and then try: "
+              + "\"bazel shutdown\" to re-run Xcode configuration");
     }
   }
 }

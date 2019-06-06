@@ -137,7 +137,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private void registerDummyUserDefinedFunction() throws Exception {
-    eval("def impl():\n" + "  return 0\n");
+    eval("def impl():", "  pass");
   }
 
   @Test
@@ -557,6 +557,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrNonEmpty() throws Exception {
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+                .incompatibleDisableDeprecatedAttrParams(false)
+                .build());
+    ev.initialize();
+
     Attribute attr = buildAttribute("a1", "attr.string_list(non_empty=True)");
     assertThat(attr.isNonEmpty()).isTrue();
     assertThat(attr.isMandatory()).isFalse();
@@ -805,7 +812,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Object l1 = evalRuleClassCode("Label('//foo/foo:foo')");
     // Implicitly creates a new pkgContext and environment, yet labels should be the same.
     Object l2 = evalRuleClassCode("Label('//foo/foo:foo')");
-    assertThat(l1).isSameAs(l2);
+    assertThat(l1).isSameInstanceAs(l2);
   }
 
   @Test
@@ -1267,7 +1274,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testNsetGoodCompositeItem() throws Exception {
     eval("def func():", "  return depset([struct(a='a')])", "s = func()");
-    Collection<Object> result = ((SkylarkNestedSet) lookup("s")).toCollection();
+    Collection<?> result = ((SkylarkNestedSet) lookup("s")).toCollection();
     assertThat(result).hasSize(1);
     assertThat(result.iterator().next()).isInstanceOf(StructImpl.class);
   }
@@ -1739,7 +1746,14 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testTargetsCanAddExecutionPlatformConstraints() throws Exception {
+  public void testTargetsCanAddExecutionPlatformConstraints_enabled() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
+            .build();
+    ev = createEvaluationTestCase(semantics);
+    ev.initialize();
+
     registerDummyUserDefinedFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
@@ -1750,6 +1764,47 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+  }
+
+  @Test
+  public void testTargetsCanAddExecutionPlatformConstraints_notEnabled() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
+            .build();
+    ev = createEvaluationTestCase(semantics);
+    ev.initialize();
+
+    registerDummyUserDefinedFunction();
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "r1 = rule(impl, ",
+        "  toolchains=['//test:my_toolchain_type'],",
+        "  execution_platform_constraints_allowed=False,",
+        ")");
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    assertThat(c.executionPlatformConstraintsAllowed())
+        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_RULE);
+  }
+
+  @Test
+  public void testTargetsCanAddExecutionPlatformConstraints_disallowed() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(true)
+            .build();
+    ev = createEvaluationTestCase(semantics);
+    ev.setFailFast(false);
+    ev.initialize();
+
+    registerDummyUserDefinedFunction();
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "r1 = rule(impl, ",
+        "  toolchains=['//test:my_toolchain_type'],",
+        "  execution_platform_constraints_allowed=True,",
+        ")");
+    ev.assertContainsError("parameter 'execution_platform_constraints_allowed' is deprecated");
   }
 
   @Test

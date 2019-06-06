@@ -15,10 +15,15 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MoreCollectors;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -34,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -191,12 +197,15 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testBadDynamicRuntimeLib() throws Exception {
+    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratch.file(
         "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name='dynamic', srcs=['not-an-so', 'so.so'])",
         "filegroup(name='static', srcs=['not-an-a', 'a.a'])",
         "cc_toolchain(",
         "    name = 'a',",
+        "    toolchain_config = ':toolchain_config',",
         "    module_map = 'map',",
         "    ar_files = 'ar-a',",
         "    as_files = 'as-a',",
@@ -209,7 +218,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy-a',",
         "    all_files = 'all-a',",
         "    dynamic_runtime_lib = ':dynamic',",
-        "    static_runtime_lib = ':static')");
+        "    static_runtime_lib = ':static')",
+        "cc_toolchain_config(name='toolchain_config')");
 
     getAnalysisMock()
         .ccSupport()
@@ -272,40 +282,28 @@ public class CcToolchainTest extends BuildViewTestCase {
     assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.FULLY);
 
     // Check an invalid value for disable_dynamic.
-    try {
-      useConfiguration("--dynamic_mode=very");
-      fail("OptionsParsingException not thrown."); // COV_NF_LINE
-    } catch (OptionsParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "While parsing option --dynamic_mode=very: Not a valid dynamic mode: 'very' "
-                  + "(should be off, default or fully)");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> useConfiguration("--dynamic_mode=very"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "While parsing option --dynamic_mode=very: Not a valid dynamic mode: 'very' "
+                + "(should be off, default or fully)");
   }
 
   public void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
       throws Exception {
-    try {
-      scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
-      getAnalysisMock()
-          .ccSupport()
-          .setupCcToolchainConfig(
-              mockToolsConfig, CcToolchainConfig.builder().withCxxBuiltinIncludeDirectories(entry));
+    scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withCxxBuiltinIncludeDirectories(entry));
 
-      useConfiguration();
-      invalidatePackages();
+    useConfiguration();
+    invalidatePackages();
 
-      ConfiguredTarget target = getConfiguredTarget("//a:b");
-      CcToolchainProvider toolchainProvider =
-          (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-      // Must call this function to actually see if there's an error with the directories.
-      toolchainProvider.getBuiltInIncludeDirectories();
-
-      fail("C++ configuration creation succeeded unexpectedly");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().containsMatch(messageRegex);
-    }
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:b"));
+    assertThat(e).hasMessageThat().containsMatch(messageRegex);
   }
 
   @Test
@@ -321,12 +319,15 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testModuleMapAttribute() throws Exception {
+    scratch.file("modules/map/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
         "    toolchain_identifier = 'toolchain-identifier-k8',",
+        "    toolchain_config = ':toolchain_config',",
         "    module_map = 'map',",
         "    ar_files = 'ar-cherry',",
         "    as_files = 'as-cherry',",
@@ -338,17 +339,21 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
         "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
-        "    static_runtime_lib = 'static-runtime-libs-cherry')");
+        "    static_runtime_lib = 'static-runtime-libs-cherry')",
+        "cc_toolchain_config(name = 'toolchain_config')");
   }
 
   @Test
   public void testModuleMapAttributeOptional() throws Exception {
+    scratch.file("modules/map/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
         "    toolchain_identifier = 'toolchain-identifier-k8',",
+        "    toolchain_config = ':toolchain_config',",
         "    ar_files = 'ar-cherry',",
         "    as_files = 'as-cherry',",
         "    compiler_files = 'compile-cherry',",
@@ -358,19 +363,23 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
         "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
-        "    static_runtime_lib = 'static-runtime-libs-cherry')");
+        "    static_runtime_lib = 'static-runtime-libs-cherry')",
+        "cc_toolchain_config(name = 'toolchain_config')");
   }
 
   @Test
   public void testFailWithMultipleModuleMaps() throws Exception {
+    scratch.file("modules/multiple/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     checkError(
         "modules/multiple",
         "c",
         "expected a single artifact",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name = 'multiple-maps', srcs = ['a.cppmap', 'b.cppmap'])",
         "cc_toolchain(",
         "    name = 'c',",
         "    toolchain_identifier = 'toolchain-identifier-k8',",
+        "    toolchain_config = ':toolchain_config',",
         "    module_map = ':multiple-maps',",
         "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",
@@ -383,7 +392,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
         "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
-        "    static_runtime_lib = 'static-runtime-libs-cherry')");
+        "    static_runtime_lib = 'static-runtime-libs-cherry')",
+        "cc_toolchain_config(name = 'toolchain_config')");
   }
 
   @Test
@@ -442,6 +452,24 @@ public class CcToolchainTest extends BuildViewTestCase {
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile.afdo", "--collect_code_coverage");
     assertThat(getConfiguredTarget("//a:b")).isNull();
     assertContainsEvent("coverage mode is not compatible with FDO optimization");
+  }
+
+  @Test
+  public void testCSFdoRejectRelativePath() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file("a/profile.profdata", "");
+    scratch.file("a/csprofile.profdata", "");
+    Exception e =
+        assertThrows(
+            Exception.class,
+            () ->
+                useConfiguration(
+                    "-c",
+                    "opt",
+                    "--fdo_optimize=a/profile.profdata",
+                    "--cs_fdo_absolute_path=a/csprofile.profdata"));
+    assertThat(e).hasMessageThat().contains("in --cs_fdo_absolute_path is not an absolute path");
   }
 
   @Test
@@ -641,85 +669,83 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCrosstoolNeededWhenStarlarkRuleIsNotPresent() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
-    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
-
-    useConfiguration(
-        "--cpu=k8", "--crosstool_top=//a:a", "--noincompatible_disable_crosstool_file");
-    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
-    // Skyframe cannot find the CROSSTOOL file
-    assertContainsEvent("errors encountered while analyzing target '//lib:lib'");
-    assertThat(target).isNull();
-  }
-
-  @Test
-  public void testCrosstoolReadWhenStarlarkRuleIsEnabledButNotPresent() throws Exception {
-    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
-    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
-
-    scratch.file("a/CROSSTOOL", MockCcSupport.EMPTY_CROSSTOOL);
-
-    useConfiguration(
-        "--cpu=k8", "--crosstool_top=//a:a", "--noincompatible_disable_crosstool_file");
-    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
-    assertThat(target).isNotNull();
-  }
-
-  @Test
-  public void testCrosstoolNotNeededWhenStarlarkRuleIsEnabled() throws Exception {
-    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
-    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ true);
-
-    useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
-    // We don't have a CROSSTOOL, but we don't need it
-    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
-    assertThat(target).isNotNull();
-  }
-
-  private void getSimpleStarlarkRule(boolean addToolchainConfigAttribute) throws IOException {
+  public void correctToolFilesUsed() throws Exception {
     scratch.file(
         "a/BUILD",
-        "load(':cc_toolchain_config_info.bzl', 'cc_toolchain_config_rule')",
-        "cc_toolchain_config_rule(name = 'toolchain_config')",
-        "filegroup(",
-        "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    toolchain_identifier = 'mock-llvm-toolchain-k8',",
-        (addToolchainConfigAttribute ? "    toolchain_config = ':toolchain_config'" : "") + ")");
+        "cc_toolchain_alias(name = 'a')",
+        "cc_library(name = 'l', srcs = ['l.c'])",
+        "cc_library(name = 'asm', srcs = ['a.s'])",
+        "cc_library(name = 'preprocessed-asm', srcs = ['a.S'])");
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    useConfiguration("--incompatible_use_specific_tool_files");
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    // Check that the mock toolchain tool file sets are an antichain, so that our subset assertions
+    // below are meaningful.
+    ImmutableList<Set<Artifact>> fileGroups =
+        ImmutableList.of(
+            toolchainProvider.getArFiles().toSet(),
+            toolchainProvider.getLinkerFiles().toSet(),
+            toolchainProvider.getCompilerFiles().toSet(),
+            toolchainProvider.getAsFiles().toSet(),
+            toolchainProvider.getAllFiles().toSet());
+    for (int i = 0; i < fileGroups.size(); i++) {
+      assertThat(fileGroups.get(i)).isNotEmpty();
+      for (int j = 0; j < fileGroups.size(); j++) {
+        if (i == j) {
+          continue;
+        }
+        Set<Artifact> one = fileGroups.get(i);
+        Set<Artifact> two = fileGroups.get(j);
+        assertWithMessage(String.format("%s should not contain %s", one, two))
+            .that(one.containsAll(two))
+            .isFalse();
+      }
+    }
+    assertThat(
+            Sets.difference(
+                toolchainProvider.getArFiles().toSet(), toolchainProvider.getLinkerFiles().toSet()))
+        .isNotEmpty();
+    assertThat(
+            Sets.difference(
+                toolchainProvider.getLinkerFiles().toSet(), toolchainProvider.getArFiles().toSet()))
+        .isNotEmpty();
 
-    scratch.file(
-        "a/cc_toolchain_config_info.bzl",
-        "def _impl(ctx):",
-        "    return cc_common.create_cc_toolchain_config_info(",
-        "        ctx = ctx,",
-        "        toolchain_identifier = 'toolchain',",
-        "        host_system_name = 'host',",
-        "        target_system_name = 'target',",
-        "        target_cpu = 'cpu',",
-        "        target_libc = 'libc',",
-        "        compiler = 'compiler',",
-        "        abi_libc_version = 'abi_libc',",
-        "        abi_version = 'banana')",
-        "cc_toolchain_config_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {},",
-        "    provides = [CcToolchainConfigInfo],",
-        "    fragments = ['cpp']",
-        ")");
+    RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
+    Artifact staticLib =
+        getOutputGroup(libTarget, "archive").toList().stream()
+            .collect(MoreCollectors.onlyElement());
+    ActionAnalysisMetadata staticAction = getGeneratingAction(staticLib);
+    assertThat(staticAction.getInputs()).containsAtLeastElementsIn(toolchainProvider.getArFiles());
+    Artifact dynamicLib =
+        getOutputGroup(libTarget, "dynamic_library").toList().stream()
+            .collect(MoreCollectors.onlyElement());
+    ActionAnalysisMetadata dynamicAction = getGeneratingAction(dynamicLib);
+    assertThat(dynamicAction.getInputs())
+        .containsAtLeastElementsIn(toolchainProvider.getLinkerFiles());
+    ActionAnalysisMetadata cCompileAction =
+        libTarget.getActions().stream()
+            .filter((a) -> a.getMnemonic().equals("CppCompile"))
+            .collect(MoreCollectors.onlyElement());
+    assertThat(cCompileAction.getInputs())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles());
+    ActionAnalysisMetadata asmAction =
+        ((RuleConfiguredTarget) getConfiguredTarget("//a:asm"))
+            .getActions().stream()
+                .filter((a) -> a.getMnemonic().equals("CppCompile"))
+                .collect(MoreCollectors.onlyElement());
+    assertThat(asmAction.getInputs()).containsAtLeastElementsIn(toolchainProvider.getAsFiles());
+    ActionAnalysisMetadata preprocessedAsmAction =
+        ((RuleConfiguredTarget) getConfiguredTarget("//a:preprocessed-asm"))
+            .getActions().stream()
+                .filter((a) -> a.getMnemonic().equals("CppCompile"))
+                .collect(MoreCollectors.onlyElement());
+    assertThat(preprocessedAsmAction.getInputs())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles());
   }
 }

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -40,12 +40,9 @@ public class RecursivePkgKeyTest extends BuildViewTestCase {
 
   private void invalidHelper(
       PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
-    try {
-      buildRecursivePkgKey(
-          RepositoryName.MAIN, rootRelativePath, excludedPaths);
-      fail();
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> buildRecursivePkgKey(RepositoryName.MAIN, rootRelativePath, excludedPaths));
   }
 
   @Test

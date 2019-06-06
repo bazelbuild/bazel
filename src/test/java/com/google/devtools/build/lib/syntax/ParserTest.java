@@ -1103,16 +1103,18 @@ public class ParserTest extends EvaluationTestCase {
     LoadStatement stmt = (LoadStatement) statements.get(0);
     SkylarkImport imp = SkylarkImport.create(stmt.getImport().getValue());
 
-    assertThat(imp.getImportString()).named("getImportString()").isEqualTo(importString);
+    assertWithMessage("getImportString()").that(imp.getImportString()).isEqualTo(importString);
 
     Label containingFileLabel = Label.parseAbsoluteUnchecked(containingFileLabelString);
-    assertThat(imp.getLabel(containingFileLabel)).named("containingFileLabel()")
+    assertWithMessage("containingFileLabel()")
+        .that(imp.getLabel(containingFileLabel))
         .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));
 
     int startOffset = stmt.getImport().getLocation().getStartOffset();
     int endOffset = stmt.getImport().getLocation().getEndOffset();
-    assertThat(startOffset).named("getStartOffset()").isEqualTo(5);
-    assertThat(endOffset).named("getEndOffset()")
+    assertWithMessage("getStartOffset()").that(startOffset).isEqualTo(5);
+    assertWithMessage("getEndOffset()")
+        .that(endOffset)
         .isEqualTo(startOffset + importString.length() + 2);
   }
 
@@ -1229,8 +1231,8 @@ public class ParserTest extends EvaluationTestCase {
     Identifier sym = stmt.getBindings().get(0).getLocalName();
     int startOffset = sym.getLocation().getStartOffset();
     int endOffset = sym.getLocation().getEndOffset();
-    assertThat(startOffset).named("getStartOffset()").isEqualTo(27);
-    assertThat(endOffset).named("getEndOffset()").isEqualTo(startOffset + 10);
+    assertWithMessage("getStartOffset()").that(startOffset).isEqualTo(27);
+    assertWithMessage("getEndOffset()").that(endOffset).isEqualTo(startOffset + 10);
   }
 
   @Test
@@ -1289,8 +1291,8 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(sym.getName()).isEqualTo("my_alias");
     int startOffset = sym.getLocation().getStartOffset();
     int endOffset = sym.getLocation().getEndOffset();
-    assertThat(startOffset).named("getStartOffset()").isEqualTo(27);
-    assertThat(endOffset).named("getEndOffset()").isEqualTo(startOffset + 8);
+    assertWithMessage("getStartOffset()").that(startOffset).isEqualTo(27);
+    assertWithMessage("getEndOffset()").that(endOffset).isEqualTo(startOffset + 8);
   }
 
   @Test

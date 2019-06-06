@@ -272,12 +272,13 @@ constraint_value(
 toolchain(
     name = 'java_runtime_toolchain',
     toolchain = ':runtime',
-    toolchain_type = '//tools/jdk:runtime_toolchain_type',
+    toolchain_type = '@bazel_tools//tools/jdk:runtime_toolchain_type',
     target_compatible_with = [':constraint'],
 )
 platform(
     name = 'platform',
-    constraint_values = [":constraint"],
+    parents = ['@bazel_tools//platforms:host_platform'],
+    constraint_values = [':constraint'],
 )
 EOF
   else
@@ -294,11 +295,10 @@ toolchain(
 )
 platform(
     name = 'platform',
+    parents = ['//buildenv/platforms:host_platform'],
     constraint_values = [
-        ":constraint",
-        "//buildenv/platforms/java/constraints:java8",
-        "//buildenv/platforms:linux",
-        "//buildenv/platforms:x86_64",
+        ':constraint',
+        '//buildenv/platforms/java/constraints:java8',
     ],
 )
 EOF

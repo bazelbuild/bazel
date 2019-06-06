@@ -257,7 +257,7 @@ public abstract class ParallelVisitor<T, V> {
       // 1. Errors (QueryException or InterruptedException) occurred and visitations should fail
       //    fast.
       // 2. There is no pending visit in the queue and no pending task running.
-      while (!mustJobsBeStopped() && (!processingQueue.isEmpty() || getTaskCount() > 0)) {
+      while (!mustJobsBeStopped() && moreWorkToDo()) {
         // To achieve maximum efficiency, queue is drained in either of the following two
         // conditions:
         //
@@ -292,6 +292,15 @@ public abstract class ParallelVisitor<T, V> {
       awaitTerminationAndPropagateErrorsIfAny();
     }
 
+    private boolean moreWorkToDo() {
+      // Note that we must check the task count first -- checking the processing queue first has the
+      // following race condition:
+      // (1) Check processing queue and observe that it is empty
+      // (2) A remaining task adds to the processing queue and shuts down
+      // (3) We check the task count and observe it is empty
+      return getTaskCount() > 0 || !processingQueue.isEmpty();
+    }
+
     private void awaitTerminationAndPropagateErrorsIfAny()
         throws QueryException, InterruptedException {
       try {
@@ -319,7 +328,7 @@ public abstract class ParallelVisitor<T, V> {
     public void process(Iterable<Target> partialResult)
         throws QueryException, InterruptedException {
       ParallelVisitor<?, ?> visitor = visitorFactory.create();
-      // TODO(nharmata): It's not ideal to have an operation like this in #process that blocks on
+      // TODO(b/131109214): It's not ideal to have an operation like this in #process that blocks on
       // another, potentially expensive computation. Refactor to something like "processAsync".
       visitor.visitAndWaitForCompletion(
           SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(partialResult));

@@ -99,6 +99,10 @@ all_link_actions = [
 ]
 
 def _impl(ctx):
+    if ctx.attr.disable_static_cc_toolchains:
+        fail("@bazel_tools//tools/cpp:default-toolchain, as well as the cc_toolchains it points " +
+             "to have been removed. See https://github.com/bazelbuild/bazel/issues/8546.")
+
     if (ctx.attr.cpu == "darwin"):
         toolchain_identifier = "local_darwin"
     elif (ctx.attr.cpu == "freebsd"):
@@ -1482,6 +1486,7 @@ cc_toolchain_config = rule(
     attrs = {
         "cpu": attr.string(mandatory = True),
         "compiler": attr.string(),
+        "disable_static_cc_toolchains": attr.bool(),
     },
     provides = [CcToolchainConfigInfo],
     executable = True,

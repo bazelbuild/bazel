@@ -77,7 +77,7 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
     @SuppressWarnings("unchecked")
     List<String> copts = (List<String>) getMyInfoFromTarget(skylarkTarget).getValue("copts");
 
-    assertThat(copts).containsAllOf("foo", "bar");
+    assertThat(copts).containsAtLeast("foo", "bar");
   }
 
   @Test
@@ -111,6 +111,6 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
     List<String> copts = (List<String>) getMyInfoFromTarget(target).getValue("copts");
 
     assertThat(copts).doesNotContain("foo");
-    assertThat(copts).containsAllOf("bar", "baz");
+    assertThat(copts).containsAtLeast("bar", "baz");
   }
 }

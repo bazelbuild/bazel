@@ -291,34 +291,39 @@ public final class PackageFactory {
       public final List<String> includes;
       public final List<String> excludes;
       public final boolean excludeDirs;
+      public final boolean allowEmpty;
 
-      public Token(List<String> includes, List<String> excludes, boolean excludeDirs) {
+      public Token(
+          List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty) {
         this.includes = includes;
         this.excludes = excludes;
         this.excludeDirs = excludeDirs;
+        this.allowEmpty = allowEmpty;
       }
     }
 
     @Override
-    public Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
+    public Token runAsync(
+        List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
         throws BadGlobException {
       for (String pattern : includes) {
         @SuppressWarnings("unused")
         Future<?> possiblyIgnoredError = globCache.getGlobUnsortedAsync(pattern, excludeDirs);
       }
-      return new Token(includes, excludes, excludeDirs);
+      return new Token(includes, excludes, excludeDirs, allowEmpty);
     }
 
     @Override
-    public List<String> fetch(Globber.Token token) throws IOException, InterruptedException {
+    public List<String> fetch(Globber.Token token)
+        throws BadGlobException, IOException, InterruptedException {
       List<String> result;
       Token legacyToken = (Token) token;
-      try {
-        result = globCache.globUnsorted(legacyToken.includes, legacyToken.excludes,
-            legacyToken.excludeDirs);
-      } catch (BadGlobException e) {
-        throw new IllegalStateException(e);
-      }
+      result =
+          globCache.globUnsorted(
+              legacyToken.includes,
+              legacyToken.excludes,
+              legacyToken.excludeDirs,
+              legacyToken.allowEmpty);
       if (sort) {
         Collections.sort(result);
       }
@@ -500,40 +505,47 @@ public final class PackageFactory {
    *     use this for heuristic preloading.
    */
   @SkylarkSignature(
-    name = "glob",
-    objectType = Object.class,
-    returnType = SkylarkList.class,
-    doc = "Returns a list of files that match glob search pattern.",
-    parameters = {
-      @Param(
-        name = "include",
-        type = SkylarkList.class,
-        generic1 = String.class,
-        doc = "a list of strings specifying patterns of files to include."
-      ),
-      @Param(
-        name = "exclude",
-        type = SkylarkList.class,
-        generic1 = String.class,
-        defaultValue = "[]",
-        positional = false,
-        named = true,
-        doc = "a list of strings specifying patterns of files to exclude."
-      ),
-      // TODO(bazel-team): migrate all existing code to use boolean instead?
-      @Param(
-        name = "exclude_directories",
-        type = Integer.class,
-        defaultValue = "1",
-        positional = false,
-        named = true,
-        doc = "a integer that if non-zero indicates directories should not be matched."
-      )
-    },
-    documented = false,
-    useAst = true,
-    useEnvironment = true
-  )
+      name = "glob",
+      objectType = Object.class,
+      returnType = SkylarkList.class,
+      doc = "Returns a list of files that match glob search pattern.",
+      parameters = {
+        @Param(
+            name = "include",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            doc = "a list of strings specifying patterns of files to include."),
+        @Param(
+            name = "exclude",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            defaultValue = "[]",
+            positional = false,
+            named = true,
+            doc = "a list of strings specifying patterns of files to exclude."),
+        // TODO(bazel-team): migrate all existing code to use boolean instead?
+        @Param(
+            name = "exclude_directories",
+            type = Integer.class,
+            defaultValue = "1",
+            positional = false,
+            named = true,
+            doc = "a integer that if non-zero indicates directories should not be matched."),
+        @Param(
+            name = "allow_empty",
+            type = Boolean.class,
+            defaultValue = "unbound",
+            positional = false,
+            named = true,
+            doc =
+                "Whether we allow glob patterns to match nothing. If `allow_empty` is False, each"
+                    + " individual include pattern must match something and also the final"
+                    + " result must be non-empty (after the matches of the `exclude` patterns are"
+                    + " excluded).")
+      },
+      documented = false,
+      useAst = true,
+      useEnvironment = true)
   private static final BuiltinFunction.Factory newGlobFunction =
       new BuiltinFunction.Factory("glob") {
         public BuiltinFunction create(final PackageContext originalContext) {
@@ -542,10 +554,12 @@ public final class PackageFactory {
                 SkylarkList include,
                 SkylarkList exclude,
                 Integer excludeDirectories,
+                Object allowEmpty,
                 FuncallExpression ast,
                 Environment env)
                 throws EvalException, ConversionException, InterruptedException {
-              return callGlob(originalContext, include, exclude, excludeDirectories != 0, ast, env);
+              return callGlob(
+                  originalContext, include, exclude, excludeDirectories != 0, allowEmpty, ast, env);
             }
           };
         }
@@ -556,6 +570,7 @@ public final class PackageFactory {
       Object include,
       Object exclude,
       boolean excludeDirs,
+      Object allowEmptyArgument,
       FuncallExpression ast,
       Environment env)
       throws EvalException, ConversionException, InterruptedException {
@@ -572,8 +587,20 @@ public final class PackageFactory {
     List<String> excludes = Type.STRING_LIST.convert(exclude, "'glob' argument");
 
     List<String> matches;
+    boolean allowEmpty;
+    if (allowEmptyArgument == Runtime.UNBOUND) {
+      allowEmpty = !env.getSemantics().incompatibleDisallowEmptyGlob();
+    } else if (allowEmptyArgument instanceof Boolean) {
+      allowEmpty = (Boolean) allowEmptyArgument;
+    } else {
+      throw new EvalException(
+          ast.getLocation(),
+          "expected boolean for argument `allow_empty`, got `" + allowEmptyArgument + "`");
+    }
+
     try {
-      Globber.Token globToken = context.globber.runAsync(includes, excludes, excludeDirs);
+      Globber.Token globToken =
+          context.globber.runAsync(includes, excludes, excludeDirs, allowEmpty);
       matches = context.globber.fetch(globToken);
     } catch (IOException e) {
       String errorMessage = String.format(
@@ -927,41 +954,37 @@ public final class PackageFactory {
       };
 
   @SkylarkSignature(
-    name = "package_group",
-    returnType = Runtime.NoneType.class,
-    doc = "Declare a set of files as exported.",
-    parameters = {
-      @Param(
-        name = "name",
-        type = String.class,
-        named = true,
-        positional = false,
-        doc = "The name of the rule."
-      ),
-      @Param(
-        name = "packages",
-        type = SkylarkList.class,
-        generic1 = String.class,
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc = "A list of Strings specifying the packages grouped."
-      ),
-      // java list or list of label designators: Label or String
-      @Param(
-        name = "includes",
-        type = SkylarkList.class,
-        generic1 = Object.class,
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc = "A list of Label specifiers for the files to include."
-      )
-    },
-    documented = false,
-    useAst = true,
-    useEnvironment = true
-  )
+      name = "package_group",
+      returnType = Runtime.NoneType.class,
+      doc = "Declare a set of files as exported.",
+      parameters = {
+        @Param(
+            name = "name",
+            type = String.class,
+            named = true,
+            positional = false,
+            doc = "The name of the rule."),
+        @Param(
+            name = "packages",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = "A list of Strings specifying the packages grouped."),
+        // java list or list of label designators: Label or String
+        @Param(
+            name = "includes",
+            type = SkylarkList.class,
+            generic1 = Object.class,
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = "A list of Label specifiers for the files to include.")
+      },
+      documented = false,
+      useAst = true,
+      useEnvironment = true)
   private static final BuiltinFunction.Factory newPackageGroupFunction =
       new BuiltinFunction.Factory("package_group") {
         public BuiltinFunction create() {
@@ -1763,8 +1786,16 @@ public final class PackageFactory {
         GlobPatternExtractor extractor = new GlobPatternExtractor();
         extractor.visit(buildFileAST);
         try {
-          globber.runAsync(extractor.getIncludeDirectoriesPatterns(), ImmutableList.of(), false);
-          globber.runAsync(extractor.getExcludeDirectoriesPatterns(), ImmutableList.of(), true);
+          globber.runAsync(
+              extractor.getIncludeDirectoriesPatterns(),
+              ImmutableList.of(),
+              /*excludeDirs=*/ false,
+              /*allowEmpty=*/ true);
+          globber.runAsync(
+              extractor.getExcludeDirectoriesPatterns(),
+              ImmutableList.of(),
+              /*excludeDirs=*/ true,
+              /*allowEmpty=*/ true);
         } catch (BadGlobException | InterruptedException e) {
           // Ignore exceptions. Errors will be properly reported when the actual globbing is done.
         }

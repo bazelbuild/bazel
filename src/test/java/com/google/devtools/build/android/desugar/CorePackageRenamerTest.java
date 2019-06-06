@@ -93,15 +93,18 @@ public class CorePackageRenamerTest {
 
     assertThrows(
         IllegalStateException.class,
-        () -> {
-          mv.visitMethodInsn(
-              Opcodes.INVOKESTATIC, "android/time/Instant", "now", "()Ljava/time/Instant;", false);
-        });
+        () ->
+            mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC,
+                "android/time/Instant",
+                "now",
+                "()Ljava/time/Instant;",
+                false));
     assertThrows(
         IllegalStateException.class,
-        () -> {
-          mv.visitFieldInsn(Opcodes.GETFIELD, "android/time/Instant", "now", "Ljava/time/Instant;");
-        });
+        () ->
+            mv.visitFieldInsn(
+                Opcodes.GETFIELD, "android/time/Instant", "now", "Ljava/time/Instant;"));
   }
 
   private static class MockClassVisitor extends ClassVisitor {

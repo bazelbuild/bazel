@@ -38,6 +38,9 @@ class TestRulesTest(test_base.TestBase):
     self.CopyFile(
         self.Rlocation('io_bazel/tools/build_rules/test_rules.bzl'),
         'foo/test_rules.bzl')
+    self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_rules/test_rules_private.bzl'),
+        'foo/test_rules_private.bzl')
     self.ScratchFile('foo/tested_file.txt',
                      ['The quick brown', 'fox jumps over', 'the lazy dog.'])
     self.ScratchFile('foo/BUILD', [

@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -142,18 +142,16 @@ public class NestedSetViewTest {
   public void testSplitFails() {
     NestedSet<String> a = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
     NestedSetView<String> v = new NestedSetView<>(a);
-    MoreAsserts.assertThrows(
-        IllegalArgumentException.class, () -> v.splitIfExceedsMaximumSize(-100));
-    MoreAsserts.assertThrows(
-        IllegalArgumentException.class, () -> v.splitIfExceedsMaximumSize(1));
+    assertThrows(IllegalArgumentException.class, () -> v.splitIfExceedsMaximumSize(-100));
+    assertThrows(IllegalArgumentException.class, () -> v.splitIfExceedsMaximumSize(1));
   }
 
   @Test
   public void testSplitNoSplit() {
     NestedSet<String> a = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
     NestedSetView<String> v = new NestedSetView<>(a);
-    assertThat(v.splitIfExceedsMaximumSize(2)).isSameAs(v);
-    assertThat(v.splitIfExceedsMaximumSize(100)).isSameAs(v);
+    assertThat(v.splitIfExceedsMaximumSize(2)).isSameInstanceAs(v);
+    assertThat(v.splitIfExceedsMaximumSize(100)).isSameInstanceAs(v);
   }
 
   @Test
@@ -164,7 +162,7 @@ public class NestedSetViewTest {
             .build();
     NestedSetView<String> v = new NestedSetView<>(a);
     NestedSetView<String> s = v.splitIfExceedsMaximumSize(2);
-    assertThat(s).isNotSameAs(v);
+    assertThat(s).isNotSameInstanceAs(v);
     assertThat(collectCheckSize(s, 2)).containsExactly("a", "b", "c");
   }
 
@@ -176,7 +174,7 @@ public class NestedSetViewTest {
             .build();
     NestedSetView<String> v = new NestedSetView<>(a);
     NestedSetView<String> s = v.splitIfExceedsMaximumSize(2);
-    assertThat(s).isNotSameAs(v);
+    assertThat(s).isNotSameInstanceAs(v);
     assertThat(collectCheckSize(s, 2)).containsExactly("a", "b", "c", "d", "e");
   }
 

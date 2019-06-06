@@ -14,21 +14,33 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
+import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
+import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
@@ -38,12 +50,16 @@ import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
+import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -60,15 +76,19 @@ import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /**
  * Tests for {@link RepositoryDelegatorFunction}
@@ -78,32 +98,60 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   private RepositoryDelegatorFunction delegatorFunction;
   private Path overrideDirectory;
   private SequentialBuildDriver driver;
+  private TestManagedDirectoriesKnowledge managedDirectoriesKnowledge;
+  private RecordingDifferencer differencer;
+  private TestSkylarkRepositoryFunction testSkylarkRepositoryFunction;
+  private Path rootPath;
 
   @Before
   public void setupDelegator() throws Exception {
-    Path root = scratch.dir("/outputbase");
+    rootPath = scratch.dir("/outputbase");
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(root, root, root),
-            root,
+            new ServerDirectories(rootPath, rootPath, rootPath),
+            rootPath,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
+    managedDirectoriesKnowledge = new TestManagedDirectoriesKnowledge();
+    HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
+    RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
+    testSkylarkRepositoryFunction = new TestSkylarkRepositoryFunction(downloader);
+    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
+        ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
     delegatorFunction =
         new RepositoryDelegatorFunction(
-            ImmutableMap.of(), null, new AtomicBoolean(true), ImmutableMap::of, directories);
+            repositoryHandlers,
+            testSkylarkRepositoryFunction,
+            new AtomicBoolean(true),
+            ImmutableMap::of,
+            directories,
+            managedDirectoriesKnowledge);
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
-                root,
-                ImmutableList.of(Root.fromPath(root)),
+                rootPath,
+                ImmutableList.of(Root.fromPath(rootPath)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         directories);
-    RecordingDifferencer differencer = new SequencedRecordingDifferencer();
-    ConfiguredRuleClassProvider ruleClassProvider =
-        TestRuleClassProvider.getRuleClassProvider(true);
+    differencer = new SequencedRecordingDifferencer();
+
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder
+        .clearWorkspaceFileSuffixForTesting()
+        .addSkylarkBootstrap(new RepositoryBootstrap(new SkylarkRepositoryModule()));
+    ConfiguredRuleClassProvider ruleClassProvider = builder.build();
+
+    PackageFactory.BuilderForTesting pkgFactoryBuilder =
+        AnalysisMock.get().getPackageFactoryBuilderForTesting(directories);
+    SkylarkImportLookupFunction skylarkImportLookupFunction =
+        new SkylarkImportLookupFunction(
+            ruleClassProvider, pkgFactoryBuilder.build(ruleClassProvider, fileSystem));
+    skylarkImportLookupFunction.resetCache();
+
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -121,7 +169,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
-                        null,
+                        new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
@@ -133,29 +181,44 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                             .builder(directories)
                             .build(ruleClassProvider, fileSystem),
                         directories,
-                        /*skylarkImportLookupFunctionForInlining=*/ null))
+                        skylarkImportLookupFunction))
+                .put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction())
                 .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
+                .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
+                .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
+                .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
+                .put(
+                    SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
+                    new BlacklistedPackagePrefixesFunction(
+                        /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
+                        /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+                .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
     overrideDirectory = scratch.dir("/foo");
     scratch.file("/foo/WORKSPACE");
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
-        differencer,
-        ImmutableMap.<RepositoryName, PathFragment>builder()
-            .put(RepositoryName.createFromValidStrippedName("foo"), overrideDirectory.asFragment())
-            .build());
+    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.<RootedPath>absent());
+    PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
+    RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES.set(
+        differencer, ImmutableSet.of());
+    RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.absent());
   }
 
   @Test
   public void testOverride() throws Exception {
+    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
+        differencer,
+        ImmutableMap.of(
+            RepositoryName.createFromValidStrippedName("foo"), overrideDirectory.asFragment()));
+
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("foo"));
     EvaluationContext evaluationContext =
@@ -174,4 +237,176 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(actualPath.readSymbolicLink()).isEqualTo(overrideDirectory.asFragment());
   }
 
+  @Test
+  public void testRepositoryDirtinessChecker() throws Exception {
+    TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(new ManualClock());
+    TestManagedDirectoriesKnowledge knowledge = new TestManagedDirectoriesKnowledge();
+
+    RepositoryDirectoryDirtinessChecker checker =
+        new RepositoryDirectoryDirtinessChecker(knowledge);
+    RepositoryName repositoryName = RepositoryName.create("@repo");
+    RepositoryDirectoryValue.Key key = RepositoryDirectoryValue.key(repositoryName);
+
+    SuccessfulRepositoryDirectoryValue usual =
+        RepositoryDirectoryValue.builder()
+            .setPath(rootDirectory.getRelative("a"))
+            .setDigest(new byte[] {1})
+            .build();
+
+    assertThat(checker.check(key, usual, tsgm).isDirty()).isFalse();
+
+    SuccessfulRepositoryDirectoryValue fetchDelayed =
+        RepositoryDirectoryValue.builder()
+            .setPath(rootDirectory.getRelative("b"))
+            .setFetchingDelayed()
+            .build();
+
+    assertThat(checker.check(key, fetchDelayed, tsgm).isDirty()).isTrue();
+
+    SuccessfulRepositoryDirectoryValue withManagedDirectories =
+        RepositoryDirectoryValue.builder()
+            .setPath(rootDirectory.getRelative("c"))
+            .setDigest(new byte[] {1})
+            .setManagedDirectories(ImmutableSet.of(PathFragment.create("m")))
+            .build();
+
+    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
+
+    knowledge.setManagedDirectories(
+        ImmutableMap.of(PathFragment.create("m"), RepositoryName.create("@other")));
+    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
+
+    knowledge.setManagedDirectories(ImmutableMap.of(PathFragment.create("m"), repositoryName));
+    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isFalse();
+  }
+
+  @Test
+  public void testManagedDirectoriesCauseRepositoryReFetches() throws Exception {
+    scratch.file(rootPath.getRelative("BUILD").getPathString());
+    scratch.file(
+        rootPath.getRelative("repo_rule.bzl").getPathString(),
+        "def _impl(rctx):",
+        " rctx.file('BUILD', '')",
+        "fictive_repo_rule = repository_rule(implementation = _impl)");
+    scratch.overwriteFile(
+        rootPath.getRelative("WORKSPACE").getPathString(),
+        "workspace(name = 'abc')",
+        "load(':repo_rule.bzl', 'fictive_repo_rule')",
+        "fictive_repo_rule(name = 'repo1')");
+
+    // Managed directories from workspace() attribute will not be parsed by this test, since
+    // we are not calling SequencedSkyframeExecutor.
+    // That's why we will directly fill managed directories value (the corresponding structure
+    // is passed to RepositoryDelegatorFunction during construction).
+    managedDirectoriesKnowledge.setManagedDirectories(
+        ImmutableMap.of(PathFragment.create("dir1"), RepositoryName.create("@repo1")));
+
+    StarlarkSemantics semantics =
+        StarlarkSemantics.builderWithDefaults()
+            .experimentalAllowIncrementalRepositoryUpdates(true)
+            .build();
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
+
+    loadRepo("repo1");
+
+    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isTrue();
+    testSkylarkRepositoryFunction.reset();
+
+    loadRepo("repo1");
+    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isFalse();
+    testSkylarkRepositoryFunction.reset();
+
+    managedDirectoriesKnowledge.setManagedDirectories(
+        ImmutableMap.of(
+            PathFragment.create("dir1"),
+            RepositoryName.create("@repo1"),
+            PathFragment.create("dir2"),
+            RepositoryName.create("@repo1")));
+    loadRepo("repo1");
+
+    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isTrue();
+    testSkylarkRepositoryFunction.reset();
+
+    managedDirectoriesKnowledge.setManagedDirectories(ImmutableMap.of());
+    loadRepo("repo1");
+
+    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isTrue();
+    testSkylarkRepositoryFunction.reset();
+  }
+
+  private void loadRepo(String strippedRepoName) throws InterruptedException {
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkyKey key =
+        RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName(strippedRepoName));
+    // Make it be evaluated every time, as we are testing evaluation.
+    differencer.invalidate(ImmutableSet.of(key));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(8)
+            .setEventHander(eventHandler)
+            .build();
+    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+    RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
+    assertThat(repositoryDirectoryValue.repositoryExists()).isTrue();
+  }
+
+  private static class TestSkylarkRepositoryFunction extends SkylarkRepositoryFunction {
+    private boolean fetchCalled = false;
+
+    private TestSkylarkRepositoryFunction(HttpDownloader downloader) {
+      super(downloader);
+    }
+
+    public void reset() {
+      fetchCalled = false;
+    }
+
+    private boolean isFetchCalled() {
+      return fetchCalled;
+    }
+
+    @Nullable
+    @Override
+    public RepositoryDirectoryValue.Builder fetch(
+        Rule rule,
+        Path outputDirectory,
+        BlazeDirectories directories,
+        Environment env,
+        Map<String, String> markerData,
+        SkyKey key)
+        throws RepositoryFunctionException, InterruptedException {
+      fetchCalled = true;
+      return super.fetch(rule, outputDirectory, directories, env, markerData, key);
+    }
+  }
+
+  private static class TestManagedDirectoriesKnowledge implements ManagedDirectoriesKnowledge {
+
+    private ImmutableMap<PathFragment, RepositoryName> map = ImmutableMap.of();
+
+    public void setManagedDirectories(ImmutableMap<PathFragment, RepositoryName> map) {
+      this.map = map;
+    }
+
+    @Nullable
+    @Override
+    public RepositoryName getOwnerRepository(PathFragment relativePathFragment) {
+      return map.get(relativePathFragment);
+    }
+
+    @Override
+    public ImmutableSet<PathFragment> getManagedDirectories(RepositoryName repositoryName) {
+      return map.keySet().stream()
+          .filter(path -> repositoryName.equals(map.get(path)))
+          .collect(toImmutableSet());
+    }
+
+    @Override
+    public boolean workspaceHeaderReloaded(
+        @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue) {
+      throw new IllegalStateException();
+    }
+  }
 }

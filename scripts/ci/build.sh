@@ -64,7 +64,7 @@ fi
 #   exit 1
 # fi
 
-export APT_GPG_KEY_ID=$(gsutil cat gs://bazel-encrypted-secrets/release-key.gpg.id)
+export APT_GPG_KEY_ID=$(gsutil cat gs://bazel-trusted-encrypted-secrets/release-key.gpg.id)
 
 # Generate a string from a template and a list of substitutions.
 # The first parameter is the template name and each subsequent parameter
@@ -193,7 +193,7 @@ function ensure_gpg_secret_key_imported() {
   if ! gpg --list-secret-keys | grep "${APT_GPG_KEY_ID}" > /dev/null; then
     keyfile=$(mktemp --tmpdir)
     chmod 0600 "${keyfile}"
-    gsutil cat "gs://bazel-encrypted-secrets/release-key.gpg.enc" | \
+    gsutil cat "gs://bazel-trusted-encrypted-secrets/release-key.gpg.enc" | \
         gcloud kms decrypt --location "global" --keyring "buildkite" --key "bazel-release-key" --ciphertext-file "-" --plaintext-file "${keyfile}"
     gpg --allow-secret-key-import --import "${keyfile}"
     rm -f "${keyfile}"

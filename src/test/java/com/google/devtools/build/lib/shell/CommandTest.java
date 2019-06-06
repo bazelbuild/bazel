@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.shell;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.shell.TestUtil.assertArrayEquals;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
@@ -54,28 +54,15 @@ public class CommandTest {
 
   @Test
   public void testIllegalArgs() throws Exception {
-    try {
-      new Command((String[]) null);
-      fail("Should have thrown NullPointerException");
-    } catch (NullPointerException iae) {
-      // good
-    }
+    assertThrows(NullPointerException.class, () -> new Command(null));
 
-    try {
-      new Command(new String[] {"/bin/true", null}).execute();
-      fail("Should have thrown NullPointerException");
-    } catch (NullPointerException npe) {
-      // good
-    }
+    assertThrows(
+        NullPointerException.class, () -> new Command(new String[] {"/bin/true", null}).execute());
 
-    try {
-      Command r = new Command(new String[] {"foo"});
-      r.executeAsync((InputStream) null, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
-      fail("Should have thrown NullPointerException");
-    } catch (NullPointerException npe) {
-      // good
-    }
-
+    Command r = new Command(new String[] {"foo"});
+    assertThrows(
+        NullPointerException.class,
+        () -> r.executeAsync((InputStream) null, Command.KILL_SUBPROCESS_ON_INTERRUPT).get());
   }
 
   @Test
@@ -219,14 +206,10 @@ public class CommandTest {
   public void testTimeout() throws Exception {
     // Sleep for 3 seconds, but timeout after 1 second.
     Command command = new Command(new String[] {"sleep", "3"}, null, null, Duration.ofSeconds(1));
-    try {
-      command.execute();
-      fail("Should have thrown AbnormalTerminationException");
-    } catch (AbnormalTerminationException ate) {
-      // good
-      checkCommandElements(ate, "sleep", "3");
-      checkATE(ate);
-    }
+    AbnormalTerminationException ate =
+        assertThrows(AbnormalTerminationException.class, () -> command.execute());
+    checkCommandElements(ate, "sleep", "3");
+    checkATE(ate);
   }
 
   @Test
@@ -239,24 +222,14 @@ public class CommandTest {
   @Test
   public void testCommandDoesNotExist() throws Exception {
     Command command = new Command(new String[]{"thisisnotreal"});
-    try {
-      command.execute();
-      fail();
-    } catch (ExecFailedException e){
-      // Good.
-      checkCommandElements(e, "thisisnotreal");
-    }
+    ExecFailedException e = assertThrows(ExecFailedException.class, () -> command.execute());
+    checkCommandElements(e, "thisisnotreal");
   }
 
   @Test
   public void testNoSuchCommand() throws Exception {
     final Command command = new Command(new String[] {"thisisnotreal"});
-    try {
-      command.execute();
-      fail("Should have thrown ExecFailedException");
-    } catch (ExecFailedException expected) {
-      // good
-    }
+    assertThrows(ExecFailedException.class, () -> command.execute());
   }
 
   @Test
@@ -274,37 +247,37 @@ public class CommandTest {
     // Every exit value in range [1-255] is reported as such (except [129-191],
     // which map to signals).
     for (int exit : new int[] { 1, 2, 3, 127, 128, 192, 255 }) {
-      try {
-        String[] args = { "/bin/sh", "-c", "exit " + exit };
-        new Command(args).execute();
-        fail("Should have exited with status " + exit);
-      } catch (BadExitStatusException e) {
-        assertThat(e).hasMessageThat().isEqualTo("Process exited with status " + exit);
+      String[] args = {"/bin/sh", "-c", "exit " + exit};
+      BadExitStatusException e =
+          assertThrows(
+              "Should have exited with status " + exit,
+              BadExitStatusException.class,
+              () -> new Command(args).execute());
+      assertThat(e).hasMessageThat().isEqualTo("Process exited with status " + exit);
         checkCommandElements(e, "/bin/sh", "-c", "exit " + exit);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertThat(status.success()).isFalse();
         assertThat(status.exited()).isTrue();
         assertThat(status.getExitCode()).isEqualTo(exit);
-        assertThat(status.toShortString()).isEqualTo("Exit " + exit);
-      }
+      assertThat(status.toShortString()).isEqualTo("Exit " + exit);
     }
 
     // negative exit values are modulo 256:
     for (int exit : new int[] { -1, -2, -3 }) {
       int expected = 256 + exit;
-      try {
-        String[] args = { "/bin/bash", "-c", "exit " + exit };
-        new Command(args).execute();
-        fail("Should have exited with status " + expected);
-      } catch (BadExitStatusException e) {
-        assertThat(e).hasMessageThat().isEqualTo("Process exited with status " + expected);
+      String[] args = {"/bin/bash", "-c", "exit " + exit};
+      BadExitStatusException e =
+          assertThrows(
+              "Should have exited with status " + expected,
+              BadExitStatusException.class,
+              () -> new Command(args).execute());
+      assertThat(e).hasMessageThat().isEqualTo("Process exited with status " + expected);
         checkCommandElements(e, "/bin/bash", "-c", "exit " + exit);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertThat(status.success()).isFalse();
         assertThat(status.exited()).isTrue();
         assertThat(status.getExitCode()).isEqualTo(expected);
-        assertThat(status.toShortString()).isEqualTo("Exit " + expected);
-      }
+      assertThat(status.toShortString()).isEqualTo("Exit " + expected);
     }
   }
 
@@ -317,12 +290,13 @@ public class CommandTest {
       String killmyself = BlazeTestUtils.runfilesDir() + "/"
           + TestConstants.JAVATESTS_ROOT
           + "/com/google/devtools/build/lib/shell/killmyself";
-      try {
-        String[] args = { killmyself, "" + signal };
-        new Command(args).execute();
-        fail("Expected signal " + signal);
-      } catch (AbnormalTerminationException e) {
-        assertThat(e).hasMessageThat().isEqualTo("Process terminated by signal " + signal);
+      String[] args = {killmyself, "" + signal};
+      AbnormalTerminationException e =
+          assertThrows(
+              "Expected signal " + signal,
+              AbnormalTerminationException.class,
+              () -> new Command(args).execute());
+      assertThat(e).hasMessageThat().isEqualTo("Process terminated by signal " + signal);
         checkCommandElements(e, killmyself, "" + signal);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertThat(status.success()).isFalse();
@@ -334,8 +308,7 @@ public class CommandTest {
           case 2: assertThat(status.toShortString()).isEqualTo("Interrupt"); break;
           case 9: assertThat(status.toShortString()).isEqualTo("Killed"); break;
           case 15: assertThat(status.toShortString()).isEqualTo("Terminated"); break;
-          default: // fall out
-        }
+        default: // fall out
       }
     }
   }
@@ -398,14 +371,10 @@ public class CommandTest {
       }
     };
     Command command = new Command(new String[] {"/bin/echo", "foo"});
-    try {
-      command.execute(out, out);
-      fail();
-    } catch (AbnormalTerminationException e) {
-      // Good.
-      checkCommandElements(e, "/bin/echo", "foo");
-      assertThat(e).hasMessageThat().isEqualTo("java.io.IOException");
-    }
+    AbnormalTerminationException e =
+        assertThrows(AbnormalTerminationException.class, () -> command.execute(out, out));
+    checkCommandElements(e, "/bin/echo", "foo");
+    assertThat(e).hasMessageThat().isEqualTo("java.io.IOException");
   }
 
   @Test
@@ -417,22 +386,19 @@ public class CommandTest {
       }
     };
     Command command = new Command(new String[] {"cat", "/dev/thisisnotreal"});
-    try {
-      command.execute(out, out);
-      fail();
-    } catch (AbnormalTerminationException e) {
-      checkCommandElements(e, "cat", "/dev/thisisnotreal");
+    AbnormalTerminationException e =
+        assertThrows(AbnormalTerminationException.class, () -> command.execute(out, out));
+    checkCommandElements(e, "cat", "/dev/thisisnotreal");
       TerminationStatus status = e.getResult().getTerminationStatus();
       // Subprocess either gets a SIGPIPE trying to write to our output stream,
       // or it exits with failure.  Both are observed, nondetermistically.
       assertThat(status.exited() ? status.getExitCode() == 1 : status.getTerminatingSignal() == 13)
           .isTrue();
-      assertWithMessage(e.getMessage())
-          .that(
-              e.getMessage()
-                  .endsWith("also encountered an error while attempting " + "to retrieve output"))
-          .isTrue();
-    }
+    assertWithMessage(e.getMessage())
+        .that(
+            e.getMessage()
+                .endsWith("also encountered an error while attempting " + "to retrieve output"))
+        .isTrue();
   }
 
   private static void checkCommandElements(CommandException e,

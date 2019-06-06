@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -196,12 +197,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   private void checkSkylarkFunctionError(String errorMsg, String line) throws Exception {
-    try {
-      setupSkylarkFunction(line);
-      fail();
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().isEqualTo(errorMsg);
-    }
+    EvalException e = assertThrows(EvalException.class, () -> setupSkylarkFunction(line));
+    assertThat(e).hasMessageThat().isEqualTo(errorMsg);
   }
 
   @Test
@@ -252,6 +249,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @SuppressWarnings("unchecked")
   @Test
   public void testListComprehensionsWithNestedSet() throws Exception {
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+                .incompatibleDepsetIsNotIterable(false)
+                .build());
+    ev.initialize();
+
     Object result = eval("[x + x for x in depset([1, 2, 3])]");
     assertThat((Iterable<Object>) result).containsExactly(2, 4, 6).inOrder();
   }
@@ -385,15 +389,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "unexpected keyword 'bad_param', for call to method run(",
         "f = ruleContext.actions.declare_file('foo.sh')",
         "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
-  }
-
-  @Test
-  public void testCreateSpawnActionNoExecutable() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    checkErrorContains(
-        ruleContext,
-        "You must specify either 'command' or 'executable' argument",
-        "ruleContext.action(outputs=[])");
   }
 
   private Object createTestSpawnAction(SkylarkRuleContext ruleContext) throws Exception {
@@ -710,8 +705,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  label_dict = {}",
         "  all = []",
         "  for dep in ruleContext.attr.srcs + ruleContext.attr.tools:",
-        "    all.extend(list(dep.files))",
-        "    label_dict[dep.label] = list(dep.files)",
+        "    all.extend(dep.files.to_list())",
+        "    label_dict[dep.label] = dep.files.to_list()",
         "  return ruleContext.resolve_command(",
         "    command='A$(locations //foo:mytool) B$(location //foo:file3.dat)',",
         "    attribute='cmd', expand_locations=True, label_dict=label_dict)",
@@ -781,7 +776,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             "mytool.sh",
             "mytool",
             "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
@@ -923,7 +918,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "ftb = depset() + ruleContext.files.srcs",
+            "ftb = depset(ruleContext.files.srcs)",
             "ruleContext.runfiles(transitive_files = ftb)");
     assertThat(ImmutableList.of("a.txt", "b.img"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
@@ -996,7 +991,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testNsetContainsList() throws Exception {
     checkErrorContains(
-        "depsets cannot contain items of type 'list'", "depset() + [ruleContext.files.srcs]");
+        "depsets cannot contain items of type 'list'", "depset([[ruleContext.files.srcs]])");
   }
 
   @Test
@@ -1925,12 +1920,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
             throw new InterruptedException();
           }
         });
-    try {
-      eval("throw()");
-      fail("Expected an InterruptedException");
-    } catch (InterruptedException ex) {
-      // Expected.
-    }
+    assertThrows(InterruptedException.class, () -> eval("throw()"));
   }
 
   @Test
@@ -2343,14 +2333,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    try {
-      action.getArguments();
-      fail();
-    } catch (CommandLineExpansionException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("map_fn must return a list of the same length as the input");
-    }
+    CommandLineExpansionException e =
+        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
+    assertThat(e)
+        .hasMessageThat()
+        .contains("map_fn must return a list of the same length as the input");
   }
 
   @Test
@@ -2507,12 +2494,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    try {
-      action.getArguments();
-      fail();
-    } catch (CommandLineExpansionException e) {
-      assertThat(e.getMessage()).contains("not enough arguments");
-    }
+    CommandLineExpansionException e =
+        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
+    assertThat(e.getMessage()).contains("not enough arguments");
   }
 
   @Test
@@ -2567,12 +2551,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    try {
-      action.getArguments();
-      fail();
-    } catch (CommandLineExpansionException e) {
-      assertThat(e.getMessage()).contains("type 'string' has no method nosuchmethod()");
-    }
+    CommandLineExpansionException e =
+        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
+    assertThat(e.getMessage()).contains("type 'string' has no method nosuchmethod()");
   }
 
   @Test
@@ -2614,13 +2595,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    try {
-      action.getArguments();
-      fail();
-    } catch (CommandLineExpansionException e) {
-      assertThat(e.getMessage())
-          .contains("Expected map_each to return string, None, or list of strings, found Integer");
-    }
+    CommandLineExpansionException e =
+        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
+    assertThat(e.getMessage())
+        .contains("Expected map_each to return string, None, or list of strings, found Integer");
   }
 
   @Test
@@ -2750,6 +2728,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    '_attr': attr.label(",
         "        cfg = android_common.multi_cpu_configuration,",
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
 
@@ -2883,7 +2862,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         getGeneratingAction(
             Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
     assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
-        .containsAllOf("tool", "tool.sh", "data");
+        .containsAtLeast("tool", "tool.sh", "data");
   }
 
   @Test
@@ -2911,7 +2890,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         getGeneratingAction(
             Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
     assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
-        .containsAllOf("tool", "tool.sh", "data");
+        .containsAtLeast("tool", "tool.sh", "data");
   }
 
   // Verifies that configuration_field can only be used on 'label' attributes.
@@ -3041,18 +3020,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
 
     // Ensure errors are handled
-    MoreAsserts.assertThrows(
+    SkylarkCustomCommandLine commandLine =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "def _bad_fn(s): return s.doesnotexist()",
+            "values = depset(['a', 'b'])",
+            "args.add_all(values, map_each=_bad_fn)",
+            "args");
+    assertThrows(
         CommandLineExpansionException.class,
-        () -> {
-          SkylarkCustomCommandLine commandLine =
-              getCommandLine(
-                  "args = ruleContext.actions.args()",
-                  "def _bad_fn(s): return s.doesnotexist()",
-                  "values = depset(['a', 'b'])",
-                  "args.add_all(values, map_each=_bad_fn)",
-                  "args");
-          commandLine.addToFingerprint(actionKeyContext, new Fingerprint());
-        });
+        () -> commandLine.addToFingerprint(actionKeyContext, new Fingerprint()));
   }
 
   private SkylarkCustomCommandLine getCommandLine(String... lines) throws Exception {

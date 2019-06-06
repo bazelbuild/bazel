@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.runtime.commands.proto.BazelFlagsProto.FlagInfo;
@@ -172,12 +172,8 @@ public class AsynchronousFileOutputStreamTest {
     };
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
-    try {
-      out.close();
-      fail("Expected an IOException");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
+    IOException expected = assertThrows(IOException.class, () -> out.close());
+    assertThat(expected).hasMessageThat().isEqualTo("foo");
   }
 
   @Test
@@ -193,12 +189,8 @@ public class AsynchronousFileOutputStreamTest {
     };
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
-    try {
-      out.close();
-      fail("Expected a RuntimeException");
-    } catch (RuntimeException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
+    RuntimeException expected = assertThrows(RuntimeException.class, () -> out.close());
+    assertThat(expected).hasMessageThat().isEqualTo("foo");
   }
 
   @Test
@@ -215,12 +207,8 @@ public class AsynchronousFileOutputStreamTest {
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
     out.write("blo");
-    try {
-      out.close();
-      fail("Expected an IOException");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
+    IOException expected = assertThrows(IOException.class, () -> out.close());
+    assertThat(expected).hasMessageThat().isEqualTo("foo");
   }
 
   @Test
@@ -237,12 +225,8 @@ public class AsynchronousFileOutputStreamTest {
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
     out.write("blo");
-    try {
-      out.close();
-      fail("Expected a RuntimeException");
-    } catch (RuntimeException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
+    RuntimeException expected = assertThrows(RuntimeException.class, () -> out.close());
+    assertThat(expected).hasMessageThat().isEqualTo("foo");
   }
 
   @Test
@@ -252,11 +236,6 @@ public class AsynchronousFileOutputStreamTest {
     out.write("bla");
     out.close();
 
-    try {
-      out.write("blo");
-      fail("Expected an IllegalStateException");
-    } catch (IllegalStateException expected) {
-      // Expected.
-    }
+    assertThrows(IllegalStateException.class, () -> out.write("blo"));
   }
 }

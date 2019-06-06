@@ -167,7 +167,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
             getGeneratingAction(getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
 
     assertAppleSdkPlatformEnv(objcLibCompileAction, "WatchSimulator");
-    assertThat(objcLibCompileAction.getArguments()).containsAllOf("-arch_only", "i386").inOrder();
+    assertThat(objcLibCompileAction.getArguments()).containsAtLeast("-arch_only", "i386").inOrder();
   }
 
   @Test
@@ -222,7 +222,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
-    assertThat(action.getArguments()).containsAllOf(armv7kBin, i386Bin);
+    assertThat(action.getArguments()).containsAtLeast(armv7kBin, i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         "-o", execPathEndingWith(action.getOutputs(), "x_lipo.a")));
 
@@ -447,7 +447,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     assertAppleSdkPlatformEnv(linkAction, "WatchSimulator");
     assertThat(normalizeBashArgs(linkAction.getArguments()))
-        .containsAllOf("-arch_only", "i386")
+        .containsAtLeast("-arch_only", "i386")
         .inOrder();
   }
 
@@ -484,8 +484,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
 
     CommandAction action = linkLibAction("//package:test");
-    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllOf(
-        "package/libobjcLib.a", "package/libbaseLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
+        .containsAtLeast("package/libobjcLib.a", "package/libbaseLib.a");
     assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
         "package/libavoidLib.a");
   }

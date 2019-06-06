@@ -54,7 +54,8 @@ OptionProcessor::OptionProcessor(
     const WorkspaceLayout* workspace_layout,
     std::unique_ptr<StartupOptions> default_startup_options)
     : workspace_layout_(workspace_layout),
-      parsed_startup_options_(std::move(default_startup_options)),
+      startup_options_(std::move(default_startup_options)),
+      parse_options_called_(false),
       system_bazelrc_path_(BAZEL_SYSTEM_BAZELRC_PATH) {}
 
 OptionProcessor::OptionProcessor(
@@ -62,13 +63,17 @@ OptionProcessor::OptionProcessor(
     std::unique_ptr<StartupOptions> default_startup_options,
     const std::string& system_bazelrc_path)
     : workspace_layout_(workspace_layout),
-      parsed_startup_options_(std::move(default_startup_options)),
+      startup_options_(std::move(default_startup_options)),
+      parse_options_called_(false),
       system_bazelrc_path_(system_bazelrc_path) {}
+
+std::string OptionProcessor::GetLowercaseProductName() const {
+  return startup_options_->GetLowercaseProductName();
+}
 
 std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
     vector<string> args, string* error) const {
-  const string lowercase_product_name =
-      parsed_startup_options_->GetLowercaseProductName();
+  const string lowercase_product_name = GetLowercaseProductName();
 
   if (args.empty()) {
     blaze_util::StringPrintf(error,
@@ -86,10 +91,10 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
     // If the current argument is a valid nullary startup option such as
     // --master_bazelrc or --nomaster_bazelrc proceed to examine the next
     // argument.
-    if (parsed_startup_options_->IsNullary(current_arg)) {
+    if (startup_options_->IsNullary(current_arg)) {
       startup_args.push_back(current_arg);
       i++;
-    } else if (parsed_startup_options_->IsUnary(current_arg)) {
+    } else if (startup_options_->IsUnary(current_arg)) {
       // If the current argument is a valid unary startup option such as
       // --bazelrc there are two cases to consider.
 
@@ -453,6 +458,8 @@ blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
 blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     const vector<string>& args, const string& workspace, const string& cwd,
     string* error) {
+  assert(!parse_options_called_);
+  parse_options_called_ = true;
   cmd_line_ = SplitCommandLine(args, error);
   if (cmd_line_ == nullptr) {
     return blaze_exit_code::BAD_ARGV;
@@ -547,7 +554,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
     rcstartup_flags.push_back(RcStartupFlag("", arg));
   }
 
-  return parsed_startup_options_->ProcessArgs(rcstartup_flags, error);
+  return startup_options_->ProcessArgs(rcstartup_flags, error);
 }
 
 static bool IsValidEnvName(const char* p) {
@@ -701,8 +708,8 @@ std::string OptionProcessor::GetCommand() const {
 }
 
 StartupOptions* OptionProcessor::GetParsedStartupOptions() const {
-  assert(parsed_startup_options_ != NULL);
-  return parsed_startup_options_.get();
+  assert(parse_options_called_);
+  return startup_options_.get();
 }
 
 }  // namespace blaze

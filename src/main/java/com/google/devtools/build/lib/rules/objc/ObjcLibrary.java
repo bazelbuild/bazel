@@ -92,10 +92,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         CcCompilationContext.builder(
                 ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel())
             .addDeclaredIncludeSrcs(
-                CompilationAttributes.Builder.fromRuleContext(ruleContext)
-                    .build()
-                    .hdrs()
-                    .toCollection())
+                CompilationAttributes.Builder.fromRuleContext(ruleContext).build().hdrs().toList())
             .addTextualHdrs(common.getTextualHdrs())
             .addDeclaredIncludeSrcs(common.getTextualHdrs())
             .build();

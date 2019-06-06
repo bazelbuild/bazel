@@ -106,7 +106,11 @@ public class DirtinessCheckerUtils {
     }
   }
 
-  /** Checks files outside of the package roots for changes. */
+  /**
+   * Serves for tracking whether there are external and output files {@see ExternalFilesKnowledge}.
+   * Filtering of files, for which the new values should not be injected into evaluator, is done in
+   * SequencedSkyframeExecutor.handleChangedFiles().
+   */
   static final class ExternalDirtinessChecker extends BasicFilesystemDirtinessChecker {
     private final ExternalFilesHelper externalFilesHelper;
     private final EnumSet<FileType> fileTypesToCheck;
@@ -140,7 +144,8 @@ public class DirtinessCheckerUtils {
         return SkyValueDirtinessChecker.DirtyResult.notDirty(oldValue);
       }
       FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) skyKey.argument());
-      if (fileType == FileType.EXTERNAL_REPO) {
+      if (fileType == FileType.EXTERNAL_REPO
+          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
         // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
         // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
         // parsed.

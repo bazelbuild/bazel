@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -57,7 +59,6 @@ import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.BlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -66,10 +67,11 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
-import com.google.devtools.build.lib.query2.output.OutputFormatter;
-import com.google.devtools.build.lib.query2.output.QueryOptions;
-import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
-import com.google.devtools.build.lib.query2.output.QueryOutputUtils;
+import com.google.devtools.build.lib.query2.query.BlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
+import com.google.devtools.build.lib.query2.query.output.QueryOptions;
+import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
+import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
@@ -94,12 +96,14 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
  * An implementation of the 'genquery' rule.
  */
 public class GenQuery implements RuleConfiguredTargetFactory {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final QueryEnvironmentFactory QUERY_ENVIRONMENT_FACTORY =
       new QueryEnvironmentFactory();
 
@@ -166,6 +170,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    if (result.size() > 50_000_000) {
+      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+          "Genquery %s had large output %s", ruleContext.getLabel(), result.size());
+    }
     ruleContext.registerAction(
         new QueryResultAction(ruleContext.getActionOwner(), outputArtifact, result));
 
@@ -335,7 +343,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   settings,
                   /*extraFunctions=*/ ImmutableList.of(),
                   /*packagePath=*/ null,
-                  /*blockUniverseEvaluationErrors=*/ false);
+                  /*blockUniverseEvaluationErrors=*/ false,
+                  /*useForkJoinPool=*/ false,
+                  /*useGraphlessQuery=*/ false);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
@@ -407,16 +417,17 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
+    public Map<String, Collection<Target>> preloadTargetPatterns(
         ExtendedEventHandler eventHandler,
         PathFragment relativeWorkingDirectory,
         Collection<String> patterns,
-        boolean keepGoing)
-            throws TargetParsingException, InterruptedException {
+        boolean keepGoing,
+        boolean useForkJoinPool)
+        throws TargetParsingException, InterruptedException {
       Preconditions.checkArgument(!keepGoing);
       Preconditions.checkArgument(relativeWorkingDirectory.isEmpty());
       boolean ok = true;
-      Map<String, ResolvedTargets<Target>> preloadedPatterns =
+      Map<String, Collection<Target>> preloadedPatterns =
           Maps.newHashMapWithExpectedSize(patterns.size());
       Map<TargetPatternKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
       for (String pattern : patterns) {
@@ -473,14 +484,11 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       for (Map.Entry<String, ResolvedTargets<Label>> entry : resolvedLabelsMap.entrySet()) {
         String pattern = entry.getKey();
         ResolvedTargets<Label> resolvedLabels = resolvedLabelsMap.get(pattern);
-        ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
+        Set<Target> builder = CompactHashSet.create();
         for (Label label : resolvedLabels.getTargets()) {
           builder.add(getExistingTarget(label, packages));
         }
-        for (Label label : resolvedLabels.getFilteredTargets()) {
-          builder.remove(getExistingTarget(label, packages));
-        }
-        preloadedPatterns.put(pattern, builder.build());
+        preloadedPatterns.put(pattern, builder);
       }
       return preloadedPatterns;
     }

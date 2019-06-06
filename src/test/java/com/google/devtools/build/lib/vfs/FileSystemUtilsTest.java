@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.appendWithoutExtension;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.commonAncestor;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyFile;
@@ -25,7 +26,6 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.touchFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.traverseTree;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -153,12 +153,7 @@ public class FileSystemUtilsTest {
   @Test
   public void testChangeModtime() throws IOException {
     Path file = fileSystem.getPath("/my-file");
-    try {
-      BlazeTestUtils.changeModtime(file);
-      fail();
-    } catch (FileNotFoundException e) {
-      /* ok */
-    }
+    assertThrows(FileNotFoundException.class, () -> BlazeTestUtils.changeModtime(file));
     FileSystemUtils.createEmptyFile(file);
     long prevMtime = file.getLastModifiedTime();
     BlazeTestUtils.changeModtime(file);
@@ -462,17 +457,11 @@ public class FileSystemUtilsTest {
     byte[] content = new byte[] { 'a', 'b', 'c', 23, 42 };
     FileSystemUtils.writeContent(originalFile, content);
 
-    try {
-      copyFile(originalFile, aDir);
-      fail();
-    } catch (IOException ex) {
-      assertThat(ex)
-          .hasMessageThat()
-          .isEqualTo(
-              "error copying file: couldn't delete destination: "
-                  + aDir
-                  + " (Directory not empty)");
-    }
+    IOException ex = assertThrows(IOException.class, () -> copyFile(originalFile, aDir));
+    assertThat(ex)
+        .hasMessageThat()
+        .isEqualTo(
+            "error copying file: couldn't delete destination: " + aDir + " (Directory not empty)");
   }
 
   @Test
@@ -514,25 +503,20 @@ public class FileSystemUtilsTest {
   @Test
   public void testCopyTreesBelowToSubtree() throws IOException {
     createTestDirectoryTree();
-    try {
-      FileSystemUtils.copyTreesBelow(topDir, aDir, Symlinks.FOLLOW);
-      fail("Should not be able to copy a directory to a subdir");
-    } catch (IllegalArgumentException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .isEqualTo("/top-dir/a-dir is a subdirectory of /top-dir");
-    }
+    IllegalArgumentException expected =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> FileSystemUtils.copyTreesBelow(topDir, aDir, Symlinks.FOLLOW));
+    assertThat(expected).hasMessageThat().isEqualTo("/top-dir/a-dir is a subdirectory of /top-dir");
   }
 
   @Test
   public void testCopyFileAsDirectoryTree() throws IOException {
     createTestDirectoryTree();
-    try {
-      FileSystemUtils.copyTreesBelow(file1, aDir, Symlinks.FOLLOW);
-      fail("Should not be able to copy a file with copyDirectory method");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("/top-dir/file-1 (Not a directory)");
-    }
+    IOException expected =
+        assertThrows(
+            IOException.class, () -> FileSystemUtils.copyTreesBelow(file1, aDir, Symlinks.FOLLOW));
+    assertThat(expected).hasMessageThat().isEqualTo("/top-dir/file-1 (Not a directory)");
   }
 
   @Test
@@ -541,27 +525,23 @@ public class FileSystemUtilsTest {
     Path copyDir = fileSystem.getPath("/my-dir");
     Path copySubDir = fileSystem.getPath("/my-dir/subdir");
     FileSystemUtils.createDirectoryAndParents(copySubDir);
-    try {
-      FileSystemUtils.copyTreesBelow(copyDir, file4, Symlinks.FOLLOW);
-      fail("Should not be able to copy a directory to a file");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("/file-4 (Not a directory)");
-    }
+    IOException expected =
+        assertThrows(
+            IOException.class,
+            () -> FileSystemUtils.copyTreesBelow(copyDir, file4, Symlinks.FOLLOW));
+    assertThat(expected).hasMessageThat().isEqualTo("/file-4 (Not a directory)");
   }
 
   @Test
   public void testCopyTreesBelowFromUnexistingDir() throws IOException {
     createTestDirectoryTree();
 
-    try {
-      Path unexistingDir = fileSystem.getPath("/unexisting-dir");
-      FileSystemUtils.copyTreesBelow(unexistingDir, aDir, Symlinks.FOLLOW);
-      fail("Should not be able to copy from an unexisting path");
-    } catch (FileNotFoundException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .isEqualTo("/unexisting-dir (No such file or directory)");
-    }
+    Path unexistingDir = fileSystem.getPath("/unexisting-dir");
+    FileNotFoundException expected =
+        assertThrows(
+            FileNotFoundException.class,
+            () -> FileSystemUtils.copyTreesBelow(unexistingDir, aDir, Symlinks.FOLLOW));
+    assertThat(expected).hasMessageThat().isEqualTo("/unexisting-dir (No such file or directory)");
   }
 
   @Test

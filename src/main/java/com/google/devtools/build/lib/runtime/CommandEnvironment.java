@@ -17,19 +17,17 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -188,7 +186,7 @@ public final class CommandEnvironment {
       // Compute the set of environment variables that are whitelisted on the commandline
       // for inheritance.
       for (Map.Entry<String, String> entry :
-          options.getOptions(BuildConfiguration.Options.class).actionEnvironment) {
+          options.getOptions(CoreOptions.class).actionEnvironment) {
         if (entry.getValue() == null) {
           visibleActionEnv.add(entry.getKey());
         } else {
@@ -197,7 +195,7 @@ public final class CommandEnvironment {
         }
       }
       for (Map.Entry<String, String> entry :
-          options.getOptions(BuildConfiguration.Options.class).testEnvironment) {
+          options.getOptions(CoreOptions.class).testEnvironment) {
         if (entry.getValue() == null) {
           visibleTestEnv.add(entry.getKey());
         }
@@ -205,7 +203,7 @@ public final class CommandEnvironment {
     }
 
     repoEnv.putAll(actionClientEnv);
-    BuildConfiguration.Options configOpts = options.getOptions(BuildConfiguration.Options.class);
+    CoreOptions configOpts = options.getOptions(CoreOptions.class);
     if (configOpts != null) {
       for (Map.Entry<String, String> entry : configOpts.repositoryEnvironment) {
         repoEnv.put(entry.getKey(), entry.getValue());
@@ -386,17 +384,6 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Creates and returns a new target pattern preloader.
-   */
-  public TargetPatternPreloader newTargetPatternPreloader() {
-    return getPackageManager().newTargetPatternPreloader();
-  }
-
-  public PackageRootResolver getPackageRootResolver() {
-    return new SkyframePackageRootResolver(getSkyframeExecutor(), reporter);
-  }
-
-  /**
    * Returns the UUID that Blaze uses to identify everything logged from the current build command.
    * It's also used to invalidate Skyframe nodes that are specific to a certain invocation, such as
    * the build info.
@@ -440,6 +427,7 @@ public final class CommandEnvironment {
   public void setWorkspaceName(String workspaceName) {
     Preconditions.checkState(this.workspaceName == null, "workspace name can only be set once");
     this.workspaceName = workspaceName;
+    eventBus.post(new ExecRootEvent(getExecRoot()));
   }
   /**
    * Returns if the client passed a valid workspace to be used for the build.
@@ -635,15 +623,11 @@ public final class CommandEnvironment {
   /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
    *
-   * @param commonOptions The CommonCommandOptions used by every command.
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(
-      OptionsParsingResult options,
-      CommonCommandOptions commonOptions,
-      long waitTimeInMs,
-      InvocationPolicy invocationPolicy)
+  void beforeCommand(long waitTimeInMs, InvocationPolicy invocationPolicy)
       throws AbruptExitException {
+    CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     commandStartTime -= commonOptions.startupTime;
 
     eventBus.post(
@@ -676,6 +660,10 @@ public final class CommandEnvironment {
     Path workspace = getWorkspace();
     Path workingDirectory;
     if (inWorkspace()) {
+      if (commonOptions.clientCwd.containsUplevelReferences()) {
+        throw new AbruptExitException(
+            "Client cwd contains uplevel references", ExitCode.COMMAND_LINE_ERROR);
+      }
       workingDirectory = workspace.getRelative(commonOptions.clientCwd);
     } else {
       workspace = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());

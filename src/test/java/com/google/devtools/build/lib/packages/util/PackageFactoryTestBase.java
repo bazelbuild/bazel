@@ -94,7 +94,7 @@ public abstract class PackageFactoryTestBase {
     for (String outName : outNames) {
       OutputFile out = (OutputFile) pkg.getTarget(outName);
       assertThat(rule.getOutputFiles()).contains(out);
-      assertThat(out.getGeneratingRule()).isSameAs(rule);
+      assertThat(out.getGeneratingRule()).isSameInstanceAs(rule);
       assertThat(out.getName()).isEqualTo(outName);
       assertThat(out.getTargetKind()).isEqualTo("generated file");
     }
@@ -117,7 +117,8 @@ public abstract class PackageFactoryTestBase {
             null,
             TestUtils.getPool(),
             -1);
-    assertThat(globCache.globUnsorted(include, exclude, false)).containsExactlyElementsIn(expected);
+    assertThat(globCache.globUnsorted(include, exclude, false, true))
+        .containsExactlyElementsIn(expected);
   }
 
   @Before
@@ -198,16 +199,12 @@ public abstract class PackageFactoryTestBase {
       List<String> result, List<String> includes, List<String> excludes, boolean excludeDirs)
       throws Exception {
 
-    // The BUILD language, unlike Skylark, doesn't have fail(), so instead,
-    // we rely on boolean short circuit logic to only try to evaluate
-    // the undefined identifier this_will_fail if the result isn't as expected,
-    // in which case an error occurs (which we test in testGlobNegativeTest).
     Pair<Package, GlobCache> evaluated =
         evaluateGlob(
             includes,
             excludes,
             excludeDirs,
-            Printer.format("(result == sorted(%r)) or this_will_fail()", result));
+            Printer.format("(result == sorted(%r)) or fail('incorrect glob result')", result));
 
     Package pkg = evaluated.first;
     GlobCache globCache = evaluated.second;

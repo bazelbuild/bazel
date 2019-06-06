@@ -78,24 +78,25 @@ public abstract class AndroidSkylarkData
   public AndroidResourcesInfo resourcesFromDeps(
       AndroidDataContext ctx,
       SkylarkList<AndroidResourcesInfo> deps,
+      SkylarkList<AndroidAssetsInfo> assets,
       boolean neverlink,
       Object customPackage,
       Location location,
       Environment env)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
-      String pkg = fromNoneable(customPackage, String.class);
-      if (pkg == null) {
-        pkg =
-            AndroidManifest.getDefaultPackage(
-                env.getCallerLabel(), ctx.getActionConstructionContext(), errorReporter);
-      }
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
+      String pkg =
+          fromNoneableOrDefault(
+              customPackage,
+              String.class,
+              AndroidManifest.getDefaultPackage(
+                  env.getCallerLabel(), ctx.getActionConstructionContext(), errorReporter));
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
               DataBinding.getDisabledDataBindingContext(ctx),
               ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
-              AssetDependencies.empty(),
+              AssetDependencies.fromProviders(assets, /* neverlink = */ neverlink),
               StampedAndroidManifest.createEmpty(
                   ctx.getActionConstructionContext(), pkg, /* exported = */ false))
           .toResourceInfo(ctx.getLabel());
@@ -113,7 +114,7 @@ public abstract class AndroidSkylarkData
       throws InterruptedException, EvalException {
     String pkg = fromNoneable(customPackage, String.class);
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
       return AndroidManifest.from(
               ctx,
               errorReporter,
@@ -137,7 +138,7 @@ public abstract class AndroidSkylarkData
       Environment env)
       throws EvalException, InterruptedException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
       return AndroidAssets.from(
               errorReporter,
               listFromNoneable(assets, ConfiguredTarget.class),
@@ -164,7 +165,7 @@ public abstract class AndroidSkylarkData
       Environment env)
       throws EvalException, InterruptedException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
       AndroidAaptVersion aaptVersion =
           ctx.getSdk().getAapt2() != null ? AndroidAaptVersion.AAPT2 : AndroidAaptVersion.AAPT;
       return AndroidResources.from(errorReporter, getFileProviders(resources), "resources")
@@ -320,7 +321,7 @@ public abstract class AndroidSkylarkData
       Environment env)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
 
       AndroidManifest rawManifest =
           AndroidManifest.from(
@@ -382,7 +383,7 @@ public abstract class AndroidSkylarkData
 
     AndroidAaptVersion aaptVersion;
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
       aaptVersion =
           AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString);
     } catch (RuleErrorException e) {
@@ -455,7 +456,7 @@ public abstract class AndroidSkylarkData
       Environment env)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
 
       BinaryDataSettings settings =
           fromNoneableOrDefault(

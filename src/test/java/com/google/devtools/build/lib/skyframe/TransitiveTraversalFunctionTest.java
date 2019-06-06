@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /** Test for {@link TransitiveTraversalFunction}. */
@@ -60,7 +61,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
           @Override
-          LoadTargetResults loadTarget(Environment env, Label label) {
+          TargetAndErrorIfAny loadTarget(Environment env, Label label) {
             return targetAndErrorIfAny;
           }
         };
@@ -69,7 +70,6 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     GroupedListHelper<SkyKey> helper = new GroupedListHelper<>();
     SkyKey fakeDep1 = function.getKey(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
     SkyKey fakeDep2 = function.getKey(Label.parseAbsolute("//foo:baz", ImmutableMap.of()));
-    helper.add(TargetMarkerValue.key(label));
     helper.add(PackageValue.key(label.getPackageIdentifier()));
     helper.startGroup();
     // Note that these targets don't actually exist in the package we created initially. It doesn't
@@ -84,7 +84,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     when(mockEnv.getTemporaryDirectDeps()).thenReturn(groupedList);
     when(mockEnv.getValuesOrThrow(
-            groupedList.get(2), NoSuchPackageException.class, NoSuchTargetException.class))
+            groupedList.get(1), NoSuchPackageException.class, NoSuchTargetException.class))
         .thenAnswer(
             (invocationOnMock) -> {
               wasOptimizationUsed.set(true);
@@ -116,7 +116,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
           @Override
-          LoadTargetResults loadTarget(Environment env, Label label) {
+          TargetAndErrorIfAny loadTarget(Environment env, Label label) {
             return targetAndErrorIfAny;
           }
         };
@@ -128,7 +128,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     // Try two evaluations, with the environment reversing the order of the map it returns.
     when(mockEnv.getValuesOrThrow(
-            Mockito.any(),
+            ArgumentMatchers.any(),
             Mockito.eq(NoSuchPackageException.class),
             Mockito.eq(NoSuchTargetException.class)))
         .thenReturn(returnedDeps);
@@ -142,7 +142,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         reversedDeps =
             ImmutableMap.of(dep2, makeException("bad baz"), dep1, makeException("bad bar"));
     when(mockEnv.getValuesOrThrow(
-            Mockito.any(),
+            ArgumentMatchers.any(),
             Mockito.eq(NoSuchPackageException.class),
             Mockito.eq(NoSuchTargetException.class)))
         .thenReturn(reversedDeps);
@@ -168,23 +168,22 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
           @Override
-          LoadTargetResults loadTarget(Environment env, Label label) {
+          TargetAndErrorIfAny loadTarget(Environment env, Label label) {
             return targetAndErrorIfAny;
           }
         };
     SkyKey dep = function.getKey(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     when(mockEnv.getValuesOrThrow(
-            Mockito.any(),
+            ArgumentMatchers.any(),
             Mockito.eq(NoSuchPackageException.class),
             Mockito.eq(NoSuchTargetException.class)))
         .thenReturn(ImmutableMap.of(dep, makeException("bad bar")));
     when(mockEnv.valuesMissing()).thenReturn(false);
 
-    assertThat(
-            ((TransitiveTraversalValue) function.compute(function.getKey(label), mockEnv))
-                .getErrorMessage())
-        .isEqualTo("self error is long and last");
+    TransitiveTraversalValue transitiveTraversalValue =
+        (TransitiveTraversalValue) function.compute(function.getKey(label), mockEnv);
+    assertThat(transitiveTraversalValue.getErrorMessage()).isEqualTo("self error is long and last");
   }
 
   private static ValueOrException2<NoSuchPackageException, NoSuchTargetException> makeException(

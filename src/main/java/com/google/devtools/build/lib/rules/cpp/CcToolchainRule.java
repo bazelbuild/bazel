@@ -340,15 +340,6 @@ public final class CcToolchainRule implements RuleDefinition {
                 .allowedRuleClasses("fdo_prefetch_hints")
                 .mandatoryProviders(ImmutableList.of(FdoPrefetchHintsProvider.PROVIDER.id()))
                 .value(FDO_PREFETCH_HINTS))
-        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(proto) -->
-        Deprecated, will be removed as part of
-        <a href="https://github.com/bazelbuild/bazel/issues/5380">
-          CROSSTOOL migration to Starlark
-        </a>.
-        Inline content of the crosstool_config.toolchain. When specified, it will take precedence
-        over the CROSSTOOL file.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("proto", Type.STRING))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(toolchain_identifier) -->
         The identifier used to match this cc_toolchain with the corresponding
         crosstool_config.toolchain.
@@ -364,13 +355,13 @@ public final class CcToolchainRule implements RuleDefinition {
                 .nonconfigurable("Used in configuration creation")
                 .value(""))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(toolchain_config) -->
-        The label of the rule providing <code>cc_toolchain_config_info</code>. When specified,
-        cc_toolchain will not use the CROSSTOOL file at all.
+        The label of the rule providing <code>cc_toolchain_config_info</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr(TOOLCHAIN_CONFIG_ATTR, LABEL)
                 .allowedFileTypes()
-                .mandatoryProviders(CcToolchainConfigInfo.PROVIDER.id()))
+                .mandatoryProviders(CcToolchainConfigInfo.PROVIDER.id())
+                .mandatory())
         .build();
   }
 
@@ -399,7 +390,7 @@ public final class CcToolchainRule implements RuleDefinition {
       most commonly filegroups globbing all required files.
     </li>
     <li>
-      Generating correct command lines for C++ actions. This is done using CROSSTOOL, or using
+      Generating correct command lines for C++ actions. This is done using
       <code>CcToolchainConfigInfo</code> provider (details below).
     </li>
   </ul>

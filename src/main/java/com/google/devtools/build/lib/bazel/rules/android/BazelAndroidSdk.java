@@ -18,6 +18,6 @@ import com.google.devtools.build.lib.rules.android.AndroidSdkBase;
 /** Implementation of {@code AndroidSdk} with Bazel semantics. */
 public class BazelAndroidSdk extends AndroidSdkBase {
   public BazelAndroidSdk() {
-    super(BazelAndroidMigrationSemantics.INSTANCE);
+    super(BazelAndroidSemantics.INSTANCE);
   }
 }

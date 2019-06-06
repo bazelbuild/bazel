@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import os
 import re
 import tempfile
@@ -99,13 +101,38 @@ def FindModuleSpace():
 
   raise AssertionError('Cannot find .runfiles directory for %s' % sys.argv[0])
 
+def ExtractZip(zip_path, dest_dir):
+  """Extracts the contents of a zip file, preserving the unix file mode bits.
+
+  These include the permission bits, and in particular, the executable bit.
+
+  Ideally the zipfile module should set these bits, but it doesn't. See:
+  https://bugs.python.org/issue15795.
+
+  Args:
+      zip_path: The path to the zip file to extract
+      dest_dir: The path to the destination directory
+  """
+  zip_path = GetWindowsPathWithUNCPrefix(zip_path)
+  dest_dir = GetWindowsPathWithUNCPrefix(dest_dir)
+  with zipfile.ZipFile(zip_path) as zf:
+    for info in zf.infolist():
+      zf.extract(info, dest_dir)
+      # UNC-prefixed paths must be absolute/normalized. See
+      # https://docs.microsoft.com/en-us/windows/desktop/fileio/naming-a-file#maximum-path-length-limitation
+      file_path = os.path.abspath(os.path.join(dest_dir, info.filename))
+      # The Unix st_mode bits (see "man 7 inode") are stored in the upper 16
+      # bits of external_attr. Of those, we set the lower 12 bits, which are the
+      # file mode bits (since the file type bits can't be set by chmod anyway).
+      attrs = info.external_attr >> 16
+      if attrs != 0:  # Rumor has it these can be 0 for zips created on Windows.
+        os.chmod(file_path, attrs & 0o7777)
+
 # Create the runfiles tree by extracting the zip file
 def CreateModuleSpace():
-  ZIP_RUNFILES_DIRECTORY_NAME = "runfiles"
   temp_dir = tempfile.mkdtemp("", "Bazel.runfiles_")
-  zf = zipfile.ZipFile(GetWindowsPathWithUNCPrefix(os.path.dirname(__file__)))
-  zf.extractall(GetWindowsPathWithUNCPrefix(temp_dir))
-  return os.path.join(temp_dir, ZIP_RUNFILES_DIRECTORY_NAME)
+  ExtractZip(os.path.dirname(__file__), temp_dir)
+  return os.path.join(temp_dir, "runfiles")
 
 # Returns repository roots to add to the import path.
 def GetRepositoriesImports(module_space, import_all):
@@ -146,6 +173,84 @@ def RunfilesEnvvar(module_space):
     return ('RUNFILES_DIR', module_space)
 
   return (None, None)
+
+# TODO(#6443): Remove this once there's no longer a host configuration for
+# Python targets to appear in.
+def MaybeEmitHostVersionWarning(ret_code):
+  """Warn the user if a failure may be due to the host config's version.
+
+  This emits a message to stderr if
+    1) ret_code is non-zero,
+    2) the target was built in the host config and with toolchains enabled, and
+    3) at analysis time we detected a mismatch between the host config's version
+       and this target's explicitly declared version, or else this target did
+       not explicitly declare its version. (The former diagnoses targets
+       affected by #6443, and the latter diagnoses targets that are broken by
+       fixing #4815.)
+
+  See also #7899, #8549, and PyCommon#shouldWarnAboutHostVersionUponFailure.
+
+  Since this warning is emitted here in the stub script and not in Bazel itself,
+  it will be present in all failing runs of affected targets, even when executed
+  directly and not via `bazel run`. However, note that this warning is never
+  added to non-host-configured targets, and that it can be disabled by ensuring
+  the correct Python version is passed to --host_force_python and declared in
+  tools' python_version attributes.
+
+  Args:
+      ret_code: The exit code of the payload user program
+  """
+  if ret_code == 0:
+    return
+  if not %enable_host_version_warning%:
+    return
+
+  host_version = %python_version_from_config%
+  target_version = %python_version_from_attr%
+  opposite_of_host_version = "2" if host_version == "3" else "3"
+
+  if %python_version_specified_explicitly%:
+    # Mismatch with explicitly declared version.
+    diagnostic = """\
+Note: The failure of target {target} (with exit code {ret_code}) may have been \
+caused by the fact that it is a Python {target_version} program that was built \
+in the host configuration, which uses Python {host_version}. You can change \
+the host configuration (for the entire build) to instead use Python \
+{target_version} by setting --host_force_python=PY{target_version}.\
+""".format(
+    target="%target%",
+    ret_code=ret_code,
+    target_version=target_version,
+    host_version=host_version)
+  else:
+    diagnostic = """\
+Note: The failure of target {target} (with exit code {ret_code}) may have been \
+caused by the fact that it is running under Python {host_version} instead of \
+Python {opposite_of_host_version}. Examine the error to determine if that \
+appears to be the problem. Since this target is built in the host \
+configuration, the only way to change its version is to set \
+--host_force_python=PY{opposite_of_host_version}, which affects the entire \
+build.\
+""".format(
+    target="%target%",
+    ret_code=ret_code,
+    host_version=host_version,
+    opposite_of_host_version=opposite_of_host_version)
+
+  # TODO(brandjon): Change the wording "You are likely seeing this message
+  # because" to something less strong after a few releases from 0.27. By that
+  # point, migration for toolchains won't be the main reason this error is seen
+  # by users.
+  message = """\
+----------------
+{diagnostic}
+
+If this error started occurring in Bazel 0.27 and later, it may be because the \
+Python toolchain now enforces that targets analyzed as PY2 and PY3 run under a \
+Python 2 and Python 3 interpreter, respectively. See \
+https://github.com/bazelbuild/bazel/issues/7899 for more information.
+----------------""".format(diagnostic=diagnostic)
+  print(message, file=sys.stderr)
 
 def Main():
   args = sys.argv[1:]
@@ -205,14 +310,22 @@ def Main():
       # (So that the data files are accessible)
       if os.environ.get("RUN_UNDER_RUNFILES") == "1":
         os.chdir(os.path.join(module_space, "%workspace_name%"))
-      retCode = subprocess.call(args)
+      ret_code = subprocess.call(args)
       shutil.rmtree(os.path.dirname(module_space), True)
-      exit(retCode)
+      MaybeEmitHostVersionWarning(ret_code)
+      sys.exit(ret_code)
     else:
-      if IsWindows():
-        # On Windows, os.execv doesn't handle arguments with spaces correctly,
-        # and it actually starts a subprocess just like subprocess.call.
-        exit(subprocess.call(args))
+      # On Windows, os.execv doesn't handle arguments with spaces correctly,
+      # and it actually starts a subprocess just like subprocess.call.
+      #
+      # If we may need to emit a host config warning after execution, don't
+      # execv because we need control to return here. This only happens for
+      # targets built in the host config, so other targets still get to take
+      # advantage of the performance benefits of execv.
+      if IsWindows() or %enable_host_version_warning%:
+        ret_code = subprocess.call(args)
+        MaybeEmitHostVersionWarning(ret_code)
+        sys.exit(ret_code)
       else:
         os.execv(args[0], args)
   except EnvironmentError:

@@ -45,8 +45,7 @@ EOF
   mkfifo $testfifo $sleepyfifo || fail "Couldn't create FIFOs under x"
 
   set -m
-  # TODO(b/37617303): make test UI-independent
-  bazel $startup_opt build --noexperimental_ui \
+  bazel $startup_opt build --experimental_ui_debug_all_events \
       --package_path . //x:sleepy >& $TEST_log &
   local pid=$!
 

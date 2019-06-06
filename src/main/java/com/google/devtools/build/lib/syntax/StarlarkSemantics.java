@@ -39,19 +39,25 @@ public abstract class StarlarkSemantics {
    * the exact name of the flag transformed to upper case (for error representation).
    */
   public enum FlagIdentifier {
+    EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES(
+        StarlarkSemantics::experimentalAllowIncrementalRepositoryUpdates),
     EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
         StarlarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
+    EXPERIMENTAL_GOOGLE_LEGACY_API(StarlarkSemantics::experimentalGoogleLegacyApi),
     EXPERIMENTAL_PLATFORM_API(StarlarkSemantics::experimentalPlatformsApi),
     EXPERIMENTAL_STARLARK_CONFIG_TRANSITION(
         StarlarkSemantics::experimentalStarlarkConfigTransitions),
+    EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST(
+        StarlarkSemantics::experimentalStarlarkUnusedInputsList),
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         StarlarkSemantics::incompatibleDisableObjcProviderResources),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
-    INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
     INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP(StarlarkSemantics::incompatibleObjcFrameworkCleanup),
+    INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(
+        StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -114,6 +120,8 @@ public abstract class StarlarkSemantics {
       AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
+
   public abstract boolean experimentalBuildSettingApi();
 
   public abstract ImmutableList<String> experimentalCcSkylarkApiEnabledPackages();
@@ -126,9 +134,9 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalPlatformsApi();
 
-  public abstract boolean experimentalRestrictNamedParams();
-
   public abstract boolean experimentalStarlarkConfigTransitions();
+
+  public abstract boolean experimentalStarlarkUnusedInputsList();
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
@@ -144,6 +152,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowDictPlus();
 
+  public abstract boolean incompatibleDisallowEmptyGlob();
+
   public abstract boolean incompatibleDisallowFileType();
 
   public abstract boolean incompatibleDisallowLegacyJavaProvider();
@@ -154,9 +164,9 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowNativeInBuildFile();
 
-  public abstract boolean incompatibleDisallowOldOctalNotation();
-
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
+
+  public abstract boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed();
 
   public abstract boolean incompatibleDisallowStructProviderSyntax();
 
@@ -170,8 +180,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoOutputAttrDefault();
 
-  public abstract boolean incompatibleNoRuleOutputsParam();
-
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
   public abstract boolean incompatibleNoTargetOutputGroup();
@@ -184,6 +192,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
+  public abstract boolean incompatibleRestrictNamedParams();
+
   public abstract boolean incompatibleStringJoinRequiresStrings();
 
   public abstract boolean incompatibleStaticNameResolutionInBuildFiles();
@@ -191,6 +201,10 @@ public abstract class StarlarkSemantics {
   public abstract boolean internalSkylarkFlagTestCanary();
 
   public abstract boolean incompatibleDoNotSplitLinkingCmdline();
+
+  public abstract boolean incompatibleDepsetForLibrariesToLinkGetter();
+
+  public abstract boolean incompatibleRestrictStringEscapes();
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
@@ -207,45 +221,49 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
-          .experimentalBuildSettingApi(false)
+          .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
+          .experimentalAllowIncrementalRepositoryUpdates(false)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
-          .experimentalRestrictNamedParams(false)
-          .experimentalStarlarkConfigTransitions(false)
+          .experimentalStarlarkConfigTransitions(true)
+          .experimentalStarlarkUnusedInputsList(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
-          .incompatibleDepsetIsNotIterable(false)
-          .incompatibleDepsetUnion(false)
+          .incompatibleDepsetIsNotIterable(true)
+          .incompatibleDepsetUnion(true)
           .incompatibleDisableThirdPartyLicenseChecking(true)
-          .incompatibleDisableDeprecatedAttrParams(false)
-          .incompatibleDisableObjcProviderResources(false)
+          .incompatibleDisableDeprecatedAttrParams(true)
+          .incompatibleDisableObjcProviderResources(true)
           .incompatibleDisallowDictPlus(true)
+          .incompatibleDisallowEmptyGlob(false)
           .incompatibleDisallowFileType(true)
           .incompatibleDisallowLegacyJavaProvider(false)
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(true)
-          .incompatibleDisallowNativeInBuildFile(false)
-          .incompatibleDisallowOldOctalNotation(false)
+          .incompatibleDisallowNativeInBuildFile(true)
           .incompatibleDisallowOldStyleArgsAdd(true)
+          .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleExpandDirectories(true)
-          .incompatibleNewActionsApi(false)
+          .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
-          .incompatibleNoKwargsInBuildFiles(false)
+          .incompatibleNoKwargsInBuildFiles(true)
           .incompatibleNoOutputAttrDefault(true)
-          .incompatibleNoRuleOutputsParam(false)
-          .incompatibleNoSupportToolsInActionInputs(false)
+          .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(true)
-          .incompatibleObjcFrameworkCleanup(false)
+          .incompatibleObjcFrameworkCleanup(true)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
-          .incompatibleStaticNameResolutionInBuildFiles(false)
-          .incompatibleStringJoinRequiresStrings(false)
+          .incompatibleRestrictNamedParams(false)
+          .incompatibleStaticNameResolutionInBuildFiles(true)
+          .incompatibleStringJoinRequiresStrings(true)
           .internalSkylarkFlagTestCanary(false)
-          .incompatibleDoNotSplitLinkingCmdline(false)
+          .incompatibleDoNotSplitLinkingCmdline(true)
+          .incompatibleDepsetForLibrariesToLinkGetter(true)
+          .incompatibleRestrictStringEscapes(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -253,6 +271,8 @@ public abstract class StarlarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
+
     public abstract Builder experimentalBuildSettingApi(boolean value);
 
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
@@ -265,9 +285,9 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder experimentalPlatformsApi(boolean value);
 
-    public abstract Builder experimentalRestrictNamedParams(boolean value);
-
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
+
+    public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
@@ -285,17 +305,20 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDisallowFileType(boolean value);
 
+    public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
+
     public abstract Builder incompatibleDisallowLegacyJavaProvider(boolean value);
 
     public abstract Builder incompatibleDisallowLegacyJavaInfo(boolean value);
 
     public abstract Builder incompatibleDisallowLoadLabelsToCrossPackageBoundaries(boolean value);
 
-    public abstract Builder incompatibleDisallowOldOctalNotation(boolean value);
-
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 
     public abstract Builder incompatibleDisallowNativeInBuildFile(boolean value);
+
+    public abstract Builder incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
+        boolean value);
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
 
@@ -309,8 +332,6 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
 
-    public abstract Builder incompatibleNoRuleOutputsParam(boolean value);
-
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
@@ -323,6 +344,8 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
 
+    public abstract Builder incompatibleRestrictNamedParams(boolean value);
+
     public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
 
     public abstract Builder incompatibleStaticNameResolutionInBuildFiles(boolean value);
@@ -330,6 +353,10 @@ public abstract class StarlarkSemantics {
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 
     public abstract Builder incompatibleDoNotSplitLinkingCmdline(boolean value);
+
+    public abstract Builder incompatibleDepsetForLibrariesToLinkGetter(boolean value);
+
+    public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
     public abstract StarlarkSemantics build();
   }

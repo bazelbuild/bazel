@@ -17,9 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 import static com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -304,8 +305,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
-        "  f = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "']",
-        "  g = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "'] | depset([])",
+        "  g = depset(ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "'])",
         "  return [MyInfo(result = g),",
         "      OutputGroupInfo(my_group = g)]",
         "my_rule = rule(implementation = _impl,",
@@ -332,7 +332,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
         "  f = ctx.attr.dep.output_group('_hidden_top_level" + INTERNAL_SUFFIX + "')",
-        "  g = list(f)",
+        "  g = f.to_list()",
         "  return [MyInfo(result = f),",
         "      OutputGroupInfo(my_group = g, my_empty_group = [])]",
         "my_rule = rule(implementation = _impl,",
@@ -361,7 +361,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
         "  f = ctx.attr.dep[OutputGroupInfo]._hidden_top_level" + INTERNAL_SUFFIX,
-        "  g = list(f)",
+        "  g = f.to_list()",
         "  return [MyInfo(result = f),",
         "      OutputGroupInfo(my_group = g, my_empty_group = [])]",
         "my_rule = rule(implementation = _impl,",
@@ -1625,12 +1625,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "genrule(name = 'rule')");
 
     reporter.removeHandler(failFastHandler);
-    try {
-      getTarget("//test/skylark:rule");
-      fail();
-    } catch (BuildFileContainsErrorsException e) {
-      // This is expected
-    }
+    assertThrows(BuildFileContainsErrorsException.class, () -> getTarget("//test/skylark:rule"));
     assertContainsEvent(
         "cycle detected in extension files: \n"
             + "    test/skylark/BUILD\n"
@@ -1652,12 +1647,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "genrule(name = 'rule')");
 
     reporter.removeHandler(failFastHandler);
-    try {
-      getTarget("//test/skylark:rule");
-      fail();
-    } catch (BuildFileContainsErrorsException e) {
-      // This is expected
-    }
+    assertThrows(BuildFileContainsErrorsException.class, () -> getTarget("//test/skylark:rule"));
     assertContainsEvent(
         "cycle detected in extension files: \n"
             + "    test/skylark/BUILD\n"
@@ -2094,6 +2084,29 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testAnalysisFailureInfo_forTest() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "   fail('This Is My Failure Message')",
+        "",
+        "custom_test = rule(implementation = custom_rule_impl,",
+        "    test = True)");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'custom_test')", "", "custom_test(name = 'r')");
+
+    useConfiguration("--allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:r");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure failure = info.getCauses().toList().get(0);
+    assertThat(failure.getMessage()).contains("This Is My Failure Message");
+    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
+  }
+
+  @Test
   public void testAnalysisFailureInfoWithOutput() throws Exception {
     scratch.file(
         "test/extension.bzl",
@@ -2149,18 +2162,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
 
     Correspondence<AnalysisFailure, AnalysisFailure> correspondence =
-        new Correspondence<AnalysisFailure, AnalysisFailure>() {
-          @Override
-          public boolean compare(AnalysisFailure actual, AnalysisFailure expected) {
-            return actual.getLabel().equals(expected.getLabel())
-                && actual.getMessage().contains(expected.getMessage());
-          }
-
-          @Override
-          public String toString() {
-            return "is equivalent to";
-          }
-        };
+        Correspondence.from(
+            (actual, expected) ->
+                actual.getLabel().equals(expected.getLabel())
+                    && actual.getMessage().contains(expected.getMessage()),
+            "is equivalent to");
 
     AnalysisFailure expectedOne =
         new AnalysisFailure(
@@ -2473,7 +2479,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
     assertContainsEvent(
-        "analysis test rule excedeed maximum dependency edge count. " + "Count: 13. Limit is 10.");
+        "analysis test rule excedeed maximum dependency edge count. " + "Count: 14. Limit is 10.");
   }
 
   @Test
@@ -2492,6 +2498,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   private void setupAnalysisTestDepsLimitTest(
       int limit, int dependencyChainSize, boolean useTransition) throws Exception {
+    Preconditions.checkArgument(dependencyChainSize > 2);
     useConfiguration("--analysis_testing_deps_limit=" + limit);
 
     String transitionDefinition;
@@ -2515,7 +2522,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "dep_rule = rule(",
         "  implementation = dep_rule_impl,",
-        "  attrs = {'dep':  attr.label()}",
+        "  attrs = {'deps': attr.label_list()}",
         ")",
         "outer_rule_test = rule(",
         "  implementation = outer_rule_impl,",
@@ -2527,10 +2534,18 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     // Create a chain of targets where 'innerN' depends on 'inner{N+1}' until the max length.
     StringBuilder dependingRulesChain = new StringBuilder();
-    for (int i = 0; i < dependencyChainSize; i++) {
+    for (int i = 0; i < dependencyChainSize - 1; i++) {
+      // Each dep_rule target also depends on the leaf.
+      // The leaf should not be counted multiple times.
       dependingRulesChain.append(
-          String.format("dep_rule(name = 'inner%s', dep = ':inner%s')\n", i, (i + 1)));
+          String.format(
+              "dep_rule(name = 'inner%s', deps = [':inner%s', ':inner%s'])\n",
+              i, (i + 1), dependencyChainSize));
     }
+    dependingRulesChain.append(
+        String.format(
+            "dep_rule(name = 'inner%s', deps = [':inner%s'])\n",
+            dependencyChainSize - 1, dependencyChainSize));
     dependingRulesChain.append(String.format("dep_rule(name = 'inner%s')", dependencyChainSize));
 
     scratch.file(
@@ -2592,7 +2607,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
     assertContainsEvent(
-        "_whitelist_function_transition attribute does not have the expected value");
+        " _whitelist_function_transition attribute (//test:my_other_rule) does not have the"
+            + " expected value");
   }
 
   @Test
@@ -2894,17 +2910,17 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testNoRuleOutputsParam() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_no_rule_outputs_param=true");
+  public void testExecutableNotInRunfiles() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/skylark/test_rule.bzl",
-        "def _impl(ctx):",
-        "  output = ctx.outputs.out",
-        "  ctx.actions.write(output = output, content = 'hello')",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  outputs = {\"out\": \"%{name}.txt\"})");
+        "def _my_rule_impl(ctx):",
+        "  exe = ctx.actions.declare_file('exe')",
+        "  ctx.actions.run_shell(outputs=[exe], command='touch exe')",
+        "  runfile = ctx.actions.declare_file('rrr')",
+        "  ctx.actions.run_shell(outputs=[runfile], command='touch rrr')",
+        "  return struct(executable = exe, default_runfiles = ctx.runfiles(files = [runfile]))",
+        "my_rule = rule(implementation = _my_rule_impl, executable = True)");
     scratch.file(
         "test/skylark/BUILD",
         "load('//test/skylark:test_rule.bzl', 'my_rule')",
@@ -2912,9 +2928,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/skylark:target");
-    assertContainsEvent(
-        "parameter 'outputs' is deprecated and will be removed soon. It may be temporarily "
-            + "re-enabled by setting --incompatible_no_rule_outputs_param=false");
+    assertContainsEvent("exe not included in runfiles");
   }
 
   /**
@@ -2948,16 +2962,12 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
           "genrule(name = 'rule')");
 
       reporter.removeHandler(failFastHandler);
-      try {
-        getTarget("//test/skylark:rule");
-        fail();
-      } catch (BuildFileContainsErrorsException e) {
-        // The reason that this is an exception and not reported to the event handler is that the
-        // error is reported by the parent sky function, which we don't have here.
-        assertThat(e)
-            .hasMessageThat()
-            .contains("Starlark import cycle: [//test/skylark:ext1.bzl, //test/skylark:ext2.bzl]");
-      }
+      BuildFileContainsErrorsException e =
+          assertThrows(
+              BuildFileContainsErrorsException.class, () -> getTarget("//test/skylark:rule"));
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Starlark import cycle: [//test/skylark:ext1.bzl, //test/skylark:ext2.bzl]");
     }
 
     @Override
@@ -2974,39 +2984,35 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
           "genrule(name = 'rule')");
 
       reporter.removeHandler(failFastHandler);
-      try {
-        getTarget("//test/skylark:rule");
-        fail();
-      } catch (BuildFileContainsErrorsException e) {
-        // The reason that this is an exception and not reported to the event handler is that the
-        // error is reported by the parent sky function, which we don't have here.
-        assertThat(e)
-            .hasMessageThat()
-            .contains(
-                "Starlark import cycle: [//test/skylark:ext2.bzl, "
-                    + "//test/skylark:ext3.bzl, //test/skylark:ext4.bzl]");
-      }
+      BuildFileContainsErrorsException e =
+          assertThrows(
+              BuildFileContainsErrorsException.class, () -> getTarget("//test/skylark:rule"));
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Starlark import cycle: [//test/skylark:ext2.bzl, "
+                  + "//test/skylark:ext3.bzl, //test/skylark:ext4.bzl]");
     }
   }
 
   @Test
-  public void testOldOctalNotationIsForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_octal_notation=true");
+  public void testUnknownStringEscapesForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=true");
 
-    scratch.file("test/extension.bzl", "y = 0246");
+    scratch.file("test/extension.bzl", "y = \"\\z\"");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
-    assertContainsEvent("Invalid octal value `0246`, should be: `0o246`");
+    assertContainsEvent("invalid escape sequence: \\z");
   }
 
   @Test
-  public void testOldOctalNotation() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_octal_notation=false");
+  public void testUnknownStringEscapes() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=false");
 
-    scratch.file("test/extension.bzl", "y = 0246");
+    scratch.file("test/extension.bzl", "y = \"\\z\"");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
 

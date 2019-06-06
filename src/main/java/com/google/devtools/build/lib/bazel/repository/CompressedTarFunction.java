@@ -39,7 +39,11 @@ public abstract class CompressedTarFunction implements Decompressor {
       throws IOException;
 
   @Override
-  public Path decompress(DecompressorDescriptor descriptor) throws IOException {
+  public Path decompress(DecompressorDescriptor descriptor)
+      throws InterruptedException, IOException {
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
@@ -91,6 +95,9 @@ public abstract class CompressedTarFunction implements Decompressor {
             Date lastModified = entry.getLastModifiedDate();
             filename.setLastModifiedTime(lastModified.getTime());
           }
+        }
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
         }
       }
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.hamcrest.CoreMatchers.startsWith;
 
 import com.google.common.collect.ImmutableMap;
@@ -39,10 +39,13 @@ public class SkylarkImportsTest {
       throws Exception {
     SkylarkImport importForLabel = SkylarkImport.create(labelString);
 
-    assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
+    assertWithMessage("getImportString()")
+        .that(importForLabel.getImportString())
+        .isEqualTo(labelString);
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
-    assertThat(importForLabel.getLabel(irrelevantContainingFile)).named("getLabel()")
+    assertWithMessage("getLabel()")
+        .that(importForLabel.getLabel(irrelevantContainingFile))
         .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));
   }
 
@@ -65,11 +68,13 @@ public class SkylarkImportsTest {
         ImmutableMap.of(RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"));
     SkylarkImport importForLabel = SkylarkImport.create(labelString, repositoryMapping);
 
-    assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
+    assertWithMessage("getImportString()")
+        .that(importForLabel.getImportString())
+        .isEqualTo(labelString);
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
-    assertThat(importForLabel.getLabel(irrelevantContainingFile))
-        .named("getLabel()")
+    assertWithMessage("getLabel()")
+        .that(importForLabel.getLabel(irrelevantContainingFile))
         .isEqualTo(Label.parseAbsoluteUnchecked(remappedLabelString));
   }
 
@@ -78,12 +83,14 @@ public class SkylarkImportsTest {
       throws Exception {
     SkylarkImport importForLabel = SkylarkImport.create(labelString);
 
-    assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
+    assertWithMessage("getImportString()")
+        .that(importForLabel.getImportString())
+        .isEqualTo(labelString);
 
     // The import label is relative to the parent's package, not the parent's directory.
     Label containingLabel = Label.parseAbsolute(containingLabelString, ImmutableMap.of());
-    assertThat(importForLabel.getLabel(containingLabel))
-        .named("getLabel()")
+    assertWithMessage("getLabel()")
+        .that(importForLabel.getLabel(containingLabel))
         .isEqualTo(Label.parseAbsolute(expectedLabelString, ImmutableMap.of()));
   }
 

@@ -133,9 +133,7 @@ function test_java_tools_has_java_compiler() {
 }
 
 function test_java_tools_has_javac() {
- if [[ "${JAVA_TOOLS_JAVA_VERSION}" == "java9" ]]; then
   expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar"
- fi
 }
 
 function test_java_tools_has_jarjar() {
@@ -152,6 +150,27 @@ function test_java_tools_has_GenClass() {
 
 function test_java_tools_has_ExperimentalRunner() {
   expect_path_in_java_tools "java_tools/ExperimentalRunner_deploy.jar"
+}
+
+function test_java_tools_has_BUILD() {
+  expect_path_in_java_tools "BUILD"
+}
+
+# TOODO(iirina): Re-enable this and update jacoco version after #8376 is merged.
+function DISABLED_test_java_tools_has_jacocoagent() {
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/jacocoagent.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-tree-7.0.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-commons-7.0.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-7.0.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/LICENSE"
+}
+
+function test_java_tools_has_proguard() {
+  expect_path_in_java_tools "java_tools/third_party/java/proguard/proguard.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.html"
 }
 
 run_suite "Java tools archive tests"

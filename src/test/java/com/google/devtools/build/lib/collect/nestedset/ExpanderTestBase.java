@@ -89,7 +89,6 @@ public abstract class ExpanderTestBase  {
     NestedSet<String> s1 = prepareBuilder().add("a").add("c").add("b").build();
     NestedSet<String> s2 = prepareBuilder().addAll(ImmutableList.of("a", "c", "b")).build();
 
-    assertCollectionsEqual(s1.toCollection(), s2.toCollection());
     assertCollectionsEqual(s1.toList(), s2.toList());
     assertCollectionsEqual(Lists.newArrayList(s1), Lists.newArrayList(s2));
   }
@@ -100,7 +99,6 @@ public abstract class ExpanderTestBase  {
     NestedSet<String> s2 = prepareBuilder().add("a").addAll(ImmutableList.of("b", "c")).add("d")
         .build();
 
-    assertCollectionsEqual(s1.toCollection(), s2.toCollection());
     assertCollectionsEqual(s1.toList(), s2.toList());
     assertCollectionsEqual(Lists.newArrayList(s1), Lists.newArrayList(s2));
   }
@@ -225,7 +223,6 @@ public abstract class ExpanderTestBase  {
 
   protected final void assertSetContents(Collection<String> expected, NestedSet<String> set) {
     assertThat(Lists.newArrayList(set)).isEqualTo(expected);
-    assertThat(Lists.newArrayList(set.toCollection())).isEqualTo(expected);
     assertThat(Lists.newArrayList(set.toList())).isEqualTo(expected);
     assertThat(Lists.newArrayList(set.toSet())).isEqualTo(expected);
   }

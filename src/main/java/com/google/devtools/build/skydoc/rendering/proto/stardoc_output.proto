@@ -64,3 +64,22 @@ message AttributeInfo {
   // If true, all targets of the rule must specify a value for this attribute.
   bool mandatory = 4;
 }
+
+// Representation of a Starlark function parameter definition.
+message FunctionParamInfo {
+  // The name of the parameter.
+  string name = 1;
+
+  // The documented description of the parameter (if specified in the function's
+  // docstring).
+  string doc_string = 2;
+
+  // If not an empty string, the default value of the parameter displayed
+  // as a string.
+  string default_value = 3;
+
+  // If true, the default value is unset and a value is needed for this
+  // parameter. This might be false even if defaultValue is empty in the case of
+  // special parameter such as *args and **kwargs"
+  bool mandatory = 4;
+}

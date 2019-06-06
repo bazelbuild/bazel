@@ -17,6 +17,7 @@ package com.google.devtools.build.skydoc.rendering;
 import com.google.common.base.Joiner;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -110,6 +111,14 @@ public final class MarkdownUtil {
 
   public String mandatoryString(AttributeInfo attrInfo) {
     return attrInfo.getMandatory() ? "required" : "optional";
+  }
+
+  /**
+   * Returns "required" if providing a value for this parameter is mandatory. Otherwise, returns
+   * "optional".
+   */
+  public String mandatoryString(FunctionParamInfo paramInfo) {
+    return paramInfo.getMandatory() ? "required" : "optional";
   }
 
   private String attributeTypeDescription(AttributeType attributeType) {

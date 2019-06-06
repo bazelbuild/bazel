@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.BigIntegerFingerprintUtils;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
@@ -66,7 +67,7 @@ import javax.annotation.Nullable;
  * translating a set of requested top-level nodes into actions, or constructing an evaluation
  * result. Derived classes should do this.
  */
-public abstract class AbstractParallelEvaluator {
+abstract class AbstractParallelEvaluator {
   private static final Logger logger = Logger.getLogger(AbstractParallelEvaluator.class.getName());
 
   final ProcessableGraph graph;
@@ -167,10 +168,16 @@ public abstract class AbstractParallelEvaluator {
         int childEvaluationPriority)
         throws InterruptedException {
       Preconditions.checkState(!entry.isDone(), "%s %s", skyKey, entry);
-      DependencyState dependencyState =
-          depAlreadyExists
-              ? childEntry.checkIfDoneForDirtyReverseDep(skyKey)
-              : childEntry.addReverseDepAndCheckIfDone(skyKey);
+      DependencyState dependencyState;
+      try {
+        dependencyState =
+            depAlreadyExists
+                ? childEntry.checkIfDoneForDirtyReverseDep(skyKey)
+                : childEntry.addReverseDepAndCheckIfDone(skyKey);
+      } catch (IllegalStateException e) {
+        // Add some more context regarding crashes.
+        throw new IllegalStateException(e.getMessage() + " child key: " + child, e);
+      }
       switch (dependencyState) {
         case DONE:
           if (entry.signalDep(childEntry.getVersion(), child)) {
@@ -232,6 +239,7 @@ public abstract class AbstractParallelEvaluator {
           graph.get(skyKey, Reason.RDEP_REMOVAL, ErrorTransienceValue.KEY).removeReverseDep(skyKey);
           return DirtyOutcome.NEEDS_EVALUATION;
         }
+        Map<SkyKey, ? extends NodeEntry> entriesToCheck = null;
         if (!evaluatorContext.keepGoing()) {
           // This check ensures that we maintain the invariant that if a node with an error is
           // reached during a no-keep-going build, none of its currently building parents
@@ -240,8 +248,7 @@ public abstract class AbstractParallelEvaluator {
           // is done, then it is the parent's responsibility to notice that, which we do here.
           // We check the deps for errors so that we don't continue building this node if it has
           // a child error.
-          Map<SkyKey, ? extends NodeEntry> entriesToCheck =
-              graph.getBatch(skyKey, Reason.OTHER, directDepsToCheck);
+          entriesToCheck = graph.getBatch(skyKey, Reason.OTHER, directDepsToCheck);
           for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entriesToCheck.entrySet()) {
             NodeEntry nodeEntryToCheck = entry.getValue();
             SkyValue valueMaybeWithMetadata = nodeEntryToCheck.getValueMaybeWithMetadata();
@@ -296,8 +303,11 @@ public abstract class AbstractParallelEvaluator {
               unknownStatusDeps);
           continue;
         }
+        if (entriesToCheck == null || depsReport.hasInformation()) {
+          entriesToCheck = graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, unknownStatusDeps);
+        }
         handleKnownChildrenForDirtyNode(
-            unknownStatusDeps, state, globalEnqueuedIndex.incrementAndGet());
+            unknownStatusDeps, entriesToCheck, state, globalEnqueuedIndex.incrementAndGet());
         return DirtyOutcome.ALREADY_PROCESSED;
       }
       switch (state.getDirtyState()) {
@@ -348,10 +358,11 @@ public abstract class AbstractParallelEvaluator {
     }
 
     private void handleKnownChildrenForDirtyNode(
-        Collection<SkyKey> knownChildren, NodeEntry state, int childEvaluationPriority)
+        Collection<SkyKey> knownChildren,
+        Map<SkyKey, ? extends NodeEntry> oldChildren,
+        NodeEntry state,
+        int childEvaluationPriority)
         throws InterruptedException {
-      Map<SkyKey, ? extends NodeEntry> oldChildren =
-          graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, knownChildren);
       if (oldChildren.size() != knownChildren.size()) {
         GraphInconsistencyReceiver inconsistencyReceiver =
             evaluatorContext.getGraphInconsistencyReceiver();
@@ -522,6 +533,7 @@ public abstract class AbstractParallelEvaluator {
         }
 
         if (maybeHandleRestart(skyKey, state, value)) {
+          cancelExternalDeps(env);
           // Top priority since this node has already been evaluating, so get it off our plate.
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MAX_VALUE);
           return;
@@ -670,7 +682,10 @@ public abstract class AbstractParallelEvaluator {
                 graph.createIfAbsentBatchAsync(
                     skyKey, Reason.RDEP_ADDITION, newDepsThatWerentInTheLastEvaluation);
         handleKnownChildrenForDirtyNode(
-            newDepsThatWereInTheLastEvaluation, state, childEvaluationPriority);
+            newDepsThatWereInTheLastEvaluation,
+            graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, newDepsThatWereInTheLastEvaluation),
+            state,
+            childEvaluationPriority);
 
         // Due to multi-threading, this can potentially cause the current node to be re-enqueued if
         // all 'new' children of this node are already done. Therefore, there should not be any
@@ -703,15 +718,19 @@ public abstract class AbstractParallelEvaluator {
         // underlying AbstractQueueVisitor in the registerExternalDeps call above, we have to make
         // sure that any known futures are correctly canceled if we do not reach that call. Note
         // that it is safe to cancel a future multiple times.
-        if (env != null && env.externalDeps != null) {
-          for (ListenableFuture<?> future : env.externalDeps) {
-            future.cancel(/*mayInterruptIfRunning=*/ true);
-          }
-        }
+        cancelExternalDeps(env);
         // InterruptedException cannot be thrown by Runnable.run, so we must wrap it.
         // Interrupts can be caught by both the Evaluator and the AbstractQueueVisitor.
         // The former will unwrap the IE and propagate it as is; the latter will throw a new IE.
         throw SchedulerException.ofInterruption(ie, skyKey);
+      }
+    }
+
+    private void cancelExternalDeps(SkyFunctionEnvironment env) {
+      if (env != null && env.externalDeps != null) {
+        for (ListenableFuture<?> future : env.externalDeps) {
+          future.cancel(/*mayInterruptIfRunning=*/ true);
+        }
       }
     }
 

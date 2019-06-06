@@ -32,9 +32,16 @@ import com.google.devtools.build.lib.syntax.Type;
 /** An implementation of the {@code android_device_script_fixture} rule. */
 public class AndroidDeviceScriptFixture implements RuleConfiguredTargetFactory {
 
+  private final AndroidSemantics androidSemantics;
+
+  protected AndroidDeviceScriptFixture(AndroidSemantics androidSemantics) {
+    this.androidSemantics = androidSemantics;
+  }
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    androidSemantics.checkForMigrationTag(ruleContext);
     Artifact fixtureScript = getFixtureScript(ruleContext);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>stableOrder().add(fixtureScript).build())

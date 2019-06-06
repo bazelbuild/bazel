@@ -89,6 +89,8 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setupSkylarkRule() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
+
     File[] files = Runfiles.location(RULE_DIRECTORY).listFiles();
     for (File file : files) {
       scratch.file(RULE_DIRECTORY + "/" + file.getName(), Files.readAllBytes(file.toPath()));
@@ -165,7 +167,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
             .getRemainingArguments();
 
     assertThat(args)
-        .containsAllOf(
+        .containsAtLeast(
             "--java_out=lite,immutable,no_enforce_api_compatibility:"
                 + genfilesDir
                 + "/x/protolib-lite-src.jar",
@@ -247,7 +249,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     List<String> args =
         getGeneratingSpawnAction(litepb2, "cross/bravo-lite-src.jar").getRemainingArguments();
     assertThat(args)
-        .containsAllOf(
+        .containsAtLeast(
             "--java_out=lite,immutable,no_enforce_api_compatibility:"
                 + genfilesDir
                 + "/cross/bravo-lite-src.jar",
@@ -310,7 +312,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     useConfiguration("--experimental_action_listener=//xa:al");
     ConfiguredTarget ct = getConfiguredTarget("//x:lite_pb2");
-    Iterable<Artifact> artifacts =
+    Iterable<Artifact.DerivedArtifact> artifacts =
         ct.getProvider(ExtraActionArtifactsProvider.class).getTransitiveExtraActionArtifacts();
 
     Iterable<String> extraActionOwnerLabels =

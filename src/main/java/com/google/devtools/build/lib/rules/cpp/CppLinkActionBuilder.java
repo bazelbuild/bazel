@@ -334,7 +334,7 @@ public class CppLinkActionBuilder {
    */
   private LtoBackendArtifacts createLtoArtifact(
       Artifact bitcodeFile,
-      Map<PathFragment, Artifact> allBitcode,
+      @Nullable BitcodeFiles allBitcode,
       PathFragment ltoOutputRootPrefix,
       boolean createSharedNonLto,
       List<String> argv)
@@ -433,6 +433,7 @@ public class CppLinkActionBuilder {
         allBitcode.put(input.getArtifact().getExecPath(), input.getArtifact());
       }
     }
+    BitcodeFiles bitcodeFiles = new BitcodeFiles(allBitcode);
 
     ImmutableList.Builder<LtoBackendArtifacts> ltoOutputs = ImmutableList.builder();
     for (LinkerInputs.LibraryToLink lib : uniqueLibraries) {
@@ -450,7 +451,7 @@ public class CppLinkActionBuilder {
             LtoBackendArtifacts ltoArtifacts =
                 createLtoArtifact(
                     objectFile,
-                    allBitcode,
+                    bitcodeFiles,
                     ltoOutputRootPrefix,
                     /* createSharedNonLto= */ false,
                     backendUserCompileFlags);
@@ -474,7 +475,7 @@ public class CppLinkActionBuilder {
         LtoBackendArtifacts ltoArtifacts =
             createLtoArtifact(
                 input.getArtifact(),
-                allBitcode,
+                bitcodeFiles,
                 ltoOutputRootPrefix,
                 !allowLtoIndexing,
                 backendUserCompileFlags);
@@ -1385,7 +1386,7 @@ public class CppLinkActionBuilder {
    * Adds multiple artifact to the set of inputs. The artifacts must be archives or shared
    * libraries.
    */
-  public CppLinkActionBuilder addLibraries(Iterable<LinkerInputs.LibraryToLink> inputs) {
+  public CppLinkActionBuilder addLibraries(Collection<LinkerInputs.LibraryToLink> inputs) {
     Preconditions.checkState(librariesToLink.isEmpty());
     for (LinkerInputs.LibraryToLink input : inputs) {
       checkLibrary(input);

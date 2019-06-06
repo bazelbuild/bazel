@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -216,7 +216,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
                 .withFeatures(
                     CppRuleClasses.THIN_LTO,
                     CppRuleClasses.SUPPORTS_PIC,
-                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_START_END_LIB));
@@ -342,7 +341,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
             CcToolchainConfig.builder()
                 .withFeatures(
                     CppRuleClasses.THIN_LTO,
-                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
@@ -511,6 +509,56 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     ImmutableList<String> userLinkFlags =
         CcToolchainVariables.toStringList(
             testVariables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
-    assertThat(userLinkFlags).containsAllOf("-foo", "-bar").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-foo", "-bar").inOrder();
+  }
+
+  @Test
+  public void testLinkerInputsOverrideWholeArchive() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures("disable_whole_archive_for_static_lib_configuration"));
+
+    scratch.file(
+        "x/BUILD",
+        "cc_library(name='a', hdrs=['a.h'], srcs = ['a.cc'], "
+            + " features=['disable_whole_archive_for_static_lib'])",
+        "cc_library(name='b', hdrs=['b.h'], srcs = ['b.cc'])",
+        "cc_binary(name = 'c.so', linkstatic=1, linkshared=1, deps=[':a', ':b'])");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//x:c.so");
+    CcToolchainVariables testVariables =
+        getLinkBuildVariables(testTarget, LinkTargetType.DYNAMIC_LIBRARY);
+
+    VariableValue librariesToLinkSequence =
+        testVariables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    assertThat(librariesToLinkSequence).isNotNull();
+    Iterable<? extends VariableValue> librariesToLink =
+        librariesToLinkSequence.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    assertThat(librariesToLink).hasSize(2);
+
+    Iterator<? extends VariableValue> librariesToLinkIterator = librariesToLink.iterator();
+    // :a should not be whole archive
+    VariableValue aWholeArchiveValue =
+        librariesToLinkIterator
+            .next()
+            .getFieldValue(
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
+                LibraryToLinkValue.IS_WHOLE_ARCHIVE_FIELD_NAME);
+    assertThat(aWholeArchiveValue).isNotNull();
+    assertThat(aWholeArchiveValue.isTruthy()).isFalse();
+
+    // :b should be whole archive
+    VariableValue bWholeArchiveValue =
+        librariesToLinkIterator
+            .next()
+            .getFieldValue(
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
+                LibraryToLinkValue.IS_WHOLE_ARCHIVE_FIELD_NAME);
+    assertThat(bWholeArchiveValue).isNotNull();
+    assertThat(bWholeArchiveValue.isTruthy()).isTrue();
   }
 }

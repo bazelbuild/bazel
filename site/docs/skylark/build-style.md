@@ -117,15 +117,15 @@ reference (`:x` instead of `//x`).
 
 ## Visibility
 
-Do not set the default visibility of a package to `//visibility:public`.
-`//visibility:public` should be individually set for targets in the
-project's public API. These could be libraries which are designed to be
-depended on by external projects or binaries that could be used by an
-external project's build process.
+Visibility should be scoped as tightly as possible, while still allowing access
+by tests and reverse dependencies. Use `__pkg__` and `__subpackages__` as
+appropriate.
 
-Otherwise, visibility should be scoped as tightly as possible, while still
-allowing access by tests and reverse dependencies. Prefer using `__pkg__` to
-`__subpackages__`.
+Avoid setting package `default_visibility` to `//visibility:public`.
+`//visibility:public` should be individually set only for targets in the
+project's public API. These could be libraries that are designed to be depended
+on by external projects or binaries that could be used by an external project's
+build process.
 
 ## Dependencies
 

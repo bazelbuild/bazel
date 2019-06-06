@@ -55,9 +55,7 @@ public final class PrerequisiteArtifacts {
     // expanded NestedSet.
     if (prerequisites.size() == 1) {
       return new PrerequisiteArtifacts(
-          ruleContext,
-          attributeName,
-          ImmutableList.copyOf(prerequisites.get(0).getFilesToBuild().toList()));
+          ruleContext, attributeName, prerequisites.get(0).getFilesToBuild().toList());
     }
     Set<Artifact> result = new LinkedHashSet<>();
     for (FileProvider target : prerequisites) {

@@ -14,17 +14,14 @@
 package com.google.devtools.build.buildjar.javac.statistics;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.MustBeClosed;
 import com.sun.tools.javac.util.Context;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
-import java.util.function.Consumer;
 
 /**
  * A class representing statistics for an invocation of {@link
@@ -68,7 +65,9 @@ public abstract class BlazeJavacStatistics {
 
   public abstract ImmutableMap<AuxiliaryDataSource, byte[]> auxiliaryData();
 
-  public abstract ImmutableListMultimap<String, Duration> errorProneTicks();
+  public abstract Optional<Duration> totalErrorProneTime();
+
+  public abstract ImmutableMap<String, Duration> bugpatternTiming();
 
   public abstract ImmutableSet<String> processors();
 
@@ -103,7 +102,9 @@ public abstract class BlazeJavacStatistics {
   @AutoValue.Builder
   public abstract static class Builder {
 
-    abstract ImmutableListMultimap.Builder<String, Duration> errorProneTicksBuilder();
+    public abstract Builder totalErrorProneTime(Duration totalErrorProneTime);
+
+    abstract ImmutableMap.Builder<String, Duration> bugpatternTimingBuilder();
 
     abstract ImmutableMap.Builder<AuxiliaryDataSource, byte[]> auxiliaryDataBuilder();
 
@@ -117,8 +118,8 @@ public abstract class BlazeJavacStatistics {
 
     public abstract Builder transitiveClasspathFallback(boolean fallback);
 
-    public Builder addErrorProneTiming(String key, Duration value) {
-      errorProneTicksBuilder().put(key, value);
+    public Builder addBugpatternTiming(String key, Duration value) {
+      bugpatternTimingBuilder().put(key, value);
       return this;
     }
 
@@ -138,28 +139,9 @@ public abstract class BlazeJavacStatistics {
       return this;
     }
 
-    @MustBeClosed
-    public final StopwatchSpan newTimingSpan(Consumer<Duration> consumer) {
-      Stopwatch stopwatch = Stopwatch.createStarted();
-      return () -> {
-        stopwatch.stop();
-        consumer.accept(stopwatch.elapsed());
-      };
-    }
-
     public Builder addProcessor(String processor) {
       processorsBuilder().add(processor);
       return this;
     }
-  }
-
-  /**
-   * A simple AutoClosable interface where the {@link #close} method doesn't throw an exception.
-   *
-   * <p>Returned from {@link Builder#newTimingSpan(Consumer)}
-   */
-  public interface StopwatchSpan extends AutoCloseable {
-    @Override
-    void close();
   }
 }

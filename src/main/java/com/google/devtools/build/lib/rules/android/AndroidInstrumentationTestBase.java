@@ -44,10 +44,10 @@ import javax.annotation.Nullable;
 /** An implementation of the {@code android_instrumentation_test} rule. */
 public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFactory {
 
-  private final AndroidMigrationSemantics androidMigrationSemantics;
+  private final AndroidSemantics androidSemantics;
 
-  public AndroidInstrumentationTestBase(AndroidMigrationSemantics androidMigrationSemantics) {
-    this.androidMigrationSemantics = androidMigrationSemantics;
+  protected AndroidInstrumentationTestBase(AndroidSemantics androidSemantics) {
+    this.androidSemantics = androidSemantics;
   }
 
   private static final Template ANDROID_INSTRUMENTATION_TEST_STUB_SCRIPT =
@@ -71,8 +71,8 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    androidSemantics.checkForMigrationTag(ruleContext);
     validateRuleContext(ruleContext);
-    androidMigrationSemantics.validateRuleContext(ruleContext);
 
     // The wrapper script that invokes the test entry point.
     Artifact testExecutable = createTestExecutable(ruleContext);

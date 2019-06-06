@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -59,6 +61,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryMobileInstall.MobileInstallResourceApks;
@@ -103,16 +106,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   protected abstract CppSemantics createCppSemantics();
 
-  protected abstract AndroidMigrationSemantics createAndroidMigrationSemantics();
-
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CppSemantics cppSemantics = createCppSemantics();
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
+    androidSemantics.checkForMigrationTag(ruleContext);
     androidSemantics.validateAndroidBinaryRuleContext(ruleContext);
-    createAndroidMigrationSemantics().validateRuleContext(ruleContext);
     AndroidSdkProvider.verifyPresence(ruleContext);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
@@ -156,6 +157,34 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // Multidex is required so we can include legacy libs as a separate .dex file.
       ruleContext.throwWithAttributeError(
           "multidex", "Support for Java 8 libraries on legacy devices requires multidex");
+    }
+
+    if (ruleContext.getFragment(JavaConfiguration.class).enforceProguardFileExtension()
+        && ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS)) {
+      List<PathFragment> pathsWithUnexpectedExtension =
+          ruleContext
+              .getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS, Mode.TARGET)
+              .list()
+              .stream()
+              .filter(Artifact::isSourceArtifact)
+              .map(Artifact::getRootRelativePath)
+              .filter(
+                  // This checks the filename directly instead of using FileType because we want to
+                  // exclude third_party/, but FileType is generally only given the basename.
+                  //
+                  // See e.g. RuleContext#validateDirectPrerequisiteType and
+                  // PrerequisiteArtifacts#filter.
+                  path ->
+                      !path.getFileExtension().equals("pgcfg")
+                          && !path.startsWith(RuleClass.THIRD_PARTY_PREFIX)
+                          && !path.startsWith(RuleClass.EXPERIMENTAL_PREFIX))
+              .collect(toImmutableList());
+      if (!pathsWithUnexpectedExtension.isEmpty()) {
+        ruleContext.throwWithAttributeError(
+            ProguardHelper.PROGUARD_SPECS,
+            "Proguard spec files must use the .pgcfg extension. These files do not end in .pgcfg: "
+                + pathsWithUnexpectedExtension);
+      }
     }
   }
 
@@ -427,8 +456,20 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             derivedJarFunction,
             proguardOutputMap);
 
-    NestedSet<Artifact> nativeLibsAar =
-        AndroidCommon.collectTransitiveNativeLibs(ruleContext).build();
+    // Collect all native shared libraries across split transitions. Some AARs contain shared
+    // libraries across multiple architectures, e.g. x86 and armeabi-v7a, and need to be packed
+    // into the APK.
+    NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
+    for (Map.Entry<
+            com.google.common.base.Optional<String>,
+            ? extends List<? extends TransitiveInfoCollection>>
+        entry : ruleContext.getSplitPrerequisites("deps").entrySet()) {
+      for (AndroidNativeLibsInfo provider :
+          AnalysisUtils.getProviders(entry.getValue(), AndroidNativeLibsInfo.PROVIDER)) {
+        transitiveNativeLibs.addTransitive(provider.getNativeLibs());
+      }
+    }
+    NestedSet<Artifact> nativeLibsAar = transitiveNativeLibs.build();
 
     DexPostprocessingOutput dexPostprocessingOutput =
         androidSemantics.postprocessClassesDexZip(
@@ -537,7 +578,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact instrumentationApk = zipAlignedApk;
 
       AndroidInstrumentationInfo instrumentationProvider =
-          new AndroidInstrumentationInfo(targetApk, instrumentationApk);
+          new AndroidInstrumentationInfo(targetApk, instrumentationApk, targetApkProvider);
 
       builder.addNativeDeclaredProvider(instrumentationProvider);
 

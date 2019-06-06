@@ -19,6 +19,8 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
+# TODO(bazel-team): Factor each test suite's is-this-windows setup check to use
+# this var instead, or better yet a common $IS_WINDOWS var.
 PLATFORM="$(uname -s | tr [:upper:] [:lower:])"
 
 function is_darwin() {
@@ -281,6 +283,9 @@ common --show_progress_rate_limit=-1
 # Disable terminal-specific features.
 common --color=no --curses=no
 
+# TODO(#7899): Remove once we flip the flag default.
+build --incompatible_use_python_toolchains=true
+
 ${EXTRA_BAZELRC:-}
 EOF
 
@@ -360,6 +365,54 @@ java_import(
 EOF
 }
 
+# If the current platform is Windows, defines a Python toolchain for our
+# Windows CI machines. Otherwise does nothing.
+#
+# Our Windows CI machines have Python 2 and 3 installed at C:\Python2 and
+# C:\Python3 respectively.
+#
+# Since the tools directory is not cleared between test cases, this only needs
+# to run once per suite. However, the toolchain must still be registered
+# somehow.
+#
+# TODO(#7844): Delete this custom (and machine-specific) test setup once we have
+# an autodetecting Python toolchain for Windows.
+function maybe_setup_python_windows_tools() {
+  if [[ ! $PLATFORM =~ msys ]]; then
+    return
+  fi
+
+  mkdir -p tools/python/windows
+  cat > tools/python/windows/BUILD << EOF
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
+py_runtime(
+  name = "py2_runtime",
+  interpreter_path = r"C:\Python2\python.exe",
+  python_version = "PY2",
+)
+
+py_runtime(
+  name = "py3_runtime",
+  interpreter_path = r"C:\Python3\python.exe",
+  python_version = "PY3",
+)
+
+py_runtime_pair(
+  name = "py_runtime_pair",
+  py2_runtime = ":py2_runtime",
+  py3_runtime = ":py3_runtime",
+)
+
+toolchain(
+  name = "py_toolchain",
+  toolchain = ":py_runtime_pair",
+  toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+  target_compatible_with = ["@bazel_tools//platforms:windows"],
+)
+EOF
+}
+
 function setup_skylark_javatest_support() {
   setup_javatest_common
   grep -q "name = \"junit4-jars\"" third_party/BUILD \
@@ -400,6 +453,27 @@ function write_workspace_file() {
   cat > WORKSPACE << EOF
 workspace(name = '$WORKSPACE_NAME')
 EOF
+
+  maybe_setup_python_windows_workspace
+}
+
+# If the current platform is Windows, registers our custom Windows Python
+# toolchain. Otherwise does nothing.
+#
+# Since this modifies the WORKSPACE file, it must be called between test cases.
+function maybe_setup_python_windows_workspace() {
+  if [[ ! $PLATFORM =~ msys ]]; then
+    return
+  fi
+
+  # --extra_toolchains has left-to-right precedence semantics, but the bazelrc
+  # is processed before the command line. This means that any matching
+  # toolchains added to the bazelrc will always take precedence over toolchains
+  # set up by test cases. Instead, we add the toolchain to WORKSPACE so that it
+  # has lower priority than whatever is passed on the command line.
+  cat >> WORKSPACE << EOF
+register_toolchains("//tools/python/windows:py_toolchain")
+EOF
 }
 
 workspaces=()
@@ -419,6 +493,8 @@ function create_new_workspace() {
     || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9+181-r4173-1.jar
 
   write_workspace_file
+
+  maybe_setup_python_windows_tools
 }
 
 
@@ -569,11 +645,13 @@ function use_fake_python_runtimes_for_testsuite() {
     PYTHON3_FILENAME="python3.sh"
   fi
 
-  add_to_bazelrc "build --python_top=//tools/python:default_runtime"
+  add_to_bazelrc "build --extra_toolchains=//tools/python:fake_python_toolchain"
 
   mkdir -p tools/python
 
   cat > tools/python/BUILD << EOF
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
 package(default_visibility=["//visibility:public"])
 
 sh_binary(
@@ -582,15 +660,27 @@ sh_binary(
 )
 
 py_runtime(
-    name = "default_runtime",
-    files = select({
-        "@bazel_tools//tools/python:PY3": [":${PYTHON3_FILENAME}"],
-        "//conditions:default": [":${PYTHON2_FILENAME}"],
-    }),
-    interpreter = select({
-        "@bazel_tools//tools/python:PY3": ":${PYTHON3_FILENAME}",
-        "//conditions:default": ":${PYTHON2_FILENAME}",
-    }),
+    name = "fake_py2_interpreter",
+    interpreter = ":${PYTHON2_FILENAME}",
+    python_version = "PY2",
+)
+
+py_runtime(
+    name = "fake_py3_interpreter",
+    interpreter = ":${PYTHON3_FILENAME}",
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "fake_py_runtime_pair",
+    py2_runtime = ":fake_py2_interpreter",
+    py3_runtime = ":fake_py3_interpreter",
+)
+
+toolchain(
+    name = "fake_python_toolchain",
+    toolchain = ":fake_py_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 EOF
 

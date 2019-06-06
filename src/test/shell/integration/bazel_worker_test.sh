@@ -33,7 +33,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 example_worker=$(find $BAZEL_RUNFILES -name ExampleWorker_deploy.jar)
 
 add_to_bazelrc "build -s"
-add_to_bazelrc "build --strategy=Javac=worker --strategy=Work=worker"
+add_to_bazelrc "build --spawn_strategy=worker,standalone"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=1"
 add_to_bazelrc "build --debug_print_action_contexts"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
@@ -112,8 +112,7 @@ def _impl(ctx):
     # This is used to test the code that handles multiple flagfiles and the --flagfile= style.
     idx = 1
     for arg in ["--output_file=" + output.path] + ctx.attr.args:
-      argfile = ctx.new_file(ctx.bin_dir, "%s_worker_input_%s" % (ctx.label.name, idx))
-      ctx.file_action(output=argfile, content=arg)
+      argfile = ctx.actions.declare_file("%s_worker_input_%s" % (ctx.label.name, idx))
       ctx.actions.write(output=argfile, content=arg)
       argfile_inputs.append(argfile)
       flagfile_prefix = "@" if (idx % 2 == 0) else "--flagfile="
@@ -121,7 +120,7 @@ def _impl(ctx):
       idx += 1
   else:
     # Generate the "@"-file containing the command-line args for the unit of work.
-    argfile = ctx.new_file(ctx.bin_dir, "%s_worker_input" % ctx.label.name)
+    argfile = ctx.actions.declare_file("%s_worker_input" % ctx.label.name)
     argfile_contents = "\n".join(["--output_file=" + output.path] + ctx.attr.args)
     ctx.actions.write(output=argfile, content=argfile_contents)
     argfile_inputs.append(argfile)
@@ -447,7 +446,7 @@ EOF
     || fail "Worker log was not deleted"
 }
 
-function test_missing_execution_requirements_gives_warning() {
+function test_missing_execution_requirements_fallback_to_standalone() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 work(
@@ -463,7 +462,6 @@ EOF
   bazel build --worker_quit_after_build :hello_world &> $TEST_log \
     || fail "build failed"
 
-  expect_log "Worker strategy cannot execute this Work action, because the action's execution info does not contain 'supports-workers=1'"
   expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
   expect_not_log "Destroying Work worker (id [0-9]\+)"
 

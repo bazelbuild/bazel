@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -31,12 +32,15 @@ import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.CharsetUtil;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** A simple HTTP REST in-memory cache used during testing the LRE. */
 @Sharable
 public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
   final ConcurrentMap<String, byte[]> cache = new ConcurrentHashMap<>();
+  private static final Pattern URI_PATTERN = Pattern.compile("^/?(.*/)?(ac/|cas/)([a-f0-9]{64})$");
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
@@ -54,7 +58,18 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
     }
   }
 
+  @VisibleForTesting
+  static boolean isUriValid(String uri) {
+    Matcher matcher = URI_PATTERN.matcher(uri);
+    return matcher.matches();
+  }
+
   private void handleGet(ChannelHandlerContext ctx, FullHttpRequest request) {
+    if (!isUriValid(request.uri())) {
+      sendError(ctx, request, HttpResponseStatus.BAD_REQUEST);
+      return;
+    }
+
     byte[] contents = cache.get(request.uri());
 
     if (contents == null) {
@@ -77,6 +92,10 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
   private void handlePut(ChannelHandlerContext ctx, FullHttpRequest request) {
     if (!request.decoderResult().isSuccess()) {
       sendError(ctx, request, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+      return;
+    }
+    if (!isUriValid(request.uri())) {
+      sendError(ctx, request, HttpResponseStatus.BAD_REQUEST);
       return;
     }
 

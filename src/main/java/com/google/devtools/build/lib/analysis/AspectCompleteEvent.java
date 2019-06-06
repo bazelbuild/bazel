@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
@@ -44,14 +44,14 @@ public class AspectCompleteEvent
   private final AspectValue aspectValue;
   private final NestedSet<Cause> rootCauses;
   private final Collection<BuildEventId> postedAfter;
-  private final ArtifactPathResolver pathResolver;
+  private final CompletionContext completionContext;
   private final ArtifactsToBuild artifacts;
   private final BuildEventId configurationEventId;
 
   private AspectCompleteEvent(
       AspectValue aspectValue,
       NestedSet<Cause> rootCauses,
-      ArtifactPathResolver pathResolver,
+      CompletionContext completionContext,
       ArtifactsToBuild artifacts,
       BuildEventId configurationEventId) {
     this.aspectValue = aspectValue;
@@ -62,7 +62,7 @@ public class AspectCompleteEvent
       postedAfterBuilder.add(BuildEventId.fromCause(cause));
     }
     this.postedAfter = postedAfterBuilder.build();
-    this.pathResolver = pathResolver;
+    this.completionContext = completionContext;
     this.artifacts = artifacts;
     this.configurationEventId = configurationEventId;
   }
@@ -70,10 +70,10 @@ public class AspectCompleteEvent
   /** Construct a successful target completion event. */
   public static AspectCompleteEvent createSuccessful(
       AspectValue value,
-      ArtifactPathResolver pathResolver,
+      CompletionContext completionContext,
       ArtifactsToBuild artifacts,
       BuildEventId configurationEventId) {
-    return new AspectCompleteEvent(value, null, pathResolver, artifacts, configurationEventId);
+    return new AspectCompleteEvent(value, null, completionContext, artifacts, configurationEventId);
   }
 
   /**
@@ -83,7 +83,7 @@ public class AspectCompleteEvent
       AspectValue value, NestedSet<Cause> rootCauses, BuildEventId configurationEventId) {
     Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
     return new AspectCompleteEvent(
-        value, rootCauses, ArtifactPathResolver.IDENTITY, null, configurationEventId);
+        value, rootCauses, CompletionContext.FAILED_COMPLETION_CTX, null, configurationEventId);
   }
 
   /**
@@ -131,7 +131,7 @@ public class AspectCompleteEvent
         builder.add(artifactsInGroup.getArtifacts());
       }
     }
-    return new ReportedArtifacts(builder.build(), pathResolver);
+    return new ReportedArtifacts(builder.build(), completionContext);
   }
 
   @Override

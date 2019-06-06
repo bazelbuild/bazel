@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.devtools.build.buildjar.OptionsParser;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import java.util.List;
 import java.util.Set;
 

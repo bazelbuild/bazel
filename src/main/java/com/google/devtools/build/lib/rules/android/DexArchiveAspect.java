@@ -461,6 +461,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .addOutput(result)
             .setMnemonic("Desugar")
             .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
+            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
             .addCommandLine(
                 // Always use params file, so we don't need to compute command line length first
                 args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())

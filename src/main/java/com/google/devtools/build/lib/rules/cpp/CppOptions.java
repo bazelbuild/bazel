@@ -17,9 +17,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -432,6 +432,17 @@ public class CppOptions extends FragmentOptions {
   public String csFdoInstrumentForBuild;
 
   @Option(
+      name = "cs_fdo_absolute_path",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Use CSFDO profile information to optimize compilation. Specify the absolute path name "
+              + "of the zip file containing the profile file, a raw or an indexed "
+              + "LLVM profile file.")
+  public String csFdoAbsolutePathForBuild;
+
+  @Option(
       name = "xbinary_fdo",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -726,7 +737,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_dont_enable_host_nonhost_crosstool_features",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -754,7 +765,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_require_ctx_in_configure_features",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -808,22 +819,6 @@ public class CppOptions extends FragmentOptions {
           "If true, Bazel will not allow specifying expand_if_all_available in flag_sets"
               + "(see https://github.com/bazelbuild/bazel/issues/7008 for migration instructions).")
   public boolean disableExpandIfAllAvailableInFlagSet;
-
-  @Option(
-      name = "incompatible_disable_crosstool_file",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        OptionMetadataTag.INCOMPATIBLE_CHANGE
-      },
-      help =
-          "If true, Bazel will not allow using the CROSSTOOL file for cc toolchain"
-              + " configuration. Instead, cc_toolchain should have a toolchain_config attribute"
-              + " that points to a rule written in Starlark that provides a CcToolchainConfigInfo"
-              + " provider. See https://github.com/bazelbuild/bazel/issues/7320 for more info.")
-  public boolean disableCrosstool;
 
   @Option(
       name = "experimental_includes_attribute_subpackage_traversal",
@@ -880,6 +875,34 @@ public class CppOptions extends FragmentOptions {
       help = "Save the state of enabled and requested feautres as an output of compilation.")
   public boolean saveFeatureState;
 
+  @Option(
+      name = "incompatible_use_specific_tool_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Use cc toolchain's compiler_files, as_files, and ar_files as inputs to appropriate "
+              + "actions. See https://github.com/bazelbuild/bazel/issues/8531")
+  public boolean useSpecificToolFiles;
+
+  @Option(
+      name = "incompatible_disable_static_cc_toolchains",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "@bazel_tools//tools/cpp:default-toolchain target was removed."
+              + "See https://github.com/bazelbuild/bazel/issues/8546.")
+  public boolean disableStaticCcToolchains;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -929,12 +952,23 @@ public class CppOptions extends FragmentOptions {
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
-    host.disableCrosstool = disableCrosstool;
     host.enableCcToolchainResolution = enableCcToolchainResolution;
     host.removeLegacyWholeArchive = removeLegacyWholeArchive;
     host.dontEnableHostNonhost = dontEnableHostNonhost;
     host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
     host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
+    host.useSpecificToolFiles = useSpecificToolFiles;
+    host.disableStaticCcToolchains = disableStaticCcToolchains;
+
+    // Save host options for further use.
+    host.hostCoptList = hostCoptList;
+    host.hostConlyoptList = hostConlyoptList;
+    host.hostCppCompiler = hostCppCompiler;
+    host.hostCrosstoolTop = hostCrosstoolTop;
+    host.hostCxxoptList = hostCxxoptList;
+    host.hostLibcTopLabel = hostLibcTopLabel;
+    host.hostLinkoptList = hostLinkoptList;
+
     return host;
   }
 

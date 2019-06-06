@@ -101,9 +101,9 @@ public class InputFileTest {
   @Test
   public void testEquivalenceRelation() throws NoSuchTargetException {
     InputFile inputFileX = (InputFile) pkg.getTarget("x");
-    assertThat(inputFileX).isSameAs(pkg.getTarget("x"));
+    assertThat(inputFileX).isSameInstanceAs(pkg.getTarget("x"));
     InputFile inputFileY = (InputFile) pkg.getTarget("subdir/y");
-    assertThat(inputFileY).isSameAs(pkg.getTarget("subdir/y"));
+    assertThat(inputFileY).isSameInstanceAs(pkg.getTarget("subdir/y"));
     new EqualsTester()
         .addEqualityGroup(inputFileX)
         .addEqualityGroup(inputFileY)

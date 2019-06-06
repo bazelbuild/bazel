@@ -25,14 +25,14 @@ if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/
     export RUNFILES_MANIFEST_FILE="$TEST_SRCDIR/MANIFEST"
   elif [[ -f "$0.runfiles/MANIFEST" ]]; then
     export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-  elif [[ -f "$TEST_SRCDIR/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  elif [[ -f "$TEST_SRCDIR/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
     export RUNFILES_DIR="$TEST_SRCDIR"
   fi
 fi
-if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+if [[ -f "${RUNFILES_DIR:-/dev/null}/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/io_bazel/tools/bash/runfiles/runfiles.bash"
 elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+  source "$(grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.bash " \
             "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
 else
   echo >&2 "ERROR: cannot find //third_party/bazel/tools/bash/runfiles:runfiles.bash"

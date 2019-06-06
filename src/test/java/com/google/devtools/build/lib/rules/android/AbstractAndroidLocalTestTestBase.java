@@ -143,7 +143,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
         ActionsTestUtil.prettyArtifactNames(
             actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)));
 
-    assertThat(inputs).containsAllOf("java/com/foo/Flag1On.java", "java/com/foo/Flag2Off.java");
+    assertThat(inputs).containsAtLeast("java/com/foo/Flag1On.java", "java/com/foo/Flag2Off.java");
     assertThat(inputs).containsNoneOf("java/com/foo/Flag1Off.java", "java/com/foo/Flag2On.java");
   }
 
@@ -195,7 +195,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
         actionsTestUtil()
             .prettyArtifactNames(actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)));
 
-    assertThat(inputs).containsAllOf("java/com/foo/Flag1On.java", "java/com/foo/Flag2Off.java");
+    assertThat(inputs).containsAtLeast("java/com/foo/Flag1On.java", "java/com/foo/Flag2Off.java");
     assertThat(inputs).containsNoneOf("java/com/foo/Flag1Off.java", "java/com/foo/Flag2On.java");
   }
 
@@ -555,10 +555,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
             getFileConfiguredTarget("//java/com/google/android/foo:test_deploy.jar").getArtifact());
     List<String> inputs = ActionsTestUtil.baseArtifactNames(deployJarAction.getInputs());
 
-    assertThat(inputs)
-        .containsAllOf(
-            "test_resources.jar",
-            "test.jar");
+    assertThat(inputs).containsAtLeast("test_resources.jar", "test.jar");
   }
 
   public abstract void checkMainClass(

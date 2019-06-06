@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -83,7 +84,7 @@ class ArtifactFunction implements SkyFunction {
     }
 
     ArtifactDependencies artifactDependencies =
-        ArtifactDependencies.discoverDependencies(artifact, env);
+        ArtifactDependencies.discoverDependencies((Artifact.DerivedArtifact) artifact, env);
     if (artifactDependencies == null) {
       return null;
     }
@@ -428,54 +429,32 @@ class ArtifactFunction implements SkyFunction {
   // TODO(b/19539699): extend this to comprehensively support all special artifact types (e.g.
   // middleman, etc).
   static class ArtifactDependencies {
-
-    private final Artifact artifact;
-    private final ActionLookupKey actionLookupKey;
+    private final DerivedArtifact artifact;
     private final ActionLookupValue actionLookupValue;
-    private final int actionIndex;
 
-    private ArtifactDependencies(
-        Artifact artifact,
-        ActionLookupKey actionLookupKey,
-        ActionLookupValue actionLookupValue,
-        int actionIndex) {
+    private ArtifactDependencies(DerivedArtifact artifact, ActionLookupValue actionLookupValue) {
       this.artifact = artifact;
-      this.actionLookupKey = actionLookupKey;
       this.actionLookupValue = actionLookupValue;
-      this.actionIndex = actionIndex;
     }
 
     /**
-     * Constructs an {@link ArtifactDependencies} for the provided {@code derivedArtifact}, which
-     * must not be a source artifact. Returns {@code null} if any dependencies are not yet ready.
+     * Constructs an {@link ArtifactDependencies} for the provided {@code derivedArtifact}. Returns
+     * {@code null} if any dependencies are not yet ready.
      */
     @Nullable
     static ArtifactDependencies discoverDependencies(
-        Artifact derivedArtifact, SkyFunction.Environment env) throws InterruptedException {
-      Preconditions.checkArgument(
-          !derivedArtifact.isSourceArtifact(),
-          "derivedArtifact is not derived: %s",
-          derivedArtifact);
+        Artifact.DerivedArtifact derivedArtifact, SkyFunction.Environment env)
+        throws InterruptedException {
 
-      ActionLookupKey actionLookupKey = ArtifactFunction.getActionLookupKey(derivedArtifact);
+      ActionLookupData generatingActionKey = derivedArtifact.getGeneratingActionKey();
       ActionLookupValue actionLookupValue =
-          ArtifactFunction.getActionLookupValue(actionLookupKey, env, derivedArtifact);
+          ArtifactFunction.getActionLookupValue(
+              generatingActionKey.getActionLookupKey(), env, derivedArtifact);
       if (actionLookupValue == null) {
         return null;
       }
-      Integer actionIndex = actionLookupValue.getGeneratingActionIndex(derivedArtifact);
-      if (derivedArtifact.hasParent() && actionIndex == null) {
-        // If a TreeFileArtifact is created by a templated action, then it should have the proper
-        // reference to its owner. However, if it was created as part of a directory, by the first
-        // TreeArtifact-generating action in a chain, then its parent's generating action also
-        // generated it. This catches that case.
-        actionIndex = actionLookupValue.getGeneratingActionIndex(derivedArtifact.getParent());
-      }
-      Preconditions.checkNotNull(
-          actionIndex, "%s %s %s", derivedArtifact, actionLookupKey, actionLookupValue);
 
-      return new ArtifactDependencies(
-          derivedArtifact, actionLookupKey, actionLookupValue, actionIndex);
+      return new ArtifactDependencies(derivedArtifact, actionLookupValue);
     }
 
     Artifact getArtifact() {
@@ -483,21 +462,21 @@ class ArtifactFunction implements SkyFunction {
     }
 
     ActionLookupKey getActionLookupKey() {
-      return actionLookupKey;
+      return artifact.getArtifactOwner();
     }
 
     int getActionIndex() {
-      return actionIndex;
+      return artifact.getGeneratingActionKey().getActionIndex();
     }
 
     boolean isTemplateActionForTreeArtifact() {
-      return artifact.isTreeArtifact() && actionLookupValue.isActionTemplate(actionIndex);
+      return artifact.isTreeArtifact() && actionLookupValue.isActionTemplate(getActionIndex());
     }
 
     ActionLookupData getNontemplateActionExecutionKey() {
       Preconditions.checkState(
           !isTemplateActionForTreeArtifact(), "Action is unexpectedly template: %s", this);
-      return ActionExecutionValue.key(actionLookupKey, actionIndex);
+      return artifact.getGeneratingActionKey();
     }
 
     /**
@@ -512,7 +491,7 @@ class ArtifactFunction implements SkyFunction {
       Preconditions.checkState(
           isTemplateActionForTreeArtifact(), "Action is unexpectedly non-template: %s", this);
       ActionTemplateExpansionValue.ActionTemplateExpansionKey key =
-          ActionTemplateExpansionValue.key(actionLookupKey, actionIndex);
+          ActionTemplateExpansionValue.key(getActionLookupKey(), getActionIndex());
       ActionTemplateExpansionValue value = (ActionTemplateExpansionValue) env.getValue(key);
       if (value == null) {
         return null;
@@ -521,16 +500,15 @@ class ArtifactFunction implements SkyFunction {
     }
 
     Action getAction() {
-      return actionLookupValue.getAction(actionIndex);
+      return actionLookupValue.getAction(getActionIndex());
     }
 
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("artifact", artifact)
-          .add("actionLookupKey", actionLookupKey)
+          .add("generatingActionKey", artifact.getGeneratingActionKey())
           .add("actionLookupValue", actionLookupValue)
-          .add("actionIndex", actionIndex)
           .toString();
     }
   }
@@ -558,8 +536,9 @@ class ArtifactFunction implements SkyFunction {
       int numActions = value.getNumActions();
       ImmutableList.Builder<ActionLookupData> expandedActionExecutionKeys =
           ImmutableList.builderWithExpectedSize(numActions);
-      for (int i = 0; i < numActions; i++) {
-        expandedActionExecutionKeys.add(ActionExecutionValue.key(key, i));
+      for (ActionAnalysisMetadata action : value.getActions()) {
+        expandedActionExecutionKeys.add(
+            ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey());
       }
       return expandedActionExecutionKeys.build();
     }

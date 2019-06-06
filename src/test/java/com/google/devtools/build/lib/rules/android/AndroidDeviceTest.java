@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.InputFile;
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -58,7 +57,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
   private static final String REQUIRES_KVM = "requires-kvm";
 
   @Before
-  public void setup() throws IOException {
+  public void setup() throws Exception {
     scratch.file(
         "sdk/system_images/BUILD",
         "filegroup(",
@@ -71,6 +70,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         "        'android_21/x86/userdata.img.tar.gz'",
         "    ],",
         ")");
+    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
   }
 
   private FilesToRunProvider getToolDependency(String label) throws Exception {
@@ -111,9 +111,10 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         .containsExactly("nexus_6", "userdata_images.dat", "emulator-meta-data.pb");
 
     Runfiles runfiles = getDefaultRunfiles(target);
-    assertThat(ActionsTestUtil.execPaths(runfiles.getUnconditionalArtifacts())).containsAllOf(
-        getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
-        getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
+    assertThat(ActionsTestUtil.execPaths(runfiles.getUnconditionalArtifacts()))
+        .containsAtLeast(
+            getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
+            getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
 
     SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         actionsTestUtil().artifactClosureOf(getFilesToBuild(target)),
@@ -165,7 +166,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
 
     assertThat(action.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
     assertThat(ActionsTestUtil.execPaths(action.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
             getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
 

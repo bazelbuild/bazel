@@ -44,15 +44,17 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateType;
@@ -70,12 +72,15 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -85,7 +90,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.Settings;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -119,7 +123,7 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -127,11 +131,11 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.CompletionFunction.PathResolverFactory;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction.NonexistentFileReceiver;
@@ -141,7 +145,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.LoadedPackageCache
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -294,7 +298,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
   private final SkyframeActionExecutor skyframeActionExecutor;
-  private CompletionReceiver actionExecutionFunction;
+  private ActionExecutionFunction actionExecutionFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private final AtomicReference<CyclesReporter> cyclesReporter = new AtomicReference<>();
 
@@ -328,6 +332,11 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
   @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
   private final MutableSupplier<BigInteger> nonceVersion = new MutableSupplier<>();
+
+  private final TrimmedConfigurationCache<SkyKey, Label, OptionsDiffForReconstruction>
+      trimmingCache = TrimmedConfigurationProgressReceiver.buildCache();
+  private final TrimmedConfigurationProgressReceiver trimmingListener =
+      new TrimmedConfigurationProgressReceiver(trimmingCache);
 
   /** An {@link ArtifactResolverSupplier} that supports setting of an {@link ArtifactFactory}. */
   public static class MutableArtifactFactorySupplier implements ArtifactResolverSupplier {
@@ -374,7 +383,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       FileSystem fileSystem,
       BlazeDirectories directories,
       ActionKeyContext actionKeyContext,
-      WorkspaceStatusAction.Factory workspaceStatusActionFactory,
+      Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ExternalFileAction externalFileAction,
@@ -389,7 +398,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       @Nullable PackageProgressReceiver packageProgress,
       MutableArtifactFactorySupplier artifactResolverSupplier,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
-      @Nullable NonexistentFileReceiver nonexistentFileReceiver) {
+      @Nullable NonexistentFileReceiver nonexistentFileReceiver,
+      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
@@ -436,7 +446,13 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     this.artifactFactory = artifactResolverSupplier;
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
     this.externalFilesHelper =
-        ExternalFilesHelper.create(pkgLocator, externalFileAction, directories);
+        ExternalFilesHelper.create(
+            pkgLocator,
+            externalFileAction,
+            directories,
+            managedDirectoriesKnowledge != null
+                ? managedDirectoriesKnowledge
+                : ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES);
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
@@ -520,7 +536,6 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
                 : IncrementalityIntent.NON_INCREMENTAL));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
-    map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
     map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction(ruleClassProvider));
     map.put(Label.TRANSITIVE_TRAVERSAL, new TransitiveTraversalFunction());
@@ -534,7 +549,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
             shouldUnblockCpuWorkWhenFetchingDeps,
             defaultBuildOptions,
             configuredTargetProgress,
-            nonceVersion));
+            nonceVersion,
+            trimmingCache));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -599,7 +615,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     map.put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction());
     map.put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction());
     map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
-    map.put(SkyFunctions.PLATFORM_MAPPING, new PlatformMappingFunction(directories));
+    map.put(SkyFunctions.PLATFORM_MAPPING, new PlatformMappingFunction());
     map.putAll(extraSkyFunctions);
     return map.build();
   }
@@ -797,6 +813,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   public void resetEvaluator() {
     init();
     emittedEventState.clear();
+    clearTrimmingCache();
     skyframeBuildView.reset();
   }
 
@@ -809,6 +826,14 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
   }
 
+  /**
+   * Notifies the executor to post logging stats when the server is crashing, so that logging is
+   * still available even when the server crashes.
+   */
+  public void postLoggingStatsWhenCrashing(ExtendedEventHandler eventHandler) {
+    memoizingEvaluator.postLoggingStats(eventHandler);
+  }
+
   protected abstract Differencer evaluatorDiffer();
 
   protected abstract T getBuildDriver();
@@ -817,8 +842,23 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   public void handleAnalysisInvalidatingChange() {
     logger.info("Dropping configured target data");
     analysisCacheDiscarded = true;
+    clearTrimmingCache();
     skyframeBuildView.clearInvalidatedConfiguredTargets();
     skyframeBuildView.clearLegacyData();
+  }
+
+  /** Activates retroactive trimming (idempotently, so has no effect if already active). */
+  void activateRetroactiveTrimming() {
+    trimmingListener.activate();
+  }
+
+  /** Deactivates retroactive trimming (idempotently, so has no effect if already inactive). */
+  void deactivateRetroactiveTrimming() {
+    trimmingListener.deactivate();
+  }
+
+  protected void clearTrimmingCache() {
+    trimmingCache.clear();
   }
 
   /** Used with dump --rules. */
@@ -1074,8 +1114,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         : (WorkspaceStatusAction) workspaceStatusValue.getAction(0);
   }
 
-  public void injectCoverageReportData(ImmutableList<ActionAnalysisMetadata> actions) {
-    PrecomputedValue.COVERAGE_REPORT_KEY.set(injectable(), actions);
+  public void injectCoverageReportData(Actions.GeneratingActions actions) {
+    PrecomputedValue.COVERAGE_REPORT_KEY.set(injectable(), actions.getActions());
   }
 
   private void setDefaultVisibility(RuleVisibility defaultVisibility) {
@@ -1460,7 +1500,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
     BuildOptions targetOptions = firstTargetConfig.getOptions();
     BuildOptions hostOptions =
-        targetOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
+        targetOptions.get(CoreOptions.class).useDistinctHostConfiguration
             ? HostTransition.INSTANCE.patch(targetOptions)
             : targetOptions;
     BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
@@ -1525,7 +1565,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       // Also releases thread locks.
       resourceManager.resetResourceUsage();
       skyframeActionExecutor.executionOver();
-      actionExecutionFunction.complete();
+      actionExecutionFunction.complete(reporter);
     }
   }
 
@@ -1563,7 +1603,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       // Also releases thread locks.
       resourceManager.resetResourceUsage();
       skyframeActionExecutor.executionOver();
-      actionExecutionFunction.complete();
+      actionExecutionFunction.complete(reporter);
     }
   }
 
@@ -1573,11 +1613,12 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     skyframeActionExecutor.prepareForExecution(reporter, executor, options, checker, outputService);
   }
 
-  EvaluationResult<TargetPatternValue> targetPatterns(
-      Iterable<TargetPatternKey> patternSkyKeys,
+  EvaluationResult<SkyValue> targetPatterns(
+      Iterable<? extends SkyKey> patternSkyKeys,
       int numThreads,
       boolean keepGoing,
-      ExtendedEventHandler eventHandler)
+      ExtendedEventHandler eventHandler,
+      boolean useForkJoinPool)
       throws InterruptedException {
     checkActive();
     EvaluationContext evaluationContext =
@@ -1585,6 +1626,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
             .setKeepGoing(keepGoing)
             .setNumThreads(numThreads)
             .setEventHander(eventHandler)
+            .setUseForkJoinPool(useForkJoinPool)
             .build();
     return buildDriver.evaluate(patternSkyKeys, evaluationContext);
   }
@@ -1661,12 +1703,13 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
       Iterable<Dependency> keys)
-      throws TransitionException, InvalidConfigurationException {
+      throws InvalidConfigurationException {
     checkActive();
 
     Multimap<Dependency, BuildConfiguration> configs;
     if (originalConfig != null) {
-      configs = getConfigurations(eventHandler, originalConfig.getOptions(), keys);
+      configs =
+          getConfigurations(eventHandler, originalConfig.getOptions(), keys).getConfigurationMap();
     } else {
       configs = ArrayListMultimap.<Dependency, BuildConfiguration>create();
       for (Dependency key : keys) {
@@ -1902,18 +1945,17 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
   /**
    * Retrieves the configurations needed for the given deps. If {@link
-   * BuildConfiguration.Options#trimConfigurations()} is true, trims their fragments to only those
-   * needed by their transitive closures. Else unconditionally includes all fragments.
+   * CoreOptions#trimConfigurations()} is true, trims their fragments to only those needed by their
+   * transitive closures. Else unconditionally includes all fragments.
    *
    * <p>Skips targets with loading phase errors.
    */
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#getConfigurations}.
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
-  public Multimap<Dependency, BuildConfiguration> getConfigurations(
+  public ConfigurationsResult getConfigurations(
       ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys)
       throws InvalidConfigurationException {
-    Multimap<Dependency, BuildConfiguration> builder =
-        ArrayListMultimap.<Dependency, BuildConfiguration>create();
+    ConfigurationsResult.Builder builder = ConfigurationsResult.newBuilder();
     Set<Dependency> depsToEvaluate = new HashSet<>();
 
     ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> allFragments = null;
@@ -1946,6 +1988,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         // No fragments to compute here.
       } else if (fragmentsResult.getError(TransitiveTargetKey.of(key.getLabel())) != null) {
         labelsWithErrors.add(key.getLabel());
+        builder.setHasError();
       } else {
         TransitiveTargetValue ttv =
             (TransitiveTargetValue) fragmentsResult.get(TransitiveTargetKey.of(key.getLabel()));
@@ -1972,26 +2015,17 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         if (transition == NullTransition.INSTANCE) {
           continue;
         }
-        ImmutableMap<Label, Object> defaultInputValues;
         List<BuildOptions> toOptions = Collections.singletonList(fromOptions);
         try {
-          // TODO(juliexxia): combine these skyframe calls with other skyframe calls for this
-          // configured target.
-          defaultInputValues =
-              StarlarkTransition.getDefaultInputValues(
-                  collectBuildSettingValues(transition, eventHandler, Settings.INPUTS), transition);
+          Map<SkyKey, SkyValue> buildSettingPackages =
+              collectBuildSettingValues(transition, eventHandler);
           toOptions =
-              ConfigurationResolver.applyTransition(
-                  fromOptions,
-                  transition,
-                  depFragments,
-                  ruleClassProvider,
-                  true,
-                  defaultInputValues,
-                  collectBuildSettingValues(transition, eventHandler, Settings.OUTPUTS));
+              ConfigurationResolver.applyTransition(fromOptions, transition, buildSettingPackages);
           StarlarkTransition.replayEvents(eventHandler, transition);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
+          builder.setHasError();
+          continue;
         }
         for (BuildOptions toOption : toOptions) {
           configSkyKeys.add(toConfigurationKey(platformMappingValue, depFragments, toOption));
@@ -2011,24 +2045,17 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
           builder.put(key, null);
           continue;
         }
-        ImmutableMap<Label, Object> defaultInputValues;
         List<BuildOptions> toOptions = Collections.singletonList(fromOptions);
         try {
-          defaultInputValues =
-              StarlarkTransition.getDefaultInputValues(
-                  collectBuildSettingValues(key.getTransition(), eventHandler, Settings.INPUTS),
-                  key.getTransition());
+          Map<SkyKey, SkyValue> buildSettingPackages =
+              collectBuildSettingValues(key.getTransition(), eventHandler);
           toOptions =
               ConfigurationResolver.applyTransition(
-                  fromOptions,
-                  key.getTransition(),
-                  depFragments,
-                  ruleClassProvider,
-                  true,
-                  defaultInputValues,
-                  collectBuildSettingValues(key.getTransition(), eventHandler, Settings.OUTPUTS));
+                  fromOptions, key.getTransition(), buildSettingPackages);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
+          builder.setHasError();
+          continue;
         }
         for (BuildOptions toOption : toOptions) {
           BuildConfigurationValue.Key configKey =
@@ -2043,7 +2070,53 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         }
       }
     }
-    return builder;
+    return builder.build();
+  }
+
+  /**
+   * The result of {@link #getConfigurations(ExtendedEventHandler, BuildOptions, Iterable)} which
+   * also registers if an error was recorded.
+   */
+  public static class ConfigurationsResult {
+    private final Multimap<Dependency, BuildConfiguration> configurations;
+    private final boolean hasError;
+
+    private ConfigurationsResult(
+        Multimap<Dependency, BuildConfiguration> configurations, boolean hasError) {
+      this.configurations = configurations;
+      this.hasError = hasError;
+    }
+
+    public boolean hasError() {
+      return hasError;
+    }
+
+    public Multimap<Dependency, BuildConfiguration> getConfigurationMap() {
+      return configurations;
+    }
+
+    public static Builder newBuilder() {
+      return new Builder();
+    }
+
+    /** Builder for {@link ConfigurationsResult} */
+    public static class Builder {
+      private final Multimap<Dependency, BuildConfiguration> configurations =
+          ArrayListMultimap.<Dependency, BuildConfiguration>create();
+      private boolean hasError = false;
+
+      void put(Dependency key, BuildConfiguration value) {
+        configurations.put(key, value);
+      }
+
+      void setHasError() {
+        this.hasError = true;
+      }
+
+      ConfigurationsResult build() {
+        return new ConfigurationsResult(configurations, hasError);
+      }
+    }
   }
 
   private PlatformMappingValue getPlatformMappingValue(
@@ -2079,13 +2152,20 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   }
 
   private Map<SkyKey, SkyValue> collectBuildSettingValues(
-      ConfigurationTransition transition,
-      ExtendedEventHandler eventHandler,
-      Settings inputsOrOutputs) {
+      ConfigurationTransition transition, ExtendedEventHandler eventHandler)
+      throws TransitionException {
     ImmutableSet<SkyKey> buildSettingPackageKeys =
-        StarlarkTransition.getBuildSettingPackageKeys(transition, inputsOrOutputs);
+        StarlarkTransition.getAllBuildSettingPackageKeys(transition);
     EvaluationResult<SkyValue> buildSettingsResult =
         evaluateSkyKeys(eventHandler, buildSettingPackageKeys, true);
+    if (buildSettingsResult.hasError()) {
+      throw new TransitionException(
+          new NoSuchPackageException(
+              ((PackageValue.Key) buildSettingsResult.getError().getRootCauseOfException())
+                  .argument(),
+              "Unable to find build setting package",
+              buildSettingsResult.getError().getException()));
+    }
     ImmutableMap.Builder<SkyKey, SkyValue> buildSettingValues = new ImmutableMap.Builder<>();
     buildSettingPackageKeys.forEach(k -> buildSettingValues.put(k, buildSettingsResult.get(k)));
     return buildSettingValues.build();
@@ -2096,8 +2176,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
    * their transitive dependencies.
    */
   private static boolean useUntrimmedConfigs(BuildOptions options) {
-    return options.get(BuildConfiguration.Options.class).configsMode
-        == BuildConfiguration.Options.ConfigsMode.NOTRIM;
+    return options.get(CoreOptions.class).configsMode == CoreOptions.ConfigsMode.NOTRIM;
   }
 
   /**
@@ -2318,7 +2397,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         ExtendedEventHandler eventHandler,
         Iterable<Label> labelsToVisit,
         boolean keepGoing,
-        int parallelThreads)
+        int parallelThreads,
+        boolean useForkJoinPool)
         throws InterruptedException {
       List<SkyKey> valueNames = new ArrayList<>();
       for (Label label : labelsToVisit) {
@@ -2329,6 +2409,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
               .setKeepGoing(keepGoing)
               .setNumThreads(parallelThreads)
               .setEventHander(eventHandler)
+              .setUseForkJoinPool(useForkJoinPool)
               .build();
       return buildDriver.evaluate(valueNames, evaluationContext);
     }
@@ -2377,13 +2458,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       return null;
     }
 
-    ArtifactOwner artifactOwner = artifact.getArtifactOwner();
-    Preconditions.checkState(
-        artifactOwner instanceof ActionLookupValue.ActionLookupKey,
-        "%s %s",
-        artifact,
-        artifactOwner);
-    SkyKey actionLookupKey = (ActionLookupValue.ActionLookupKey) artifactOwner;
+    ActionLookupData generatingActionKey =
+        ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
 
     synchronized (valueLookupLock) {
       // Note that this will crash (attempting to run a configured target value builder after
@@ -2392,13 +2468,18 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       // this action. We don't expect callers to query generating actions in such cases.
       EvaluationResult<ActionLookupValue> result =
           evaluate(
-              ImmutableList.of(actionLookupKey),
+              ImmutableList.of(generatingActionKey.getActionLookupKey()),
               /*keepGoing=*/ false,
               /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
               eventHandler);
-      return result.hasError()
-          ? null
-          : result.get(actionLookupKey).getGeneratingActionDangerousReadJavadoc(artifact);
+      if (result.hasError()) {
+        return null;
+      }
+      ActionLookupValue actionLookupValue = result.get(generatingActionKey.getActionLookupKey());
+      int actionIndex = generatingActionKey.getActionIndex();
+      return actionLookupValue.isActionTemplate(actionIndex)
+          ? actionLookupValue.getActionTemplate(actionIndex)
+          : actionLookupValue.getAction(actionIndex);
     }
   }
 
@@ -2432,7 +2513,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   }
 
   @VisibleForTesting
-  public TargetPatternEvaluator newTargetPatternEvaluator() {
+  public TargetPatternPreloader newTargetPatternPreloader() {
     return new SkyframeTargetPatternEvaluator(this);
   }
 
@@ -2526,6 +2607,11 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     return directories;
   }
 
+  @VisibleForTesting
+  ActionExecutionStatusReporter getActionExecutionStatusReporterForTesting() {
+    return statusReporterRef.get();
+  }
+
   /**
    * Initializes and syncs the graph with the given options, readying it for the next evaluation.
    */
@@ -2588,7 +2674,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   private void getActionEnvFromOptions(OptionsProvider options) {
     // ImmutableMap does not support null values, so use a LinkedHashMap instead.
     LinkedHashMap<String, String> actionEnvironment = new LinkedHashMap<>();
-    BuildConfiguration.Options opt = options.getOptions(BuildConfiguration.Options.class);
+    CoreOptions opt = options.getOptions(CoreOptions.class);
     if (opt != null) {
       for (Map.Entry<String, String> v : opt.actionEnvironment) {
         actionEnvironment.put(v.getKey(), v.getValue());
@@ -2603,7 +2689,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   }
 
   private void setRepoEnv(OptionsProvider options) {
-    BuildConfiguration.Options opt = options.getOptions(BuildConfiguration.Options.class);
+    CoreOptions opt = options.getOptions(CoreOptions.class);
     LinkedHashMap<String, String> repoEnv = new LinkedHashMap<>();
     if (opt != null) {
       for (Map.Entry<String, String> v : opt.repositoryEnvironment) {
@@ -2798,6 +2884,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     /** This receiver is only needed for loading, so it is null otherwise. */
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
+      trimmingListener.invalidated(skyKey, state);
       if (ignoreInvalidations) {
         return;
       }
@@ -2806,6 +2893,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
     @Override
     public void enqueueing(SkyKey skyKey) {
+      trimmingListener.enqueueing(skyKey);
       if (ignoreInvalidations) {
         return;
       }
@@ -2821,6 +2909,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         @Nullable SkyValue value,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
+      trimmingListener.evaluated(skyKey, value, evaluationSuccessState, state);
       if (ignoreInvalidations) {
         return;
       }

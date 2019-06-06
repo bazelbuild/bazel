@@ -141,23 +141,23 @@ static void handler(int signum) {
       if (++sigint_count >= 3) {
         SigPrintf(
             "\n%s caught third interrupt signal; killed.\n\n",
-            SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+            SignalHandler::Get()._product_name.c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
           KillServerProcess(
               SignalHandler::Get().GetGlobals()->server_pid,
-              SignalHandler::Get().GetGlobals()->options->output_base);
+              SignalHandler::Get()._output_base);
         }
         _exit(1);
       }
       SigPrintf(
           "\n%s caught interrupt signal; shutting down.\n\n",
-          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+          SignalHandler::Get()._product_name.c_str());
       SignalHandler::Get().CancelServer();
       break;
     case SIGTERM:
       SigPrintf(
           "\n%s caught terminate signal; shutting down.\n\n",
-          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+          SignalHandler::Get()._product_name.c_str());
       SignalHandler::Get().CancelServer();
       break;
     case SIGPIPE:
@@ -174,8 +174,12 @@ static void handler(int signum) {
   errno = saved_errno;
 }
 
-void SignalHandler::Install(GlobalVariables* globals,
+void SignalHandler::Install(const string &product_name,
+                            const string &output_base,
+                            GlobalVariables* globals,
                             SignalHandler::Callback cancel_server) {
+  _product_name = product_name;
+  _output_base = output_base;
   _globals = globals;
   _cancel_server = cancel_server;
 
@@ -715,9 +719,17 @@ bool IsEmacsTerminal() {
 // control characters is stderr, so we only care for the stderr descriptor type.
 bool IsStderrStandardTerminal() {
   string term = GetEnv("TERM");
+  bool isEmacs = IsEmacsTerminal();
+
+  // Emacs 22+ terminal emulation uses 'eterm-color' as its terminfo name and,
+  // more importantly, supports color in terminals.
+  // see https://github.com/emacs-mirror/emacs/blob/master/etc/NEWS.22#L331-L333
+  if (isEmacs && term == "eterm-color") {
+    return true;
+  }
   if (term.empty() || term == "dumb" || term == "emacs" ||
       term == "xterm-mono" || term == "symbolics" || term == "9term" ||
-      IsEmacsTerminal()) {
+      isEmacs) {
     return false;
   }
   return isatty(STDERR_FILENO);

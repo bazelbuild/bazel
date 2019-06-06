@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -63,21 +62,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Dispatches to the Blaze commands; that is, given a command line, this
- * abstraction looks up the appropriate command object, parses the options
- * required by the object, and calls its exec method. Also, this object provides
- * the runtime state (BlazeRuntime) to the commands.
+ * Dispatches to the Blaze commands; that is, given a command line, this abstraction looks up the
+ * appropriate command object, parses the options required by the object, and calls its exec method.
+ * Also, this object provides the runtime state (BlazeRuntime) to the commands.
  */
-public class BlazeCommandDispatcher {
+public class BlazeCommandDispatcher implements CommandDispatcher {
   private static final Logger logger = Logger.getLogger(BlazeCommandDispatcher.class.getName());
-
-  /**
-   * What to do if the command lock is not available.
-   */
-  public enum LockingMode {
-    WAIT,  // Wait until it is available
-    ERROR_OUT,  // Return with an error
-  }
 
   private static final ImmutableList<String> HELP_COMMAND = ImmutableList.of("help");
 
@@ -121,11 +111,7 @@ public class BlazeCommandDispatcher {
     this.commandLock = new Object();
   }
 
-  /**
-   * Executes a single command. Returns a {@link BlazeCommandResult} to indicate either an exit
-   * code, the desire to shut down the server, or that a given binary should be executed by the
-   * client.
-   */
+  @Override
   public BlazeCommandResult exec(
       InvocationPolicy invocationPolicy,
       List<String> args,
@@ -382,18 +368,7 @@ public class BlazeCommandDispatcher {
                   .getOptions(BlazeServerStartupOptions.class)
                   .oomMoreEagerlyThreshold;
         }
-        if (oomMoreEagerlyThreshold < 0 || oomMoreEagerlyThreshold > 100) {
-          reporter.handle(Event.error("--oom_more_eagerly_threshold must be non-negative percent"));
-          return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
-        }
-        if (oomMoreEagerlyThreshold != 100) {
-          try {
-            RetainedHeapLimiter.maybeInstallRetainedHeapLimiter(oomMoreEagerlyThreshold);
-          } catch (OptionsParsingException e) {
-            reporter.handle(Event.error(e.getMessage()));
-            return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
-          }
-        }
+        runtime.getRetainedHeapLimiter().updateThreshold(oomMoreEagerlyThreshold);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
         // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
@@ -469,11 +444,7 @@ public class BlazeCommandDispatcher {
 
       try (SilentCloseable closeable = Profiler.instance().profile("CommandEnv.beforeCommand")) {
         // Notify the BlazeRuntime, so it can do some initial setup.
-        env.beforeCommand(
-            options,
-            commonOptions,
-            waitTimeInMs,
-            invocationPolicy);
+        env.beforeCommand(waitTimeInMs, invocationPolicy);
       } catch (AbruptExitException e) {
         reporter.handle(Event.error(e.getMessage()));
         return BlazeCommandResult.exitCode(e.getExitCode());

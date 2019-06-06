@@ -51,7 +51,7 @@ public class GlobDescriptorTest {
   }
 
   private static void verifyEquivalent(GlobDescriptor orig, GlobDescriptor deserialized) {
-    assertThat(deserialized).isSameAs(orig);
+    assertThat(deserialized).isSameInstanceAs(orig);
   }
 
   @Test
@@ -70,7 +70,7 @@ public class GlobDescriptorTest {
         original.getSubdir(),
         original.getPattern(),
         original.excludeDirs());
-    assertThat(sameCopy).isSameAs(original);
+    assertThat(sameCopy).isSameInstanceAs(original);
 
     GlobDescriptor diffCopy = GlobDescriptor.create(
         original.getPackageId(),

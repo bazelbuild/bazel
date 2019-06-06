@@ -13,6 +13,8 @@ not already done so, first read the [Bazel Overview](bazel-overview.html).
 To install Bazel, see [Installing Bazel](install.html).
 If you use Windows, please read also [Using Bazel on Windows](windows.html).
 
+You might also want to [integrate Bazel with your IDE](ide.html).
+
 ## Bazel container
 
 To try out Bazel inside a [Docker](https://www.docker.com/) container, check out
@@ -33,6 +35,9 @@ tutorial:
 *   [Tutorial: Build an Android Application](tutorial/android-app.html)
 
 *   [Tutorial: Build an iOS Application](tutorial/ios-app.html)
+
+If you find yourself unsure of how Workspace, Packages, Targets and Rules
+relate to each other, jump to the [Bazel Concepts](build-ref.html) page.
 
 Once you are familiar with the basics, you can try the rules for
 [other languages](be/overview.html).

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.time.Duration;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -46,14 +47,39 @@ public interface BuildEventTransport {
 
   /**
    * Initiates a close. Callers may listen to the returned future to be notified when the close is
-   * complete i.e. wait for all build events to be sent. The future may contain any information
-   * about possible transport errors.
+   * complete i.e. wait for all build events to be sent and acknowledged. The future may contain any
+   * information about possible transport errors.
    *
    * <p>This method might be called multiple times without any effect after the first call.
    *
-   * <p>This method should not throw any exceptions.
+   * <p>This method should not throw any exceptions, but the returned Future might.
    */
   ListenableFuture<Void> close();
+
+  /**
+   * Returns the status of half-close. Callers may listen to the return future to be notified when
+   * the half-close is complete
+   *
+   * <p>Half-close indicates that all client-side data is transmitted but still waiting on
+   * server-side acknowledgement. The client must buffer the information in case the server fails to
+   * acknowledge.
+   *
+   * <p>Implementations may choose to return the full close Future via {@link #close()} if there is
+   * no sensible half-close state.
+   *
+   * <p>This should be only called after {@link #close()}.
+   */
+  default ListenableFuture<Void> getHalfCloseFuture() {
+    return close();
+  }
+
+  /**
+   * Returns how long a caller should wait for the transport to finish uploading events and closing
+   * gracefully. Setting the timeout to {@link Duration#ZERO} means that there's no timeout.
+   */
+  default Duration getTimeout() {
+    return Duration.ZERO;
+  }
 
   @VisibleForTesting
   @Nullable

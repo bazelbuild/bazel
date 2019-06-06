@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -43,10 +43,8 @@ public class InterspersingTest {
 
   @Test
   public void beforeEach_throwsForNullWhat() {
-    try {
-      Interspersing.beforeEach(null, ImmutableList.of("a"));
-      fail("should have thrown");
-    } catch (NullPointerException expected) {}
+    assertThrows(
+        NullPointerException.class, () -> Interspersing.beforeEach(null, ImmutableList.of("a")));
   }
 
   @Test
@@ -70,9 +68,7 @@ public class InterspersingTest {
 
   @Test
   public void prependEach_throwsForNullWhat() {
-    try {
-      Interspersing.prependEach(null, ImmutableList.of("a"));
-      fail("should have thrown");
-    } catch (NullPointerException expected) {}
+    assertThrows(
+        NullPointerException.class, () -> Interspersing.prependEach(null, ImmutableList.of("a")));
   }
 }

@@ -138,11 +138,8 @@ public class InMemoryNodeEntry implements NodeEntry {
    */
   @Nullable protected volatile DirtyBuildingState dirtyBuildingState = null;
 
-  /**
-   * Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations.
-   */
-  public InMemoryNodeEntry() {
-  }
+  /** Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations. */
+  public InMemoryNodeEntry() {}
 
   // Public only for use in alternate graph implementations.
   public KeepEdgesPolicy keepEdges() {
@@ -210,23 +207,25 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Iterable<SkyKey> getDirectDeps() {
-    return getGroupedDirectDeps().getAllElementsAsIterable();
+  public Iterable<SkyKey> getDirectDeps() {
+    return GroupedList.compressedToIterable(getCompressedDirectDepsForDoneEntry());
   }
 
-  /**
-   * If {@code isDone()}, returns the ordered list of sets of grouped direct dependencies that were
-   * added in {@link #addTemporaryDirectDeps}.
-   */
-  public synchronized GroupedList<SkyKey> getGroupedDirectDeps() {
+  @Override
+  public int getNumberOfDirectDepGroups() {
+    return GroupedList.numGroups(getCompressedDirectDepsForDoneEntry());
+  }
+
+  /** Returns the compressed {@link GroupedList} of direct deps. Can only be called when done. */
+  public final synchronized @GroupedList.Compressed Object getCompressedDirectDepsForDoneEntry() {
     assertKeepDeps();
     Preconditions.checkState(isDone(), "no deps until done. NodeEntry: %s", this);
-    return GroupedList.create(directDeps);
+    Preconditions.checkNotNull(directDeps, "deps can't be null: %s", this);
+    return GroupedList.castAsCompressed(directDeps);
   }
 
   public int getNumDirectDeps() {
-    Preconditions.checkState(isDone(), "no deps until done. NodeEntry: %s", this);
-    return GroupedList.numElements(directDeps);
+    return GroupedList.numElements(getCompressedDirectDepsForDoneEntry());
   }
 
   @Override
@@ -266,22 +265,6 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized Set<SkyKey> getInProgressReverseDeps() {
     Preconditions.checkState(!isDone(), this);
     return ReverseDepsUtility.returnNewElements(this, getOpToStoreBare());
-  }
-
-  /**
-   * Highly dangerous method. Used only for testing/debugging. Can only be called on an in-progress
-   * entry that is not dirty and that will not keep edges. Returns all the entry's reverse deps,
-   * which must all be {@link SkyKey}s representing {@link Op#ADD} operations, since that is the
-   * operation that is stored bare. Used for speed, since it avoids making any copies, so should be
-   * much faster than {@link #getInProgressReverseDeps}.
-   */
-  @SuppressWarnings("unchecked")
-  public synchronized Iterable<SkyKey> unsafeGetUnconsolidatedRdeps() {
-    Preconditions.checkState(!isDone(), this);
-    Preconditions.checkState(!isDirty(), this);
-    Preconditions.checkState(keepEdges().equals(KeepEdgesPolicy.NONE), this);
-    Preconditions.checkState(getOpToStoreBare() == OpToStoreBare.ADD, this);
-    return (Iterable<SkyKey>) (List<?>) reverseDepsDataToConsolidate;
   }
 
   // In this method it is critical that this.lastChangedVersion is set prior to this.value because
@@ -523,7 +506,8 @@ public class InMemoryNodeEntry implements NodeEntry {
     assertKeepDeps();
     if (isDone()) {
       dirtyBuildingState =
-          DirtyBuildingState.create(dirtyType, GroupedList.create(directDeps), value);
+          DirtyBuildingState.create(
+              dirtyType, GroupedList.create(getCompressedDirectDepsForDoneEntry()), value);
       value = null;
       directDeps = null;
       return new MarkedDirtyResult(ReverseDepsUtility.getReverseDeps(this));
@@ -696,8 +680,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void resetForRestartFromScratch() {
-    Preconditions.checkState(!isDone(), "Reset entry can't be done: %s", this);
-    Preconditions.checkState(isEvaluating());
+    Preconditions.checkState(isReady(), this);
     directDeps = null;
     dirtyBuildingState.resetForRestartFromScratch();
   }
@@ -736,7 +719,7 @@ public class InMemoryNodeEntry implements NodeEntry {
         .add(
             "directDeps",
             isDone() && keepEdges() != KeepEdgesPolicy.NONE
-                ? GroupedList.create(directDeps)
+                ? GroupedList.create(getCompressedDirectDepsForDoneEntry())
                 : directDeps)
         .add("reverseDeps", ReverseDepsUtility.toString(this))
         .add("dirtyBuildingState", dirtyBuildingState);

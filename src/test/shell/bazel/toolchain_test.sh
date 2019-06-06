@@ -275,6 +275,100 @@ EOF
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
+function test_toolchain_type_alias_use_in_toolchain {
+  write_test_toolchain
+  write_test_rule
+
+  # Create an alias for the toolchain type.
+  mkdir -p alias
+  cat >> alias/BUILD <<EOF
+alias(
+    name = 'toolchain_type',
+    actual = '//toolchain:test_toolchain',
+    visibility = ['//visibility:public'])
+EOF
+
+  # Use the alias.
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+# Define the toolchain.
+filegroup(name = 'dep_rule_test_toolchain')
+test_toolchain(
+    name = 'test_toolchain_impl_1',
+    extra_label = ':dep_rule_test_toolchain',
+    extra_str = 'foo from test_toolchain',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchain.
+toolchain(
+    name = 'test_toolchain_1',
+    toolchain_type = '//alias:toolchain_type',
+    exec_compatible_with = [],
+    target_compatible_with = [],
+    toolchain = ':test_toolchain_impl_1',
+    visibility = ['//visibility:public'])
+EOF
+
+  # The rule uses the original, non-aliased type.
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build --extra_toolchains=//:test_toolchain_1 //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
+function test_toolchain_type_alias_use_in_rule {
+  write_test_toolchain
+  write_register_toolchain
+
+  # Create an alias for the toolchain type.
+  mkdir -p alias
+  cat >> alias/BUILD <<EOF
+alias(
+    name = 'toolchain_type',
+    actual = '//toolchain:test_toolchain',
+    visibility = ['//visibility:public'])
+EOF
+
+  # Use the alias in a rule.
+  mkdir -p demo
+  cat >> demo/aliased_rule.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//alias:toolchain_type']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain extra_str: "%s"' %
+         (message, toolchain.extra_str))
+  return []
+
+aliased_rule = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = ['//alias:toolchain_type'],
+)
+EOF
+
+  cat >> demo/BUILD <<EOF
+load(':aliased_rule.bzl', 'aliased_rule')
+# Use the toolchain.
+aliased_rule(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
 function test_toolchain_use_in_rule_missing {
   write_test_toolchain
   write_test_rule
@@ -441,7 +535,7 @@ EOF
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution: Looking for toolchain of type //toolchain:test_toolchain'
   expect_log 'ToolchainResolution:   For toolchain type //toolchain:test_toolchain, possible execution platforms and toolchains: {@local_config_platform//:host -> //:test_toolchain_impl_1}'
-  expect_log 'ToolchainResolver: Selected execution platform @local_config_platform//:host, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainResolution: Selected execution platform @local_config_platform//:host, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
@@ -820,7 +914,7 @@ EOF
     --extra_execution_platforms=//platform:test_platform \
     --toolchain_resolution_debug \
     //demo:target &> $TEST_log || fail "Build failed"
-  expect_log "ToolchainResolver: Selected execution platform //platform:test_platform"
+  expect_log "ToolchainResolution: Selected execution platform //platform:test_platform"
 }
 
 
@@ -873,7 +967,7 @@ EOF
     --extra_execution_platforms=//platforms:all \
     --toolchain_resolution_debug \
     //demo:use &> $TEST_log || fail "Build failed"
-    expect_log "Selected execution platform //platforms:platform2"
+  expect_log "Selected execution platform //platforms:platform2"
 }
 
 
@@ -930,7 +1024,7 @@ EOF
     --extra_execution_platforms=//platforms:all \
     --toolchain_resolution_debug \
     //demo:use &> $TEST_log || fail "Build failed"
-    expect_log "Selected execution platform //platforms:platform2"
+  expect_log "Selected execution platform //platforms:platform2"
 }
 
 function test_rule_and_target_with_execution_constraints() {
@@ -1001,7 +1095,7 @@ EOF
     --extra_execution_platforms=//platforms:all \
     --toolchain_resolution_debug \
     //demo:use &> $TEST_log || fail "Build failed"
-    expect_log "Selected execution platform //platforms:platform2_4"
+  expect_log "Selected execution platform //platforms:platform2_4"
 }
 
 function test_default_constraint_values {
@@ -1326,6 +1420,73 @@ EOF
   expect_not_log "java.lang.IllegalArgumentException"
   expect_log "in exec_compatible_with attribute of toolchain rule //toolchain:test: Duplicate constraint values detected: constraint_setting //toolchain:foo has \[//toolchain:val1, //toolchain:val2\]"
   expect_log "in target_compatible_with attribute of toolchain rule //toolchain:test: Duplicate constraint values detected: constraint_setting //toolchain:bar has \[//toolchain:val3, //toolchain:val4\]"
+}
+
+
+function test_exec_transition() {
+  # Add test platforms.
+  mkdir -p platforms
+  cat >> platforms/BUILD <<EOF
+package(default_visibility = ['//visibility:public'])
+constraint_setting(name = 'setting')
+constraint_value(name = 'value1', constraint_setting = ':setting')
+constraint_value(name = 'value2', constraint_setting = ':setting')
+
+platform(
+    name = 'platform1',
+    constraint_values = [':value1'],
+    visibility = ['//visibility:public'])
+platform(
+    name = 'platform2',
+    constraint_values = [':value2'],
+    visibility = ['//visibility:public'])
+EOF
+
+  # Add a rule with default execution constraints.
+  mkdir -p demo
+  cat >> demo/rule.bzl <<EOF
+def _sample_rule_impl(ctx):
+  return []
+
+sample_rule = rule(
+  implementation = _sample_rule_impl,
+  attrs = {
+    "dep": attr.label(cfg = 'exec'),
+  },
+  execution_platform_constraints_allowed = True,
+)
+
+def _display_platform_impl(ctx):
+  print("%s target platform: %s" % (ctx.label, ctx.fragments.platform.platforms[0]))
+  return []
+
+display_platform = rule(
+  implementation = _display_platform_impl,
+  attrs = {},
+  fragments = ['platform'],
+)
+EOF
+
+  # Use the new rule.
+  cat >> demo/BUILD <<EOF
+load(':rule.bzl', 'sample_rule', 'display_platform')
+
+sample_rule(
+  name = 'use',
+  dep = ":dep",
+  exec_compatible_with = [
+    '//platforms:value2',
+  ],
+)
+
+display_platform(name = 'dep')
+EOF
+
+  # Build the target, using debug messages to verify the correct platform was selected.
+  bazel build \
+    --extra_execution_platforms=//platforms:all \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log "//demo:dep target platform: //platforms:platform2"
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.

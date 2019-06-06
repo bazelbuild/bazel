@@ -374,23 +374,26 @@ public class CppActionConfigs {
                         "  }")));
       }
 
-      featureBuilder.add(
-          getFeature(
-              Joiner.on("\n")
-                  .join(
-                      "  name: 'build_interface_libraries'",
-                      "  flag_set {",
-                      "    with_feature { feature: 'supports_interface_shared_libraries' }",
-                      "    action: 'c++-link-dynamic-library'",
-                      "    action: 'c++-link-nodeps-dynamic-library'",
-                      "    flag_group {",
-                      "      expand_if_all_available: 'generate_interface_library'",
-                      "      flag: '%{generate_interface_library}'",
-                      "      flag: '%{interface_library_builder_path}'",
-                      "      flag: '%{interface_library_input_path}'",
-                      "      flag: '%{interface_library_output_path}'",
-                      "    }",
-                      "  }")));
+      if (!existingFeatureNames.contains(CppRuleClasses.BUILD_INTERFACE_LIBRARIES)) {
+        featureBuilder.add(
+            getFeature(
+                Joiner.on("\n")
+                    .join(
+                        "  name: 'build_interface_libraries'",
+                        "  flag_set {",
+                        "    with_feature { feature: 'supports_interface_shared_libraries' }",
+                        "    action: 'c++-link-dynamic-library'",
+                        "    action: 'c++-link-nodeps-dynamic-library'",
+                        "    flag_group {",
+                        "      expand_if_all_available: 'generate_interface_library'",
+                        "      flag: '%{generate_interface_library}'",
+                        "      flag: '%{interface_library_builder_path}'",
+                        "      flag: '%{interface_library_input_path}'",
+                        "      flag: '%{interface_library_output_path}'",
+                        "    }",
+                        "  }")));
+      }
+
       // Order of feature declaration matters, cppDynamicLibraryLinkerTool has to
       // follow right after build_interface_libraries.
       if (!existingFeatureNames.contains("dynamic_library_linker_tool")) {

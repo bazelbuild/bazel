@@ -14,11 +14,8 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Fact.simpleFact;
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.skyframe.ErrorInfoSubjectFactory.assertThatErrorInfo;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.truth.DefaultSubject;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
@@ -27,42 +24,44 @@ import com.google.common.truth.Subject;
  * {@link Subject} for {@link EvaluationResult}. Please add to this class if you need more
  * functionality!
  */
-public class EvaluationResultSubject extends Subject<EvaluationResultSubject, EvaluationResult<?>> {
+public class EvaluationResultSubject extends Subject {
+  private final EvaluationResult<?> actual;
+
   public EvaluationResultSubject(
       FailureMetadata failureMetadata, EvaluationResult<?> evaluationResult) {
     super(failureMetadata, evaluationResult);
+    this.actual = evaluationResult;
   }
 
   public void hasError() {
-    if (!getSubject().hasError()) {
+    if (!actual.hasError()) {
       failWithActual(simpleFact("expected to have error"));
     }
   }
 
   public void hasNoError() {
-    if (getSubject().hasError()) {
+    if (actual.hasError()) {
       failWithActual(simpleFact("expected to have no error"));
     }
   }
 
-  public DefaultSubject hasEntryThat(SkyKey key) {
-    return assertThat(getSubject().get(key)).named("Entry for " + actualAsString());
+  public Subject hasEntryThat(SkyKey key) {
+    return check("get(%s)", key).that(actual.get(key));
   }
 
   public ErrorInfoSubject hasErrorEntryForKeyThat(SkyKey key) {
-    return assertThatErrorInfo(getSubject().getError(key))
-        .named("Error entry for " + actualAsString());
+    return check("getError(%s)", key)
+        .about(new ErrorInfoSubjectFactory())
+        .that(actual.getError(key));
   }
 
   public IterableSubject hasDirectDepsInGraphThat(SkyKey parent) throws InterruptedException {
-    return assertThat(
-            getSubject().getWalkableGraph().getDirectDeps(ImmutableList.of(parent)).get(parent))
-        .named("Direct deps for " + parent + " in " + actualAsString());
+    return check("directDeps(%s)", parent)
+        .that(actual.getWalkableGraph().getDirectDeps(ImmutableList.of(parent)).get(parent));
   }
 
   public IterableSubject hasReverseDepsInGraphThat(SkyKey child) throws InterruptedException {
-    return assertThat(
-            getSubject().getWalkableGraph().getReverseDeps(ImmutableList.of(child)).get(child))
-        .named("Reverse deps for " + child + " in " + actualAsString());
+    return check("reverseDeps(%s)", child)
+        .that(actual.getWalkableGraph().getReverseDeps(ImmutableList.of(child)).get(child));
   }
 }

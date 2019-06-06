@@ -16,6 +16,8 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
+import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
@@ -61,7 +63,7 @@ public interface QueryableGraph {
   @CanIgnoreReturnValue
   default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> getBatchAsync(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
-    return InterruptibleSupplier.Memoize.of(() -> getBatch(requestor, reason, keys));
+    return MemoizingInterruptibleSupplier.of(() -> getBatch(requestor, reason, keys));
   }
 
   /**
@@ -161,7 +163,13 @@ public interface QueryableGraph {
     WALKABLE_GRAPH_RDEPS,
 
     /** Some other reason than one of the above. */
-    OTHER,
+    OTHER;
+
+    public boolean isWalkable() {
+      return this == WALKABLE_GRAPH_VALUE
+          || this == WALKABLE_GRAPH_DEPS
+          || this == WALKABLE_GRAPH_RDEPS;
+    }
   }
 
   /** Parameters for {@link QueryableGraph#prefetchDeps}. */

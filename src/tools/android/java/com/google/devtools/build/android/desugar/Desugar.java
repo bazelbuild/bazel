@@ -34,9 +34,12 @@ import com.google.devtools.build.android.desugar.io.IndexedInputs;
 import com.google.devtools.build.android.desugar.io.InputFileProvider;
 import com.google.devtools.build.android.desugar.io.OutputFileProvider;
 import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
@@ -331,6 +334,15 @@ class Desugar {
           + "This flag may be removed when no longer needed."
     )
     public boolean legacyJacocoFix;
+
+    @Option(
+        name = "persistent_worker",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.HIDDEN},
+        help = "Run as a Bazel persistent worker.")
+    public boolean persistentWorker;
   }
 
   private static final String RUNTIME_LIB_PACKAGE =
@@ -343,12 +355,15 @@ class Desugar {
   private final Set<String> visitedExceptionTypes = new HashSet<>();
   /** The counter to record the times of try-with-resources desugaring is invoked. */
   private final AtomicInteger numOfTryWithResourcesInvoked = new AtomicInteger();
+  /** The counter to record the times of UnsignedLongs desugaring is invoked. */
+  private final AtomicInteger numOfUnsignedLongsInvoked = new AtomicInteger();
 
   private final boolean outputJava7;
   private final boolean allowDefaultMethods;
   private final boolean allowTryWithResources;
   private final boolean allowCallsToObjectsNonNull;
   private final boolean allowCallsToLongCompare;
+  private final boolean allowCallsToLongUnsigned;
   /** An instance of Desugar is expected to be used ONLY ONCE */
   private boolean used;
 
@@ -363,6 +378,7 @@ class Desugar {
         !options.desugarTryWithResourcesIfNeeded || options.minSdkVersion >= 19;
     this.allowCallsToObjectsNonNull = options.minSdkVersion >= 19;
     this.allowCallsToLongCompare = options.minSdkVersion >= 19 && !options.alwaysRewriteLongCompare;
+    this.allowCallsToLongUnsigned = options.minSdkVersion >= 26;
     this.used = false;
   }
 
@@ -530,12 +546,27 @@ class Desugar {
           });
     }
 
-    // 2. See if we need to copy try-with-resources runtime library
+    // 2. See if we rewrote Long.unsigned* methods
+    if (numOfUnsignedLongsInvoked.get() > 0) {
+      try (InputStream stream =
+          Desugar.class
+              .getClassLoader()
+              .getResourceAsStream(
+                  "com/google/devtools/build/android/desugar/runtime/UnsignedLongs.class")) {
+        outputFileProvider.write(
+            "com/google/devtools/build/android/desugar/runtime/UnsignedLongs.class",
+            ByteStreams.toByteArray(stream));
+      } catch (IOException e) {
+        throw new IOError(e);
+      }
+    }
+
+    // 3. See if we need to copy try-with-resources runtime library
     if (allowTryWithResources || options.desugarTryWithResourcesOmitRuntimeClasses) {
       // try-with-resources statements are okay in the output jar.
       return;
     }
-    if (this.numOfTryWithResourcesInvoked.get() <= 0) {
+    if (numOfTryWithResourcesInvoked.get() <= 0) {
       // the try-with-resources desugaring pass does nothing, so no need to copy these class files.
       return;
     }
@@ -733,6 +764,9 @@ class Desugar {
         // the inliner again
         visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
       }
+      if (!allowCallsToLongUnsigned) {
+        visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
+      }
       if (!allowCallsToLongCompare) {
         visitor = new LongCompareMethodRewriter(visitor, rewriter);
       }
@@ -798,6 +832,9 @@ class Desugar {
       // Not sure whether there will be implicit null check emitted by javac, so we rerun
       // the inliner again
       visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToLongUnsigned) {
+      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
     }
     if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor, rewriter);
@@ -883,6 +920,9 @@ class Desugar {
     if (!allowCallsToObjectsNonNull) {
       visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
     }
+    if (!allowCallsToLongUnsigned) {
+      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
+    }
     if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor, rewriter);
     }
@@ -940,10 +980,57 @@ class Desugar {
     verifyLambdaDumpDirectoryRegistered(dumpDirectory);
 
     DesugarOptions options = parseCommandLineOptions(args);
+    if (options.persistentWorker) {
+      runPersistentWorker(dumpDirectory);
+    } else {
+      processRequest(options, dumpDirectory);
+    }
+  }
+
+  private static void runPersistentWorker(Path dumpDirectory) throws Exception {
+    while (true) {
+      WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+
+      if (request == null) {
+        break;
+      }
+
+      String[] argList = new String[request.getArgumentsCount()];
+      argList = request.getArgumentsList().toArray(argList);
+
+      DesugarOptions options = parseCommandLineOptions(argList);
+
+      int exitCode = processRequest(options, dumpDirectory);
+      WorkResponse.newBuilder().setExitCode(exitCode).build().writeDelimitedTo(System.out);
+      System.out.flush();
+    }
+  }
+
+  private static int processRequest(DesugarOptions options, Path dumpDirectory) throws Exception {
+    checkArgument(!options.inputJars.isEmpty(), "--input is required");
+    checkArgument(
+        options.inputJars.size() == options.outputJars.size(),
+        "Desugar requires the same number of inputs and outputs to pair them. #input=%s,#output=%s",
+        options.inputJars.size(),
+        options.outputJars.size());
+    checkArgument(
+        !options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
+        "At least one --bootclasspath_entry is required");
+    for (Path path : options.bootclasspath) {
+      checkArgument(!Files.isDirectory(path), "Bootclasspath entry must be a jar file: %s", path);
+    }
+    checkArgument(
+        !options.desugarCoreLibs
+            || !options.rewriteCoreLibraryPrefixes.isEmpty()
+            || !options.emulateCoreLibraryInterfaces.isEmpty(),
+        "--desugar_supported_core_libs requires specifying renamed and/or emulated core libraries");
+
     if (options.verbose) {
       System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
     }
     new Desugar(options, dumpDirectory).desugar();
+
+    return 0;
   }
 
   static void verifyLambdaDumpDirectoryRegistered(Path dumpDirectory) throws IOException {
@@ -1002,22 +1089,6 @@ class Desugar {
     parser.parseAndExitUponError(args);
     DesugarOptions options = parser.getOptions(DesugarOptions.class);
 
-    checkArgument(!options.inputJars.isEmpty(), "--input is required");
-    checkArgument(
-        options.inputJars.size() == options.outputJars.size(),
-        "Desugar requires the same number of inputs and outputs to pair them. #input=%s,#output=%s",
-        options.inputJars.size(),
-        options.outputJars.size());
-    checkArgument(
-        !options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
-        "At least one --bootclasspath_entry is required");
-    for (Path path : options.bootclasspath) {
-      checkArgument(!Files.isDirectory(path), "Bootclasspath entry must be a jar file: %s", path);
-    }
-    checkArgument(!options.desugarCoreLibs
-        || !options.rewriteCoreLibraryPrefixes.isEmpty()
-        || !options.emulateCoreLibraryInterfaces.isEmpty(),
-        "--desugar_supported_core_libs requires specifying renamed and/or emulated core libraries");
     return options;
   }
 

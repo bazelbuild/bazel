@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -72,17 +72,14 @@ public class ExportsFilesTest {
 
   @Test
   public void testFileThatsNotRegisteredYieldsUnknownTargetException() throws Exception {
-    try {
-      pkg().getTarget("baz.txt");
-      fail();
-    } catch (NoSuchTargetException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "no such target '//pkg:baz.txt':"
-                  + " target 'baz.txt' not declared in package 'pkg' (did you mean 'bar.txt'?)"
-                  + " defined by /workspace/pkg/BUILD");
-    }
+    NoSuchTargetException e =
+        assertThrows(NoSuchTargetException.class, () -> pkg().getTarget("baz.txt"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//pkg:baz.txt':"
+                + " target 'baz.txt' not declared in package 'pkg' (did you mean 'bar.txt'?)"
+                + " defined by /workspace/pkg/BUILD");
   }
 
   @Test

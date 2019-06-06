@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -224,11 +224,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected abstract T getNullConfiguredTarget(Label label) throws InterruptedException;
 
   @Nullable
-  ConfiguredTargetValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
+  public ConfiguredTargetValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
     return (ConfiguredTargetValue) walkableGraphSupplier.get().getValue(key);
   }
 
-  ImmutableSet<PathFragment> getBlacklistedPackagePrefixesPathFragments()
+  public ImmutableSet<PathFragment> getBlacklistedPackagePrefixesPathFragments()
       throws InterruptedException {
     return ((BlacklistedPackagePrefixesValue)
             walkableGraphSupplier.get().getValue(BlacklistedPackagePrefixesValue.key()))
@@ -241,13 +241,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected TargetPattern getPattern(String pattern) throws TargetParsingException {
     TargetPatternKey targetPatternKey =
         ((TargetPatternKey)
-            TargetPatternValue.key(
-                    pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix)
-                .argument());
+            TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, parserPrefix).argument());
     return targetPatternKey.getParsedPattern();
   }
 
-  ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {
+  public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {
     Map<SkyKey, T> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (T target : targets) {
       targetsByKey.put(getSkyKey(target), target);
@@ -368,17 +366,26 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   protected abstract RuleConfiguredTarget getRuleConfiguredTarget(T target);
 
+  protected Collection<T> targetifyValues(Iterable<SkyKey> dependencies)
+      throws InterruptedException {
+    Collection<T> values = new ArrayList<>();
+    for (SkyKey key : dependencies) {
+      if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+        values.add(getValueFromKey(key));
+      } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
+        // Also fetch these dependencies.
+        Collection<T> toolchainDeps = targetifyValues(graph.getDirectDeps(key));
+        values.addAll(toolchainDeps);
+      }
+    }
+    return values;
+  }
+
   protected Map<SkyKey, Collection<T>> targetifyValues(
       Map<SkyKey, ? extends Iterable<SkyKey>> input) throws InterruptedException {
     Map<SkyKey, Collection<T>> result = new HashMap<>();
     for (Map.Entry<SkyKey, ? extends Iterable<SkyKey>> entry : input.entrySet()) {
-      Collection<T> value = new ArrayList<>();
-      for (SkyKey key : entry.getValue()) {
-        if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-          value.add(getValueFromKey(key));
-        }
-      }
-      result.put(entry.getKey(), value);
+      result.put(entry.getKey(), targetifyValues(entry.getValue()));
     }
     return result;
   }
@@ -484,14 +491,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       nulls = nullsBuilder.build();
     }
 
-    boolean isTopLevelTarget(Label label) {
+    public boolean isTopLevelTarget(Label label) {
       return nonNulls.containsKey(label) || nulls.contains(label);
     }
 
     // This method returns the configuration of a top-level target if it's not null-configured and
     // otherwise returns null (signifying it is null configured).
     @Nullable
-    BuildConfiguration getConfigurationForTopLevelTarget(Label label) {
+    public BuildConfiguration getConfigurationForTopLevelTarget(Label label) {
       Preconditions.checkArgument(
           isTopLevelTarget(label),
           "Attempting to get top-level configuration for non-top-level target %s.",

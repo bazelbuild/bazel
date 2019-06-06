@@ -89,6 +89,12 @@ EOF
   expect_log "//peach:harken"
 }
 
+function test_invalid_query_fails_parsing() {
+  bazel query 'deps("--bad_target_name_from_bad_script")' >& "$TEST_log" \
+    && fail "Expected failure"
+  expect_log "target literal must not begin with hyphen"
+}
+
 function test_visibility_affects_xml_output() {
   rm -rf kiwi
   mkdir -p kiwi

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +74,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   public List<String> getOutputs() {
     return outputs;
   }
+  
 
   /**
    * Returns the location of the Starlark code responsible for determining the transition's changed
@@ -98,7 +100,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * @throws EvalException if there is an error evaluating the transition
    * @throws InterruptedException if evaluating the transition is interrupted
    */
-  public abstract ImmutableList<Map<String, Object>> getChangedSettings(
+  public abstract ImmutableList<Map<String, Object>> evaluate(
       Map<String, Object> previousSettings, StructImpl attributeMap)
       throws EvalException, InterruptedException;
 
@@ -130,7 +132,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     }
 
     @Override
-    public ImmutableList<Map<String, Object>> getChangedSettings(
+    public ImmutableList<Map<String, Object>> evaluate(
         Map<String, Object> previousSettings, StructImpl attributeMapper) {
       return ImmutableList.of(changedSettings);
     }
@@ -183,8 +185,25 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       return false;
     }
 
+    /**
+     * This method evaluates the implementation function of the transition.
+     *
+     * <p>In the case of a {@link
+     * com.google.devtools.build.lib.analysis.config.transitions.PatchTransition}, the impl fxn
+     * returns a {@link SkylarkDict} of option name strings to option value object.
+     *
+     * <p>In the case of {@link
+     * com.google.devtools.build.lib.analysis.config.transitions.SplitTransition}, the impl fxn can
+     * return either a {@link SkylarkDict} of String keys to {@link SkylarkDict} values. Or it can
+     * return a list of {@link SkylarkDict}s in cases where the consumer doesn't care about
+     * differentiating between the splits (i.e. accessing later via {@code ctx.split_attrs}).
+     *
+     * @param previousSettings a map representing the previous build settings
+     * @param attributeMapper a map of attributes
+     */
+    // TODO(bazel-team): integrate dict-of-dicts return type with ctx.split_attr
     @Override
-    public ImmutableList<Map<String, Object>> getChangedSettings(
+    public ImmutableList<Map<String, Object>> evaluate(
         Map<String, Object> previousSettings, StructImpl attributeMapper)
         throws EvalException, InterruptedException {
       Object result;
@@ -194,43 +213,55 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         throw new EvalException(impl.getLocation(), e.getMessage());
       }
 
-      if (!(result instanceof SkylarkDict<?, ?>)) {
-        throw new EvalException(
-            impl.getLocation(), "Transition function must return a dictionary.");
-      }
-
-      // The result is either:
-      // 1. a dictionary mapping option name to new option value (for a single transition), or
-      // 2. a dictionary of such dictionaries (for a split transition).
-      //
-      // First try to parse the result as a dictionary of option dictionaries; then try it as an
-      // option dictionary.
-      SkylarkDict<?, ?> dictOrDictOfDict = (SkylarkDict<?, ?>) result;
-
-      try {
-        Map<String, SkylarkDict> dictOfDict =
-            dictOrDictOfDict.getContents(
-                String.class, SkylarkDict.class, "dictionary of option dictionaries");
-
+      if (result instanceof SkylarkDict<?, ?>) {
+        // If we're recieving an empty dictionary, it's an error. Even if a
+        // transition function sometimes evaluates to a no-op, it needs to return the passed in
+        // settings. Return early for now since better error reporting will happen in
+        // {@link FunctionTransitionUtil#validateFunctionOutputsMatchesDeclaredOutputs}
+        if (((SkylarkDict) result).isEmpty()) {
+          return ImmutableList.of(ImmutableMap.of());
+        }
+        // TODO(bazel-team): integrate keys with ctx.split_attr. Currently ctx.split_attr always
+        // keys on cpu value - we should be able to key on the keys returned here.
+        try {
+          Map<String, SkylarkDict> dictOfDict =
+              ((SkylarkDict<?, ?>) result)
+                  .getContents(
+                      String.class, SkylarkDict.class, "dictionary of options dictionaries");
+          ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
+          for (Map.Entry<String, SkylarkDict> entry : dictOfDict.entrySet()) {
+            Map<String, Object> dict =
+                entry.getValue().getContents(String.class, Object.class, "an option dictionary");
+            builder.add(dict);
+          }
+          return builder.build();
+        } catch (EvalException e) {
+          // fall through
+        }
+        try {
+          return ImmutableList.of(
+              ((SkylarkDict<?, ?>) result)
+                  .getContents(String.class, Object.class, "dictionary of options"));
+        } catch (EvalException e) {
+          throw new EvalException(impl.getLocation(), e.getMessage());
+        }
+      } else if (result instanceof SkylarkList<?>) {
         ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
-        for (Map.Entry<String, SkylarkDict> entry : dictOfDict.entrySet()) {
-          Map<String, Object> dict =
-              entry.getValue().getContents(String.class, Object.class, "an option dictionary");
-          builder.add(dict);
+        try {
+          for (SkylarkDict<?, ?> toOptions :
+              ((SkylarkList<?>) result)
+                  .getContents(SkylarkDict.class, "dictionary of options dictionaries")) {
+            builder.add(toOptions.getContents(String.class, Object.class, "dictionary of options"));
+          }
+        } catch (EvalException e) {
+          throw new EvalException(impl.getLocation(), e.getMessage());
         }
         return builder.build();
-      } catch (EvalException e) {
-        // Fall through.
+      } else {
+        throw new EvalException(
+            impl.getLocation(),
+            "Transition function must return a dictionary or list of dictionaries.");
       }
-
-      Map<String, Object> dict;
-      try {
-        dict = dictOrDictOfDict.getContents(String.class, Object.class, "an option dictionary");
-      } catch (EvalException e) {
-        throw new EvalException(impl.getLocation(), e.getMessage());
-      }
-
-      return ImmutableList.of(dict);
     }
 
     @Override

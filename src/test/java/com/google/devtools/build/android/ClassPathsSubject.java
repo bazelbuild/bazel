@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static com.google.common.truth.Fact.fact;
+import static com.google.common.truth.Fact.simpleFact;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Arrays.asList;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -33,21 +36,22 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * A testing utility that allows .java/.class related assertions against Paths.
- */
-public class ClassPathsSubject extends Subject<ClassPathsSubject, Path> {
+/** A testing utility that allows .java/.class related assertions against Paths. */
+public class ClassPathsSubject extends Subject {
+
+  private final Path actual;
 
   ClassPathsSubject(FailureMetadata failureMetadata, @Nullable Path subject) {
     super(failureMetadata, subject);
+    this.actual = subject;
   }
 
   void exists() {
-    if (getSubject() == null) {
-      fail("should not be null.");
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
     }
-    if (!Files.exists(getSubject())) {
-      fail("exists.");
+    if (!Files.exists(actual)) {
+      failWithActual(simpleFact("expected to exist"));
     }
   }
 
@@ -58,19 +62,21 @@ public class ClassPathsSubject extends Subject<ClassPathsSubject, Path> {
    * @param contents expected contents
    */
   public void javaContentsIsEqualTo(String... contents) {
-    if (getSubject() == null) {
-      fail("should not be null.");
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
     try {
       assertThat(
-          trimWhitespace(
-              stripJavaHeaderComments(
-                  Files.readAllLines(getSubject(), StandardCharsets.UTF_8))))
+              trimWhitespace(
+                  stripJavaHeaderComments(Files.readAllLines(actual, StandardCharsets.UTF_8))))
           .containsExactly((Object[]) contents)
           .inOrder();
     } catch (IOException e) {
-      fail(e.toString());
+      failWithoutActual(
+          fact("expected to have contents", asList(contents)),
+          fact("but failed to read file with", e),
+          fact("path was", actual));
     }
   }
 
@@ -109,19 +115,21 @@ public class ClassPathsSubject extends Subject<ClassPathsSubject, Path> {
    * @param className the fully qualified class name
    */
   public ClassNameSubject withClass(String className) {
-    if (getSubject() == null) {
-      fail("should not be null.");
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
     }
     exists();
-    return check().about(ClassNameSubject.classNames(getSubject())).that(className);
+    return check("class(%s)", className).about(ClassNameSubject.classNames(actual)).that(className);
   }
 
-  static final class ClassNameSubject extends Subject<ClassNameSubject, String> {
+  static final class ClassNameSubject extends Subject {
 
+    private final String actual;
     private final Path basePath;
 
     public ClassNameSubject(FailureMetadata failureMetadata, Path basePath, String subject) {
       super(failureMetadata, subject);
+      this.actual = subject;
       this.basePath = basePath;
     }
 
@@ -138,7 +146,7 @@ public class ClassPathsSubject extends Subject<ClassPathsSubject, Path> {
         ImmutableMap<String, Integer> intFields,
         ImmutableMap<String, List<Integer>> intArrayFields,
         boolean areFieldsFinal) throws Exception {
-      String expectedClassName = getSubject();
+      String expectedClassName = actual;
       URLClassLoader urlClassLoader = new URLClassLoader(new URL[]{basePath.toUri().toURL()});
       Class<?> innerClass = urlClassLoader.loadClass(expectedClassName);
       assertThat(innerClass.getSuperclass()).isEqualTo(Object.class);

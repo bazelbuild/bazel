@@ -152,6 +152,15 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  jars = ['JacocoCoverage_jarjar_deploy.jar'],",
         ")",
         "java_import(",
+        "  name = 'proguard_import',",
+        "  jars = ['proguard_rt.jar'],",
+        ")",
+        "java_binary(",
+        "  name = 'proguard',",
+        "  main_class = 'proguard.Proguard',",
+        "  runtime_deps = [':proguard_import'],",
+        ")",
+        "java_import(",
         "  name = 'TestRunner',",
         "  jars = ['TestRunner.jar'],",
         ")",
@@ -174,7 +183,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",
         "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
         "filegroup(name='JacocoCoverage', srcs = [])",
-        "filegroup(name='jacoco-blaze-agent', srcs = [])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar',",
         "               'turbine_deploy.jar','ExperimentalTestRunner_deploy.jar'])",
@@ -199,10 +207,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "/bazel_tools_workspace/tools/android/emulator/BUILD",
         Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
-    // Bundled Proguard used by android_sdk_repository
-    config.create(
-        "/bazel_tools_workspace/third_party/java/proguard/BUILD",
-        "exports_files(['proguard'])");
 
     config.create(
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
@@ -372,6 +376,19 @@ public final class BazelAnalysisMock extends AnalysisMock {
     embeddedBinariesRoot.createDirectoryAndParents();
     Path jdkWorkspacePath = embeddedBinariesRoot.getRelative("jdk.WORKSPACE");
     FileSystemUtils.writeContentAsLatin1(jdkWorkspacePath, "");
+  }
+
+  @Override
+  public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
+    config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    config.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
+    config.create(
+        "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
+        "def http_archive(**kwargs):",
+        "  pass",
+        "",
+        "def http_file(**kwargs):",
+        "  pass");
   }
 
   @Override

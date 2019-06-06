@@ -37,6 +37,7 @@ _FEATURE_NAMES = struct(
     supports_dynamic_linker = "supports_dynamic_linker",
     supports_interface_shared_libraries = "supports_interface_shared_libraries",
     pic = "pic",
+    define_with_space = "define_with_space",
     parse_headers = "parse_headers",
     layering_check = "layering_check",
     header_modules = "header_modules",
@@ -97,6 +98,7 @@ _FEATURE_NAMES = struct(
     strip_debug_symbols = "strip_debug_symbols",
     disable_pbh = "disable_pbh",
     optional_cc_flags_feature = "optional_cc_flags_feature",
+    cpp_compile_with_requirements = "cpp_compile_with_requirements",
 )
 
 _disable_pbh_feature = feature(name = _FEATURE_NAMES.disable_pbh)
@@ -113,6 +115,25 @@ _supports_dynamic_linker_feature = feature(
 _supports_interface_shared_libraries_feature = feature(
     name = _FEATURE_NAMES.supports_interface_shared_libraries,
     enabled = True,
+)
+
+_define_with_space = feature(
+    name = "default",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.cpp_compile,
+                ACTION_NAMES.linkstamp_compile,
+                ACTION_NAMES.cpp_header_parsing,
+                ACTION_NAMES.cpp_module_compile,
+                ACTION_NAMES.cpp_module_codegen,
+                ACTION_NAMES.clif_match,
+                ACTION_NAMES.objcpp_compile,
+            ],
+            flag_groups = [flag_group(flags = ["-Dfoo=bar bam"])],
+        ),
+    ],
 )
 
 _pic_feature = feature(
@@ -223,6 +244,8 @@ _header_module_compile_feature = feature(
         ),
     ],
 )
+
+_cpp_compile_with_requirements = feature(name = _FEATURE_NAMES.cpp_compile_with_requirements)
 
 _header_module_codegen_feature = feature(
     name = _FEATURE_NAMES.header_module_codegen,
@@ -502,7 +525,6 @@ _thin_lto_feature = feature(
             ],
         ),
     ],
-    requires = [feature_set(features = ["nonhost"])],
 )
 
 _simple_thin_lto_feature = feature(
@@ -953,6 +975,16 @@ _multiple_tools_action_config = action_config(
     ],
 )
 
+_cpp_compile_with_requirements_action_config = action_config(
+    action_name = "yolo_action_with_requirements",
+    tools = [
+        tool(
+            path = "yolo_tool",
+            execution_requirements = ["requires-yolo"],
+        ),
+    ],
+)
+
 _foo_feature = feature(
     name = _FEATURE_NAMES.foo,
 )
@@ -1053,6 +1085,10 @@ _portable_overrides_configuration = [
     ),
 ]
 
+_disable_whole_archive_for_static_lib_configuration = [
+    feature(name = "disable_whole_archive_for_static_lib"),
+]
+
 _same_symbol_provided_configuration = [
     feature(name = "a1", provides = ["a"]),
     feature(name = "a2", provides = ["a"]),
@@ -1112,6 +1148,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.supports_dynamic_linker: _supports_dynamic_linker_feature,
     _FEATURE_NAMES.supports_interface_shared_libraries: _supports_interface_shared_libraries_feature,
     _FEATURE_NAMES.pic: _pic_feature,
+    _FEATURE_NAMES.define_with_space: _define_with_space,
     _FEATURE_NAMES.parse_headers: _parse_headers_feature,
     _FEATURE_NAMES.layering_check: _layering_check_feature,
     _FEATURE_NAMES.module_map_home_cwd: _module_map_home_cwd_feature,
@@ -1161,6 +1198,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.strip_debug_symbols: _strip_debug_symbols_feature,
     _FEATURE_NAMES.disable_pbh: _disable_pbh_feature,
     _FEATURE_NAMES.optional_cc_flags_feature: _optional_cc_flags_feature,
+    _FEATURE_NAMES.cpp_compile_with_requirements: _cpp_compile_with_requirements,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
@@ -1170,6 +1208,7 @@ _feature_name_to_feature = {
     "simple_module_maps": _simple_module_maps_feature,
     "simple_header_modules": _simple_header_modules_feature,
     "portable_overrides_configuration": _portable_overrides_configuration,
+    "disable_whole_archive_for_static_lib_configuration": _disable_whole_archive_for_static_lib_configuration,
     "same_symbol_provided_configuration": _same_symbol_provided_configuration,
     "simple_thin_lto": _simple_thin_lto_feature,
     "extra_implies_module_maps": _extra_implies_module_maps_feature,
@@ -1290,10 +1329,13 @@ def _impl(ctx):
     features = [default_compile_flags_feature, default_link_flags_feature]
 
     should_add_multiple_tools_action_config = False
+    should_add_requirements = False
 
     for name in ctx.attr.feature_names:
         if name == _FEATURE_NAMES.change_tool:
             should_add_multiple_tools_action_config = True
+        if name == _FEATURE_NAMES.cpp_compile_with_requirements:
+            should_add_requirements = True
 
         features.extend(_get_features_for_configuration(name))
 
@@ -1319,6 +1361,9 @@ def _impl(ctx):
             )
     if should_add_multiple_tools_action_config:
         action_configs.append(_multiple_tools_action_config)
+
+    if should_add_requirements:
+        action_configs.append(_cpp_compile_with_requirements_action_config)
 
     make_variables = [
         make_variable(name = name, value = value)

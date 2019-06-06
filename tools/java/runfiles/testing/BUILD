@@ -16,14 +16,20 @@ java_test(
     name = "RunfilesTest",
     srcs = ["RunfilesTest.java"],
     test_class = "com.google.devtools.build.runfiles.RunfilesTest",
-    deps = [":test_deps"],
+    deps = [
+        ":test_deps",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+    ],
 )
 
 java_test(
     name = "UtilTest",
     srcs = ["UtilTest.java"],
     test_class = "com.google.devtools.build.runfiles.UtilTest",
-    deps = [":test_deps"],
+    deps = [
+        ":test_deps",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+    ],
 )
 
 java_library(

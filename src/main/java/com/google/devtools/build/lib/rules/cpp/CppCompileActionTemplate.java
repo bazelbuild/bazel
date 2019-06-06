@@ -20,12 +20,13 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionKeyCacher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -37,20 +38,18 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time.
- */
-public final class CppCompileActionTemplate implements ActionTemplate<CppCompileAction> {
+/** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
+public final class CppCompileActionTemplate extends ActionKeyCacher
+    implements ActionTemplate<CppCompileAction> {
   private final CppCompileActionBuilder cppCompileActionBuilder;
   private final Artifact sourceTreeArtifact;
-  private final Artifact outputTreeArtifact;
-  private final Artifact dotdTreeArtifact;
+  private final Artifact.SpecialArtifact outputTreeArtifact;
+  private final Artifact.SpecialArtifact dotdTreeArtifact;
   private final CcToolchainProvider toolchain;
   private final Iterable<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> allInputs;
-  private String cachedKey;
 
   /**
    * Creates an CppCompileActionTemplate.
@@ -68,8 +67,8 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
    */
   CppCompileActionTemplate(
       Artifact sourceTreeArtifact,
-      Artifact outputTreeArtifact,
-      Artifact dotdTreeArtifact,
+      Artifact.SpecialArtifact outputTreeArtifact,
+      Artifact.SpecialArtifact dotdTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
       Iterable<ArtifactCategory> categories,
@@ -90,7 +89,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
 
   @Override
   public Iterable<CppCompileAction> generateActionForInputArtifacts(
-      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner)
+      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
       throws ActionTemplateExpansionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 
@@ -126,10 +125,10 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
       try {
         String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
         TreeFileArtifact outputTreeFileArtifact =
-            ActionInputHelper.treeFileArtifact(
+            ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
                 outputTreeArtifact, PathFragment.create(outputName), artifactOwner);
         TreeFileArtifact dotdFileArtifact =
-            ActionInputHelper.treeFileArtifact(
+            ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
                 dotdTreeArtifact, PathFragment.create(outputName + ".d"), artifactOwner);
         expandedActions.add(
             createAction(
@@ -143,10 +142,8 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   }
 
   @Override
-  public synchronized String getKey(ActionKeyContext actionKeyContext) {
-    if (cachedKey != null) {
-      return cachedKey;
-    }
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+      throws CommandLineExpansionException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(
             sourceTreeArtifact,
@@ -155,28 +152,21 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
             dotdTreeArtifact,
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
-    Fingerprint fp = new Fingerprint();
-    try {
-      CppCompileAction.computeKey(
-          actionKeyContext,
-          fp,
-          cppCompileActionBuilder.getActionClassId(),
-          cppCompileActionBuilder.getActionEnvironment(),
-          commandLine.getEnvironment(),
-          cppCompileActionBuilder.getExecutionInfo(),
-          CppCompileAction.computeCommandLineKey(
-              commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
-          cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
-          cppCompileActionBuilder.buildMandatoryInputs(),
-          cppCompileActionBuilder.buildPrunableHeaders(),
-          cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
-          cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-          cppCompileActionBuilder.buildInputsForInvalidation());
-      cachedKey = fp.hexDigestAndReset();
-    } catch (CommandLineExpansionException e) {
-      cachedKey = CppCompileAction.KEY_ERROR;
-    }
-    return cachedKey;
+    CppCompileAction.computeKey(
+        actionKeyContext,
+        fp,
+        cppCompileActionBuilder.getActionClassId(),
+        cppCompileActionBuilder.getActionEnvironment(),
+        commandLine.getEnvironment(),
+        cppCompileActionBuilder.getExecutionInfo(),
+        CppCompileAction.computeCommandLineKey(
+            commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
+        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
+        cppCompileActionBuilder.buildMandatoryInputs(),
+        cppCompileActionBuilder.buildPrunableHeaders(),
+        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
+        cppCompileActionBuilder.getBuiltinIncludeDirectories(),
+        cppCompileActionBuilder.buildInputsForInvalidation());
   }
 
   private boolean shouldCompileHeaders() {

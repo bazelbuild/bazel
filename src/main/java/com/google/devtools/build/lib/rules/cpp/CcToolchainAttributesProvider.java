@@ -74,7 +74,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final NestedSet<Artifact> fullInputsForLink;
   private final NestedSet<Artifact> coverage;
   private final String compiler;
-  private final String proto;
   private final String cpu;
   private final Artifact ifsoBuilder;
   private final Artifact linkDynamicLibraryTool;
@@ -116,7 +115,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
     this.cpu = ruleContext.attributes().get("cpu", Type.STRING);
     this.compiler = ruleContext.attributes().get("compiler", Type.STRING);
-    this.proto = ruleContext.attributes().get("proto", Type.STRING);
     this.supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
     this.supportsHeaderParsing = ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
     this.allFiles =
@@ -338,10 +336,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public Artifact getModuleMapArtifact() {
     return moduleMapArtifact;
-  }
-
-  public String getProto() {
-    return proto;
   }
 
   public NestedSet<Artifact> getFullInputsForCrosstool() {

@@ -107,7 +107,7 @@ def create_android_sdk_rules(
         native.android_sdk(
             name = "sdk-%d" % api_level,
             build_tools_version = build_tools_version,
-            proguard = "@bazel_tools//third_party/java/proguard",
+            proguard = "@bazel_tools//tools/jdk:proguard",
             aapt = select({
                 ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
                 "//conditions:default": ":aapt_binary",

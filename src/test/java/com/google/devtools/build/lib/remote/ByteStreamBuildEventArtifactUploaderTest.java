@@ -14,12 +14,13 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -50,6 +51,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -104,6 +106,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // on different threads than the tearDown.
     withEmptyMetadata.detach(prevContext);
 
+    channel.shutdownNow();
+    channel.awaitTermination(5, TimeUnit.SECONDS);
     server.shutdownNow();
     server.awaitTermination();
   }
@@ -121,7 +125,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   @Test
   public void uploadsShouldWork() throws Exception {
     int numUploads = 2;
-    Map<String, byte[]> blobsByHash = new HashMap<>();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -132,7 +136,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       rand.nextBytes(blob);
       out.write(blob);
       out.close();
-      blobsByHash.put(DIGEST_UTIL.compute(file).getHash(), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(file, new LocalFile(file, LocalFileType.OUTPUT));
     }
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
@@ -182,7 +186,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // error is propagated correctly.
 
     int numUploads = 10;
-    Map<String, byte[]> blobsByHash = new HashMap<>();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -194,10 +198,10 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       out.write(blob);
       out.flush();
       out.close();
-      blobsByHash.put(DIGEST_UTIL.compute(file).getHash(), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(file, new LocalFile(file, LocalFileType.OUTPUT));
     }
-    String hashOfBlobThatShouldFail = blobsByHash.keySet().iterator().next();
+    String hashOfBlobThatShouldFail = blobsByHash.keySet().iterator().next().toString();
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash) {
       @Override
       public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
@@ -234,12 +238,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         new ByteStreamBuildEventArtifactUploader(
             uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
 
-    try {
-      artifactUploader.upload(filesToUpload).get();
-      fail("exception expected.");
-    } catch (ExecutionException e) {
-      assertThat(Status.fromThrowable(e).getCode()).isEqualTo(Status.CANCELLED.getCode());
-    }
+    ExecutionException e =
+        assertThrows(ExecutionException.class, () -> artifactUploader.upload(filesToUpload).get());
+    assertThat(Status.fromThrowable(e).getCode()).isEqualTo(Status.CANCELLED.getCode());
 
     artifactUploader.shutdown();
 

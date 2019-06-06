@@ -29,11 +29,12 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.AnalyzingActionEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadProgressEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
@@ -149,7 +150,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
   private Action mockAction(String progressMessage, String primaryOutput) {
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
-    Artifact artifact = new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
+    Artifact artifact =
+        ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
 
     Action action = Mockito.mock(Action.class);
     when(action.getProgressMessage()).thenReturn(progressMessage);
@@ -555,7 +557,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
-    Artifact artifact = new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
+    Artifact artifact =
+        ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
     Action action = mockAction("Some random action", primaryOutput);
     when(action.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
     when(action.getPrimaryOutput()).thenReturn(artifact);
@@ -581,7 +584,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
-    Artifact artifact = new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
+    Artifact artifact =
+        ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
     Action action = mockAction("Some random action", primaryOutput);
     when(action.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
     when(action.getPrimaryOutput()).thenReturn(artifact);
@@ -616,14 +620,16 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
 
     Path path1 = outputBase.getRelative(PathFragment.create(primaryOutput1));
-    Artifact artifact1 = new Artifact(path1, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
+    Artifact artifact1 =
+        ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path1);
     Action action1 = mockAction("First random action", primaryOutput1);
     when(action1.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
     when(action1.getPrimaryOutput()).thenReturn(artifact1);
     stateTracker.actionStarted(new ActionStartedEvent(action1, clock.nanoTime()));
 
     Path path2 = outputBase.getRelative(PathFragment.create(primaryOutput2));
-    Artifact artifact2 = new Artifact(path2, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
+    Artifact artifact2 =
+        ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path2);
     Action action2 = mockAction("First random action", primaryOutput1);
     when(action2.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
     when(action2.getPrimaryOutput()).thenReturn(artifact2);
@@ -742,15 +748,15 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     LoggingTerminalWriter terminalWriter;
     String output;
 
-    // Action foo being analyzed.
+    // Action foo being scanned.
     stateTracker.actionStarted(new ActionStartedEvent(actionFoo, 123456700));
-    stateTracker.analyzingAction(new AnalyzingActionEvent(actionFoo));
+    stateTracker.scanningAction(new ScanningActionEvent(actionFoo));
 
     terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Action foo being analyzed should be visible in output:\n" + output)
-        .that(output.contains("ana") || output.contains("Ana"))
+    assertWithMessage("Action foo being scanned should be visible in output:\n" + output)
+        .that(output.contains("sca") || output.contains("Sca"))
         .isTrue();
 
     // Then action bar gets scheduled.
@@ -763,8 +769,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Action bar being scheduled should be visible in output:\n" + output)
         .that(output.contains("sch") || output.contains("Sch"))
         .isTrue();
-    assertWithMessage("Action foo being analyzed should still be visible in output:\n" + output)
-        .that(output.contains("ana") || output.contains("Ana"))
+    assertWithMessage("Action foo being scanned should still be visible in output:\n" + output)
+        .that(output.contains("sca") || output.contains("Sca"))
         .isTrue();
     assertWithMessage("Indication at no actions are running is missing in output:\n" + output)
         .that(output.contains("0 running"))

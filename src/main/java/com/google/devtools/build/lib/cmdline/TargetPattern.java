@@ -474,9 +474,7 @@ public abstract class TargetPattern implements Serializable {
       }
 
       callback.process(
-          resolver
-              .getTargetsInPackage(getOriginalPattern(), packageIdentifier, rulesOnly)
-              .getTargets());
+          resolver.getTargetsInPackage(getOriginalPattern(), packageIdentifier, rulesOnly));
     }
 
     @Override
@@ -822,14 +820,14 @@ public abstract class TargetPattern implements Serializable {
         String fullLabel = repository.getName() + "//" + pattern;
         try {
           PackageAndTarget packageAndTarget = LabelValidator.validateAbsoluteLabel(fullLabel);
-          packageIdentifier = PackageIdentifier.create(repository,
-              PathFragment.create(packageAndTarget.getPackageName()));
+          packageIdentifier =
+              PackageIdentifier.create(
+                  repository, PathFragment.create(packageAndTarget.getPackageName()));
         } catch (BadLabelException e) {
           String error = "invalid target format '" + originalPattern + "': " + e.getMessage();
           throw new TargetParsingException(error);
         }
-        return new SingleTarget(
-            fullLabel, packageIdentifier, originalPattern, relativeDirectory);
+        return new SingleTarget(fullLabel, packageIdentifier, originalPattern, relativeDirectory);
       }
 
       // This is a stripped-down version of interpretPathAsTarget that does no I/O.  We have a basic

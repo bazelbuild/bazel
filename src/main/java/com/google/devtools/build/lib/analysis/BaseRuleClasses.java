@@ -99,6 +99,9 @@ public class BaseRuleClasses {
   public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
       "//tools/test:coverage_report_generator";
 
+  private static final String DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE =
+      "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main";
+
   @AutoCodec
   static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
@@ -108,6 +111,21 @@ public class BaseRuleClasses {
     return LabelLateBoundDefault.fromTargetConfiguration(
         TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
+
+  public static LabelLateBoundDefault<BuildConfiguration> getCoverageOutputGeneratorLabel() {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        BuildConfiguration.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
+  }
+
+  @AutoCodec
+  static final Resolver<BuildConfiguration, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
+      (rule, attributes, configuration) -> {
+        if (configuration.isCodeCoverageEnabled()) {
+          return Label.parseAbsoluteUnchecked(DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE);
+        } else {
+          return null;
+        }
+      };
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */
@@ -208,7 +226,6 @@ public class BaseRuleClasses {
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
           // The target itself and run_under both run on the same machine.
           .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck())
-          .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
           .build();
     }
 
@@ -389,6 +406,7 @@ public class BaseRuleClasses {
               attr("data", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
                   .dontCheckConstraints())
+          .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
           .build();
     }
 

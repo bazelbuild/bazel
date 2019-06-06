@@ -16,23 +16,24 @@ package com.google.devtools.build.skyframe;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
-import com.google.common.truth.Truth;
 import javax.annotation.Nullable;
 
 /**
  * {@link Subject} for {@link CycleInfo}. Please add to this class if you need more functionality!
  */
-public class CycleInfoSubject extends Subject<CycleInfoSubject, CycleInfo> {
+public class CycleInfoSubject extends Subject {
+  private final CycleInfo actual;
+
   CycleInfoSubject(FailureMetadata failureMetadata, @Nullable CycleInfo cycleInfo) {
     super(failureMetadata, cycleInfo);
+    this.actual = cycleInfo;
   }
 
   public IterableSubject hasPathToCycleThat() {
-    return Truth.assertThat(getSubject().getPathToCycle())
-        .named("Path to cycle in " + actualAsString());
+    return check("getPathToCycle()").that(actual.getPathToCycle());
   }
 
   public IterableSubject hasCycleThat() {
-    return Truth.assertThat(getSubject().getCycle()).named("Cycle in " + actualAsString());
+    return check("getCycle()").that(actual.getCycle());
   }
 }

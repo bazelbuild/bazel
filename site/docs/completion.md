@@ -24,7 +24,7 @@ If you installed Bazel:
 
         Example: if you ran the installer with `--user`, this will be
         `$HOME/.bazel/bin`. If you ran the installer as root, this will be
-        `/usr/local/bazel/bin`.
+        `/usr/local/lib/bazel/bin`.
     2.  Do one of the following:
         *   Either copy this file to your completion directory (if you have
             one).

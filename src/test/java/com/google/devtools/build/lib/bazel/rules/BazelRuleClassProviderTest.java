@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.StrictActionEnvOptions;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -168,13 +169,12 @@ public class BazelRuleClassProviderTest {
       return;
     }
 
-    BuildOptions options = BuildOptions.of(
-        ImmutableList.of(
-            BuildConfiguration.Options.class,
-            ShellConfiguration.Options.class,
-            StrictActionEnvOptions.class),
-        "--experimental_strict_action_env",
-        "--action_env=FOO=bar");
+    BuildOptions options =
+        BuildOptions.of(
+            ImmutableList.of(
+                CoreOptions.class, ShellConfiguration.Options.class, StrictActionEnvOptions.class),
+            "--experimental_strict_action_env",
+            "--action_env=FOO=bar");
 
     ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.getActionEnvironment(options);
     assertThat(env.getFixedEnv().toMap()).containsEntry("PATH", "/bin:/usr/bin");

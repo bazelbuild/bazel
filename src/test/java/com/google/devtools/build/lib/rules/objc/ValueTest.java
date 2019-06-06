@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.testing.EqualsTester;
 import org.junit.Test;
@@ -52,10 +52,7 @@ public class ValueTest {
 
   @Test
   public void nullNotAllowedInMemberData() {
-    try {
-      new PersonName(null, "Doe");
-      fail("should have thrown");
-    } catch (NullPointerException expected) {}
+    assertThrows(NullPointerException.class, () -> new PersonName(null, "Doe"));
   }
 
   @Test

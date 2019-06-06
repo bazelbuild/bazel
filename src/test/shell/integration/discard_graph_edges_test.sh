@@ -129,15 +129,16 @@ function test_top_level_aspect() {
   mkdir -p "foo" || fail "Couldn't make directory"
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
 def _simple_aspect_impl(target, ctx):
-  result=depset()
-  for orig_out in target.files:
+  result=[]
+  for orig_out in target.files.to_list():
     aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
     ctx.actions.write(
         output=aspect_out,
         content = "Hello from aspect for %s" % orig_out.basename)
     result += [aspect_out]
-  for src in ctx.rule.attr.srcs:
-    result += src.aspectouts
+
+  result = depset(result,
+      transitive = [src.aspectouts for src in ctx.rule.attr.srcs])
 
   return struct(output_groups={
       "aspect-out" : result }, aspectouts = result)
@@ -270,7 +271,7 @@ function test_packages_cleared() {
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
   # A few packages aren't cleared.
-  [[ "$package_count" -le 15 ]] \
+  [[ "$package_count" -le 16 ]] \
       || fail "package count $package_count too high"
   glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -le 1 ]] \
@@ -302,11 +303,11 @@ def _create(ctx):
   files_to_build = depset(ctx.outputs.outs)
   intemediate_outputs = [ctx.actions.declare_file("bar")]
   intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
-  action_cmd = "touch " + list(files_to_build)[0].path
+  action_cmd = "touch " + files_to_build.to_list()[0].path
   ctx.actions.run_shell(outputs=list(intemediate_outputs),
                         command=intermediate_cmd)
   ctx.actions.run_shell(inputs=list(intemediate_outputs),
-                        outputs=list(files_to_build),
+                        outputs=files_to_build.to_list(),
                         command=action_cmd)
   struct(files=files_to_build,
          data_runfiles=ctx.runfiles(transitive_files=files_to_build))
@@ -424,7 +425,7 @@ function test_dump_after_discard_incrementality_data() {
 function test_query_after_discard_incrementality_data() {
   bazel build --nobuild --notrack_incremental_state //testing:mytest \
        >& "$TEST_log" || fail "Expected success"
-  bazel query --noexperimental_ui --output=label_kind //testing:mytest \
+  bazel query --experimental_ui_debug_all_events --output=label_kind //testing:mytest \
        >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: testing"
   expect_log "cc_test rule //testing:mytest"
@@ -451,19 +452,19 @@ function test_switch_back_and_forth() {
   readonly local server_pid="$(bazel info \
       --notrack_incremental_state server_pid 2> /dev/null)"
   [[ -z "$server_pid" ]] && fail "Couldn't get server pid"
-  bazel test --noexperimental_ui --notrack_incremental_state \
+  bazel test --experimental_ui_debug_all_events --notrack_incremental_state \
       //testing:mytest >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: testing"
-  bazel test --noexperimental_ui --notrack_incremental_state \
+  bazel test --experimental_ui_debug_all_events --notrack_incremental_state \
       //testing:mytest >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: testing"
-  bazel test --noexperimental_ui //testing:mytest >& "$TEST_log" \
+  bazel test --experimental_ui_debug_all_events //testing:mytest >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: testing"
-  bazel test --noexperimental_ui //testing:mytest >& "$TEST_log" \
+  bazel test --experimental_ui_debug_all_events //testing:mytest >& "$TEST_log" \
       || fail "Expected success"
   expect_not_log "Loading package: testing"
-  bazel test --noexperimental_ui --notrack_incremental_state \
+  bazel test --experimental_ui_debug_all_events --notrack_incremental_state \
       //testing:mytest >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: testing"
   readonly local new_server_pid="$(bazel info server_pid 2> /dev/null)"

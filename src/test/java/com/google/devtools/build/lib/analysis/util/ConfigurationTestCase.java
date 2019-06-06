@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -182,12 +182,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   protected void checkError(String expectedMessage, String... options) throws Exception {
     reporter.removeHandler(failFastHandler);
-    try {
-      create(options);
-      fail();
-    } catch (InvalidConfigurationException e) {
-      assertContainsEvent(expectedMessage);
-    }
+    assertThrows(InvalidConfigurationException.class, () -> create(options));
+    assertContainsEvent(expectedMessage);
   }
 
   protected BuildConfigurationCollection createCollection(String... args) throws Exception {

@@ -234,11 +234,17 @@ public class ConfigRuleClasses {
           .add(
               attr(DEFINE_SETTINGS_ATTRIBUTE, STRING_DICT)
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          // Originally this attribute was a map of feature flags targets -> feature flag values,
+          // the latter of which are always strings. Now it also includes starlark build setting
+          // targets -> starlark build setting values. In other places in the starlark configuration
+          // API, starlark setting values are passed as their actual object instead of a string
+          // representation. It would be more consistent to be able to pass starlark setting values
+          // as objects to this attribute as well. But attributes are strongly-typed so
+          // label->object dict is not an option for attribute types right now.
           .add(
               attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
                   .undocumented("the feature flag feature has not yet been launched")
                   .allowedFileTypes()
-                  .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id()))
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(constraint_values) -->
           The minimum set of <code>constraint_values</code> that the target platform must specify

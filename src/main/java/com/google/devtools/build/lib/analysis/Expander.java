@@ -34,10 +34,19 @@ public final class Expander {
 
   private final RuleContext ruleContext;
   private final TemplateContext templateContext;
+  @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap;
 
   Expander(RuleContext ruleContext, TemplateContext templateContext) {
+    this(ruleContext, templateContext, /* labelMap= */ null);
+  }
+
+  Expander(
+      RuleContext ruleContext,
+      TemplateContext templateContext,
+      @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
     this.ruleContext = ruleContext;
     this.templateContext = templateContext;
+    this.labelMap = labelMap;
   }
 
   /**
@@ -46,8 +55,8 @@ public final class Expander {
    */
   private Expander withLocations(boolean execPaths, boolean allowData) {
     TemplateContext newTemplateContext =
-        new LocationTemplateContext(templateContext, ruleContext, null, execPaths, allowData);
-    return new Expander(ruleContext, newTemplateContext);
+        new LocationTemplateContext(templateContext, ruleContext, labelMap, execPaths, allowData);
+    return new Expander(ruleContext, newTemplateContext, labelMap);
   }
 
   /**

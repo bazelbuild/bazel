@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Throwables;
+import java.io.IOException;
+
 /**
  * An ExecException which is results from an external problem on the user's
  * local system.
@@ -27,6 +30,9 @@ package com.google.devtools.build.lib.actions;
  * exit; we may just retry the action.
  */
 public class EnvironmentalExecException extends ExecException {
+  public EnvironmentalExecException(IOException cause) {
+    super("unexpected I/O exception", cause);
+  }
 
   public EnvironmentalExecException(String message, Throwable cause) {
     super(message, cause);
@@ -36,18 +42,20 @@ public class EnvironmentalExecException extends ExecException {
     super(message);
   }
 
-  public EnvironmentalExecException(String message, Throwable cause, boolean catastrophe) {
-    super(message, cause, catastrophe);
-  }
-
-  public EnvironmentalExecException(String message, boolean catastrophe) {
-    super(message, catastrophe);
-  }
-
   @Override
-  public ActionExecutionException toActionExecutionException(String messagePrefix,
-        boolean verboseFailures, Action action) {
-    String message = messagePrefix + " failed";
-    return new ActionExecutionException(message, this, action, isCatastrophic());
+  public ActionExecutionException toActionExecutionException(
+      String messagePrefix, boolean verboseFailures, Action action) {
+    if (getCause() != null) {
+      String message =
+          messagePrefix
+              + " failed due to "
+              + getMessage()
+              + "\n"
+              + Throwables.getStackTraceAsString(getCause());
+      return new ActionExecutionException(message, action, isCatastrophic());
+    } else {
+      String message = messagePrefix + " failed due to " + getMessage();
+      return new ActionExecutionException(message, action, isCatastrophic());
+    }
   }
 }

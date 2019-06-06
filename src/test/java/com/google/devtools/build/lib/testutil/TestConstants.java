@@ -79,9 +79,11 @@ public class TestConstants {
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
   public static final String TEST_RULE_MODULE =
-        "com.google.devtools.build.lib.bazel.rules.BazelRulesModule";
+      "com.google.devtools.build.lib.bazel.rules.BazelRulesModule";
   public static final String TEST_REAL_UNIX_FILE_SYSTEM =
       "com.google.devtools.build.lib.unix.UnixFileSystem";
+  public static final String TEST_WORKSPACE_STATUS_MODULE =
+      "com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule";
 
   public static void processSkyframeExecutorForTesting(SkyframeExecutor skyframeExecutor) {}
 
@@ -121,6 +123,8 @@ public class TestConstants {
           // TODO(#7903): Remove once our own tests are migrated.
           "--incompatible_py3_is_default=false",
           "--incompatible_py2_outputs_are_suffixed=false",
+          // TODO(#7899): Remove once we flip the flag default.
+          "--incompatible_use_python_toolchains=true",
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
 

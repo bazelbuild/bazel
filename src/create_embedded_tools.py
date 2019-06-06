@@ -31,7 +31,7 @@ output_paths = [
     ('*tools/jdk/BUILD', lambda x: 'tools/jdk/BUILD'),
     ('*tools/build_defs/repo/BUILD.repo',
      lambda x: 'tools/build_defs/repo/BUILD'),
-    ('*tools/platforms/platforms.BUILD', lambda x: 'platforms/BUILD'),
+    ('*tools/platforms/BUILD.tools', lambda x: 'platforms/BUILD'),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
     ('*tools/cpp/runfiles/generated_*',
      lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
@@ -51,9 +51,7 @@ output_paths = [
      lambda x: 'tools/objc/make_hashed_objlist.py'),
     ('*xcode*realpath', lambda x: 'tools/objc/realpath'),
     ('*xcode*xcode-locator', lambda x: 'tools/objc/xcode-locator'),
-    ('*src/tools/xcode/*.sh', lambda x: 'tools/objc/' + os.path.basename(x)),
-    ('*src/tools/xcode/*',
-     lambda x: 'tools/objc/' + os.path.basename(x) + '.sh'),
+    ('*src/tools/xcode/*', lambda x: 'tools/objc/' + os.path.basename(x)),
     ('*external/openjdk_*/file/*.tar.gz', lambda x: 'jdk.tar.gz'),
     ('*external/openjdk_*/file/*.zip', lambda x: 'jdk.zip'),
     ('*src/minimal_jdk.tar.gz', lambda x: 'jdk.tar.gz'),
@@ -70,15 +68,18 @@ def get_output_path(path):
 
 
 def get_input_files(argsfile):
-  """Returns a sorted list of tuples (archive_file, input_file).
+  """Returns a dict of archive_file to input_file.
 
   This describes the files that should be put into the generated archive.
 
   Args:
     argsfile: The file containing the list of input files.
+
+  Raises:
+    ValueError: When two input files map to the same output file.
   """
   with open(argsfile, 'r') as f:
-    input_files = set(x.strip() for x in f.readlines())
+    input_files = sorted(set(x.strip() for x in f.readlines()))
 
     result = {}
     for input_file in input_files:
@@ -87,14 +88,16 @@ def get_input_files(argsfile):
           input_file + '.tools' in input_files):
         continue
 
-      # This gives us the same behavior as the older bash version of this
-      # tool: If two input files map to the same output files, the one that
-      # comes last in the list of input files overrides all earlier ones.
-      result[get_output_path(input_file)] = input_file
+      # It's an error to have two files map to the same output file, because the
+      # result is hard to predict and can easily be wrong.
+      output_path = get_output_path(input_file)
+      if output_path in result:
+        raise ValueError(
+            'Duplicate output file: Both {} and {} map to {}'.format(
+                result[output_path], input_file, output_path))
+      result[output_path] = input_file
 
-    # By sorting the file list, the resulting ZIP file will not be reproducible
-    # and deterministic.
-    return sorted(result.items())
+  return result
 
 
 def copy_jdk_into_archive(output_zip, archive_file, input_file):
@@ -124,7 +127,9 @@ def main():
     zipinfo.external_attr = 0o644 << 16
     output_zip.writestr(zipinfo, 'workspace(name = "bazel_tools")\n')
 
-    for archive_file, input_file in input_files:
+    # By sorting the file list, the resulting ZIP file will be reproducible and
+    # deterministic.
+    for archive_file, input_file in sorted(input_files.items()):
       if os.path.basename(archive_file) in ('jdk.tar.gz', 'jdk.zip'):
         copy_jdk_into_archive(output_zip, archive_file, input_file)
       else:

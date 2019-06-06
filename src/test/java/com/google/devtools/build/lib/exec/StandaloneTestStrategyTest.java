@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -148,7 +148,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   private TestRunnerAction getTestAction(String target) throws Exception {
     ConfiguredTarget configuredTarget = getConfiguredTarget(target);
-    List<Artifact> testStatusArtifacts =
+    ImmutableList<Artifact.DerivedArtifact> testStatusArtifacts =
         configuredTarget.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
     Artifact testStatusArtifact = Iterables.getOnlyElement(testStatusArtifacts);
     TestRunnerAction action = (TestRunnerAction) getGeneratingAction(testStatusArtifact);
@@ -203,7 +203,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
     assertThat(result.isCached()).isFalse();
-    assertThat(result.getTestAction()).isSameAs(testRunnerAction);
+    assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getTestPassed()).isTrue();
     assertThat(result.getData().getRemotelyCached()).isFalse();
     assertThat(result.getData().getIsRemoteStrategy()).isFalse();
@@ -272,7 +272,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
     assertThat(result.isCached()).isFalse();
-    assertThat(result.getTestAction()).isSameAs(testRunnerAction);
+    assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getStatus()).isEqualTo(BlazeTestStatus.FLAKY);
     assertThat(result.getData().getTestPassed()).isTrue();
     assertThat(result.getData().getRemotelyCached()).isFalse();
@@ -339,7 +339,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
     assertThat(result.isCached()).isFalse();
-    assertThat(result.getTestAction()).isSameAs(testRunnerAction);
+    assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getTestPassed()).isTrue();
     assertThat(result.getData().getRemotelyCached()).isFalse();
     assertThat(result.getData().getIsRemoteStrategy()).isTrue();
@@ -399,7 +399,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
     assertThat(result.isCached()).isFalse();
-    assertThat(result.getTestAction()).isSameAs(testRunnerAction);
+    assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getTestPassed()).isTrue();
     assertThat(result.getData().getRemotelyCached()).isTrue();
     assertThat(result.getData().getIsRemoteStrategy()).isFalse();
@@ -654,5 +654,50 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
       fail("Test stdout file missing: " + outErr.getOutputPath());
     }
     assertThat(outErr.getErrorPath().exists()).isFalse();
+  }
+
+  @Test
+  public void testAppendStdErrDoesNotBusyLoop() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    executionOptions.testOutput = TestOutputFormat.ALL;
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    // setup a test action
+    scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"empty_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"empty_test.sh\"],",
+        ")");
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:empty_test");
+
+    SpawnResult expectedSpawnResult =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              ((ActionExecutionContext) invocation.getArgument(1)).getFileOutErr().printErr("Foo");
+              return SpawnContinuation.immediate(expectedSpawnResult);
+            });
+
+    FileOutErr outErr = createTempOutErr(tmpDirRoot);
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(outErr, spawnActionContext);
+
+    // actual StandaloneTestStrategy execution
+    execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
+
+    // check that the test stdout contains all the expected output
+    try {
+      String outData = FileSystemUtils.readContent(outErr.getOutputPath(), UTF_8);
+      assertThat(outData).contains("Foo");
+    } catch (IOException e) {
+      fail("Test stdout file missing: " + outErr.getOutputPath());
+    }
   }
 }

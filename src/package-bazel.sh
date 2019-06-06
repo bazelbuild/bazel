@@ -35,11 +35,23 @@ trap "rm -fr ${PACKAGE_DIR}" EXIT
 
 cp $* ${PACKAGE_DIR}
 
-# Re"compress" the deploy jar. Saves ~10% of final binary size.
+# Unpack the deploy jar for postprocessing and for "re-compressing" to save
+# ~10% of final binary size.
 unzip -q -d recompress ${DEPLOY_JAR}
 cd recompress
+
+# Zero out timestamps and sort the entries to ensure determinism.
 find . -type f -print0 | xargs -0 touch -t 198001010000.00
 find . -type f | sort | zip -q0DX@ ../deploy-uncompressed.jar
+
+# While we're in the deploy jar, grab the label and pack it into the final
+# packaged distribution zip where it can be used to quickly determine version
+# info.
+bazel_label="$(\
+  (grep '^build.label=' build-data.properties | cut -d'=' -f2- | tr -d '\n') \
+      || echo -n 'no_version')"
+echo -n "${bazel_label:-no_version}" > "${PACKAGE_DIR}/build-label.txt"
+
 cd ..
 
 # The server jar needs to be the first binary we extract. This is how the Bazel

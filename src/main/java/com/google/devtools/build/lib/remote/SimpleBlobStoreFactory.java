@@ -114,12 +114,16 @@ public final class SimpleBlobStoreFactory {
   private static SimpleBlobStore createCombinedCache(
       Path workingDirectory, PathFragment diskCachePath, RemoteOptions options, Credentials cred)
       throws IOException {
+
     Path cacheDir =
         workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
-    return new CombinedDiskHttpBlobStore(cacheDir, createHttp(options, cred));
+
+    OnDiskBlobStore diskCache = new OnDiskBlobStore(cacheDir);
+    SimpleBlobStore httpCache = createHttp(options, cred);
+    return new CombinedDiskHttpBlobStore(diskCache, httpCache);
   }
 
   private static boolean isDiskCache(RemoteOptions options) {

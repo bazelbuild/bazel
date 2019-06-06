@@ -48,14 +48,14 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
    */
   public static final class Options extends OptionsBase {
     @Option(
-      name = "watchfs",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If true, %{product} tries to use the operating system's file watch service for "
-              + "local changes instead of scanning every file for a change."
-    )
+        name = "watchfs",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "On Linux/macOS: If true, %{product} tries to use the operating system's file watch "
+                + "service for local changes instead of scanning every file for a change. On "
+                + "Windows: this flag is a non-op.")
     public boolean watchFS;
   }
 

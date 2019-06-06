@@ -485,7 +485,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test specifying DEF file in cc_binary
     exit_code, _, stderr = self.RunBazel(['build', '//:lib_dy.dll', '-s'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('/DEF:my_lib.def', ''.join(stderr))
+    filepath = bazel_bin + '/lib_dy.dll-2.params'
+    with open(filepath, 'r', encoding='latin-1') as param_file:
+      self.assertIn('/DEF:my_lib.def', param_file.read())
 
   def testCcImportRule(self):
     self.ScratchFile('WORKSPACE')
@@ -503,6 +505,24 @@ class BazelWindowsCppTest(test_base.TestBase):
         'build', '//:a_import',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
+
+  def testCppErrorShouldBeVisible(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "bad",',
+        '  srcs = ["bad.cc"],',
+        ')',
+    ])
+    self.ScratchFile('bad.cc', [
+        'int main(int argc, char** argv) {',
+        '  this_is_an_error();',
+        '}',
+    ])
+    exit_code, stdout, stderr = self.RunBazel(['build', '//:bad'])
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('this_is_an_error', ''.join(stdout))
+
 
 if __name__ == '__main__':
   unittest.main()

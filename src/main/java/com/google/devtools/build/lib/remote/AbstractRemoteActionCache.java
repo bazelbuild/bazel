@@ -170,7 +170,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws IOException in case of a cache miss or if the remote cache is unavailable.
    * @throws ExecException in case clean up after a failed download failed.
    */
-  public void download(ActionResult result, Path execRoot, FileOutErr outErr)
+  public void download(ActionResult result, Path execRoot, FileOutErr origOutErr)
       throws ExecException, IOException, InterruptedException {
     ActionResultMetadata metadata = parseActionResultMetadata(result, execRoot);
 
@@ -197,8 +197,12 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
     IOException downloadException = null;
     InterruptedException interruptedException = null;
+    FileOutErr tmpOutErr = null;
     try {
-      downloads.addAll(downloadOutErr(result, outErr));
+      if (origOutErr != null) {
+        tmpOutErr = origOutErr.childOutErr();
+      }
+      downloads.addAll(downloadOutErr(result, tmpOutErr));
     } catch (IOException e) {
       downloadException = e;
     }
@@ -228,9 +232,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           // directories will not be re-created
           execRoot.getRelative(directory.getPath()).deleteTreesBelow();
         }
-        if (outErr != null) {
-          outErr.getOutputPath().delete();
-          outErr.getErrorPath().delete();
+        if (tmpOutErr != null) {
+          tmpOutErr.clearOut();
+          tmpOutErr.clearErr();
         }
       } catch (IOException e) {
         // If deleting of output files failed, we abort the build with a decent error message as
@@ -239,10 +243,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
         // We don't propagate the downloadException, as this is a recoverable error and the cause
         // of the build failure is really that we couldn't delete output files.
         throw new EnvironmentalExecException(
-            "Failed to delete output files after incomplete "
-                + "download. Cannot continue with local execution.",
-            e,
-            true);
+            "Failed to delete output files after incomplete download", e);
       }
     }
 
@@ -252,6 +253,12 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
     if (downloadException != null) {
       throw downloadException;
+    }
+
+    if (tmpOutErr != null) {
+      FileOutErr.dump(tmpOutErr, origOutErr);
+      tmpOutErr.clearOut();
+      tmpOutErr.clearErr();
     }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
@@ -456,7 +463,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
                 /* locationIndex= */ 1);
         childMetadata.put(p, r);
       }
-      metadataInjector.injectRemoteDirectory(output, childMetadata.build());
+      metadataInjector.injectRemoteDirectory(
+          (Artifact.SpecialArtifact) output, childMetadata.build());
     } else {
       FileMetadata outputMetadata = metadata.file(execRoot.getRelative(output.getExecPathString()));
       if (outputMetadata == null) {
@@ -651,17 +659,11 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       byte[] actionBlob = action.toByteArray();
       digestToChunkers.put(
           actionKey.getDigest(),
-          Chunker.builder(digestUtil)
-              .setInput(actionKey.getDigest(), actionBlob)
-              .setChunkSize(actionBlob.length)
-              .build());
+          Chunker.builder().setInput(actionBlob).setChunkSize(actionBlob.length).build());
       byte[] commandBlob = command.toByteArray();
       digestToChunkers.put(
           action.getCommandDigest(),
-          Chunker.builder(digestUtil)
-              .setInput(action.getCommandDigest(), commandBlob)
-              .setChunkSize(commandBlob.length)
-              .build());
+          Chunker.builder().setInput(commandBlob).setChunkSize(commandBlob.length).build());
     }
 
     /** Map of digests to file paths to upload. */
@@ -709,8 +711,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
       byte[] blob = tree.build().toByteArray();
       Digest digest = digestUtil.compute(blob);
-      Chunker chunker =
-          Chunker.builder(digestUtil).setInput(digest, blob).setChunkSize(blob.length).build();
+      Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(blob.length).build();
 
       if (result != null) {
         result
@@ -719,7 +720,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
             .setTreeDigest(digest);
       }
 
-      digestToChunkers.put(chunker.digest(), chunker);
+      digestToChunkers.put(digest, chunker);
     }
 
     private Directory computeDirectory(Path path, Tree.Builder tree)

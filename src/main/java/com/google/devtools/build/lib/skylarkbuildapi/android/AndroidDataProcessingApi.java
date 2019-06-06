@@ -97,6 +97,14 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc = "Dependencies to inherit resources from."),
         @Param(
+            name = "assets",
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = AndroidAssetsInfoApi.class,
+            positional = false,
+            named = true,
+            doc = "Dependencies to inherit assets from."),
+        @Param(
             name = "neverlink",
             defaultValue = "False",
             type = Boolean.class,
@@ -130,6 +138,7 @@ public interface AndroidDataProcessingApi<
   AndroidResourcesInfoT resourcesFromDeps(
       AndroidDataContextT ctx,
       SkylarkList<AndroidResourcesInfoT> deps,
+      SkylarkList<AndroidAssetsInfoT> assets,
       boolean neverlink,
       Object customPackage,
       Location location,

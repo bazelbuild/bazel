@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -86,7 +87,7 @@ public class RemoteActionFileSystemTest {
     Path localActionFsPath = actionFs.getPath(localArtifact.getPath().asFragment());
     String actualLocalContents =
         FileSystemUtils.readContent(localActionFsPath, StandardCharsets.UTF_8);
-    assertThat(remoteActionFsPath.getFileSystem()).isSameAs(actionFs);
+    assertThat(remoteActionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(actualRemoteContents).isEqualTo("remote contents");
     assertThat(actualLocalContents).isEqualTo("local contents");
     verify(inputFetcher)
@@ -115,7 +116,7 @@ public class RemoteActionFileSystemTest {
     symlinkActionFs.createSymbolicLink(actionFs.getPath(remoteArtifact.getPath().asFragment()));
 
     // assert
-    assertThat(symlinkActionFs.getFileSystem()).isSameAs(actionFs);
+    assertThat(symlinkActionFs.getFileSystem()).isSameInstanceAs(actionFs);
     verify(inputFetcher)
         .downloadFile(eq(remoteArtifact.getPath()), eq(inputs.getMetadata(remoteArtifact)));
     String symlinkTargetContents =
@@ -137,7 +138,7 @@ public class RemoteActionFileSystemTest {
   private Artifact createRemoteArtifact(
       String pathFragment, String contents, ActionInputMap inputs) {
     Path p = outputRoot.getRoot().asPath().getRelative(pathFragment);
-    Artifact a = new Artifact(p, outputRoot);
+    Artifact a = ActionsTestUtil.createArtifact(outputRoot, p);
     byte[] b = contents.getBytes(StandardCharsets.UTF_8);
     HashCode h = HASH_FUNCTION.getHashFunction().hashBytes(b);
     FileArtifactValue f =
@@ -151,7 +152,7 @@ public class RemoteActionFileSystemTest {
       throws IOException {
     Path p = outputRoot.getRoot().asPath().getRelative(pathFragment);
     FileSystemUtils.writeContent(p, StandardCharsets.UTF_8, contents);
-    Artifact a = new Artifact(p, outputRoot);
+    Artifact a = ActionsTestUtil.createArtifact(outputRoot, p);
     inputs.putWithNoDepOwner(a, FileArtifactValue.create(a.getPath(), /* isShareable= */ true));
     return a;
   }

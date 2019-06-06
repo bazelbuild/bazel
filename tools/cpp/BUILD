@@ -69,6 +69,13 @@ filegroup(
     srcs = [],
 )
 
+config_setting(
+    name = "disable_static_cc_toolchains",
+    values = {
+        "incompatible_disable_static_cc_toolchains": "true",
+    },
+)
+
 # This is the entry point for --crosstool_top.  Toolchains are found
 # by lopping off the name of --crosstool_top and searching for
 # "cc-compiler-${CPU}" in this BUILD file, where CPU is the target CPU
@@ -92,6 +99,7 @@ cc_toolchain_suite(
         "local|compiler": ":cc-compiler-local",
         "x64_windows|compiler": ":cc-compiler-x64_windows",
         "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
+        "s390x|compiler": ":cc-compiler-s390x",
         "ppc|compiler": ":cc-compiler-ppc",
         "k8": ":cc-compiler-local",
         "piii": ":cc-compiler-local",
@@ -114,7 +122,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -128,6 +135,10 @@ cc_toolchain_config(
     name = "local_linux",
     compiler = "compiler",
     cpu = "local",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
@@ -146,7 +157,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "ppc",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -169,12 +179,38 @@ toolchain(
 )
 
 cc_toolchain(
+    name = "cc-compiler-s390x",
+    all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
+    compiler_files = ":empty",
+    dwp_files = ":empty",
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    strip_files = ":empty",
+    supports_param_files = 1,
+    toolchain_config = ":local_linux",
+    toolchain_identifier = "local_linux",
+)
+
+toolchain(
+    name = "cc-toolchain-s390x",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:s390x",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:s390x",
+    ],
+    toolchain = ":cc-compiler-s390x",
+    toolchain_type = ":toolchain_type",
+)
+
+cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     all_files = ":empty",
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -202,7 +238,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -230,9 +265,8 @@ cc_toolchain(
     name = "cc-compiler-darwin",
     all_files = ":osx_wrapper",
     ar_files = ":empty",
-    as_files = ":empty",
+    as_files = ":osx_wrapper",
     compiler_files = ":osx_wrapper",
-    cpu = "darwin",
     dwp_files = ":empty",
     linker_files = ":osx_wrapper",
     objcopy_files = ":empty",
@@ -246,6 +280,10 @@ cc_toolchain_config(
     name = "local_darwin",
     compiler = "compiler",
     cpu = "darwin",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
@@ -268,7 +306,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -282,6 +319,10 @@ cc_toolchain_config(
     name = "local_freebsd",
     compiler = "compiler",
     cpu = "freebsd",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
@@ -304,7 +345,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -318,6 +358,10 @@ cc_toolchain_config(
     name = "local_windows_msys64",
     compiler = "windows_msys64",
     cpu = "x64_windows",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
@@ -336,11 +380,10 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-x64_windows_msvc",
-    all_files = ":every-file-x64_windows",
+    all_files = ":empty",
     ar_files = ":empty",
     as_files = ":empty",
-    compiler_files = ":compile-x64_windows",
-    cpu = "x64_windows",
+    compiler_files = ":empty",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -354,6 +397,10 @@ cc_toolchain_config(
     name = "vc_14_0_x64",
     compiler = "cl",
     cpu = "x64_windows_msvc",
+    disable_static_cc_toolchains = select({
+        ":disable_static_cc_toolchains": True,
+        "//conditions:default": False,
+    }),
 )
 
 toolchain(
@@ -369,21 +416,6 @@ toolchain(
     ],
     toolchain = ":cc-compiler-x64_windows_msvc",
     toolchain_type = ":toolchain_type",
-)
-
-filegroup(
-    name = "every-file-x64_windows",
-    srcs = [
-        ":compile-x64_windows",
-    ],
-)
-
-filegroup(
-    name = "compile-x64_windows",
-    srcs = glob([
-        "wrapper/bin/msvc_*",
-        "wrapper/bin/pydir/msvc*",
-    ]),
 )
 
 filegroup(

@@ -28,19 +28,23 @@ import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellExecutableProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDevice;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDeviceScriptFixture;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidHostServiceFixture;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidInstrumentationTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect;
@@ -180,12 +184,11 @@ public class BazelRuleClassProvider {
         // Shell environment variables specified via options take precedence over the
         // ones inherited from the fragments. In the long run, these fragments will
         // be replaced by appropriate default rc files anyway.
-        for (Map.Entry<String, String> entry :
-            options.get(BuildConfiguration.Options.class).actionEnvironment) {
+        for (Map.Entry<String, String> entry : options.get(CoreOptions.class).actionEnvironment) {
           env.put(entry.getKey(), entry.getValue());
         }
 
-        if (!BuildConfiguration.runfilesEnabled(options.get(Options.class))) {
+        if (!BuildConfiguration.runfilesEnabled(options.get(CoreOptions.class))) {
           // Setting this environment variable is for telling the binary running
           // in a Bazel action when to use runfiles library or runfiles tree.
           // The downside is that it will discard cache for all actions once
@@ -231,7 +234,7 @@ public class BazelRuleClassProvider {
               .addUniversalConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(PlatformConfiguration.class)
               .addConfigurationOptions(StrictActionEnvOptions.class)
-              .addConfigurationOptions(BuildConfiguration.Options.class);
+              .addConfigurationOptions(CoreOptions.class);
         }
 
         @Override
@@ -309,7 +312,8 @@ public class BazelRuleClassProvider {
 
           builder.addRuleDefinition(new AndroidSdkBaseRule());
           builder.addRuleDefinition(new BazelAndroidSdkRule());
-          builder.addRuleDefinition(new AndroidToolsDefaultsJarRule());
+          builder.addRuleDefinition(
+              new AndroidToolsDefaultsJarRule(BazelAndroidToolsDefaultsJar.class));
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidBaseRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidResourceSupportRule());
           builder.addRuleDefinition(
@@ -320,13 +324,15 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelAndroidBinaryRule());
           builder.addRuleDefinition(new AarImportBaseRule());
           builder.addRuleDefinition(new BazelAarImportRule());
-          builder.addRuleDefinition(new AndroidDeviceRule());
+          builder.addRuleDefinition(new AndroidDeviceRule(BazelAndroidDevice.class));
           builder.addRuleDefinition(new AndroidLocalTestBaseRule());
           builder.addRuleDefinition(new BazelAndroidLocalTestRule());
           builder.addRuleDefinition(new AndroidInstrumentationTestBaseRule());
           builder.addRuleDefinition(new BazelAndroidInstrumentationTestRule());
-          builder.addRuleDefinition(new AndroidDeviceScriptFixtureRule());
-          builder.addRuleDefinition(new AndroidHostServiceFixtureRule());
+          builder.addRuleDefinition(
+              new AndroidDeviceScriptFixtureRule(BazelAndroidDeviceScriptFixture.class));
+          builder.addRuleDefinition(
+              new AndroidHostServiceFixtureRule(BazelAndroidHostServiceFixture.class));
 
           AndroidBootstrap bootstrap =
               new AndroidBootstrap(

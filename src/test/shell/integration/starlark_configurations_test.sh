@@ -161,19 +161,6 @@ function test_dont_parse_flags_after_dash_dash() {
   expect_log "invalid package name '-//test_dont_parse_flags_after_dash_dash'"
 }
 
-function test_doesnt_work_without_experimental_flag() {
-  local -r pkg=$FUNCNAME
-  mkdir -p $pkg
-
-  write_build_setting_bzl
-
-  bazel build //$pkg:my_drink --//$pkg:type=coffee > output 2>"$TEST_log" \
-    && fail "Expected failure"
-
-  expect_log "Error loading option //$pkg:type:"
-  expect_log "Extension file '$pkg/build_setting.bzl' has errors"
-}
-
 function test_multiple_starlark_flags() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg

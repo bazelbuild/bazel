@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -49,7 +49,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "host_platform",
       oldName = "experimental_host_platform",
-      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
+      converter = EmptyToNullLabelConverter.class,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
@@ -92,7 +92,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "target_platform_fallback",
-      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
+      converter = EmptyToNullLabelConverter.class,
       defaultValue = "@bazel_tools//platforms:target_platform",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
@@ -251,7 +251,6 @@ public class PlatformOptions extends FragmentOptions {
     // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
     // directly.
 
-    Label hostPlatform;
     if (this.hostPlatform != null) {
       return this.hostPlatform;
     } else if (autoConfigureHostPlatform) {

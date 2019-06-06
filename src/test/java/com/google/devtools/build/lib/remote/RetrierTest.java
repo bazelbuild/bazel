@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -83,16 +82,16 @@ public class RetrierTest {
     Supplier<Backoff> s  = () -> new ZeroBackoff(/*maxRetries=*/2);
     Retrier r = new Retrier(s, RETRY_ALL, retryService, alwaysOpen);
     AtomicInteger numCalls = new AtomicInteger();
-    try {
-      r.execute(
-          () -> {
-            numCalls.incrementAndGet();
-            throw new Exception("call failed");
-          });
-      fail("exception expected.");
-    } catch (Exception e) {
-      assertThat(e).hasMessageThat().isEqualTo("call failed");
-    }
+    Exception e =
+        assertThrows(
+            Exception.class,
+            () ->
+                r.execute(
+                    () -> {
+                      numCalls.incrementAndGet();
+                      throw new Exception("call failed");
+                    }));
+    assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(3);
     verify(alwaysOpen, times(3)).recordFailure();
@@ -107,16 +106,16 @@ public class RetrierTest {
     Supplier<Backoff> s  = () -> new ZeroBackoff(/*maxRetries=*/2);
     Retrier r = new Retrier(s, RETRY_NONE, retryService, alwaysOpen);
     AtomicInteger numCalls = new AtomicInteger();
-    try {
-      r.execute(
-          () -> {
-            numCalls.incrementAndGet();
-            throw new Exception("call failed");
-          });
-      fail("exception expected.");
-    } catch (Exception e) {
-      assertThat(e).hasMessageThat().isEqualTo("call failed");
-    }
+    Exception e =
+        assertThrows(
+            Exception.class,
+            () ->
+                r.execute(
+                    () -> {
+                      numCalls.incrementAndGet();
+                      throw new Exception("call failed");
+                    }));
+    assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(1);
     verify(alwaysOpen, times(1)).recordFailure();
@@ -184,14 +183,13 @@ public class RetrierTest {
     TripAfterNCircuitBreaker cb = new TripAfterNCircuitBreaker(/*maxConsecutiveFailures=*/2);
     Retrier r = new Retrier(s, RETRY_ALL, retryService, cb);
 
-    try {
-      r.execute(() -> {
-        throw new Exception("call failed");
-      });
-      fail ("exception expected");
-    } catch (CircuitBreakerException expected) {
-      // Intentionally left empty.
-    }
+    assertThrows(
+        CircuitBreakerException.class,
+        () ->
+            r.execute(
+                () -> {
+                  throw new Exception("call failed");
+                }));
 
     assertThat(cb.state()).isEqualTo(State.REJECT_CALLS);
     assertThat(cb.consecutiveFailures).isEqualTo(2);
@@ -294,13 +292,9 @@ public class RetrierTest {
               numCalls.incrementAndGet();
               throw new Exception("call failed");
             });
-    try {
-      res.get();
-      fail("exception expected.");
-    } catch (ExecutionException e) {
-      assertThat(numCalls.get()).isEqualTo(3);
-      assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("call failed");
-    }
+    ExecutionException e = assertThrows(ExecutionException.class, () -> res.get());
+    assertThat(numCalls.get()).isEqualTo(3);
+    assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("call failed");
   }
 
   @Test
@@ -317,13 +311,9 @@ public class RetrierTest {
               numCalls.incrementAndGet();
               throw new Exception("call failed");
             });
-    try {
-      res.get();
-      fail("exception expected.");
-    } catch (ExecutionException e) {
-      assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("call failed");
-      assertThat(numCalls.get()).isEqualTo(1);
-    }
+    ExecutionException e = assertThrows(ExecutionException.class, () -> res.get());
+    assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("call failed");
+    assertThat(numCalls.get()).isEqualTo(1);
   }
 
   @Test
@@ -338,12 +328,8 @@ public class RetrierTest {
             () -> {
               throw new Exception("");
             });
-    try {
-      res.get();
-      fail("exception expected.");
-    } catch (ExecutionException e) {
-      assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("");
-    }
+    ExecutionException e = assertThrows(ExecutionException.class, () -> res.get());
+    assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("");
   }
 
   /** Simple circuit breaker that trips after N consecutive failures. */

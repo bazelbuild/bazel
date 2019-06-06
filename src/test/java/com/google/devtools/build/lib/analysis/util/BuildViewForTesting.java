@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainResolver;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -95,6 +95,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * A util class that contains all the helper stuff previously in BuildView that only exists to give
@@ -183,23 +184,24 @@ public class BuildViewForTesting {
   /**
    * Gets a configuration for the given target.
    *
-   * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, the configuration only
-   * includes the fragments needed by the fragment and its transitive closure. Else unconditionally
-   * includes all fragments.
+   * <p>If {@link BuildConfiguration#trimConfigurations()} is true, the configuration only includes
+   * the fragments needed by the fragment and its transitive closure. Else unconditionally includes
+   * all fragments.
    */
   @VisibleForTesting
   public BuildConfiguration getConfigurationForTesting(
       Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
-      throws StarlarkTransition.TransitionException, InvalidConfigurationException {
+      throws InvalidConfigurationException {
     List<TargetAndConfiguration> node =
         ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config));
-    LinkedHashSet<TargetAndConfiguration> configs =
+    Collection<TargetAndConfiguration> configs =
         ConfigurationResolver.getConfigurationsFromExecutor(
-            node,
-            AnalysisUtils.targetsToDeps(
-                new LinkedHashSet<TargetAndConfiguration>(node), ruleClassProvider),
-            eventHandler,
-            skyframeExecutor);
+                node,
+                AnalysisUtils.targetsToDeps(
+                    new LinkedHashSet<TargetAndConfiguration>(node), ruleClassProvider),
+                eventHandler,
+                skyframeExecutor)
+            .getTargetsAndConfigs();
     return configs.iterator().next().getConfiguration();
   }
 
@@ -264,7 +266,7 @@ public class BuildViewForTesting {
         configuration,
         ImmutableSet.copyOf(
             getDirectPrerequisiteDependenciesForTesting(
-                    eventHandler, ct, configurations, /*toolchainLabels=*/ ImmutableSet.of())
+                    eventHandler, ct, configurations, /* toolchainContext= */ null)
                 .values()));
   }
 
@@ -273,7 +275,7 @@ public class BuildViewForTesting {
       final ExtendedEventHandler eventHandler,
       final ConfiguredTarget ct,
       BuildConfigurationCollection configurations,
-      ImmutableSet<Label> toolchainLabels)
+      @Nullable ToolchainContext toolchainContext)
       throws EvalException, InterruptedException, InconsistentAspectOrderException,
           StarlarkTransition.TransitionException, InvalidConfigurationException {
 
@@ -330,7 +332,7 @@ public class BuildViewForTesting {
         configurations.getHostConfiguration(),
         /*aspect=*/ null,
         getConfigurableAttributeKeysForTesting(eventHandler, ctgNode),
-        toolchainLabels,
+        toolchainContext,
         ruleClassProvider.getTrimmingTransitionFactory());
   }
 
@@ -364,12 +366,12 @@ public class BuildViewForTesting {
       final ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
       BuildConfigurationCollection configurations,
-      ImmutableSet<Label> toolchainLabels)
+      @Nullable ToolchainContext toolchainContext)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException, StarlarkTransition.TransitionException {
     OrderedSetMultimap<DependencyKind, Dependency> depNodeNames =
         getDirectPrerequisiteDependenciesForTesting(
-            eventHandler, target, configurations, toolchainLabels);
+            eventHandler, target, configurations, toolchainContext);
 
     ImmutableMultimap<Dependency, ConfiguredTargetAndData> cts =
         skyframeExecutor.getConfiguredTargetMapForTesting(
@@ -494,16 +496,17 @@ public class BuildViewForTesting {
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
     UnloadedToolchainContext unloadedToolchainContext =
-        new ToolchainResolver(skyfunctionEnvironment, BuildConfigurationValue.key(targetConfig))
-            .setRequiredToolchainTypes(requiredToolchains)
-            .resolve();
+        (UnloadedToolchainContext)
+            skyfunctionEnvironment.getValueOrThrow(
+                UnloadedToolchainContext.key()
+                    .configurationKey(BuildConfigurationValue.key(targetConfig))
+                    .requiredToolchainTypeLabels(requiredToolchains)
+                    .build(),
+                ToolchainException.class);
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
-            eventHandler,
-            configuredTarget,
-            configurations,
-            unloadedToolchainContext.resolvedToolchainLabels());
+            eventHandler, configuredTarget, configurations, unloadedToolchainContext);
     String targetDescription = target.toString();
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
@@ -548,10 +551,7 @@ public class BuildViewForTesting {
           InconsistentAspectOrderException, StarlarkTransition.TransitionException {
     Collection<ConfiguredTargetAndData> configuredTargets =
         getPrerequisiteMapForTesting(
-            eventHandler,
-            dependentTarget,
-            configurations,
-            /*toolchainLabels=*/ ImmutableSet.of())
+                eventHandler, dependentTarget, configurations, /*toolchainContext=*/ null)
             .values();
     for (ConfiguredTargetAndData ct : configuredTargets) {
       if (ct.getTarget().getLabel().equals(desiredTarget)) {

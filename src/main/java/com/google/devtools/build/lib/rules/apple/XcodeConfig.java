@@ -37,7 +37,8 @@ import java.util.Map;
  * Implementation for the {@code xcode_config} rule.
  */
 public class XcodeConfig implements RuleConfiguredTargetFactory {
-  private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
+  private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION =
+      DottedVersion.fromStringUnchecked("7");
 
   /**
    * An exception that signals that an Xcode config setup was invalid.

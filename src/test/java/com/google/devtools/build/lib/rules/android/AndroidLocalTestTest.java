@@ -241,10 +241,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
     assertThat(args).contains("--uncompressedExtensions");
     assertThat(args.get(args.indexOf("--uncompressedExtensions") + 1)).isEqualTo(".apk,.so");
     assertThat(getGeneratingSpawnActionArgs(compressedUnsignedApk))
-        .containsAllOf("--nocompress_suffixes", ".apk", ".so")
+        .containsAtLeast("--nocompress_suffixes", ".apk", ".so")
         .inOrder();
     assertThat(getGeneratingSpawnActionArgs(finalUnsignedApk))
-        .containsAllOf("--nocompress_suffixes", ".apk", ".so")
+        .containsAtLeast("--nocompress_suffixes", ".apk", ".so")
         .inOrder();
   }
 

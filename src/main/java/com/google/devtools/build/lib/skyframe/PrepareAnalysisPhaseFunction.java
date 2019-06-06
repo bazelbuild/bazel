@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Multimap;
@@ -28,12 +27,12 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.Settings;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -79,7 +78,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
 
     BuildOptions targetOptions = defaultBuildOptions.applyDiff(options.getOptionsDiff());
     BuildOptions hostOptions =
-        targetOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
+        targetOptions.get(CoreOptions.class).useDistinctHostConfiguration
             ? HostTransition.INSTANCE.patch(targetOptions)
             : targetOptions;
 
@@ -198,7 +197,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     ImmutableList.Builder<BuildOptions> multiCpuOptions = ImmutableList.builder();
     for (String cpu : multiCpu) {
       BuildOptions clonedOptions = buildOptions.clone();
-      clonedOptions.get(BuildConfiguration.Options.class).cpu = cpu;
+      clonedOptions.get(CoreOptions.class).cpu = cpu;
       multiCpuOptions.add(clonedOptions);
     }
     return multiCpuOptions.build();
@@ -258,8 +257,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
    * targets and their transitive dependencies.
    */
   private static boolean useUntrimmedConfigs(BuildOptions options) {
-    return options.get(BuildConfiguration.Options.class).configsMode
-        == BuildConfiguration.Options.ConfigsMode.NOTRIM;
+    return options.get(CoreOptions.class).configsMode == CoreOptions.ConfigsMode.NOTRIM;
   }
 
   // Keep in sync with {@link SkyframeExecutor#getConfigurations}.
@@ -337,29 +335,14 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
           fragmentsMap.get(key.getLabel());
 
       if (depFragments != null) {
-        // TODO(juliexxia): combine these skyframe calls with other skyframe calls for this
-        // configured target.
-        ImmutableMap<Label, Object> defaultBuildSettingValues =
-            StarlarkTransition.getDefaultInputValues(env, transition);
-        if (env.valuesMissing()) {
-          return null;
-        }
-        ImmutableSet<SkyKey> buildSettingOutputPackageKeys =
-            StarlarkTransition.getBuildSettingPackageKeys(transition, Settings.OUTPUTS);
-        Map<SkyKey, SkyValue> buildSettingOutputPackages =
-            env.getValues(buildSettingOutputPackageKeys);
+        ImmutableSet<SkyKey> buildSettingPackageKeys =
+            StarlarkTransition.getAllBuildSettingPackageKeys(transition);
+        Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
         if (env.valuesMissing()) {
           return null;
         }
         List<BuildOptions> toOptions =
-            ConfigurationResolver.applyTransition(
-                fromOptions,
-                transition,
-                depFragments,
-                ruleClassProvider,
-                true,
-                defaultBuildSettingValues,
-                buildSettingOutputPackages);
+            ConfigurationResolver.applyTransition(fromOptions, transition, buildSettingPackages);
         StarlarkTransition.replayEvents(env.getListener(), transition);
         for (BuildOptions toOption : toOptions) {
           configSkyKeys.add(
@@ -386,27 +369,14 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
       if (depFragments != null) {
-        ImmutableMap<Label, Object> defaultBuildSettingValues =
-            StarlarkTransition.getDefaultInputValues(env, transition);
-        if (env.valuesMissing()) {
-          return null;
-        }
-        ImmutableSet<SkyKey> buildSettingOutputPackageKeys =
-            StarlarkTransition.getBuildSettingPackageKeys(transition, Settings.OUTPUTS);
-        Map<SkyKey, SkyValue> buildSettingOutputPackages =
-            env.getValues(buildSettingOutputPackageKeys);
+        ImmutableSet<SkyKey> buildSettingPackageKeys =
+            StarlarkTransition.getAllBuildSettingPackageKeys(transition);
+        Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
         if (env.valuesMissing()) {
           return null;
         }
         List<BuildOptions> toOptions =
-            ConfigurationResolver.applyTransition(
-                fromOptions,
-                transition,
-                depFragments,
-                ruleClassProvider,
-                true,
-                defaultBuildSettingValues,
-                buildSettingOutputPackages);
+            ConfigurationResolver.applyTransition(fromOptions, transition, buildSettingPackages);
         for (BuildOptions toOption : toOptions) {
           SkyKey configKey =
               BuildConfigurationValue.keyWithPlatformMapping(

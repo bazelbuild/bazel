@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableMap;
@@ -967,7 +968,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "java_custom_library = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "    'jar': attr.label(allow_single_file = True),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "    '_host_javabase': attr.label(",
         "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
@@ -1221,11 +1222,12 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget myConfiguredTarget = getConfiguredTarget("//java/test:my");
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
 
-    assertThat(myConfiguredTarget.get("java")).isSameAs(javaLibraryTarget.get("java"));
+    assertThat(myConfiguredTarget.get("java")).isSameInstanceAs(javaLibraryTarget.get("java"));
   }
 
   @Test
   public void javaProviderFieldsAreCorrectAfterCreatingProvider() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1277,6 +1279,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaProviderFieldsAreCorrectAfterCreatingProviderSomeEmptyFields() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1317,6 +1320,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void constructJavaProvider() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1367,6 +1371,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void constructJavaProviderWithAnotherJavaProvider() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1408,6 +1413,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void constructJavaProviderJavaLibrary() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1530,7 +1536,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaCompilationArgsProvider jlExportsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, jlExports);
     assertThat(prettyArtifactNames(jlExportsProvider.getRuntimeJars()))
-        .containsAllOf(
+        .containsAtLeast(
             "foo/libjl_bottom_for_deps.jar",
             "foo/libjl_bottom_for_runtime_deps.jar",
             "foo/libjl_bottom_for_exports.jar");
@@ -1567,7 +1573,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(
             prettyArtifactNames(
                 binary.getProvider(JavaRuntimeClasspathProvider.class).getRuntimeClasspath()))
-        .containsAllOf("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
+        .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
   }
 
   @Test
@@ -1593,7 +1599,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaCompilationArgsProvider compilationProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, importTarget);
     assertThat(prettyArtifactNames(compilationProvider.getRuntimeJars()))
-        .containsAllOf("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
+        .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
   }
 
   @Test
@@ -2014,11 +2020,11 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 ((ConfiguredTarget) info.getValue("java_toolchain_label"))
                     .get(ToolchainInfo.PROVIDER))
             .getToolchainLabel();
-    assertThat(
+    assertWithMessage(javaToolchainLabel.toString())
+        .that(
             javaToolchainLabel.toString().endsWith("jdk:remote_toolchain")
                 || javaToolchainLabel.toString().endsWith("jdk:toolchain")
                 || javaToolchainLabel.toString().endsWith("jdk:toolchain_host"))
-        .named(javaToolchainLabel.toString())
         .isTrue();
   }
 
@@ -2105,7 +2111,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "java_custom_library = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "    'jar': attr.label(allow_single_file = True),",
         "  }",
         ")");
     scratch.file(
@@ -2136,7 +2142,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "custom_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "    'jar': attr.label(allow_single_file = True),",
         "  }",
         ")");
     scratch.file(
@@ -2171,7 +2177,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "custom_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "    'jar': attr.label(allow_single_file = True),",
         "  }",
         ")");
     scratch.file(

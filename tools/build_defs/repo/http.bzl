@@ -51,6 +51,7 @@ def _http_archive_impl(ctx):
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
+        canonical_id = ctx.attr.canonical_id,
     )
     patch(ctx)
     workspace_and_buildfile(ctx)
@@ -148,6 +149,13 @@ This must match the SHA-256 of the file downloaded. _It is a security risk
 to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
 easier but should be set before shipping.""",
+    ),
+    "canonical_id": attr.string(
+        doc = """A canonical id of the archive downloaded
+
+If specified and non-empty, bazel will not take a the archive from cache,
+unless is was added to the cache by a request with the same canonical id.
+""",
     ),
     "strip_prefix": attr.string(
         doc = """A directory prefix to strip from the extracted files.
@@ -269,7 +277,7 @@ Examples:
   http_archive(
       name = "my_ssl",
       urls = ["http://example.com/openssl.zip"],
-      sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
+      sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       build_file = "@//:openssl.BUILD",
   )
   ```
@@ -321,7 +329,7 @@ Examples:
   http_file(
       name = "my_deb",
       urls = ["http://example.com/package.deb"],
-      sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
+      sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   )
   ```
 
@@ -366,7 +374,7 @@ Examples:
   http_jar(
       name = "my_ssl",
       url = "http://example.com/openssl-0.2.jar",
-      sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
+      sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   )
   ```
 

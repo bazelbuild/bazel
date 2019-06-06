@@ -14,7 +14,7 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import org.junit.Test;
@@ -41,12 +41,11 @@ public class Java7CompatibilityTest {
   @Test
   public void testDefaultMethodFails() throws Exception {
     ClassReader reader = new ClassReader(WithDefault.class.getName());
-    try {
-      reader.accept(new Java7Compatibility(null, null, null), 0);
-      fail("IllegalArgumentException expected");
-    } catch (IllegalArgumentException expected) {
-      assertThat(expected).hasMessageThat().contains("getVersion()I");
-    }
+    IllegalArgumentException expected =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> reader.accept(new Java7Compatibility(null, null, null), 0));
+    assertThat(expected).hasMessageThat().contains("getVersion()I");
   }
 
   /**

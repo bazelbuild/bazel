@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
@@ -43,6 +42,8 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.concurrent.ThreadSafe;
@@ -58,7 +59,7 @@ abstract class FileTransport implements BuildEventTransport {
 
   private final BuildEventProtocolOptions options;
   private final BuildEventArtifactUploader uploader;
-  @VisibleForTesting final SequentialWriter writer;
+  private final SequentialWriter writer;
   private final ArtifactGroupNamer namer;
 
   FileTransport(
@@ -76,21 +77,22 @@ abstract class FileTransport implements BuildEventTransport {
   @VisibleForTesting
   static final class SequentialWriter implements Runnable {
     private static final Logger logger = Logger.getLogger(SequentialWriter.class.getName());
-    private static final ListenableFuture<BuildEventStreamProtos.BuildEvent> CLOSE =
-        Futures.immediateCancelledFuture();
+    private static final ListenableFuture<BuildEventStreamProtos.BuildEvent> CLOSE_EVENT_FUTURE =
+        Futures.immediateFailedFuture(
+            new IllegalStateException(
+                "A FileTransport is trying to write CLOSE_EVENT_FUTURE, this is a bug."));
+    private static final Duration FLUSH_INTERVAL = Duration.ofMillis(250);
 
     private final Thread writerThread;
-    @VisibleForTesting OutputStream out;
-    @VisibleForTesting static final Duration FLUSH_INTERVAL = Duration.ofMillis(250);
+    private final BufferedOutputStream out;
     private final Function<BuildEventStreamProtos.BuildEvent, byte[]> serializeFunc;
-
     private final BuildEventArtifactUploader uploader;
+    private final AtomicBoolean isClosed = new AtomicBoolean();
+    private final SettableFuture<Void> closeFuture = SettableFuture.create();
 
     @VisibleForTesting
     final BlockingQueue<ListenableFuture<BuildEventStreamProtos.BuildEvent>> pendingWrites =
         new LinkedBlockingDeque<>();
-
-    private final SettableFuture<Void> closeFuture = SettableFuture.create();
 
     SequentialWriter(
         BufferedOutputStream outputStream,
@@ -113,7 +115,7 @@ abstract class FileTransport implements BuildEventTransport {
       try {
         Instant prevFlush = Instant.now();
         while ((buildEventF = pendingWrites.poll(FLUSH_INTERVAL.toMillis(), TimeUnit.MILLISECONDS))
-            != CLOSE) {
+            != CLOSE_EVENT_FUTURE) {
           if (buildEventF != null) {
             BuildEventStreamProtos.BuildEvent buildEvent = buildEventF.get();
             byte[] serialized = serializeFunc.apply(buildEvent);
@@ -147,30 +149,39 @@ abstract class FileTransport implements BuildEventTransport {
     }
 
     private void exitFailure(Throwable e) {
+      final String message;
+      // Print a more useful error message when the upload times out.
+      // An {@link ExecutionException} may be wrapping a {@link TimeoutException} if the
+      // Future was created with {@link Futures#withTimeout}.
+      if (e instanceof ExecutionException
+          && e.getCause() instanceof TimeoutException) {
+        message = "Unable to write all BEP events to file due to timeout";
+      } else {
+        message =
+            String.format("Unable to write all BEP events to file due to '%s'", e.getMessage());
+      }
       closeFuture.setException(
-          new AbruptExitException(
-              "Unable to write all BEP events to file due to " + e.getMessage(),
-              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
-              e));
+          new AbruptExitException(message, ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR, e));
       pendingWrites.clear();
-      logger.log(
-          Level.SEVERE, "Unable to write all BEP events to file due to " + e.getMessage(), e);
+      logger.log(Level.SEVERE, message, e);
     }
 
-    void closeNow() {
+    private void closeNow() {
       if (closeFuture.isDone()) {
         return;
       }
       try {
         pendingWrites.clear();
-        pendingWrites.put(CLOSE);
+        pendingWrites.put(CLOSE_EVENT_FUTURE);
       } catch (InterruptedException e) {
         logger.log(Level.SEVERE, "Failed to immediately close the sequential writer.", e);
       }
     }
 
-    public ListenableFuture<Void> close() {
-      if (closeFuture.isDone()) {
+    ListenableFuture<Void> close() {
+      if (isClosed.getAndSet(true)) {
+        return closeFuture;
+      } else if (closeFuture.isDone()) {
         return closeFuture;
       }
 
@@ -184,7 +195,7 @@ abstract class FileTransport implements BuildEventTransport {
           MoreExecutors.directExecutor());
 
       try {
-        pendingWrites.put(CLOSE);
+        pendingWrites.put(CLOSE_EVENT_FUTURE);
       } catch (InterruptedException e) {
         closeNow();
         logger.log(Level.SEVERE, "Failed to close the sequential writer.", e);
@@ -192,11 +203,15 @@ abstract class FileTransport implements BuildEventTransport {
       }
       return closeFuture;
     }
+
+    private Duration getFlushInterval() {
+      return FLUSH_INTERVAL;
+    }
   }
 
   @Override
   public void sendBuildEvent(BuildEvent event) {
-    if (writer.closeFuture.isDone()) {
+    if (writer.isClosed.get()) {
       return;
     }
     if (!writer.pendingWrites.add(asStreamProto(event, namer))) {
@@ -249,4 +264,10 @@ abstract class FileTransport implements BuildEventTransport {
   public BuildEventArtifactUploader getUploader() {
     return uploader;
   }
+
+  /** Determines how often the {@link FileTransport} flushes events. */
+  Duration getFlushInterval() {
+    return writer.getFlushInterval();
+  }
 }
+

@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
@@ -43,7 +43,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
     BuildOptions result = buildOptions.clone();
 
     AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
-    BuildConfiguration.Options configOptions = buildOptions.get(BuildConfiguration.Options.class);
+    CoreOptions configOptions = buildOptions.get(CoreOptions.class);
 
     if (appleOptions.configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
       // The configuration distinguisher is only set by AppleCrosstoolTransition and
@@ -75,7 +75,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
     Label libcTop = from.get(AppleCommandLineOptions.class).appleLibcTop;
     String cppCompiler = from.get(AppleCommandLineOptions.class).cppCompiler;
 
-    BuildConfiguration.Options toOptions = to.get(BuildConfiguration.Options.class);
+    CoreOptions toOptions = to.get(CoreOptions.class);
     CppOptions toCppOptions = to.get(CppOptions.class);
 
     if (toOptions.cpu.equals(cpu) && toCppOptions.crosstoolTop.equals(crosstoolTop)) {
@@ -102,12 +102,9 @@ public class AppleCrosstoolTransition implements PatchTransition {
     to.get(PlatformOptions.class).platforms = ImmutableList.of();
   }
 
-  /**
-   * Returns the Apple architecture implied by AppleCommandLineOptions and
-   * BuildConfiguration.Options
-   */
+  /** Returns the Apple architecture implied by AppleCommandLineOptions and CoreOptions */
   private String determineSingleArchitecture(
-      AppleCommandLineOptions appleOptions, BuildConfiguration.Options configOptions) {
+      AppleCommandLineOptions appleOptions, CoreOptions configOptions) {
     if (!Strings.isNullOrEmpty(appleOptions.appleSplitCpu)) {
       return appleOptions.appleSplitCpu;
     }

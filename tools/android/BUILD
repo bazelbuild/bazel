@@ -3,6 +3,7 @@ package(default_visibility = ["//tools:__pkg__"])
 py_binary(
     name = "build_incremental_dexmanifest",
     srcs = [":build_incremental_dexmanifest.py"],
+    python_version = "PY2",
 )
 
 sh_test(
@@ -24,6 +25,7 @@ sh_test(
 py_binary(
     name = "build_split_manifest",
     srcs = ["build_split_manifest.py"],
+    python_version = "PY2",
     deps = [
         "//third_party/py/gflags",
     ],
@@ -32,6 +34,7 @@ py_binary(
 py_test(
     name = "build_split_manifest_test",
     srcs = ["build_split_manifest_test.py"],
+    python_version = "PY2",
     deps = [
         ":build_split_manifest",
     ],
@@ -40,6 +43,7 @@ py_test(
 py_binary(
     name = "incremental_install",
     srcs = ["incremental_install.py"],
+    python_version = "PY2",
     deps = [
         "//third_party/py/concurrent:futures",
         "//third_party/py/gflags",
@@ -49,6 +53,7 @@ py_binary(
 py_test(
     name = "incremental_install_test",
     srcs = ["incremental_install_test.py"],
+    python_version = "PY2",
     tags = [
         # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
         "no_windows",
@@ -62,6 +67,7 @@ py_test(
 py_binary(
     name = "strip_resources",
     srcs = ["strip_resources.py"],
+    python_version = "PY2",
     deps = ["//third_party/py/gflags"],
 )
 
@@ -84,6 +90,7 @@ py_binary(
     srcs = [
         "aar_native_libs_zip_creator.py",
     ],
+    python_version = "PY2",
     deps = [
         ":junction_lib",
         "//third_party/py/gflags",
@@ -95,6 +102,7 @@ py_test(
     srcs = [
         "aar_native_libs_zip_creator_test.py",
     ],
+    python_version = "PY2",
     deps = [
         ":aar_native_libs_zip_creator",
     ],
@@ -103,6 +111,7 @@ py_test(
 py_binary(
     name = "stubify_manifest",
     srcs = ["stubify_manifest.py"],
+    python_version = "PY2",
     deps = [
         "//third_party/py/gflags",
     ],
@@ -111,6 +120,7 @@ py_binary(
 py_test(
     name = "stubify_manifest_test",
     srcs = ["stubify_manifest_test.py"],
+    python_version = "PY2",
     deps = [
         ":stubify_manifest",
     ],
@@ -119,6 +129,7 @@ py_test(
 py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
+    python_version = "PY2",
     deps = [
         ":junction_lib",
         "//third_party/py/gflags",
@@ -128,12 +139,14 @@ py_binary(
 py_test(
     name = "aar_embedded_jars_extractor_test",
     srcs = ["aar_embedded_jars_extractor_test.py"],
+    python_version = "PY2",
     deps = [":aar_embedded_jars_extractor"],
 )
 
 py_binary(
     name = "aar_resources_extractor",
     srcs = ["aar_resources_extractor.py"],
+    python_version = "PY2",
     deps = [
         ":junction_lib",
         "//third_party/py/gflags",
@@ -143,29 +156,34 @@ py_binary(
 py_test(
     name = "aar_resources_extractor_test",
     srcs = ["aar_resources_extractor_test.py"],
+    python_version = "PY2",
     deps = [":aar_resources_extractor"],
 )
 
 py_binary(
     name = "resource_extractor",
     srcs = ["resource_extractor.py"],
+    python_version = "PY2",
 )
 
 py_test(
     name = "resource_extractor_test",
     srcs = ["resource_extractor_test.py"],
+    python_version = "PY2",
     deps = [":resource_extractor"],
 )
 
 py_binary(
     name = "instrumentation_test_check",
     srcs = ["instrumentation_test_check.py"],
+    python_version = "PY2",
     deps = ["//third_party/py/gflags"],
 )
 
 py_test(
     name = "instrumentation_test_check_test",
     srcs = ["instrumentation_test_check_test.py"],
+    python_version = "PY2",
     deps = [":instrumentation_test_check"],
 )
 
@@ -185,19 +203,11 @@ py_test(
         "//src/conditions:windows": "junction_test.py",
         "//conditions:default": "dummy_test.py",
     }),
+    python_version = "PY2",
     deps = [
         ":junction_lib",
         "//src/test/py/bazel:test_base",
     ],
-)
-
-genrule(
-    name = "desugar_jdk_libs",
-    srcs = ["@desugar_jdk_libs"],
-    outs = ["desugar_jdk_libs.jar"],
-    cmd = "cp $< $@",
-    output_to_bindir = 1,
-    visibility = ["//visibility:private"],
 )
 
 filegroup(
@@ -225,7 +235,6 @@ filegroup(
             ".*",
         ],
     ) + [
-        ":desugar_jdk_libs.jar",
         "//tools/android/emulator:embedded_tools",
     ],
 )

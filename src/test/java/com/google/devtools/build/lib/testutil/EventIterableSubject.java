@@ -26,12 +26,15 @@ import javax.annotation.Nullable;
  * {@link Subject} for {@code Iterable<Event>} that provides an {@link IterableSubject} of {@link
  * String} objects as opposed to the harder-to-assert-on {@link Event} objects.
  */
-class EventIterableSubject extends Subject<EventIterableSubject, Iterable<Event>> {
+class EventIterableSubject extends Subject {
+  private final Iterable<Event> actual;
+
   EventIterableSubject(FailureMetadata failureMetadata, @Nullable Iterable<Event> actual) {
     super(failureMetadata, actual);
+    this.actual = actual;
   }
 
   IterableSubject hasEventsThat() {
-    return assertThat(Iterables.transform(actual(), Event::getMessage));
+    return assertThat(Iterables.transform(actual, Event::getMessage));
   }
 }

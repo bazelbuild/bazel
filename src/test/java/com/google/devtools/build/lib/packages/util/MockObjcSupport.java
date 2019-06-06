@@ -80,16 +80,10 @@ public final class MockObjcSupport {
   public static void setup(MockToolsConfig config) throws IOException {
     for (String tool :
         ImmutableSet.of(
-            "actoolwrapper",
-            "bundlemerge",
             "objc_dummy.mm",
             "device_debug_entitlements.plist",
             "gcov",
-            "ibtoolwrapper",
-            "momcwrapper",
-            "plmerge",
             "realpath",
-            "swiftstdlibtoolwrapper",
             "testrunner",
             "xcrunwrapper.sh",
             "mcov",

@@ -268,7 +268,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact archive = getBinArtifact("libhello.a", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive);
     assertThat(ActionsTestUtil.baseArtifactNames(getOutputGroup(hello, OutputGroupInfo.DEFAULT)))
-        .containsAllOf("enabled_features.txt", "requested_features.txt");
+        .containsAtLeast("enabled_features.txt", "requested_features.txt");
   }
 
   @Test
@@ -584,9 +584,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "package(features = ['header_modules'])",
             "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'])",
             "cc_library(name = 'y', hdrs = ['y.h'])");
-    assertThat(ActionsTestUtil.baseArtifactNames(
-        getOutputGroup(x, OutputGroupInfo.COMPILATION_PREREQUISITES)))
-        .containsAllOf("y.h", "y.cppmap", "crosstool.cppmap", "x.cppmap", "y.pic.pcm", "x.cc");
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                getOutputGroup(x, OutputGroupInfo.COMPILATION_PREREQUISITES)))
+        .containsAtLeast("y.h", "y.cppmap", "crosstool.cppmap", "x.cppmap", "y.pic.pcm", "x.cc");
   }
 
   @Test
@@ -1228,64 +1229,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(flags).containsNoneOf("-fastbuild", "-opt");
   }
 
-  private List<String> getHostAndTargetFlags(boolean useHost, boolean isDisabledByFlag)
-      throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
-                    CppRuleClasses.SUPPORTS_PIC));
-    scratch.overwriteFile("mode/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
-    useConfiguration(
-        "--cpu=k8",
-        isDisabledByFlag
-            ? "--incompatible_dont_enable_host_nonhost_crosstool_features"
-            : "--noincompatible_dont_enable_host_nonhost_crosstool_features");
-    ConfiguredTarget target;
-    String objectPath;
-    if (useHost) {
-      target = getHostConfiguredTarget("//mode:a");
-      objectPath = "_objs/a/a.o";
-    } else {
-      target = getConfiguredTarget("//mode:a");
-      objectPath = "_objs/a/a.pic.o";
-    }
-    Artifact objectArtifact = getBinArtifact(objectPath, target);
-    CppCompileAction action = (CppCompileAction) getGeneratingAction(objectArtifact);
-    assertThat(action).isNotNull();
-    return action.getCompilerOptions();
-  }
-
-  @Test
-  public void testHostAndNonHostFeatures() throws Exception {
-    useConfiguration();
-    List<String> flags;
-
-    flags = getHostAndTargetFlags(/* useHost= */ true, /* isDisabledByFlag= */ false);
-    assertThat(flags).contains("-host");
-    assertThat(flags).doesNotContain("-nonhost");
-
-    flags = getHostAndTargetFlags(/* useHost= */ false, /* isDisabledByFlag= */ false);
-    assertThat(flags).contains("-nonhost");
-    assertThat(flags).doesNotContain("-host");
-  }
-
-  @Test
-  public void testHostAndNonHostFeaturesDisabledByTheFlag() throws Exception {
-    List<String> flags;
-
-    flags = getHostAndTargetFlags(/* useHost= */ true, /* isDisabledByFlag= */ true);
-    assertThat(flags).doesNotContain("-host");
-    assertThat(flags).doesNotContain("-nonhost");
-
-    flags = getHostAndTargetFlags(/* useHost= */ false, /* isDisabledByFlag= */ true);
-    assertThat(flags).doesNotContain("-nonhost");
-    assertThat(flags).doesNotContain("-host");
-  }
-
   @Test
   public void testIncludePathsOutsideExecutionRoot() throws Exception {
     scratchRule(
@@ -1521,5 +1464,28 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers", "-c", "opt");
     // Should not crash
     scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'])");
+  }
+
+  @Test
+  public void testAlwaysLinkAndDisableWholeArchiveError() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures("disable_whole_archive_for_static_lib_configuration"));
+
+    useConfiguration("--features=disable_whole_archive_for_static_lib");
+    // Should be fine.
+    assertThat(
+            scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'], srcs=['a.cc'])"))
+        .isNotNull();
+    // Should error out.
+    reporter.removeHandler(failFastHandler);
+    scratchConfiguredTarget(
+        "b", "b", "cc_library(name='b', hdrs=['b.h'], srcs=['b.cc'], alwayslink=1)");
+    assertContainsEvent(
+        "alwayslink should not be True for a target with the disable_whole_archive_for_static_lib"
+            + " feature enabled");
   }
 }

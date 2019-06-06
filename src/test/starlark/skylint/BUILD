@@ -14,4 +14,5 @@ py_test(
     data = ["//src/tools/skylark/java/com/google/devtools/skylark/skylint:Skylint"] + glob([
         "testdata/*",
     ]),
+    python_version = "PY2",
 )

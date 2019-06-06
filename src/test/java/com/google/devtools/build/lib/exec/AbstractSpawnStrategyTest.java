@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -112,13 +113,14 @@ public class AbstractSpawnStrategyTest {
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(FutureSpawn.immediate(result));
 
-    try {
-      // Ignoring the List<SpawnResult> return value.
-      new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
-      fail("Expected SpawnExecException");
-    } catch (SpawnExecException e) {
-      assertThat(e.getSpawnResult()).isSameAs(result);
-    }
+    SpawnExecException e =
+        assertThrows(
+            SpawnExecException.class,
+            () ->
+                // Ignoring the List<SpawnResult> return value.
+                new TestedSpawnStrategy(execRoot, spawnRunner)
+                    .exec(SIMPLE_SPAWN, actionExecutionContext));
+    assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
     verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
   }
@@ -185,13 +187,14 @@ public class AbstractSpawnStrategyTest {
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(FutureSpawn.immediate(result));
 
-    try {
-      // Ignoring the List<SpawnResult> return value.
-      new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
-      fail("Expected SpawnExecException");
-    } catch (SpawnExecException e) {
-      assertThat(e.getSpawnResult()).isSameAs(result);
-    }
+    SpawnExecException e =
+        assertThrows(
+            SpawnExecException.class,
+            () ->
+                // Ignoring the List<SpawnResult> return value.
+                new TestedSpawnStrategy(execRoot, spawnRunner)
+                    .exec(SIMPLE_SPAWN, actionExecutionContext));
+    assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
     verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(result));
@@ -213,7 +216,7 @@ public class AbstractSpawnStrategyTest {
                     .build()));
     when(actionExecutionContext.getMetadataProvider()).thenReturn(mock(MetadataProvider.class));
 
-    Artifact input = new Artifact(scratch.file("/execroot/foo", "1"), rootDir);
+    Artifact input = ActionsTestUtil.createArtifact(rootDir, scratch.file("/execroot/foo", "1"));
     scratch.file("/execroot/out1", "123");
     scratch.file("/execroot/out2", "123");
     Spawn spawn =
@@ -225,12 +228,9 @@ public class AbstractSpawnStrategyTest {
             .withInput(input)
             .withOutputs("out2", "out1")
             .build();
-    try {
-      new TestedSpawnStrategy(execRoot, spawnRunner).exec(spawn, actionExecutionContext);
-      fail("expected failure");
-    } catch (SpawnExecException expected) {
-      // Should throw.
-    }
+    assertThrows(
+        SpawnExecException.class,
+        () -> new TestedSpawnStrategy(execRoot, spawnRunner).exec(spawn, actionExecutionContext));
 
     SpawnExec expectedSpawnLog =
         SpawnExec.newBuilder()

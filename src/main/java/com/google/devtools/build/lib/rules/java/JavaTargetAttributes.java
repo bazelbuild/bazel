@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -158,6 +158,12 @@ public class JavaTargetAttributes {
       return this;
     }
 
+    public Builder addCompileTimeClassPathEntry(Artifact entry) {
+      Preconditions.checkArgument(!built);
+      compileTimeClassPath.add(entry);
+      return this;
+    }
+
     public Builder addCompileTimeClassPathEntries(NestedSet<Artifact> entries) {
       Preconditions.checkArgument(!built);
       compileTimeClassPath.addTransitive(entries);
@@ -230,6 +236,12 @@ public class JavaTargetAttributes {
     public Builder addDirectJars(NestedSet<Artifact> directJars) {
       Preconditions.checkArgument(!built);
       this.directJars.addTransitive(directJars);
+      return this;
+    }
+
+    public Builder addDirectJar(Artifact directJar) {
+      Preconditions.checkArgument(!built);
+      this.directJars.add(directJar);
       return this;
     }
 

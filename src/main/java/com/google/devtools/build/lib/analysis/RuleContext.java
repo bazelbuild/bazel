@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
@@ -50,6 +49,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -498,7 +498,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public ArtifactOwner getOwner() {
+  public ActionLookupValue.ActionLookupKey getOwner() {
     return getAnalysisEnvironment().getOwner();
   }
 
@@ -656,22 +656,6 @@ public final class RuleContext extends TargetContext
    * Creates an artifact in a directory that is unique to the package that contains the rule, thus
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
-  public Artifact getPackageRelativeArtifact(String relative, ArtifactRoot root) {
-    return getPackageRelativeArtifact(PathFragment.create(relative), root);
-  }
-
-  /**
-   * Creates an artifact in a directory that is unique to the package that contains the rule, thus
-   * guaranteeing that it never clashes with artifacts created by rules in other packages.
-   */
-  public Artifact getPackageRelativeTreeArtifact(String relative, ArtifactRoot root) {
-    return getPackageRelativeTreeArtifact(PathFragment.create(relative), root);
-  }
-
-  /**
-   * Creates an artifact in a directory that is unique to the package that contains the rule, thus
-   * guaranteeing that it never clashes with artifacts created by rules in other packages.
-   */
   public Artifact getBinArtifact(String relative) {
     return getBinArtifact(PathFragment.create(relative));
   }
@@ -700,8 +684,17 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public Artifact getPackageRelativeArtifact(PathFragment relative, ArtifactRoot root) {
+  public Artifact.DerivedArtifact getPackageRelativeArtifact(
+      PathFragment relative, ArtifactRoot root) {
     return getDerivedArtifact(getPackageDirectory().getRelative(relative), root);
+  }
+
+  /**
+   * Creates an artifact in a directory that is unique to the package that contains the rule, thus
+   * guaranteeing that it never clashes with artifacts created by rules in other packages.
+   */
+  public Artifact getPackageRelativeArtifact(String relative, ArtifactRoot root) {
+    return getPackageRelativeArtifact(PathFragment.create(relative), root);
   }
 
   @Override
@@ -717,7 +710,8 @@ public final class RuleContext extends TargetContext
    * method.
    */
   @Override
-  public Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+  public Artifact.DerivedArtifact getDerivedArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
         rootRelativePath, getPackageDirectory(), getLabel());
@@ -843,8 +837,10 @@ public final class RuleContext extends TargetContext
             attributeDefinition
                 .getTransitionFactory()
                 .create(
-                    AttributeTransitionData.create(
-                        ConfiguredAttributeMapper.of(rule, configConditions)));
+                    AttributeTransitionData.builder()
+                        .attributes(ConfiguredAttributeMapper.of(rule, configConditions))
+                        .executionPlatform(getToolchainContext().executionPlatform().label())
+                        .build());
     BuildOptions fromOptions = getConfiguration().getOptions();
     List<BuildOptions> splitOptions = transition.split(fromOptions);
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
@@ -858,7 +854,7 @@ public final class RuleContext extends TargetContext
     for (BuildOptions options : splitOptions) {
       // This method should only be called when the split config is enabled on the command line, in
       // which case this cpu can't be null.
-      cpus.add(options.get(BuildConfiguration.Options.class).cpu);
+      cpus.add(options.get(CoreOptions.class).cpu);
     }
 
     // Use an ImmutableListMultimap.Builder here to preserve ordering.
@@ -1076,6 +1072,15 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns all the providers of the specified type that are listed under the specified attribute
+   * of this target in the BUILD file, and that contain the specified provider.
+   */
+  public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
+      String attributeName, Mode mode, final BuiltinProvider<C> classType) {
+    return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
+  }
+
+  /**
    * Returns the prerequisite referred to by the specified attribute. Also checks whether
    * the attribute is marked as executable and that the target referred to can actually be
    * executed.
@@ -1132,6 +1137,10 @@ public final class RuleContext extends TargetContext
 
   public Expander getExpander() {
     return new Expander(this, getConfigurationMakeVariableContext());
+  }
+
+  public Expander getExpander(ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
+    return new Expander(this, getConfigurationMakeVariableContext(), labelMap);
   }
 
   /**
@@ -1414,7 +1423,8 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public final Artifact getRelatedArtifact(PathFragment pathFragment, String extension) {
+  public final Artifact.DerivedArtifact getRelatedArtifact(
+      PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
     return getDerivedArtifact(file, getConfiguration().getBinDirectory(rule.getRepository()));
   }

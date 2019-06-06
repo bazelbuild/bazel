@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -71,14 +70,11 @@ public abstract class AbstractPackageLoaderTest {
   public void simpleNoPackage() throws Exception {
     PackageLoader pkgLoader = newPackageLoader();
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("nope"));
-    try {
-      pkgLoader.loadPackage(pkgId);
-      fail();
-    } catch (NoSuchPackageException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .isEqualTo("no such package 'nope': BUILD file not found on package path");
-    }
+    NoSuchPackageException expected =
+        assertThrows(NoSuchPackageException.class, () -> pkgLoader.loadPackage(pkgId));
+    assertThat(expected)
+        .hasMessageThat()
+        .startsWith("no such package 'nope': BUILD file not found");
     assertNoEvents(handler.getEvents());
   }
 
@@ -183,9 +179,7 @@ public abstract class AbstractPackageLoaderTest {
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("foo"));
     NoSuchPackageException expected =
         assertThrows(NoSuchPackageException.class, () -> pkgLoader.loadPackage(pkgId));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains("no such package 'foo': BUILD file not found on package path");
+    assertThat(expected).hasMessageThat().contains("no such package 'foo': BUILD file not found");
   }
 
   protected Path path(String rootRelativePath) {

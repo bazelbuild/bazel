@@ -111,8 +111,8 @@ public abstract class JavaHelper {
       JavaSemantics semantics, RuleContext ruleContext, Artifact resource) {
     PathFragment rootRelativePath = resource.getRootRelativePath();
 
-    if (!resource.getOwner().getWorkspaceRoot().isEmpty()) {
-      PathFragment workspace = PathFragment.create(resource.getOwner().getWorkspaceRoot());
+    if (!ruleContext.getLabel().getWorkspaceRoot().isEmpty()) {
+      PathFragment workspace = PathFragment.create(ruleContext.getLabel().getWorkspaceRoot());
       rootRelativePath = rootRelativePath.relativeTo(workspace);
     }
 

@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -261,7 +262,7 @@ public class RemoteSpawnRunnerTest {
     when(res.status()).thenReturn(Status.EXECUTION_FAILED);
     when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(res);
 
-    assertThat(runner.exec(spawn, policy)).isSameAs(res);
+    assertThat(runner.exec(spawn, policy)).isSameInstanceAs(res);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
@@ -400,12 +401,8 @@ public class RemoteSpawnRunnerTest {
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("expected IOException to be raised");
-    } catch (IOException e) {
-      assertThat(e).isSameAs(err);
-    }
+    IOException e = assertThrows(IOException.class, () -> runner.exec(spawn, policy));
+    assertThat(e).isSameInstanceAs(err);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
   }
@@ -427,12 +424,8 @@ public class RemoteSpawnRunnerTest {
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("expected IOException to be raised");
-    } catch (IOException e) {
-      assertThat(e).isSameAs(err);
-    }
+    IOException e = assertThrows(IOException.class, () -> runner.exec(spawn, policy));
+    assertThat(e).isSameInstanceAs(err);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
   }
@@ -452,12 +445,8 @@ public class RemoteSpawnRunnerTest {
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("expected IOException to be raised");
-    } catch (IOException e) {
-      assertThat(e).isSameAs(err);
-    }
+    IOException e = assertThrows(IOException.class, () -> runner.exec(spawn, policy));
+    assertThat(e).isSameInstanceAs(err);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
   }
@@ -743,14 +732,9 @@ public class RemoteSpawnRunnerTest {
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("Exception expected");
-    } catch (SpawnExecException e) {
-      assertThat(e.getSpawnResult().exitCode())
-          .isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-      assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
-    }
+    SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
+    assertThat(e.getSpawnResult().exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
   }
 
   @Test
@@ -767,14 +751,9 @@ public class RemoteSpawnRunnerTest {
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("Exception expected");
-    } catch (SpawnExecException e) {
-      assertThat(e.getSpawnResult().exitCode())
-          .isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-      assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
-    }
+    SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
+    assertThat(e.getSpawnResult().exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
   }
 
   @Test
@@ -917,12 +896,8 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     // act
-    try {
-      runner.exec(spawn, policy);
-      fail("expected exception");
-    } catch (SpawnExecException e) {
-      assertThat(e.getMessage()).isEqualTo(downloadFailure.getMessage());
-    }
+    SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
+    assertThat(e.getMessage()).isEqualTo(downloadFailure.getMessage());
 
     // assert
     verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());
@@ -936,7 +911,8 @@ public class RemoteSpawnRunnerTest {
     options.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
 
     ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("outs"));
-    Artifact topLevelOutput = new Artifact(outputRoot.getRoot().getRelative("foo.bin"), outputRoot);
+    Artifact topLevelOutput =
+        ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("foo.bin"));
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(succeededAction);
@@ -1093,7 +1069,7 @@ public class RemoteSpawnRunnerTest {
 
         @Override
         public void injectRemoteDirectory(
-            Artifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+            Artifact.SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
           throw new UnsupportedOperationException();
         }
 

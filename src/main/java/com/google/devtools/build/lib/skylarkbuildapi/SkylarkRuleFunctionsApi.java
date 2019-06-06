@@ -149,10 +149,9 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             callbackEnabled = true,
             noneable = true,
             defaultValue = "None",
-            valueWhenDisabled = "None",
-            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM,
             doc =
-                "A schema for defining predeclared outputs. Unlike "
+                "<b>Experimental:</b> This API is in the process of being redesigned."
+                    + "<p>A schema for defining predeclared outputs. Unlike "
                     + "<a href='attr.html#output'><code>output</code></a> and "
                     + "<a href='attr.html#output_list'><code>output_list</code></a> attributes, "
                     + "the user does not specify the labels for these files. "
@@ -281,13 +280,18 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             type = Boolean.class,
             named = true,
             positional = false,
-            defaultValue = "False",
+            defaultValue = "True",
+            disableWithFlag =
+                FlagIdentifier.INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED,
+            valueWhenDisabled = "True",
             doc =
                 "If true, a special attribute named <code>exec_compatible_with</code> of "
                     + "label-list type is added, which must not already exist in "
                     + "<code>attrs</code>. Targets may use this attribute to specify additional "
                     + "constraints on the execution platform beyond those given in the "
-                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>."),
+                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>. "
+                    + "This will be deprecated and removed in the near future, and all rules will "
+                    + "be able to use <code>exec_compatible_with</code>."),
         @Param(
             name = "exec_compatible_with",
             type = SkylarkList.class,
@@ -321,10 +325,11 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
             valueWhenDisabled = "None",
-            // TODO(juliexxia): Link to in-build testing documentation when it is available.
             doc =
-                "If set, describes what kind of build setting this rule is. "
-                    + "See the <a href='config.html'><code>config</code></a> module. If this is "
+                "If set, describes what kind of "
+                    + "<a href = '../config.$DOC_EXT#user-defined-build-settings'><code>build "
+                    + "setting</code></a> this rule is. See the "
+                    + "<a href='config.html'><code>config</code></a> module. If this is "
                     + "set, a mandatory attribute named \"build_setting_default\" is automatically"
                     + "added to this rule, with a type corresponding to the value passed in here."),
         @Param(

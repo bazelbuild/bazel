@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.protobuf.GeneratedMessage.GeneratedExtension;
+import com.google.protobuf.Extension;
 import com.google.protobuf.MessageLite;
 import java.util.Collection;
 import java.util.UUID;
@@ -40,14 +40,18 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   private final String mnemonic;
 
   @AutoCodec.VisibleForSerialization
-  protected final GeneratedExtension<ExtraActionInfo, InfoType> infoExtension;
+  protected final Extension<ExtraActionInfo, InfoType> infoExtension;
 
   private final InfoType info;
 
-  public PseudoAction(UUID uuid, ActionOwner owner,
-      NestedSet<Artifact> inputs, Collection<Artifact> outputs,
+  public PseudoAction(
+      UUID uuid,
+      ActionOwner owner,
+      NestedSet<Artifact> inputs,
+      Collection<Artifact> outputs,
       String mnemonic,
-      GeneratedExtension<ExtraActionInfo, InfoType> infoExtension, InfoType info) {
+      Extension<ExtraActionInfo, InfoType> infoExtension,
+      InfoType info) {
     super(owner, inputs, outputs);
     this.uuid = uuid;
     this.mnemonic = mnemonic;

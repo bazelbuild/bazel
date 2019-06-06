@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import java.io.IOException;
 import org.junit.Test;
@@ -36,13 +36,13 @@ public class ResourceFileLoaderTest {
 
   @Test
   public void resourceNotFound() {
-    try {
-      ResourceFileLoader.loadResource(ResourceFileLoaderTest.class,
-          "does_not_exist.txt");
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().isEqualTo("does_not_exist.txt not found.");
-    }
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                ResourceFileLoader.loadResource(
+                    ResourceFileLoaderTest.class, "does_not_exist.txt"));
+    assertThat(e).hasMessageThat().isEqualTo("does_not_exist.txt not found.");
   }
 
 }

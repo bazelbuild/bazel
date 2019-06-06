@@ -190,13 +190,12 @@ public class BinaryOperatorExpression extends QueryExpression {
   @Override
   public String toString() {
     StringBuilder result = new StringBuilder();
-    for (int i = 1; i < operands.size(); i++) {
-      result.append("(");
-    }
+    result.append("(");
     result.append(operands.get(0));
-    for (int i = 1; i < operands.size(); i++) {
-      result.append(" " + operator.getPrettyName() + " " + operands.get(i) + ")");
+    for (QueryExpression expr : operands.subList(1, operands.size())) {
+      result.append(" ").append(operator.getPrettyName()).append(" ").append(expr);
     }
+    result.append(")");
     return result.toString();
   }
 }

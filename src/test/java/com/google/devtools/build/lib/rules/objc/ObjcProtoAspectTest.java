@@ -203,7 +203,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     assertThat(objcProtoProvider).isNotNull();
 
     assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
-        .containsAllOf(
+        .containsAtLeast(
             "x/filter.pbascii",
             configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
                 + "/x/_proto_filters/objc_proto_2/generated_filter_file.pbascii");

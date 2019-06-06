@@ -13,14 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -35,7 +32,6 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 @AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
-@VisibleForTesting
 public final class RuleConfiguredTargetValue extends ActionLookupValue
     implements ConfiguredTargetValue {
 
@@ -43,7 +39,6 @@ public final class RuleConfiguredTargetValue extends ActionLookupValue
   // clear(true) is called.
   @Nullable private RuleConfiguredTarget configuredTarget;
   private final ImmutableList<ActionAnalysisMetadata> actions;
-  private final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
   // May be null either after clearing or because transitive packages are not tracked.
   @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
@@ -66,25 +61,17 @@ public final class RuleConfiguredTargetValue extends ActionLookupValue
     this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
     // These are specifically *not* copied to save memory.
     this.actions = configuredTarget.getActions();
-    this.generatingActionIndex = configuredTarget.getGeneratingActionIndex();
   }
 
-  @VisibleForTesting
   @Override
   public ConfiguredTarget getConfiguredTarget() {
     Preconditions.checkNotNull(configuredTarget);
     return configuredTarget;
   }
 
-  @VisibleForTesting
   @Override
   public ImmutableList<ActionAnalysisMetadata> getActions() {
     return actions;
-  }
-
-  @Override
-  protected ImmutableMap<Artifact, Integer> getGeneratingActionIndex() {
-    return generatingActionIndex;
   }
 
   @Override
@@ -104,7 +91,6 @@ public final class RuleConfiguredTargetValue extends ActionLookupValue
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("generatingActionIndex", generatingActionIndex)
         .add("actions", actions)
         .add("configuredTarget", configuredTarget)
         .toString();

@@ -360,6 +360,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             .merge(precompiledFileObjects)
             .merge(compilationInfo.getCcCompilationOutputs())
             .build();
+    Iterable<Artifact> additionalLinkerInputs = common.getAdditionalLinkerInputs();
 
     // Allows the dynamic library generated for code of default dynamic mode targets to be linked
     // separately. The main use case for default dynamic mode is the cc_test rule. The same behavior
@@ -479,6 +480,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             common,
             precompiledFiles,
             ccCompilationOutputs,
+            additionalLinkerInputs,
             ccLinkingOutputs,
             ccCompilationContext,
             fake,
@@ -672,6 +674,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcCommon common,
       PrecompiledFiles precompiledFiles,
       CcCompilationOutputs ccCompilationOutputs,
+      Iterable<Artifact> additionalLinkerInputs,
       CcLinkingOutputs ccLinkingOutputs,
       CcCompilationContext ccCompilationContext,
       boolean fake,
@@ -708,7 +711,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 ruleContext.getSymbolGenerator())
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
-            .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget());
+            .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
+            .addNonCodeLinkerInputs(additionalLinkerInputs);
 
     CcInfo depsCcInfo = CcInfo.builder().setCcLinkingContext(depsCcLinkingContext).build();
 

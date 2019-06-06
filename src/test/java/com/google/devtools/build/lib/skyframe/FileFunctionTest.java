@@ -713,7 +713,7 @@ public class FileFunctionTest {
       fail(String.format("Evaluation error for %s: %s", key, result.getError()));
     }
     FileValue newValue = (FileValue) result.get(key);
-    assertThat(newValue).isNotSameAs(oldValue);
+    assertThat(newValue).isNotSameInstanceAs(oldValue);
     assertThat(newValue.exists()).isFalse();
   }
 
@@ -825,38 +825,20 @@ public class FileFunctionTest {
     assertThat(valueForPath(file).getSize()).isEqualTo(fileSize);
     Path dir = directory("directory");
     file(dir.getChild("child").getPathString());
-    try {
-      valueForPath(dir).getSize();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(IllegalStateException.class, () -> valueForPath(dir).getSize());
     Path nonexistent = fs.getPath("/root/noexist");
-    try {
-      valueForPath(nonexistent).getSize();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
-    Path symlink = symlink("link", "/root/file");
+    assertThrows(IllegalStateException.class, () -> valueForPath(nonexistent).getSize());
+    Path fileSymlink = symlink("link", "/root/file");
     // Symlink stores size of target, not link.
-    assertThat(valueForPath(symlink).getSize()).isEqualTo(fileSize);
-    assertThat(symlink.delete()).isTrue();
-    symlink = symlink("link", "/root/directory");
-    try {
-      valueForPath(symlink).getSize();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
-    assertThat(symlink.delete()).isTrue();
-    symlink = symlink("link", "/root/noexist");
-    try {
-      valueForPath(symlink).getSize();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThat(valueForPath(fileSymlink).getSize()).isEqualTo(fileSize);
+    assertThat(fileSymlink.delete()).isTrue();
+
+    Path rootDirSymlink = symlink("link", "/root/directory");
+    assertThrows(IllegalStateException.class, () -> valueForPath(rootDirSymlink).getSize());
+    assertThat(rootDirSymlink.delete()).isTrue();
+
+    Path noExistSymlink = symlink("link", "/root/noexist");
+    assertThrows(IllegalStateException.class, () -> valueForPath(noExistSymlink).getSize());
   }
 
   @Test
@@ -892,20 +874,13 @@ public class FileFunctionTest {
     assertThat(digestCalls.get()).isEqualTo(0);
     fastDigest = true;
     Path dir = directory("directory");
-    try {
-      assertThat(valueForPath(dir).getDigest()).isNull();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class, () -> assertThat(valueForPath(dir).getDigest()).isNull());
     assertThat(digestCalls.get()).isEqualTo(0); // No digest calls made for directory.
     Path nonexistent = fs.getPath("/root/noexist");
-    try {
-      assertThat(valueForPath(nonexistent).getDigest()).isNull();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> assertThat(valueForPath(nonexistent).getDigest()).isNull());
     assertThat(digestCalls.get()).isEqualTo(0); // No digest calls made for nonexistent file.
     Path symlink = symlink("link", "/root/file");
     value = valueForPath(symlink);
@@ -915,14 +890,10 @@ public class FileFunctionTest {
     assertThat(digestCalls.get()).isEqualTo(1);
     digestCalls.set(0);
     assertThat(symlink.delete()).isTrue();
-    symlink = symlink("link", "/root/directory");
     // Symlink stores digest of target, not link, for directories too.
-    try {
-      assertThat(valueForPath(symlink).getDigest()).isNull();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> assertThat(valueForPath(symlink("link", "/root/directory")).getDigest()).isNull());
     assertThat(digestCalls.get()).isEqualTo(0);
   }
 

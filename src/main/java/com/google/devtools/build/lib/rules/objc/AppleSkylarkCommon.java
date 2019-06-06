@@ -182,11 +182,7 @@ public class AppleSkylarkCommon
   @Override
   // This method is registered statically for skylark, and never called directly.
   public ObjcProvider newObjcProvider(
-      Boolean usesSwift,
-      SkylarkDict<?, ?> kwargs,
-      Environment environment) {
-    boolean disableObjcResourceKeys =
-        environment.getSemantics().incompatibleDisableObjcProviderResources();
+      Boolean usesSwift, SkylarkDict<?, ?> kwargs, Environment environment) throws EvalException {
     ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder(environment.getSemantics());
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
@@ -194,16 +190,13 @@ public class AppleSkylarkCommon
     for (Map.Entry<?, ?> entry : kwargs.entrySet()) {
       Key<?> key = ObjcProvider.getSkylarkKeyForString((String) entry.getKey());
       if (key != null) {
-        if (disableObjcResourceKeys && ObjcProvider.isDeprecatedResourceKey(key)) {
-          throw new IllegalArgumentException(String.format(BAD_KEY_ERROR, entry.getKey()));
-        }
         resultBuilder.addElementsFromSkylark(key, entry.getValue());
       } else if (entry.getKey().equals("providers")) {
         resultBuilder.addProvidersFromSkylark(entry.getValue());
       } else if (entry.getKey().equals("direct_dep_providers")) {
         resultBuilder.addDirectDepProvidersFromSkylark(entry.getValue());
       } else {
-        throw new IllegalArgumentException(String.format(BAD_KEY_ERROR, entry.getKey()));
+        throw new EvalException(null, String.format(BAD_KEY_ERROR, entry.getKey()));
       }
     }
     return resultBuilder.build();
@@ -258,8 +251,12 @@ public class AppleSkylarkCommon
   }
 
   @Override
-  public DottedVersion dottedVersion(String version) {
-    return DottedVersion.fromString(version);
+  public DottedVersion dottedVersion(String version) throws EvalException {
+    try {
+      return DottedVersion.fromString(version);
+    } catch (DottedVersion.InvalidDottedVersionException e) {
+      throw new EvalException(null, e.getMessage());
+    }
   }
 
   @Override

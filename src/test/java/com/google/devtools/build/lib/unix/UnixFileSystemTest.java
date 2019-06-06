@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -52,12 +52,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     linkA.createSymbolicLink(linkB);
     linkB.createSymbolicLink(linkA);
     assertThat(linkA.exists(Symlinks.FOLLOW)).isFalse();
-    try {
-      linkA.statIfFound(Symlinks.FOLLOW);
-      fail();
-    } catch (IOException expected) {
-      // Expected.
-    }
+    assertThrows(IOException.class, () -> linkA.statIfFound(Symlinks.FOLLOW));
   }
 
   @Test

@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.clock.Clock;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -108,6 +107,7 @@ public class CriticalPathComputer {
     Duration setupTime = Duration.ZERO;
     Duration executionWallTime = Duration.ZERO;
     Duration retryTime = Duration.ZERO;
+    Duration remoteProcessOutputsTime = Duration.ZERO;
     long inputFiles = 0L;
     long inputBytes = 0L;
     long memoryEstimate = 0L;
@@ -128,6 +128,8 @@ public class CriticalPathComputer {
         setupTime = setupTime.plus(childSpawnMetrics.setupTime());
         executionWallTime = executionWallTime.plus(childSpawnMetrics.executionWallTime());
         retryTime = retryTime.plus(childSpawnMetrics.retryTime());
+        remoteProcessOutputsTime =
+            remoteProcessOutputsTime.plus(childSpawnMetrics.remoteProcessOutputsTime());
         inputBytes += childSpawnMetrics.inputBytes();
         inputFiles += childSpawnMetrics.inputFiles();
         memoryEstimate += childSpawnMetrics.memoryEstimate();
@@ -139,15 +141,16 @@ public class CriticalPathComputer {
     return new AggregatedCriticalPath(
         criticalPath.getAggregatedElapsedTime(),
         new SpawnMetrics(
-            totalTime,
-            parseTime,
-            networkTime,
-            fetchTime,
-            remoteQueueTime,
-            setupTime,
-            uploadTime,
-            executionWallTime,
-            retryTime,
+            /*totalTime=*/ totalTime,
+            /*parseTime=*/ parseTime,
+            /*networkTime=*/ networkTime,
+            /*fetchTime=*/ fetchTime,
+            /*remoteQueueTime=*/ remoteQueueTime,
+            /*setupTime=*/ setupTime,
+            /*uploadTime=*/ uploadTime,
+            /*executionWallTime=*/ executionWallTime,
+            /*retryTime=*/ retryTime,
+            /*remoteProcessOutputsTime=*/ remoteProcessOutputsTime,
             inputBytes,
             inputFiles,
             memoryEstimate),
@@ -343,7 +346,8 @@ public class CriticalPathComputer {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
     if (depComponent != null) {
       if (depComponent.isRunning()) {
-        checkCriticalPathInconsistency(input, depComponent.getAction(), actionStats);
+        checkCriticalPathInconsistency(
+            (Artifact.DerivedArtifact) input, depComponent.getAction(), actionStats);
         return;
       }
       actionStats.addDepInfo(depComponent);
@@ -351,12 +355,14 @@ public class CriticalPathComputer {
   }
 
   protected void checkCriticalPathInconsistency(
-      Artifact input, Action action, CriticalPathComponent actionStats) {
+      Artifact.DerivedArtifact input, Action action, CriticalPathComponent actionStats) {
     // Rare case that an action depending on a previously-cached shared action sees a different
     // shared action that is in the midst of being an action cache hit.
     for (Artifact actionOutput : action.getOutputs()) {
       if (input.equals(actionOutput)
-          && Objects.equals(input.getArtifactOwner(), actionOutput.getArtifactOwner())) {
+          && input
+              .getGeneratingActionKey()
+              .equals(((Artifact.DerivedArtifact) actionOutput).getGeneratingActionKey())) {
         // As far as we can tell, this (currently running) action is the same action that
         // produced input, not another shared action. This should be impossible.
         throw new IllegalStateException(

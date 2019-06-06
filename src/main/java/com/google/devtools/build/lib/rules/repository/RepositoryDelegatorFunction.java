@@ -18,7 +18,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -44,11 +46,14 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -93,6 +98,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private final AtomicBoolean isFetch;
 
   private final BlazeDirectories directories;
+  // Managed directories mappings, pre-calculated and injected by SequencedSkyframeExecutor
+  // before each command.
+  private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
@@ -101,12 +109,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       @Nullable RepositoryFunction skylarkHandler,
       AtomicBoolean isFetch,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
     this.handlers = handlers;
     this.skylarkHandler = skylarkHandler;
     this.isFetch = isFetch;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.directories = directories;
+    this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
   }
 
   private void setupRepositoryRoot(Path repoRoot) throws RepositoryFunctionException {
@@ -154,9 +164,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
+    ImmutableSet<PathFragment> managedDirectories =
+        managedDirectoriesKnowledge.getManagedDirectories(repositoryName);
     DigestWriter digestWriter =
         new DigestWriter(
-            directories, repositoryName, rule, Preconditions.checkNotNull(ruleSpecificData));
+            directories,
+            repositoryName,
+            rule,
+            Preconditions.checkNotNull(ruleSpecificData),
+            managedDirectories);
 
     // Local repositories are fetched regardless of the marker file because the operation is
     // generally fast and they do not depend on non-local data, so it does not make much sense to
@@ -179,7 +195,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           if (env.valuesMissing()) {
             return null;
           }
-          return RepositoryDirectoryValue.builder().setPath(repoRoot).setDigest(markerHash).build();
+          return RepositoryDirectoryValue.builder()
+              .setPath(repoRoot)
+              .setDigest(markerHash)
+              .setManagedDirectories(managedDirectories)
+              .build();
         }
       }
     }
@@ -197,7 +217,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // restart thus calling the possibly very slow (networking, decompression...) fetch()
       // operation again. So we write the marker file here immediately.
       byte[] digest = digestWriter.writeMarkerFile();
-      return builder.setDigest(digest).build();
+      return builder.setDigest(digest).setManagedDirectories(managedDirectories).build();
     }
 
     if (!repoRoot.exists()) {
@@ -223,7 +243,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                     + "run the build without the '--nofetch' command line option.",
                 rule.getName())));
 
-    return RepositoryDirectoryValue.builder().setPath(repoRoot).setFetchingDelayed().build();
+    return RepositoryDirectoryValue.builder()
+        .setPath(repoRoot)
+        .setFetchingDelayed()
+        .setManagedDirectories(managedDirectories)
+        .build();
   }
 
   private RepositoryFunction getHandler(Rule rule) {
@@ -337,6 +361,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private static class DigestWriter {
+    private static final String MANAGED_DIRECTORIES_MARKER = "$MANAGED";
     private final Path markerPath;
     private final Rule rule;
     private final Map<String, String> markerData;
@@ -346,11 +371,19 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         BlazeDirectories directories,
         RepositoryName repositoryName,
         Rule rule,
-        byte[] ruleSpecificData) {
+        byte[] ruleSpecificData,
+        ImmutableSet<PathFragment> managedDirectories) {
       ruleKey = computeRuleKey(rule, ruleSpecificData);
       markerPath = getMarkerPath(directories, repositoryName.strippedName());
       this.rule = rule;
       markerData = Maps.newHashMap();
+
+      List<PathFragment> directoriesList = Ordering.natural().sortedCopy(managedDirectories);
+      String directoriesString =
+          directoriesList.stream()
+              .map(PathFragment::getPathString)
+              .collect(Collectors.joining(" "));
+      markerData.put(MANAGED_DIRECTORIES_MARKER, directoriesString);
     }
 
     byte[] writeMarkerFile() throws RepositoryFunctionException {
@@ -396,7 +429,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         content = FileSystemUtils.readContent(markerPath, StandardCharsets.UTF_8);
         String markerRuleKey = readMarkerFile(content, markerData);
         boolean verified = false;
-        if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
+        if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)
+            && Objects.equals(
+                markerData.get(MANAGED_DIRECTORIES_MARKER),
+                this.markerData.get(MANAGED_DIRECTORIES_MARKER))) {
           verified = handler.verifyMarkerData(rule, markerData, env);
           if (env.valuesMissing()) {
             return null;

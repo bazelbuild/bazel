@@ -266,11 +266,9 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     return (NestedSet<T>) set;
   }
 
-  /**
-   * Returns the contents of the set as a {@link Collection}.
-   */
-  public Collection<Object> toCollection() {
-    return ImmutableList.copyOf(set.toCollection());
+  /** Returns the contents of the set as a {@link Collection}. */
+  public Collection<?> toCollection() {
+    return set.toList();
   }
 
   /**

@@ -18,10 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
@@ -92,6 +92,35 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "        '//test/...',",
         "    ],",
         ")");
+  }
+
+  @Test
+  public void testBadReturnTypeFromTransition() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return 'cpu=k8'",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:test_arg'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("Transition function must return a dictionary or list of dictionaries.");
   }
 
   @Test
@@ -223,10 +252,10 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
-        "  return {",
-        "      't0': {'//command_line_option:test_arg': ['split_one']},",
-        "      't1': {'//command_line_option:test_arg': ['split_two']},",
-        "  }",
+        "  return [",
+        "      {'//command_line_option:test_arg': ['split_one']},",
+        "      {'//command_line_option:test_arg': ['split_two']},",
+        "  ]",
         "my_transition = transition(implementation = _impl, inputs = [],",
         "  outputs = ['//command_line_option:test_arg'])");
     scratch.file(
@@ -469,7 +498,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
 
     reporter.removeHandler(failFastHandler);
-    getConfiguration(getConfiguredTarget("//test"));
+    getConfiguredTarget("//test");
     assertContainsEvent(
         "expected value of type 'string' for " + "//test:cute-animal-fact, but got 24 (int)");
   }
@@ -490,10 +519,30 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
     reporter.removeHandler(failFastHandler);
-    getConfiguration(getConfiguredTarget("//test"));
+    getConfiguredTarget("//test");
     assertContainsEvent(
         "no such target '//test:i-am-not-real': target "
             + "'i-am-not-real' not declared in package 'test'");
+  }
+
+  @Test
+  public void testTransitionOnBuildSetting_noSuchPackage() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//i-am-not-real': 'imaginary-friend'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//i-am-not-real']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("no such package 'i-am-not-real': Unable to find build setting package");
   }
 
   @Test
@@ -878,5 +927,40 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(TestOptions.class).testArguments)
         .containsExactly("post-transition");
+  }
+
+  /**
+   * Regression test to ensure that an empty dict is not interpreted as a dict of dicts and
+   * generates the proper error message.
+   */
+  @Test
+  public void testEmptyReturnDict() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:test_arg'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "transition outputs [//command_line_option:test_arg] were "
+            + "not defined by transition function");
   }
 }

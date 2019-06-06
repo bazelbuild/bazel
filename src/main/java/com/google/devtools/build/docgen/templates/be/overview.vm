@@ -1,17 +1,10 @@
-#if (!$singlePage)
 ---
 layout: documentation
 title: Build Encyclopedia
 ---
-#end
-#if (!$singlePage)
-#parse("com/google/devtools/build/docgen/templates/be/header.vm")
-#end
 
 <h1>Bazel BUILD Encyclopedia of Functions</h1>
-<h2>Contents</h2>
-
-<h3>Concepts and terminology</h3>
+<h2>Concepts and terminology</h2>
 
 <ul>
   <li>
@@ -35,7 +28,7 @@ title: Build Encyclopedia
   </li>
 </ul>
 
-<h3>Functions</h3>
+<h2>Functions</h2>
 
 <ul class="be-toc">
   <li><a href="$expander.expandRef("package")">package</a></li>
@@ -48,13 +41,13 @@ title: Build Encyclopedia
   <li><a href="$expander.expandRef("workspace")">workspace</a></li>
 </ul>
 
-<h3>Rules</h3>
+<h2>Rules</h2>
 
 Native rules ship with the Bazel binary and do not require a <code>load</code> statement.
 Native rules are available globally in BUILD files. In .bzl files, you can find them in
 the <code>native</code> module.
 
-<h4>Language-specific native rules</h4>
+<h3>Language-specific native rules</h3>
 
 #macro(summaryLink $page $heading)
   #if ($singlePage)#${heading}#else${page}.html#${heading}#end
@@ -66,46 +59,15 @@ the <code>native</code> module.
     #if($ruleFamily.size() > 0)
       <tr>
         <td class="lang">${ruleFamily.name}</td>
+      #set( $ruleTypes = [$ruleFamily.binaryRules, $ruleFamily.libraryRules, $ruleFamily.testRules, $ruleFamily.otherRules1, $ruleFamily.otherRules2] )
+      #foreach($ruleType in $ruleTypes)
         <td>
-      #foreach($ruleDoc in $ruleFamily.binaryRules)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
+        #foreach($ruleDoc in $ruleType)
+          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>${ruleDoc.ruleName}</a>
           <br />
-      #end
+        #end
         </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.libraryRules)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
       #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.testRules)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.otherRules1)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.otherRules2)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
       </tr>
     #end
   #end
@@ -127,7 +89,7 @@ the <code>native</code> module.
 #summaryTable($langSpecificRuleFamilies)
 
 </table>
-<h4>Native rules that do not apply to a specific programming language</h4>
+<h3>Native rules that do not apply to a specific programming language</h3>
 
 <table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
   <colgroup span="6" width="20%"></colgroup>
@@ -136,7 +98,7 @@ the <code>native</code> module.
 </table>
 
 
-<h4>Embedded non-native rules</h4>
+<h3>Embedded non-native rules</h3>
 
 Bazel also embeds additional rules written in Starlark. Those can be loaded
 from the <tt>@bazel_tools</tt> built-in external repository.
@@ -147,7 +109,7 @@ from the <tt>@bazel_tools</tt> built-in external repository.
 </ul>
 
 
-<h4>Additional rules</h4>
+<h3>Additional rules</h3>
 
 <p>Non-native rules extend Bazel's capabilities. Rules for many popular languages
 have been created and are being maintained outside of Bazel. Contact the respective
@@ -186,6 +148,3 @@ rule set's maintainers regarding issues and feature requests.</p>
 contains additional functions that can be useful when writing new rules
 and new macros.</p>
 
-#if (!$singlePage)
-#parse("com/google/devtools/build/docgen/templates/be/footer.vm")
-#end

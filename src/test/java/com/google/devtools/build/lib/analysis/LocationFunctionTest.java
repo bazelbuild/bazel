@@ -15,12 +15,13 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -59,57 +60,49 @@ public class LocationFunctionTest {
   @Test
   public void noSuchLabel() throws Exception {
     LocationFunction func = new LocationFunctionBuilder("//foo", false).build();
-    try {
-      func.apply("//bar", ImmutableMap.of());
-      fail();
-    } catch (IllegalStateException expected) {
-      assertThat(expected).hasMessageThat()
-          .isEqualTo(
-              "label '//bar:bar' in $(location) expression is not a declared prerequisite of this "
-              + "rule");
-    }
+    IllegalStateException expected =
+        assertThrows(IllegalStateException.class, () -> func.apply("//bar", ImmutableMap.of()));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            "label '//bar:bar' in $(location) expression is not a declared prerequisite of this "
+                + "rule");
   }
 
   @Test
   public void emptyList() throws Exception {
     LocationFunction func = new LocationFunctionBuilder("//foo", false).add("//foo").build();
-    try {
-      func.apply("//foo", ImmutableMap.of());
-      fail();
-    } catch (IllegalStateException expected) {
-      assertThat(expected).hasMessageThat()
-          .isEqualTo("label '//foo:foo' in $(location) expression expands to no files");
-    }
+    IllegalStateException expected =
+        assertThrows(IllegalStateException.class, () -> func.apply("//foo", ImmutableMap.of()));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo("label '//foo:foo' in $(location) expression expands to no files");
   }
 
   @Test
   public void tooMany() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/1", "/exec/2").build();
-    try {
-      func.apply("//foo", ImmutableMap.of());
-      fail();
-    } catch (IllegalStateException expected) {
-      assertThat(expected).hasMessageThat()
-          .isEqualTo(
-              "label '//foo:foo' in $(location) expression expands to more than one file, "
-              + "please use $(locations //foo:foo) instead.  Files (at most 5 shown) are: "
-              + "[./1, ./2]");
-    }
+    IllegalStateException expected =
+        assertThrows(IllegalStateException.class, () -> func.apply("//foo", ImmutableMap.of()));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            "label '//foo:foo' in $(location) expression expands to more than one file, "
+                + "please use $(locations //foo:foo) instead.  Files (at most 5 shown) are: "
+                + "[./1, ./2]");
   }
 
   @Test
   public void noSuchLabelMultiple() throws Exception {
     LocationFunction func = new LocationFunctionBuilder("//foo", true).build();
-    try {
-      func.apply("//bar", ImmutableMap.of());
-      fail();
-    } catch (IllegalStateException expected) {
-      assertThat(expected).hasMessageThat()
-          .isEqualTo(
-              "label '//bar:bar' in $(locations) expression is not a declared prerequisite of this "
-              + "rule");
-    }
+    IllegalStateException expected =
+        assertThrows(IllegalStateException.class, () -> func.apply("//bar", ImmutableMap.of()));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            "label '//bar:bar' in $(locations) expression is not a declared prerequisite of this "
+                + "rule");
   }
 
   @Test
@@ -198,12 +191,12 @@ final class LocationFunctionBuilder {
   private static Artifact makeArtifact(String path) {
     FileSystem fs = new InMemoryFileSystem();
     if (path.startsWith("/exec/out")) {
-      return new Artifact(
-          fs.getPath(path),
-          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), fs.getPath("/exec/out")));
+      return ActionsTestUtil.createArtifact(
+          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), fs.getPath("/exec/out")),
+          fs.getPath(path));
     } else {
-      return new Artifact(
-          fs.getPath(path), ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/exec"))));
+      return ActionsTestUtil.createArtifact(
+          ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/exec"))), fs.getPath(path));
     }
   }
 }

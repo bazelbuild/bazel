@@ -55,6 +55,7 @@ def _from_sysroot(cc_toolchain):
 
 def _from_features(ctx, cc_toolchain, action_name):
     feature_configuration = cc_common.configure_features(
+        ctx = ctx,
         cc_toolchain = cc_toolchain,
         requested_features = ctx.features,
         unsupported_features = ctx.disabled_features,

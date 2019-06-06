@@ -24,6 +24,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.io.CharStreams;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -884,6 +887,72 @@ class IncludeParser {
       inclusions.addAll(hints.getHintedInclusions(file));
     }
     return ImmutableList.copyOf(inclusions);
+  }
+
+  /**
+   * Extracts all inclusions from a given source file.
+   *
+   * @param file the file to parse & extract inclusions from
+   * @param actionExecutionContext Services in the scope of the action, like the stream to which
+   *     scanning messages are printed
+   * @return a new set of inclusions, normalized to the cache
+   */
+  ListenableFuture<Collection<Inclusion>> extractInclusionsAsync(
+      Artifact file,
+      ActionExecutionMetadata actionExecutionMetadata,
+      ActionExecutionContext actionExecutionContext,
+      Artifact grepIncludes,
+      @Nullable SpawnIncludeScanner remoteIncludeScanner,
+      boolean isOutputFile)
+      throws IOException {
+    ListenableFuture<Collection<Inclusion>> inclusions;
+    if (remoteIncludeScanner != null
+        && remoteIncludeScanner.shouldParseRemotely(file, actionExecutionContext)) {
+      inclusions =
+          remoteIncludeScanner.extractInclusionsAsync(
+              file,
+              actionExecutionMetadata,
+              actionExecutionContext,
+              grepIncludes,
+              getFileType(),
+              isOutputFile);
+    } else {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.SCANNER, file.getExecPathString())) {
+        inclusions =
+            Futures.immediateFuture(
+                extractInclusions(
+                    FileSystemUtils.readContent(actionExecutionContext.getInputPath(file))));
+      } catch (IOException e) {
+        if (remoteIncludeScanner != null) {
+          logger.log(
+              Level.WARNING,
+              "Falling back on remote parsing of " + actionExecutionContext.getInputPath(file),
+              e);
+          inclusions =
+              remoteIncludeScanner.extractInclusionsAsync(
+                  file,
+                  actionExecutionMetadata,
+                  actionExecutionContext,
+                  grepIncludes,
+                  getFileType(),
+                  isOutputFile);
+        } else {
+          throw e;
+        }
+      }
+    }
+    if (hints != null) {
+      return Futures.transform(
+          inclusions,
+          (c) -> {
+            // Ugly, but saves doing another copy.
+            c.addAll(hints.getHintedInclusions(file));
+            return c;
+          },
+          MoreExecutors.directExecutor());
+    }
+    return inclusions;
   }
 
   /**

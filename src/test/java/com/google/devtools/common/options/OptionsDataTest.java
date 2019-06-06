@@ -15,7 +15,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.Correspondence;
@@ -75,15 +75,15 @@ public class OptionsDataTest {
 
   @Test
   public void testNameConflictInSingleClass() {
-    try {
-      construct(ExampleNameConflictOptions.class);
-      fail("foo should conflict with the previous flag foo");
-    } catch (ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Duplicate option name, due to option name collision: --foo");
-    }
+    ConstructionException e =
+        assertThrows(
+            "foo should conflict with the previous flag foo",
+            ConstructionException.class,
+            () -> construct(ExampleNameConflictOptions.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Duplicate option name, due to option name collision: --foo");
   }
 
   /** Dummy options class. */
@@ -110,15 +110,15 @@ public class OptionsDataTest {
 
   @Test
   public void testNameConflictInTwoClasses() {
-    try {
-      construct(ExampleIntegerFooOptions.class, ExampleBooleanFooOptions.class);
-      fail("foo should conflict with the previous flag foo");
-    } catch (ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Duplicate option name, due to option name collision: --foo");
-    }
+    ConstructionException e =
+        assertThrows(
+            "foo should conflict with the previous flag foo",
+            ConstructionException.class,
+            () -> construct(ExampleIntegerFooOptions.class, ExampleBooleanFooOptions.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Duplicate option name, due to option name collision: --foo");
   }
 
   /** Dummy options class. */
@@ -136,30 +136,29 @@ public class OptionsDataTest {
   public void testBooleanPrefixNameConflict() {
     // Try the same test in both orders, the parser should fail if the overlapping flag is defined
     // before or after the boolean flag introduces the alias.
-    try {
-      construct(ExampleBooleanFooOptions.class, ExamplePrefixedFooOptions.class);
-      fail("nofoo should conflict with the previous flag foo, "
-         + "since foo, as a boolean flag, can be written as --nofoo");
-    } catch (ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "Duplicate option name, due to option --nofoo, it "
-                  + "conflicts with a negating alias for boolean flag --foo");
-    }
+    ConstructionException e =
+        assertThrows(
+            "nofoo should conflict with the previous flag foo, "
+                + "since foo, as a boolean flag, can be written as --nofoo",
+            ConstructionException.class,
+            () -> construct(ExampleBooleanFooOptions.class, ExamplePrefixedFooOptions.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Duplicate option name, due to option --nofoo, it "
+                + "conflicts with a negating alias for boolean flag --foo");
 
-    try {
-      construct(ExamplePrefixedFooOptions.class, ExampleBooleanFooOptions.class);
-      fail(
-          "option nofoo should conflict with the previous flag foo, "
-              + "since foo, as a boolean flag, can be written as --nofoo");
-    } catch (ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Duplicate option name, due to boolean option alias: --nofoo");
-    }
+    e =
+        assertThrows(
+            "option nofoo should conflict with the previous flag foo, "
+                + "since foo, as a boolean flag, can be written as --nofoo",
+            ConstructionException.class,
+            () -> construct(ExamplePrefixedFooOptions.class, ExampleBooleanFooOptions.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Duplicate option name, due to boolean option alias: --nofoo");
   }
 
   /** Dummy options class. */
@@ -178,31 +177,29 @@ public class OptionsDataTest {
   public void testBooleanAliasWithOldNameConflict() {
     // Try the same test in both orders, the parser should fail if the overlapping flag is defined
     // before or after the boolean flag introduces the alias.
-    try {
-      construct(ExamplePrefixedFooOptions.class, ExampleBarWasNamedFooOption.class);
-      fail(
-          "bar has old name foo, which is a boolean flag and can be named as nofoo, so it "
-              + "should conflict with the previous option --nofoo");
-    } catch (ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Duplicate option name, due to boolean option alias: --nofoo");
-    }
+    ConstructionException e =
+        assertThrows(
+            "bar has old name foo, which is a boolean flag and can be named as nofoo, so it "
+                + "should conflict with the previous option --nofoo",
+            ConstructionException.class,
+            () -> construct(ExamplePrefixedFooOptions.class, ExampleBarWasNamedFooOption.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Duplicate option name, due to boolean option alias: --nofoo");
 
-    try {
-      construct(ExampleBarWasNamedFooOption.class, ExamplePrefixedFooOptions.class);
-      fail(
-          "nofoo should conflict with the previous flag bar that has old name foo, "
-              + "since foo, as a boolean flag, can be written as --nofoo");
-    } catch (ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "Duplicate option name, due to option --nofoo, it conflicts with a negating "
-                  + "alias for boolean flag --foo");
-    }
+    e =
+        assertThrows(
+            "nofoo should conflict with the previous flag bar that has old name foo, "
+                + "since foo, as a boolean flag, can be written as --nofoo",
+            ConstructionException.class,
+            () -> construct(ExampleBarWasNamedFooOption.class, ExamplePrefixedFooOptions.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Duplicate option name, due to option --nofoo, it conflicts with a negating "
+                + "alias for boolean flag --foo");
   }
 
   /** Dummy options class. */
@@ -221,31 +218,29 @@ public class OptionsDataTest {
   public void testBooleanWithOldNameAsAliasOfBooleanConflict() {
     // Try the same test in both orders, the parser should fail if the overlapping flag is defined
     // before or after the boolean flag introduces the alias.
-    try {
-      construct(ExampleBooleanFooOptions.class, ExampleBarWasNamedNoFooOption.class);
-      fail(
-          "nofoo, the old name for bar, should conflict with the previous flag foo, "
-              + "since foo, as a boolean flag, can be written as --nofoo");
-    } catch (ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "Duplicate option name, due to old option name --nofoo, it conflicts with a "
-                  + "negating alias for boolean flag --foo");
-    }
+    ConstructionException e =
+        assertThrows(
+            "nofoo, the old name for bar, should conflict with the previous flag foo, "
+                + "since foo, as a boolean flag, can be written as --nofoo",
+            ConstructionException.class,
+            () -> construct(ExampleBooleanFooOptions.class, ExampleBarWasNamedNoFooOption.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Duplicate option name, due to old option name --nofoo, it conflicts with a "
+                + "negating alias for boolean flag --foo");
 
-    try {
-      construct(ExampleBarWasNamedNoFooOption.class, ExampleBooleanFooOptions.class);
-      fail(
-          "foo, as a boolean flag, can be written as --nofoo and should conflict with the "
-              + "previous option bar that has old name nofoo");
-    } catch (ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Duplicate option name, due to boolean option alias: --nofoo");
-    }
+    e =
+        assertThrows(
+            "foo, as a boolean flag, can be written as --nofoo and should conflict with the "
+                + "previous option bar that has old name nofoo",
+            ConstructionException.class,
+            () -> construct(ExampleBarWasNamedNoFooOption.class, ExampleBooleanFooOptions.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Duplicate option name, due to boolean option alias: --nofoo");
   }
 
   /** Dummy options class. */
@@ -264,15 +259,15 @@ public class OptionsDataTest {
   public void testSelfConflictBooleanAliases() {
     // Try the same test in both orders, the parser should fail if the overlapping flag is defined
     // before or after the boolean flag introduces the alias.
-    try {
-      construct(ExampleFooBooleanConflictsWithOwnOldName.class);
-      fail("foo, the old name for boolean option nofoo, should conflict with its own new name.");
-    } catch (ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Duplicate option name, due to boolean option alias: --nofoo");
-    }
+    ConstructionException e =
+        assertThrows(
+            "foo, the old name for boolean option nofoo, should conflict with its own new name.",
+            ConstructionException.class,
+            () -> construct(ExampleFooBooleanConflictsWithOwnOldName.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Duplicate option name, due to boolean option alias: --nofoo");
   }
 
   /** Dummy options class. */
@@ -297,17 +292,17 @@ public class OptionsDataTest {
 
   @Test
   public void testOldNameToCanonicalNameConflict() {
-    try {
-      construct(OldNameToCanonicalNameConflictExample.class);
-      fail("old_name should conflict with the flag already named old_name");
-    } catch (ConstructionException expected) {
-      assertThat(expected).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "Duplicate option name, due to option name collision with another option's old name:"
-                  + " --old_name");
-    }
+    ConstructionException expected =
+        assertThrows(
+            "old_name should conflict with the flag already named old_name",
+            ConstructionException.class,
+            () -> construct(OldNameToCanonicalNameConflictExample.class));
+    assertThat(expected).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "Duplicate option name, due to option name collision with another option's old name:"
+                + " --old_name");
   }
 
   /** Dummy options class. */
@@ -333,17 +328,17 @@ public class OptionsDataTest {
 
   @Test
   public void testOldNameToOldNameConflict() {
-    try {
-      construct(OldNameConflictExample.class);
-      fail("old_name should conflict with the flag already named old_name");
-    } catch (ConstructionException expected) {
-      assertThat(expected).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "Duplicate option name, due to old option name collision with another "
-                  + "old option name: --old_name");
-    }
+    ConstructionException expected =
+        assertThrows(
+            "old_name should conflict with the flag already named old_name",
+            ConstructionException.class,
+            () -> construct(OldNameConflictExample.class));
+    assertThat(expected).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "Duplicate option name, due to old option name collision with another "
+                + "old option name: --old_name");
   }
 
   /** Dummy options class. */
@@ -493,19 +488,6 @@ public class OptionsDataTest {
         .inOrder();
   }
 
-  private static class ReferenceEqualityCorrespondence extends Correspondence<Object, Object> {
-
-    @Override
-    public boolean compare(Object obj1, Object obj2) {
-      return obj1 == obj2;
-    }
-
-    @Override
-    public String toString() {
-      return "is the same object as";
-    }
-  }
-
   @Test
   public void optionsDefinitionsAreSharedBetweenOptionsBases() throws Exception {
     Class<FieldNamesDifferOptions> class1 = FieldNamesDifferOptions.class;
@@ -528,10 +510,11 @@ public class OptionsDataTest {
     data.getAllOptionDefinitions()
         .forEach(entry -> optionDefinitionsFromData.add(entry.getValue()));
 
-    ReferenceEqualityCorrespondence referenceEquality = new ReferenceEqualityCorrespondence();
+    Correspondence<Object, Object> referenceEquality =
+        Correspondence.from((obj1, obj2) -> obj1 == obj2, "is the same object as");
     assertThat(optionDefinitionsFromData)
         .comparingElementsUsing(referenceEquality)
-        .containsAllIn(optionDefinitions);
+        .containsAtLeastElementsIn(optionDefinitions);
 
     // Construct options data for each class separately, and check again.
     IsolatedOptionsData data1 = construct(class1);
@@ -551,7 +534,7 @@ public class OptionsDataTest {
 
     assertThat(optionDefinitionsFromGroupedData)
         .comparingElementsUsing(referenceEquality)
-        .containsAllIn(optionDefinitions);
+        .containsAtLeastElementsIn(optionDefinitions);
   }
 
   /** Dummy options class. */

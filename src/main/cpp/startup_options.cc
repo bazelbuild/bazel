@@ -482,7 +482,7 @@ string StartupOptions::GetSystemJavabase() const {
   return blaze::GetSystemJavabase();
 }
 
-string StartupOptions::GetEmbeddedJavabase() {
+string StartupOptions::GetEmbeddedJavabase() const {
   string bundled_jre_path = blaze_util::JoinPath(
       install_base, "_embedded_binaries/embedded_tools/jdk");
   if (blaze_util::CanExecuteFile(blaze_util::JoinPath(

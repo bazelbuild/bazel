@@ -33,9 +33,16 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
  */
 public class AndroidToolsDefaultsJar implements RuleConfiguredTargetFactory {
 
+  private final AndroidSemantics androidSemantics;
+
+  protected AndroidToolsDefaultsJar(AndroidSemantics androidSemantics) {
+    this.androidSemantics = androidSemantics;
+  }
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    androidSemantics.checkForMigrationTag(ruleContext);
     Artifact androidJar = AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar();
 
     return new RuleConfiguredTargetBuilder(ruleContext)

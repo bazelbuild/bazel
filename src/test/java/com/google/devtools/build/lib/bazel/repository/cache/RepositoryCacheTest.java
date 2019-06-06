@@ -69,11 +69,9 @@ public class RepositoryCacheTest {
     assertThat(repositoryCache.exists(fakeSha256, KeyType.SHA256)).isFalse();
   }
 
-  /**
-   * Test that the put method correctly stores the downloaded file into the cache.
-   */
+  /** Test that the put method correctly stores the downloaded file into the cache. */
   @Test
-  public void testPutCacheValue() throws IOException {
+  public void testPutCacheValue() throws Exception {
     repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256);
 
     Path cacheEntry = KeyType.SHA256.getCachePath(contentAddressableCachePath).getChild(downloadedFileSha256);
@@ -87,7 +85,7 @@ public class RepositoryCacheTest {
    * Test that the put mehtod without cache key correctly stores the downloaded file into the cache.
    */
   @Test
-  public void testPutCacheValueWithoutHash() throws IOException {
+  public void testPutCacheValueWithoutHash() throws Exception {
     String cacheKey = repositoryCache.put(downloadedFile, KeyType.SHA256);
     assertThat(cacheKey).isEqualTo(downloadedFileSha256);
 
@@ -100,11 +98,11 @@ public class RepositoryCacheTest {
   }
 
   /**
-   * Test that the put method is idempotent, i.e. two successive put calls
-   * should not affect the final state in the cache.
+   * Test that the put method is idempotent, i.e. two successive put calls should not affect the
+   * final state in the cache.
    */
   @Test
-  public void testPutCacheValueIdempotent() throws IOException {
+  public void testPutCacheValueIdempotent() throws Exception {
     repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256);
     repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256);
 
@@ -115,11 +113,9 @@ public class RepositoryCacheTest {
         .isEqualTo(FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()));
   }
 
-  /**
-   * Test that the get method correctly retrieves the cached file from the cache.
-   */
+  /** Test that the get method correctly retrieves the cached file from the cache. */
   @Test
-  public void testGetCacheValue() throws IOException {
+  public void testGetCacheValue() throws Exception {
     // Inject file into cache
     repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256);
 
@@ -135,11 +131,9 @@ public class RepositoryCacheTest {
     assertThat((Object) actualTargetPath).isEqualTo(targetPath);
   }
 
-  /**
-   * Test that the get method retrieves a null if the value is not cached.
-   */
+  /** Test that the get method retrieves a null if the value is not cached. */
   @Test
-  public void testGetNullCacheValue() throws IOException {
+  public void testGetNullCacheValue() throws Exception {
     Path targetDirectory = scratch.dir("/external");
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
     Path actualTargetPath = repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
@@ -148,7 +142,7 @@ public class RepositoryCacheTest {
   }
 
   @Test
-  public void testInvalidSha256Throws() throws IOException {
+  public void testInvalidSha256Throws() throws Exception {
     String invalidSha = "foo";
     thrown.expect(IOException.class);
     thrown.expectMessage("Invalid key \"foo\" of type SHA-256");
@@ -156,7 +150,7 @@ public class RepositoryCacheTest {
   }
 
   @Test
-  public void testPoisonedCache() throws IOException {
+  public void testPoisonedCache() throws Exception {
     Path poisonedEntry = KeyType.SHA256
         .getCachePath(contentAddressableCachePath).getChild(downloadedFileSha256);
     Path poisonedValue = poisonedEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
@@ -173,18 +167,18 @@ public class RepositoryCacheTest {
   }
 
   @Test
-  public void testGetChecksum() throws IOException {
+  public void testGetChecksum() throws Exception {
     String actualChecksum = RepositoryCache.getChecksum(KeyType.SHA256, downloadedFile);
     assertThat(actualChecksum).isEqualTo(downloadedFileSha256);
   }
 
   @Test
-  public void testAssertFileChecksumPass() throws IOException {
+  public void testAssertFileChecksumPass() throws Exception {
     RepositoryCache.assertFileChecksum(downloadedFileSha256, downloadedFile, KeyType.SHA256);
   }
 
   @Test
-  public void testAssertFileChecksumFail() throws IOException {
+  public void testAssertFileChecksumFail() throws Exception {
     thrown.expect(IOException.class);
     thrown.expectMessage("does not match expected");
     RepositoryCache.assertFileChecksum(
@@ -193,4 +187,21 @@ public class RepositoryCacheTest {
         KeyType.SHA256);
   }
 
+  @Test
+  public void testCanonicalId() throws Exception {
+    repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256, "fooid");
+    Path targetDirectory = scratch.dir("/external");
+    Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
+
+    Path lookupWithSameId =
+        repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256, "fooid");
+    assertThat(lookupWithSameId).isEqualTo(targetPath);
+
+    Path lookupOtherId =
+        repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256, "barid");
+    assertThat(lookupOtherId).isNull();
+
+    Path lookupNoId = repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
+    assertThat(lookupNoId).isEqualTo(targetPath);
+  }
 }

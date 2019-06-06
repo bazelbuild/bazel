@@ -15,8 +15,8 @@
 package com.google.devtools.build.singlejar;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -591,13 +591,19 @@ public class SingleJarTest {
     MockSimpleFileSystem mockFs = new MockSimpleFileSystem("output.jar");
     mockFs.addFile("a/b/c", "Test");
     SingleJar singleJar = new SingleJar(mockFs);
-    try {
-      singleJar.run(ImmutableList.of("--output", "output.jar", "--exclude_build_data",
-          "--resources", "a/b/c", "a/b/c"));
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().contains("already contains a file named 'a/b/c'.");
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                singleJar.run(
+                    ImmutableList.of(
+                        "--output",
+                        "output.jar",
+                        "--exclude_build_data",
+                        "--resources",
+                        "a/b/c",
+                        "a/b/c")));
+    assertThat(e).hasMessageThat().contains("already contains a file named 'a/b/c'.");
   }
 
   @Test

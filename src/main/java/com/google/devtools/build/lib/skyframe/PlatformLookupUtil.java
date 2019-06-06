@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
+import static java.util.stream.Collectors.joining;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -97,10 +98,18 @@ public class PlatformLookupUtil {
               .anyMatch(not(equalTo(PlatformConfiguration.class)))) {
         // Only the PlatformConfiguration fragment may be present on a platform rule in retroactive
         // trimming mode.
+        String extraFragmentDescription =
+            configurationKey.getFragments().stream()
+                .filter(not(equalTo(PlatformConfiguration.class)))
+                .map(cl -> cl.getSimpleName())
+                .collect(joining(","));
         throw new InvalidPlatformException(
             configuredTarget.getLabel(),
             "has fragments other than PlatformConfiguration, "
-                + "which is forbidden in retroactive trimming mode");
+                + "which is forbidden in retroactive trimming mode: "
+                + "extra fragments are ["
+                + extraFragmentDescription
+                + "]");
       }
       PlatformInfo platformInfo = PlatformProviderUtils.platform(configuredTarget);
       if (platformInfo == null) {

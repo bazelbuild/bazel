@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -105,7 +106,7 @@ public class RemoteActionInputFetcherTest {
         .isEqualTo("fizz buzz");
     assertThat(a2.getPath().isExecutable()).isTrue();
     assertThat(actionInputFetcher.downloadedFiles()).hasSize(2);
-    assertThat(actionInputFetcher.downloadedFiles()).containsAllOf(a1.getPath(), a2.getPath());
+    assertThat(actionInputFetcher.downloadedFiles()).containsAtLeast(a1.getPath(), a2.getPath());
     assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
   }
 
@@ -145,12 +146,9 @@ public class RemoteActionInputFetcherTest {
         new RemoteActionInputFetcher(remoteCache, execRoot, Context.current());
 
     // act
-    try {
-      actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider);
-      fail("expected IOException");
-    } catch (IOException e) {
-      // Intentionally left empty
-    }
+    assertThrows(
+        IOException.class,
+        () -> actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider));
 
     // assert
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
@@ -164,7 +162,7 @@ public class RemoteActionInputFetcherTest {
     // arrange
     Path p = execRoot.getRelative(artifactRoot.getExecPath()).getRelative("file1");
     FileSystemUtils.writeContent(p, StandardCharsets.UTF_8, "hello world");
-    Artifact a = new Artifact(p, artifactRoot);
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
     FileArtifactValue f = FileArtifactValue.create(a);
     MetadataProvider metadataProvider = new StaticMetadataProvider(ImmutableMap.of(a, f));
     AbstractRemoteActionCache remoteCache =
@@ -207,7 +205,7 @@ public class RemoteActionInputFetcherTest {
       Map<ActionInput, FileArtifactValue> metadata,
       Map<Digest, ByteString> cacheEntries) {
     Path p = artifactRoot.getRoot().getRelative(pathFragment);
-    Artifact a = new Artifact(p, artifactRoot);
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
     byte[] b = contents.getBytes(StandardCharsets.UTF_8);
     HashCode h = HASH_FUNCTION.getHashFunction().hashBytes(b);
     FileArtifactValue f =

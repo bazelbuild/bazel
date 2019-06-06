@@ -20,12 +20,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.InetAddresses;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.CommandDispatcher;
+import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandManager.RunningCommand;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
@@ -58,16 +58,10 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Exchanger;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 /**
@@ -100,7 +94,7 @@ import java.util.logging.Logger;
  * to cancel it. Cancellation is done by the client sending the server a {@code cancel()} RPC call
  * which results in the main thread of the command being interrupted.
  */
-public class GrpcServerImpl implements RPCServer {
+public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase implements RPCServer {
   private static final Logger logger = Logger.getLogger(GrpcServerImpl.class.getName());
   private final boolean shutdownOnLowSysMem;
 
@@ -112,7 +106,7 @@ public class GrpcServerImpl implements RPCServer {
   public static class Factory implements RPCServer.Factory {
     @Override
     public RPCServer create(
-        BlazeCommandDispatcher dispatcher,
+        CommandDispatcher dispatcher,
         Clock clock,
         int port,
         Path serverDirectory,
@@ -120,10 +114,13 @@ public class GrpcServerImpl implements RPCServer {
         boolean shutdownOnLowSysMem,
         boolean idleServerTasks)
         throws IOException {
+      SecureRandom random = new SecureRandom();
       return new GrpcServerImpl(
           dispatcher,
           clock,
           port,
+          generateCookie(random, 16),
+          generateCookie(random, 16),
           serverDirectory,
           maxIdleSeconds,
           shutdownOnLowSysMem,
@@ -137,209 +134,60 @@ public class GrpcServerImpl implements RPCServer {
     STDERR,
   }
 
-  /** Actions {@link GrpcSink} can do. */
-  private enum SinkThreadAction {
-    DISCONNECT,
-    FINISH,
-    READY,
-    SEND,
-  }
-
   /**
-   * Sent back and forth between threads wanting to write to the client stream and the stream
-   * handler thread.
-   */
-  @Immutable
-  private static final class SinkThreadItem {
-    private final boolean success;
-    private final RunResponse message;
-
-    private SinkThreadItem(boolean success, RunResponse message) {
-      this.success = success;
-      this.message = message;
-    }
-  }
-
-  /**
-   * A class that handles communicating through a gRPC interface for a streaming rpc call.
+   * A wrapper for {@link StreamObserver} that blocks on {@link #onNext} calls if the underlying
+   * observer is not ready.
    *
-   * <p>It can do four things:
-   * <li>Send a response message over the wire. If the channel is ready, it's sent immediately, if
-   *     it's not, blocks until it is. Note that there can always be only one thread in {@link
-   *     #offer(RunResponse)} because it's synchronized. This results in the associated streams
-   *     blocking if gRPC is not ready, which is how we implement pushback.
-   * <li>Be notified that gRPC is ready. If there is a pending message, it is then sent.
-   * <li>Be notified that the client disconnected. In this case, an {@link IOException} is reported
-   *     and the thread from which the stream was written to is interrupted so that the server
-   *     becomes free as soon as possible.
-   * <li>Processing can be terminated. It is reported whether the client disconnected before.
+   * <p>It does not react to the interrupt flag in order to allow Bazel to complete the current
+   * command while printing output as well as sending the final exit code to the client. However, it
+   * maintains the interrupt flag if it is already set.
    */
+  // TODO(ulfjack): Move FlowControl and its tests to top-level classes.
   @VisibleForTesting
-  static class GrpcSink {
-    private final LinkedBlockingQueue<SinkThreadAction> actionQueue;
-    private final Exchanger<SinkThreadItem> exchanger;
-    private final ServerCallStreamObserver<RunResponse> observer;
-    private final Future<?> future;
-    private final AtomicReference<Thread> commandThread = new AtomicReference<>();
-    private final AtomicBoolean disconnected = new AtomicBoolean(false);
-    private final AtomicLong receivedEventCount = new AtomicLong(0);
+  static class BlockingStreamObserver<T> {
+    private final ServerCallStreamObserver<T> observer;
 
-    @VisibleForTesting
-    GrpcSink(
-        final String rpcCommandName,
-        ServerCallStreamObserver<RunResponse> observer,
-        ExecutorService executor) {
-      // This queue is intentionally unbounded: we always act on it fairly quickly so filling up
-      // RAM is not a concern but we don't want to block in the gRPC cancel/onready handlers.
-      this.actionQueue = new LinkedBlockingQueue<>();
-      this.exchanger = new Exchanger<>();
+    BlockingStreamObserver(ServerCallStreamObserver<T> observer) {
       this.observer = observer;
-      this.observer.setOnCancelHandler(
-          () -> {
-            Thread commandThread = GrpcSink.this.commandThread.get();
-            if (commandThread != null) {
-              logger.info(
-                  String.format(
-                      "Interrupting thread %s due to the streaming %s call being cancelled "
-                          + "(likely client hang up or explicit gRPC-level cancellation)",
-                      commandThread.getName(), rpcCommandName));
-              commandThread.interrupt();
-            }
-
-            actionQueue.offer(SinkThreadAction.DISCONNECT);
-          });
-      this.observer.setOnReadyHandler(() -> actionQueue.offer(SinkThreadAction.READY));
-      this.future = executor.submit(GrpcSink.this::call);
+      this.observer.setOnReadyHandler(this::notifyWaiters);
+      this.observer.setOnCancelHandler(this::notifyWaiters);
     }
 
-    @VisibleForTesting
-    long getReceivedEventCount() {
-      return receivedEventCount.get();
+    private synchronized void notifyWaiters() {
+      // This class does not restrict the number of concurrent calls to onNext, so we call notifyAll
+      // here. In practice we'll usually only see one concurrent call; the ExperimentalEventHandler
+      // uses synchronization to prevent multiple concurrent calls, but let's not rely on that here.
+      notifyAll();
     }
 
-    @VisibleForTesting
-    void setCommandThread(Thread thread) {
-      Thread old = commandThread.getAndSet(thread);
-      if (old != null) {
-        throw new IllegalStateException(String.format("Command state set twice (thread %s ->%s)",
-            old.getName(), Thread.currentThread().getName()));
-      }
-    }
-
-    /**
-     * Sends an item to the client.
-     *
-     * @return true if the item was sent successfully, false if the connection to the client was
-     *     lost
-     */
-    @VisibleForTesting
-    synchronized boolean offer(RunResponse item) {
-      SinkThreadItem queueItem = new SinkThreadItem(false, item);
-      actionQueue.offer(SinkThreadAction.SEND);
-      return exchange(queueItem, false).success;
-    }
-
-    private boolean disconnected() {
-      return disconnected.get();
-    }
-
-    @VisibleForTesting
-    boolean finish() {
-      actionQueue.offer(SinkThreadAction.FINISH);
-      try {
-        Uninterruptibles.getUninterruptibly(future);
-      } catch (ExecutionException e) {
-        throw new IllegalStateException(e);
-      }
-
-      // Reset the interrupted bit so that it doesn't stay set for the next command that is handled
-      // by this thread
-      Thread.interrupted();
-      return disconnected();
-    }
-
-    private SinkThreadItem exchange(SinkThreadItem item, boolean swallowInterrupts) {
+    public synchronized void onNext(T response) {
       boolean interrupted = false;
-      SinkThreadItem result;
-      while (true) {
+      while (!observer.isReady() && !observer.isCancelled()) {
         try {
-          result = exchanger.exchange(item);
-          break;
+          wait();
         } catch (InterruptedException e) {
+          // We intentionally do not break or return here. The interrupt signal can be due the user
+          // pressing ctrl-c: it can take Bazel a while to shut down (e.g., it is not currently
+          // possible to interrupt persistent workers), and we must allow it to continue printing
+          // output until the current operation comes to a finish.
           interrupted = true;
         }
       }
-
-      if (interrupted && !swallowInterrupts) {
-        Thread.currentThread().interrupt();
-      }
-
-      return result;
-    }
-
-    private void sendPendingItem() {
-      SinkThreadItem item = exchange(new SinkThreadItem(true, null), true);
       try {
-        observer.onNext(item.message);
-      } catch (StatusRuntimeException e) {
-        // The RPC was cancelled e.g. by the client terminating unexpectedly. We'll eventually get
-        // notified about this and interrupt the command thread, but in the meantime, we can just
-        // ignore the error; the client is dead, so there isn't anyone to talk to so swallowing the
-        // output is fine.
-        logger.info(
-            String.format(
-                "Client cancelled command for streamer thread %s",
-                Thread.currentThread().getName()));
-      }
-    }
-
-    /** Main function of the streamer thread. */
-    private void call() {
-      boolean itemPending = false;
-
-      while (true) {
-        SinkThreadAction action;
-        action = Uninterruptibles.takeUninterruptibly(actionQueue);
-        receivedEventCount.incrementAndGet();
-        switch (action) {
-          case FINISH:
-            if (itemPending) {
-              exchange(new SinkThreadItem(false, null), true);
-              itemPending = false;
-            }
-
-            // Reset the interrupted bit so that it doesn't stay set for the next command that is
-            // handled by this thread
-            Thread.interrupted();
-            return;
-
-          case READY:
-            if (itemPending) {
-              sendPendingItem();
-              itemPending = false;
-            }
-            break;
-
-          case DISCONNECT:
-            logger.info(
-                "Client disconnected for stream thread " + Thread.currentThread().getName());
-            disconnected.set(true);
-            if (itemPending) {
-              exchange(new SinkThreadItem(false, null), true);
-              itemPending = false;
-            }
-            break;
-
-          case SEND:
-            if (disconnected()) {
-              exchange(new SinkThreadItem(false, null), true);
-            } else if (observer.isReady()) {
-              sendPendingItem();
-            } else {
-              itemPending = true;
-            }
+        // According to the documentation, if onNext is called in a canceled stream, it will be
+        // silently ignored.
+        observer.onNext(response);
+      } finally {
+        // onNext does not specify whether it can throw unchecked exceptions. We use a finally block
+        // here to make sure that the interrupt bit is not lost even if it does.
+        if (interrupted || observer.isCancelled()) {
+          Thread.currentThread().interrupt();
         }
       }
+    }
+
+    public void onCompleted() {
+      observer.onCompleted();
     }
   }
 
@@ -348,15 +196,14 @@ public class GrpcServerImpl implements RPCServer {
    *
    * <p>Note that wraping this class with a {@code Channel} can cause a deadlock if there is an
    * {@link OutputStream} in between that synchronizes both on {@code #close()} and {@code #write()}
-   * because then if an interrupt happens in {@link GrpcSink#exchange(SinkThreadItem, boolean)},
-   * the thread on which {@code interrupt()} was called will wait until the {@code Channel} closes
-   * itself while holding a lock for interrupting the thread on which {@code #exchange()} is
-   * being executed and that thread will hold a lock that is needed for the {@code Channel} to be
-   * closed and call {@code interrupt()} in {@code #exchange()}, which will in turn try to acquire
-   * the interrupt lock.
+   * because then if an interrupt happens in {@code FlowControl#onNext}, the thread on which {@code
+   * interrupt()} was called will wait until the {@code Channel} closes itself while holding a lock
+   * for interrupting the thread on which {@code FlowControl#onNext} is being executed and that
+   * thread will hold a lock that is needed for the {@code Channel} to be closed and call {@code
+   * interrupt()} in {@code FlowControl#onNext}, which will in turn try to acquire the interrupt
+   * lock.
    */
-  @VisibleForTesting
-  static class RpcOutputStream extends OutputStream {
+  private static class RpcOutputStream extends OutputStream {
     private static final int CHUNK_SIZE = 8192;
 
     // Store commandId and responseCookie as ByteStrings to avoid String -> UTF8 bytes conversion
@@ -365,17 +212,21 @@ public class GrpcServerImpl implements RPCServer {
     private final ByteString responseCookieBytes;
 
     private final StreamType type;
-    private final GrpcSink sink;
+    private final BlockingStreamObserver<RunResponse> observer;
 
-    RpcOutputStream(String commandId, String responseCookie, StreamType type, GrpcSink sink) {
+    RpcOutputStream(
+        String commandId,
+        String responseCookie,
+        StreamType type,
+        BlockingStreamObserver<RunResponse> observer) {
       this.commandIdBytes = ByteString.copyFromUtf8(commandId);
       this.responseCookieBytes = ByteString.copyFromUtf8(responseCookie);
       this.type = type;
-      this.sink = sink;
+      this.observer = observer;
     }
 
     @Override
-    public synchronized void write(byte[] b, int off, int inlen) throws IOException {
+    public void write(byte[] b, int off, int inlen) throws IOException {
       for (int i = 0; i < inlen; i += CHUNK_SIZE) {
         ByteString input = ByteString.copyFrom(b, off + i, Math.min(CHUNK_SIZE, inlen - i));
         RunResponse.Builder response = RunResponse
@@ -389,26 +240,25 @@ public class GrpcServerImpl implements RPCServer {
           default: throw new IllegalStateException();
         }
 
-        // Send the chunk to the streamer thread. May block.
-        if (!sink.offer(response.build())) {
-          // Client disconnected. Terminate the current command as soon as possible. Note that
-          // throwing IOException is not enough because we are in the habit of swallowing it. Note
-          // that when gRPC notifies us about the disconnection (see the call to setOnCancelHandler)
-          // we interrupt the command thread, which should be enough to make the server come around
-          // as soon as possible.
-          logger.info(
-              String.format(
-                  "Client disconnected received for command %s on thread %s",
-                  commandIdBytes.toStringUtf8(), Thread.currentThread().getName()));
-          throw new IOException("Client disconnected");
+        try {
+          // This can block waiting for the client to read the available data.
+          observer.onNext(response.build());
+        } catch (StatusRuntimeException e) {
+          // I am not sure whether there are any circumstances under which this call could throw an
+          // exception, but I'd rather it be logged than that we crash silently. The documentation
+          // only says that onNext does not throw a CancelledException if the stream is canceled,
+          // but otherwise does not say anything about exceptions that can be thrown from onNext.
+          // Note that Blaze redirects System.{out,err} to this output stream, so attempting to call
+          // printStackTrace() from here could go into an infinite loop.
+          BugReport.sendBugReport(e);
+          Thread.currentThread().interrupt();
         }
       }
     }
 
     @Override
     public void write(int byteAsInt) throws IOException {
-      byte b = (byte) byteAsInt; // make sure we work with bytes in comparisons
-      write(new byte[] {b}, 0, 1);
+      write(new byte[] {(byte) byteAsInt}, 0, 1);
     }
   }
 
@@ -468,8 +318,7 @@ public class GrpcServerImpl implements RPCServer {
   private static final AtomicBoolean runShutdownHooks = new AtomicBoolean(true);
 
   private final CommandManager commandManager;
-  private final BlazeCommandDispatcher dispatcher;
-  private final ExecutorService streamExecutorPool;
+  private final CommandDispatcher dispatcher;
   private final ExecutorService commandExecutorPool;
   private final Clock clock;
   private final Path serverDirectory;
@@ -485,21 +334,19 @@ public class GrpcServerImpl implements RPCServer {
   private Server server;
   private boolean serving;
 
-  public GrpcServerImpl(
-      BlazeCommandDispatcher dispatcher,
+  @VisibleForTesting
+  GrpcServerImpl(
+      CommandDispatcher dispatcher,
       Clock clock,
       int port,
+      String requestCookie,
+      String responseCookie,
       Path serverDirectory,
       int maxIdleSeconds,
       boolean shutdownOnLowSysMem,
       boolean doIdleServerTasks)
       throws IOException {
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        shutdownHook();
-      }
-    });
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdownHook()));
 
     // server.pid was written in the C++ launcher after fork() but before exec() .
     // The client only accesses the pid file after connecting to the socket
@@ -516,17 +363,12 @@ public class GrpcServerImpl implements RPCServer {
     this.shutdownOnLowSysMem = shutdownOnLowSysMem;
     this.serving = false;
 
-    this.streamExecutorPool =
-        Executors.newCachedThreadPool(
-            new ThreadFactoryBuilder().setNameFormat("grpc-stream-%d").setDaemon(true).build());
-
     this.commandExecutorPool =
         Executors.newCachedThreadPool(
             new ThreadFactoryBuilder().setNameFormat("grpc-command-%d").setDaemon(true).build());
 
-    SecureRandom random = new SecureRandom();
-    requestCookie = generateCookie(random, 16);
-    responseCookie = generateCookie(random, 16);
+    this.requestCookie = requestCookie;
+    this.responseCookie = responseCookie;
 
     pidFileWatcherThread = new PidFileWatcherThread();
     pidFileWatcherThread.start();
@@ -585,19 +427,11 @@ public class GrpcServerImpl implements RPCServer {
     InetSocketAddress address = new InetSocketAddress("[::1]", port);
     try {
       server =
-          NettyServerBuilder.forAddress(address)
-              .addService(commandServer)
-              .directExecutor()
-              .build()
-              .start();
+          NettyServerBuilder.forAddress(address).addService(this).directExecutor().build().start();
     } catch (IOException e) {
       address = new InetSocketAddress("127.0.0.1", port);
       server =
-          NettyServerBuilder.forAddress(address)
-              .addService(commandServer)
-              .directExecutor()
-              .build()
-              .start();
+          NettyServerBuilder.forAddress(address).addService(this).directExecutor().build().start();
     }
 
     if (maxIdleSeconds > 0) {
@@ -674,10 +508,7 @@ public class GrpcServerImpl implements RPCServer {
     logger.severe(err.toString());
   }
 
-  private void executeCommand(
-      RunRequest request, StreamObserver<RunResponse> observer, GrpcSink sink) {
-    sink.setCommandThread(Thread.currentThread());
-
+  private void executeCommand(RunRequest request, BlockingStreamObserver<RunResponse> observer) {
     if (!request.getCookie().equals(requestCookie) || request.getClientDescription().isEmpty()) {
       try {
         observer.onNext(
@@ -688,13 +519,6 @@ public class GrpcServerImpl implements RPCServer {
       } catch (StatusRuntimeException e) {
         logger.info("Client cancelled command while rejecting it: " + e.getMessage());
       }
-      return;
-    }
-
-    // There is a small period of time between calling setOnCancelHandler() and setCommandThread()
-    // during which the command thread is not interrupted when a cancel is signaled. Cover that
-    // case by explicitly checking for disconnection here.
-    if (sink.disconnected()) {
       return;
     }
 
@@ -732,8 +556,8 @@ public class GrpcServerImpl implements RPCServer {
 
       OutErr rpcOutErr =
           OutErr.create(
-              new RpcOutputStream(command.getId(), responseCookie, StreamType.STDOUT, sink),
-              new RpcOutputStream(command.getId(), responseCookie, StreamType.STDERR, sink));
+              new RpcOutputStream(command.getId(), responseCookie, StreamType.STDOUT, observer),
+              new RpcOutputStream(command.getId(), responseCookie, StreamType.STDERR, observer));
 
       try {
         // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
@@ -763,24 +587,6 @@ public class GrpcServerImpl implements RPCServer {
       commandId = ""; // The default value, the client will ignore it
     }
 
-    if (sink.finish()) {
-      // Client disconnected. Then we are not allowed to call any methods on the observer.
-      logger.info(
-          String.format(
-              "Client disconnected before we could send exit code for command %s", commandId));
-      return;
-    }
-
-    // There is a chance that an Uninterruptibles#getUninterruptibly() leaves us with the
-    // interrupt bit set. So we just reset the interruption state here to make these cancel
-    // requests not have any effect outside of command execution (after the try block above,
-    // the cancel request won't find the thread to interrupt)
-    Thread.interrupted();
-
-    if (result.shutdown()) {
-      server.shutdown();
-    }
-
     RunResponse.Builder response = RunResponse.newBuilder()
         .setCookie(responseCookie)
         .setCommandId(commandId)
@@ -798,66 +604,61 @@ public class GrpcServerImpl implements RPCServer {
       observer.onNext(response.build());
       observer.onCompleted();
     } catch (StatusRuntimeException e) {
-      // The client cancelled the call. Log an error and go on.
       logger.info(
-          String.format(
-              "Client cancelled command %s just right before its end: %s",
-              commandId, e.getMessage()));
+          "The client cancelled the command before receiving the command id: " + e.getMessage());
+    }
+
+    if (result.shutdown()) {
+      server.shutdown();
     }
   }
 
-  private final CommandServerGrpc.CommandServerImplBase commandServer =
-      new CommandServerGrpc.CommandServerImplBase() {
-        @Override
-        public void run(final RunRequest request, final StreamObserver<RunResponse> observer) {
-          final GrpcSink sink =
-              new GrpcSink(
-                  "Run", (ServerCallStreamObserver<RunResponse>) observer, streamExecutorPool);
-          // Switch to our own threads so that onReadyStateHandler can be called (see class-level
-          // comment)
-          commandExecutorPool.execute(() -> executeCommand(request, observer, sink));
-        }
+  @Override
+  public void run(final RunRequest request, final StreamObserver<RunResponse> observer) {
+    // Switch to our own threads so that onReadyStateHandler can be called (see class-level
+    // comment).
+    ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
+        ((ServerCallStreamObserver<RunResponse>) observer);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(serverCallStreamObserver);
+    new Thread(() -> executeCommand(request, blockingStreamObserver), "command-thread").start();
+  }
 
-        @Override
-        public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
-          Preconditions.checkState(serving);
+  @Override
+  public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
+    try (RunningCommand command = commandManager.create()) {
+      PingResponse.Builder response = PingResponse.newBuilder();
+      if (pingRequest.getCookie().equals(requestCookie)) {
+        response.setCookie(responseCookie);
+      }
 
-          try (RunningCommand command = commandManager.create()) {
-            PingResponse.Builder response = PingResponse.newBuilder();
-            if (pingRequest.getCookie().equals(requestCookie)) {
-              response.setCookie(responseCookie);
-            }
+      streamObserver.onNext(response.build());
+      streamObserver.onCompleted();
+    }
+  }
 
-            streamObserver.onNext(response.build());
-            streamObserver.onCompleted();
-          }
-        }
+  @Override
+  public void cancel(
+      final CancelRequest request, final StreamObserver<CancelResponse> streamObserver) {
+    logger.info(String.format("Got CancelRequest for command id %s", request.getCommandId()));
+    if (!request.getCookie().equals(requestCookie)) {
+      streamObserver.onCompleted();
+      return;
+    }
 
-        @Override
-        public void cancel(
-            final CancelRequest request, final StreamObserver<CancelResponse> streamObserver) {
-          logger.info(String.format("Got CancelRequest for command id %s", request.getCommandId()));
-          if (!request.getCookie().equals(requestCookie)) {
-            streamObserver.onCompleted();
-            return;
-          }
+    // Actually performing the cancellation can result in some blocking which we don't want
+    // to do on the dispatcher thread, instead offload to command pool.
+    commandExecutorPool.execute(() -> doCancel(request, streamObserver));
+  }
 
-          // Actually performing the cancellation can result in some blocking which we don't want
-          // to do on the dispatcher thread, instead offload to command pool.
-          commandExecutorPool.execute(() -> doCancel(request, streamObserver));
-        }
-
-        private void doCancel(
-            CancelRequest request, StreamObserver<CancelResponse> streamObserver) {
-          commandManager.doCancel(request);
-          try {
-            streamObserver.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
-            streamObserver.onCompleted();
-          } catch (StatusRuntimeException e) {
-            // There is no one to report the failure to
-            logger.info(
-                "Client cancelled RPC of cancellation request for " + request.getCommandId());
-          }
-        }
-      };
+  private void doCancel(CancelRequest request, StreamObserver<CancelResponse> streamObserver) {
+    commandManager.doCancel(request);
+    try {
+      streamObserver.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
+      streamObserver.onCompleted();
+    } catch (StatusRuntimeException e) {
+      // There is no one to report the failure to
+      logger.info("Client cancelled RPC of cancellation request for " + request.getCommandId());
+    }
+  }
 }

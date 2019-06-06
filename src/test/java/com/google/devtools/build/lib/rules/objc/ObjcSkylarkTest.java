@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -132,23 +132,22 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    srcs = ['a.cc'],",
         "    hdrs = ['b.h']",
         ")");
-    try {
-      getConfiguredTarget("//examples/apple_skylark:my_target");
-      fail("Should throw assertion error");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("File \"/workspace/examples/apple_skylark/BUILD\", line 3");
+    AssertionError e =
+        assertThrows(
+            AssertionError.class, () -> getConfiguredTarget("//examples/apple_skylark:my_target"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("File \"/workspace/examples/apple_skylark/BUILD\", line 3");
       assertThat(e).hasMessageThat().contains("my_rule(name = 'my_target')");
       assertThat(e)
           .hasMessageThat()
           .contains("File \"/workspace/examples/rule/apple_rules.bzl\", line 3, in my_rule_impl");
       assertThat(e).hasMessageThat().contains("dep.objc");
-      assertThat(e)
-          .hasMessageThat()
-          .contains("<target //examples/apple_skylark:lib> (rule 'cc_library') "
-              + "doesn't have provider 'objc'");
-    }
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "<target //examples/apple_skylark:lib> (rule 'cc_library') "
+                + "doesn't have provider 'objc'");
   }
 
   @Test
@@ -953,73 +952,71 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testSkylarkErrorOnBadObjcProviderInputKey() throws Exception {
-    try {
-      createObjcProviderSkylarkTarget(
-          "   created_provider = apple_common.new_objc_provider(foo=depset(['bar']))",
-          "   return created_provider");
-      fail("Should throw AssertionError");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(String.format(AppleSkylarkCommon.BAD_KEY_ERROR, "foo"));
-    }
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                createObjcProviderSkylarkTarget(
+                    "   created_provider = apple_common.new_objc_provider(foo=depset(['bar']))",
+                    "   return created_provider"));
+    assertThat(e).hasMessageThat().contains(String.format(AppleSkylarkCommon.BAD_KEY_ERROR, "foo"));
   }
 
   @Test
   public void testSkylarkErrorOnNonSetObjcProviderInputValue() throws Exception {
-    try {
-      createObjcProviderSkylarkTarget(
-          "   created_provider = apple_common.new_objc_provider(library='bar')",
-          "   return created_provider");
-      fail("Should throw AssertionError");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(String.format(AppleSkylarkCommon.NOT_SET_ERROR, "library", "string"));
-    }
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                createObjcProviderSkylarkTarget(
+                    "   created_provider = apple_common.new_objc_provider(library='bar')",
+                    "   return created_provider"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(String.format(AppleSkylarkCommon.NOT_SET_ERROR, "library", "string"));
   }
 
   @Test
   public void testSkylarkErrorOnObjcProviderInputValueWrongSetType() throws Exception {
-    try {
-      createObjcProviderSkylarkTarget(
-          "   created_provider = apple_common.new_objc_provider(library=depset(['bar']))",
-          "   return created_provider");
-      fail("Should throw AssertionError");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              String.format(AppleSkylarkCommon.BAD_SET_TYPE_ERROR, "library", "File", "string"));
-    }
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                createObjcProviderSkylarkTarget(
+                    "   created_provider = apple_common.new_objc_provider(library=depset(['bar']))",
+                    "   return created_provider"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            String.format(AppleSkylarkCommon.BAD_SET_TYPE_ERROR, "library", "File", "string"));
   }
 
   @Test
   public void testSkylarkErrorOnNonIterableObjcProviderProviderValue() throws Exception {
-    try {
-      createObjcProviderSkylarkTarget(
-          "   created_provider = apple_common.new_objc_provider(providers='bar')",
-          "   return created_provider");
-      fail("Should throw AssertionError");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(String.format(AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, "string"));
-    }
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                createObjcProviderSkylarkTarget(
+                    "   created_provider = apple_common.new_objc_provider(providers='bar')",
+                    "   return created_provider"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(String.format(AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, "string"));
   }
 
   @Test
   public void testSkylarkErrorOnBadIterableObjcProviderProviderValue() throws Exception {
-    try {
-      createObjcProviderSkylarkTarget(
-          "   created_provider = apple_common.new_objc_provider(providers=['bar'])",
-          "   return created_provider");
-      fail("Should throw AssertionError");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(String.format(AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR, "string"));
-    }
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                createObjcProviderSkylarkTarget(
+                    "   created_provider = apple_common.new_objc_provider(providers=['bar'])",
+                    "   return created_provider"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(String.format(AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR, "string"));
   }
 
   @Test
@@ -1094,7 +1091,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
     SkylarkNestedSet sdkFrameworks =
         (SkylarkNestedSet) getMyInfoFromTarget(skylarkTarget).getValue("sdk_frameworks");
-    assertThat(sdkFrameworks.toCollection()).containsAllOf("Accelerate", "GLKit");
+    assertThat(sdkFrameworks.toCollection()).containsAtLeast("Accelerate", "GLKit");
   }
 
   @Test
@@ -1261,12 +1258,10 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    name = 'my_target',",
         ")");
 
-    try {
-      getConfiguredTarget("//examples/apple_skylark:my_target");
-      fail("Expected an error to be thrown for invalid dotted version string");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().contains("Dotted version components must all be of the form");
-    }
+    AssertionError e =
+        assertThrows(
+            AssertionError.class, () -> getConfiguredTarget("//examples/apple_skylark:my_target"));
+    assertThat(e).hasMessageThat().contains("Dotted version components must all be of the form");
   }
 
   /**
@@ -1358,138 +1353,6 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         .contains("ios_arm64");
   }
 
-  @Test
-  public void testDisableObjcProviderResourcesWrite() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "def my_rule_impl(ctx):",
-        "   file = ctx.actions.declare_file('foo.ast')",
-        "   ctx.actions.run_shell(outputs=[file], command='echo')",
-        "   objc_provider = apple_common.new_objc_provider(xib=depset([file]))",
-        "   return objc_provider",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "   attrs = {})");
-
-    scratch.file(
-        "examples/apple_skylark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
-        "my_rule(",
-        "   name='my_target',",
-        ")");
-
-    try {
-      setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=true");
-      getConfiguredTarget("//examples/apple_skylark:my_target");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Argument xib not a recognized key");
-    }
-  }
-
-  @Test
-  public void testEnabledObjcProviderResourcesWrite() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "def my_rule_impl(ctx):",
-        "   file = ctx.actions.declare_file('foo.ast')",
-        "   ctx.actions.run_shell(outputs=[file], command='echo')",
-        "   objc_provider = apple_common.new_objc_provider(xib=depset([file]))",
-        "   return objc_provider",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "   attrs = {})");
-
-    scratch.file(
-        "examples/apple_skylark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
-        "my_rule(",
-        "   name='my_target',",
-        ")");
-
-    setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=false");
-    ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-
-    ObjcProvider objcProvider = binaryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
-
-    assertThat(objcProvider.get(ObjcProvider.XIB)).isNotNull();
-  }
-
-  @Test
-  public void testDisableObjcProviderResourcesRead() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def my_rule_impl(ctx):",
-        "   dep = ctx.attr.deps[0]",
-        "   objc_provider = dep[apple_common.Objc]",
-        "   return MyInfo(strings=str(objc_provider.strings))",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "   attrs = {",
-        "      'deps': attr.label_list(providers = ['objc'])})");
-
-    scratch.file("examples/apple_skylark/foo.strings");
-    scratch.file("examples/apple_skylark/bar.a");
-    scratch.file(
-        "examples/apple_skylark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
-        "my_rule(",
-        "   name='my_target',",
-        "   deps=[':bundle_lib'],",
-        ")",
-        "objc_import(",
-        "   name='bundle_lib',",
-        "   archives = ['bar.a'],",
-        ")");
-
-    setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=true");
-
-    getConfiguredTarget("//examples/apple_skylark:my_target");
-
-    assertContainsEvent("object of type 'ObjcProvider' has no field 'strings'");
-  }
-
-  @Test
-  public void testEnabledObjcProviderResourcesRead() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def my_rule_impl(ctx):",
-        "   dep = ctx.attr.deps[0]",
-        "   objc_provider = dep[apple_common.Objc]",
-        "   return MyInfo(strings=str(objc_provider.strings))",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "   attrs = {",
-        "      'deps': attr.label_list(providers = ['objc'])})");
-
-    scratch.file("examples/apple_skylark/foo.strings");
-    scratch.file("examples/apple_skylark/bar.a");
-    scratch.file(
-        "examples/apple_skylark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
-        "my_rule(",
-        "   name='my_target',",
-        "   deps=[':bundle_lib'],",
-        ")",
-        "objc_import(",
-        "   name='bundle_lib',",
-        "   archives = ['bar.a'],",
-        ")");
-
-    setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=false");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-
-    assertThat(getMyInfoFromTarget(skylarkTarget).getValue("strings")).isEqualTo("depset([])");
-  }
-
   private void checkSkylarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
@@ -1535,15 +1398,11 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
   private void testObjcProviderDoesNotHave(String name) throws Exception {
     addDummyObjcProviderRule(name);
-    try {
-      getConfiguredTarget("//fx:lib");
-      fail("Should throw AssertionError");
-    } catch (AssertionError e) {
-      if (name.endsWith("()")) {
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//fx:lib"));
+    if (name.endsWith("()")) {
         assertThat(e).hasMessageThat().contains("'ObjcProvider' has no method " + name);
       } else {
         assertThat(e).hasMessageThat().contains("'ObjcProvider' has no field '" + name + "'");
-      }
     }
   }
 

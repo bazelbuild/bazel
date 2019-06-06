@@ -64,7 +64,7 @@ public class MavenDownloader extends HttpDownloader {
       Path outputDirectory,
       MavenServerValue serverValue,
       ExtendedEventHandler eventHandler)
-      throws IOException, EvalException {
+      throws IOException, EvalException, InterruptedException {
 
     String url = serverValue.getUrl();
     Server server = serverValue.getServer();

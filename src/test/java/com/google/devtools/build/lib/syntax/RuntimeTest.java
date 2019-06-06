@@ -78,8 +78,8 @@ public final class RuntimeTest {
     reg.registerBuiltin(DummyType.class, "eq2", equalValue2);
     List<Object> values = reg.getBuiltins();
     assertThat(values).hasSize(2);
-    assertThat(values.get(0)).isSameAs(equalValue1);
-    assertThat(values.get(1)).isSameAs(equalValue2);
+    assertThat(values.get(0)).isSameInstanceAs(equalValue1);
+    assertThat(values.get(1)).isSameInstanceAs(equalValue2);
   }
 
   @Test

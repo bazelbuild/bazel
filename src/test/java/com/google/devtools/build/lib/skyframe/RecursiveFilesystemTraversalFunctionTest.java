@@ -21,19 +21,17 @@ import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversa
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.regularFile;
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.symlinkToDirectory;
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.symlinkToFile;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -41,6 +39,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -187,38 +186,38 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private Artifact sourceArtifact(String path) {
-    return new Artifact(
-        PathFragment.create(path), ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)));
+    return ActionsTestUtil.createArtifact(
+        ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)), path);
   }
 
   private Artifact sourceArtifactUnderPackagePath(String path, String packagePath) {
-    return new Artifact(
-        PathFragment.create(path),
-        ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory.getRelative(packagePath))));
+    return ActionsTestUtil.createArtifact(
+        ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory.getRelative(packagePath))), path);
   }
 
   private SpecialArtifact treeArtifact(String path) {
-    SpecialArtifact treeArtifact = new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
-        PathFragment.create("out/" + path),
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
-        SpecialArtifactType.TREE);
+    SpecialArtifact treeArtifact =
+        new SpecialArtifact(
+            ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
+            PathFragment.create("out/" + path),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER,
+            SpecialArtifactType.TREE);
     assertThat(treeArtifact.isTreeArtifact()).isTrue();
     return treeArtifact;
   }
 
   private void addNewTreeFileArtifact(SpecialArtifact parent, String relatedPath)
       throws IOException {
-    TreeFileArtifact treeFileArtifact = ActionInputHelper.treeFileArtifact(parent, relatedPath);
+    TreeFileArtifact treeFileArtifact =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(parent, relatedPath);
     artifactFunction.addNewTreeFileArtifact(treeFileArtifact);
   }
 
   private Artifact derivedArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     Artifact output =
-        new Artifact(
-            ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
-            execPath);
+        ActionsTestUtil.createArtifactWithExecPath(
+            ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")), execPath);
     return output;
   }
 
@@ -353,12 +352,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         // No exception thrown, let's safely compare results.
         assertEquals(expected.getTargetInSymlinkTree(true), actual.getTargetInSymlinkTree(true));
       } catch (DanglingSymlinkException e) {
-        try {
-          actual.getTargetInSymlinkTree(true);
-          fail("Expected exception not thrown while requesting resolved symlink.");
-        } catch (DanglingSymlinkException e1) {
-          // exception thrown by both expected and actual we're all good.
-        }
+        assertThrows(
+            "Expected exception not thrown while requesting resolved symlink.",
+            DanglingSymlinkException.class,
+            () -> actual.getTargetInSymlinkTree(true));
       }
     }
   }

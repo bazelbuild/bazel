@@ -413,6 +413,27 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_http_timeout() {
+  serve_timeout
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = 'toto',
+    urls = ['http://127.0.0.1:$nc_port/toto'],
+)
+EOF
+  date
+  bazel build --http_timeout_scaling=0.03 @toto//file > $TEST_log 2>&1 \
+      && fail "Expected failure" || :
+  date
+  kill_nc
+
+  expect_log '[Tt]imed\? \?out'
+  expect_not_log "interrupted"
+}
+
 # Tests downloading a file with a redirect.
 function test_http_redirect() {
   local test_file=$TEST_TMPDIR/toto
@@ -1266,6 +1287,65 @@ EOF
   bazel build '@ext//:foo' || fail "expected success"
 }
 
+function test_cache_split() {
+  # Verify that the canonical_id is honored to logically split the cache
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="foo",
+  outs=["foo.txt"],
+  cmd="echo Hello World > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  zip ext.zip ext/*
+  rm -rf ext
+  sha256=$(sha256sum ext.zip | head -c 64)
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${WRKDIR}/ext.zip"],
+  canonical_id = "canonical_ext_zip",
+  sha256="${sha256}",
+)
+EOF
+  # Use the external repository once to make sure it is cached.
+  bazel build '@ext//:foo' || fail "expected success"
+
+  # Now "go offline" and clean local resources.
+  rm -f "${WRKDIR}/ext.zip"
+  bazel clean --expunge
+
+  # Still, the file should be cached.
+  bazel build '@ext//:foo' || fail "expected success"
+
+  # Now, change the canonical_id
+  ed WORKSPACE <<'EOF'
+/canonical_id
+s|"|"modified_
+w
+q
+EOF
+  # The build should fail now
+  bazel build '@ext//:foo' && fail "should not have a cache hit now" || :
+
+  # However, removing the canonical_id, we should get a cache hit again
+  ed WORKSPACE <<'EOF'
+/canonical_id
+d
+w
+q
+EOF
+  bazel build '@ext//:foo' || fail "expected success"
+}
+
 function test_cache_disable {
   # Verify that the repository cache can be disabled.
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
@@ -2017,16 +2097,53 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   urls=["file://${WRKDIR}/ext.tar"],
-  build_file = "@//:ext.BUILD",
+  build_file = "@//path/to:ext.BUILD",
 )
 EOF
-  echo 'exports_files(["foo.txt"])' > ext.BUILD
+  mkdir -p path/to
+  echo 'exports_files(["foo.txt"])' > path/to/ext.BUILD
 
   bazel build @ext//... > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
 
   expect_log 'BUILD file not found'
-  expect_log 'path/to/workspace'
+  expect_log 'path/to/workspace/path/to'
+}
+
+function test_report_package_external() {
+  # Verify that a useful error message is shown for a BUILD
+  # file not found at the expected location in an external repository.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir -p ext/path/too/deep
+  echo 'data' > ext/path/too/deep/foo.txt
+  echo 'exports_files(["deep/foo.txt"])' > ext/path/too/BUILD
+  tar cvf ext.tar ext
+  rm -rf ext
+
+  mkdir -p path/to/workspace
+  cd path/to/workspace
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  urls=["file://${WRKDIR}/ext.tar"],
+)
+EOF
+  cat > BUILD <<EOF
+genrule(
+  name = "it",
+  outs = ["it.txt"],
+  srcs = ["@ext//path/too/deep:foo.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:it > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+
+  expect_log 'BUILD file not found.*path/too/deep'
 }
 
 function test_location_reported() {

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
@@ -90,22 +90,13 @@ public class LabelTest {
 
   @Test
   public void testLabelResolutionAbsolutePath() throws Exception {
-    try {
-      parseCommandLine("//absolute:label", "/absolute");
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected exception
-    }
+    assertThrows(
+        IllegalArgumentException.class, () -> parseCommandLine("//absolute:label", "/absolute"));
   }
 
   @Test
   public void testLabelResolutionBadSyntax() throws Exception {
-    try {
-      parseCommandLine("//absolute:A+bad:syntax", "");
-      fail();
-    } catch (LabelSyntaxException e) {
-      // Expected exception
-    }
+    assertThrows(LabelSyntaxException.class, () -> parseCommandLine("//absolute:A+bad:syntax", ""));
   }
 
   @Test
@@ -127,30 +118,16 @@ public class LabelTest {
   @Test
   public void testGetRelativeWithIllegalLabel() throws Exception {
     Label base = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
-    try {
-      base.getRelativeWithRemapping("/p1/p2:target", ImmutableMap.of());
-      fail();
-    } catch (LabelSyntaxException e) {
-      /* ok */
-    }
-    try {
-      base.getRelativeWithRemapping("quux:", ImmutableMap.of());
-      fail();
-    } catch (LabelSyntaxException e) {
-      /* ok */
-    }
-    try {
-      base.getRelativeWithRemapping(":", ImmutableMap.of());
-      fail();
-    } catch (LabelSyntaxException e) {
-      /* ok */
-    }
-    try {
-      base.getRelativeWithRemapping("::", ImmutableMap.of());
-      fail();
-    } catch (LabelSyntaxException e) {
-      /* ok */
-    }
+    assertThrows(
+        LabelSyntaxException.class,
+        () -> base.getRelativeWithRemapping("/p1/p2:target", ImmutableMap.of()));
+    assertThrows(
+        LabelSyntaxException.class,
+        () -> base.getRelativeWithRemapping("quux:", ImmutableMap.of()));
+    assertThrows(
+        LabelSyntaxException.class, () -> base.getRelativeWithRemapping(":", ImmutableMap.of()));
+    assertThrows(
+        LabelSyntaxException.class, () -> base.getRelativeWithRemapping("::", ImmutableMap.of()));
   }
 
   @Test
@@ -325,12 +302,12 @@ public class LabelTest {
    * @param label the label to create.
    */
   private static void assertSyntaxError(String expectedError, String label) {
-    try {
-      Label.parseAbsolute(label, ImmutableMap.of());
-      fail("Label '" + label + "' did not contain a syntax error");
-    } catch (LabelSyntaxException e) {
-      assertThat(e).hasMessageThat().containsMatch(Pattern.quote(expectedError));
-    }
+    LabelSyntaxException e =
+        assertThrows(
+            "Label '" + label + "' did not contain a syntax error, but was expected to",
+            LabelSyntaxException.class,
+            () -> Label.parseAbsolute(label, ImmutableMap.of()));
+    assertThat(e).hasMessageThat().containsMatch(Pattern.quote(expectedError));
   }
 
   @Test
@@ -466,26 +443,23 @@ public class LabelTest {
 
   @Test
   public void testInvalidRepo() throws Exception {
-    try {
-      Label.parseAbsolute("foo//bar/baz:bat/boo", ImmutableMap.of());
-      fail();
-    } catch (LabelSyntaxException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("invalid repository name 'foo': workspace names must start with '@'");
-    }
+    LabelSyntaxException e =
+        assertThrows(
+            LabelSyntaxException.class,
+            () -> Label.parseAbsolute("foo//bar/baz:bat/boo", ImmutableMap.of()));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("invalid repository name 'foo': workspace names must start with '@'");
   }
 
   @Test
   public void testInvalidRepoWithColon() throws Exception {
-    try {
-      Label.parseAbsolute("@foo:xyz", ImmutableMap.of());
-      fail();
-    } catch (LabelSyntaxException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .containsMatch("invalid repository name '@foo:xyz': workspace names may contain only");
-    }
+    LabelSyntaxException e =
+        assertThrows(
+            LabelSyntaxException.class, () -> Label.parseAbsolute("@foo:xyz", ImmutableMap.of()));
+    assertThat(e)
+        .hasMessageThat()
+        .containsMatch("invalid repository name '@foo:xyz': workspace names may contain only");
   }
 
   @Test

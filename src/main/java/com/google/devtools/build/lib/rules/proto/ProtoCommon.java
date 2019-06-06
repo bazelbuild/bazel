@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -584,9 +584,7 @@ public class ProtoCommon {
    */
   @VisibleForTesting
   public static boolean areDepsStrict(RuleContext ruleContext) {
-    BuildConfiguration.StrictDepsMode flagValue =
-        ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
-    return flagValue != BuildConfiguration.StrictDepsMode.OFF
-        && flagValue != BuildConfiguration.StrictDepsMode.DEFAULT;
+    StrictDepsMode flagValue = ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
+    return flagValue != StrictDepsMode.OFF && flagValue != StrictDepsMode.DEFAULT;
   }
 }

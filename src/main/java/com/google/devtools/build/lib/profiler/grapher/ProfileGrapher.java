@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.profiler.grapher;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.profiler.CpuUsageTimeSeries;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -27,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.zip.GZIPInputStream;
 
 /**
  * An experimental tool to turn Json profiles into graphs. Do not depend on the continuing existence
@@ -83,6 +86,7 @@ public class ProfileGrapher {
       System.exit(1);
     }
     String filename = args[0];
+    boolean gzipped = filename.endsWith(".gz");
 
     // TODO(twerth): Make it possible to select the set of profiler task descriptions on the command
     // line.
@@ -97,11 +101,20 @@ public class ProfileGrapher {
     }
 
     long maxEndTime = 0;
-    // TODO(twerth): Support gzip compressed profiles.
     try (JsonReader reader =
         new JsonReader(
             new BufferedReader(
-                new InputStreamReader(new FileInputStream(filename), StandardCharsets.UTF_8)))) {
+                new InputStreamReader(
+                    maybeUnzip(new FileInputStream(filename), gzipped), StandardCharsets.UTF_8)))) {
+      if (reader.peek() == JsonToken.BEGIN_OBJECT) {
+        reader.beginObject();
+        while (reader.hasNext()) {
+          if ("traceEvents".equals(reader.nextName())) {
+            break;
+          }
+          reader.skipValue();
+        }
+      }
       reader.beginArray();
       while (reader.hasNext()) {
         Map<String, Object> data = decodeJsonObject(reader);
@@ -148,6 +161,13 @@ public class ProfileGrapher {
       }
       System.out.println(stringJoiner.toString());
     }
+  }
+
+  private static InputStream maybeUnzip(InputStream in, boolean gzipped) throws IOException {
+    if (!gzipped) {
+      return in;
+    }
+    return new GZIPInputStream(in);
   }
 
   /**

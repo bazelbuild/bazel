@@ -834,7 +834,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), "x/x_bin");
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
-    assertThat(linkAction.getArguments()).containsAllIn(IMPLICIT_NON_MAC_FRAMEWORK_FLAGS);
+    assertThat(linkAction.getArguments())
+        .containsAtLeastElementsIn(IMPLICIT_NON_MAC_FRAMEWORK_FLAGS);
   }
 
   @Test
@@ -849,7 +850,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), "x/x_bin");
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
-    assertThat(linkAction.getArguments()).containsAllIn(IMPLICIT_NON_MAC_FRAMEWORK_FLAGS);
+    assertThat(linkAction.getArguments())
+        .containsAtLeastElementsIn(IMPLICIT_NON_MAC_FRAMEWORK_FLAGS);
   }
 
   @Test
@@ -864,7 +866,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), "x/x_bin");
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
-    assertThat(linkAction.getArguments()).containsAllIn(IMPLICIT_NON_MAC_FRAMEWORK_FLAGS);
+    assertThat(linkAction.getArguments())
+        .containsAtLeastElementsIn(IMPLICIT_NON_MAC_FRAMEWORK_FLAGS);
   }
 
   @Test
@@ -879,7 +882,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), "x/x_bin");
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
-    assertThat(linkAction.getArguments()).containsAllIn(IMPLICIT_MAC_FRAMEWORK_FLAGS);
+    assertThat(linkAction.getArguments()).containsAtLeastElementsIn(IMPLICIT_MAC_FRAMEWORK_FLAGS);
     assertThat(linkAction.getArguments())
         .containsNoneOf(COCOA_FRAMEWORK_FLAG, UIKIT_FRAMEWORK_FLAG);
   }
@@ -897,8 +900,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), "x/x_bin");
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
-    assertThat(linkAction.getArguments()).containsAllIn(IMPLICIT_MAC_FRAMEWORK_FLAGS);
-    assertThat(linkAction.getArguments()).containsAllIn(COCOA_FEATURE_FLAGS);
+    assertThat(linkAction.getArguments()).containsAtLeastElementsIn(IMPLICIT_MAC_FRAMEWORK_FLAGS);
+    assertThat(linkAction.getArguments()).containsAtLeastElementsIn(COCOA_FEATURE_FLAGS);
     assertThat(linkAction.getArguments()).doesNotContain(UIKIT_FRAMEWORK_FLAG);
   }
 
@@ -1343,7 +1346,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(instrumentedFilesProvider).isNotNull();
 
     assertThat(Artifact.toRootRelativePaths(instrumentedFilesProvider.getInstrumentedFiles()))
-        .containsAllOf("examples/lib.m", "examples/bundle_lib.m");
+        .containsAtLeast("examples/lib.m", "examples/bundle_lib.m");
   }
 
   @Test
