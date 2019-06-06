@@ -77,22 +77,23 @@ class SignalHandler {
   typedef void (* Callback)();
 
   static SignalHandler& Get() { return INSTANCE; }
-  GlobalVariables* GetGlobals() { return _globals; }
-  void CancelServer() { _cancel_server(); }
+  GlobalVariables* GetGlobals() const { return globals_; }
+  const std::string& GetProductName() const { return product_name_; }
+  const std::string& GetOutputBase() const { return output_base_; }
+  void CancelServer() { cancel_server_(); }
   void Install(const std::string &product_name, const std::string &output_base,
                GlobalVariables* globals, Callback cancel_server);
   ATTRIBUTE_NORETURN void PropagateSignalOrExit(int exit_code);
 
-  std::string _product_name;
-  std::string _output_base;
-
  private:
   static SignalHandler INSTANCE;
 
-  GlobalVariables* _globals;
-  Callback _cancel_server;
+  std::string product_name_;
+  std::string output_base_;
+  GlobalVariables* globals_;
+  Callback cancel_server_;
 
-  SignalHandler() : _globals(nullptr), _cancel_server(nullptr) {}
+  SignalHandler() : globals_(nullptr), cancel_server_(nullptr) {}
 };
 
 // A signal-safe version of fprintf(stderr, ...).
