@@ -297,17 +297,17 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
       if (++sigint_count >= 3) {
         SigPrintf(
             "\n%s caught third Ctrl+C handler signal; killed.\n\n",
-            SignalHandler::Get()._product_name.c_str());
+            SignalHandler::Get().GetProductName().c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
           KillServerProcess(
               SignalHandler::Get().GetGlobals()->server_pid,
-              SignalHandler::Get()._output_base);
+              SignalHandler::Get().GetOutputBase());
         }
         _exit(1);
       }
       SigPrintf(
           "\n%s Ctrl+C handler; shutting down.\n\n",
-          SignalHandler::Get()._product_name.c_str());
+          SignalHandler::Get().GetProductName().c_str());
       SignalHandler::Get().CancelServer();
       return TRUE;
 
@@ -322,10 +322,10 @@ void SignalHandler::Install(const string &product_name,
                             const string &output_base,
                             GlobalVariables* globals,
                             SignalHandler::Callback cancel_server) {
-  _product_name = product_name;
-  _output_base = output_base;
-  _globals = globals;
-  _cancel_server = cancel_server;
+  product_name_ = product_name;
+  output_base_ = output_base;
+  globals_ = globals;
+  cancel_server_ = cancel_server;
   ::SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
 
