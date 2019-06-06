@@ -17,6 +17,8 @@
 # Tests the java rules with the default values provided by Bazel.
 #
 
+add_to_bazelrc "build --javabase=@bazel_tools//tools/jdk:remote_jdk11"
+
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
     if [[ -f "$0.runfiles_manifest" ]]; then
