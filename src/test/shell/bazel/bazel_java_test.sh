@@ -1727,35 +1727,4 @@ EOF
   bazel build java/com/google/foo:my_skylark_rule >& "$TEST_log" || fail "Expected success"
 }
 
-function test_default_java_toolchain_target_version() {
-  mkdir -p java/main
-  cat >java/main/BUILD <<EOF
-java_binary(
-    name = 'JavaBinary',
-    srcs = ['JavaBinary.java'],
-    main_class = 'JavaBinary',
-)
-load(
-    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
-)
-default_java_toolchain(
-  name = "default_toolchain",
-  visibility = ["//visibility:public"],
-)
-EOF
-
-   cat >java/main/JavaBinary.java <<EOF
-public class JavaBinary {
-   public static void main(String[] args) {
-    System.out.println("Successfully executed JavaBinary!");
-  }
-}
-EOF
-  bazel run java/main:JavaBinary --java_toolchain=//java/main:default_toolchain --verbose_failures -s &>"${TEST_log}"
-  expect_log "Successfully executed JavaBinary!"
-  javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
-  expect_log "major version: 52"
-}
-
 run_suite "Java integration tests"
