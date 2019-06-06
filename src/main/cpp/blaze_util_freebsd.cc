@@ -156,7 +156,7 @@ string GetSystemJavabase() {
 }
 
 int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
-                           const StartupOptions *options) {
+                           const StartupOptions &options) {
   // No interesting platform-specific details to configure on this platform.
   return 0;
 }
