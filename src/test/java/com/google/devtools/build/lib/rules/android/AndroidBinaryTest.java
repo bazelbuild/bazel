@@ -4267,16 +4267,14 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     scratch.file(
         "java/com/google/android/instr/instr.bzl",
         "def _impl(ctx):",
-        "  target = ctx.attr.dep[AndroidInstrumentationInfo].target_apk",
-        "  instr = ctx.attr.dep[AndroidInstrumentationInfo].instrumentation_apk",
-        "  return [DefaultInfo(files=depset([target,instr]))]",
+        "  target = ctx.attr.dep[AndroidInstrumentationInfo].target.signed_apk",
+        "  return [DefaultInfo(files=depset([target]))]",
         "instr = rule(implementation=_impl,",
         "             attrs={'dep': attr.label(providers=[AndroidInstrumentationInfo])})");
     ConfiguredTarget instr = getConfiguredTarget("//java/com/google/android/instr");
     assertThat(instr).isNotNull();
     assertThat(prettyArtifactNames(instr.getProvider(FilesToRunProvider.class).getFilesToRun()))
-        .containsExactly(
-            "java/com/google/android/instr/b1.apk", "java/com/google/android/instr/b2.apk");
+        .containsExactly("java/com/google/android/instr/b2.apk");
   }
 
   @Test
@@ -4295,17 +4293,14 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     scratch.file(
         "java/com/google/android/instr/instr.bzl",
         "def _impl(ctx):",
-        "  target = ctx.attr.dep[AndroidInstrumentationInfo].target_apk",
-        "  instr = ctx.attr.dep[AndroidInstrumentationInfo].instrumentation_apk",
-        "  return [AndroidInstrumentationInfo(target_apk=target,instrumentation_apk=instr)]",
+        "  target = ctx.attr.dep[AndroidInstrumentationInfo].target",
+        "  return [AndroidInstrumentationInfo(target=target)]",
         "instr = rule(implementation=_impl,",
         "             attrs={'dep': attr.label(providers=[AndroidInstrumentationInfo])})");
     ConfiguredTarget instr = getConfiguredTarget("//java/com/google/android/instr");
     assertThat(instr).isNotNull();
-    assertThat(instr.get(AndroidInstrumentationInfo.PROVIDER).getTargetApk().prettyPrint())
+    assertThat(instr.get(AndroidInstrumentationInfo.PROVIDER).getTarget().getApk().prettyPrint())
         .isEqualTo("java/com/google/android/instr/b2.apk");
-    assertThat(instr.get(AndroidInstrumentationInfo.PROVIDER).getInstrumentationApk().prettyPrint())
-        .isEqualTo("java/com/google/android/instr/b1.apk");
   }
 
   @Test
@@ -4321,12 +4316,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml')");
     ConfiguredTarget b1 = getConfiguredTarget("//java/com/google/android/instr:b1");
     AndroidInstrumentationInfo provider = b1.get(AndroidInstrumentationInfo.PROVIDER);
-    assertThat(provider.getTargetApk()).isNotNull();
-    assertThat(provider.getTargetApk().prettyPrint())
+    assertThat(provider.getTarget()).isNotNull();
+    assertThat(provider.getTarget().getApk().prettyPrint())
         .isEqualTo("java/com/google/android/instr/b2.apk");
-    assertThat(provider.getInstrumentationApk()).isNotNull();
-    assertThat(provider.getInstrumentationApk().prettyPrint())
-        .isEqualTo("java/com/google/android/instr/b1.apk");
   }
 
   @Test
