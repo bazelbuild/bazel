@@ -64,10 +64,6 @@ struct GlobalVariables {
 
   // The absolute path of the blaze binary.
   std::string binary_path;
-
-  // MD5 hash of the Blaze binary (includes deploy.jar, extracted binaries, and
-  // anything else that ends up under the install_base).
-  std::string install_md5;
 };
 
 }  // namespace blaze

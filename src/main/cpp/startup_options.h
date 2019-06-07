@@ -110,12 +110,12 @@ class StartupOptions {
 
   // Returns the path to the JVM. This should be called after parsing
   // the startup options.
-  virtual std::string GetJvm();
+  virtual std::string GetJvm() const;
 
   // Returns the executable used to start the Blaze server, typically the given
   // JVM.
   virtual std::string GetExe(const std::string &jvm,
-                             const std::string &jar_path);
+                             const std::string &jar_path) const;
 
   // Adds JVM prefix flags to be set. These will be added before all other
   // JVM flags.

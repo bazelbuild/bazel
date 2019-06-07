@@ -520,7 +520,7 @@ string StartupOptions::GetExplicitServerJavabase() const {
   return explicit_server_javabase_;
 }
 
-string StartupOptions::GetJvm() {
+string StartupOptions::GetJvm() const {
   string java_program =
       blaze_util::JoinPath(GetServerJavabase(), GetJavaBinaryUnderJavabase());
   if (!blaze_util::CanExecuteFile(java_program)) {
@@ -554,7 +554,7 @@ string StartupOptions::GetJvm() {
   exit(1);
 }
 
-string StartupOptions::GetExe(const string &jvm, const string &jar_path) {
+string StartupOptions::GetExe(const string &jvm, const string &jar_path) const {
   return jvm;
 }
 

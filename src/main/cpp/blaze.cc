@@ -295,14 +295,15 @@ static vector<string> GetServerExeArgs(
     const string &jvm_path,
     const string &server_jar_path,
     const vector<string> &archive_contents,
-    const WorkspaceLayout *workspace_layout,
+    const string &install_md5,
+    const WorkspaceLayout &workspace_layout,
     const StartupOptions &startup_options) {
   vector<string> result;
 
   // e.g. A Blaze server process running in ~/src/build_root (where there's a
   // ~/src/build_root/WORKSPACE file) will appear in ps(1) as "blaze(src)".
   string workspace =
-      workspace_layout->GetPrettyWorkspaceName(globals->workspace);
+      workspace_layout.GetPrettyWorkspaceName(globals->workspace);
   result.push_back(
       startup_options.GetLowercaseProductName() + "(" + workspace + ")");
   startup_options.AddJVMArgumentPrefix(
@@ -411,7 +412,7 @@ static vector<string> GetServerExeArgs(
                    blaze_util::ConvertPath(startup_options.output_user_root));
   result.push_back("--install_base=" +
                    blaze_util::ConvertPath(startup_options.install_base));
-  result.push_back("--install_md5=" + globals->install_md5);
+  result.push_back("--install_md5=" + install_md5);
   result.push_back("--output_base=" +
                    blaze_util::ConvertPath(startup_options.output_base));
   result.push_back("--workspace_directory=" +
@@ -564,8 +565,8 @@ static string GetArgumentString(const vector<string> &argument_array) {
 }
 
 // Do a chdir into the workspace, and die if it fails.
-static void GoToWorkspace(const WorkspaceLayout *workspace_layout) {
-  if (workspace_layout->InWorkspace(globals->workspace) &&
+static void GoToWorkspace(const WorkspaceLayout &workspace_layout) {
+  if (workspace_layout.InWorkspace(globals->workspace) &&
       !blaze_util::ChangeDirectory(globals->workspace)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "changing directory into " << globals->workspace
@@ -577,7 +578,7 @@ static void GoToWorkspace(const WorkspaceLayout *workspace_layout) {
 static int StartServer(
     const string &server_exe,
     const vector<string> &server_exe_args,
-    const WorkspaceLayout *workspace_layout,
+    const WorkspaceLayout &workspace_layout,
     const StartupOptions &startup_options,
     BlazeServerStartup **server_startup) {
   // Write the cmdline argument string to the server dir. If we get to this
@@ -616,17 +617,17 @@ static int StartServer(
 static void StartStandalone(
     const string &server_exe,
     const vector<string> &server_exe_args,
-    const WorkspaceLayout *workspace_layout,
+    const WorkspaceLayout &workspace_layout,
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options,
-    TimingInfo &timing_info,
+    TimingInfo *timing_info,
     BlazeServer *server) {
   if (server->Connected()) {
     server->KillRunningServer();
   }
 
-  timing_info.client_startup_duration_ms =
-      GetMillisecondsMonotonic() - timing_info.start_time_ms;
+  timing_info->client_startup_duration_ms =
+      GetMillisecondsMonotonic() - timing_info->start_time_ms;
 
   BAZEL_LOG(INFO) << "Starting " << startup_options.product_name
                   << " in batch mode.";
@@ -652,7 +653,7 @@ static void StartStandalone(
 
   if (!command.empty()) {
     jvm_args_vector.push_back(command);
-    AddLoggingArgs(timing_info, &jvm_args_vector);
+    AddLoggingArgs(*timing_info, &jvm_args_vector);
   }
 
   jvm_args_vector.insert(jvm_args_vector.end(), command_arguments.begin(),
@@ -713,7 +714,7 @@ static void SetRestartReasonIfNotSet(RestartReason restart_reason) {
 static void StartServerAndConnect(
     const string &server_exe,
     const vector<string> &server_exe_args,
-    const WorkspaceLayout *workspace_layout,
+    const WorkspaceLayout &workspace_layout,
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options,
     BlazeServer *server) {
@@ -875,8 +876,9 @@ static void MoveFiles(const string &embedded_binaries) {
 static void ExtractData(
     const string &self_path,
     const vector<string> &archive_contents,
+    const string &expected_install_md5,
     const StartupOptions &startup_options,
-    TimingInfo &timing_info) {
+    TimingInfo *timing_info) {
   // If the install dir doesn't exist, create it, if it does, we know it's good.
   if (!blaze_util::PathExists(startup_options.install_base)) {
     uint64_t st = GetMillisecondsMonotonic();
@@ -888,12 +890,12 @@ static void ExtractData(
     ExtractArchiveOrDie(
         self_path,
         startup_options.product_name,
-        globals->install_md5,
+        expected_install_md5,
         tmp_binaries);
     MoveFiles(tmp_binaries);
 
     uint64_t et = GetMillisecondsMonotonic();
-    timing_info.extract_data_duration_ms = et - st;
+    timing_info->extract_data_duration_ms = et - st;
 
     // Now rename the completed installation to its final name.
     int attempts = 0;
@@ -1115,10 +1117,10 @@ static void CancelServer() { blaze_server->Cancel(); }
 static ATTRIBUTE_NORETURN void SendServerRequest(
     const string &server_exe,
     const vector<string> &server_exe_args,
-    const WorkspaceLayout *workspace_layout,
+    const WorkspaceLayout &workspace_layout,
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options,
-    TimingInfo &timing_info,
+    TimingInfo *timing_info,
     BlazeServer *server) {
   while (true) {
     if (!server->Connected()) {
@@ -1163,8 +1165,8 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
   BAZEL_LOG(INFO) << "Connected (server pid=" << globals->server_pid << ").";
 
   // Wall clock time since process startup.
-  timing_info.client_startup_duration_ms =
-      GetMillisecondsMonotonic() - timing_info.start_time_ms;
+  timing_info->client_startup_duration_ms =
+      GetMillisecondsMonotonic() - timing_info->start_time_ms;
 
   SignalHandler::Get().Install(
       startup_options.product_name,
@@ -1175,7 +1177,7 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
       server->Communicate(
           option_processor.GetCommand(),
           option_processor.GetCommandArguments(),
-          timing_info));
+          *timing_info));
 }
 
 // Parse the options.
@@ -1206,16 +1208,10 @@ static string GetCanonicalCwd() {
   return result;
 }
 
-static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
-                                   const string &self_path,
-                                   StartupOptions *startup_options,
-                                   vector<string> *archive_contents) {
-  DetermineArchiveContents(
-      self_path,
-      startup_options->product_name,
-      archive_contents,
-      &globals->install_md5);
-
+// Updates the parsed startup options and global config to fill in defaults.
+static void UpdateConfiguration(
+    const string &install_md5,
+    StartupOptions *startup_options) {
   // The default install_base is <output_user_root>/install/<md5(blaze)>
   // but if an install_base is specified on the command line, we use that as
   // the base instead.
@@ -1223,7 +1219,7 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
     string install_user_root =
         blaze_util::JoinPath(startup_options->output_user_root, "install");
     startup_options->install_base = blaze_util::JoinPath(install_user_root,
-                                                         globals->install_md5);
+                                                         install_md5);
   }
 
   if (startup_options->output_base.empty()) {
@@ -1378,6 +1374,78 @@ static void PrintVersionInfo(const string &self_path,
   printf("%s %s\n", product_name.c_str(), build_label.c_str());
 }
 
+static int RunLauncher(
+    const string &self_path,
+    const vector<string> &archive_contents,
+    const string &install_md5,
+    const StartupOptions &startup_options,
+    const OptionProcessor &option_processor,
+    const WorkspaceLayout &workspace_layout,
+    TimingInfo *timing_info) {
+  blaze_server = new BlazeServer(
+      startup_options.connect_timeout_secs, &startup_options);
+
+  timing_info->command_wait_duration_ms = blaze_server->AcquireLock();
+  BAZEL_LOG(INFO) << "Acquired the client lock, waited "
+                  << timing_info->command_wait_duration_ms << " milliseconds";
+
+  WarnFilesystemType(startup_options.output_base);
+
+  ExtractData(
+      self_path, archive_contents, install_md5, startup_options, timing_info);
+
+  blaze_server->Connect();
+
+  if (!startup_options.batch &&
+      "shutdown" == option_processor.GetCommand() &&
+      !blaze_server->Connected()) {
+    // TODO(b/134525510): Connected() can return false when the server process
+    // is alive but unresponsive, so bailing early here might not always be the
+    // right thing to do.
+    return 0;
+  }
+
+  EnsureCorrectRunningVersion(startup_options, blaze_server);
+
+  const string jvm_path = startup_options.GetJvm();
+  const string server_jar_path = GetServerJarPath(archive_contents);
+  const vector<string> server_exe_args = GetServerExeArgs(
+      jvm_path,
+      server_jar_path,
+      archive_contents,
+      install_md5,
+      workspace_layout,
+      startup_options);
+
+  KillRunningServerIfDifferentStartupOptions(
+      startup_options, server_exe_args, blaze_server);
+
+  const string server_exe = startup_options.GetExe(jvm_path, server_jar_path);
+
+  if (startup_options.batch) {
+    SetScheduling(startup_options.batch_cpu_scheduling,
+                  startup_options.io_nice_level);
+    StartStandalone(
+        server_exe,
+        server_exe_args,
+        workspace_layout,
+        option_processor,
+        startup_options,
+        timing_info,
+        blaze_server);
+  } else {
+    SendServerRequest(
+        server_exe,
+        server_exe_args,
+        workspace_layout,
+        option_processor,
+        startup_options,
+        timing_info,
+        blaze_server);
+  }
+  return 0;
+}
+
 int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
          OptionProcessor *option_processor, uint64_t start_time) {
   // Logging must be set first to assure no log statements are missed.
@@ -1447,69 +1515,23 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   }
 
   vector<string> archive_contents;
-  ComputeBaseDirectories(
-      workspace_layout, self_path, startup_options, &archive_contents);
+  string install_md5;
+  DetermineArchiveContents(
+      self_path,
+      startup_options->product_name,
+      &archive_contents,
+      &install_md5);
 
-  blaze_server = static_cast<BlazeServer *>(
-      new BlazeServer(
-          startup_options->connect_timeout_secs,
-          startup_options));
+  UpdateConfiguration(install_md5, startup_options);
 
-  timing_info.command_wait_duration_ms = blaze_server->AcquireLock();
-  BAZEL_LOG(INFO) << "Acquired the client lock, waited "
-                  << timing_info.command_wait_duration_ms << " milliseconds";
-
-  WarnFilesystemType(startup_options->output_base);
-
-  ExtractData(self_path, archive_contents, *startup_options, timing_info);
-
-  blaze_server->Connect();
-
-  if (!startup_options->batch &&
-      "shutdown" == option_processor->GetCommand() &&
-      !blaze_server->Connected()) {
-    // No server, nothing to do.
-    return 0;
-  }
-
-  EnsureCorrectRunningVersion(*startup_options, blaze_server);
-
-  const string jvm_path = startup_options->GetJvm();
-  const string server_jar_path = GetServerJarPath(archive_contents);
-  const vector<string> server_exe_args = GetServerExeArgs(
-      jvm_path,
-      server_jar_path,
+  return RunLauncher(
+      self_path,
       archive_contents,
-      workspace_layout,
-      *startup_options);
-
-  KillRunningServerIfDifferentStartupOptions(
-      *startup_options, server_exe_args, blaze_server);
-
-  const string server_exe = startup_options->GetExe(jvm_path, server_jar_path);
-
-  if (startup_options->batch) {
-    SetScheduling(startup_options->batch_cpu_scheduling,
-                  startup_options->io_nice_level);
-    StartStandalone(
-        server_exe,
-        server_exe_args,
-        workspace_layout,
-        *option_processor,
-        *startup_options,
-        timing_info,
-        blaze_server);
-  } else {
-    SendServerRequest(
-        server_exe,
-        server_exe_args,
-        workspace_layout,
-        *option_processor,
-        *startup_options,
-        timing_info,
-        blaze_server);
-  }
-  return 0;
+      install_md5,
+      *startup_options,
+      *option_processor,
+      *workspace_layout,
+      &timing_info);
 }
 
 static void null_grpc_log_function(gpr_log_func_args *args) {}
