@@ -103,10 +103,7 @@ function Download-Wix {
     # See https://github.com/bazelbuild/continuous-integration/blob/master/buildkite/setup-windows.ps1
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-    $wix_dir = "${WorkDir}\_wix"
-    New-Item -Path "$wix_dir" -ItemType Directory -Force | Out-Null
-
-    $wix_dir = $(Get-Item -Path "$wix_dir").FullName
+    $wix_dir = $(New-Item -Path "${WorkDir}\_wix" -ItemType Directory -Force).FullName
     $zip_file = "$wix_dir\wix311.zip"
     (New-Object Net.WebClient).DownloadFile(
         "https://github.com/wixtoolset/wix3/releases/download/wix3111rtm/wix311-binaries.zip",
