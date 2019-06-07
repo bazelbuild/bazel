@@ -147,9 +147,9 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
                           fromTarget.getLabel(),
                           label,
                           label.getPackageIdentifier().getRepository())));
-          continue;
+        } else {
+          rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
         }
-        rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
         missingEdgeHook(fromTarget, entry.getKey(), label, e);
         continue;
       }
