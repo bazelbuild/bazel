@@ -52,6 +52,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Syncs all repositories specified in the workspace file */
 @Command(
@@ -146,7 +147,15 @@ public final class SyncCommand implements BlazeCommand {
         }
         workspace = fileValue.next();
       }
-      env.getReporter().post(toolchainEvent(fileValue.getPackage().getRegisteredToolchains()));
+      env.getReporter()
+          .post(
+              genericArgsCall(
+                  "register_toolchains", fileValue.getPackage().getRegisteredToolchains()));
+      env.getReporter()
+          .post(
+              genericArgsCall(
+                  "register_execution_platforms",
+                  fileValue.getPackage().getRegisteredExecutionPlatforms()));
       env.getReporter().post(new RepositoryOrderEvent(repositoryOrder.build()));
 
       // take all skylark workspace rules and get their values
@@ -211,7 +220,7 @@ public final class SyncCommand implements BlazeCommand {
     return WHITELISTED_NATIVE_RULES.contains(rule.getRuleClassObject().getName());
   }
 
-  private ResolvedEvent resolveBind(Rule rule) {
+  private static ResolvedEvent resolveBind(Rule rule) {
     String name = rule.getName();
     Object actual = rule.getAttributeContainer().getAttr("actual");
     String nativeCommand =
@@ -240,22 +249,18 @@ public final class SyncCommand implements BlazeCommand {
     };
   }
 
-  private ResolvedEvent toolchainEvent(List<String> toolchains) {
+  private static ResolvedEvent genericArgsCall(String ruleName, List<String> args) {
     // For the name attribute we are in a slightly tricky situation, as the ResolvedEvents are
     // designed for external repositories and hence are indexted by their unique
-    // names. Technically, however, the list of toolchains is not associated with ant external
-    // repository (but still a workspace command); so we take a name that syntactially can never
-    // be the name of a repository, as it starts with a '//'.
-    String name = "//external/toolchains";
-    StringBuilder nativeCommandBuilder = new StringBuilder().append("register_toolchains(");
-    boolean firstEntryAdded = false;
-    for (String toolchain : toolchains) {
-      if (firstEntryAdded) {
-        nativeCommandBuilder.append(", ");
-      }
-      nativeCommandBuilder.append(Printer.getPrinter().repr(toolchain));
-      firstEntryAdded = true;
-    }
+    // names. Technically, however, things like the list of toolchains are not associated with any
+    // external repository (but still a workspace command); so we take a name that syntactially can
+    // never be the name of a repository, as it starts with a '//'.
+    String name = "//external/" + ruleName;
+    StringBuilder nativeCommandBuilder = new StringBuilder().append(ruleName).append("(");
+    nativeCommandBuilder.append(
+        args.stream()
+            .map(arg -> Printer.getPrinter().repr(arg).toString())
+            .collect(Collectors.joining(", ")));
     nativeCommandBuilder.append(")");
     String nativeCommand = nativeCommandBuilder.toString();
 
@@ -268,11 +273,11 @@ public final class SyncCommand implements BlazeCommand {
       @Override
       public Object getResolvedInformation() {
         return ImmutableMap.<String, Object>builder()
-            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "register_toolchains")
+            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, ruleName)
             .put(
                 ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
                 // The original attributes are a bit of a problem, as the arguments to
-                // register_toolchains do not at all look like those of a repository rule:
+                // the rule do not at all look like those of a repository rule:
                 // they're all positional, and, in particular, there is no keyword argument
                 // called "name". A lot of uses of the resolved file, however, blindly assume
                 // that "name" is always part of the original arguments; so we provide our
@@ -280,7 +285,7 @@ public final class SyncCommand implements BlazeCommand {
                 // which hopefully reminds everyone inspecting the file of the actual syntax of
                 // that rule. Note that the original arguments are always ignored when bazel uses
                 // a resolved file instead of a workspace file.
-                ImmutableMap.<String, Object>of("name", name, "*args", toolchains))
+                ImmutableMap.<String, Object>of("name", name, "*args", args))
             .put(ResolvedHashesFunction.NATIVE, nativeCommand)
             .build();
       }
