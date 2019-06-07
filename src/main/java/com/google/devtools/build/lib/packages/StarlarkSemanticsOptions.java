@@ -449,6 +449,18 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleNoOutputAttrDefault;
 
   @Option(
+      name = "incompatible_no_rule_outputs_param",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, disables the `outputs` parameter of the `rule()` Starlark function.")
+  public boolean incompatibleNoRuleOutputsParam;
+
+  @Option(
       name = "incompatible_no_support_tools_in_action_inputs",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -662,6 +674,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
         .incompatibleNoKwargsInBuildFiles(incompatibleNoKwargsInBuildFiles)
         .incompatibleNoOutputAttrDefault(incompatibleNoOutputAttrDefault)
+        .incompatibleNoRuleOutputsParam(incompatibleNoRuleOutputsParam)
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
         .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)

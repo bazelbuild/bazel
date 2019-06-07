@@ -1925,7 +1925,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testAbstractActionInterface() throws Exception {
     setSkylarkSemanticsOptions(
-        "--incompatible_disallow_struct_provider_syntax=false");
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_rule_outputs_param=false");
     scratch.file("test/rules.bzl",
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
@@ -1969,7 +1970,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testCreatedActions() throws Exception {
     setSkylarkSemanticsOptions(
-        "--incompatible_disallow_struct_provider_syntax=false");
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
@@ -2052,7 +2054,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testRunShellUsesHelperScriptForLongCommand() throws Exception {
     setSkylarkSemanticsOptions(
-        "--incompatible_disallow_struct_provider_syntax=false");
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
