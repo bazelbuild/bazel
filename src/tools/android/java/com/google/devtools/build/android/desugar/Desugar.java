@@ -983,7 +983,7 @@ class Desugar {
     if (options.persistentWorker) {
       runPersistentWorker(dumpDirectory);
     } else {
-      processRequest(options, dumpDirectory);
+      System.exit(processRequest(options, dumpDirectory));
     }
   }
 
@@ -1000,8 +1000,17 @@ class Desugar {
 
       DesugarOptions options = parseCommandLineOptions(argList);
 
-      int exitCode = processRequest(options, dumpDirectory);
-      WorkResponse.newBuilder().setExitCode(exitCode).build().writeDelimitedTo(System.out);
+      try {
+        processRequest(options, dumpDirectory);
+        WorkResponse.newBuilder().setExitCode(0).build().writeDelimitedTo(System.out);
+      } catch (Exception e) {
+        e.printStackTrace();
+        WorkResponse.newBuilder()
+            .setExitCode(1)
+            .setOutput(e.getMessage())
+            .build()
+            .writeDelimitedTo(System.out);
+      }
       System.out.flush();
     }
   }
