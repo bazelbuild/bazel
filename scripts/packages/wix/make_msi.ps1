@@ -27,7 +27,7 @@
 #    -WorkDir: directory for temp files (default: ".\_make_msi_tmp_")
 
 # Command line arguments.
-Param(
+param(
     [Parameter(Mandatory = $true, Position = 0)]
     [ValidatePattern("bazel-[0-9]+\.[0-9]+\.[0-9]+(rc[1-9]|rc[1-9][0-9]+)?-windows-x86_64.exe$")]
     [string]$BazelExe,
@@ -35,6 +35,9 @@ Param(
     [string]$WorkDir,
     [string]$OutMsi
 )
+
+# Exit immediately when a Cmdlet fails.
+$ErrorActionPreference = "Stop"
 
 Import-Module .\scripts\packages\wix\make_msi_lib.ps1
 
