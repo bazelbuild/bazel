@@ -15,7 +15,6 @@
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidInstrumentationInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -23,17 +22,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Fake implementation of {@link AndroidInstrumentationInfoApi}. */
 public class FakeAndroidInstrumentationInfo
-    implements AndroidInstrumentationInfoApi<FileApi, ApkInfoApi<?>> {
-
-  @Override
-  public FileApi getTargetApk() {
-    return null;
-  }
-
-  @Override
-  public FileApi getInstrumentationApk() {
-    return null;
-  }
+    implements AndroidInstrumentationInfoApi<ApkInfoApi<?>> {
 
   @Override
   public ApkInfoApi<?> getTarget() {
@@ -55,11 +44,11 @@ public class FakeAndroidInstrumentationInfo
 
   /** Fake implementation of {@link AndroidInstrumentationInfoApiProvider}. */
   public static class FakeAndroidInstrumentationInfoProvider
-      implements AndroidInstrumentationInfoApiProvider<FileApi, ApkInfoApi<?>> {
+      implements AndroidInstrumentationInfoApiProvider<ApkInfoApi<?>> {
 
     @Override
-    public AndroidInstrumentationInfoApi<FileApi, ApkInfoApi<?>> createInfo(
-        FileApi targetApk, FileApi instrumentationApk, Object target) throws EvalException {
+    public AndroidInstrumentationInfoApi<ApkInfoApi<?>> createInfo(ApkInfoApi<?> target)
+        throws EvalException {
       return new FakeAndroidInstrumentationInfo();
     }
 

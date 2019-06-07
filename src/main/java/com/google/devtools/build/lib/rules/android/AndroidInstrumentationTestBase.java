@@ -207,10 +207,15 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
         "test_app", Mode.TARGET, AndroidInstrumentationInfo.PROVIDER);
   }
 
+  @Nullable
+  private static ApkInfo getApkProvider(RuleContext ruleContext) {
+    return ruleContext.getPrerequisite("test_app", Mode.TARGET, ApkInfo.PROVIDER);
+  }
+
   /** The target APK from the {@code android_binary} in the {@code instrumentation} attribute. */
   @Nullable
   private static Artifact getTargetApk(RuleContext ruleContext) {
-    return getInstrumentationProvider(ruleContext).getTargetApk();
+    return getInstrumentationProvider(ruleContext).getTarget().getApk();
   }
 
   /**
@@ -219,7 +224,7 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
    */
   @Nullable
   private static Artifact getInstrumentationApk(RuleContext ruleContext) {
-    return getInstrumentationProvider(ruleContext).getInstrumentationApk();
+    return getApkProvider(ruleContext).getApk();
   }
 
   /** The support APKs from the {@code support_apks} and {@code fixtures} attributes. */
