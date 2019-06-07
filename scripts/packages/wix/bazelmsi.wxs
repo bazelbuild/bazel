@@ -84,7 +84,7 @@
                 Name="PATH"
                 Action="set"
                 Id="UpdatePathEnv"
-                Part="last"
+                Part="first"
                 System="no"
                 Value="[INSTALLDIR]" />
           </Component>
