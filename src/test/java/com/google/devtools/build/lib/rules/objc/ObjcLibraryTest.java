@@ -2013,4 +2013,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(dependerProvider.getDirect(ObjcProvider.MODULE_MAP)))
         .containsExactly("x/bar.modulemaps/module.modulemap");
   }
+
+  @Test
+  public void testNameHasSlash() throws Exception {
+    scratch.file("x/foo.m");
+    checkError(
+        "x",
+        "foo/bar",
+        "in name attribute of objc_library rule //x:foo/bar: "
+            + "this attribute has unsupported character '/'",
+        "objc_library(name = 'foo/bar', srcs = ['foo.m'])");
+  }
 }
