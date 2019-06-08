@@ -2011,6 +2011,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public Artifact.DerivedArtifact getDerivedArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Artifact getStableWorkspaceStatusArtifact() {
       throw new UnsupportedOperationException();
     }
