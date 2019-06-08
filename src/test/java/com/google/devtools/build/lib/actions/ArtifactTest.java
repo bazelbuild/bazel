@@ -491,4 +491,18 @@ public class ArtifactTest {
         ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/"))),
         scratch.file("/aaa/bbb/ccc/ddd"));
   }
+
+  @Test
+  public void canDeclareContentBasedOutput() throws Exception {
+    Path execRoot = scratch.getFileSystem().getPath("/");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/newRoot"));
+    assertThat(
+            new Artifact.DerivedArtifact(
+                    root,
+                    PathFragment.create("newRoot/my.output"),
+                    ActionsTestUtil.NULL_ARTIFACT_OWNER,
+                    /*contentBasedPath=*/ true)
+                .contentBasedPath())
+        .isTrue();
+  }
 }

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -94,6 +95,14 @@ public class CppLinkActionTest extends BuildViewTestCase {
               PathFragment rootRelativePath, ArtifactRoot root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
+          }
+
+          @Override
+          public Artifact.DerivedArtifact getDerivedArtifact(
+              PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPaths) {
+            Preconditions.checkArgument(
+                !contentBasedPaths, "C++ tests don't use content-based outputs");
+            return getDerivedArtifact(rootRelativePath, root);
           }
         },
         masterConfig);

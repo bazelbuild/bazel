@@ -282,9 +282,15 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
+    return getDerivedArtifact(rootRelativePath, root, /*contentBasedPath=*/ false);
+  }
+
+  @Override
+  public Artifact.DerivedArtifact getDerivedArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
     Preconditions.checkState(enabled);
     return dedupAndTrackArtifactAndOrigin(
-        artifactFactory.getDerivedArtifact(rootRelativePath, root, getOwner()),
+        artifactFactory.getDerivedArtifact(rootRelativePath, root, getOwner(), contentBasedPath),
         extendedSanityChecks ? new Throwable() : null);
   }
 
