@@ -358,20 +358,6 @@ Package path elements may be specified in three formats:
 </p>
 
 
-<h4 id='flag--output_symbol_counts'><code class='flag'>--[no]output_symbol_counts</code></h4>
-<p>
-  If enabled, each gold-invoked link of a C++ executable binary will output
-  a <i>symbol counts</i> file (via the <code>--print-symbol-counts</code> gold
-  option). For each linker input, the file logs the number of symbols that were
-  defined and the number of symbols that were used in the binary.
-  This information can be used to track unnecessary link dependencies.
-  The symbol counts file is written to the binary's output path with the name
-  <code>[targetname].sc</code>.
-</p>
-<p>
- This option is disabled by default.
-</p>
-
 <h4 id='flag--jvmopt'><code class='flag'>--jvmopt <var>jvm-option</var></code></h4>
 <p>
   This option allows option arguments to be passed to the Java VM. It can be used
