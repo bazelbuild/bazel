@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar.runtime;
 
+import android.app.DirectAction;
+import android.os.Bundle;
+import android.os.CancellationSignal;
+import android.service.voice.VoiceInteractionSession;
 import android.telephony.AvailableNetworkInfo;
 import android.telephony.TelephonyManager;
 import java.util.List;
@@ -60,5 +64,33 @@ public final class ConsumerWrapper<T> implements Consumer<T> {
         availableNetworks,
         executor,
         callback != null ? new ConsumerWrapper<Integer>(callback) : null);
+  }
+
+  public static void performDirectAction(
+      VoiceInteractionSession receiver,
+      DirectAction action,
+      Bundle extras,
+      CancellationSignal cancellationSignal,
+      Executor resultExecutor,
+      j$.util.function.Consumer<Bundle> resultListener) {
+    receiver.performDirectAction(
+        action,
+        extras,
+        cancellationSignal,
+        resultExecutor,
+        resultListener != null ? new ConsumerWrapper<Bundle>(resultListener) : null);
+  }
+
+  public final void requestDirectActions(
+      VoiceInteractionSession receiver,
+      VoiceInteractionSession.ActivityId activityId,
+      CancellationSignal cancellationSignal,
+      Executor resultExecutor,
+      j$.util.function.Consumer<List<DirectAction>> callback) {
+    receiver.requestDirectActions(
+        activityId,
+        cancellationSignal,
+        resultExecutor,
+        callback != null ? new ConsumerWrapper<List<DirectAction>>(callback) : null);
   }
 }
