@@ -45,6 +45,15 @@ enum AttributeType {
   OUTPUT_LIST = 13;
 }
 
+// Representation of a Starlark rule definition.
+message RuleInfo {
+  // The documentation string of the rule.
+  string doc_string = 1;
+
+  // The attributes of the rule.
+  repeated AttributeInfo attributes = 2;
+}
+
 // Representation of a Starlark rule attribute definition, comprised of an
 // attribute name, and a schema defined by a call to one of the 'attr' module
 // methods enumerated at
