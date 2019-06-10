@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -62,10 +63,11 @@ public final class MarkdownUtil {
    */
   @SuppressWarnings("unused") // Used by markdown template.
   public String funcSummary(UserDefinedFunctionInfo funcInfo) {
-    List<String> paramNames = funcInfo.getParameters().stream()
-        .map(param -> param.getName())
-        .collect(Collectors.toList());
-    return summary(funcInfo.getName(), paramNames);
+    List<String> paramNames =
+        funcInfo.getParametersList().stream()
+            .map(param -> param.getName())
+            .collect(Collectors.toList());
+    return summary(funcInfo.getFunctionName(), paramNames);
   }
 
   private String summary(String functionName, List<String> paramNames) {

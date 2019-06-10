@@ -65,6 +65,19 @@ message AttributeInfo {
   bool mandatory = 4;
 }
 
+// Representation of Starlark function definition.
+message UserDefinedFunctionInfo {
+  // The name of the function.
+  string function_name = 1;
+
+  // The parameters for the function.
+  repeated FunctionParamInfo parameters = 2;
+
+  // The documented description of the function (if specified in the function's
+  // docstring).
+  string doc_string = 3;
+}
+
 // Representation of a Starlark function parameter definition.
 message FunctionParamInfo {
   // The name of the parameter.

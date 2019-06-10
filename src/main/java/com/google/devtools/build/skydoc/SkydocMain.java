@@ -102,11 +102,12 @@ import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInf
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
+import com.google.devtools.build.skydoc.rendering.DocstringParseException;
+import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo;
-import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo.DocstringParseException;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -287,7 +288,7 @@ public class SkydocMain {
     for (Entry<String, UserDefinedFunction> entry : userDefinedFunctions.entrySet()) {
       try {
         UserDefinedFunctionInfo functionInfo =
-            UserDefinedFunctionInfo.fromNameAndFunction(entry.getKey(), entry.getValue());
+            FunctionUtil.fromNameAndFunction(entry.getKey(), entry.getValue());
         printUserDefinedFunctionInfo(printWriter, renderer, functionInfo);
         printWriter.println();
       } catch (DocstringParseException exception) {
