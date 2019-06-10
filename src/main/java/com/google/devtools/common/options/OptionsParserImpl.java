@@ -82,8 +82,6 @@ class OptionsParserImpl {
       Stream.of(PriorityCategory.values())
           .collect(Collectors.toMap(p -> p, OptionPriority::lowestOptionPriorityAtCategory));
 
-  private boolean allowSingleDashLongOptions = false;
-
   private ArgsPreProcessor argsPreProcessor = args -> args;
 
   private final String skippedPrefix;
@@ -107,14 +105,6 @@ class OptionsParserImpl {
 
   OptionsData getOptionsData() {
     return optionsData;
-  }
-
-  /**
-   * Indicates whether or not the parser will allow long options with a
-   * single-dash, instead of the usual double-dash, too, eg. -example instead of just --example.
-   */
-  void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
-    this.allowSingleDashLongOptions = allowSingleDashLongOptions;
   }
 
   /** Sets the ArgsPreProcessor for manipulations of the options before parsing. */
@@ -498,8 +488,7 @@ class OptionsParserImpl {
       optionDefinition = optionsData.getFieldForAbbrev(arg.charAt(1));
       booleanValue = false;
 
-    } else if (allowSingleDashLongOptions // -long_option
-        || arg.startsWith("--")) { // or --long_option
+    } else if (arg.startsWith("--")) { // --long_option
 
       int equalsAt = arg.indexOf('=');
       int nameStartsAt = arg.startsWith("--") ? 2 : 1;
