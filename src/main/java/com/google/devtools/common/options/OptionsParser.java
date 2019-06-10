@@ -214,14 +214,6 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * Indicates whether or not the parser will allow long options with a
-   * single-dash, instead of the usual double-dash, too, eg. -example instead of just --example.
-   */
-  public void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
-    this.impl.setAllowSingleDashLongOptions(allowSingleDashLongOptions);
-  }
-
-  /**
    * Enables the Parser to handle params files using the provided {@link ParamsFilePreProcessor}.
    */
   public void enableParamsFileSupport(ParamsFilePreProcessor preProcessor) {
