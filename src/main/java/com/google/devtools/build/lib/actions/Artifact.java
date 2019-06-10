@@ -337,15 +337,9 @@ public abstract class Artifact
     boolean ownersEqual(Artifact other) {
       DerivedArtifact that = (DerivedArtifact) other;
       if (!(this.owner instanceof ActionLookupData) || !(that.owner instanceof ActionLookupData)) {
-        // Happens only intra-analysis of a configured target. Tolerate.
-        Preconditions.checkState(
-            this.getArtifactOwner().equals(that.getArtifactOwner()),
-            "Mismatched owners: %s %s %s %s",
-            this,
-            that,
-            this.getArtifactOwner(),
-            that.getArtifactOwner());
-        return true;
+        // Happens when at least one of these artifacts hasn't had its generating action key set
+        // yet, so its configured target is still being analyzed. Tolerate.
+        return this.getArtifactOwner().equals(that.getArtifactOwner());
       }
       return this.owner.equals(that.owner);
     }
