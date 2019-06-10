@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
-import com.google.devtools.build.lib.network.ConnectivityModule;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -148,7 +147,6 @@ public class BlazeRuntimeWrapper {
                 PackageCacheOptions.class,
                 StarlarkSemanticsOptions.class,
                 BlazeCommandEventHandler.Options.class,
-                ConnectivityModule.ConnectivityOptions.class,
                 SandboxOptions.class));
 
     for (BlazeModule module : runtime.getBlazeModules()) {
