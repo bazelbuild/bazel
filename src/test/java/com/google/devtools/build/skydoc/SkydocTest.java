@@ -28,9 +28,9 @@ import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
+import com.google.devtools.build.skydoc.rendering.DocstringParseException;
+import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo;
-import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import java.io.IOException;
 import java.util.Map;
@@ -377,7 +377,7 @@ public final class SkydocTest extends SkylarkTestCase {
     DocstringParseException expected =
         assertThrows(
             DocstringParseException.class,
-            () -> UserDefinedFunctionInfo.fromNameAndFunction("check_sources", checkSourcesFn));
+            () -> FunctionUtil.fromNameAndFunction("check_sources", checkSourcesFn));
     assertThat(expected)
         .hasMessageThat()
         .contains(
