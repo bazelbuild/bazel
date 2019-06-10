@@ -16,27 +16,19 @@ package com.google.devtools.build.skydoc.rendering;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
-import java.util.Collection;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 
-/**
- * Stores information about a skylark rule definition.
- */
-public class RuleInfo {
+/** Stores information about a skylark rule definition. */
+public class RuleInfoWrapper {
 
   private final BaseFunction identifierFunction;
   private final Location location;
-  private final String docString;
-  private final Collection<AttributeInfo> attrInfos;
+  private final RuleInfo ruleInfo;
 
-  public RuleInfo(BaseFunction identifierFunction,
-      Location location,
-      String docString,
-      Collection<AttributeInfo> attrInfos) {
+  public RuleInfoWrapper(BaseFunction identifierFunction, Location location, RuleInfo ruleInfo) {
     this.identifierFunction = identifierFunction;
     this.location = location;
-    this.docString = docString;
-    this.attrInfos = attrInfos;
+    this.ruleInfo = ruleInfo;
   }
 
   public BaseFunction getIdentifierFunction() {
@@ -47,11 +39,7 @@ public class RuleInfo {
     return location;
   }
 
-  public String getDocString() {
-    return docString;
-  }
-
-  public Collection<AttributeInfo> getAttributes() {
-    return attrInfos;
+  public RuleInfo getRuleInfo() {
+    return ruleInfo;
   }
 }

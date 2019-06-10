@@ -34,10 +34,11 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.skydoc.rendering.ProviderInfo;
-import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(AttributeType.NAME, "A unique name for this target.", true);
-  private final List<RuleInfo> ruleInfoList;
+  private final List<RuleInfoWrapper> ruleInfoList;
   private final List<ProviderInfo> providerInfoList;
 
   /**
@@ -62,11 +63,11 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
    *
    * @param ruleInfoList the list of {@link RuleInfo} objects to which rule() invocation information
    *     will be added
-   * @param providerInfoList the list of {@link ProviderInfo} objects to which provider()
-   *     invocation information will be added
+   * @param providerInfoList the list of {@link ProviderInfo} objects to which provider() invocation
+   *     information will be added
    */
-  public FakeSkylarkRuleFunctionsApi(List<RuleInfo> ruleInfoList,
-      List<ProviderInfo> providerInfoList) {
+  public FakeSkylarkRuleFunctionsApi(
+      List<RuleInfoWrapper> ruleInfoList, List<ProviderInfo> providerInfoList) {
     this.ruleInfoList = ruleInfoList;
     this.providerInfoList = providerInfoList;
   }
@@ -146,7 +147,10 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
 
-    ruleInfoList.add(new RuleInfo(functionIdentifier, ast.getLocation(), doc, attrInfos));
+    RuleInfo ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttributes(attrInfos).build();
+
+    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, ast.getLocation(), ruleInfo));
+
     return functionIdentifier;
   }
 

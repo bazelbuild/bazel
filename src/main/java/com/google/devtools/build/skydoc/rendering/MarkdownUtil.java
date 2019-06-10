@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,9 +36,10 @@ public final class MarkdownUtil {
    */
   @SuppressWarnings("unused") // Used by markdown template.
   public String ruleSummary(String ruleName, RuleInfo ruleInfo) {
-    List<String> attributeNames = ruleInfo.getAttributes().stream()
-        .map(attr -> attr.getName())
-        .collect(Collectors.toList());
+    List<String> attributeNames =
+        ruleInfo.getAttributesList().stream()
+            .map(attr -> attr.getName())
+            .collect(Collectors.toList());
     return summary(ruleName, attributeNames);
   }
 

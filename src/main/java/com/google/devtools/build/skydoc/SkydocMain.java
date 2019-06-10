@@ -106,7 +106,8 @@ import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.ProviderInfo;
-import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
@@ -346,13 +347,14 @@ public class SkydocMain {
       throws InterruptedException, IOException, LabelSyntaxException, EvalException,
           StarlarkEvaluationException {
 
-    List<RuleInfo> ruleInfoList = new ArrayList<>();
+    List<RuleInfoWrapper> ruleInfoList = new ArrayList<>();
     List<ProviderInfo> providerInfoList = new ArrayList<>();
     Environment env = recursiveEval(semantics, label, ruleInfoList, providerInfoList);
 
-    Map<BaseFunction, RuleInfo> ruleFunctions =
+    Map<BaseFunction, RuleInfoWrapper> ruleFunctions =
         ruleInfoList.stream()
-            .collect(Collectors.toMap(RuleInfo::getIdentifierFunction, Functions.identity()));
+            .collect(
+                Collectors.toMap(RuleInfoWrapper::getIdentifierFunction, Functions.identity()));
     Map<BaseFunction, ProviderInfo> providerInfos =
         providerInfoList.stream()
             .collect(Collectors.toMap(ProviderInfo::getIdentifier, Functions.identity()));
@@ -362,7 +364,7 @@ public class SkydocMain {
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {
-        RuleInfo ruleInfo = ruleFunctions.get(envEntry.getValue());
+        RuleInfo ruleInfo = ruleFunctions.get(envEntry.getValue()).getRuleInfo();
         ruleInfoMap.put(envEntry.getKey(), ruleInfo);
       }
       if (providerInfos.containsKey(envEntry.getValue())) {
@@ -400,7 +402,7 @@ public class SkydocMain {
   private Environment recursiveEval(
       StarlarkSemantics semantics,
       Label label,
-      List<RuleInfo> ruleInfoList,
+      List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfo> providerInfoList)
       throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
     Path path = pathOfLabel(label);
@@ -468,7 +470,7 @@ public class SkydocMain {
       StarlarkSemantics semantics,
       BuildFileAST buildFileAST,
       Map<String, Extension> imports,
-      List<RuleInfo> ruleInfoList,
+      List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfo> providerInfoList)
       throws InterruptedException, StarlarkEvaluationException {
 
@@ -494,7 +496,7 @@ public class SkydocMain {
    *     invocation information will be added
    */
   private static GlobalFrame globalFrame(
-      List<RuleInfo> ruleInfoList, List<ProviderInfo> providerInfoList) {
+      List<RuleInfoWrapper> ruleInfoList, List<ProviderInfo> providerInfoList) {
     TopLevelBootstrap topLevelBootstrap =
         new TopLevelBootstrap(
             new FakeBuildApiGlobals(),
