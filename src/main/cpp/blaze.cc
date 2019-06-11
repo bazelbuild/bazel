@@ -236,7 +236,11 @@ struct LoggingInfo {
 
 class BlazeServer final {
  public:
-  BlazeServer(int connect_timeout_secs, const StartupOptions *startup_options);
+  BlazeServer(
+      const int connect_timeout_secs,
+      const bool batch,
+      const bool block_for_lock,
+      const string &output_base);
   ~BlazeServer();
 
   // Acquire a lock for the server running in this output base. Returns the
@@ -257,6 +261,8 @@ class BlazeServer final {
   unsigned int Communicate(
       const std::string &command,
       const std::vector<std::string> &command_args,
+      const std::string &invocation_policy,
+      const std::vector<RcStartupFlag> &original_startup_options,
       const LoggingInfo &logging_info);
 
   // Disconnects and kills an existing server. Only call this when this object
@@ -268,7 +274,7 @@ class BlazeServer final {
   // connected state.
   void Cancel();
 
- protected:
+ private:
   BlazeLock blaze_lock_;
   bool connected_;
 
@@ -284,8 +290,6 @@ class BlazeServer final {
   // a memory fence.
   std::mutex cancel_thread_mutex_;
 
-  int connect_timeout_secs_;
-
   // Pipe that the main thread sends actions to and the cancel thread receives
   // actions from.
   blaze_util::IPipe *pipe_;
@@ -295,8 +299,10 @@ class BlazeServer final {
   void SendAction(CancelThreadAction action);
   void SendCancelMessage();
 
- private:
-  const StartupOptions *startup_options_;
+  const int connect_timeout_secs_;
+  const bool batch_;
+  const bool block_for_lock_;
+  const string output_base_;
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -310,9 +316,9 @@ static BlazeServer *blaze_server;
 // to delete the objects before those.
 
 uint64_t BlazeServer::AcquireLock() {
-  return blaze::AcquireLock(startup_options_->output_base,
-                            startup_options_->batch,
-                            startup_options_->block_for_lock,
+  return blaze::AcquireLock(output_base_,
+                            batch_,
+                            block_for_lock_,
                             &blaze_lock_);
 }
 
@@ -1221,6 +1227,8 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
       server->Communicate(
           option_processor.GetCommand(),
           option_processor.GetCommandArguments(),
+          startup_options.invocation_policy,
+          startup_options.original_startup_options_,
           *logging_info));
 }
 
@@ -1430,7 +1438,8 @@ static int RunLauncher(
     const string &workspace,
     LoggingInfo *logging_info) {
   blaze_server = new BlazeServer(
-          startup_options.connect_timeout_secs, &startup_options);
+      startup_options.connect_timeout_secs, startup_options.batch,
+      startup_options.block_for_lock, startup_options.output_base);
 
   logging_info->command_wait_duration_ms = blaze_server->AcquireLock();
   BAZEL_LOG(INFO) << "Acquired the client lock, waited "
@@ -1600,12 +1609,15 @@ static bool ProtoStringEqual(const StringTypeA &cookieA,
 }
 
 BlazeServer::BlazeServer(
-    int connect_timeout_secs,
-    const StartupOptions *startup_options) {
-  connected_ = false;
-  connect_timeout_secs_ = connect_timeout_secs;
-  startup_options_ = startup_options;
-
+    const int connect_timeout_secs,
+    const bool batch,
+    const bool block_for_lock,
+    const string &output_base)
+  : connected_(false),
+    connect_timeout_secs_(connect_timeout_secs),
+    batch_(batch),
+    block_for_lock_(block_for_lock),
+    output_base_(output_base) {
   gpr_set_log_function(null_grpc_log_function);
 
   pipe_ = blaze_util::CreatePipe();
@@ -1646,8 +1658,7 @@ bool BlazeServer::TryConnect(
 bool BlazeServer::Connect() {
   assert(!connected_);
 
-  std::string server_dir =
-      blaze_util::JoinPath(startup_options_->output_base, "server");
+  std::string server_dir = blaze_util::JoinPath(output_base_, "server");
   std::string port;
   std::string ipv4_prefix = "127.0.0.1:";
   std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
@@ -1680,7 +1691,7 @@ bool BlazeServer::Connect() {
     return false;
   }
 
-  if (!VerifyServerProcess(server_pid, startup_options_->output_base)) {
+  if (!VerifyServerProcess(server_pid, output_base_)) {
     return false;
   }
 
@@ -1803,7 +1814,7 @@ void BlazeServer::KillRunningServer() {
   command_server::RunRequest request;
   command_server::RunResponse response;
   request.set_cookie(request_cookie_);
-  request.set_block_for_lock(startup_options_->block_for_lock);
+  request.set_block_for_lock(block_for_lock_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString() +
                                  " (for shutdown)");
   request.add_arg("shutdown");
@@ -1828,7 +1839,7 @@ void BlazeServer::KillRunningServer() {
     // another command holds the client lock.
     if (response.finished()) {
       if (response.exit_code() == blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK) {
-        assert(!startup_options_->block_for_lock);
+        assert(!block_for_lock_);
         BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
             << "Exiting because the lock is held and --noblock_for_lock was "
                "given.";
@@ -1845,7 +1856,7 @@ void BlazeServer::KillRunningServer() {
   // If it does not terminate itself gracefully within 1m, terminate it.
   if (globals->server_pid > 0 &&
       !AwaitServerProcessTermination(globals->server_pid,
-                                     startup_options_->output_base,
+                                     output_base_,
                                      kPostShutdownGracePeriodSeconds)) {
     if (!status.ok()) {
       BAZEL_LOG(WARNING)
@@ -1854,7 +1865,7 @@ void BlazeServer::KillRunningServer() {
           << status.error_message() << "', log file: '" << globals->jvm_log_file
           << "')";
     }
-    KillServerProcess(globals->server_pid, startup_options_->output_base);
+    KillServerProcess(globals->server_pid, output_base_);
   }
 
   connected_ = false;
@@ -1863,6 +1874,8 @@ void BlazeServer::KillRunningServer() {
 unsigned int BlazeServer::Communicate(
     const string &command,
     const vector<string> &command_args,
+    const string &invocation_policy,
+    const vector<RcStartupFlag> &original_startup_options,
     const LoggingInfo &logging_info) {
   assert(connected_);
   assert(globals->server_pid > 0);
@@ -1881,17 +1894,16 @@ unsigned int BlazeServer::Communicate(
 
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
-  request.set_block_for_lock(startup_options_->block_for_lock);
+  request.set_block_for_lock(block_for_lock_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
   for (const string &arg : arg_vector) {
     request.add_arg(arg);
   }
-  if (!startup_options_->invocation_policy.empty()) {
-    request.set_invocation_policy(startup_options_->invocation_policy);
+  if (!invocation_policy.empty()) {
+    request.set_invocation_policy(invocation_policy);
   }
 
-  for (const auto &startup_option :
-       startup_options_->original_startup_options_) {
+  for (const auto &startup_option : original_startup_options) {
     command_server::StartupOption *proto_option_field =
         request.add_startup_options();
     request.add_startup_options();
@@ -1973,9 +1985,9 @@ unsigned int BlazeServer::Communicate(
   // grace period, terminate it.
   if (final_response.termination_expected() &&
       !AwaitServerProcessTermination(globals->server_pid,
-                                     startup_options_->output_base,
+                                     output_base_,
                                      kPostShutdownGracePeriodSeconds)) {
-    KillServerProcess(globals->server_pid, startup_options_->output_base);
+    KillServerProcess(globals->server_pid, output_base_);
   }
 
   SendAction(CancelThreadAction::JOIN);
@@ -1987,12 +1999,12 @@ unsigned int BlazeServer::Communicate(
                     << status.error_code() << ", error message: '"
                     << status.error_message() << "', log file: '"
                     << globals->jvm_log_file << "')\n";
-    return GetExitCodeForAbruptExit(startup_options_->output_base);
+    return GetExitCodeForAbruptExit(output_base_);
   } else if (!finished) {
     BAZEL_LOG(USER)
         << "\nServer finished RPC without an explicit exit code (log file: '"
         << globals->jvm_log_file << "')\n";
-    return GetExitCodeForAbruptExit(startup_options_->output_base);
+    return GetExitCodeForAbruptExit(output_base_);
   } else if (final_response.has_exec_request()) {
     const command_server::ExecRequest& request = final_response.exec_request();
     if (request.argv_size() < 1) {
