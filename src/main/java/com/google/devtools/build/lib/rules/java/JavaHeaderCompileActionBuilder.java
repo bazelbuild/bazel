@@ -225,7 +225,11 @@ public class JavaHeaderCompileActionBuilder {
 
     // The compilation uses API-generating annotation processors and has to fall back to
     // javac-turbine.
-    boolean requiresAnnotationProcessing = !plugins.isEmpty();
+    // N.B. we only check if the processor classes are empty, we don't care if there is plugin
+    // data or dependencies if there are no annotation processors to run. This differs from
+    // javac where java_plugin may be used with processor_class unset to declare Error Prone
+    // plugins.
+    boolean requiresAnnotationProcessing = !plugins.processorClasses().isEmpty();
 
     SpawnAction.Builder builder = new SpawnAction.Builder();
 
