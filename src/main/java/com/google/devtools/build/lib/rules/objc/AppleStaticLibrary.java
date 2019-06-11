@@ -114,20 +114,26 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       BuildConfiguration childToolchainConfig = entry.getKey();
       String childCpu = entry.getKey().getCpu();
       CcToolchainProvider childToolchain = entry.getValue();
-      Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childCpu);
-      ProtobufSupport protoSupport =
-          new ProtobufSupport(
-                  ruleContext,
-                  childToolchainConfig,
-                  protosToAvoid,
-                  ImmutableList.<ProtoInfo>of(),
-                  objcProtoProviders,
-                  ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders),
-                  childToolchain)
-              .registerGenerationActions()
-              .registerCompilationActions();
 
-      Optional<ObjcProvider> protosObjcProvider = protoSupport.getObjcProvider();
+      Optional<ObjcProvider> protosObjcProvider;
+      if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
+        Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childCpu);
+        ProtobufSupport protoSupport =
+            new ProtobufSupport(
+                    ruleContext,
+                    childToolchainConfig,
+                    protosToAvoid,
+                    ImmutableList.<ProtoInfo>of(),
+                    objcProtoProviders,
+                    ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders),
+                    childToolchain)
+                .registerGenerationActions()
+                .registerCompilationActions();
+
+        protosObjcProvider = protoSupport.getObjcProvider();
+      } else {
+        protosObjcProvider = Optional.absent();
+      }
 
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childToolchainConfig);
