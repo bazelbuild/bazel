@@ -16,12 +16,12 @@ package com.google.devtools.build.remote.worker;
 
 import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.CacheCapabilities;
-import build.bazel.remote.execution.v2.CacheCapabilities.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.semver.SemVer;
 import com.google.devtools.build.lib.remote.ApiVersion;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -41,7 +41,7 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
   public void getCapabilities(
       GetCapabilitiesRequest request, StreamObserver<ServerCapabilities> responseObserver) {
     SemVer current = ApiVersion.current.toSemVer();
-    DigestFunction df = digestUtil.getDigestFunction();
+    DigestFunction.Value df = digestUtil.getDigestFunction();
     ServerCapabilities.Builder response =
         ServerCapabilities.newBuilder()
             .setLowApiVersion(current)
@@ -49,7 +49,7 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunction(df)
-                    .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.DISALLOWED)
+                    .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.DISALLOWED)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .setMaxBatchTotalSizeBytes(CasServer.MAX_BATCH_SIZE_BYTES)

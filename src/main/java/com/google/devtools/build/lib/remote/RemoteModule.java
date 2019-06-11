@@ -369,7 +369,7 @@ public final class RemoteModule extends BlazeModule {
   private void checkClientServerCompatibility(
       ServerCapabilities capabilities,
       RemoteOptions remoteOptions,
-      DigestFunction digestFunction,
+      DigestFunction.Value digestFunction,
       Reporter reporter)
       throws AbruptExitException {
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
