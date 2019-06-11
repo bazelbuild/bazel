@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -162,11 +163,11 @@ final class RemoteSpawnCache implements SpawnCache {
         // cache miss
         if (result != null && result.getExitCode() == 0) {
           Set<String> actualFiles = result.getOutputFilesList().stream()
-            .map(outputFile -> outputFile.getPath())
+            .map(OutputFile::getPath)
             .collect(Collectors.toSet());
           List<String> requiredFiles = spawn.getOutputFiles().stream()
             .filter(output -> output instanceof Artifact && !metadataHandler.artifactOmitted((Artifact)output))
-            .map(output -> output.getExecPathString())
+            .map(ActionInput::getExecPathString)
             .collect(Collectors.toList());
           // This check is needed to avoid confusing an empty protobuf and truncated protobuf.
           if (actualFiles.containsAll(requiredFiles)) {
