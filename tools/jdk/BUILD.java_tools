@@ -62,6 +62,7 @@ java_toolchain(
     jacocorunner = ":jacoco_coverage_runner_filegroup"
 )
 
+# A toolchain that targets java JAVA_LANGUAGE_LEVEL.
 java_toolchain(
     name = "toolchain_jdk_JAVA_LANGUAGE_LEVEL",
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
