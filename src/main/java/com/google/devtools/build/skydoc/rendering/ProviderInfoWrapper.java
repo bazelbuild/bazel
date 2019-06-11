@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,38 +16,37 @@ package com.google.devtools.build.skydoc.rendering;
 
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import java.util.Collection;
 
 /**
- * Stores information about a starlark provider definition.
+ * Stores information about a starlark provider definition, comprised of BaseFunction identifier and
+ * a {@link ProviderInfo} proto.
  *
- * For example, in <pre>FooInfo = provider(doc = 'My provider', fields = {'bar' : 'a bar'})</pre>,
- * this contains all information about the definition of FooInfo for purposes of generating its
- * documentation.
+ * <p>For example, in
+ *
+ * <pre>FooInfo = provider(doc = 'My provider', fields = {'bar' : 'a bar'})</pre>
+ *
+ * , this contains all information about the definition of FooInfo for purposes of generating its
+ * documentation, as well as a unique BaseFunction identifier.
  */
-public class ProviderInfo {
+public class ProviderInfoWrapper {
 
   private final BaseFunction identifier;
-  private final String docString;
-  private final Collection<ProviderFieldInfo> fieldInfos;
+  private final ProviderInfo providerInfo;
 
-  public ProviderInfo(BaseFunction identifier,
-      String docString,
-      Collection<ProviderFieldInfo> fieldInfos) {
+  public ProviderInfoWrapper(
+      BaseFunction identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
     this.identifier = identifier;
-    this.docString = docString;
-    this.fieldInfos = fieldInfos;
+    this.providerInfo =
+        ProviderInfo.newBuilder().setDocString(docString).addAllFieldInfos(fieldInfos).build();
   }
 
   public BaseFunction getIdentifier() {
     return identifier;
   }
 
-  public String getDocString() {
-    return docString;
-  }
-
-  public Collection<ProviderFieldInfo> getFields() {
-    return fieldInfos;
+  public ProviderInfo getProviderInfo() {
+    return providerInfo;
   }
 }

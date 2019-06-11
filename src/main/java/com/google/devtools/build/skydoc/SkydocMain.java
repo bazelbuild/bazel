@@ -105,8 +105,9 @@ import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
-import com.google.devtools.build.skydoc.rendering.ProviderInfo;
+import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import com.google.devtools.common.options.OptionsParser;
@@ -204,7 +205,7 @@ public class SkydocMain {
     Label targetFileLabel = Label.parseAbsolute(targetFileLabelString, ImmutableMap.of());
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
-    ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
+    ImmutableMap.Builder<String, ProviderInfoWrapper> providerInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctions = ImmutableMap.builder();
 
     try {
@@ -226,7 +227,7 @@ public class SkydocMain {
         ruleInfoMap.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-    Map<String, ProviderInfo> filteredProviderInfos =
+    Map<String, ProviderInfoWrapper> filteredProviderInfos =
         providerInfoMap.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
@@ -273,10 +274,13 @@ public class SkydocMain {
   }
 
   private static void printProviderInfos(
-      PrintWriter printWriter, MarkdownRenderer renderer, Map<String, ProviderInfo> providerInfos)
+      PrintWriter printWriter,
+      MarkdownRenderer renderer,
+      Map<String, ProviderInfoWrapper> providerInfos)
       throws IOException {
-    for (Entry<String, ProviderInfo> entry : providerInfos.entrySet()) {
-      printProviderInfo(printWriter, renderer, entry.getKey(), entry.getValue());
+    for (Entry<String, ProviderInfoWrapper> entry : providerInfos.entrySet()) {
+      ProviderInfoWrapper infoWrapper = entry.getValue();
+      printProviderInfo(printWriter, renderer, entry.getKey(), infoWrapper.getProviderInfo());
       printWriter.println();
     }
   }
@@ -286,6 +290,7 @@ public class SkydocMain {
       MarkdownRenderer renderer,
       Map<String, UserDefinedFunction> userDefinedFunctions)
       throws IOException {
+
     for (Entry<String, UserDefinedFunction> entry : userDefinedFunctions.entrySet()) {
       try {
         UserDefinedFunctionInfo functionInfo =
@@ -342,22 +347,24 @@ public class SkydocMain {
       StarlarkSemantics semantics,
       Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
-      ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
+      ImmutableMap.Builder<String, ProviderInfoWrapper> providerInfoMap,
       ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap)
       throws InterruptedException, IOException, LabelSyntaxException, EvalException,
           StarlarkEvaluationException {
 
     List<RuleInfoWrapper> ruleInfoList = new ArrayList<>();
-    List<ProviderInfo> providerInfoList = new ArrayList<>();
+
+    List<ProviderInfoWrapper> providerInfoList = new ArrayList<>();
     Environment env = recursiveEval(semantics, label, ruleInfoList, providerInfoList);
 
     Map<BaseFunction, RuleInfoWrapper> ruleFunctions =
         ruleInfoList.stream()
             .collect(
                 Collectors.toMap(RuleInfoWrapper::getIdentifierFunction, Functions.identity()));
-    Map<BaseFunction, ProviderInfo> providerInfos =
+
+    Map<BaseFunction, ProviderInfoWrapper> providerInfos =
         providerInfoList.stream()
-            .collect(Collectors.toMap(ProviderInfo::getIdentifier, Functions.identity()));
+            .collect(Collectors.toMap(ProviderInfoWrapper::getIdentifier, Functions.identity()));
 
     // Sort the bindings so their ordering is deterministic.
     TreeMap<String, Object> sortedBindings = new TreeMap<>(env.getGlobals().getExportedBindings());
@@ -368,7 +375,7 @@ public class SkydocMain {
         ruleInfoMap.put(envEntry.getKey(), ruleInfo);
       }
       if (providerInfos.containsKey(envEntry.getValue())) {
-        ProviderInfo providerInfo = providerInfos.get(envEntry.getValue());
+        ProviderInfoWrapper providerInfo = providerInfos.get(envEntry.getValue());
         providerInfoMap.put(envEntry.getKey(), providerInfo);
       }
       if (envEntry.getValue() instanceof UserDefinedFunction) {
@@ -403,7 +410,7 @@ public class SkydocMain {
       StarlarkSemantics semantics,
       Label label,
       List<RuleInfoWrapper> ruleInfoList,
-      List<ProviderInfo> providerInfoList)
+      List<ProviderInfoWrapper> providerInfoList)
       throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
     Path path = pathOfLabel(label);
 
@@ -471,7 +478,7 @@ public class SkydocMain {
       BuildFileAST buildFileAST,
       Map<String, Extension> imports,
       List<RuleInfoWrapper> ruleInfoList,
-      List<ProviderInfo> providerInfoList)
+      List<ProviderInfoWrapper> providerInfoList)
       throws InterruptedException, StarlarkEvaluationException {
 
     Environment env =
@@ -496,7 +503,7 @@ public class SkydocMain {
    *     invocation information will be added
    */
   private static GlobalFrame globalFrame(
-      List<RuleInfoWrapper> ruleInfoList, List<ProviderInfo> providerInfoList) {
+      List<RuleInfoWrapper> ruleInfoList, List<ProviderInfoWrapper> providerInfoList) {
     TopLevelBootstrap topLevelBootstrap =
         new TopLevelBootstrap(
             new FakeBuildApiGlobals(),

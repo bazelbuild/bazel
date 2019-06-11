@@ -33,12 +33,14 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.skydoc.rendering.ProviderInfo;
+import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +58,8 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(AttributeType.NAME, "A unique name for this target.", true);
   private final List<RuleInfoWrapper> ruleInfoList;
-  private final List<ProviderInfo> providerInfoList;
+
+  private final List<ProviderInfoWrapper> providerInfoList;
 
   /**
    * Constructor.
@@ -67,7 +70,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
    *     information will be added
    */
   public FakeSkylarkRuleFunctionsApi(
-      List<RuleInfoWrapper> ruleInfoList, List<ProviderInfo> providerInfoList) {
+      List<RuleInfoWrapper> ruleInfoList, List<ProviderInfoWrapper> providerInfoList) {
     this.ruleInfoList = ruleInfoList;
     this.providerInfoList = providerInfoList;
   }
@@ -98,13 +101,19 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     } else {
       // fields is NONE, so there is no field information to add.
     }
-    providerInfoList.add(new ProviderInfo(fakeProvider, doc, providerFieldInfos.build()));
+    providerInfoList.add(forProviderInfo(fakeProvider, doc, providerFieldInfos.build()));
     return fakeProvider;
   }
 
   /** Constructor for ProviderFieldInfo. */
   public ProviderFieldInfo asProviderFieldInfo(String name, String docString) {
     return ProviderFieldInfo.newBuilder().setName(name).setDocString(docString).build();
+  }
+
+  /** Constructor for ProviderInfoWrapper. */
+  public ProviderInfoWrapper forProviderInfo(
+      BaseFunction identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
+    return new ProviderInfoWrapper(identifier, docString, fieldInfos);
   }
 
   @Override
