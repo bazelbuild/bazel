@@ -59,8 +59,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import io.grpc.Context;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
+import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.SortedMap;
@@ -161,48 +161,38 @@ final class RemoteSpawnCache implements SpawnCache {
         }
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a
         // cache miss
-        if (result != null && result.getExitCode() == 0) {
-          MetadataProvider metadataProvider = context.getMetadataProvider();
-          Set<String> actualFiles = result.getOutputFilesList().stream()
-            .map(OutputFile::getPath)
-            .collect(Collectors.toSet());
-          List<String> requiredFiles = spawn.getOutputFiles().stream()
-            .filter(output -> output instanceof Artifact && !metadataProvider.artifactOmitted((Artifact)output))
-            .map(ActionInput::getExecPathString)
-            .collect(Collectors.toList());
-          // This check is needed to avoid confusing an empty protobuf and truncated protobuf.
-          if (actualFiles.containsAll(requiredFiles)) {
-            InMemoryOutput inMemoryOutput = null;
-            boolean downloadOutputs =
-                shouldDownloadAllSpawnOutputs(
-                    remoteOutputsMode,
-                    /* exitCode = */ 0,
-                    hasTopLevelOutputs(spawn.getOutputFiles(), topLevelOutputs));
-            if (downloadOutputs) {
-              try (SilentCloseable c =
-                  prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs")) {
-                remoteCache.download(result, execRoot, context.getFileOutErr());
-              }
-            } else {
-              PathFragment inMemoryOutputPath = getInMemoryOutputPath(spawn);
-              // inject output metadata
-              try (SilentCloseable c =
-                  prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs minimal")) {
-                inMemoryOutput =
-                    remoteCache.downloadMinimal(
-                        result,
-                        spawn.getOutputFiles(),
-                        inMemoryOutputPath,
-                        context.getFileOutErr(),
-                        execRoot,
-                        context.getMetadataInjector());
-              }
+        if (result != null && result.getExitCode() == 0
+            && actionResultHasRequiredFiles(result, context.getMetadataProvider(), spawn)) {
+          InMemoryOutput inMemoryOutput = null;
+          boolean downloadOutputs =
+              shouldDownloadAllSpawnOutputs(
+                  remoteOutputsMode,
+                  /* exitCode = */ 0,
+                  hasTopLevelOutputs(spawn.getOutputFiles(), topLevelOutputs));
+          if (downloadOutputs) {
+            try (SilentCloseable c =
+                prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs")) {
+              remoteCache.download(result, execRoot, context.getFileOutErr());
             }
-            SpawnResult spawnResult =
-                createSpawnResult(
-                    result.getExitCode(), /* cacheHit= */ true, "remote", inMemoryOutput);
-            return SpawnCache.success(spawnResult);
+          } else {
+            PathFragment inMemoryOutputPath = getInMemoryOutputPath(spawn);
+            // inject output metadata
+            try (SilentCloseable c =
+                prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs minimal")) {
+              inMemoryOutput =
+                  remoteCache.downloadMinimal(
+                      result,
+                      spawn.getOutputFiles(),
+                      inMemoryOutputPath,
+                      context.getFileOutErr(),
+                      execRoot,
+                      context.getMetadataInjector());
+            }
           }
+          SpawnResult spawnResult =
+              createSpawnResult(
+                  result.getExitCode(), /* cacheHit= */ true, "remote", inMemoryOutput);
+          return SpawnCache.success(spawnResult);
         }
       } catch (CacheNotFoundException e) {
         // Intentionally left blank
@@ -304,5 +294,22 @@ final class RemoteSpawnCache implements SpawnCache {
       reportedErrors.add(evt.getMessage());
       cmdlineReporter.handle(evt);
     }
+  }
+
+  private static boolean actionResultHasRequiredFiles(
+        ActionResult result,
+        MetadataProvider metadataProvider,
+        Spawn spawn) {
+    Set<String> actualFiles = result.getOutputFilesList().stream()
+      .map(OutputFile::getPath)
+      .collect(Collectors.toSet());
+    for (ActionInput requiredFile: spawn.getOutputFiles()) {
+      if (requiredFile instanceof Artifact && !metadataProvider.artifactOmitted((Artifact)requiredFile)) {
+        if (!actualFiles.contains(requiredFile.getExecPathString())) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 }
