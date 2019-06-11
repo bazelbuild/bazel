@@ -121,7 +121,7 @@ def fetch(ctx, git_repo):
     _git_maybe_shallow(ctx, git_repo, "fetch", "origin", git_repo.fetch_ref)
 
 def reset(ctx, git_repo):
-    _git_maybe_shallow(ctx, git_repo, "reset", "--hard", git_repo.reset_ref)
+    _git(ctx, git_repo, "reset", "--hard", git_repo.reset_ref)
 
 def clean(ctx, git_repo):
     _git(ctx, git_repo, "clean", "-xdf")
