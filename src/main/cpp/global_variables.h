@@ -38,10 +38,6 @@ struct GlobalVariables {
   // Whether or not the jvm_log_file should be opened with O_APPEND.
   bool jvm_log_file_append;
 
-  // The nearest enclosing workspace directory, starting from cwd.
-  // If not under a workspace directory, this is equal to cwd.
-  std::string workspace;
-
   // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of here and wherever
   // else it appears. Find some way to not have to declare a pid_t here, either
   // by making PID handling platform-independent or some other idea.

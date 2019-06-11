@@ -344,15 +344,15 @@ static vector<string> GetServerExeArgs(
     const vector<string> &archive_contents,
     const string &install_md5,
     const WorkspaceLayout &workspace_layout,
+    const string &workspace,
     const StartupOptions &startup_options) {
   vector<string> result;
 
   // e.g. A Blaze server process running in ~/src/build_root (where there's a
   // ~/src/build_root/WORKSPACE file) will appear in ps(1) as "blaze(src)".
-  string workspace =
-      workspace_layout.GetPrettyWorkspaceName(globals->workspace);
   result.push_back(
-      startup_options.GetLowercaseProductName() + "(" + workspace + ")");
+      startup_options.GetLowercaseProductName() +
+      "(" + workspace_layout.GetPrettyWorkspaceName(workspace) + ")");
   startup_options.AddJVMArgumentPrefix(
       blaze_util::Dirname(blaze_util::Dirname(jvm_path)), &result);
 
@@ -463,7 +463,7 @@ static vector<string> GetServerExeArgs(
   result.push_back("--output_base=" +
                    blaze_util::ConvertPath(startup_options.output_base));
   result.push_back("--workspace_directory=" +
-                   blaze_util::ConvertPath(globals->workspace));
+                   blaze_util::ConvertPath(workspace));
   result.push_back("--default_system_javabase=" + GetSystemJavabase());
 
   if (!startup_options.server_jvm_out.empty()) {
@@ -605,11 +605,12 @@ static string GetArgumentString(const vector<string> &argument_array) {
 }
 
 // Do a chdir into the workspace, and die if it fails.
-static void GoToWorkspace(const WorkspaceLayout &workspace_layout) {
-  if (workspace_layout.InWorkspace(globals->workspace) &&
-      !blaze_util::ChangeDirectory(globals->workspace)) {
+static const void GoToWorkspace(
+    const WorkspaceLayout &workspace_layout, const string &workspace) {
+  if (workspace_layout.InWorkspace(workspace) &&
+      !blaze_util::ChangeDirectory(workspace)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "changing directory into " << globals->workspace
+        << "changing directory into " << workspace
         << " failed: " << GetLastErrorString();
   }
 }
@@ -619,6 +620,7 @@ static int StartServer(
     const string &server_exe,
     const vector<string> &server_exe_args,
     const WorkspaceLayout &workspace_layout,
+    const string &workspace,
     const StartupOptions &startup_options,
     LoggingInfo *logging_info,
     BlazeServerStartup **server_startup) {
@@ -639,7 +641,7 @@ static int StartServer(
 
   // Go to the workspace before we daemonize, so
   // we can still print errors to the terminal.
-  GoToWorkspace(workspace_layout);
+  GoToWorkspace(workspace_layout, workspace);
 
   return ExecuteDaemon(server_exe, server_exe_args, PrepareEnvironmentForJvm(),
                        globals->jvm_log_file, globals->jvm_log_file_append,
@@ -656,6 +658,7 @@ static void StartStandalone(
     const string &server_exe,
     const vector<string> &server_exe_args,
     const WorkspaceLayout &workspace_layout,
+    const string &workspace,
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options,
     LoggingInfo *logging_info,
@@ -697,7 +700,7 @@ static void StartStandalone(
   jvm_args_vector.insert(jvm_args_vector.end(), command_arguments.begin(),
                          command_arguments.end());
 
-  GoToWorkspace(workspace_layout);
+  GoToWorkspace(workspace_layout, workspace);
 
   {
     WithEnvVars env_obj(PrepareEnvironmentForJvm());
@@ -747,6 +750,7 @@ static void StartServerAndConnect(
     const string &server_exe,
     const vector<string> &server_exe_args,
     const WorkspaceLayout &workspace_layout,
+    const string &workspace,
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options,
     LoggingInfo *logging_info,
@@ -797,6 +801,7 @@ static void StartServerAndConnect(
       server_exe,
       server_exe_args,
       workspace_layout,
+      workspace,
       startup_options,
       logging_info,
       &server_startup);
@@ -1154,6 +1159,7 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
     const string &server_exe,
     const vector<string> &server_exe_args,
     const WorkspaceLayout &workspace_layout,
+    const string &workspace,
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options,
     LoggingInfo *logging_info,
@@ -1164,6 +1170,7 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
           server_exe,
           server_exe_args,
           workspace_layout,
+          workspace,
           option_processor,
           startup_options,
           logging_info,
@@ -1186,7 +1193,7 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
     // the cwd.
 
     if (!server_cwd.empty() &&
-        (server_cwd != globals->workspace ||                // changed
+        (server_cwd != workspace ||                         // changed
          server_cwd.find(" (deleted)") != string::npos)) {  // deleted.
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
@@ -1220,6 +1227,7 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
 // Parse the options.
 static void ParseOptionsOrDie(
     const string &cwd,
+    const string &workspace,
     OptionProcessor &option_processor,
     int argc,
     const char *argv[]) {
@@ -1227,7 +1235,7 @@ static void ParseOptionsOrDie(
   std::vector<std::string> args;
   args.insert(args.end(), argv, argv + argc);
   const blaze_exit_code::ExitCode parse_exit_code =
-      option_processor.ParseOptions(args, globals->workspace, cwd, &error);
+      option_processor.ParseOptions(args, workspace, cwd, &error);
 
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
     option_processor.PrintStartupOptionsProvenanceMessage();
@@ -1248,6 +1256,7 @@ static string GetCanonicalCwd() {
 // Updates the parsed startup options and global config to fill in defaults.
 static void UpdateConfiguration(
     const string &install_md5,
+    const string &workspace,
     StartupOptions *startup_options) {
   // The default install_base is <output_user_root>/install/<md5(blaze)>
   // but if an install_base is specified on the command line, we use that as
@@ -1261,7 +1270,7 @@ static void UpdateConfiguration(
 
   if (startup_options->output_base.empty()) {
     startup_options->output_base = blaze::GetHashedBaseDir(
-        startup_options->output_user_root, globals->workspace);
+        startup_options->output_user_root, workspace);
   }
 
   const char *output_base = startup_options->output_base.c_str();
@@ -1418,6 +1427,7 @@ static int RunLauncher(
     const StartupOptions &startup_options,
     const OptionProcessor &option_processor,
     const WorkspaceLayout &workspace_layout,
+    const string &workspace,
     LoggingInfo *logging_info) {
   blaze_server = new BlazeServer(
           startup_options.connect_timeout_secs, &startup_options);
@@ -1452,6 +1462,7 @@ static int RunLauncher(
       archive_contents,
       install_md5,
       workspace_layout,
+      workspace,
       startup_options);
 
   KillRunningServerIfDifferentStartupOptions(
@@ -1466,6 +1477,7 @@ static int RunLauncher(
         server_exe,
         server_exe_args,
         workspace_layout,
+        workspace,
         option_processor,
         startup_options,
         logging_info,
@@ -1475,6 +1487,7 @@ static int RunLauncher(
         server_exe,
         server_exe_args,
         workspace_layout,
+        workspace,
         option_processor,
         startup_options,
         logging_info,
@@ -1517,9 +1530,6 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   // the Blaze client also benefits from this (e.g. during installation).
   UnlimitResources();
 
-  // Figure out workspace, must be done before command line parsing.
-  globals->workspace = workspace_layout->GetWorkspace(cwd);
-
 #if defined(_WIN32) || defined(__CYGWIN__)
   // Must be done before command line parsing.
   // ParseOptionsOrDie already populate --client_env, so detect bash before it
@@ -1527,7 +1537,8 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   (void)DetectBashAndExportBazelSh();
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
-  ParseOptionsOrDie(cwd, *option_processor, argc, argv);
+  const string workspace = workspace_layout->GetWorkspace(cwd);
+  ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv);
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
 
   SetDebugLog(startup_options->client_debug);
@@ -1548,7 +1559,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
   // Only start a server when in a workspace because otherwise we won't do more
   // than emit a help message.
-  if (!workspace_layout->InWorkspace(globals->workspace)) {
+  if (!workspace_layout->InWorkspace(workspace)) {
     startup_options->batch = true;
   }
 
@@ -1560,7 +1571,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
       &archive_contents,
       &install_md5);
 
-  UpdateConfiguration(install_md5, startup_options);
+  UpdateConfiguration(install_md5, workspace, startup_options);
 
   return RunLauncher(
       self_path,
@@ -1569,6 +1580,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
       *startup_options,
       *option_processor,
       *workspace_layout,
+      workspace,
       &logging_info);
 }
 
