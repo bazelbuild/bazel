@@ -218,11 +218,11 @@ function test_deb() {
 config
 control
 templates"
-  check_eq "$ctrl_listing abcd" "$(get_deb_ctl_listing test-deb.deb)"
+  check_eq "$ctrl_listing" "$(get_deb_ctl_listing test-deb.deb)"
   check_eq "-rw-r--r--" "$(get_deb_ctl_permission test-deb.deb conffiles)"
-  check_eq "-rw-r--r--" "$(get_deb_ctl_permission test-deb.deb config)"
+  check_eq "-rwxr-xr-x" "$(get_deb_ctl_permission test-deb.deb config)"
   check_eq "-rw-r--r--" "$(get_deb_ctl_permission test-deb.deb control)"
-  check_eq "-rw-r--r--" "$(get_deb_ctl_permission test-deb.deb templates)"
+  check_eq "-rwxr-xr-x" "$(get_deb_ctl_permission test-deb.deb templates)"
   local conffiles="/etc/nsswitch.conf
 /etc/other"
   check_eq "$conffiles" "$(get_deb_ctl_file test-deb.deb conffiles)"
