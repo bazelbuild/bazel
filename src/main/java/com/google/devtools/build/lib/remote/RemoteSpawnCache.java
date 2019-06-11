@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -58,6 +59,7 @@ import io.grpc.Context;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.SortedMap;
@@ -113,7 +115,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
 
   @Override
-  public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
+  public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context, MetadataHandler metadataHandler)
       throws InterruptedException, IOException, ExecException {
     if (!Spawns.mayBeCached(spawn) || !Spawns.mayBeExecutedRemotely(spawn)) {
       return SpawnCache.NO_RESULT_NO_STORE;
@@ -159,15 +161,17 @@ final class RemoteSpawnCache implements SpawnCache {
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a
         // cache miss
         if (result != null && result.getExitCode() == 0) {
-          Set<String> actualFiles = result.getOutputFilesList().stream().map(
-            (outputFile) -> outputFile.getPath()
-          ).collect(Collectors.toSet());
-          Set<String> actualDirectories = result.getOutputDirectoriesList().stream().map(
-            (outputDirectory) -> outputDirectory.getPath()
-          ).collect(Collectors.toSet());
-          if (actualFiles.containsAll(command.getOutputFilesList())
-               && actualDirectories.containsAll(command.getOutputDirectoriesList())) // What a miss otherwise!
-          {
+          Set<String> actualFiles = result.getOutputFilesList().stream()
+            .map(outputFile -> outputFile.getPath())
+            .collect(Collectors.toSet());
+          List<String> requiredFiles = spawn.getOutputFiles().stream()
+            .filter(output -> output instanceof Artifact && !metadataHandler.artifactOmitted((Artifact)output))
+            .map(output -> output.getExecPathString())
+            .collect(Collectors.toList());
+          // This check is needed to avoid confusing an empty protobuf and truncated protobuf.
+          if (actualFiles.containsAll(requiredFiles)) {
+            // For now, download all outputs locally; in the future, we can reuse the digests to
+            // just update the TreeNodeRepository and continue the build.
             InMemoryOutput inMemoryOutput = null;
             boolean downloadOutputs =
                 shouldDownloadAllSpawnOutputs(

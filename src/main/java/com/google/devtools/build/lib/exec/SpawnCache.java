@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import java.io.Closeable;
 import java.io.IOException;
@@ -94,7 +95,7 @@ public interface SpawnCache extends ActionContext {
   )
   public static class NoSpawnCache implements SpawnCache {
     @Override
-    public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context) {
+    public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context, MetadataHandler metadataHandler) {
       return SpawnCache.NO_RESULT_NO_STORE;
     }
   }
@@ -167,6 +168,6 @@ public interface SpawnCache extends ActionContext {
    * <p>Note that cache stores may be disabled, in which case the returned {@link CacheHandle}
    * instance's {@link CacheHandle#store} is a no-op.
    */
-  CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
+  CacheHandle lookup(Spawn spawn, SpawnExecutionContext context, MetadataHandler metadataHandler)
       throws ExecException, IOException, InterruptedException;
 }
