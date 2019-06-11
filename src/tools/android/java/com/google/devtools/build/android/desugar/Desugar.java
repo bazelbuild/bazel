@@ -322,6 +322,31 @@ class Desugar {
     )
     public List<String> dontTouchCoreLibraryMembers;
 
+    /** Converter functions from undesugared to desugared core library types. */
+    @Option(
+        name = "from_core_library_conversion",
+        defaultValue = "", // ignored
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Core library conversion functions given as \"class/Name=my/Converter\".  The"
+                + " specified Converter class must have a public static method named"
+                + " \"from<Name>\".")
+    public List<String> fromCoreLibraryConversions;
+
+    @Option(
+        name = "preserve_core_library_override",
+        defaultValue = "", // ignored
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Core library methods given as \"class/Name#method\" whose overrides should be"
+                + " preserved.  Typically this is useful when the given class itself isn't"
+                + " desugared.")
+    public List<String> preserveCoreLibraryOverrides;
+
     /** Set to work around b/62623509 with JaCoCo versions prior to 0.7.9. */
     // TODO(kmb): Remove when Android Studio doesn't need it anymore (see b/37116789)
     @Option(
@@ -455,7 +480,9 @@ class Desugar {
                   options.rewriteCoreLibraryPrefixes,
                   options.emulateCoreLibraryInterfaces,
                   options.retargetCoreLibraryMembers,
-                  options.dontTouchCoreLibraryMembers)
+                  options.dontTouchCoreLibraryMembers,
+                  options.fromCoreLibraryConversions,
+                  options.preserveCoreLibraryOverrides)
               : null;
 
       desugarClassesInInput(
@@ -529,9 +556,9 @@ class Desugar {
 
   private void copyRuntimeClasses(OutputFileProvider outputFileProvider,
       @Nullable CoreLibrarySupport coreLibrarySupport) {
-    // 1. Copy any runtime classes needed due to core library member moves.
+    // 1. Copy any runtime classes needed due to core library desugaring.
     if (coreLibrarySupport != null) {
-      coreLibrarySupport.seenMoveTargets().stream()
+      coreLibrarySupport.usedRuntimeHelpers().stream()
           .filter(className -> className.startsWith(RUNTIME_LIB_PACKAGE))
           .distinct()
           .forEach(className -> {
