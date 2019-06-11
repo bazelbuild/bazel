@@ -32,11 +32,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -116,7 +116,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
 
   @Override
-  public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context, MetadataHandler metadataHandler)
+  public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException {
     if (!Spawns.mayBeCached(spawn) || !Spawns.mayBeExecutedRemotely(spawn)) {
       return SpawnCache.NO_RESULT_NO_STORE;
@@ -162,17 +162,16 @@ final class RemoteSpawnCache implements SpawnCache {
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a
         // cache miss
         if (result != null && result.getExitCode() == 0) {
+          MetadataProvider metadataProvider = context.getMetadataProvider();
           Set<String> actualFiles = result.getOutputFilesList().stream()
             .map(OutputFile::getPath)
             .collect(Collectors.toSet());
           List<String> requiredFiles = spawn.getOutputFiles().stream()
-            .filter(output -> output instanceof Artifact && !metadataHandler.artifactOmitted((Artifact)output))
+            .filter(output -> output instanceof Artifact && !metadataProvider.artifactOmitted((Artifact)output))
             .map(ActionInput::getExecPathString)
             .collect(Collectors.toList());
           // This check is needed to avoid confusing an empty protobuf and truncated protobuf.
           if (actualFiles.containsAll(requiredFiles)) {
-            // For now, download all outputs locally; in the future, we can reuse the digests to
-            // just update the TreeNodeRepository and continue the build.
             InMemoryOutput inMemoryOutput = null;
             boolean downloadOutputs =
                 shouldDownloadAllSpawnOutputs(

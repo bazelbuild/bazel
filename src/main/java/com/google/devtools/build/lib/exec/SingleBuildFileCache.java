@@ -17,6 +17,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -86,6 +87,13 @@ public class SingleBuildFileCache implements MetadataProvider {
       return null;
     }
     return metadata.getInput();
+  }
+
+  @Override
+  public boolean artifactOmitted(Artifact artifact) {
+    // This class does not implement markOmitted() method so call to `artifactOmitted()`
+    // means logic error.
+    throw new UnsupportedOperationException();
   }
 
   /** Container class for caching I/O around ActionInputs. */

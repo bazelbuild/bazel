@@ -45,4 +45,11 @@ public interface MetadataProvider {
   /** Looks up an input from its exec path. */
   @Nullable
   ActionInput getInput(String execPath);
+
+  /**
+   * Returns true if artifact was intentionally omitted (not saved).
+   */
+  // TODO(ulfjack): artifactOmitted always returns false unless we've just executed the action, and
+  // made calls to markOmitted. We either need to document that or change it so it works reliably.
+  boolean artifactOmitted(Artifact artifact);
 }

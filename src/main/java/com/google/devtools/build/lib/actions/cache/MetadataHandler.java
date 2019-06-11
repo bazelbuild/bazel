@@ -37,13 +37,6 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
   Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact);
 
   /**
-   * Returns true iff artifact was intentionally omitted (not saved).
-   */
-  // TODO(ulfjack): artifactOmitted always returns false unless we've just executed the action, and
-  // made calls to markOmitted. We either need to document that or change it so it works reliably.
-  boolean artifactOmitted(Artifact artifact);
-
-  /**
    * Discards all known output artifact metadata, presumably because outputs will be modified. May
    * only be called before any metadata is injected using {@link #injectDigest} or {@link
    * #markOmitted};

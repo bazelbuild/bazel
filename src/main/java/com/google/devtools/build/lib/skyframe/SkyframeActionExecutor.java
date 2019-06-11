@@ -1536,5 +1536,12 @@ public final class SkyframeActionExecutor {
       ActionInput input = perActionCache.getInput(execPath);
       return input != null ? input : perBuildFileCache.getInput(execPath);
     }
+
+    @Override
+    public boolean artifactOmitted(Artifact artifact) {
+      // This class does not implement markOmitted() method so call to `artifactOmitted()`
+      // means logic error.
+      throw new UnsupportedOperationException();
+    }
   }
 }

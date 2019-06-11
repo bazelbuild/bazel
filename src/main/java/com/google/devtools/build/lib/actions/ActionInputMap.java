@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import java.lang.UnsupportedOperationException;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 
@@ -109,6 +110,13 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
   public ActionInput getInput(String execPathString) {
     int index = getIndex(execPathString);
     return index == -1 ? null : (ActionInput) keys[index];
+  }
+
+  @Override
+  public boolean artifactOmitted(Artifact artifact) {
+    // This class does not implement markOmitted() method so call to `artifactOmitted()`
+    // means logic error.
+    throw new UnsupportedOperationException();
   }
 
   /** Count of contained entries. */
