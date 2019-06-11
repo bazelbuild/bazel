@@ -117,6 +117,8 @@ distdir_tar(
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "0.16.2.zip",
         "android_tools_pkg-0.5.tar.gz",
+        # bazelbuild/platforms
+        "d91995f1a9497602a02d11db41a7ffa5551147be.zip"
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -130,6 +132,8 @@ distdir_tar(
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
         "android_tools_pkg-0.5.tar.gz": "b3aaa5c4544b9da8d226be3f5103e4469bd8cc9be07f93cdfabcfe5249d11378", # built at 86955316258c883daf0c135c8bc09ba8415f7ee7
+        # bazelbuild/platforms
+        "d91995f1a9497602a02d11db41a7ffa5551147be.zip": "c36ee54b40b2495c7d82dfae5977aa46ad0a20628659e136f7a511504cee7b14",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -166,6 +170,10 @@ distdir_tar(
         ],
         "android_tools_pkg-0.5.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.5.tar.gz",
+        ],
+        "d91995f1a9497602a02d11db41a7ffa5551147be.zip": [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
+            "https://github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
         ],
     },
 )
@@ -494,6 +502,20 @@ http_archive(
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk11.zip",
     ],
+)
+
+# http_archive(
+#     name = "platforms",
+#     sha256 = "c36ee54b40b2495c7d82dfae5977aa46ad0a20628659e136f7a511504cee7b14",
+#     urls = [
+#         "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
+#         "https://github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
+#     ],
+#     strip_prefix = "platforms-d91995f1a9497602a02d11db41a7ffa5551147be"
+# )
+local_repository(
+    name = "platforms",
+    path = "../federation/platforms",
 )
 
 load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")

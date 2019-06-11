@@ -1081,6 +1081,12 @@ sh_test(
 )
 
 sh_test(
+    name = "platforms_test",
+    srcs = ["platforms_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "platform_mapping_test",
     srcs = ["platform_mapping_test.sh"],
     data = [":test-deps"],

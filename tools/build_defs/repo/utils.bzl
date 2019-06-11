@@ -117,3 +117,14 @@ def update_attrs(orig, keys, override):
     result["name"] = orig.name
     result.update(override)
     return result
+
+def maybe(repo_rule, name, **kwargs):
+  """Function for only adding the repository when not already present.
+
+  Args:
+      repo_rule: Name of the repository rule (e.g. `http_archive`)
+      name: Name of the repository (e.g. `rules_java`)
+      **kwargs: Remaining arguments to the repository rule
+  """
+  if not native.existing_rule(name):
+      repo_rule(name = name, **kwargs)
