@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 licenses(["notice"])  # Apache 2.0
 
-load(":flags.bzl", "bool_flag")
+load("//tools/flags:flags.bzl", "bool_flag")
 
 bool_flag(
     name = "incompatible_no_build_defs_pkg",
