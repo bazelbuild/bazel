@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProv
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
@@ -87,7 +86,13 @@ import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApk
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigSkylarkCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcModule;
+import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcToolchainConfigInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeGoWrapCcHelper;
+import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakePyCcLinkParamsProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakePyWrapCcHelper;
+import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakePyWrapCcInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCcLinkParamsProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
@@ -527,7 +532,15 @@ public class SkydocMain {
     ConfigBootstrap configBootstrap =
         new ConfigBootstrap(
             new FakeConfigSkylarkCommon(), new FakeConfigApi(), new FakeConfigGlobalLibrary());
-    CcBootstrap ccBootstrap = new CcBootstrap(new FakeCcModule());
+    CcBootstrap ccBootstrap =
+        new CcBootstrap(
+            new FakeCcModule(),
+            new FakeCcInfo.Provider(),
+            new FakeCcToolchainConfigInfo.Provider(),
+            new FakePyWrapCcHelper(),
+            new FakeGoWrapCcHelper(),
+            new FakePyWrapCcInfo.Provider(),
+            new FakePyCcLinkParamsProvider.Provider());
     JavaBootstrap javaBootstrap =
         new JavaBootstrap(
             new FakeJavaCommon(),
@@ -589,7 +602,6 @@ public class SkydocMain {
     AndroidBinaryDataInfoApi.NAME,
     "ProtoRegistryAspect",
     "JspbInfo",
-    CcInfoApi.NAME,
   };
 
   /**

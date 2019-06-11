@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,24 +20,17 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/** Additional layer of configurability for c++ rules through features and actions. */
+/** A target that provides C++ libraries to be linked into Python targets. */
 @SkylarkModule(
-    name = "CcToolchainConfigInfo",
-    namespace = true,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc =
-        "Additional layer of configurability for C++ rules. Encapsulates platform-dependent "
-            + "specifics of C++ actions through features and action configs. It is used to "
-            + "configure the C++ toolchain, and later on for command line construction. "
-            + "Replaces the functionality of CROSSTOOL file.")
-public interface CcToolchainConfigInfoApi extends StructApi {
-  @SkylarkCallable(
-      name = "proto",
-      doc = "Returns CToolchain text proto from the CcToolchainConfigInfo data.",
-      structField = true)
-  String getProto();
+    name = "PyCcLinkParamsProvider",
+    documented = false,
+    category = SkylarkModuleCategory.PROVIDER,
+    doc = "Wrapper for every C++ linking provider")
+public interface PyCcLinkParamsProviderApi extends StructApi {
+  @SkylarkCallable(name = "cc_info", doc = "", structField = true, documented = false)
+  CcInfoApi getCcInfo();
 
-  /** Provider class for {@link CcToolchainConfigInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  /** Provider for PyCcLinkParamsProvider objects. */
+  @SkylarkModule(name = "Provider", doc = "", documented = false)
   public interface Provider extends ProviderApi {}
 }
