@@ -13,7 +13,7 @@
 # limitations under the License.
 """Rules to create RPM archives."""
 
-load(":flags.bzl", "BoolProvider")
+load("//tools/flags:flags.bzl", "BoolProvider")
 
 rpm_filetype = [".rpm"]
 
