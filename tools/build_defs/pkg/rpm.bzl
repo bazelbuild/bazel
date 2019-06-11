@@ -13,12 +13,18 @@
 # limitations under the License.
 """Rules to create RPM archives."""
 
+load("//tools/flags:flags.bzl", "BoolProvider")
+
 rpm_filetype = [".rpm"]
 
 spec_filetype = [".spec"]
 
 def _pkg_rpm_impl(ctx):
     """Implements to pkg_rpm rule."""
+
+    if ctx.attr._no_build_defs_pkg_flag[BoolProvider].value:
+        fail("The built-in version of pkg_rpm has been removed. Please use"
+             + " https://github.com/bazelbuild/rules_pkg/blob/master/pkg.")
 
     files = []
     args = ["--name=" + ctx.label.name]
@@ -151,7 +157,6 @@ pkg_rpm = rule(
         "release_file": attr.label(allow_single_file = True),
         "release": attr.string(),
         "debug": attr.bool(default = False),
-
         # Implicit dependencies.
         "rpmbuild_path": attr.string(),
         "_make_rpm": attr.label(
@@ -160,6 +165,8 @@ pkg_rpm = rule(
             executable = True,
             allow_files = True,
         ),
+        "_no_build_defs_pkg_flag": attr.label(
+            default = "//tools/build_defs/pkg:incompatible_no_build_defs_pkg"),
     },
     executable = False,
     outputs = _pkg_rpm_outputs,
