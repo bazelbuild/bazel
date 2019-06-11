@@ -151,7 +151,9 @@ class RemoteServerCapabilities {
 
   /** Compare the remote server capabilities with those requested by current execution. */
   public static ClientServerCompatibilityStatus checkClientServerCompatibility(
-      ServerCapabilities capabilities, RemoteOptions remoteOptions, DigestFunction digestFunction) {
+      ServerCapabilities capabilities,
+      RemoteOptions remoteOptions,
+      DigestFunction.Value digestFunction) {
     ClientServerCompatibilityStatus.Builder result = new ClientServerCompatibilityStatus.Builder();
     boolean remoteExecution = !Strings.isNullOrEmpty(remoteOptions.remoteExecutor);
     if (!remoteExecution && Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
@@ -189,7 +191,7 @@ class RemoteServerCapabilities {
       }
 
       // Check execution digest function.
-      if (execCap.getDigestFunction() == DigestFunction.UNKNOWN) {
+      if (execCap.getDigestFunction() == DigestFunction.Value.UNKNOWN) {
         // Server side error -- this is not supposed to happen.
         result.addError("Remote server error: UNKNOWN execution digest function.");
       }
