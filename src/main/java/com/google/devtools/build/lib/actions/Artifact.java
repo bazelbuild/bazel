@@ -101,6 +101,11 @@ import javax.annotation.Nullable;
  *   <li>A 'Fileset' special Artifact. This is a legacy type of Artifact and should not be used by
  *       new rule implementations.
  * </ul>
+ *
+ * <p>While Artifact implements {@link SkyKey} for memory-saving purposes, Skyframe requests
+ * involving artifacts should always go through {@link ArtifactSkyKey#key}, {@link
+ * ArtifactSkyKey#mandatoryKey}, or {@link ArtifactSkyKey#mandatoryKeys}, since ordinary derived
+ * artifacts should not be requested directly from Skyframe.
  */
 @Immutable
 public abstract class Artifact

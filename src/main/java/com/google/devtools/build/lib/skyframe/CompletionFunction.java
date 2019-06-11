@@ -349,9 +349,12 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       return null;
     }
 
+    // Avoid iterating over nested set twice.
+    ImmutableList<Artifact> allArtifacts =
+        completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts().toList();
     Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
         env.getValuesOrThrow(
-            completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts(),
+            ArtifactSkyKey.mandatoryKeys(allArtifacts),
             MissingInputFileException.class,
             ActionExecutionException.class);
 
@@ -363,11 +366,9 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     ActionExecutionException firstActionExecutionException = null;
     MissingInputFileException missingInputException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
-    for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>>
-        depsEntry : inputDeps.entrySet()) {
-      Artifact input = ArtifactSkyKey.artifact(depsEntry.getKey());
+    for (Artifact input : allArtifacts) {
       try {
-        SkyValue artifactValue = depsEntry.getValue().get();
+        SkyValue artifactValue = inputDeps.get(ArtifactSkyKey.mandatoryKey(input)).get();
         if (artifactValue != null) {
           ActionInputMapHelper.addToMap(
               inputMap,

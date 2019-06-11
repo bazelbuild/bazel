@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.events.Event;
@@ -72,9 +71,8 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
     ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
-    // Requests the TreeArtifactValue object for the input TreeArtifact.
-    SkyKey artifactValueKey = ArtifactSkyKey.key(actionTemplate.getInputTreeArtifact(), true);
-    TreeArtifactValue treeArtifactValue = (TreeArtifactValue) env.getValue(artifactValueKey);
+    TreeArtifactValue treeArtifactValue =
+        (TreeArtifactValue) env.getValue(actionTemplate.getInputTreeArtifact());
 
     // Input TreeArtifact is not ready yet.
     if (env.valuesMissing()) {

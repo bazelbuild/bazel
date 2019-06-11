@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -1564,7 +1565,9 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
               .setEventHander(reporter)
               .build();
       return buildDriver.evaluate(
-          Iterables.concat(artifactsToBuild, targetKeys, aspectKeys, testKeys), evaluationContext);
+          Iterables.concat(
+              ArtifactSkyKey.mandatoryKeys(artifactsToBuild), targetKeys, aspectKeys, testKeys),
+          evaluationContext);
     } finally {
       progressReceiver.executionProgressReceiver = null;
       // Also releases thread locks.
