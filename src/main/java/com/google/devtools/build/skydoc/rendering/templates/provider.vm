@@ -8,7 +8,7 @@ ${util.providerSummary($providerName, $providerInfo)}
 
 ${providerInfo.docString}
 
-#if (!$providerInfo.fields.isEmpty())
+#if (!$providerInfo.fieldInfosList.isEmpty())
 #[[###]]# Fields
 
 <table class="params-table">
@@ -17,7 +17,7 @@ ${providerInfo.docString}
     <col class="col-description" />
   </colgroup>
   <tbody>
-#foreach ($field in $providerInfo.fields)
+#foreach ($field in $providerInfo.fieldInfosList)
     <tr id="${providerName}-${field.name}">
       <td><code>${field.name}</code></td>
       <td>

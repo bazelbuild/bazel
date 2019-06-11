@@ -115,3 +115,12 @@ message ProviderFieldInfo {
   // The description of the provider.
   string doc_string = 2;
 }
+
+// Representation of a Starlark provider definition.
+message ProviderInfo {
+  // The description of the provider.
+  string doc_string = 1;
+
+  // The fields of the provider.
+  repeated ProviderFieldInfo field_infos = 2;
+}
