@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 licenses(["notice"])  # Apache 2.0
 
+load(":flags.bzl", "bool_flag")
+
+bool_flag(
+    name = "incompatible_no_build_defs_pkg",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
