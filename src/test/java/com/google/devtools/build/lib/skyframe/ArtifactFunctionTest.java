@@ -152,7 +152,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
-    evaluate(Iterables.toArray(ImmutableSet.of(input2, input1, input2, tree), SkyKey.class));
+    evaluate(
+        Iterables.toArray(
+            ArtifactSkyKey.mandatoryKeys(ImmutableSet.of(input2, input1, input2, tree)),
+            SkyKey.class));
     SkyValue value = evaluateArtifactValue(output);
     ArrayList<Pair<Artifact, ?>> inputs = new ArrayList<>();
     inputs.addAll(((AggregatingArtifactValue) value).getFileArtifacts());
@@ -271,9 +274,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   public void actionExecutionValueSerialization() throws Exception {
     ActionLookupData dummyData = ActionLookupData.create(ALL_OWNER, 0);
     Artifact.DerivedArtifact artifact1 = createDerivedArtifact("one");
-    artifact1.setGeneratingActionKey(dummyData);
     Artifact.DerivedArtifact artifact2 = createDerivedArtifact("two");
-    artifact2.setGeneratingActionKey(dummyData);
     ArtifactFileMetadata metadata1 =
         ActionMetadataHandler.fileMetadataFromArtifact(artifact1, null, null);
     SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly("tree");
@@ -286,7 +287,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         TreeArtifactValue.create(
             ImmutableMap.of(treeFileArtifact, FileArtifactValue.create(treeFileArtifact)));
     Artifact.DerivedArtifact artifact3 = createDerivedArtifact("three");
-    artifact3.setGeneratingActionKey(dummyData);
     FilesetOutputSymlink filesetOutputSymlink =
         FilesetOutputSymlink.createForTesting(
             PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT);
@@ -328,6 +328,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         new Artifact.DerivedArtifact(
             ArtifactRoot.asDerivedRoot(root, root.getRelative("out")), execPath, ALL_OWNER);
     actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
+    output.setGeneratingActionKey(ActionLookupData.create(ALL_OWNER, actions.size() - 1));
     return output;
   }
 
@@ -392,7 +393,12 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    return result.get(key);
+    SkyValue value = result.get(key);
+    if (value instanceof ActionExecutionValue) {
+      return ArtifactFunction.createSimpleFileArtifactValue(
+          (Artifact.DerivedArtifact) artifact, (ActionExecutionValue) value);
+    }
+    return value;
   }
 
   private void setGeneratingActions() throws InterruptedException, ActionConflictException {

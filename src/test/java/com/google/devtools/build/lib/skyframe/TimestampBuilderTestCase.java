@@ -159,6 +159,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   protected <T extends ActionAnalysisMetadata> T registerAction(T action) {
     actions.add(action);
+    ActionLookupData actionLookupData =
+        ActionLookupData.create(ACTION_LOOKUP_KEY, actions.size() - 1);
+    for (Artifact output : action.getOutputs()) {
+      ((Artifact.DerivedArtifact) output).setGeneratingActionKey(actionLookupData);
+    }
     return action;
   }
 

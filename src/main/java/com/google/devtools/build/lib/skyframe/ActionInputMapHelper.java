@@ -84,6 +84,12 @@ class ActionInputMapHelper {
     } else if (value instanceof TreeArtifactValue) {
       expandTreeArtifactAndPopulateArtifactData(
           key, (TreeArtifactValue) value, expandedArtifacts, inputMap, /*depOwner=*/ key);
+    } else if (value instanceof ActionExecutionValue) {
+      inputMap.put(
+          key,
+          ArtifactFunction.createSimpleFileArtifactValue(
+              (Artifact.DerivedArtifact) key, (ActionExecutionValue) value),
+          key);
     } else {
       Preconditions.checkState(value instanceof FileArtifactValue);
       inputMap.put(key, (FileArtifactValue) value, /*depOwner=*/ key);

@@ -101,6 +101,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -182,7 +183,7 @@ public final class SkyframeActionExecutor {
   // the lost input's generating action must be rerun before the failed action tries input discovery
   // again. A previously failed action satisfies that requirement by requesting the deps in this map
   // at the start of its next attempt,
-  private ConcurrentMap<OwnerlessArtifactWrapper, ImmutableList<Artifact>> lostDiscoveredInputsMap;
+  private ConcurrentMap<OwnerlessArtifactWrapper, ImmutableList<SkyKey>> lostDiscoveredInputsMap;
 
   // Errors found when examining all actions in the graph are stored here, so that they can be
   // thrown when execution of the action is requested. This field is set during each call to
@@ -501,11 +502,11 @@ public final class SkyframeActionExecutor {
   }
 
   @Nullable
-  ImmutableList<Artifact> getLostDiscoveredInputs(Action action) {
+  ImmutableList<SkyKey> getLostDiscoveredInputs(Action action) {
     return lostDiscoveredInputsMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
-  void resetFailedActionExecution(Action action, ImmutableList<Artifact> lostDiscoveredInputs) {
+  void resetFailedActionExecution(Action action, ImmutableList<SkyKey> lostDiscoveredInputs) {
     OwnerlessArtifactWrapper ownerlessArtifactWrapper =
         new OwnerlessArtifactWrapper(action.getPrimaryOutput());
     buildActionMap.remove(ownerlessArtifactWrapper);
