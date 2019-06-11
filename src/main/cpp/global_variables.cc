@@ -17,7 +17,6 @@
 namespace blaze {
 
 GlobalVariables::GlobalVariables()
-    : server_pid(-1),
-      restart_reason(NO_RESTART) {}
+    : server_pid(-1) {}
 
 }  // namespace blaze
