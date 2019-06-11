@@ -123,6 +123,12 @@ def _pkg_tar_impl(ctx):
 
 def _pkg_deb_impl(ctx):
     """The implementation for the pkg_deb rule."""
+
+    print("Deprecation warning: " + ctx.label.package + ":"
+          + ctx.label.name
+          + ": The built-in version of pkg_deb has been superceded by"
+          + " https://github.com/bazelbuild/rules_pkg/blob/master/pkg.")
+
     files = [ctx.file.data]
     args = [
         "--output=" + ctx.outputs.deb.path,

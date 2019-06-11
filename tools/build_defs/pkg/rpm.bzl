@@ -20,6 +20,11 @@ spec_filetype = [".spec"]
 def _pkg_rpm_impl(ctx):
     """Implements to pkg_rpm rule."""
 
+    print("Deprecation warning: " + ctx.label.package + ":"
+          + ctx.label.name
+          + ": The built-in version of pkg_rpm has been superceded by"
+          + " https://github.com/bazelbuild/rules_pkg/blob/master/pkg.")
+
     files = []
     args = ["--name=" + ctx.label.name]
     if ctx.attr.rpmbuild_path:
