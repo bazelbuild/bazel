@@ -450,7 +450,15 @@ public class BazelRuleClassProvider {
     // from the local machine. For now, this can be overridden with --action_env=PATH=<value>, so
     // at least there's a workaround.
     if (os != OS.WINDOWS) {
-      return "/bin:/usr/bin";
+      // The default used to be "/bin:/usr/bin". However, on Mac the Python 3 interpreter, if it is
+      // installed at all, tends to be under /usr/local/bin. The autodetecting Python toolchain
+      // searches PATH for "python3", so if we don't include this directory then we can't run PY3
+      // targets with this toolchain if strict action environment is on.
+      //
+      // Note that --action_env does not propagate to the host config, so it is not a viable
+      // workaround when a genrule is itself built in the host config (e.g. nested genrules). See
+      // #8536.
+      return "/bin:/usr/bin:/usr/local/bin";
     }
 
     String newPath = "";
