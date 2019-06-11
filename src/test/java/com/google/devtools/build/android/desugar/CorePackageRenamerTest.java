@@ -25,6 +25,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+// TODO(b/134636762): Test override preservation logic somehow (needs to class-load test input)
 @RunWith(JUnit4.class)
 public class CorePackageRenamerTest {
 
@@ -40,6 +41,8 @@ public class CorePackageRenamerTest {
                 ImmutableList.of("java/time/"),
                 ImmutableList.of(),
                 ImmutableList.of("java/util/A#m->java/time/B"),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableList.of()));
     MethodVisitor mv = renamer.visitMethod(0, "test", "()V", null, null);
 
@@ -76,6 +79,8 @@ public class CorePackageRenamerTest {
                 new CoreLibraryRewriter(""),
                 null,
                 ImmutableList.of("java/time/"),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableList.of()));
