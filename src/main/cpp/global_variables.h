@@ -28,18 +28,6 @@ namespace blaze {
 
 class StartupOptions;
 
-// The reason for a blaze server restart.
-// Keep in sync with logging.proto.
-enum RestartReason {
-  NO_RESTART = 0,
-  NO_DAEMON,
-  NEW_VERSION,
-  NEW_OPTIONS,
-  PID_FILE_BUT_NO_SERVER,
-  SERVER_VANISHED,
-  SERVER_UNRESPONSIVE
-};
-
 struct GlobalVariables {
   GlobalVariables();
 
@@ -58,12 +46,6 @@ struct GlobalVariables {
   // else it appears. Find some way to not have to declare a pid_t here, either
   // by making PID handling platform-independent or some other idea.
   pid_t server_pid;
-
-  // The reason for the server restart.
-  RestartReason restart_reason;
-
-  // The absolute path of the blaze binary.
-  std::string binary_path;
 };
 
 }  // namespace blaze
