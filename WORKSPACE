@@ -504,18 +504,14 @@ http_archive(
     ],
 )
 
-# http_archive(
-#     name = "platforms",
-#     sha256 = "c36ee54b40b2495c7d82dfae5977aa46ad0a20628659e136f7a511504cee7b14",
-#     urls = [
-#         "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
-#         "https://github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
-#     ],
-#     strip_prefix = "platforms-d91995f1a9497602a02d11db41a7ffa5551147be"
-# )
-local_repository(
+http_archive(
     name = "platforms",
-    path = "../federation/platforms",
+    sha256 = "c36ee54b40b2495c7d82dfae5977aa46ad0a20628659e136f7a511504cee7b14",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
+        "https://github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
+    ],
+    strip_prefix = "platforms-d91995f1a9497602a02d11db41a7ffa5551147be"
 )
 
 load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")
