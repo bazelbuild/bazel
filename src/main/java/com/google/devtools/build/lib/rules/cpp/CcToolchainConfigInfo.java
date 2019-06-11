@@ -18,8 +18,8 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -41,9 +41,9 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 /** Information describing C++ toolchain derived from CROSSTOOL file. */
 @Immutable
 public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConfigInfoApi {
-  public static final NativeProvider<CcToolchainConfigInfo> PROVIDER =
-      new NativeProvider<CcToolchainConfigInfo>(
-          CcToolchainConfigInfo.class, "CcToolchainConfigInfo") {};
+
+  /** Singleton provider instance for {@link CcToolchainConfigInfo}. */
+  public static final Provider PROVIDER = new Provider();
 
   private final ImmutableList<ActionConfig> actionConfigs;
   private final ImmutableList<Feature> features;
@@ -356,5 +356,14 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
                 .collect(ImmutableList.toImmutableList()))
         .addAllImplies(actionConfig.getImplies())
         .build();
+  }
+
+  /** Provider class for {@link CcToolchainConfigInfo} objects. */
+  public static class Provider extends BuiltinProvider<CcToolchainConfigInfo>
+      implements CcToolchainConfigInfoApi.Provider {
+
+    private Provider() {
+      super("CcToolchainConfigInfo", CcToolchainConfigInfo.class);
+    }
   }
 }

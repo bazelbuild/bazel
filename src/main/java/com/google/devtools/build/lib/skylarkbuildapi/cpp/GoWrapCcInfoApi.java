@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,24 +20,25 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/** Additional layer of configurability for c++ rules through features and actions. */
+/**
+ * Provider returned by go_wrap_cc rules that encapsulates C++ information.
+ *
+ * <p>The provider wrapped is CcInfo. Go SWIG have C++ dependencies that will have to be linked
+ * later, however, we don't want C++ targets to be able to depend on Go SWIG, only Python targets
+ * should be able to do so. Therefore, we wrap the C++ providers in a different provider which C++
+ * rules do not recognize.
+ */
 @SkylarkModule(
-    name = "CcToolchainConfigInfo",
-    namespace = true,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc =
-        "Additional layer of configurability for C++ rules. Encapsulates platform-dependent "
-            + "specifics of C++ actions through features and action configs. It is used to "
-            + "configure the C++ toolchain, and later on for command line construction. "
-            + "Replaces the functionality of CROSSTOOL file.")
-public interface CcToolchainConfigInfoApi extends StructApi {
-  @SkylarkCallable(
-      name = "proto",
-      doc = "Returns CToolchain text proto from the CcToolchainConfigInfo data.",
-      structField = true)
-  String getProto();
+    name = "GoWrapCcInfo",
+    documented = false,
+    category = SkylarkModuleCategory.PROVIDER,
+    doc = "")
+public interface GoWrapCcInfoApi extends StructApi {
 
-  /** Provider class for {@link CcToolchainConfigInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @SkylarkCallable(name = "cc_info", structField = true, documented = false, doc = "")
+  CcInfoApi getCcInfo();
+
+  /** Provider for GoWrapCcInfo objects. */
+  @SkylarkModule(name = "Provider", doc = "", documented = false)
   public interface Provider extends ProviderApi {}
 }
