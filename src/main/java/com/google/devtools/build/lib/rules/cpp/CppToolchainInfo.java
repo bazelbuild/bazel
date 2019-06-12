@@ -17,19 +17,15 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -45,7 +41,6 @@ public final class CppToolchainInfo {
   private final String toolchainIdentifier;
   private final CcToolchainFeatures toolchainFeatures;
 
-  private final ImmutableMap<String, PathFragment> toolPaths;
   private final String compiler;
   private final String abiGlibcVersion;
 
@@ -73,15 +68,12 @@ public final class CppToolchainInfo {
    */
   public static CppToolchainInfo create(
       Label toolchainLabel, CcToolchainConfigInfo ccToolchainConfigInfo) throws EvalException {
-    ImmutableMap<String, PathFragment> toolPaths =
-        computeToolPaths(ccToolchainConfigInfo, getToolsDirectory(toolchainLabel));
     PathFragment defaultSysroot =
         CppConfiguration.computeDefaultSysroot(ccToolchainConfigInfo.getBuiltinSysroot());
 
     return new CppToolchainInfo(
         ccToolchainConfigInfo.getToolchainIdentifier(),
         new CcToolchainFeatures(ccToolchainConfigInfo, getToolsDirectory(toolchainLabel)),
-        toolPaths,
         ccToolchainConfigInfo.getCompiler(),
         ccToolchainConfigInfo.getAbiLibcVersion(),
         ccToolchainConfigInfo.getTargetCpu(),
@@ -107,7 +99,6 @@ public final class CppToolchainInfo {
   CppToolchainInfo(
       String toolchainIdentifier,
       CcToolchainFeatures toolchainFeatures,
-      ImmutableMap<String, PathFragment> toolPaths,
       String compiler,
       String abiGlibcVersion,
       String targetCpu,
@@ -127,7 +118,6 @@ public final class CppToolchainInfo {
     this.toolchainIdentifier = toolchainIdentifier;
     // Since this field can be derived from `crosstoolInfo`, it is re-derived instead of serialized.
     this.toolchainFeatures = toolchainFeatures;
-    this.toolPaths = toolPaths;
     this.compiler = compiler;
     this.abiGlibcVersion = abiGlibcVersion;
     this.targetCpu = targetCpu;
@@ -190,14 +180,6 @@ public final class CppToolchainInfo {
   /** Unused, for compatibility with things internal to Google. */
   public String getTargetOS() {
     return targetOS;
-  }
-
-  /**
-   * Returns the path fragment that is either absolute or relative to the execution root that can be
-   * used to execute the given tool.
-   */
-  public PathFragment getToolPathFragment(CppConfiguration.Tool tool) {
-    return getToolPathFragment(toolPaths, tool);
   }
 
   /** Returns a label that references the current cc_toolchain target. */
@@ -332,60 +314,6 @@ public final class CppToolchainInfo {
     }
 
     return legacyCcFlags;
-  }
-
-  private static ImmutableMap<String, PathFragment> computeToolPaths(
-      CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment crosstoolTopPathFragment)
-      throws EvalException {
-    Map<String, PathFragment> toolPathsCollector = Maps.newHashMap();
-    for (Pair<String, String> tool : ccToolchainConfigInfo.getToolPaths()) {
-      String pathStr = tool.getSecond();
-      if (!PathFragment.isNormalized(pathStr)) {
-        throw new IllegalArgumentException("The include path '" + pathStr + "' is not normalized.");
-      }
-      PathFragment path = PathFragment.create(pathStr);
-      toolPathsCollector.put(tool.getFirst(), crosstoolTopPathFragment.getRelative(path));
-    }
-
-    if (toolPathsCollector.isEmpty()) {
-      // If no paths are specified, we just use the names of the tools as the path.
-      for (CppConfiguration.Tool tool : CppConfiguration.Tool.values()) {
-        toolPathsCollector.put(
-            tool.getNamePart(), crosstoolTopPathFragment.getRelative(tool.getNamePart()));
-      }
-    } else {
-      Iterable<CppConfiguration.Tool> neededTools =
-          Iterables.filter(
-              EnumSet.allOf(CppConfiguration.Tool.class),
-              tool -> {
-                if (tool == CppConfiguration.Tool.DWP) {
-                  // TODO(hlopko): check dwp tool in analysis when per_object_debug_info is enabled.
-                  return false;
-                } else if (tool == CppConfiguration.Tool.LLVM_PROFDATA) {
-                  // TODO(tmsriram): Fix this to check if this is a llvm crosstool
-                  // and return true.  This needs changes to crosstool_config.proto.
-                  return false;
-                } else if (tool == CppConfiguration.Tool.GCOVTOOL
-                    || tool == CppConfiguration.Tool.OBJCOPY) {
-                  // gcov-tool and objcopy are optional, don't check whether they're present
-                  return false;
-                } else {
-                  return true;
-                }
-              });
-      for (CppConfiguration.Tool tool : neededTools) {
-        if (!toolPathsCollector.containsKey(tool.getNamePart())) {
-          throw new EvalException(
-              Location.BUILTIN, "Tool path for '" + tool.getNamePart() + "' is missing");
-        }
-      }
-    }
-    return ImmutableMap.copyOf(toolPathsCollector);
-  }
-
-  private static PathFragment getToolPathFragment(
-      ImmutableMap<String, PathFragment> toolPaths, CppConfiguration.Tool tool) {
-    return toolPaths.get(tool.getNamePart());
   }
 
   public PathFragment getToolsDirectory() {
