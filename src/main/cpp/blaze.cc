@@ -188,6 +188,9 @@ static const char* ReasonString(RestartReason reason) {
     case SERVER_UNRESPONSIVE:
       return "server_unresponsive";
   }
+
+  BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+      << "unknown RestartReason (" << reason << ").";
 }
 
 // Encapsulates miscellaneous information reported to the server for logging and
