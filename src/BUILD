@@ -649,6 +649,13 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
     for java_version in JAVA_VERSIONS
 ]
 
+genrule(
+    name = "create_java_tools_defs_zip",
+    srcs = ["//tools/jdk:java_tools_defs.bzl"],
+    outs = ["java_tools_defs.zip"],
+    cmd = "zip -jX $@ $<",
+)
+
 # Builds the remote Java tools archive. Not embedded or used in Bazel, but used
 # by the Java tools release process.
 [
@@ -656,6 +663,7 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
         name = "java_tools_java" + java_version + "_no_build_zip",
         srcs = [
             ":jars_java_tools_java" + java_version + ".zip",
+            ":java_tools_defs.zip",
             "//src/tools/singlejar:singlejar_transitive_zip",
             "//third_party/ijar:ijar_transitive_zip",
             "//third_party/java/jacoco:jacoco_jars_zip",
