@@ -464,6 +464,36 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
+      // {@link CleanCommand} is annotated with {@code builds = true}
+      // to have access to relevant build options but don't actually do building.
+      // {@link InfoCommand} is annotated with {@code builds = true} but only conditionally
+      // does this step based on some complicated logic.
+      if (commandAnnotation.builds()
+          && !commandAnnotation.name().equals("clean")
+          && !commandAnnotation.name().equals("info")) {
+        try {
+          env.setupPackageCache(options);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          env.getReporter()
+              .handle(Event.error("command interrupted while setting up package cache"));
+          earlyExitCode = ExitCode.INTERRUPTED;
+        } catch (AbruptExitException e) {
+          env.getReporter().handle(Event.error(e.getMessage()));
+          earlyExitCode = e.getExitCode();
+        }
+        if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
+          return replayEarlyExitEvents(
+              outErr,
+              optionHandler,
+              storedEventHandler,
+              env,
+              earlyExitCode,
+              new NoBuildEvent(
+                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+        }
+      }
+
       // Parse starlark options.
       earlyExitCode = optionHandler.parseStarlarkOptions(env, storedEventHandler);
       if (!earlyExitCode.equals(ExitCode.SUCCESS)) {

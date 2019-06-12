@@ -403,9 +403,10 @@ function test_actions_not_deleted_after_execution() {
 genrule(name = "foo", cmd = "touch $@", outs = ["foo.out"])
 EOF
 
+  readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
   bazel build $BUILD_FLAGS //foo:foo \
       >& "$TEST_log" || fail "Expected success"
-  "$jmaptool" -histo:live "$(bazel info server_pid)" > histo.txt
+  "$jmaptool" -histo:live $server_pid > histo.txt
   genrule_action_count="$(extract_histogram_count histo.txt \
         'GenRuleAction$')"
   if [[ "$genrule_action_count" -lt 1 ]]; then
