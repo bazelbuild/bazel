@@ -132,15 +132,6 @@ public final class BlazeDirectories {
   }
 
   /**
-   * Returns the execution root for the main package. This is created before the workspace file has
-   * been read, so it has an incorrect path. Use {@link #getExecRoot(String)} instead.
-   */
-  @Deprecated
-  public Path getExecRoot() {
-    return execRoot;
-  }
-
-  /**
    * Returns the execution root for a particular repository. This is the directory underneath which
    * Blaze builds the source symlink forest, to represent the merged view of different workspaces
    * specified with --package_path.

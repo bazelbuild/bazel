@@ -17,6 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -40,12 +41,13 @@ public abstract class CompletionContext {
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       ActionInputMap inputMap,
-      PathResolverFactory pathResolverFactory) {
+      PathResolverFactory pathResolverFactory,
+      String workspaceName) {
     ArtifactExpander expander = new ArtifactExpanderImpl(expandedArtifacts, expandedFilesets);
     ArtifactPathResolver pathResolver =
         pathResolverFactory.shouldCreatePathResolverForArtifactValues()
             ? pathResolverFactory.createPathResolverForArtifactValues(
-                inputMap, expandedArtifacts, expandedFilesets.keySet())
+                inputMap, expandedArtifacts, expandedFilesets.keySet(), workspaceName)
             : ArtifactPathResolver.IDENTITY;
     return new AutoValue_CompletionContext(expander, pathResolver);
   }
@@ -83,7 +85,8 @@ public abstract class CompletionContext {
     ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
         Map<Artifact, Collection<Artifact>> expandedArtifacts,
-        Iterable<Artifact> filesets);
+        Iterable<Artifact> filesets,
+        String workspaceName);
 
     boolean shouldCreatePathResolverForArtifactValues();
   }

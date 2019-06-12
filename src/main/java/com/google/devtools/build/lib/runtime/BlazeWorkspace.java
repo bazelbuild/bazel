@@ -90,7 +90,7 @@ public final class BlazeWorkspace {
       writeOutputBaseReadmeFile();
       writeDoNotBuildHereFile();
     }
-    setupExecRoot();
+
     // Here we use outputBase instead of outputPath because we need a file system to create the
     // latter.
     this.outputBaseFilesystemTypeName = FileSystemUtils.getFileSystem(getOutputBase());
@@ -307,18 +307,6 @@ public final class BlazeWorkspace {
     writeDoNotBuildHereFile(getOutputBase().getRelative(DO_NOT_BUILD_FILE_NAME));
     writeDoNotBuildHereFile(
         getOutputBase().getRelative("execroot").getRelative(DO_NOT_BUILD_FILE_NAME));
-  }
-
-  /**
-   * Creates the execRoot dir under outputBase.
-   */
-  private void setupExecRoot() {
-    try {
-      FileSystemUtils.createDirectoryAndParents(directories.getExecRoot());
-    } catch (IOException e) {
-      logger.warning(
-          "failed to create execution root '" + directories.getExecRoot() + "': " + e.getMessage());
-    }
   }
 
   @Nullable

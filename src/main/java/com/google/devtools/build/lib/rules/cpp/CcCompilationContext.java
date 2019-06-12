@@ -202,7 +202,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    * (possibly empty but never null). This includes the include dirs from the
    * transitive deps closure of the target. This list does not contain
    * duplicates. All fragments are either absolute or relative to the exec root
-   * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
+   * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
    */
   public ImmutableList<PathFragment> getIncludeDirs() {
     return commandLineCcCompilationContext.includeDirs;
@@ -213,7 +213,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    * "-iquote" (possibly empty but never null). This includes the include dirs
    * from the transitive deps closure of the target. This list does not contain
    * duplicates. All fragments are either absolute or relative to the exec root
-   * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
+   * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
    */
   public ImmutableList<PathFragment> getQuoteIncludeDirs() {
     return commandLineCcCompilationContext.quoteIncludeDirs;
@@ -224,7 +224,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    * "-isystem" (possibly empty but never null). This includes the include dirs
    * from the transitive deps closure of the target. This list does not contain
    * duplicates. All fragments are either absolute or relative to the exec root
-   * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
+   * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
    */
   public ImmutableList<PathFragment> getSystemIncludeDirs() {
     return commandLineCcCompilationContext.systemIncludeDirs;
@@ -595,7 +595,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     /**
      * Add a single include directory to be added with "-I". It can be either
      * relative to the exec root (see
-     * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or
+     * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or
      * absolute. Before it is stored, the include directory is normalized.
      */
     public Builder addIncludeDir(PathFragment includeDir) {
@@ -612,8 +612,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     /**
      * Add a single include directory to be added with "-iquote". It can be
      * either relative to the exec root (see {@link
-     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. Before it
-     * is stored, the include directory is normalized.
+     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
+     * Before it is stored, the include directory is normalized.
      */
     public Builder addQuoteIncludeDir(PathFragment quoteIncludeDir) {
       quoteIncludeDirs.add(quoteIncludeDir);
@@ -628,8 +628,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
     /**
      * Add include directories to be added with "-isystem". It can be either relative to the exec
-     * root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or
-     * absolute. Before it is stored, the include directory is normalized.
+     * root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)})
+     * or absolute. Before it is stored, the include directory is normalized.
      */
     public Builder addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
       Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);

@@ -29,42 +29,6 @@ import org.junit.runners.JUnit4;
 public class BlazeDirectoriesTest extends FoundationTestCase {
 
   @Test
-  public void testCreatingDirectories() {
-    FileSystem fs = scratch.getFileSystem();
-    Path installBase = fs.getPath("/my/install");
-    Path outputBase = fs.getPath("/my/output");
-    Path userRoot = fs.getPath("/home/user/root");
-    Path workspace = fs.getPath("/my/ws");
-    BlazeDirectories directories =
-        new BlazeDirectories(
-            new ServerDirectories(installBase, outputBase, userRoot),
-            workspace,
-            /* defaultSystemJavabase= */ null,
-            "foo");
-    assertThat(outputBase.getRelative("execroot/ws")).isEqualTo(directories.getExecRoot());
-
-    workspace = null;
-    directories =
-        new BlazeDirectories(
-            new ServerDirectories(installBase, outputBase, userRoot),
-            workspace,
-            /* defaultSystemJavabase= */ null,
-            "foo");
-    assertThat(outputBase.getRelative("execroot/" + BlazeDirectories.DEFAULT_EXEC_ROOT))
-        .isEqualTo(directories.getExecRoot());
-
-    workspace = fs.getPath("/");
-    directories =
-        new BlazeDirectories(
-            new ServerDirectories(installBase, outputBase, userRoot),
-            workspace,
-            /* defaultSystemJavabase= */ null,
-            "foo");
-    assertThat(outputBase.getRelative("execroot/" + BlazeDirectories.DEFAULT_EXEC_ROOT))
-        .isEqualTo(directories.getExecRoot());
-  }
-
-  @Test
   public void testCodec() throws Exception {
     new SerializationTester(
             new BlazeDirectories(
