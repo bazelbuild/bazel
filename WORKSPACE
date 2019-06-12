@@ -118,7 +118,7 @@ distdir_tar(
         "0.16.2.zip",
         "android_tools_pkg-0.5.tar.gz",
         # bazelbuild/platforms
-        "d91995f1a9497602a02d11db41a7ffa5551147be.zip"
+        "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip"
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -133,7 +133,7 @@ distdir_tar(
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
         "android_tools_pkg-0.5.tar.gz": "b3aaa5c4544b9da8d226be3f5103e4469bd8cc9be07f93cdfabcfe5249d11378", # built at 86955316258c883daf0c135c8bc09ba8415f7ee7
         # bazelbuild/platforms
-        "d91995f1a9497602a02d11db41a7ffa5551147be.zip": "c36ee54b40b2495c7d82dfae5977aa46ad0a20628659e136f7a511504cee7b14",
+        "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "c36e154b40b2495c7d82dfae5977aa46ad0a20628659e136f7a511504cee7b14",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -171,9 +171,9 @@ distdir_tar(
         "android_tools_pkg-0.5.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.5.tar.gz",
         ],
-        "d91995f1a9497602a02d11db41a7ffa5551147be.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
-            "https://github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
+        "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
+            "https://github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         ],
     },
 )
@@ -506,12 +506,12 @@ http_archive(
 
 http_archive(
     name = "platforms",
-    sha256 = "c36ee54b40b2495c7d82dfae5977aa46ad0a20628659e136f7a511504cee7b14",
+    sha256 = "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
-        "https://github.com/bazelbuild/platforms/archive/d91995f1a9497602a02d11db41a7ffa5551147be.zip",
+        "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
+        "https://github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
     ],
-    strip_prefix = "platforms-d91995f1a9497602a02d11db41a7ffa5551147be"
+    strip_prefix = "platforms-441afe1bfdadd6236988e9cac159df6b5a9f5a98"
 )
 
 load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")
