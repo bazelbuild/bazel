@@ -1403,7 +1403,8 @@ public class CppCompileAction extends AbstractAction
       return depSet.read(actionExecutionContext.getInputPath(getDotdFile()));
     } catch (IOException e) {
       // Some kind of IO or parse exception--wrap & rethrow it to stop the build.
-      throw new ActionExecutionException("error while parsing .d file", e, this, false);
+      throw new ActionExecutionException(
+          "error while parsing .d file: " + e.getMessage(), e, this, false);
     }
   }
 

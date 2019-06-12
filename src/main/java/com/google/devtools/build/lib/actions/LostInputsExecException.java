@@ -52,7 +52,7 @@ public class LostInputsExecException extends ExecException {
   public ActionExecutionException toActionExecutionException(
       String messagePrefix, boolean verboseFailures, Action action) {
     String message = messagePrefix + " failed";
-    return new LostInputsActionExecutionException(message, this, action);
+    return new LostInputsActionExecutionException(message + ": " + getMessage(), this, action);
   }
 
   /** An {@link ActionExecutionException} wrapping a {@link LostInputsExecException}. */

@@ -1093,8 +1093,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       } catch (RuntimeException e) {
         throw new RuntimeException(e);
       } catch (Exception e) {
-        throw new ActionExecutionException("TestAction failed due to exception",
-            e, this, false);
+        throw new ActionExecutionException(
+            "TestAction failed due to exception: " + e.getMessage(), e, this, false);
       }
       return ActionResult.EMPTY;
     }

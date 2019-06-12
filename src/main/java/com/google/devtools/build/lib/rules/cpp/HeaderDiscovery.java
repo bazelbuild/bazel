@@ -160,7 +160,9 @@ public class HeaderDiscovery {
           artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repository);
         } catch (LabelSyntaxException e) {
           throw new ActionExecutionException(
-              String.format("Could not find the external repository for %s", execPathFragment),
+              String.format(
+                  "Could not find the external repository for %s: " + e.getMessage(),
+                  execPathFragment),
               e,
               action,
               false);

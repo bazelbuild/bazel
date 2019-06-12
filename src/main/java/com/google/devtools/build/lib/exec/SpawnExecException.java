@@ -33,11 +33,11 @@ public class SpawnExecException extends ExecException {
   protected final SpawnResult result;
   protected final boolean forciblyRunRemotely;
 
-  public SpawnExecException(
-      String message, SpawnResult result, boolean forciblyRunRemotely) {
+  public SpawnExecException(String message, SpawnResult result, boolean forciblyRunRemotely) {
     super(message, result.isCatastrophe());
-    checkArgument(!Status.SUCCESS.equals(result.status()), "Can't create exception with successful"
-        + " spawn result.");
+    checkArgument(
+        !Status.SUCCESS.equals(result.status()),
+        "Can't create exception with successful" + " spawn result.");
     this.result = Preconditions.checkNotNull(result);
     this.forciblyRunRemotely = forciblyRunRemotely;
   }
@@ -60,29 +60,20 @@ public class SpawnExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(String messagePrefix,
-        boolean verboseFailures, Action action) {
+  public ActionExecutionException toActionExecutionException(
+      String messagePrefix, boolean verboseFailures, Action action) {
     if (messagePrefix == null) {
       messagePrefix = action.describe();
     }
     // Note: we intentionally do not include the ExecException here, unless verboseFailures is true,
     // because it creates unwieldy and useless messages. If users need more info, they can run with
     // --verbose_failures.
-    String message = result.getDetailMessage(
-        messagePrefix, getMessage(), isCatastrophic(), forciblyRunRemotely);
+    String message =
+        result.getDetailMessage(messagePrefix, getMessage(), isCatastrophic(), forciblyRunRemotely);
     if (verboseFailures) {
-      return new ActionExecutionException(
-          message,
-          this,
-          action,
-          isCatastrophic(),
-          getExitCode());
+      return new ActionExecutionException(message, this, action, isCatastrophic(), getExitCode());
     } else {
-      return new ActionExecutionException(
-          message,
-          action,
-          isCatastrophic(),
-          getExitCode());
+      return new ActionExecutionException(message, action, isCatastrophic(), getExitCode());
     }
   }
 

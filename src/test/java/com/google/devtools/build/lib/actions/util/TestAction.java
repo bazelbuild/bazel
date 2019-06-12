@@ -117,8 +117,8 @@ public class TestAction extends AbstractAction {
     } catch (RuntimeException | Error e) {
       throw e;
     } catch (Exception e) {
-      throw new ActionExecutionException("TestAction failed due to exception",
-                                         e, this, false);
+      throw new ActionExecutionException(
+          "TestAction failed due to exception: " + e.getMessage(), e, this, false);
     }
 
     try {
