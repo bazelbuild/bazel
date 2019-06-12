@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -249,7 +250,7 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact grepIncludes) {
     super(
         owner,
-        createInputsBuilder(mandatoryInputs, inputsForInvalidation).build(),
+        IterablesChain.concat(mandatoryInputs, inputsForInvalidation),
         CollectionUtils.asSetWithoutNulls(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile),
         env);
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
@@ -408,7 +409,7 @@ public class CppCompileAction extends AbstractAction
               .addTransitive(additionalPrunableHeaders)
               .build();
         }
-        return future.get();
+        return CollectionUtils.makeImmutable(future.get());
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
@@ -486,7 +487,7 @@ public class CppCompileAction extends AbstractAction
       return headers;
     }
 
-    return Iterables.filter(headers, header -> !missing.contains(header));
+    return ImmutableList.copyOf(Iterables.filter(headers, header -> !missing.contains(header)));
   }
 
   @Nullable
@@ -578,7 +579,7 @@ public class CppCompileAction extends AbstractAction
     discoveredModulesBuilder.addTransitive(topLevelModules);
     NestedSet<Artifact> discoveredModules = discoveredModulesBuilder.build();
 
-    additionalInputs = Iterables.concat(additionalInputs, discoveredModules);
+    additionalInputs = IterablesChain.concat(additionalInputs, discoveredModules);
     if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
       this.discoveredModules = discoveredModules;
     }
@@ -1012,14 +1013,13 @@ public class CppCompileAction extends AbstractAction
    */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   @ThreadCompatible
-  final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
+  final void updateActionInputs(Iterable<Artifact> discoveredInputs) {
     Preconditions.checkState(
         discoversInputs(), "Can't call if not discovering inputs: %s %s", discoveredInputs, this);
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, describe())) {
+      Iterable<Artifact> fixed = IterablesChain.concat(mandatoryInputs, inputsForInvalidation);
       super.updateInputs(
-          createInputsBuilder(mandatoryInputs, inputsForInvalidation)
-              .addTransitive(discoveredInputs)
-              .build());
+          discoveredInputs == null ? fixed : IterablesChain.concat(fixed, discoveredInputs));
     }
   }
 
@@ -1233,7 +1233,7 @@ public class CppCompileAction extends AbstractAction
     }
 
     if (!shouldScanDotdFiles()) {
-      updateActionInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs));
+      updateActionInputs(additionalInputs);
     }
 
     ActionExecutionContext spawnContext;
@@ -1584,13 +1584,6 @@ public class CppCompileAction extends AbstractAction
       transitivelyUsedModules.put(module, value.getDiscoveredModules());
     }
     return transitivelyUsedModules.build();
-  }
-
-  private static NestedSetBuilder<Artifact> createInputsBuilder(
-      NestedSet<Artifact> mandatoryInputs, Iterable<Artifact> inputsForInvalidation) {
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(mandatoryInputs)
-        .addAll(inputsForInvalidation);
   }
 
   private ActionExecutionException printIOExceptionAndConvertToActionExecutionException(

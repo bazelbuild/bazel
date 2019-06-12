@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,6 +25,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -367,7 +368,7 @@ public class CppCompileActionBuilder {
   }
 
   Iterable<Artifact> buildInputsForInvalidation() {
-    return Iterables.concat(
+    return IterablesChain.concat(
         this.inputsForInvalidation, ccCompilationContext.getTransitiveCompilationPrerequisites());
   }
 
@@ -579,7 +580,8 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setInputsForInvalidation(
       Iterable<Artifact> inputsForInvalidation) {
-    this.inputsForInvalidation = Preconditions.checkNotNull(inputsForInvalidation);
+    this.inputsForInvalidation =
+        Preconditions.checkNotNull(CollectionUtils.makeImmutable(inputsForInvalidation));
     return this;
   }
 
