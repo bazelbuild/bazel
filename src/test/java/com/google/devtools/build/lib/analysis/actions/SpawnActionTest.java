@@ -115,6 +115,14 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExecutionInfoCopied() {
+    SpawnAction copyFromWelcomeToDestination =
+        createCopyFromWelcomeToDestination(ImmutableMap.of());
+    Map<String, String> executionInfo = copyFromWelcomeToDestination.getExecutionInfo();
+    assertThat(executionInfo).containsExactlyEntriesIn(ImmutableMap.of("local", ""));
+  }
+
+  @Test
   public void testBuilder() throws Exception {
     Artifact input = getSourceArtifact("input");
     Artifact output = getBinArtifactWithNoOwner("output");

@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -95,5 +97,66 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     assertThat(execInfo).containsExactly("disable-local-prefetch", "");
     execInfo = TargetUtils.getExecutionInfo(tag1b);
     assertThat(execInfo).containsExactly("local", "", "cpu:4", "");
+  }
+
+  @Test
+  public void testFilteredExecutionInfoFromTags() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache', 'my-tag'])",
+        "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['disable-local-prefetch', 'no-remote', 'another-tag'])",
+        "sh_binary(name = 'tag3', srcs=['sh.sh'], tags=['local', 'no-sandbox', 'unknown'])",
+        "sh_binary(name = 'tag4', srcs=['sh.sh'], tags=['no-remote-cache', 'no-remote-cache-custom-tag', 'test-only'])",
+        "sh_binary(name = 'tag5', srcs=['sh.sh'], tags=['no-remote-exec', 'no-sandbox', 'requires-network'])"
+        );
+
+    Rule tag1 = (Rule) getTarget("//tests:tag1");
+    Rule tag2 = (Rule) getTarget("//tests:tag2");
+    Rule tag3 = (Rule) getTarget("//tests:tag3");
+    Rule tag4 = (Rule) getTarget("//tests:tag4");
+    Rule tag5 = (Rule) getTarget("//tests:tag5");
+
+    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(null, tag1);
+    assertThat(execInfo).containsExactly("no-cache", "");
+
+    execInfo = TargetUtils.getFilteredExecutionInfo(null, tag2);
+    assertThat(execInfo).containsExactly("no-remote", "");
+
+    execInfo = TargetUtils.getFilteredExecutionInfo(null, tag3);
+    assertThat(execInfo).containsExactly("no-sandbox", "");
+
+    execInfo = TargetUtils.getFilteredExecutionInfo(null, tag4);
+    assertThat(execInfo).containsExactly("no-remote-cache", "");
+
+    execInfo = TargetUtils.getFilteredExecutionInfo(Runtime.NONE, tag5);
+    assertThat(execInfo).containsExactly("no-remote-exec", "", "no-sandbox", "");
+  }
+
+  @Test
+  public void testFilteredExecutionInfoFromUncheckedExecRequirements() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'no-tag', srcs=['sh.sh'])");
+
+    Rule noTag = (Rule) getTarget("//tests:no-tag");
+
+    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(SkylarkDict.of(null, "supports-worker","1"), noTag);
+    assertThat(execInfo).containsExactly( "supports-worker", "1");
+
+    execInfo = TargetUtils.getFilteredExecutionInfo(SkylarkDict.of(null, "some-custom-tag","1", "no-cache", "1"), noTag);
+    assertThat(execInfo).containsExactly( "no-cache", "1");
+  }
+
+  @Test
+  public void testFilteredExecutionInfo() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])"
+    );
+
+    Rule tag1 = (Rule) getTarget("//tests:tag1");
+
+    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(SkylarkDict.of(null, "no-remote","1"), tag1);
+    assertThat(execInfo).containsExactly("no-cache", "", "no-remote", "1");
   }
 }

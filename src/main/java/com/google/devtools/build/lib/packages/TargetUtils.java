@@ -24,6 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
@@ -58,6 +61,17 @@ public final class TargetUtils {
           || tag.startsWith("cpu:");
     }
   };
+
+  // Not all the target level tags are propagated as execution requirements to the actions, because
+  // we do not want to propagate custom user's tags or create potential conflicts
+  // with execution requirements declared on the rules.
+  // See https://github.com/bazelbuild/bazel/issues/7766 for details.
+  private static final Predicate<String> TAGS_PROPAGATED_TO_EXEC_INFO =
+      tag -> tag.equals("no-remote")
+          || tag.equals("no-cache")
+          || tag.equals("no-sandbox")
+          || tag.equals("no-remote-exec")
+          || tag.equals("no-remote-cache");
 
   private TargetUtils() {} // Uninstantiable.
 
@@ -233,6 +247,47 @@ public final class TargetUtils {
       // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
       // recognized by Bazel.
       if (LEGAL_EXEC_INFO_KEYS.apply(tag)) {
+        map.put(tag, "");
+      }
+    }
+    return ImmutableMap.copyOf(map);
+  }
+
+  /**
+   * Returns the execution info, obtained from the rule's tags and the execution requirements provided.
+   * Only supported tags are included into the execution info,
+   * see {@link #LEGAL_EXEC_INFO_KEYS} and {@link #TAGS_PROPAGATED_TO_EXEC_INFO}.
+   */
+  public static Map<String, String> getFilteredExecutionInfo(Object executionRequirementsUnchecked,
+      Rule rule) throws EvalException {
+    Map<String, String> executionInfo = Maps.newLinkedHashMap();
+    executionInfo.putAll(getExecutionInfoFromTags(rule));
+
+    if (executionRequirementsUnchecked != Runtime.NONE) {
+      executionInfo.putAll(TargetUtils.filter(
+          SkylarkDict.castSkylarkDictOrNoneToDict(
+              executionRequirementsUnchecked,
+              String.class,
+              String.class,
+              "execution_requirements")));
+    }
+    return executionInfo;
+  }
+
+  /**
+   * Returns the execution info from the tags declared on the target.
+   * These include only some tags {@link #TAGS_PROPAGATED_TO_EXEC_INFO} as keys with empty values.
+   */
+  private static Map<String, String> getExecutionInfoFromTags(Rule rule) {
+    // tags may contain duplicate values.
+    Map<String, String> map = new HashMap<>();
+    for (String tag :
+        NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
+      // We don't want to pollute the execution info with random things, and we also need to reserve
+      // some internal tags that we don't allow to be set on targets. We also don't want to
+      // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
+      // recognized by Bazel.
+      if (TAGS_PROPAGATED_TO_EXEC_INFO.apply(tag)) {
         map.put(tag, "");
       }
     }
