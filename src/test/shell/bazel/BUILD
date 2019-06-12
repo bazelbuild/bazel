@@ -156,6 +156,29 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java12_test",
+    srcs = ["bazel_java12_test.sh"],
+    args = [
+        # --java_toolchain and --host_java_toolchain values
+        "@local_java_tools//:toolchain_jdk_12",
+        # java_tools zip to test
+        "src/java_tools_java12.zip",
+    ] + select({
+        # --javabase and --host_javabase values
+        "//src/conditions:darwin": ["@openjdk12_darwin_archive//:runtime"],
+        "//src/conditions:darwin_x86_64": ["@openjdk12_darwin_archive//:runtime"],
+        "//src/conditions:windows": ["@openjdk12_windows_archive//:runtime"],
+        "//src/conditions:linux_x86_64": ["@openjdk12_linux_archive//:runtime"],
+    }),
+    data = [
+        ":test-deps",
+        "//src:java_tools_java12_zip",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_java_test",
     # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
@@ -199,7 +222,7 @@ sh_test(
     ],
 )
 
-JAVA_VERSIONS = ("9", "10", "11")
+JAVA_VERSIONS = ("9", "10", "11", "12")
 
 [
     sh_test(
@@ -255,7 +278,7 @@ JAVA_VERSIONS = ("9", "10", "11")
         # This test is only run by the java_tools binaries pipeline.
         tags = ["manual"],
     )
-    for java_version in ("9", "10", "11")
+    for java_version in JAVA_VERSIONS
 ]
 
 sh_test(
