@@ -170,7 +170,7 @@ function test_git_repository_strip_prefix() {
 
 function test_git_repository_shallow_since() {
     # This date is the day the commit was made.
-    do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "2016-07-16"
+    do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "2015-07-16"
 }
 function test_new_git_repository_with_build_file() {
   do_new_git_repository_test "0-initial" "build_file"
@@ -640,7 +640,7 @@ EOF
 
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
-  expect_log "error cloning"
+  expect_log "error running 'git fetch origin' while working with @pluto"
 }
 
 run_suite "skylark git_repository tests"
