@@ -126,7 +126,7 @@ class OptionsParserImpl {
   }
 
   /** Returns the {@link OptionsData} used in this instance. */
-  OptionsData optionsData() {
+  OptionsData getOptionsData() {
     return optionsData;
   }
 
