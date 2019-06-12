@@ -47,9 +47,10 @@ public class Aapt2ResourceShrinkingAction {
     final Profiler profiler = LoggingProfiler.createAndStart("shrink").startTask("flags");
     // Parse arguments.
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(ImmutableList.of(Options.class, Aapt2ConfigOptions.class));
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+        OptionsParser.newOptionsParser(
+            new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()),
+            Options.class,
+            Aapt2ConfigOptions.class);
     optionsParser.parseAndExitUponError(args);
     Aapt2ConfigOptions aapt2ConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
