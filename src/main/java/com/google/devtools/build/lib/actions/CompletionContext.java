@@ -55,10 +55,6 @@ public abstract class CompletionContext {
   }
 
   public void visitArtifacts(Iterable<Artifact> artifacts, ArtifactReceiver receiver) {
-    // If artifact.isSource(), then note that in LocalFile to avoid stat later?
-    // Better yet, get ArtifactValue to determine the output metadata? If we can pass that
-    // in via local-file, can totally avoid xattr() call on the output files too.
-
     for (Artifact artifact : artifacts) {
       if (artifact.isMiddlemanArtifact() || artifact.isFileset()) {
         // We never want to report middleman artifacts. They are for internal use only.
