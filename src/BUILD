@@ -557,7 +557,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//conditions:default": [],
 })
 
-JAVA_VERSIONS = ("9", "10", "11")
+JAVA_VERSIONS = ("9", "10", "11", "12")
 
 [
     genrule(
@@ -625,19 +625,29 @@ JAVA_VERSIONS = ("9", "10", "11")
     for java_version in JAVA_VERSIONS
 ]
 
-genrule(
-    name = "create_java_tools_build",
-    srcs = ["//tools/jdk:BUILD.java_tools"],
-    outs = ["remote_java_tools/BUILD"],
-    cmd = "cp $< $@",
-)
+[
+    # The java_tools releases can have BUILD files that vary depending on the
+    # javac version they embed. Currently the only difference is in the
+    # java_toolchain source version which has to be 12 for javac 12 to be able
+    # to build new Java 12 features.
+    genrule(
+        name = "create_java_tools_build_java" + java_version,
+        srcs = ["//tools/jdk:BUILD.java_tools"],
+        outs = ["remote_java_tools_java" + java_version + "/BUILD"],
+        cmd = "sed 's/JAVA_LANGUAGE_LEVEL/" + java_version + "/g' $< > $@",
+    )
+    for java_version in JAVA_VERSIONS
+]
 
-genrule(
-    name = "java_tools_build_zip",
-    srcs = ["remote_java_tools/BUILD"],
-    outs = ["java_tools_build.zip"],
-    cmd = "zip -jX $@ $<",
-)
+[
+    genrule(
+        name = "java_tools_java" + java_version + "_build_zip",
+        srcs = ["remote_java_tools_java" + java_version + "/BUILD"],
+        outs = ["java_tools_java_" + java_version + "_build.zip"],
+        cmd = "zip -jX $@ $<",
+    )
+    for java_version in JAVA_VERSIONS
+]
 
 # Builds the remote Java tools archive. Not embedded or used in Bazel, but used
 # by the Java tools release process.
@@ -665,7 +675,7 @@ genrule(
         name = "java_tools_java" + java_version + "_zip",
         srcs = [
             "java_tools_java" + java_version + "_no_build.zip",
-            "java_tools_build.zip",
+            "java_tools_java_" + java_version + "_build.zip",
         ],
         outs = ["java_tools_java" + java_version + ".zip"],
         cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
