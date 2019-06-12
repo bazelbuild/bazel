@@ -53,6 +53,7 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* values= */ ImmutableMap.of(),
           /* cppConfiguration= */ null,
           /* toolchainInfo= */ null,
+          /* toolchainFeatures= */ null,
           /* crosstoolTopPathFragment= */ null,
           /* allFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* allFilesMiddleman= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -124,6 +125,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final PathFragment targetSysroot;
   private final boolean isHostConfiguration;
   private final ImmutableMap<String, PathFragment> toolPaths;
+  private final CcToolchainFeatures toolchainFeatures;
   /**
    * WARNING: We don't like {@link FdoContext}. Its {@link FdoContext#fdoProfilePath} is pure path
    * and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it, don't
@@ -137,6 +139,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       ImmutableMap<String, Object> values,
       @Nullable CppConfiguration cppConfiguration,
       CppToolchainInfo toolchainInfo,
+      CcToolchainFeatures toolchainFeatures,
       PathFragment crosstoolTopPathFragment,
       NestedSet<Artifact> allFiles,
       NestedSet<Artifact> allFilesMiddleman,
@@ -214,6 +217,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.isHostConfiguration = isHostConfiguration;
     this.licensesProvider = licensesProvider;
     this.toolPaths = toolPaths;
+    this.toolchainFeatures = toolchainFeatures;
   }
 
   /**
@@ -578,7 +582,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   @Nullable
   public CcToolchainFeatures getFeatures() {
-    return toolchainInfo.getFeatures();
+    return toolchainFeatures;
   }
 
   public Label getCcToolchainLabel() {
