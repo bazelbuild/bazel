@@ -131,7 +131,14 @@ public abstract class BuildIntegrationTestCase {
     @Override
     public ActionExecutionException toActionExecutionException(
         String messagePrefix, boolean verboseFailures, Action action) {
-      return new ActionExecutionException(messagePrefix + getMessage(), getCause(), action, true);
+      String message = messagePrefix + getMessage();
+      // Append cause.getMessage() if it's different from getMessage(). It typically
+      // isn't but if it is we'd like to surface cause.getMessage() as part of the
+      // exception message.
+      if (getCause() != null && !getMessage().equals(getCause().getMessage())) {
+        message += ": " + getCause().getMessage();
+      }
+      return new ActionExecutionException(message, getCause(), action, true);
     }
   }
 
