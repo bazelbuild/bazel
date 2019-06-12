@@ -522,7 +522,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           "Internal error thrown during build. Printing stack trace: "
               + Throwables.getStackTraceAsString(e));
       e.printStackTrace();
-      BugReport.printBug(outErr, e);
+      BugReport.printBug(outErr, e, commonOptions.oomMessage);
       BugReport.sendBugReport(e, args, env.getCrashData());
       logger.log(Level.SEVERE, "Shutting down due to exception", e);
       return BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));

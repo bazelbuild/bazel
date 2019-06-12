@@ -188,6 +188,15 @@ public class CommonCommandOptions extends OptionsBase {
   public String buildRequestId;
 
   @Option(
+      name = "oom_message",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "Custom message to be emitted on an out of memory failure.")
+  public String oomMessage;
+
+  @Option(
       name = "incompatible_remove_binary_profile",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
