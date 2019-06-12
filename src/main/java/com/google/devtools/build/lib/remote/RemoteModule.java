@@ -255,24 +255,14 @@ public final class RemoteModule extends BlazeModule {
                 digestUtil,
                 uploader.retain());
         uploader.release();
-        if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
-          Context requestContext =
-              TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
-          buildEventArtifactUploaderFactoryDelegate.init(
-              new ByteStreamBuildEventArtifactUploaderFactory(
-                  uploader,
-                  cacheChannel.authority(),
-                  requestContext,
-                  remoteOptions.remoteInstanceName));
-        } else {
-          // TODO(buchgr): Fix BES local file upload to work with
-          // --experimental_remote_download_outputs
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "BES artifact upload is disabled when using "
-                          + "--experimental_remote_download_outputs=minimal"));
-        }
+        Context requestContext =
+            TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
+        buildEventArtifactUploaderFactoryDelegate.init(
+            new ByteStreamBuildEventArtifactUploaderFactory(
+                uploader,
+                cacheChannel.authority(),
+                requestContext,
+                remoteOptions.remoteInstanceName));
       }
 
       if (enableBlobStoreCache) {
