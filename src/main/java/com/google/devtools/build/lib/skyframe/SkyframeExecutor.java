@@ -2633,8 +2633,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    getActionEnvFromOptions(options);
-    setRepoEnv(options);
+    getActionEnvFromOptions(options.getOptions(CoreOptions.class));
+    setRepoEnv(options.getOptions(CoreOptions.class));
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteOutputsMode(
         remoteOptions != null
@@ -2679,10 +2679,9 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     invalidateTransientErrors();
   }
 
-  private void getActionEnvFromOptions(OptionsProvider options) {
+  private void getActionEnvFromOptions(CoreOptions opt) {
     // ImmutableMap does not support null values, so use a LinkedHashMap instead.
     LinkedHashMap<String, String> actionEnvironment = new LinkedHashMap<>();
-    CoreOptions opt = options.getOptions(CoreOptions.class);
     if (opt != null) {
       for (Map.Entry<String, String> v : opt.actionEnvironment) {
         actionEnvironment.put(v.getKey(), v.getValue());
@@ -2696,8 +2695,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     PrecomputedValue.ACTION_ENV.set(injectable(), actionEnv);
   }
 
-  private void setRepoEnv(OptionsProvider options) {
-    CoreOptions opt = options.getOptions(CoreOptions.class);
+  private void setRepoEnv(CoreOptions opt) {
     LinkedHashMap<String, String> repoEnv = new LinkedHashMap<>();
     if (opt != null) {
       for (Map.Entry<String, String> v : opt.repositoryEnvironment) {
