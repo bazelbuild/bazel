@@ -167,7 +167,10 @@ public class HeaderDiscovery {
         }
       }
       if (artifact != null) {
-        inputs.add(artifact);
+        // We don't need to add the sourceFile itself as it is a mandatory input.
+        if (!artifact.equals(sourceFile)) {
+          inputs.add(artifact);
+        }
         continue;
       }
 
