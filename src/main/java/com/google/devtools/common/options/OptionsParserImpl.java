@@ -38,11 +38,45 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
- * The implementation of the options parser. This is intentionally package
- * private for full flexibility. Use {@link OptionsParser} or {@link Options}
- * if you're a consumer.
+ * The implementation of the options parser. This is intentionally package private for full
+ * flexibility. Use {@link OptionsParser} or {@link Options} if you're a consumer.
  */
 class OptionsParserImpl {
+
+  /** Helper class to create a new instance of {@link OptionsParserImpl}. */
+  static final class Builder {
+    private OptionsData optionsData;
+    private ArgsPreProcessor argsPreProcessor = args -> args;
+    @Nullable private String skippedPrefix;
+
+    /** Set the {@link OptionsData} to be used in this instance. */
+    public Builder optionsData(OptionsData optionsData) {
+      this.optionsData = optionsData;
+      return this;
+    }
+
+    /** Sets the {@link ArgsPreProcessor} to use during processing. */
+    public Builder argsPreProcessor(ArgsPreProcessor preProcessor) {
+      this.argsPreProcessor = preProcessor;
+      return this;
+    }
+
+    /** Any flags with this prefix will be skipped during processing. */
+    public Builder skippedPrefix(@Nullable String skippedPrefix) {
+      this.skippedPrefix = skippedPrefix;
+      return this;
+    }
+
+    /** Returns a newly-initialized {@link OptionsParserImpl}. */
+    public OptionsParserImpl build() {
+      return new OptionsParserImpl(this.optionsData, this.argsPreProcessor, this.skippedPrefix);
+    }
+  }
+
+  /** Returns a new {@link Builder} with correct defaults applied. */
+  public static Builder builder() {
+    return new Builder();
+  }
 
   private final OptionsData optionsData;
 
@@ -62,17 +96,6 @@ class OptionsParserImpl {
   private final Map<OptionDefinition, OptionValueDescription> optionValues = new HashMap<>();
 
   /**
-   * Explicit option tracking, tracking each option as it was provided, after they have been parsed.
-   *
-   * <p>The value is unconverted, still the string as it was read from the input, or partially
-   * altered in cases where the flag was set by non {@code --flag=value} forms; e.g. {@code --nofoo}
-   * becomes {@code --foo=0}.
-   */
-  private final List<ParsedOptionDescription> parsedOptions = new ArrayList<>();
-
-  private final List<String> warnings = new ArrayList<>();
-
-  /**
    * Since parse() expects multiple calls to it with the same {@link PriorityCategory} to be treated
    * as though the args in the later call have higher priority over the earlier calls, we need to
    * track the high water mark of option priority at each category. Each call to parse will start at
@@ -82,40 +105,42 @@ class OptionsParserImpl {
       Stream.of(PriorityCategory.values())
           .collect(Collectors.toMap(p -> p, OptionPriority::lowestOptionPriorityAtCategory));
 
-  private ArgsPreProcessor argsPreProcessor = args -> args;
-
-  private final String skippedPrefix;
-
-  /** Create a new parser object. Do not accept a null OptionsData object. */
-  OptionsParserImpl(OptionsData optionsData) {
-    Preconditions.checkNotNull(optionsData);
-    this.optionsData = optionsData;
-    this.skippedPrefix = null;
-  }
-
   /**
-   * Creates a new parser object. Do not accept a null OptionsData object. Takes a prefix that
-   * signifies the parser should skip parsing args that begin with that prefix.
+   * Explicit option tracking, tracking each option as it was provided, after they have been parsed.
+   *
+   * <p>The value is unconverted, still the string as it was read from the input, or partially
+   * altered in cases where the flag was set by non {@code --flag=value} forms; e.g. {@code --nofoo}
+   * becomes {@code --foo=0}.
    */
-  OptionsParserImpl(OptionsData optionsData, String skippedPrefix) {
-    Preconditions.checkNotNull(optionsData);
+  private final List<ParsedOptionDescription> parsedOptions = new ArrayList<>();
+
+  private final List<String> warnings = new ArrayList<>();
+  private final ArgsPreProcessor argsPreProcessor;
+  @Nullable private final String skippedPrefix;
+
+  OptionsParserImpl(
+      OptionsData optionsData, ArgsPreProcessor argsPreProcessor, @Nullable String skippedPrefix) {
     this.optionsData = optionsData;
+    this.argsPreProcessor = argsPreProcessor;
     this.skippedPrefix = skippedPrefix;
   }
 
-  OptionsData getOptionsData() {
+  /** Returns the {@link OptionsData} used in this instance. */
+  OptionsData optionsData() {
     return optionsData;
   }
 
-  /** Sets the ArgsPreProcessor for manipulations of the options before parsing. */
-  void setArgsPreProcessor(ArgsPreProcessor preProcessor) {
-    this.argsPreProcessor = Preconditions.checkNotNull(preProcessor);
+  /** Returns a {@link Builder} that is configured the same as this parser. */
+  Builder toBuilder() {
+    return builder()
+        .optionsData(optionsData)
+        .argsPreProcessor(argsPreProcessor)
+        .skippedPrefix(skippedPrefix);
   }
 
   /** Implements {@link OptionsParser#asCompleteListOfParsedOptions()}. */
   List<ParsedOptionDescription> asCompleteListOfParsedOptions() {
-    return parsedOptions
-        .stream()
+    return parsedOptions.stream()
         // It is vital that this sort is stable so that options on the same priority are not
         // reordered.
         .sorted(comparing(ParsedOptionDescription::getPriority))
@@ -124,8 +149,7 @@ class OptionsParserImpl {
 
   /** Implements {@link OptionsParser#asListOfExplicitOptions()}. */
   List<ParsedOptionDescription> asListOfExplicitOptions() {
-    return parsedOptions
-        .stream()
+    return parsedOptions.stream()
         .filter(ParsedOptionDescription::isExplicit)
         // It is vital that this sort is stable so that options on the same priority are not
         // reordered.
@@ -143,9 +167,7 @@ class OptionsParserImpl {
 
   /** Implements {@link OptionsParser#canonicalize}. */
   List<ParsedOptionDescription> asCanonicalizedListOfParsedOptions() {
-    return optionValues
-        .keySet()
-        .stream()
+    return optionValues.keySet().stream()
         .map(optionDefinition -> optionValues.get(optionDefinition).getCanonicalInstances())
         .flatMap(Collection::stream)
         // Return the effective (canonical) options in the order they were applied.

@@ -231,18 +231,20 @@ public class OptionsParser implements OptionsParsingResult {
     return optionsParser;
   }
 
-  private final OptionsParserImpl impl;
+  // TODO(katre): Make this final again when enableParamsFileSupport is gone.
+  private OptionsParserImpl impl;
   private List<String> residue = new ArrayList<>();
   private final List<String> postDoubleDashResidue = new ArrayList<>();
   private boolean allowResidue = true;
   private Map<String, Object> starlarkOptions = new HashMap<>();
 
   OptionsParser(OptionsData optionsData) {
-    impl = new OptionsParserImpl(optionsData);
+    impl = OptionsParserImpl.builder().optionsData(optionsData).build();
   }
 
   OptionsParser(OptionsData optionsData, String skippedPrefix) {
-    impl = new OptionsParserImpl(optionsData, skippedPrefix);
+    impl =
+        OptionsParserImpl.builder().optionsData(optionsData).skippedPrefix(skippedPrefix).build();
   }
 
   /**
@@ -269,7 +271,7 @@ public class OptionsParser implements OptionsParsingResult {
    */
   // TODO(katre): Remove this when all accessors are gone.
   public void enableParamsFileSupport(ParamsFilePreProcessor preProcessor) {
-    this.impl.setArgsPreProcessor(preProcessor);
+    this.impl = this.impl.toBuilder().argsPreProcessor(preProcessor).build();
   }
 
   public void parseAndExitUponError(String[] args) {
@@ -375,7 +377,7 @@ public class OptionsParser implements OptionsParsingResult {
       }
       // Describe the options in this category.
       for (OptionDefinition optionDef : categorizedOptionList) {
-        OptionsUsage.getUsage(optionDef, desc, helpVerbosity, impl.getOptionsData(), true);
+        OptionsUsage.getUsage(optionDef, desc, helpVerbosity, impl.optionsData(), true);
       }
     }
 
@@ -387,7 +389,7 @@ public class OptionsParser implements OptionsParsingResult {
    */
   private LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>>
       getOptionsSortedByCategory() {
-    OptionsData data = impl.getOptionsData();
+    OptionsData data = impl.optionsData();
     if (data.getOptionsClasses().isEmpty()) {
       return new LinkedHashMap<>();
     }
@@ -434,7 +436,7 @@ public class OptionsParser implements OptionsParsingResult {
   @Deprecated
   public String describeOptionsWithDeprecatedCategories(
       Map<String, String> categoryDescriptions, HelpVerbosity helpVerbosity) {
-    OptionsData data = impl.getOptionsData();
+    OptionsData data = impl.optionsData();
     StringBuilder desc = new StringBuilder();
     if (!data.getOptionsClasses().isEmpty()) {
       List<OptionDefinition> allFields = new ArrayList<>();
@@ -459,8 +461,7 @@ public class OptionsParser implements OptionsParsingResult {
 
         if (optionDefinition.getDocumentationCategory()
             != OptionDocumentationCategory.UNDOCUMENTED) {
-          OptionsUsage.getUsage(
-              optionDefinition, desc, helpVerbosity, impl.getOptionsData(), false);
+          OptionsUsage.getUsage(optionDefinition, desc, helpVerbosity, impl.optionsData(), false);
         }
       }
     }
@@ -479,7 +480,7 @@ public class OptionsParser implements OptionsParsingResult {
   @Deprecated
   public String describeOptionsHtmlWithDeprecatedCategories(
       Map<String, String> categoryDescriptions, Escaper escaper) {
-    OptionsData data = impl.getOptionsData();
+    OptionsData data = impl.optionsData();
     StringBuilder desc = new StringBuilder();
     if (!data.getOptionsClasses().isEmpty()) {
       List<OptionDefinition> allFields = new ArrayList<>();
@@ -508,7 +509,7 @@ public class OptionsParser implements OptionsParsingResult {
 
         if (optionDefinition.getDocumentationCategory()
             != OptionDocumentationCategory.UNDOCUMENTED) {
-          OptionsUsage.getUsageHtml(optionDefinition, desc, escaper, impl.getOptionsData(), false);
+          OptionsUsage.getUsageHtml(optionDefinition, desc, escaper, impl.optionsData(), false);
         }
       }
       desc.append("</dl>\n");
@@ -540,7 +541,7 @@ public class OptionsParser implements OptionsParsingResult {
       }
       // Describe the options in this category.
       for (OptionDefinition optionDef : categorizedOptionsList) {
-        OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.getOptionsData(), true);
+        OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.optionsData(), true);
       }
       desc.append("</dl>\n");
     }
@@ -568,7 +569,7 @@ public class OptionsParser implements OptionsParsingResult {
     Preconditions.checkNotNull(predicate, "Missing predicate.");
     Preconditions.checkNotNull(visitor, "Missing visitor.");
 
-    OptionsData data = impl.getOptionsData();
+    OptionsData data = impl.optionsData();
     data.getOptionsClasses()
         // List all options
         .stream()
@@ -818,7 +819,7 @@ public class OptionsParser implements OptionsParsingResult {
    * might change the name of the option without realizing it's used by name elsewhere.
    *
    * @throws IllegalArgumentException if there are two or more options with that name.
-   * @throws NoSuchElementException if there are no options with that name.
+   * @throws java.util.NoSuchElementException if there are no options with that name.
    */
   public static OptionDefinition getOptionDefinitionByName(
       Class<? extends OptionsBase> optionsClass, String optionName) {
