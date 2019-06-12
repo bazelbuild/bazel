@@ -20,8 +20,7 @@ import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import java.nio.file.Path;
 
 /**
- * Helper class for working with local git repository in tests.
- * Should not be used outside ot tests.
+ * Helper class for working with local git repository in tests. Should not be used outside ot tests.
  */
 class GitRepositoryHelper {
   private final BlackBoxTestContext context;
@@ -29,6 +28,7 @@ class GitRepositoryHelper {
 
   /**
    * Constructs the helper.
+   *
    * @param context {@link BlackBoxTestContext} for running git process
    * @param root working directory for running git process, expected to be existing.
    */
@@ -39,9 +39,10 @@ class GitRepositoryHelper {
 
   /**
    * Calls 'git init' and 'git config' for specifying test user and email.
-   * @throws Exception related to the invocation of the external git process
-   * (like IOException or TimeoutException) or
-   * ProcessRunnerException if the process returned not expected return code.
+   *
+   * @throws Exception related to the invocation of the external git process (like IOException or
+   *     TimeoutException) or ProcessRunnerException if the process returned not expected return
+   *     code.
    */
   void init() throws Exception {
     runGit("init");
@@ -52,9 +53,9 @@ class GitRepositoryHelper {
   /**
    * Recursively updates git index for all the files and directories under the working directory.
    *
-   * @throws Exception related to the invocation of the external git process
-   * (like IOException or TimeoutException) or
-   * ProcessRunnerException if the process returned not expected return code.
+   * @throws Exception related to the invocation of the external git process (like IOException or
+   *     TimeoutException) or ProcessRunnerException if the process returned not expected return
+   *     code.
    */
   void addAll() throws Exception {
     runGit("add", ".");
@@ -64,9 +65,9 @@ class GitRepositoryHelper {
    * Commits all staged changed.
    *
    * @param commitMessage commit message
-   * @throws Exception related to the invocation of the external git process
-   * (like IOException or TimeoutException) or
-   * ProcessRunnerException if the process returned not expected return code.
+   * @throws Exception related to the invocation of the external git process (like IOException or
+   *     TimeoutException) or ProcessRunnerException if the process returned not expected return
+   *     code.
    */
   void commit(String commitMessage) throws Exception {
     runGit("commit", "-m", commitMessage);
@@ -74,49 +75,29 @@ class GitRepositoryHelper {
 
   /**
    * Tags the HEAD commit.
+   *
    * @param tagName tag name
-   * @throws Exception related to the invocation of the external git process
-   * (like IOException or TimeoutException) or
-   * ProcessRunnerException if the process returned not expected return code.
+   * @throws Exception related to the invocation of the external git process (like IOException or
+   *     TimeoutException) or ProcessRunnerException if the process returned not expected return
+   *     code.
    */
   void tag(String tagName) throws Exception {
     runGit("tag", tagName);
   }
 
   /**
-   * Creates the new branch with the specified name at HEAD.
-   * @param branchName branch name
-   * @throws Exception related to the invocation of the external git process
-   * (like IOException or TimeoutException) or
-   * ProcessRunnerException if the process returned not expected return code.
-   */
-  void createNewBranch(String branchName) throws Exception {
-    runGit("checkout", "-b", branchName);
-  }
-
-  /**
-   * Checks out specified revision or reference.
-   * @param ref reference to check out
-   * @throws Exception related to the invocation of the external git process
-   * (like IOException or TimeoutException) or
-   * ProcessRunnerException if the process returned not expected return code.
-   */
-  void checkout(String ref) throws Exception {
-    runGit("checkout", ref);
-  }
-
-  /**
    * Returns the HEAD's commit hash.
-   * @throws Exception related to the invocation of the external git process
-   * (like IOException or TimeoutException) or
-   * ProcessRunnerException if the process returned not expected return code.
+   *
+   * @throws Exception related to the invocation of the external git process (like IOException or
+   *     TimeoutException) or ProcessRunnerException if the process returned not expected return
+   *     code.
    */
   String getHead() throws Exception {
     return runGit("rev-parse", "--short", "HEAD");
   }
 
   private String runGit(String... arguments) throws Exception {
-    ProcessResult result = context.runBinary(root, "git", false, arguments);
+    ProcessResult result = context.runBinary(root, "git", arguments);
     return result.outString();
   }
 }
