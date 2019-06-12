@@ -798,7 +798,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
     } catch (RuntimeException | Error e) { // A definite bug...
-      BugReport.printBug(OutErr.SYSTEM_OUT_ERR, e);
+      BugReport.printBug(OutErr.SYSTEM_OUT_ERR, e, /* oomMessage = */ null);
       BugReport.sendBugReport(e, Arrays.asList(args));
       System.exit(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
       throw e; // Shouldn't get here.
