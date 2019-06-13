@@ -402,14 +402,12 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     // Wrap the boolean inside an array so that the inner class can modify it.
     final boolean[] success = new boolean[] {true};
 
-    if (env.getSemantics().incompatibleStaticNameResolutionInBuildFiles()) {
-      ValidationEnvironment venv = new ValidationEnvironment(env, true);
-      try {
-        venv.validateAst(statements);
-      } catch (ValidationException e) {
-        eventHandler.handle(Event.error(e.exception.getLocation(), e.exception.getMessage()));
-        return false;
-      }
+    ValidationEnvironment venv = new ValidationEnvironment(env, true);
+    try {
+      venv.validateAst(statements);
+    } catch (ValidationException e) {
+      eventHandler.handle(Event.error(e.exception.getLocation(), e.exception.getMessage()));
+      return false;
     }
 
     // TODO(laurentlb): Merge with the visitor above when possible (i.e. when BUILD files use it).
