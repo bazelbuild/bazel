@@ -59,8 +59,7 @@ public class ExampleWorker {
 
   public static void main(String[] args) throws Exception {
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
-      OptionsParser parser = OptionsParser.newOptionsParser(ExampleWorkerOptions.class);
-      parser.setAllowResidue(false);
+      OptionsParser parser = OptionsParser.newOptionsParser(false, ExampleWorkerOptions.class);
       parser.parse(args);
       ExampleWorkerOptions workerOptions = parser.getOptions(ExampleWorkerOptions.class);
       Preconditions.checkState(workerOptions.persistentWorker);
@@ -156,8 +155,7 @@ public class ExampleWorker {
       }
     }
 
-    OptionsParser parser = OptionsParser.newOptionsParser(ExampleWorkOptions.class);
-    parser.setAllowResidue(true);
+    OptionsParser parser = OptionsParser.newOptionsParser(true, ExampleWorkOptions.class);
     parser.parse(expandedArgs.build());
     ExampleWorkOptions options = parser.getOptions(ExampleWorkOptions.class);
 
