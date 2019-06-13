@@ -397,10 +397,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
               requiredToolchainTypes,
               platformKeys.executionPlatformKeys(),
               resolvedToolchains);
-    } else if (platformKeys.executionPlatformKeys().contains(platformKeys.hostPlatformKey())) {
-      // Fall back to the legacy behavior: use the host platform if it's available, otherwise the
-      // first execution platform.
-      selectedExecutionPlatformKey = Optional.of(platformKeys.hostPlatformKey());
     } else if (!platformKeys.executionPlatformKeys().isEmpty()) {
       // Just use the first execution platform.
       selectedExecutionPlatformKey = Optional.of(platformKeys.executionPlatformKeys().get(0));
