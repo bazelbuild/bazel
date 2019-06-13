@@ -166,7 +166,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
+        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public boolean symbolCounts;
 
