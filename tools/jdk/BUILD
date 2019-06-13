@@ -378,7 +378,7 @@ default_java_toolchain(
     jvm_opts = [],
 )
 
-RELEASES = (8, 9)
+RELEASES = (8, 9, 10, 11)
 
 [
     default_java_toolchain(
