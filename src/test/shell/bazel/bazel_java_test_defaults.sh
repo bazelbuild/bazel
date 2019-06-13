@@ -17,6 +17,8 @@
 # Tests the java rules with the default values provided by Bazel.
 #
 
+set -euo pipefail
+
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
     if [[ -f "$0.runfiles_manifest" ]]; then
