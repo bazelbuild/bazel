@@ -13,27 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
 
-/** A {@link ParallelVisitor} whose visitations occur on {@link SkyKey}s. */
-public abstract class AbstractSkyKeyParallelVisitor<T> extends ParallelVisitor<SkyKey, T> {
+/**
+ * A {@link ParallelVisitor} whose visitations occur on {@link SkyKey}s and those keys map directly
+ * to output keys.
+ */
+public abstract class AbstractSkyKeyParallelVisitor<T> extends ParallelVisitor<SkyKey, SkyKey, T> {
   private final Uniquifier<SkyKey> uniquifier;
 
   protected AbstractSkyKeyParallelVisitor(
-      Uniquifier<SkyKey> uniquifier,
+      Uniquifier<SkyKey> visitationUniquifier,
       Callback<T> callback,
       int visitBatchSize,
       int processResultsBatchSize) {
     super(callback, visitBatchSize, processResultsBatchSize);
-    this.uniquifier = uniquifier;
+    this.uniquifier = visitationUniquifier;
   }
 
   @Override
-  protected ImmutableList<SkyKey> getUniqueValues(Iterable<SkyKey> values) throws QueryException {
-    return uniquifier.unique(values);
+  protected final Iterable<SkyKey> noteAndReturnUniqueVisitationKeys(
+      Iterable<SkyKey> prospectiveVisitationKeys) throws QueryException {
+    return uniquifier.unique(prospectiveVisitationKeys);
   }
 }
