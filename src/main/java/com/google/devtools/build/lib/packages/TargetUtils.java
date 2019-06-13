@@ -25,7 +25,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
@@ -254,9 +253,13 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns the execution info, obtained from the rule's tags and the execution requirements provided.
-   * Only supported tags are included into the execution info,
-   * see {@link #LEGAL_EXEC_INFO_KEYS} and {@link #TAGS_PROPAGATED_TO_EXEC_INFO}.
+   * Returns the execution info, obtained from the rule's tags and the execution requirements
+   * provided. Only supported tags are included into the execution info, see {@link
+   * #LEGAL_EXEC_INFO_KEYS} and {@link #TAGS_PROPAGATED_TO_EXEC_INFO}.
+   *
+   * @param executionRequirementsUnchecked execution_requirements of a rule, expected to be of a
+   * SkylarkDict<String, String> type, null or {@link com.google.devtools.build.lib.syntax.Runtime#NONE}
+   * @param rule a rule instance to get tags from
    */
   public static ImmutableMap<String, String> getFilteredExecutionInfo(Object executionRequirementsUnchecked,
       Rule rule) throws EvalException {
