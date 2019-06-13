@@ -497,16 +497,6 @@ http_archive(
 )
 
 http_archive(
-    name = "platforms",
-    sha256 = "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
-        "https://github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
-    ],
-    strip_prefix = "platforms-441afe1bfdadd6236988e9cac159df6b5a9f5a98"
-)
-
-http_archive(
     name = "java_tools_langtools_javac12",
     sha256 = "99b107105165a91df82cd7cf82a8efb930d803fb7de1663cf7f780142104cd14",
     urls = [
