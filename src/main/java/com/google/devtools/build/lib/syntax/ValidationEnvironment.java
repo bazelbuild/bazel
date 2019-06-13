@@ -460,9 +460,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
                         + "explicitly.");
               }
             }
-            if (env.getSemantics().incompatibleNoKwargsInBuildFiles()) {
-              super.visit(node);
-            }
+            super.visit(node);
           }
         };
     checker.visitAll(statements);
