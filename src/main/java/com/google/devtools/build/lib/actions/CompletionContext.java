@@ -59,7 +59,7 @@ public abstract class CompletionContext {
       if (artifact.isMiddlemanArtifact() || artifact.isFileset()) {
         // We never want to report middleman artifacts. They are for internal use only.
         // Filesets are not currently supported, but should be in the future.
-        return;
+        continue;
       } else if (artifact.isTreeArtifact()) {
         List<Artifact> expandedArtifacts = new ArrayList<>();
         expander().expand(artifact, expandedArtifacts);
