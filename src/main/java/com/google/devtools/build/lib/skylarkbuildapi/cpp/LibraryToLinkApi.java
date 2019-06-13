@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /**
  * A library the user can link to. This is different from a simple linker input in that it also has
@@ -29,6 +31,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     doc = "A library the user can link against.")
 public interface LibraryToLinkApi<FileT extends FileApi> {
   @SkylarkCallable(
+      name = "label",
+      allowReturnNones = true,
+      doc = "<code>Label</code> of the rule that created this library.",
+      structField = true)
+  Label getLabel();
+
+  @SkylarkCallable(
       name = "static_library",
       allowReturnNones = true,
       doc = "<code>Artifact</code> of static library to be linked.",
@@ -36,11 +45,25 @@ public interface LibraryToLinkApi<FileT extends FileApi> {
   FileT getStaticLibrary();
 
   @SkylarkCallable(
+      name = "objects",
+      allowReturnNones = true,
+      doc = "<code>List</code> of object files in the library.",
+      structField = true)
+  SkylarkList<FileT> getSkylarkObjectFiles();
+
+  @SkylarkCallable(
       name = "pic_static_library",
       allowReturnNones = true,
       doc = "<code>Artifact</code> of pic static library to be linked.",
       structField = true)
   FileT getPicStaticLibrary();
+
+  @SkylarkCallable(
+      name = "pic_objects",
+      allowReturnNones = true,
+      doc = "<code>List</code> of pic object files in the library.",
+      structField = true)
+  SkylarkList<FileT> getSkylarkPicObjectFiles();
 
   @SkylarkCallable(
       name = "dynamic_library",

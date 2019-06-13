@@ -529,6 +529,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       Artifact symlink = common.getDynamicLibrarySymlink(library, true);
       LibraryToLink libraryToLink =
           LibraryToLink.builder()
+              .setLabel(ruleContext.getLabel())
               .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(library))
               .setDynamicLibrary(symlink)
               .setResolvedSymlinkDynamicLibrary(library)
@@ -752,6 +753,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       if (Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename())) {
         LibraryToLink libraryToLink =
             LibraryToLink.builder()
+                .setLabel(ruleContext.getLabel())
                 .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(library))
                 .setDynamicLibrary(
                     common.getDynamicLibrarySymlink(library, /* preserveName= */ true))
@@ -761,6 +763,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       } else if (Link.LINK_LIBRARY_FILETYPES.matches(library.getFilename())) {
         LibraryToLink libraryToLink =
             LibraryToLink.builder()
+                .setLabel(ruleContext.getLabel())
                 .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(library))
                 .setStaticLibrary(library)
                 .setAlwayslink(true)
@@ -769,6 +772,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       } else if (Link.ARCHIVE_FILETYPES.matches(library.getFilename())) {
         LibraryToLink libraryToLink =
             LibraryToLink.builder()
+                .setLabel(ruleContext.getLabel())
                 .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(library))
                 .setStaticLibrary(library)
                 .build();

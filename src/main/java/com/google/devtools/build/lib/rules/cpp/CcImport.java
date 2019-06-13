@@ -135,6 +135,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     if (notNullArtifactToLink != null) {
       LibraryToLink libraryToLink =
           LibraryToLink.builder()
+              .setLabel(ruleContext.getLabel())
               .setStaticLibrary(noPicAndPicStaticLibrary.noPicStaticLibrary())
               .setPicStaticLibrary(noPicAndPicStaticLibrary.picStaticLibrary())
               .setDynamicLibrary(sharedLibrary)

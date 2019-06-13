@@ -119,7 +119,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         Lists.newArrayList(common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     helper.addLibrariesToAttributes(deps);
     attributesBuilder.addNativeLibraries(
-        collectNativeLibraries(common.targetsTreatedAsDeps(ClasspathType.BOTH)));
+        collectNativeLibraries(
+            ruleContext.getLabel(), common.targetsTreatedAsDeps(ClasspathType.BOTH)));
 
     // deploy_env is valid for java_binary, but not for java_test.
     if (ruleContext.getRule().isAttrDefined("deploy_env", BuildType.LABEL_LIST)) {
@@ -627,9 +628,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
    * @return the native libraries found in the transitive closure of the deps.
    */
   public static Collection<Artifact> collectNativeLibraries(
-      Iterable<? extends TransitiveInfoCollection> deps) {
+      Label label, Iterable<? extends TransitiveInfoCollection> deps) {
     NestedSet<LibraryToLink> linkerInputs =
-        new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
+        new NativeLibraryNestedSetBuilder().addJavaTargets(label, deps).build();
     return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
   }
 
