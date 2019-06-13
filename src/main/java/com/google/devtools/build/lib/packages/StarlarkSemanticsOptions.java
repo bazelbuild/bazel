@@ -491,20 +491,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleNoTransitiveLoads;
 
   @Option(
-      name = "incompatible_no_kwargs_in_build_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, *args and **kwargs are not allowed in BUILD files. See "
-              + "https://github.com/bazelbuild/bazel/issues/8021")
-  public boolean incompatibleNoKwargsInBuildFiles;
-
-  @Option(
       name = "incompatible_remap_main_repo",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -645,7 +631,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleExpandDirectories(incompatibleExpandDirectories)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
-        .incompatibleNoKwargsInBuildFiles(incompatibleNoKwargsInBuildFiles)
         .incompatibleNoOutputAttrDefault(incompatibleNoOutputAttrDefault)
         .incompatibleNoRuleOutputsParam(incompatibleNoRuleOutputsParam)
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
