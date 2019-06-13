@@ -624,46 +624,9 @@ static const void GoToWorkspace(
   }
 }
 
-// Starts the Blaze server.
-static int StartServer(
-    const string &server_exe,
-    const vector<string> &server_exe_args,
-    const WorkspaceLayout &workspace_layout,
-    const string &workspace,
-    const StartupOptions &startup_options,
-    LoggingInfo *logging_info,
-    BlazeServerStartup **server_startup) {
-  // Write the cmdline argument string to the server dir. If we get to this
-  // point, there is no server running, so we don't overwrite the cmdline file
-  // for the existing server. If might be that the server dies and the cmdline
-  // file stays there, but that is not a problem, since we always check the
-  // server, too.
-  const string server_dir =
-      blaze_util::JoinPath(startup_options.output_base, "server");
-  blaze_util::WriteFile(GetArgumentString(server_exe_args),
-                        blaze_util::JoinPath(server_dir, "cmdline"));
-
-  const string binaries_dir =
-      GetEmbeddedBinariesRoot(startup_options.install_base);
-
-  logging_info->SetRestartReasonIfNotSet(NO_DAEMON);
-
-  // Go to the workspace before we daemonize, so
-  // we can still print errors to the terminal.
-  GoToWorkspace(workspace_layout, workspace);
-
-  return ExecuteDaemon(server_exe, server_exe_args, PrepareEnvironmentForJvm(),
-                       globals->jvm_log_file, globals->jvm_log_file_append,
-                       binaries_dir, server_dir, startup_options,
-                       server_startup);
-}
-
 // Replace this process with blaze in standalone/batch mode.
 // The batch mode blaze process handles the command and exits.
-//
-// This function passes the commands array to the blaze process.
-// This array should start with a command ("build", "info", etc.).
-static void StartStandalone(
+static void RunBatchMode(
     const string &server_exe,
     const vector<string> &server_exe_args,
     const WorkspaceLayout &workspace_layout,
@@ -754,69 +717,13 @@ static int GetServerPid(const string &server_dir) {
   return result;
 }
 
-// Starts up a new server and connects to it. Exits if it didn't work out.
-static void StartServerAndConnect(
-    const string &server_exe,
-    const vector<string> &server_exe_args,
-    const WorkspaceLayout &workspace_layout,
-    const string &workspace,
+// Connect to the server process or exit if it doesn't work out.
+static void ConnectOrDie(
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options,
-    LoggingInfo *logging_info,
+    const int server_pid,
+    BlazeServerStartup *server_startup,
     BlazeServer *server) {
-  const string server_dir =
-      blaze_util::JoinPath(startup_options.output_base, "server");
-
-  // Delete the old command_port file if it already exists. Otherwise we might
-  // run into the race condition that we read the old command_port file before
-  // the new server has written the new file and we try to connect to the old
-  // port, run into a timeout and try again.
-  (void)blaze_util::UnlinkPath(
-      blaze_util::JoinPath(server_dir, "command_port"));
-
-  // The server dir has the socket, so we don't allow access by other
-  // users.
-  if (!blaze_util::MakeDirectories(server_dir, 0700)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "server directory '" << server_dir
-        << "' could not be created: " << GetLastErrorString();
-  }
-
-  // If we couldn't connect to the server check if there is still a PID file
-  // and if so, kill the server that wrote it. This can happen e.g. if the
-  // server is in a GC pause and therefore cannot respond to ping requests and
-  // having two server instances running in the same output base is a
-  // disaster.
-  int server_pid = GetServerPid(server_dir);
-  if (server_pid > 0) {
-    if (VerifyServerProcess(server_pid, startup_options.output_base)) {
-      if (KillServerProcess(server_pid, startup_options.output_base)) {
-        BAZEL_LOG(USER) << "Killed non-responsive server process (pid="
-                        << server_pid << ")";
-        logging_info->SetRestartReasonIfNotSet(SERVER_UNRESPONSIVE);
-      } else {
-        logging_info->SetRestartReasonIfNotSet(SERVER_VANISHED);
-      }
-    } else {
-      logging_info->SetRestartReasonIfNotSet(PID_FILE_BUT_NO_SERVER);
-    }
-  }
-
-  SetScheduling(startup_options.batch_cpu_scheduling,
-                startup_options.io_nice_level);
-
-  BlazeServerStartup *server_startup;
-  server_pid = StartServer(
-      server_exe,
-      server_exe_args,
-      workspace_layout,
-      workspace,
-      startup_options,
-      logging_info,
-      &server_startup);
-  BAZEL_LOG(USER) << "Starting local " << startup_options.product_name
-                  << " server and connecting to it...";
-
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
   const auto start_time = std::chrono::system_clock::now();
@@ -831,7 +738,6 @@ static void StartServerAndConnect(
         attempt_time + std::chrono::milliseconds(100);
 
     if (server->Connect()) {
-      delete server_startup;
       return;
     }
 
@@ -862,6 +768,87 @@ static void StartServerAndConnect(
   }
   BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
       << "couldn't connect to server (" << server_pid << ") after 120 seconds.";
+}
+
+// Ensures that any server previously associated with `server_dir` is no longer
+// running.
+static void EnsurePreviousServerProcessTerminated(
+    const string &server_dir, const StartupOptions &startup_options,
+    LoggingInfo *logging_info) {
+  int server_pid = GetServerPid(server_dir);
+  if (server_pid > 0) {
+    if (VerifyServerProcess(server_pid, startup_options.output_base)) {
+      if (KillServerProcess(server_pid, startup_options.output_base)) {
+        BAZEL_LOG(USER) << "Killed non-responsive server process (pid="
+                        << server_pid << ")";
+        logging_info->SetRestartReasonIfNotSet(SERVER_UNRESPONSIVE);
+      } else {
+        logging_info->SetRestartReasonIfNotSet(SERVER_VANISHED);
+      }
+    } else {
+      logging_info->SetRestartReasonIfNotSet(PID_FILE_BUT_NO_SERVER);
+    }
+  }
+}
+
+// Starts up a new server and connects to it. Exits if it didn't work out.
+static void StartServerAndConnect(
+    const string &server_exe,
+    const vector<string> &server_exe_args,
+    const WorkspaceLayout &workspace_layout,
+    const string &workspace,
+    const OptionProcessor &option_processor,
+    const StartupOptions &startup_options,
+    LoggingInfo *logging_info,
+    BlazeServer *server) {
+  const string server_dir =
+      blaze_util::JoinPath(startup_options.output_base, "server");
+
+  // Delete the old command_port file if it already exists. Otherwise we might
+  // run into the race condition that we read the old command_port file before
+  // the new server has written the new file and we try to connect to the old
+  // port, run into a timeout and try again.
+  (void)blaze_util::UnlinkPath(
+      blaze_util::JoinPath(server_dir, "command_port"));
+
+  // The server dir has the connection info - don't allow access by other users.
+  if (!blaze_util::MakeDirectories(server_dir, 0700)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "server directory '" << server_dir
+        << "' could not be created: " << GetLastErrorString();
+  }
+
+  // Really make sure there's no other server running in this output base (even
+  // an unresponsive one), as that could cause major problems.
+  EnsurePreviousServerProcessTerminated(
+      server_dir, startup_options, logging_info);
+
+  // cmdline file is used to validate the server running in this server_dir.
+  // There's no server running now so we're safe to unconditionally write this.
+  blaze_util::WriteFile(GetArgumentString(server_exe_args),
+                        blaze_util::JoinPath(server_dir, "cmdline"));
+
+  // Do this here instead of in the daemon so the user can see if it fails.
+  GoToWorkspace(workspace_layout, workspace);
+
+  logging_info->SetRestartReasonIfNotSet(NO_DAEMON);
+
+  SetScheduling(startup_options.batch_cpu_scheduling,
+                startup_options.io_nice_level);
+
+  BAZEL_LOG(USER) << "Starting local " << startup_options.product_name
+                  << " server and connecting to it...";
+  BlazeServerStartup *server_startup;
+  const int server_pid = ExecuteDaemon(
+      server_exe, server_exe_args, PrepareEnvironmentForJvm(),
+      globals->jvm_log_file, globals->jvm_log_file_append,
+      GetEmbeddedBinariesRoot(startup_options.install_base), server_dir,
+      startup_options, &server_startup);
+
+  ConnectOrDie(
+      option_processor, startup_options, server_pid, server_startup, server);
+
+  delete server_startup;
 }
 
 static void MoveFiles(const string &embedded_binaries) {
@@ -1162,9 +1149,11 @@ static void EnsureCorrectRunningVersion(
 
 static void CancelServer() { blaze_server->Cancel(); }
 
-// Performs all I/O for a single client request to the server, and
-// shuts down the client (by exit or signal).
-static ATTRIBUTE_NORETURN void SendServerRequest(
+// Runs the launcher in client/server mode. Ensures that there's indeed a
+// running server, then forwards the user's command to the server and the
+// server's response back to the user. Does not return - exits via exit or
+// signal.
+static ATTRIBUTE_NORETURN void RunClientServerMode(
     const string &server_exe,
     const vector<string> &server_exe_args,
     const WorkspaceLayout &workspace_layout,
@@ -1485,7 +1474,7 @@ static int RunLauncher(
   if (startup_options.batch) {
     SetScheduling(startup_options.batch_cpu_scheduling,
                   startup_options.io_nice_level);
-    StartStandalone(
+    RunBatchMode(
         server_exe,
         server_exe_args,
         workspace_layout,
@@ -1495,7 +1484,7 @@ static int RunLauncher(
         logging_info,
         blaze_server);
   } else {
-    SendServerRequest(
+    RunClientServerMode(
         server_exe,
         server_exe_args,
         workspace_layout,
