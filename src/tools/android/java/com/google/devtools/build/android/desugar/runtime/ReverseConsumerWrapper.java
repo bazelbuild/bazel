@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar.runtime;
 import java.util.function.Consumer;
 
 /** Conversion from built-in to desugared {@link Consumer}s (b/134636762). */
+@SuppressWarnings("AndroidJdkLibsChecker")
 public final class ReverseConsumerWrapper<T> implements j$.util.function.Consumer<T> {
   public static <T> j$.util.function.Consumer<T> fromConsumer(Consumer<T> consumer) {
     if (consumer == null) {
