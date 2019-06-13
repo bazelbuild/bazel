@@ -98,7 +98,8 @@ public final class StarlarkAction extends SpawnAction {
         runfilesSupplier,
         mnemonic,
         /* executeUnconditionally */ false,
-        /* extraActionInfoSupplier */ null);
+        /* extraActionInfoSupplier */ null,
+        /* resultConsumer */ null);
     this.allInputs = inputs;
     this.unusedInputsList = unusedInputsList;
   }
