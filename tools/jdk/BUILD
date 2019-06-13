@@ -152,15 +152,7 @@ remote_java_tools_filegroup(
     target = ":singlejar",
 )
 
-exports_files([
-    # The BUILD file embedded into the java tools releases starting with
-    # javac10 3.0 and javac9 1.0.
-    "BUILD.java_tools",
-    # Remove this file after java_tools javac 10 3.0 and java_tools javac 9 1.0 are
-    # released. This file is embedded in bazel and passed as a BUILD file to the
-    # remote java tools http_archives.
-    "BUILD.java_tools.old",
-])
+exports_files(["BUILD.java_tools"])
 
 remote_java_tools_filegroup(
     name = "genclass",
@@ -402,7 +394,6 @@ filegroup(
     srcs = [
         "BUILD.java_langtools",
         "BUILD.java_tools",
-        "BUILD.java_tools.old",
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
