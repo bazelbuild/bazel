@@ -374,7 +374,7 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       },
-      useSkylarkSemantics = true,
+      useStarlarkSemantics = true,
       useLocation = true)
   public FileApi runIjar(
       SkylarkActionFactoryT actions,
@@ -424,7 +424,7 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       },
-      useSkylarkSemantics = true,
+      useStarlarkSemantics = true,
       useLocation = true)
   public FileApi stampJar(
       SkylarkActionFactoryT actions,
@@ -486,7 +486,7 @@ public interface JavaCommonApi<
             doc = "A JavaRuntimeInfo to be used for packing sources."),
       },
       allowReturnNones = true,
-      useSkylarkSemantics = true,
+      useStarlarkSemantics = true,
       useLocation = true)
   public FileApi packSources(
       SkylarkActionFactoryT actions,
