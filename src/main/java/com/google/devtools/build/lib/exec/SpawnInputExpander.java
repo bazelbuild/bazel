@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -44,7 +45,7 @@ import java.util.TreeMap;
  * laid out.
  */
 public class SpawnInputExpander {
-  @VisibleForTesting static final ActionInput EMPTY_FILE = new EmptyActionInput("/dev/null");
+  public static final ActionInput EMPTY_FILE = new EmptyActionInput("/dev/null");
 
   private final Path execRoot;
   private final boolean strict;
@@ -133,6 +134,9 @@ public class SpawnInputExpander {
                   location.getRelative(((TreeFileArtifact) input).getParentRelativePath()),
                   input);
             }
+          } else if (localArtifact.isFileset()) {
+            addFilesetManifest(
+                location, localArtifact, artifactExpander.getFileset(localArtifact), inputMap);
           } else {
             if (strict) {
               failIfDirectory(actionFileCache, localArtifact);
@@ -144,6 +148,25 @@ public class SpawnInputExpander {
         }
       }
     }
+  }
+
+  /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
+  public Map<PathFragment, ActionInput> addRunfilesToInputs(
+      RunfilesSupplier runfilesSupplier,
+      MetadataProvider actionFileCache,
+      ArtifactExpander artifactExpander,
+      ArtifactPathResolver pathResolver,
+      boolean expandTreeArtifactsInRunfiles)
+      throws IOException {
+    Map<PathFragment, ActionInput> inputMap = new HashMap<>();
+    addRunfilesToInputs(
+        inputMap,
+        runfilesSupplier,
+        actionFileCache,
+        artifactExpander,
+        pathResolver,
+        expandTreeArtifactsInRunfiles);
+    return inputMap;
   }
 
   private static void failIfDirectory(MetadataProvider actionFileCache, ActionInput input)
@@ -160,10 +183,20 @@ public class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMappings)
       throws IOException {
     for (Artifact fileset : filesetMappings.keySet()) {
-      ImmutableList<FilesetOutputSymlink> outputSymlinks = filesetMappings.get(fileset);
-      FilesetManifest filesetManifest =
-          FilesetManifest.constructFilesetManifest(
-              outputSymlinks, fileset.getExecPath(), relSymlinkBehavior);
+      addFilesetManifest(
+          fileset.getExecPath(), fileset, filesetMappings.get(fileset), inputMappings);
+    }
+  }
+
+  void addFilesetManifest(
+      PathFragment location,
+      Artifact filesetArtifact,
+      ImmutableList<FilesetOutputSymlink> filesetLinks,
+      Map<PathFragment, ActionInput> inputMappings)
+      throws IOException {
+    Preconditions.checkState(filesetArtifact.isFileset(), filesetArtifact);
+    FilesetManifest filesetManifest =
+        FilesetManifest.constructFilesetManifest(filesetLinks, location, relSymlinkBehavior);
 
       for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
         String value = mapping.getValue();
@@ -173,7 +206,6 @@ public class SpawnInputExpander {
                 : ActionInputHelper.fromPath(execRoot.getRelative(value).getPathString());
         addMapping(inputMappings, mapping.getKey(), artifact);
       }
-    }
   }
 
   private void addInputs(
