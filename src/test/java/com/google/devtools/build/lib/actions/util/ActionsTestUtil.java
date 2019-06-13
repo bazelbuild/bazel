@@ -754,7 +754,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public Path getPathFromSourceExecPath(PathFragment execPath) {
+    public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
       throw new UnsupportedOperationException();
     }
   }
