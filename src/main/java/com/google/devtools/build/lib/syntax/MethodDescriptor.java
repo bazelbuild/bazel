@@ -196,7 +196,7 @@ public final class MethodDescriptor {
   }
 
   /** @see SkylarkCallable#useStarlarkSemantics() */
-  boolean isUseSkylarkSemantics() {
+  boolean isUseStarlarkSemantics() {
     return useStarlarkSemantics;
   }
 
