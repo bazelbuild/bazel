@@ -545,7 +545,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       builder.useDefaultShellEnvironment();
     }
 
-    Map<String, String> executionInfo =
+    ImmutableMap<String, String> executionInfo =
         TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, ruleContext.getRule());
     builder.setExecutionInfo(executionInfo);
 

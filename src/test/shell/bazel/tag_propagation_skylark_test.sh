@@ -97,7 +97,7 @@ EOF
 
 # Test a basic skylark ctx.actions.run rule which has tags, that should be propagated,
 # when the rule also has execution_info
-function test_tags_propagated_to_run_with_exec_info_шт_кгду() {
+function test_tags_propagated_to_run_with_exec_info_in_rule() {
   mkdir -p test
   cat << EOF >> test/BUILD
 load(":skylark.bzl", "test_rule")

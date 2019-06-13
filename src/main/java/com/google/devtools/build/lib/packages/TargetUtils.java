@@ -258,20 +258,19 @@ public final class TargetUtils {
    * Only supported tags are included into the execution info,
    * see {@link #LEGAL_EXEC_INFO_KEYS} and {@link #TAGS_PROPAGATED_TO_EXEC_INFO}.
    */
-  public static Map<String, String> getFilteredExecutionInfo(Object executionRequirementsUnchecked,
+  public static ImmutableMap<String, String> getFilteredExecutionInfo(Object executionRequirementsUnchecked,
       Rule rule) throws EvalException {
-    Map<String, String> executionInfo = Maps.newLinkedHashMap();
-    executionInfo.putAll(getExecutionInfoFromTags(rule));
+    ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
+    executionInfoBuilder.putAll(getExecutionInfoFromTags(rule));
 
-    if (executionRequirementsUnchecked != Runtime.NONE) {
-      executionInfo.putAll(TargetUtils.filter(
-          SkylarkDict.castSkylarkDictOrNoneToDict(
-              executionRequirementsUnchecked,
-              String.class,
-              String.class,
-              "execution_requirements")));
-    }
-    return executionInfo;
+    executionInfoBuilder.putAll(TargetUtils.filter(
+        SkylarkDict.castSkylarkDictOrNoneToDict(
+            executionRequirementsUnchecked,
+            String.class,
+            String.class,
+            "execution_requirements")));
+
+    return executionInfoBuilder.build();
   }
 
   /**
@@ -280,18 +279,14 @@ public final class TargetUtils {
    */
   private static Map<String, String> getExecutionInfoFromTags(Rule rule) {
     // tags may contain duplicate values.
-    Map<String, String> map = new HashMap<>();
+    ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
     for (String tag :
         NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
-      // We don't want to pollute the execution info with random things, and we also need to reserve
-      // some internal tags that we don't allow to be set on targets. We also don't want to
-      // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
-      // recognized by Bazel.
       if (TAGS_PROPAGATED_TO_EXEC_INFO.apply(tag)) {
         map.put(tag, "");
       }
     }
-    return ImmutableMap.copyOf(map);
+    return map.build();
   }
 
   /**
