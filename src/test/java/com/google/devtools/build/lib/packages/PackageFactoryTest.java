@@ -809,48 +809,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testGlobDisallowEmpty() throws Exception {
-    Path buildFile = scratch.file("/pkg/BUILD", "x = " + "glob(['*.foo'])");
-    Package pkg =
-        packages.createPackage(
-            "pkg",
-            RootedPath.toRootedPath(root, buildFile),
-            "--incompatible_disallow_empty_glob=false");
-    assertThat(pkg.containsErrors()).isFalse();
-  }
-
-  @Test
-  public void testGlobAllowEmpty() throws Exception {
-    events.setFailFast(false);
-
-    Path buildFile = scratch.file("/pkg/BUILD", "x = " + "glob(['*.foo'])");
-    Package pkg =
-        packages.createPackage(
-            "pkg",
-            RootedPath.toRootedPath(root, buildFile),
-            "--incompatible_disallow_empty_glob=true");
-
-    assertThat(pkg.containsErrors()).isTrue();
-    events.assertContainsError(
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False");
-  }
-
-  @Test
-  public void testGlobNotBoolean() throws Exception {
-    events.setFailFast(false);
-
-    Path buildFile = scratch.file("/pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty = 5)");
-    Package pkg =
-        packages.createPackage(
-            "pkg",
-            RootedPath.toRootedPath(root, buildFile),
-            "--incompatible_disallow_empty_glob=true");
-
-    assertThat(pkg.containsErrors()).isTrue();
-    events.assertContainsError("expected boolean for argument `allow_empty`, got `5`");
-  }
-
-  @Test
   public void testNativeModuleIsAvailable() throws Exception {
     Path buildFile = scratch.file("/pkg/BUILD", "native.cc_library(name='bar')");
     Package pkg =
