@@ -289,9 +289,6 @@ log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
 
-# Prepare @platforms local repository
-link_dir ${PWD}/platforms ${ARCHIVE_DIR}/_embedded_binaries/platforms
-
 # Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
 if [ "${PLATFORM}" = "windows" ]; then
   # We don't rely on runfiles trees on Windows
