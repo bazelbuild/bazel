@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.LazyString;
@@ -307,13 +308,15 @@ public class JavaHeaderCompileActionBuilder {
 
     JavaConfiguration javaConfiguration =
         ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
-    if (javaConfiguration.inmemoryJdepsFiles()) {
-      builder.setExecutionInfo(
-          ImmutableMap.of(
-              ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-              outputDepsProto.getExecPathString()));
+    if (javaConfiguration.getReduceJavaClasspath() == JavaClasspathMode.BAZEL) {
+      if (javaConfiguration.inmemoryJdepsFiles()) {
+        builder.setExecutionInfo(
+            ImmutableMap.of(
+                ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+                outputDepsProto.getExecPathString()));
+      }
+      builder.addResultConsumer(createResultConsumer(outputDepsProto));
     }
-    builder.addResultConsumer(createResultConsumer(outputDepsProto));
 
     // The action doesn't require annotation processing, so use the non-javac-based turbine
     // implementation.
