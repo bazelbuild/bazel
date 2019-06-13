@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
+import com.google.devtools.build.skydoc.SkydocOptions.OutputFormat;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
@@ -110,12 +111,15 @@ import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
+import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
 import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import com.google.devtools.common.options.OptionsParser;
+import java.io.BufferedOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.NoSuchFileException;
@@ -171,7 +175,8 @@ public class SkydocMain {
   }
 
   public static void main(String[] args)
-      throws IOException, InterruptedException, LabelSyntaxException, EvalException {
+      throws IOException, InterruptedException, LabelSyntaxException, EvalException,
+          DocstringParseException {
     OptionsParser parser =
         OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class, SkydocOptions.class);
     parser.parseAndExitUponError(args);
@@ -226,8 +231,6 @@ public class SkydocMain {
       System.exit(1);
     }
 
-    MarkdownRenderer renderer = new MarkdownRenderer();
-
     Map<String, RuleInfo> filteredRuleInfos =
         ruleInfoMap.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
@@ -240,11 +243,23 @@ public class SkydocMain {
         userDefinedFunctions.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-    try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
-      printWriter.println(renderer.renderMarkdownHeader());
-      printRuleInfos(printWriter, renderer, filteredRuleInfos);
-      printProviderInfos(printWriter, renderer, filteredProviderInfos);
-      printUserDefinedFunctions(printWriter, renderer, filteredUserDefinedFunctions);
+
+    if (skydocOptions.outputFormat == OutputFormat.PROTO) {
+      try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputPath))) {
+        new ProtoRenderer()
+            .appendRuleInfos(filteredRuleInfos.values())
+            .appendProviderInfos(filteredProviderInfos.values())
+            .appendUserDefinedFunctionInfos(filteredUserDefinedFunctions)
+            .writeModuleInfo(out);
+      }
+    } else if (skydocOptions.outputFormat == OutputFormat.MARKDOWN) {
+      MarkdownRenderer renderer = new MarkdownRenderer();
+      try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
+        printWriter.println(renderer.renderMarkdownHeader());
+        printRuleInfos(printWriter, renderer, filteredRuleInfos);
+        printProviderInfos(printWriter, renderer, filteredProviderInfos);
+        printUserDefinedFunctions(printWriter, renderer, filteredUserDefinedFunctions);
+      }
     }
   }
 
