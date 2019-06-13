@@ -407,6 +407,17 @@ filegroup(
     ],
 )
 
+alias(
+    name = "default_java_toolchain.bzl",
+    actual = select({
+         "//src/conditions:linux_x86_64": ["@remote_java_tools_linux//:java_tools_defs.bzl"],
+         "//src/conditions:darwin": ["@remote_java_tools_darwin//:java_tools_defs.bzl"],
+         "//src/conditions:darwin_x86_64": ["@remote_java_tools_darwin//:java_tools_defs.bzl"],
+         "//src/conditions:windows": ["@remote_java_tools_windows//:java_tools_defs.bzl"],
+         "//conditions:default": ["@remote_java_tools_linux//:java_tools_defs.bzl"],
+     })
+)
+
 filegroup(
     name = "package-srcs",
     srcs = glob(["**"]),
