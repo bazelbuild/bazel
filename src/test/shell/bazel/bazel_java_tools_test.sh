@@ -86,6 +86,8 @@ function test_java_tools_has_zlib() {
 
 function test_java_tools_has_native_windows() {
   expect_path_in_java_tools "java_tools/src/main/native/windows"
+  expect_path_in_java_tools "java_tools/src/main/native/windows/file.h"
+  expect_path_in_java_tools "java_tools/src/main/native/windows/util.h"
 }
 
 function test_java_tools_has_cpp_util() {
