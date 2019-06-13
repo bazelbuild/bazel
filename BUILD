@@ -78,6 +78,15 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
+pkg_tar(
+    name = "platforms-srcs",
+    srcs = ["@platforms//:srcs"],
+    package_dir = "platforms",
+    strip_prefix = ".",
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
 py_binary(
     name = "combine_distfiles",
     srcs = ["combine_distfiles.py"],
@@ -89,6 +98,7 @@ genrule(
     name = "bazel-distfile",
     srcs = [
         ":bazel-srcs",
+        ":platforms-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@additional_distfiles//:archives.tar",
@@ -104,6 +114,7 @@ genrule(
     name = "bazel-distfile-tar",
     srcs = [
         ":bazel-srcs",
+        ":platforms-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@additional_distfiles//:archives.tar",
