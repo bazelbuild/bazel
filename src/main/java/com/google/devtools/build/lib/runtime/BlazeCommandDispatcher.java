@@ -631,8 +631,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       throw new IllegalStateException(e);
     }
     Command annotation = command.getClass().getAnnotation(Command.class);
-    OptionsParser parser = OptionsParser.newOptionsParser(optionsData, "--//");
-    parser.setAllowResidue(annotation.allowResidue());
+    OptionsParser parser =
+        OptionsParser.newOptionsParser(optionsData, "--//", annotation.allowResidue());
     return parser;
   }
 

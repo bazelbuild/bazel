@@ -1119,9 +1119,11 @@ class Desugar {
   }
 
   private static DesugarOptions parseCommandLineOptions(String[] args) {
-    OptionsParser parser = OptionsParser.newOptionsParser(DesugarOptions.class);
-    parser.setAllowResidue(false);
-    parser.enableParamsFileSupport(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    OptionsParser parser =
+        OptionsParser.newOptionsParser(
+            false,
+            new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()),
+            DesugarOptions.class);
     parser.parseAndExitUponError(args);
     DesugarOptions options = parser.getOptions(DesugarOptions.class);
 

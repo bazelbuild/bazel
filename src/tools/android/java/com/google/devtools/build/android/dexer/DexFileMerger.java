@@ -195,9 +195,9 @@ class DexFileMerger {
   }
 
   public static void main(String[] args) throws Exception {
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    OptionsParser optionsParser =
+        OptionsParser.newOptionsParser(
+            new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()), Options.class);
     optionsParser.parseAndExitUponError(args);
 
     buildMergedDexFiles(optionsParser.getOptions(Options.class));

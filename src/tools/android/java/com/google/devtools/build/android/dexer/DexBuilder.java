@@ -209,8 +209,7 @@ class DexBuilder {
       List<String> args)
       throws OptionsParsingException, IOException, InterruptedException, ExecutionException {
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, DexingOptions.class);
-    optionsParser.setAllowResidue(false);
+        OptionsParser.newOptionsParser(false, Options.class, DexingOptions.class);
     optionsParser.parse(args);
     Options options = optionsParser.getOptions(Options.class);
     try (ZipFile in = new ZipFile(options.inputJar.toFile());
