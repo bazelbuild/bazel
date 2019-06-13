@@ -427,45 +427,45 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
     ImmutableMap.Builder<String, Object> splitAttrInfos = ImmutableMap.builder();
     for (Attribute attr : attributes) {
+      if (!attr.getTransitionFactory().isSplit() || attr.hasStarlarkDefinedTransition()) {
+        continue;
+      }
+      Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> splitPrereqs =
+          ruleContext.getSplitPrerequisites(attr.getName());
 
-      if (attr.getTransitionFactory().isSplit()) {
+      Map<Object, Object> splitPrereqsMap = new LinkedHashMap<>();
+      for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>>
+          splitPrereq : splitPrereqs.entrySet()) {
 
-        Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> splitPrereqs =
-            ruleContext.getSplitPrerequisites(attr.getName());
-
-        Map<Object, Object> splitPrereqsMap = new LinkedHashMap<>();
-        for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>>
-            splitPrereq : splitPrereqs.entrySet()) {
-
-          Object value;
-          if (attr.getType() == BuildType.LABEL) {
-            Preconditions.checkState(splitPrereq.getValue().size() == 1);
-            value = splitPrereq.getValue().get(0);
-          } else {
-            // BuildType.LABEL_LIST
-            value = SkylarkList.createImmutable(splitPrereq.getValue());
-          }
-
-          if (splitPrereq.getKey().isPresent()) {
-            splitPrereqsMap.put(splitPrereq.getKey().get(), value);
-          } else {
-            // If the split transition is not in effect, then the key will be missing since there's
-            // nothing to key on because the dependencies aren't split and getSplitPrerequisites()
-            // behaves like getPrerequisites(). This also means there should be only one entry in
-            // the map. Use None in Skylark to represent this.
-            Preconditions.checkState(splitPrereqs.size() == 1);
-            splitPrereqsMap.put(Runtime.NONE, value);
-          }
+        Object value;
+        if (attr.getType() == BuildType.LABEL) {
+          Preconditions.checkState(splitPrereq.getValue().size() == 1);
+          value = splitPrereq.getValue().get(0);
+        } else {
+          // BuildType.LABEL_LIST
+          value = SkylarkList.createImmutable(splitPrereq.getValue());
         }
 
-        splitAttrInfos.put(attr.getPublicName(), SkylarkDict.copyOf(null, splitPrereqsMap));
+        if (splitPrereq.getKey().isPresent()) {
+          splitPrereqsMap.put(splitPrereq.getKey().get(), value);
+        } else {
+          // If the split transition is not in effect, then the key will be missing since there's
+          // nothing to key on because the dependencies aren't split and getSplitPrerequisites()
+          // behaves like getPrerequisites(). This also means there should be only one entry in
+          // the map. Use None in Skylark to represent this.
+          Preconditions.checkState(splitPrereqs.size() == 1);
+          splitPrereqsMap.put(Runtime.NONE, value);
+        }
       }
+
+      splitAttrInfos.put(attr.getPublicName(), SkylarkDict.copyOf(null, splitPrereqsMap));
     }
 
     return StructProvider.STRUCT.create(
         splitAttrInfos.build(),
-        "No attribute '%s' in split_attr. Make sure that this attribute is defined with a "
-            + "split configuration.");
+        "No attribute '%s' in split_attr. This attribute is either not defined with a split"
+            + " configuration OR is defined with a Starlark split transition, the results of which"
+            + " cannot be accessed from split_attr.");
   }
 
   @Override
