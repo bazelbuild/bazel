@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * Base class for data structures that are only mutable using a proper, unfrozen {@link Mutability}.
  */
-public abstract class SkylarkMutable implements Freezable, SkylarkValue {
+public abstract class StarlarkMutable implements Freezable, SkylarkValue {
 
   /**
    * Checks whether this object is currently mutable in the given {@link Environment}, and throws
@@ -84,9 +84,9 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
   }
 
   /**
-   * Base class for a {@link SkylarkMutable} that implements a Java Collections Framework interface.
-   * All of the interface's accessors should be supported, while its mutating methods must be
-   * disallowed.
+   * Base class for a {@link StarlarkMutable} that implements a Java Collections Framework
+   * interface. All of the interface's accessors should be supported, while its mutating methods
+   * must be disallowed.
    *
    * <p>Think of this as similar to {@link Collections#unmodifiableList}, etc., except that it's an
    * extendable class rather than a method.
@@ -108,7 +108,7 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
    * <p>Subclasses need not overwrite the default methods added to some data structures in Java 8.
    * since these are defined in terms of the non-default methods.
    */
-  abstract static class BaseMutableWrapper extends SkylarkMutable {
+  abstract static class BaseMutableWrapper extends StarlarkMutable {
 
     /**
      * The underlying contents, to which read access is forwarded. This object must not be modified
@@ -127,7 +127,7 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     }
   }
 
-  /** Base class for a {@link SkylarkMutable} that is also a {@link Collection}. */
+  /** Base class for a {@link StarlarkMutable} that is also a {@link Collection}. */
   abstract static class MutableCollection<E> extends BaseMutableWrapper implements Collection<E> {
 
     @Override
@@ -210,7 +210,7 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     }
   }
 
-  /** Base class for a {@link SkylarkMutable} that is also a {@link List}. */
+  /** Base class for a {@link StarlarkMutable} that is also a {@link List}. */
   abstract static class BaseMutableList<E> extends MutableCollection<E> implements List<E> {
 
     @Override
@@ -275,7 +275,7 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     }
   }
 
-  /** Base class for a {@link SkylarkMutable} that is also a {@link Map}. */
+  /** Base class for a {@link StarlarkMutable} that is also a {@link Map}. */
   abstract static class MutableMap<K, V> extends BaseMutableWrapper implements Map<K, V> {
 
     @Override
