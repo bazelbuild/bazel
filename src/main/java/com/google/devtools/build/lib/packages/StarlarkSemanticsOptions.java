@@ -311,20 +311,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowLoadLabelsToCrossPackageBoundaries;
 
   @Option(
-      name = "incompatible_disallow_native_in_build_file",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, the native module is not accessible in BUILD files. "
-              + "Use for example `cc_library` instead of `native.cc_library`.")
-  public boolean incompatibleDisallowNativeInBuildFile;
-
-  @Option(
       name = "incompatible_disallow_rule_execution_platform_constraints_allowed",
       defaultValue = "False",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -623,7 +609,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleDisallowLegacyJavaProvider(incompatibleDisallowLegacyJavaProvider)
         .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(
             incompatibleDisallowLoadLabelsToCrossPackageBoundaries)
-        .incompatibleDisallowNativeInBuildFile(incompatibleDisallowNativeInBuildFile)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
         .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)
         .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
