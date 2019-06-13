@@ -46,7 +46,7 @@ public final class MethodDescriptor {
   private final boolean useLocation;
   private final boolean useAst;
   private final boolean useEnvironment;
-  private final boolean useSkylarkSemantics;
+  private final boolean useStarlarkSemantics;
   private final boolean useContext;
 
   private MethodDescriptor(
@@ -64,7 +64,7 @@ public final class MethodDescriptor {
       boolean useLocation,
       boolean useAst,
       boolean useEnvironment,
-      boolean useSkylarkSemantics,
+      boolean useStarlarkSemantics,
       boolean useContext) {
     this.method = method;
     this.annotation = annotation;
@@ -80,7 +80,7 @@ public final class MethodDescriptor {
     this.useLocation = useLocation;
     this.useAst = useAst;
     this.useEnvironment = useEnvironment;
-    this.useSkylarkSemantics = useSkylarkSemantics;
+    this.useStarlarkSemantics = useStarlarkSemantics;
     this.useContext = useContext;
   }
 
@@ -112,7 +112,7 @@ public final class MethodDescriptor {
         annotation.useLocation(),
         annotation.useAst(),
         annotation.useEnvironment(),
-        annotation.useSkylarkSemantics(),
+        annotation.useStarlarkSemantics(),
         annotation.useContext());
   }
 
@@ -195,9 +195,9 @@ public final class MethodDescriptor {
     return useEnvironment;
   }
 
-  /** @see SkylarkCallable#useSkylarkSemantics() */
+  /** @see SkylarkCallable#useStarlarkSemantics() */
   boolean isUseSkylarkSemantics() {
-    return useSkylarkSemantics;
+    return useStarlarkSemantics;
   }
 
   /** See {@link SkylarkCallable#useContext()}. */
