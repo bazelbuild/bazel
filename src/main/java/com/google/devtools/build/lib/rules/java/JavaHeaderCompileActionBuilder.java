@@ -21,10 +21,15 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -38,6 +43,9 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPlugi
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.proto.Deps;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -293,6 +301,36 @@ public class JavaHeaderCompileActionBuilder {
         commandLine.addPrefixedLabel("@", targetLabel);
       }
     }
+
+    JavaConfiguration javaConfiguration =
+        ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
+    if (javaConfiguration.inmemoryJdepsFiles()) {
+      builder.setExecutionInfo(
+          ImmutableMap.of(
+              ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+              outputDepsProto.getExecPathString()));
+    }
+    builder.addResultConsumer(
+        contextAndResults -> {
+          ActionExecutionContext context = contextAndResults.getFirst();
+          JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
+          if (javaContext == null) {
+            return;
+          }
+          SpawnResult spawnResult = Iterables.getOnlyElement(contextAndResults.getSecond());
+          try {
+            InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+            try (InputStream input =
+                inMemoryOutput == null
+                    ? context.getInputPath(outputDepsProto).getInputStream()
+                    : inMemoryOutput) {
+              javaContext.insertDependencies(outputDepsProto, Deps.Dependencies.parseFrom(input));
+            }
+          } catch (IOException e) {
+            // Left empty. If we cannot read the .jdeps file now, we will read it later or throw
+            // an appropriate error then.
+          }
+        });
 
     // The action doesn't require annotation processing, so use the non-javac-based turbine
     // implementation.
