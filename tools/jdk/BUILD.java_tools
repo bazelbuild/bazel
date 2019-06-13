@@ -6,6 +6,7 @@ load("//:java_tools/java_tools_defs.bzl", "default_java_toolchain")
 
 default_java_toolchain(
     name = "toolchain",
+    jacocorunner = ":jacoco_coverage_runner_filegroup",
     source_version = "8",
     target_version = "8",
 )
@@ -13,6 +14,7 @@ default_java_toolchain(
 # A toolchain that targets java JAVA_LANGUAGE_LEVEL.
 default_java_toolchain(
     name = "toolchain_jdk_JAVA_LANGUAGE_LEVEL",
+    jacocorunner = ":jacoco_coverage_runner_filegroup",
     source_version = "JAVA_LANGUAGE_LEVEL",
     target_version = "JAVA_LANGUAGE_LEVEL",
 )

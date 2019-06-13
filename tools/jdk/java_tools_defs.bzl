@@ -75,12 +75,11 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
         ":jdk_compiler_jar",
     ],
     "javac_supports_workers": 1,
-    "jvm_opts": DEFAULT_JVM_OPTS,
+    "jvm_opts": JDK9_JVM_OPTS,
     "misc": DEFAULT_JAVACOPTS,
     "compatible_javacopts": COMPATIBLE_JAVACOPTS,
     "singlejar": [":singlejar"],
     "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
-    "jacocorunner": ":jacoco_coverage_runner_filegroup"
 }
 
 def default_java_toolchain(name, **kwargs):
