@@ -527,27 +527,4 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Environment env,
       StarlarkContext context)
       throws EvalException;
-
-  @SkylarkCallable(
-      name = "FileType",
-      doc =
-          "Deprecated. Creates a file filter from a list of strings. For example, to match "
-              + "files ending with .cc or .cpp, use: "
-              + "<pre class=language-python>FileType([\".cc\", \".cpp\"])</pre>",
-      parameters = {
-          @Param(
-              name = "types",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc = "a list of the accepted file extensions."
-          )
-      },
-      useLocation = true,
-      useEnvironment = true
-  )
-  @SkylarkConstructor(objectType = FileTypeApi.class)
-  public FileTypeApi<FileApiT> fileType(SkylarkList<?> types, Location loc, Environment env)
-     throws EvalException;
 }
