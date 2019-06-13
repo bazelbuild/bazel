@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -417,12 +418,24 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   public abstract String getLibraryIdentifier();
 
+  @Override
+  public abstract Label getLabel();
+
   @Nullable
   @Override
   public abstract Artifact getStaticLibrary();
 
   @Nullable
   public abstract ImmutableList<Artifact> getObjectFiles();
+
+  @Nullable
+  @Override
+  public SkylarkList<Artifact> getSkylarkObjectFiles() {
+    if (getObjectFiles() == null) {
+      return null;
+    }
+    return SkylarkList.createImmutable(getObjectFiles());
+  }
 
   @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
@@ -436,6 +449,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   @Nullable
   public abstract ImmutableList<Artifact> getPicObjectFiles();
+
+  @Nullable
+  @Override
+  public SkylarkList<Artifact> getSkylarkPicObjectFiles() {
+    if (getPicObjectFiles() == null) {
+      return null;
+    }
+    return SkylarkList.createImmutable(getPicObjectFiles());
+  }
 
   @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackends();
@@ -597,6 +619,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
     public abstract Builder setLibraryIdentifier(String libraryIdentifier);
 
+    public abstract Builder setLabel(Label label);
+
     public abstract Builder setStaticLibrary(Artifact staticLibrary);
 
     public abstract Builder setObjectFiles(ImmutableList<Artifact> objectFiles);
@@ -635,6 +659,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     abstract LibraryToLink autoBuild();
 
     abstract String getLibraryIdentifier();
+
+    abstract Label getLabel();
 
     abstract Artifact getStaticLibrary();
 
@@ -682,6 +708,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
               || getPicStaticLibrary() != null
               || getDynamicLibrary() != null
               || getInterfaceLibrary() != null);
+      Preconditions.checkNotNull(getLabel());
 
       return autoBuild();
     }

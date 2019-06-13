@@ -417,6 +417,7 @@ public final class CcLinkingHelper {
         "can only handle static links");
 
     LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
+    libraryToLinkBuilder.setLabel(label);
     boolean usePicForBinaries =
         CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration);
     boolean usePicForDynamicLibs =

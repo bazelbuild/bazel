@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
@@ -43,15 +44,15 @@ public final class NativeLibraryNestedSetBuilder {
 
   /** Include native libraries of specified dependencies into the nested set. */
   public NativeLibraryNestedSetBuilder addJavaTargets(
-      Iterable<? extends TransitiveInfoCollection> deps) {
+      Label label, Iterable<? extends TransitiveInfoCollection> deps) {
     for (TransitiveInfoCollection dep : deps) {
-      addJavaTarget(dep);
+      addJavaTarget(label, dep);
     }
     return this;
   }
 
   /** Include native Java libraries of a specified target into the nested set. */
-  public NativeLibraryNestedSetBuilder addJavaTarget(TransitiveInfoCollection dep) {
+  public NativeLibraryNestedSetBuilder addJavaTarget(Label label, TransitiveInfoCollection dep) {
     JavaNativeLibraryProvider javaProvider = dep.getProvider(JavaNativeLibraryProvider.class);
     if (javaProvider != null) {
       builder.addTransitive(javaProvider.getTransitiveJavaNativeLibraries());
@@ -64,32 +65,32 @@ public final class NativeLibraryNestedSetBuilder {
       return this;
     }
 
-    addTarget(dep);
+    addTarget(label, dep);
 
     return this;
   }
 
   /** Include native C/C++ libraries of specified dependencies into the nested set. */
   public NativeLibraryNestedSetBuilder addCcTargets(
-      Iterable<? extends TransitiveInfoCollection> deps) {
+      Label label, Iterable<? extends TransitiveInfoCollection> deps) {
     for (TransitiveInfoCollection dep : deps) {
-      addCcTarget(dep);
+      addCcTarget(label, dep);
     }
     return this;
   }
 
   /** Include native Java libraries of a specified target into the nested set. */
-  private void addCcTarget(TransitiveInfoCollection dep) {
+  private void addCcTarget(Label label, TransitiveInfoCollection dep) {
     CcNativeLibraryProvider provider = dep.getProvider(CcNativeLibraryProvider.class);
     if (provider != null) {
       builder.addTransitive(provider.getTransitiveCcNativeLibraries());
     } else {
-      addTarget(dep);
+      addTarget(label, dep);
     }
   }
 
   /** Include files and genrule artifacts. */
-  private void addTarget(TransitiveInfoCollection dep) {
+  private void addTarget(Label label, TransitiveInfoCollection dep) {
     for (Artifact artifact :
         FileType.filterList(
             dep.getProvider(FileProvider.class).getFilesToBuild(), CppFileTypes.SHARED_LIBRARY)) {

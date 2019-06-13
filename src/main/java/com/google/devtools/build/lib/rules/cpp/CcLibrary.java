@@ -351,7 +351,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
     List<LibraryToLink> precompiledLibraries =
         convertPrecompiledLibrariesToLibraryToLink(
-            common, ruleContext.getFragment(CppConfiguration.class).forcePic(), precompiledFiles);
+            ruleContext.getLabel(),
+            common,
+            ruleContext.getFragment(CppConfiguration.class).forcePic(),
+            precompiledFiles);
 
     if (!ccCompilationOutputs.isEmpty()) {
       checkIfLinkOutputsCollidingWithPrecompiledFiles(
@@ -699,7 +702,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
    * Note that some target platforms do not require shared library code to be PIC.
    */
   private static List<LibraryToLink> convertPrecompiledLibrariesToLibraryToLink(
-      CcCommon common, boolean forcePic, PrecompiledFiles precompiledFiles) {
+      Label label, CcCommon common, boolean forcePic, PrecompiledFiles precompiledFiles) {
     ImmutableList.Builder<LibraryToLink> librariesToLink = ImmutableList.builder();
 
     Map<String, Artifact> staticLibraries =
@@ -717,6 +720,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     for (Map.Entry<String, Artifact> staticLibraryEntry :
         Iterables.concat(staticLibraries.entrySet(), alwayslinkStaticLibraries.entrySet())) {
       LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
+      libraryToLinkBuilder.setLabel(label);
       String identifier = staticLibraryEntry.getKey();
       libraryToLinkBuilder.setLibraryIdentifier(identifier);
       boolean hasPic = picStaticLibraries.containsKey(identifier);
@@ -751,6 +755,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         continue;
       }
       LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
+      libraryToLinkBuilder.setLabel(label);
       libraryToLinkBuilder.setLibraryIdentifier(identifier);
       libraryToLinkBuilder.setPicStaticLibrary(picStaticLibraryEntry.getValue());
       if (dynamicLibraries.containsKey(identifier)) {
@@ -770,6 +775,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         continue;
       }
       LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
+      libraryToLinkBuilder.setLabel(label);
       libraryToLinkBuilder.setLibraryIdentifier(identifier);
       Artifact library = dynamicLibraryEntry.getValue();
       Artifact symlink = common.getDynamicLibrarySymlink(library, true);

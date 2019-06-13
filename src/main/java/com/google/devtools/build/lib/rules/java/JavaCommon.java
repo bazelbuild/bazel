@@ -358,10 +358,11 @@ public class JavaCommon {
    */
   protected NestedSet<LibraryToLink> collectTransitiveJavaNativeLibraries() {
     NativeLibraryNestedSetBuilder builder = new NativeLibraryNestedSetBuilder();
-    builder.addJavaTargets(targetsTreatedAsDeps(ClasspathType.BOTH));
+    builder.addJavaTargets(ruleContext.getLabel(), targetsTreatedAsDeps(ClasspathType.BOTH));
 
     if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
-      builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
+      builder.addJavaTargets(
+          ruleContext.getLabel(), ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
     }
     return builder.build();
   }
