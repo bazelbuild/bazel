@@ -503,6 +503,18 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "will be available")
   public boolean incompatibleRemoveNativeMavenJar;
 
+  @Option(
+      name = "incompatible_run_shell_command_string",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, the command parameter of actions.run_shell will only accept string")
+  public boolean incompatibleRunShellCommandString;
+
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
       name = "internal_skylark_flag_test_canary",
@@ -625,6 +637,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
         .incompatibleRestrictNamedParams(incompatibleRestrictNamedParams)
+        .incompatibleRunShellCommandString(incompatibleRunShellCommandString)
         .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
         .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)

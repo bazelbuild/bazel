@@ -310,7 +310,8 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
-      Location location)
+      Location location,
+      StarlarkSemantics semantics)
       throws EvalException {
     context.checkMutable("actions.run_shell");
 
@@ -338,6 +339,13 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         }
       }
     } else if (commandUnchecked instanceof SkylarkList) {
+      if (semantics.incompatibleRunShellCommandString()) {
+        throw new EvalException(
+            location,
+            "'command' must be of type string. passing a sequence of strings as 'command'"
+                + " is deprecated. To temporarily disable this check,"
+                + " set --incompatible_objc_framework_cleanup=false.");
+      }
       SkylarkList commandList = (SkylarkList) commandUnchecked;
       if (argumentList.size() > 0) {
         throw new EvalException(location,

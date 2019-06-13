@@ -919,7 +919,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
               envUnchecked,
               executionRequirementsUnchecked,
               inputManifestsUnchecked,
-              loc);
+              loc,
+              env.getSemantics());
     }
     return Runtime.NONE;
   }
