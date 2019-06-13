@@ -26,7 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SkylarkMutable}. */
+/** Tests for {@link StarlarkMutable}. */
 @RunWith(JUnit4.class)
 public final class SkylarkMutableTest {
 
