@@ -112,6 +112,8 @@ message FilesetEntry {
 // from the blaze parsing. If an attribute is of a list type, the associated
 // list should never be empty.
 message Attribute {
+  reserved 12, 16;
+
   // Indicates the type of attribute.
   enum Discriminator {
     INTEGER = 1;             // int_value
@@ -147,6 +149,8 @@ message Attribute {
   }
 
   message SelectorEntry {
+    reserved 12;
+
     // The key of the selector entry. At this time, this is the label of a
     // config_setting rule, or the pseudo-label "//conditions:default".
     optional string label = 1;
@@ -177,7 +181,6 @@ message Attribute {
     repeated LabelDictUnaryEntry label_dict_unary_value = 15;
     repeated LabelKeyedStringDictEntry label_keyed_string_dict_value = 17;
 
-    repeated DEPRECATED_GlobCriteria DEPRECATED_glob_criteria = 12;
     repeated bytes DEPRECATED_string_dict_unary_value = 14;
   }
 
@@ -207,9 +210,6 @@ message Attribute {
 
   // The name of the attribute
   required string name = 1;
-
-  // The location of the target in the BUILD file in a machine-parseable form.
-  optional Location DEPRECATED_parseable_location = 12;
 
   // Whether the attribute was explicitly specified
   optional bool explicitly_specified = 13;
@@ -274,13 +274,12 @@ message Attribute {
   // stored here.
   optional SelectorList selector_list = 21;
 
-  repeated DEPRECATED_GlobCriteria DEPRECATED_glob_criteria = 16;
   repeated bytes DEPRECATED_string_dict_unary_value = 18;
 }
 
 // A rule instance (e.g., cc_library foo, java_binary bar).
 message Rule {
-  reserved 11;
+  reserved 8, 11;
 
   // The name of the rule (formatted as an absolute label, e.g. //foo/bar:baz).
   required string name = 1;
@@ -313,9 +312,6 @@ message Rule {
   // - 'blaze': settings implemented in Blaze itself
   repeated string default_setting = 7;
 
-  // The location of the target in the BUILD file in a machine-parseable form.
-  optional Location DEPRECATED_parseable_location = 8;
-
   // The rule's class's public by default value.
   optional bool public_by_default = 9;
 
@@ -340,6 +336,8 @@ message RuleSummary {
 // A package group. Aside from the name, it contains the list of packages
 // present in the group (as specified in the BUILD file).
 message PackageGroup {
+  reserved 4;
+
   // The name of the package group
   required string name = 1;
 
@@ -350,9 +348,6 @@ message PackageGroup {
 
   // The list of sub package groups included in this one.
   repeated string included_package_group = 3;
-
-  // The location of the target in the BUILD file in a machine-parseable form.
-  optional Location DEPRECATED_parseable_location = 4;
 }
 
 // An environment group.
@@ -371,16 +366,14 @@ message EnvironmentGroup {
 // A file that is an input into the build system.
 // Next-Id: 10
 message SourceFile {
+  reserved 7;
+
   // The name of the source file (a label).
   required string name = 1;
 
   // The location of the source file.  This is a path with line numbers, not
   // a label in the build system.
   optional string location = 2;
-
-  // The location of the corresponding label in the BUILD file in a
-  // machine-parseable form.
-  optional Location DEPRECATED_parseable_location = 7;
 
   // Labels of .bzl (Skylark) files that are transitively loaded in this BUILD
   // file. This is present only when the SourceFile represents a BUILD file that
@@ -525,47 +518,4 @@ message RuleDefinition {
 message BuildLanguage {
   // Only contains documented rule definitions
   repeated RuleDefinition rule = 1;
-}
-
-message Location {
-  optional int32 start_offset = 1;
-  optional int32 start_line = 2;
-  optional int32 start_column = 3;
-  optional int32 end_offset = 4;
-  optional int32 end_line = 5;
-  optional int32 end_column = 6;
-}
-
-message MakeVarBinding {
-  required string value = 1;
-  required string platform_set_regexp = 2;
-}
-
-message MakeVar {
-  required string name = 1;
-  repeated MakeVarBinding binding = 2;
-}
-
-message DEPRECATED_GlobCriteria {
-  // List of includes (or items if this criteria did not come from a glob)
-  repeated string include = 1;
-
-  // List of exclude expressions
-  repeated string exclude = 2;
-
-  // Whether this message came from a glob
-  optional bool glob = 3;
-}
-
-message Event {
-  enum EventKind {
-    ERROR = 1;
-    WARNING = 2;
-    INFO = 3;
-    PROGRESS = 4;
-  }
-
-  required EventKind kind = 1;
-  optional Location DEPRECATED_location = 2;
-  optional string message = 3;
 }
