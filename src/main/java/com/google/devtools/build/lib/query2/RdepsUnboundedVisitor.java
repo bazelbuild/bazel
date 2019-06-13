@@ -44,10 +44,10 @@ import java.util.Set;
  * risk of OOMs. The additional memory usage should not be a large concern here, as even with 10M
  * edges, the memory overhead is around 160M, and the memory can be reclaimed by regular GC.
  */
-class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
+class RdepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdep> {
   /**
-   * A {@link Uniquifier} for visitations. Solely used for {@link #getUniqueValues}, which actually
-   * isn't that useful. See the method javadoc.
+   * A {@link Uniquifier} for visitations. Solely used for {@link
+   * #noteAndReturnUniqueVisitationKeys}, which actually isn't that useful. See the method javadoc.
    */
   private final Uniquifier<DepAndRdep> depAndRdepUniquifier;
   /**
@@ -65,9 +65,8 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
       Uniquifier<DepAndRdep> depAndRdepUniquifier,
       Uniquifier<SkyKey> validRdepUniquifier,
       Predicate<SkyKey> unfilteredUniverse,
-      Callback<Target> callback,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
-    super(env, callback, packageSemaphore);
+      Callback<Target> callback) {
+    super(env, callback);
     this.depAndRdepUniquifier = depAndRdepUniquifier;
     this.validRdepUniquifier = validRdepUniquifier;
     this.unfilteredUniverse = unfilteredUniverse;
@@ -79,37 +78,27 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
    * {@link Callback#process} call. Note that all the created instances share the same {@link
    * Uniquifier} so that we don't visit the same Skyframe node more than once.
    */
-  static class Factory implements ParallelVisitor.Factory {
+  static class Factory implements ParallelVisitor.Factory<DepAndRdep, SkyKey, Target> {
     private final SkyQueryEnvironment env;
     private final Uniquifier<DepAndRdep> depAndRdepUniquifier;
     private final Uniquifier<SkyKey> validRdepUniquifier;
     private final Predicate<SkyKey> unfilteredUniverse;
     private final Callback<Target> callback;
-    private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
     Factory(
-        SkyQueryEnvironment env,
-        Predicate<SkyKey> unfilteredUniverse,
-        Callback<Target> callback,
-        MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+        SkyQueryEnvironment env, Predicate<SkyKey> unfilteredUniverse, Callback<Target> callback) {
       this.env = env;
       this.unfilteredUniverse = unfilteredUniverse;
       this.depAndRdepUniquifier =
           new UniquifierImpl<>(depAndRdep -> depAndRdep, env.getQueryEvaluationParallelismLevel());
       this.validRdepUniquifier = env.createSkyKeyUniquifier();
       this.callback = callback;
-      this.packageSemaphore = packageSemaphore;
     }
 
     @Override
-    public ParallelVisitor<DepAndRdep, Target> create() {
+    public ParallelVisitor<DepAndRdep, SkyKey, Target> create() {
       return new RdepsUnboundedVisitor(
-          env,
-          depAndRdepUniquifier,
-          validRdepUniquifier,
-          unfilteredUniverse,
-          callback,
-          packageSemaphore);
+          env, depAndRdepUniquifier, validRdepUniquifier, unfilteredUniverse, callback);
     }
   }
 
@@ -135,8 +124,9 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
             Iterables.concat(reverseDepMultimap.values()));
     Set<PackageIdentifier> pkgIdsNeededForTargetification =
         SkyQueryEnvironment.getPkgIdsNeededForTargetification(packageKeyToTargetKeyMap);
-    packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
 
+    MultisetSemaphore<PackageIdentifier> packageSemaphore = getPackageSemaphore();
+    packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
     try {
       // Filter out disallowed deps. We cannot defer the targetification any further as we do not
       // want to retrieve the rdeps of unwanted nodes (targets).
@@ -184,19 +174,13 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
   }
 
   @Override
-  protected Iterable<DepAndRdep> preprocessInitialVisit(Iterable<SkyKey> keys) {
-    return Iterables.transform(
-        Iterables.filter(keys, k -> unfilteredUniverse.apply(k)), key -> new DepAndRdep(null, key));
+  protected SkyKey visitationKeyToOutputKey(DepAndRdep visitationKey) {
+    return visitationKey.rdep;
   }
 
   @Override
-  protected SkyKey getNewNodeFromEdge(DepAndRdep visit) {
-    return visit.rdep;
-  }
-
-  @Override
-  protected ImmutableList<DepAndRdep> getUniqueValues(Iterable<DepAndRdep> depAndRdeps)
-      throws QueryException {
+  protected Iterable<DepAndRdep> noteAndReturnUniqueVisitationKeys(
+      Iterable<DepAndRdep> prospectiveVisitationKeys) throws QueryException {
     // See the javadoc for 'validRdepUniquifier'.
     //
     // N.B. - Except for the visitation roots, 'depAndRdepUniquifier' is actually completely
@@ -210,6 +194,14 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
     // before. We use the intentionally racy {@link Uniquifier#uniquePure} to attempt to do this.
     return depAndRdepUniquifier.unique(
         Iterables.filter(
-            depAndRdeps, depAndRdep -> validRdepUniquifier.uniquePure(depAndRdep.rdep)));
+            prospectiveVisitationKeys,
+            depAndRdep -> validRdepUniquifier.uniquePure(depAndRdep.rdep)));
+  }
+
+  @Override
+  protected Iterable<DepAndRdep> preprocessInitialVisit(Iterable<SkyKey> skyKeys) {
+    return Iterables.transform(
+        Iterables.filter(skyKeys, k -> unfilteredUniverse.apply(k)),
+        key -> new DepAndRdep(/*dep=*/ null, key));
   }
 }
