@@ -131,6 +131,8 @@ public class ArtifactFactory implements ArtifactResolver {
 
   /**
    * Constructs a new artifact factory that will use a given execution root when creating artifacts.
+   *
+   * @param execRootParent the execution root's parent path. This will be [output_base]/execroot.
    */
   public ArtifactFactory(Path execRootParent, String derivedPathPrefix) {
     this.execRootParent = execRootParent;
