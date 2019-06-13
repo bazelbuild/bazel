@@ -280,6 +280,8 @@ message Attribute {
 
 // A rule instance (e.g., cc_library foo, java_binary bar).
 message Rule {
+  reserved 11;
+
   // The name of the rule (formatted as an absolute label, e.g. //foo/bar:baz).
   required string name = 1;
 
@@ -320,26 +322,9 @@ message Rule {
   // If this rule is of a skylark-defined RuleClass.
   optional bool is_skylark = 10;
 
-  // List of Skylark aspects that this rule applies.
-  repeated AttributeAspect skylark_attribute_aspects = 11;
-
   // Hash encapsulating the behavior of this Skylark rule. Any change to this
   // rule's definition that could change its behavior will be reflected here.
   optional string skylark_environment_hash_code = 12;
-}
-
-// A pairing of attribute name and a Skylark aspect that is applied to that
-// attribute.
-message AttributeAspect {
-  required string attribute_name = 1;
-  required SkylarkAspect aspect = 2;
-}
-
-// Aspect defined in Skylark.
-message SkylarkAspect {
-  required string extension_file_label = 1;
-  required string exported_name = 2;
-  repeated Attribute attribute = 3;
 }
 
 // Summary of all transitive dependencies of 'rule,' where each dependent
