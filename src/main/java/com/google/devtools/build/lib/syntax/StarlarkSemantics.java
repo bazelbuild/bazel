@@ -197,8 +197,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleStringJoinRequiresStrings();
 
-  public abstract boolean incompatibleStaticNameResolutionInBuildFiles();
-
   public abstract boolean internalSkylarkFlagTestCanary();
 
   public abstract boolean incompatibleDoNotSplitLinkingCmdline();
@@ -273,7 +271,6 @@ public abstract class StarlarkSemantics {
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRestrictNamedParams(false)
-          .incompatibleStaticNameResolutionInBuildFiles(true)
           .incompatibleStringJoinRequiresStrings(true)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
@@ -362,8 +359,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
     public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
-
-    public abstract Builder incompatibleStaticNameResolutionInBuildFiles(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 
