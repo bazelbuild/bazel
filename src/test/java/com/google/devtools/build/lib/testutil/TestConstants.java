@@ -135,7 +135,7 @@ public class TestConstants {
   public static final String CC_DEPENDENCY_CORRECTION =
       " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")";
 
-  public static final String PLATFORM_BASE = "@platforms";
+  public static final String PLATFORM_BASE = "@bazel_tools//platforms";
 
   public static final String PLATFORM_LABEL =
       PLATFORM_BASE + ":host_platform + " + PLATFORM_BASE + ":target_platform";
