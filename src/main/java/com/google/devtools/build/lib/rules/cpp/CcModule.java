@@ -653,6 +653,7 @@ public abstract class CcModule
 
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
     for (Object feature : features) {
+      checkRightSkylarkInfoProvider(feature, "features", "FeatureInfo");
       featureBuilder.add(featureFromSkylark((SkylarkInfo) feature));
     }
     ImmutableList<Feature> featureList = featureBuilder.build();
@@ -668,6 +669,7 @@ public abstract class CcModule
 
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (Object actionConfig : actionConfigs) {
+      checkRightSkylarkInfoProvider(actionConfig, "action_configs", "ActionConfigInfo");
       actionConfigBuilder.add(actionConfigFromSkylark((SkylarkInfo) actionConfig));
     }
     ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
@@ -678,6 +680,8 @@ public abstract class CcModule
 
     ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
     for (Object artifactNamePattern : artifactNamePatterns) {
+      checkRightSkylarkInfoProvider(
+          artifactNamePattern, "artifact_name_patterns", "ArtifactNamePatternInfo");
       artifactNamePatternBuilder.add(
           artifactNamePatternFromSkylark((SkylarkInfo) artifactNamePattern));
     }
@@ -697,6 +701,7 @@ public abstract class CcModule
     // Pairs (toolName, toolPath)
     ImmutableList.Builder<Pair<String, String>> toolPathPairs = ImmutableList.builder();
     for (Object toolPath : toolPaths) {
+      checkRightSkylarkInfoProvider(toolPath, "tool_paths", "ToolPathInfo");
       Pair<String, String> toolPathPair = toolPathFromSkylark((SkylarkInfo) toolPath);
       toolPathPairs.add(toolPathPair);
       cToolchain.addToolPath(
@@ -803,6 +808,7 @@ public abstract class CcModule
 
     ImmutableList.Builder<Pair<String, String>> makeVariablePairs = ImmutableList.builder();
     for (Object makeVariable : makeVariables) {
+      checkRightSkylarkInfoProvider(makeVariable, "make_variables", "MakeVariableInfo");
       Pair<String, String> makeVariablePair = makeVariableFromSkylark((SkylarkInfo) makeVariable);
       makeVariablePairs.add(makeVariablePair);
       cToolchain.addMakeVariable(
@@ -848,6 +854,20 @@ public abstract class CcModule
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
         convertFromNoneable(ccTargetOs, /* defaultValue= */ ""),
         cToolchain.build().toString());
+  }
+
+  private static void checkRightSkylarkInfoProvider(
+      Object o, String parameterName, String expectedProvider) throws EvalException {
+    if (!(o instanceof SkylarkInfo)) {
+      throw new EvalException(
+          Location.BUILTIN,
+          String.format(
+              "'%s' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
+                  + " of type '%s' instead of a '%s' provider. Use the methods provided in"
+                  + " https://source.bazel.build/bazel/+/master:tools/cpp/cc_toolchain_config_lib.bzl"
+                  + " for obtaining the right providers.",
+              parameterName, EvalUtils.getDataTypeName(o), expectedProvider));
+    }
   }
 
   /** Checks whether the {@link SkylarkInfo} is of the required type. */
