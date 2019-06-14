@@ -74,7 +74,7 @@ public final class FunctionUtil {
     return UserDefinedFunctionInfo.newBuilder()
         .setFunctionName(functionName)
         .setDocString(functionDescription)
-        .addAllParameters(paramsInfo)
+        .addAllParameter(paramsInfo)
         .build();
   }
 

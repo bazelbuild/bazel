@@ -155,7 +155,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
 
-    RuleInfo ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttributes(attrInfos).build();
+    RuleInfo ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos).build();
 
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, ast.getLocation(), ruleInfo));
 

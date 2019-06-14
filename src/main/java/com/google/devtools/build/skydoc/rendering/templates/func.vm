@@ -8,7 +8,7 @@ ${util.funcSummary($funcInfo)}
 
 ${funcInfo.docString}
 
-#if (!$funcInfo.getParametersList().isEmpty())
+#if (!$funcInfo.getParameterList().isEmpty())
 #[[###]]# Parameters
 
 <table class="params-table">
@@ -17,7 +17,7 @@ ${funcInfo.docString}
     <col class="col-description" />
   </colgroup>
   <tbody>
-#foreach ($param in $funcInfo.getParametersList())
+#foreach ($param in $funcInfo.getParameterList())
     <tr id="${funcInfo.functionName}-${param.name}">
       <td><code>${param.name}</code></td>
       <td>
