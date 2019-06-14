@@ -253,7 +253,7 @@ public class OptionsParser implements OptionsParsingResult {
    * unless {@link #getResidue()} is empty after parsing.
    */
   // TODO(katre): Remove this when all accessors are gone.
-  public void setAllowResidue(boolean allowResidue) {
+  private void setAllowResidue(boolean allowResidue) {
     this.allowResidue = allowResidue;
   }
 
@@ -270,7 +270,7 @@ public class OptionsParser implements OptionsParsingResult {
    * Enables the Parser to handle params files using the provided {@link ParamsFilePreProcessor}.
    */
   // TODO(katre): Remove this when all accessors are gone.
-  public void enableParamsFileSupport(ParamsFilePreProcessor preProcessor) {
+  private void enableParamsFileSupport(ParamsFilePreProcessor preProcessor) {
     this.impl = this.impl.toBuilder().argsPreProcessor(preProcessor).build();
   }
 
