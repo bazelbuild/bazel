@@ -43,7 +43,7 @@ OSX_TOOLS_CONSTRAINTS = {
     "watchos_i386": ["@platforms//os:ios", "@platforms//cpu:x86_32"],
     "watchos_x86_64": ["@platforms//os:ios", "@platforms//cpu:x86_64"],
     "tvos_x86_64": ["@platforms//os:ios", "@platforms//cpu:x86_64"],
-    "armeabi-v7a": ["@platforms//os:arm"],
+    "armeabi-v7a": ["@platforms//cpu:arm"],
     "ios_armv7": ["@platforms//os:ios", "@platforms//cpu:arm"],
     "ios_arm64": ["@platforms//os:ios", "@platforms//cpu:aarch64"],
     "ios_arm64e": ["@platforms//os:ios", "@platforms//cpu:aarch64"],
