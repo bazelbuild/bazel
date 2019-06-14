@@ -107,10 +107,19 @@ public class FakeCcModule
 
   @Override
   public CcToolchainVariablesApi getCompileBuildVariables(
-      CcToolchainProviderApi ccToolchainProvider, FeatureConfigurationApi featureConfiguration,
-      Object sourceFile, Object outputFile, Object userCompileFlags, Object includeDirs,
-      Object quoteIncludeDirs, Object systemIncludeDirs, Object defines, boolean usePic,
-      boolean addLegacyCxxOptions) throws EvalException {
+      CcToolchainProviderApi ccToolchainProvider,
+      FeatureConfigurationApi featureConfiguration,
+      Object sourceFile,
+      Object outputFile,
+      Object userCompileFlags,
+      Object includeDirs,
+      Object quoteIncludeDirs,
+      Object systemIncludeDirs,
+      Object frameworkIncludeDirs,
+      Object defines,
+      boolean usePic,
+      boolean addLegacyCxxOptions)
+      throws EvalException {
     return null;
   }
 
@@ -161,7 +170,12 @@ public class FakeCcModule
 
   @Override
   public CcCompilationContextApi createCcCompilationContext(
-      Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
+      Object headers,
+      Object systemIncludes,
+      Object includes,
+      Object quoteIncludes,
+      Object frameworkIncludes,
+      Object defines)
       throws EvalException {
     return null;
   }
@@ -188,6 +202,7 @@ public class FakeCcModule
       SkylarkList<String> quoteIncludes,
       SkylarkList<String> defines,
       SkylarkList<String> systemIncludes,
+      SkylarkList<String> frameworkIncludes,
       SkylarkList<String> userCompileFlags,
       SkylarkList<CcCompilationContextApi> ccCompilationContexts,
       String name,

@@ -339,6 +339,17 @@ public interface CcModuleApi<
               @ParamType(type = SkylarkNestedSet.class)
             }),
         @Param(
+            name = "framework_include_directories",
+            doc = "Depset of framework include directories.",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            noneable = true,
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = SkylarkNestedSet.class)
+            }),
+        @Param(
             name = "preprocessor_defines",
             doc = "Depset of preprocessor defines.",
             positional = false,
@@ -372,6 +383,7 @@ public interface CcModuleApi<
       Object includeDirs,
       Object quoteIncludeDirs,
       Object systemIncludeDirs,
+      Object frameworkIncludeDirs,
       Object defines,
       boolean usePic,
       boolean addLegacyCxxOptions)
@@ -681,6 +693,13 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             type = Object.class),
         @Param(
+            name = "framework_includes",
+            doc = "Set of framework search paths for header files (Apple platform only)",
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            type = Object.class),
+        @Param(
             name = "defines",
             doc = "Set of defines needed to compile this target. Each define is a string",
             positional = false,
@@ -689,7 +708,12 @@ public interface CcModuleApi<
             type = Object.class)
       })
   CompilationContextT createCcCompilationContext(
-      Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
+      Object headers,
+      Object systemIncludes,
+      Object includes,
+      Object quoteIncludes,
+      Object frameworkIncludes,
+      Object defines)
       throws EvalException;
 
   // TODO(b/65151735): Remove when cc_flags is entirely set from features.

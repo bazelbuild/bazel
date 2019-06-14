@@ -53,15 +53,21 @@ public enum CompileBuildVariables {
   /**
    * Variable for the collection of quote include paths.
    *
-   * @see CcCompilationContext#getIncludeDirs().
+   * @see CcCompilationContext#getQuoteIncludeDirs().
    */
   QUOTE_INCLUDE_PATHS("quote_include_paths"),
   /**
    * Variable for the collection of system include paths.
    *
-   * @see CcCompilationContext#getIncludeDirs().
+   * @see CcCompilationContext#getSystemIncludeDirs().
    */
   SYSTEM_INCLUDE_PATHS("system_include_paths"),
+  /**
+   * Variable for the collection of framework include paths.
+   *
+   * @see CcCompilationContext#getFrameworkIncludeDirs().
+   */
+  FRAMEWORK_PATHS("framework_include_paths"),
   /** Variable for the module map file name. */
   MODULE_MAP_FILE("module_map_file"),
   /** Variable for the dependent module map file name. */
@@ -126,6 +132,7 @@ public enum CompileBuildVariables {
       Iterable<PathFragment> includeDirs,
       Iterable<PathFragment> quoteIncludeDirs,
       Iterable<PathFragment> systemIncludeDirs,
+      Iterable<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines) {
     try {
       return setupVariablesOrThrowEvalException(
@@ -152,6 +159,7 @@ public enum CompileBuildVariables {
           getSafePathStrings(includeDirs),
           getSafePathStrings(quoteIncludeDirs),
           getSafePathStrings(systemIncludeDirs),
+          getSafePathStrings(frameworkIncludeDirs),
           defines);
     } catch (EvalException e) {
       ruleErrorConsumer.ruleError(e.getMessage());
@@ -183,12 +191,14 @@ public enum CompileBuildVariables {
       Iterable<String> includeDirs,
       Iterable<String> quoteIncludeDirs,
       Iterable<String> systemIncludeDirs,
+      Iterable<String> frameworkIncludeDirs,
       Iterable<String> defines)
       throws EvalException {
     Preconditions.checkNotNull(directModuleMaps);
     Preconditions.checkNotNull(includeDirs);
     Preconditions.checkNotNull(quoteIncludeDirs);
     Preconditions.checkNotNull(systemIncludeDirs);
+    Preconditions.checkNotNull(frameworkIncludeDirs);
     Preconditions.checkNotNull(defines);
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(
@@ -238,6 +248,9 @@ public enum CompileBuildVariables {
     if (!includes.isEmpty()) {
       buildVariables.addStringSequenceVariable(INCLUDES.getVariableName(), includes);
     }
+
+    buildVariables.addStringSequenceVariable(
+        FRAMEWORK_PATHS.getVariableName(), frameworkIncludeDirs);
 
     Iterable<String> allDefines;
     if (fdoStamp != null) {
