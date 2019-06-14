@@ -124,8 +124,10 @@ function do_git_repository_test() {
   local commit_hash="$1"
   local strip_prefix=""
   local shallow_since=""
+  local single_branch=""
   [ $# -eq 2 ] && strip_prefix="strip_prefix=\"$2\","
   [ $# -eq 3 ] && shallow_since="shallow_since=\"$3\","
+  [ $# -eq 4 ] && single_branch="single_branch=\"$4\","
   # Create a workspace that clones the repository at the first commit.
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
@@ -136,6 +138,7 @@ git_repository(
     commit = "$commit_hash",
     $strip_prefix
     $shallow_since
+    $single_branch
 )
 EOF
   mkdir -p planets
@@ -186,6 +189,10 @@ function test_new_git_repository_with_build_file_content() {
 
 function test_new_git_repository_with_build_file_content_strip_prefix() {
   do_new_git_repository_test "3-subdir-bare" "build_file_content" "pluto"
+}
+
+function test_new_git_repository_with_single_branch() {
+  do_new_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "" "master"
 }
 
 # Test cloning a Git repository using the new_git_repository rule.
