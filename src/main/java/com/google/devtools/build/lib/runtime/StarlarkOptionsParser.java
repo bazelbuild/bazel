@@ -48,6 +48,7 @@ import java.util.Map;
  * already parsed all native options (including those needed for loading). This class is in charge
  * of parsing and setting the starlark options for this {@link OptionsParser}.
  */
+// TODO(juliexxia): confront the spectre of aliased build settings
 public class StarlarkOptionsParser {
 
   private final SkyframeExecutor skyframeExecutor;
