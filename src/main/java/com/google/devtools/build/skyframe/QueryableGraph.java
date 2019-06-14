@@ -162,13 +162,17 @@ public interface QueryableGraph {
     /** The node is being looked up to service {@link WalkableGraph#getReverseDeps}. */
     WALKABLE_GRAPH_RDEPS,
 
+    /** The node is being looked up to service {@link WalkableGraph#getValueAndRdeps}. */
+    WALKABLE_GRAPH_VALUE_AND_RDEPS,
+
     /** Some other reason than one of the above. */
     OTHER;
 
     public boolean isWalkable() {
       return this == WALKABLE_GRAPH_VALUE
           || this == WALKABLE_GRAPH_DEPS
-          || this == WALKABLE_GRAPH_RDEPS;
+          || this == WALKABLE_GRAPH_RDEPS
+          || this == WALKABLE_GRAPH_VALUE_AND_RDEPS;
     }
   }
 

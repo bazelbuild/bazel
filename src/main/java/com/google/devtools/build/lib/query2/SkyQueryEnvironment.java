@@ -878,6 +878,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public Map<Label, Target> getTargets(Iterable<Label> labels) throws InterruptedException {
+    if (Iterables.isEmpty(labels)) {
+      return ImmutableMap.of();
+    }
     Multimap<PackageIdentifier, Label> packageIdToLabelMap = ArrayListMultimap.create();
     labels.forEach(label -> packageIdToLabelMap.put(label.getPackageIdentifier(), label));
     Map<PackageIdentifier, Package> packageIdToPackageMap =
