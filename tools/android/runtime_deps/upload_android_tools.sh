@@ -17,7 +17,8 @@
 # This script builds a new version of android_tools.tar.gz and uploads
 # it to Google Cloud Storage. This script is non-destructive and idempotent.
 #
-# To run this script, call `bazel run //tools/android/runtime_deps:upload_android_tools
+# To run this script, call:
+# `bazel run //tools/android/runtime_deps:upload_android_tools`
 #
 # android_tools.tar.gz contains runtime jars required by the Android rules. We unbundled
 # these jars out from Bazel to keep its binary size small.
@@ -30,7 +31,7 @@
 set -euo pipefail
 
 # The version of android_tools.tar.gz
-VERSION="0.5"
+VERSION="0.6"
 VERSIONED_FILENAME="android_tools_pkg-$VERSION.tar.gz"
 
 # Create a temp directory to hold the versioned tarball, and clean it up when the script exits.

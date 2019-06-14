@@ -847,15 +847,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testFileTypeIsDisabled() throws Exception {
-    StarlarkSemantics semantics =
-        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder().incompatibleDisallowFileType(true).build();
-    EvalException expected =
-        assertThrows(EvalException.class, () -> evalRuleClassCode(semantics, "FileType(['.css'])"));
-    assertThat(expected).hasMessageThat().contains("FileType function is not available.");
-  }
-
-  @Test
   public void testRuleInheritsBaseRuleAttributes() throws Exception {
     evalAndExport("def impl(ctx): return None", "r1 = rule(impl)");
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();

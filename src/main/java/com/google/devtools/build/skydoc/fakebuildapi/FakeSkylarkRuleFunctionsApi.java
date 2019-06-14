@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.FileTypeApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
@@ -179,12 +178,6 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     } catch (LabelSyntaxException e) {
       throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
     }
-  }
-
-  @Override
-  public FileTypeApi<FileApi> fileType(SkylarkList<?> types, Location loc, Environment env)
-      throws EvalException {
-    return null;
   }
 
   @Override

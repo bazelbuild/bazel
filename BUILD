@@ -83,7 +83,6 @@ pkg_tar(
     srcs = ["@platforms//:srcs"],
     package_dir = "platforms",
     strip_prefix = ".",
-    # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
 

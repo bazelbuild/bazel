@@ -27,7 +27,7 @@ import java.util.List;
  * Collectively, the managed objects are called {@link Freezable}s.
  *
  * <p>Each {@code Environment}, and each of the mutable Skylark values (i.e., {@link
- * SkylarkMutable}s) that are created in that {@code Environment}, holds a pointer to the same
+ * StarlarkMutable}s) that are created in that {@code Environment}, holds a pointer to the same
  * {@code Mutability} instance. Once the {@code Environment} is done evaluating, its {@code
  * Mutability} is irreversibly closed ("frozen"). At that point, it is no longer possible to change
  * either the bindings in that {@code Environment} or the state of its objects. This protects each
@@ -53,11 +53,13 @@ import java.util.List;
  *
  * <p>We follow two disciplines to ensure safety. First, all mutation methods of a {@code Freezable}
  * must take in a {@code Mutability} as a parameter, and confirm that
+ *
  * <ol>
  *   <li>the {@code Freezable} is not yet frozen,
  *   <li>the given {@code Mutability} matches the one referred to by the {@code Freezable}, and
  *   <li>the {@code Freezable} is not locked.
  * </ol>
+ *
  * It is a high-level error ({@link MutabilityException}, which gets translated to {@link
  * EvalException}) to attempt to modify a frozen or locked value. But it is a low-level error
  * ({@link IllegalArgumentException}) to attempt to modify a value using the wrong {@link
@@ -65,9 +67,11 @@ import java.util.List;
  * circumstances.
  *
  * <p>Second, {@code Mutability}s are created using the try-with-resource style:
+ *
  * <pre>{@code
  * try (Mutability mutability = Mutability.create(fmt, ...)) { ... }
  * }</pre>
+ *
  * The general pattern is to create a {@code Mutability}, build an {@code Environment}, mutate that
  * {@code Environment} and its objects, and possibly return the result from within the {@code try}
  * block, relying on the try-with-resource construct to ensure that everything gets frozen before
@@ -76,6 +80,7 @@ import java.util.List;
  *
  * <p>We keep some (unchecked) invariants regarding where {@code Mutability} objects may appear
  * within a compound value.
+ *
  * <ol>
  *   <li>A compound value can never contain an unfrozen {@code Mutability} for any {@code
  *       Environment} except the one currently being evaluated.
@@ -84,10 +89,11 @@ import java.util.List;
  *   <li>If a value has the special {@link #SHALLOW_IMMUTABLE} {@code Mutability}, its contents may
  *       or may not be mutable.
  * </ol>
+ *
  * It follows that, if these invariants hold, an unfrozen value cannot appear as the child of a
  * value whose {@code Mutability} is already frozen, unless this {@code Mutability} is the special
- * {@code #SHALLOW_IMMUTABLE} instance. This knowledge is used by {@link SkylarkMutable#isImmutable}
- * to prune traversals of a compound value.
+ * {@code #SHALLOW_IMMUTABLE} instance. This knowledge is used by {@link
+ * StarlarkMutable#isImmutable} to prune traversals of a compound value.
  *
  * <p>There is a special API for freezing individual values rather than whole {@code Environment}s.
  * Because this API makes it easier to violate the above invariants, you should avoid using it if at
@@ -306,8 +312,8 @@ public final class Mutability implements AutoCloseable, Serializable {
      * <p>It is up to the caller to ensure that any contents of this {@code Freezable} are also
      * frozen in order to preserve/restore the invariant that an immutable value cannot contain a
      * mutable one unless the immutable value's {@code Mutability} is {@link #SHALLOW_IMMUTABLE}.
-     * Note that {@link SkylarkMutable#isImmutable} correctness and thread-safety are not guaranteed
-     * otherwise.
+     * Note that {@link StarlarkMutable#isImmutable} correctness and thread-safety are not
+     * guaranteed otherwise.
      */
     default void unsafeShallowFreeze() {
       throw new UnsupportedOperationException();
@@ -393,6 +399,6 @@ public final class Mutability implements AutoCloseable, Serializable {
   // for values whose Environments have been frozen.
   //
   // This would also affect structs (SkylarkInfo). Maybe they would implement an interface similar
-  // to SkylarkMutable, or the relevant methods could be worked into SkylarkValue.
+  // to StarlarkMutable, or the relevant methods could be worked into SkylarkValue.
   public static final Mutability SHALLOW_IMMUTABLE = create("SHALLOW_IMMUTABLE").freeze();
 }

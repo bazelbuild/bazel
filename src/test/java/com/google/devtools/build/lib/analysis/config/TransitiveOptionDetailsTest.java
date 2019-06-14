@@ -39,8 +39,7 @@ public class TransitiveOptionDetailsTest {
   public Iterable<FragmentOptions> parseOptions(
       Iterable<? extends Class<? extends FragmentOptions>> optionsClasses, String... options)
       throws Exception {
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(optionsClasses);
-    optionsParser.setAllowResidue(false);
+    OptionsParser optionsParser = OptionsParser.newOptionsParser(false, optionsClasses);
     optionsParser.parse(options);
     ImmutableList.Builder<FragmentOptions> output = new ImmutableList.Builder<>();
     for (Class<? extends FragmentOptions> optionsClass : optionsClasses) {

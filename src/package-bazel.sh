@@ -75,5 +75,6 @@ fi
     mv external/platforms/* . && \
     rmdir -p external/platforms \
 )
+touch -t 198001010000.00 ${PACKAGE_DIR}/platforms/WORKSPACE
 
 (cd ${PACKAGE_DIR} && find . -type f | sort | zip -q9DX@ "${WORKDIR}/${OUT}")

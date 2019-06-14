@@ -142,11 +142,9 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disable_third_party_license_checking=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
-        "--incompatible_disallow_filetype=" + rand.nextBoolean(),
         "--incompatible_disallow_legacy_javainfo=" + rand.nextBoolean(),
         "--incompatible_disallow_legacy_java_provider=" + rand.nextBoolean(),
         "--incompatible_disallow_load_labels_to_cross_package_boundaries=" + rand.nextBoolean(),
-        "--incompatible_disallow_native_in_build_file=" + rand.nextBoolean(),
         "--incompatible_disallow_old_style_args_add=" + rand.nextBoolean(),
         "--incompatible_disallow_struct_provider_syntax=" + rand.nextBoolean(),
         "--incompatible_disallow_rule_execution_platform_constraints_allowed=" + rand.nextBoolean(),
@@ -154,7 +152,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_expand_directories=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
-        "--incompatible_no_kwargs_in_build_files=" + rand.nextBoolean(),
         "--incompatible_no_output_attr_default=" + rand.nextBoolean(),
         "--incompatible_no_rule_outputs_param=" + rand.nextBoolean(),
         "--incompatible_no_support_tools_in_action_inputs=" + rand.nextBoolean(),
@@ -164,7 +161,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_remap_main_repo=" + rand.nextBoolean(),
         "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
         "--incompatible_restrict_named_params=" + rand.nextBoolean(),
-        "--incompatible_static_name_resolution_in_build_files=" + rand.nextBoolean(),
+        "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
         "--incompatible_string_join_requires_strings=" + rand.nextBoolean(),
         "--incompatible_restrict_string_escapes=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
@@ -197,11 +194,9 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisableThirdPartyLicenseChecking(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowEmptyGlob(rand.nextBoolean())
-        .incompatibleDisallowFileType(rand.nextBoolean())
         .incompatibleDisallowLegacyJavaInfo(rand.nextBoolean())
         .incompatibleDisallowLegacyJavaProvider(rand.nextBoolean())
         .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(rand.nextBoolean())
-        .incompatibleDisallowNativeInBuildFile(rand.nextBoolean())
         .incompatibleDisallowOldStyleArgsAdd(rand.nextBoolean())
         .incompatibleDisallowStructProviderSyntax(rand.nextBoolean())
         .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(rand.nextBoolean())
@@ -209,7 +204,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleExpandDirectories(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
         .incompatibleNoAttrLicense(rand.nextBoolean())
-        .incompatibleNoKwargsInBuildFiles(rand.nextBoolean())
         .incompatibleNoOutputAttrDefault(rand.nextBoolean())
         .incompatibleNoRuleOutputsParam(rand.nextBoolean())
         .incompatibleNoSupportToolsInActionInputs(rand.nextBoolean())
@@ -219,7 +213,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleRemapMainRepo(rand.nextBoolean())
         .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
         .incompatibleRestrictNamedParams(rand.nextBoolean())
-        .incompatibleStaticNameResolutionInBuildFiles(rand.nextBoolean())
+        .incompatibleRunShellCommandString(rand.nextBoolean())
         .incompatibleStringJoinRequiresStrings(rand.nextBoolean())
         .incompatibleRestrictStringEscapes(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
@@ -227,8 +221,7 @@ public class SkylarkSemanticsConsistencyTest {
   }
 
   private static StarlarkSemanticsOptions parseOptions(String... args) throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
-    parser.setAllowResidue(false);
+    OptionsParser parser = OptionsParser.newOptionsParser(false, StarlarkSemanticsOptions.class);
     parser.parse(Arrays.asList(args));
     return parser.getOptions(StarlarkSemanticsOptions.class);
   }

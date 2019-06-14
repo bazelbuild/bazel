@@ -403,8 +403,7 @@ public class OptionsParserTest {
 
   @Test
   public void parserThrowsExceptionIfResidueIsNotAllowed() {
-    OptionsParser parser = newOptionsParser(ExampleFoo.class);
-    parser.setAllowResidue(false);
+    OptionsParser parser = newOptionsParser(false, ExampleFoo.class);
     OptionsParsingException e =
         assertThrows(
             OptionsParsingException.class, () -> parser.parse("residue", "is", "not", "OK"));
@@ -413,8 +412,7 @@ public class OptionsParserTest {
 
   @Test
   public void multipleCallsToParse() throws Exception {
-    OptionsParser parser = newOptionsParser(ExampleFoo.class);
-    parser.setAllowResidue(true);
+    OptionsParser parser = newOptionsParser(true, ExampleFoo.class);
     parser.parse("--foo", "one", "--bar", "43", "unknown1");
     parser.parse("--foo", "two", "unknown2");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
@@ -1673,9 +1671,7 @@ public class OptionsParserTest {
   public static List<String> canonicalize(Class<? extends OptionsBase> optionsClass, String... args)
       throws OptionsParsingException {
 
-    OptionsParser parser = OptionsParser.newOptionsParser(
-        ImmutableList.<Class<? extends OptionsBase>>of(optionsClass));
-    parser.setAllowResidue(false);
+    OptionsParser parser = OptionsParser.newOptionsParser(false, optionsClass);
     parser.parse(Arrays.asList(args));
     return parser.canonicalize();
   }

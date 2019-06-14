@@ -242,33 +242,6 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testGlobAllowEmpty() throws Exception {
-    assertEmpty(cache.globUnsorted(list("*.java"), NONE, false, true));
-
-    BadGlobException expected =
-        assertThrows(
-            BadGlobException.class, () -> cache.globUnsorted(list("*.java"), NONE, false, false));
-    assertThat(expected).hasMessageThat().contains("allow_empty");
-
-    assertThat(cache.globUnsorted(list("*.txt", "*.java"), NONE, false, true))
-        .containsExactly("first.txt", "second.txt");
-
-    expected =
-        assertThrows(
-            BadGlobException.class,
-            () -> cache.globUnsorted(list("*.txt", "*.java"), NONE, false, false));
-    assertThat(expected).hasMessageThat().contains("allow_empty");
-
-    assertEmpty(cache.globUnsorted(list("*.txt"), list("*.*"), false, true));
-
-    expected =
-        assertThrows(
-            BadGlobException.class,
-            () -> cache.globUnsorted(list("*.txt"), list("*.*"), false, false));
-    assertThat(expected).hasMessageThat().contains("allow_empty");
-  }
-
-  @Test
   public void testChildGlobWithChildExclude() throws Exception {
     assertThat(cache.globUnsorted(list("foo/*"), list("foo/*"), false, true)).isEmpty();
     assertThat(

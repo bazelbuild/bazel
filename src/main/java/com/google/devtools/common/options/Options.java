@@ -65,8 +65,7 @@ public class Options<O extends OptionsBase> {
       Class<O> optionsClass, boolean allowResidue, String... args) {
     OptionsParser parser = null;
     try {
-      parser = OptionsParser.newOptionsParser(optionsClass);
-      parser.setAllowResidue(allowResidue);
+      parser = OptionsParser.newOptionsParser(allowResidue, optionsClass);
     } catch (ConstructionException e) {
       System.err.println("Error constructing the options parser: " + e.getMessage());
       System.exit(2);

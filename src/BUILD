@@ -360,7 +360,9 @@ genrule(
     name = "platforms_archive",
     srcs = ["@platforms//:srcs"],
     outs = ["platforms.zip"],
-    cmd = "zip -qX $@ $$(echo $(SRCS) | sort)",
+    # Removing the WORKSPACE file since local_repository creates it no matter what and leaving
+    # it there would make the zip nondeterministic.
+    cmd = "zip -qX $@ $$(echo $(SRCS) | xargs -n 1 | grep -v '.*/WORKSPACE$$' | sort | xargs)",
 )
 
 [genrule(

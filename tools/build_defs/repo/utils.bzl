@@ -117,3 +117,20 @@ def update_attrs(orig, keys, override):
     result["name"] = orig.name
     result.update(override)
     return result
+
+def maybe(repo_rule, name, **kwargs):
+    """Utility function for only adding a repository if it's not already present.
+
+    This is to implement safe repositories.bzl macro documented in
+    https://docs.bazel.build/versions/master/skylark/deploying.html#dependencies.
+
+    Args:
+        repo_rule: repository rule function.
+        name: name of the repository to create.
+        **kwargs: remaining arguments that are passed to the repo_rule function.
+
+    Returns:
+        Nothing, defines the repository when needed as a side-effect.
+    """
+    if name not in native.existing_rules():
+        repo_rule(name = name, **kwargs)

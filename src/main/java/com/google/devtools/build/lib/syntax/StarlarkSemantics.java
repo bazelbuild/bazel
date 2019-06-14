@@ -155,15 +155,11 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowEmptyGlob();
 
-  public abstract boolean incompatibleDisallowFileType();
-
   public abstract boolean incompatibleDisallowLegacyJavaProvider();
 
   public abstract boolean incompatibleDisallowLegacyJavaInfo();
 
   public abstract boolean incompatibleDisallowLoadLabelsToCrossPackageBoundaries();
-
-  public abstract boolean incompatibleDisallowNativeInBuildFile();
 
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
@@ -176,8 +172,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleNewActionsApi();
 
   public abstract boolean incompatibleNoAttrLicense();
-
-  public abstract boolean incompatibleNoKwargsInBuildFiles();
 
   public abstract boolean incompatibleNoOutputAttrDefault();
 
@@ -197,9 +191,9 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRestrictNamedParams();
 
-  public abstract boolean incompatibleStringJoinRequiresStrings();
+  public abstract boolean incompatibleRunShellCommandString();
 
-  public abstract boolean incompatibleStaticNameResolutionInBuildFiles();
+  public abstract boolean incompatibleStringJoinRequiresStrings();
 
   public abstract boolean internalSkylarkFlagTestCanary();
 
@@ -255,18 +249,15 @@ public abstract class StarlarkSemantics {
           .incompatibleDisableObjcProviderResources(true)
           .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowEmptyGlob(false)
-          .incompatibleDisallowFileType(true)
           .incompatibleDisallowLegacyJavaProvider(false)
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(true)
-          .incompatibleDisallowNativeInBuildFile(true)
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
-          .incompatibleNoKwargsInBuildFiles(true)
           .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
@@ -275,8 +266,8 @@ public abstract class StarlarkSemantics {
           .incompatibleObjcFrameworkCleanup(true)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
+          .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(false)
-          .incompatibleStaticNameResolutionInBuildFiles(true)
           .incompatibleStringJoinRequiresStrings(true)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
@@ -321,8 +312,6 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
 
-    public abstract Builder incompatibleDisallowFileType(boolean value);
-
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
 
     public abstract Builder incompatibleDisallowLegacyJavaProvider(boolean value);
@@ -333,8 +322,6 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 
-    public abstract Builder incompatibleDisallowNativeInBuildFile(boolean value);
-
     public abstract Builder incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
         boolean value);
 
@@ -343,8 +330,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleExpandDirectories(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
-
-    public abstract Builder incompatibleNoKwargsInBuildFiles(boolean value);
 
     public abstract Builder incompatibleNoAttrLicense(boolean value);
 
@@ -366,9 +351,9 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
-    public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
+    public abstract Builder incompatibleRunShellCommandString(boolean value);
 
-    public abstract Builder incompatibleStaticNameResolutionInBuildFiles(boolean value);
+    public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 

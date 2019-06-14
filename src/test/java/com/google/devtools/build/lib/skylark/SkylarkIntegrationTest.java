@@ -2955,6 +2955,26 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("exe not included in runfiles");
   }
 
+  @Test
+  public void testCommandStringList() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_run_shell_command_string");
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _my_rule_impl(ctx):",
+        "  exe = ctx.actions.declare_file('exe')",
+        "  ctx.actions.run_shell(outputs=[exe], command=['touch', 'exe'])",
+        "  return []",
+        "my_rule = rule(implementation = _my_rule_impl)");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:target");
+    assertContainsEvent("'command' must be of type string");
+  }
+
   /**
    * Skylark integration test that forces inlining.
    */

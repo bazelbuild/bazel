@@ -17,7 +17,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
@@ -26,61 +25,41 @@ import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
-import java.util.Set;
 
-/** Helper class to traverse edges, processing targets. */
-abstract class AbstractEdgeVisitor<T> extends ParallelVisitor<T, Target> {
+/**
+ * Helper class to traverse a visitation graph where the outputs are {@link Target}s and there is a
+ * simple mapping between visitation keys and output keys.
+ */
+public abstract class AbstractTargetOuputtingVisitor<VisitationKeyT>
+    extends ParallelVisitor<VisitationKeyT, SkyKey, Target> {
   private static final int PROCESS_RESULTS_BATCH_SIZE = SkyQueryEnvironment.BATCH_CALLBACK_SIZE;
 
   protected final SkyQueryEnvironment env;
-  protected final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
-  protected AbstractEdgeVisitor(
-      SkyQueryEnvironment env,
-      Callback<Target> callback,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
-    super(callback, ParallelSkyQueryUtils.VISIT_BATCH_SIZE, PROCESS_RESULTS_BATCH_SIZE);
+  protected AbstractTargetOuputtingVisitor(SkyQueryEnvironment env, Callback<Target> callback) {
+    super(callback, env.getVisitBatchSizeForParallelVisitation(), PROCESS_RESULTS_BATCH_SIZE);
     this.env = env;
-    this.packageSemaphore = packageSemaphore;
   }
 
   @Override
-  protected void processPartialResults(
-      Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
-      throws QueryException, InterruptedException {
-    processResultsAndReturnTargets(keysToUseForResult, callback);
+  protected Iterable<Target> outputKeysToOutputValues(Iterable<SkyKey> targetKeys)
+      throws InterruptedException {
+    return env.getTargets(Iterables.transform(targetKeys, SkyQueryEnvironment.SKYKEY_TO_LABEL))
+        .values();
   }
-
-  protected Iterable<Target> processResultsAndReturnTargets(
-      Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
-      throws QueryException, InterruptedException {
-    Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
-        SkyQueryEnvironment.makePackageKeyToTargetKeyMap(keysToUseForResult);
-    Set<PackageIdentifier> pkgIdsNeededForResult =
-        SkyQueryEnvironment.getPkgIdsNeededForTargetification(packageKeyToTargetKeyMap);
-    packageSemaphore.acquireAll(pkgIdsNeededForResult);
-    Iterable<Target> targets;
-    try {
-      targets =
-          env.getTargetKeyToTargetMapForPackageKeyToTargetKeyMap(packageKeyToTargetKeyMap).values();
-      callback.process(targets);
-    } finally {
-      packageSemaphore.releaseAll(pkgIdsNeededForResult);
-    }
-    return targets;
-  }
-
-  protected abstract SkyKey getNewNodeFromEdge(T visit);
 
   @Override
-  protected Iterable<Task> getVisitTasks(Collection<T> pendingVisits) {
+  protected Iterable<Task> getVisitTasks(Collection<VisitationKeyT> pendingVisits)
+      throws InterruptedException, QueryException {
     // Group pending visitation by the package of the new node, since we'll be targetfying the
     // node during the visitation.
-    ListMultimap<PackageIdentifier, T> visitsByPackage = ArrayListMultimap.create();
-    for (T visit : pendingVisits) {
-      Label label = SkyQueryEnvironment.SKYKEY_TO_LABEL.apply(getNewNodeFromEdge(visit));
-      if (label != null) {
-        visitsByPackage.put(label.getPackageIdentifier(), visit);
+    ListMultimap<PackageIdentifier, VisitationKeyT> visitsByPackage = ArrayListMultimap.create();
+    for (VisitationKeyT visitationKey : pendingVisits) {
+      // Overrides of visitationKeyToOutputKey are non-blocking.
+      SkyKey skyKey = visitationKeyToOutputKey(visitationKey);
+      if (skyKey != null) {
+        Label label = SkyQueryEnvironment.SKYKEY_TO_LABEL.apply(skyKey);
+        visitsByPackage.put(label.getPackageIdentifier(), visitationKey);
       }
     }
 
@@ -91,7 +70,7 @@ abstract class AbstractEdgeVisitor<T> extends ParallelVisitor<T, Target> {
     //      want.
     // (ii) ArrayListMultimap#values returns a Collection view, so we make a copy to avoid
     //      accidentally retaining the entire ArrayListMultimap object.
-    for (Iterable<T> visitBatch :
+    for (Iterable<VisitationKeyT> visitBatch :
         Iterables.partition(
             ImmutableList.copyOf(visitsByPackage.values()),
             ParallelSkyQueryUtils.VISIT_BATCH_SIZE)) {
@@ -100,4 +79,11 @@ abstract class AbstractEdgeVisitor<T> extends ParallelVisitor<T, Target> {
 
     return builder.build();
   }
+
+  MultisetSemaphore<PackageIdentifier> getPackageSemaphore() {
+    return env.getPackageMultisetSemaphore();
+  }
+
+  protected abstract SkyKey visitationKeyToOutputKey(VisitationKeyT visitationKey)
+      throws QueryException, InterruptedException;
 }

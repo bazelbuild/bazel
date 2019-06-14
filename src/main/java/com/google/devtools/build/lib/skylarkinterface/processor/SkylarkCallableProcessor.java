@@ -439,16 +439,16 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
       currentIndex++;
     }
-    if (annotation.useSkylarkSemantics()) {
+    if (annotation.useStarlarkSemantics()) {
       if (!STARLARK_SEMANTICS.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format(
-                "Expected parameter index %d to be the %s type, matching useSkylarkSemantics, "
+                "Expected parameter index %d to be the %s type, matching useStarlarkSemantics, "
                     + "but was %s",
                 currentIndex,
                 STARLARK_SEMANTICS,
-                methodSignatureParams.get(currentIndex).asType().toString()));
+                methodSignatureParams.get(currentIndex).asType()));
       }
       currentIndex++;
     }
@@ -471,7 +471,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     numExtraInterpreterParams += annotation.useLocation() ? 1 : 0;
     numExtraInterpreterParams += annotation.useAst() ? 1 : 0;
     numExtraInterpreterParams += annotation.useEnvironment() ? 1 : 0;
-    numExtraInterpreterParams += annotation.useSkylarkSemantics() ? 1 : 0;
+    numExtraInterpreterParams += annotation.useStarlarkSemantics() ? 1 : 0;
     numExtraInterpreterParams += annotation.useContext() ? 1 : 0;
     return numExtraInterpreterParams;
   }

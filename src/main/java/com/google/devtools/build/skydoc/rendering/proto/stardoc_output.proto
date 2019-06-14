@@ -23,6 +23,17 @@ package stardoc_output;
 option java_package = "com.google.devtools.build.skydoc.rendering.proto";
 option java_outer_classname = "StardocOutputProtos";
 
+// The root output proto of Stardoc. A single invocation of Stardoc will output
+// exactly one instance of this proto, representing all documentation for
+// the input Starlark file.
+message ModuleInfo {
+  repeated RuleInfo rule_info = 1;
+
+  repeated ProviderInfo provider_info = 2;
+
+  repeated UserDefinedFunctionInfo func_info = 3;
+}
+
 // Representation of a Starlark rule attribute type. These generally
 // have a one-to-one correspondence with functions defined at
 // https://docs.bazel.build/versions/master/skylark/lib/attr.html.
