@@ -161,8 +161,55 @@ public class HelloSailor {
 EOF
 }
 
+function write_hello_world_test_files() {
+  local pkg="$1"
+  mkdir -p $pkg/java/test/hello1 || fail "mkdir"
+  setup_javatest_support
+  cat >$pkg/java/test/hello1/BUILD <<EOF
+java_test(
+    name = "javatest",
+    test_class = "hello.MySimpleTest",
+    srcs = ["MySimpleTest.java"],
+    deps = ['//third_party:junit4']
+)
+EOF
+
+  cat >$pkg/java/test/hello1/MySimpleTest.java <<EOF
+package hello1;
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Ignore;
+import org.junit.Test;
+
+public class MySimpleTest {
+
+ 	@Test
+    public void happyTest(){
+    	System.out.println("I am a happy test");
+    }
+
+    @Test
+    @Ignore("not ready yet")
+    public void skippedTest() throws RuntimeException{
+        throw new RuntimeException("Just skip me please");
+    }
+}
+EOF
+}
+
+
 
 #### TESTS #############################################################
+
+function test_verbose_test_results() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir "$pkg" || fail "mkdir $pkg"
+  write_hello_world_test_files "$pkg"
+
+  bazel clean
+  bazel test //$pkg/java/test/hello1:javatest >& "$TEST_log" || fail "Expected success"
+  expect_log "PASSED: .*"
+}
 
 # This test intentionally show some errors on the standard output.
 function test_compiles_hello_world() {
