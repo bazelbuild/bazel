@@ -408,7 +408,7 @@ toolchain(
   name = "py_toolchain",
   toolchain = ":py_runtime_pair",
   toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-  target_compatible_with = ["@bazel_tools//platforms:windows"],
+  target_compatible_with = ["@platforms//os:windows"],
 )
 EOF
 }
