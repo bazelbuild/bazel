@@ -117,6 +117,8 @@ distdir_tar(
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "0.16.2.zip",
         "android_tools_pkg-0.6.tar.gz",
+        # bazelbuild/platforms
+        "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -130,6 +132,8 @@ distdir_tar(
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
         "android_tools_pkg-0.6.tar.gz": "8231a3305ba5f75daed851930af3d7c2fb0f00cd5dfd397e26e44fdf295b237e", # built at ae148c75dd0e122b01ef5ce9dd90259e616d3b76
+        # bazelbuild/platforms
+        "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -166,6 +170,11 @@ distdir_tar(
         ],
         "android_tools_pkg-0.6.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.6.tar.gz",
+        ],
+        # bazelbuild/platforms
+        "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
+            "https://github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         ],
     },
 )
@@ -391,6 +400,8 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip",
         "android_tools_pkg-0.6.tar.gz",
+        # bazelbuild/platforms
+        "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -413,6 +424,8 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": "059f8e3484bf07b63a8f2820d5f528f473eff1befdb1896ee4f8ff06be3b8d8f",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": "e1f5b4ce1b9148140fae2fcfb8a96d1c9b7eac5b8df0e13fbcad9b8561284880",
         "android_tools_pkg-0.6.tar.gz": "8231a3305ba5f75daed851930af3d7c2fb0f00cd5dfd397e26e44fdf295b237e", # built at ae148c75dd0e122b01ef5ce9dd90259e616d3b76
+        # bazelbuild/platforms
+        "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
     },
     urls = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -435,6 +448,11 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-win_x64.zip"],
         "android_tools_pkg-0.6.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.6.tar.gz",
+        ],
+        # bazelbuild/platforms
+        "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
+            "https://github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         ],
     },
 )
@@ -494,6 +512,16 @@ http_archive(
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk11.zip",
     ],
+)
+
+http_archive(
+    name = "platforms",
+    sha256 = "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
+        "https://github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
+    ],
+    strip_prefix = "platforms-441afe1bfdadd6236988e9cac159df6b5a9f5a98"
 )
 
 http_archive(
