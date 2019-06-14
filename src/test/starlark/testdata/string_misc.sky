@@ -148,3 +148,13 @@ assert_eq('a1'.isalpha(), False)
 assert_eq('a '.isalpha(), False)
 assert_eq('A'.isalpha(), True)
 assert_eq('AbZ'.isalpha(), True)
+
+# escape sequences
+assert_eq("\"", '"')
+---
+"\777" ### octal escape sequence out of range (maximum is \377)
+---
+"\" ### unterminated string literal at eol
+---
+""" ### unterminated string literal at eof
+---

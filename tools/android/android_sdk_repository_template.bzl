@@ -107,7 +107,7 @@ def create_android_sdk_rules(
         native.android_sdk(
             name = "sdk-%d" % api_level,
             build_tools_version = build_tools_version,
-            proguard = "@bazel_tools//third_party/java/proguard",
+            proguard = "@bazel_tools//tools/jdk:proguard",
             aapt = select({
                 ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
                 "//conditions:default": ":aapt_binary",
@@ -265,6 +265,7 @@ def create_android_sdk_rules(
     )
 
 TAGDIR_TO_TAG_MAP = {
+    "google_apis_playstore": "playstore",
     "google_apis": "google",
     "default": "android",
     "android-tv": "tv",
@@ -292,20 +293,25 @@ def create_system_images_filegroups(system_image_dirs):
     system_images = [
         (tag, str(api), arch)
         for tag in ["android", "google"]
-        for api in [10] + list(range(15, 20)) + list(range(21, 29))
+        for api in [10] + list(range(15, 20)) + list(range(21, 30))
         for arch in ("x86", "arm")
+    ] + [
+        ("playstore", str(api), "x86")
+        for api in list(range(24, 30))
     ]
     tv_images = [
-        ("tv", str(api), arch)
-        for api in range(21, 25)
-        for arch in ("x86", "arm")
+        ("tv", str(api), "x86")
+        for api in range(21, 30)
+    ] + [
+        ("tv", "21", "arm"),
+        ("tv", "23", "arm"),
     ]
     wear_images = [
         ("wear", str(api), "x86")
-        for api in range(20, 26)
+        for api in [23, 25, 26, 28]
     ] + [
         ("wear", str(api), "arm")
-        for api in range(24, 26)
+        for api in [23, 25]
     ]
     supported_system_images = system_images + tv_images + wear_images
 

@@ -15,6 +15,10 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 #define BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <windows.h>
 
 #include <memory>
@@ -144,7 +148,7 @@ wstring AsShortPath(wstring path, wstring* result);
 // `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
 // including null terminator), then that will be the result (plus quotes).
 // Otherwise this function fails and returns an error message.
-wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result);
+wstring AsExecutablePathForCreateProcess(wstring path, wstring* result);
 
 }  // namespace windows
 }  // namespace bazel

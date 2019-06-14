@@ -129,6 +129,7 @@ pkg_deb(
         "/etc/nsswitch.conf",
         "/etc/other",
     ],
+    config = ":testdata/config",
     data = ":test-tar-gz.tar.gz",
     depends = [
         "dep1",
@@ -139,6 +140,7 @@ pkg_deb(
     maintainer = "soméone@somewhere.com",
     make_deb = ":make_deb",
     package = "titi",
+    templates = ":testdata/templates",
     urgency = "low",
     version = "test",
 )

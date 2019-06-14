@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleClassInfo;
@@ -36,6 +37,8 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeValue
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.BuildLanguage;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ProcessUtils;
@@ -581,6 +584,33 @@ public abstract class InfoItem {
         result += "build --test_env=" + entry.getKey() + "=" + entry.getValue() + "\n";
       }
       return print(result);
+    }
+  }
+
+  /**
+   * Info item for the effective current set of Starlark semantics option values.
+   *
+   * <p>This is hidden because its output is verbose and may be multiline.
+   */
+  public static final class StarlarkSemanticsInfoItem extends InfoItem {
+    private final OptionsParsingResult commandOptions;
+
+    StarlarkSemanticsInfoItem(OptionsParsingResult commandOptions) {
+      super(
+          /*name=*/ "starlark-semantics",
+          /*description=*/ "The effective set of Starlark semantics option values.",
+          /*hidden=*/ true);
+      this.commandOptions = commandOptions;
+    }
+
+    @Override
+    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
+      StarlarkSemanticsOptions starlarkSemanticsOptions =
+          commandOptions.getOptions(StarlarkSemanticsOptions.class);
+      SkyframeExecutor<?> skyframeExecutor = env.getBlazeWorkspace().getSkyframeExecutor();
+      StarlarkSemantics effectiveSkylarkSemantics =
+          skyframeExecutor.getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
+      return print(effectiveSkylarkSemantics.toDeterministicString());
     }
   }
 

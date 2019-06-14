@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
@@ -78,7 +79,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -211,7 +211,15 @@ public class RuleClass {
      * messaging should be done via {@link RuleErrorConsumer}; this exception only interrupts
      * configured target creation in cases where it can no longer continue.
      */
-    public static final class RuleErrorException extends Exception {}
+    public static final class RuleErrorException extends Exception {
+      public RuleErrorException() {
+        super();
+      }
+
+      public RuleErrorException(String message) {
+        super(message);
+      }
+    }
   }
 
   /**
@@ -2092,6 +2100,13 @@ public class RuleClass {
       if (defaultValue instanceof SkylarkComputedDefaultTemplate) {
         SkylarkComputedDefaultTemplate template = (SkylarkComputedDefaultTemplate) defaultValue;
         valueToSet = template.computePossibleValues(attr, rule, eventHandler);
+      } else if (defaultValue instanceof ComputedDefault) {
+        // Compute all possible values to verify that the ComputedDefault is well-defined. This was
+        // previously done implicitly as part of visiting all labels to check for null-ness in
+        // Rule.checkForNullLabels, but that was changed to skip non-label attributes to improve
+        // performance.
+        ((ComputedDefault) defaultValue).getPossibleValues(attr.getType(), rule);
+        valueToSet = defaultValue;
       } else {
         valueToSet = defaultValue;
       }
@@ -2111,12 +2126,13 @@ public class RuleClass {
       return;
     }
 
-    Set<Label> configLabels =
-        rule.getAttributes().stream()
-            .map(attr -> attributes.getSelectorList(attr.getName(), attr.getType()))
-            .filter(Predicates.notNull())
-            .flatMap(selectorList -> selectorList.getKeyLabels().stream())
-            .collect(Collectors.toCollection(LinkedHashSet::new));
+    LinkedHashSet<Label> configLabels = new LinkedHashSet<>();
+    for (Attribute attr : rule.getAttributes()) {
+      SelectorList<?> selectorList = attributes.getSelectorList(attr.getName(), attr.getType());
+      if (selectorList != null) {
+        configLabels.addAll(selectorList.getKeyLabels());
+      }
+    }
 
     rule.setAttributeValue(configDepsAttribute, ImmutableList.copyOf(configLabels),
         /*explicit=*/false);

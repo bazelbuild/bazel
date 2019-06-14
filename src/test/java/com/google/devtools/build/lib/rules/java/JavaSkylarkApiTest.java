@@ -968,7 +968,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "java_custom_library = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "    'jar': attr.label(allow_single_file = True),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "    '_host_javabase': attr.label(",
         "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
@@ -1227,6 +1227,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaProviderFieldsAreCorrectAfterCreatingProvider() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1278,6 +1279,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaProviderFieldsAreCorrectAfterCreatingProviderSomeEmptyFields() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1318,6 +1320,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void constructJavaProvider() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1368,6 +1371,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void constructJavaProviderWithAnotherJavaProvider() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1409,6 +1413,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void constructJavaProviderJavaLibrary() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -2106,7 +2111,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "java_custom_library = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "    'jar': attr.label(allow_single_file = True),",
         "  }",
         ")");
     scratch.file(
@@ -2137,7 +2142,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "custom_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "    'jar': attr.label(allow_single_file = True),",
         "  }",
         ")");
     scratch.file(
@@ -2172,7 +2177,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "custom_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "    'jar': attr.label(allow_single_file = True),",
         "  }",
         ")");
     scratch.file(

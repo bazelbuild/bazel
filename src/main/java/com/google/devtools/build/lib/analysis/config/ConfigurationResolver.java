@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
@@ -47,21 +46,23 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigurationsResult;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -245,18 +246,17 @@ public final class ConfigurationResolver {
       List<BuildOptions> toOptions = transitionsMap.get(transitionKey);
       if (toOptions == null) {
         try {
-          ImmutableSet<SkyKey> buildSettingPackageKeys =
-              StarlarkTransition.getAllBuildSettingPackageKeys(transition);
-          Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
-          if (env.valuesMissing()) {
+          HashMap<PackageValue.Key, PackageValue> buildSettingPackages =
+              StarlarkTransition.getBuildSettingPackages(env, transition);
+          if (buildSettingPackages == null) {
             return null;
           }
           toOptions =
               applyTransition(
                   currentConfiguration.getOptions(),
                   transition,
-                  buildSettingPackages);
-          StarlarkTransition.replayEvents(env.getListener(), transition);
+                  buildSettingPackages,
+                  env.getListener());
         } catch (TransitionException e) {
           throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
         }
@@ -519,21 +519,30 @@ public final class ConfigurationResolver {
   /**
    * Applies a configuration transition over a set of build options.
    *
+   * <p>prework - load all default values for read build settings in Starlark transitions (by
+   * design, {@link BuildOptions} never holds default values of build settings)
+   *
+   * <p>postwork - replay events/throw errors from transition implementation function and validate
+   * the outputs of the transition
+   *
    * @return the build options for the transitioned configuration.
    */
   @VisibleForTesting
   public static List<BuildOptions> applyTransition(
       BuildOptions fromOptions,
       ConfigurationTransition transition,
-      Map<SkyKey, SkyValue> buildSettingPackages)
+      Map<PackageValue.Key, PackageValue> buildSettingPackages,
+      ExtendedEventHandler eventHandler)
       throws TransitionException {
     BuildOptions fromOptionsWithDefaults =
         addDefaultStarlarkOptions(
             fromOptions,
             StarlarkTransition.getDefaultInputValues(buildSettingPackages, transition));
+
     // TODO(bazel-team): safety-check that this never mutates fromOptions.
     List<BuildOptions> result = transition.apply(fromOptionsWithDefaults);
-    // Post-process transitions on starlark build settings
+
+    StarlarkTransition.replayEvents(eventHandler, transition);
     return StarlarkTransition.validate(transition, buildSettingPackages, result);
   }
 
@@ -672,7 +681,7 @@ public final class ConfigurationResolver {
   // TODO(gregce): merge this more with resolveConfigurations? One crucial difference is
   //   resolveConfigurations can null-return on missing deps since it executes inside Skyfunctions.
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#resolveConfigurations}.
-  public static LinkedHashSet<TargetAndConfiguration> getConfigurationsFromExecutor(
+  public static TopLevelTargetsAndConfigsResult getConfigurationsFromExecutor(
       Iterable<TargetAndConfiguration> defaultContext,
       Multimap<BuildConfiguration, Dependency> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
@@ -688,13 +697,15 @@ public final class ConfigurationResolver {
     // could be successfully Skyframe-evaluated.
     Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
         new LinkedHashMap<>();
+    boolean hasError = false;
     if (!targetsToEvaluate.isEmpty()) {
       for (BuildConfiguration fromConfig : targetsToEvaluate.keySet()) {
-        Multimap<Dependency, BuildConfiguration> evaluatedTargets =
+        ConfigurationsResult configurationsResult =
             skyframeExecutor.getConfigurations(
                 eventHandler, fromConfig.getOptions(), targetsToEvaluate.get(fromConfig));
+        hasError |= configurationsResult.hasError();
         for (Map.Entry<Dependency, BuildConfiguration> evaluatedTarget :
-            evaluatedTargets.entries()) {
+            configurationsResult.getConfigurationMap().entries()) {
           Target target = labelsToTargets.get(evaluatedTarget.getKey().getLabel());
           successfullyEvaluatedTargets.put(
               new TargetAndConfiguration(target, fromConfig),
@@ -713,7 +724,30 @@ public final class ConfigurationResolver {
         result.add(originalInput);
       }
     }
-    return result;
+    return new TopLevelTargetsAndConfigsResult(result, hasError);
+  }
+
+  /**
+   * The result of {@link #getConfigurationsFromExecutor} which also registers if an error was
+   * recorded.
+   */
+  public static class TopLevelTargetsAndConfigsResult {
+    private final Collection<TargetAndConfiguration> configurations;
+    private final boolean hasError;
+
+    public TopLevelTargetsAndConfigsResult(
+        Collection<TargetAndConfiguration> configurations, boolean hasError) {
+      this.configurations = configurations;
+      this.hasError = hasError;
+    }
+
+    public boolean hasError() {
+      return hasError;
+    }
+
+    public Collection<TargetAndConfiguration> getTargetsAndConfigs() {
+      return configurations;
+    }
   }
 }
 

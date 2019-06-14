@@ -43,8 +43,8 @@ public interface JavaToolchainSkylarkApiProviderApi extends ToolchainInfoApi {
   @SkylarkCallable(
       name = "javac_jar",
       doc = "The javac jar.",
-      structField = true
-  )
+      structField = true,
+      allowReturnNones = true)
   public FileApi getJavacJar();
 
   @SkylarkCallable(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)

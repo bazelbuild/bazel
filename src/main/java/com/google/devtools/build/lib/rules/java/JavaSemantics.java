@@ -462,4 +462,6 @@ public interface JavaSemantics {
    * even if the java_proto_library rule sets strict_deps = 0.
    */
   boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext);
+
+  void checkDependencyRuleKinds(RuleContext ruleContext);
 }

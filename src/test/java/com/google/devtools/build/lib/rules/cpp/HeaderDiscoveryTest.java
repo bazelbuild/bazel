@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -66,7 +65,8 @@ public class HeaderDiscoveryTest {
         .shouldValidateInclusions()
         .setAction(new ActionsTestUtil.NullAction())
         .setPermittedSystemIncludePrefixes(ImmutableList.of())
-        .setSourceFile(new Artifact(derivedRoot.getRelative("foo.cc"), artifactRoot))
+        .setSourceFile(
+            ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")))
         .setDependencies(dependencies)
         .setAllowedDerivedinputs(includedHeaders)
         .build()
@@ -77,7 +77,7 @@ public class HeaderDiscoveryTest {
     return new SpecialArtifact(
         artifactRoot,
         artifactRoot.getExecPath().getRelative(artifactRoot.getRoot().relativize(path)),
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
+        ActionsTestUtil.NULL_ARTIFACT_OWNER,
         Artifact.SpecialArtifactType.TREE);
   }
 }

@@ -156,7 +156,8 @@ function test_java_tools_has_BUILD() {
   expect_path_in_java_tools "BUILD"
 }
 
-function test_java_tools_has_jacocoagent() {
+# TOODO(iirina): Re-enable this and update jacoco version after #8376 is merged.
+function DISABLED_test_java_tools_has_jacocoagent() {
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/jacocoagent.jar"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946.jar"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946.jar"

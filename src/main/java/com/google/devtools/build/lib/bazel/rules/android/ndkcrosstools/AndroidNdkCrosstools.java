@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r13.NdkMa
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r15.NdkMajorRevisionR15;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r17.NdkMajorRevisionR17;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r18.NdkMajorRevisionR18;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r19.NdkMajorRevisionR19;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Map;
 
@@ -50,6 +51,8 @@ public final class AndroidNdkCrosstools {
           .put(16, new NdkMajorRevisionR15("5.0.300080")) // no changes relevant to Bazel
           .put(17, new NdkMajorRevisionR17("6.0.2"))
           .put(18, new NdkMajorRevisionR18("7.0.2"))
+          .put(19, new NdkMajorRevisionR19("8.0.2"))
+          .put(20, new NdkMajorRevisionR19("8.0.7")) // no changes relevant to Bazel
           .build();
 
   public static final Map.Entry<Integer, NdkMajorRevision> LATEST_KNOWN_REVISION =

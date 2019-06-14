@@ -63,6 +63,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -898,6 +899,7 @@ class IncludeParser {
    * @return a new set of inclusions, normalized to the cache
    */
   ListenableFuture<Collection<Inclusion>> extractInclusionsAsync(
+      Executor executor,
       Artifact file,
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
@@ -910,6 +912,7 @@ class IncludeParser {
         && remoteIncludeScanner.shouldParseRemotely(file, actionExecutionContext)) {
       inclusions =
           remoteIncludeScanner.extractInclusionsAsync(
+              executor,
               file,
               actionExecutionMetadata,
               actionExecutionContext,
@@ -931,6 +934,7 @@ class IncludeParser {
               e);
           inclusions =
               remoteIncludeScanner.extractInclusionsAsync(
+                  executor,
                   file,
                   actionExecutionMetadata,
                   actionExecutionContext,

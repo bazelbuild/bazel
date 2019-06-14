@@ -847,6 +847,7 @@ public class InMemoryNodeEntryTest {
       }
     }
     entry.setValue(new IntegerValue(42), IntVersion.of(42L), null);
+    assertThat(entry.getNumberOfDirectDepGroups()).isEqualTo(groupedDirectDeps.size());
     int i = 0;
     GroupedList<SkyKey> entryGroupedDirectDeps =
         GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());

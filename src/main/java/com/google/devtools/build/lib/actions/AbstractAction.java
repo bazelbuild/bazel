@@ -136,7 +136,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       Iterable<Artifact> tools,
       Iterable<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
-      Iterable<Artifact> outputs,
+      Iterable<? extends Artifact> outputs,
       ActionEnvironment env) {
     Preconditions.checkNotNull(owner);
     this.owner = owner;

@@ -501,73 +501,45 @@ function test_error_message_despite_output_limit {
     expect_log "dropped.*console"
 }
 
-function run_test_attempt_to_print_relative_paths_failing_action() {
-    local ui="$1"
-
-    # On the BazelCI Windows environment, `pwd` returns a string that uses a
-    # lowercase drive letter and unix-style path separators (e.g. '/c/') with
-    # a lowercase drive letter. But internally in Bazel, Path#toString
-    # unconditionally uses an uppercase drive letter (see
-    # WindowsOsPathPolicy#normalize). I want these tests to check for exact
-    # string contents (that's entire goal of the flag being tested), but I
-    # don't want them to be brittle across different Windows enviromments, so
-    # I've disabled them for now.
-    # TODO(nharmata): Fix this.
-    [[ "$is_windows" == "true" ]] && return 0
-
-    bazel clean || fail "${PRODUCT_NAME} clean failed"
-
-    bazel build \
-        "$ui" \
-        --attempt_to_print_relative_paths=false \
-        error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
-    expect_log "^ERROR: $(pwd)/error/BUILD:1:1: Executing genrule"
-
-    bazel build \
-        "$ui" \
-        --attempt_to_print_relative_paths=true \
-        error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
-    expect_log "^ERROR: error/BUILD:1:1: Executing genrule"
-    expect_not_log "$(pwd)/error/BUILD"
-}
-
 function test_experimental_ui_attempt_to_print_relative_paths_failing_action() {
-  run_test_attempt_to_print_relative_paths_failing_action "--experimental_ui"
-}
+  # On the BazelCI Windows environment, `pwd` returns a string that uses a
+  # lowercase drive letter and unix-style path separators (e.g. '/c/') with
+  # a lowercase drive letter. But internally in Bazel, Path#toString
+  # unconditionally uses an uppercase drive letter (see
+  # WindowsOsPathPolicy#normalize). I want these tests to check for exact
+  # string contents (that's entire goal of the flag being tested), but I
+  # don't want them to be brittle across different Windows enviromments, so
+  # I've disabled them for now.
+  # TODO(nharmata): Fix this.
+  [[ "$is_windows" == "true" ]] && return 0
 
-function test_noexperimental_ui_attempt_to_print_relative_paths_failing_action() {
-  run_test_attempt_to_print_relative_paths_failing_action "--noexperimental_ui"
-}
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
 
-function run_test_attempt_to_print_relative_paths_pkg_error() {
-    local ui="$1"
+  bazel build --attempt_to_print_relative_paths=false \
+      error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: $(pwd)/error/BUILD:1:1: Executing genrule"
 
-    # See the note in the test case above for why this is disabled on Windows.
-    # TODO(nharmata): Fix this.
-    [[ "$is_windows" == "true" ]] && return 0
-
-    bazel clean || fail "${PRODUCT_NAME} clean failed"
-
-    bazel build \
-        "$ui" \
-        --attempt_to_print_relative_paths=false \
-        pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
-    expect_log "^ERROR: $(pwd)/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
-
-    bazel build \
-        "$ui" \
-        --attempt_to_print_relative_paths=true \
-        pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
-    expect_log "^ERROR: bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
-    expect_not_log "$(pwd)/bzl/bzl.bzl"
+  bazel build --attempt_to_print_relative_paths=true \
+      error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: error/BUILD:1:1: Executing genrule"
+  expect_not_log "$(pwd)/error/BUILD"
 }
 
 function test_experimental_ui_attempt_to_print_relative_paths_pkg_error() {
-  run_test_attempt_to_print_relative_paths_pkg_error "--experimental_ui"
-}
+  # See the note in the test case above for why this is disabled on Windows.
+  # TODO(nharmata): Fix this.
+  [[ "$is_windows" == "true" ]] && return 0
 
-function test_noexperimental_ui_attempt_to_print_relative_paths_pkg_error() {
-  run_test_attempt_to_print_relative_paths_pkg_error "--noexperimental_ui"
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
+
+  bazel build --attempt_to_print_relative_paths=false \
+      pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: $(pwd)/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+
+  bazel build --attempt_to_print_relative_paths=true \
+      pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "$(pwd)/bzl/bzl.bzl"
 }
 
 function test_fancy_symbol_encoding() {

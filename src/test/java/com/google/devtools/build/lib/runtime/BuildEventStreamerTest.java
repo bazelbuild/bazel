@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
@@ -59,10 +60,12 @@ import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -79,6 +82,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
+import javax.annotation.Nullable;
 import org.apache.commons.lang.time.StopWatch;
 import org.junit.After;
 import org.junit.Before;
@@ -249,7 +253,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     @Override
     public ReportedArtifacts reportedArtifacts() {
-      return new ReportedArtifacts(artifacts, ArtifactPathResolver.IDENTITY);
+      return new ReportedArtifacts(artifacts, CompletionContext.FAILED_COMPLETION_CTX);
     }
 
     @Override
@@ -668,7 +672,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
   private Artifact makeArtifact(String pathString) {
     Path path = outputBase.getRelative(PathFragment.create(pathString));
-    return new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
+    return ActionsTestUtil.createArtifact(
+        ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
   }
 
   @Test
@@ -1177,5 +1182,142 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     assertThat(transportedEvents).contains(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     assertThat(transportedEvents).contains(failedActionExecutedEvent);
+  }
+
+  @Test
+  public void testBuildIncomplete() {
+    BuildEventId buildEventId = testId("abort_expected");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            BuildEventId.buildStartedId(),
+            ImmutableSet.of(
+                buildEventId, ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventId.buildFinished()));
+    BuildCompleteEvent buildCompleteEvent =
+        buildCompleteEvent(ExitCode.BUILD_FAILURE, true, null, false);
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(buildCompleteEvent);
+    streamer.close();
+
+    BuildEventStreamProtos.BuildEvent aborted = getBepEvent(buildEventId);
+    assertThat(aborted).isNotNull();
+    assertThat(aborted.hasAborted()).isNotNull();
+    assertThat(aborted.getAborted().getReason()).isEqualTo(AbortReason.INCOMPLETE);
+    assertThat(aborted.getAborted().getDescription()).isEmpty();
+  }
+
+  @Test
+  public void testBuildCrash() {
+    BuildEventId buildEventId = testId("abort_expected");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            BuildEventId.buildStartedId(),
+            ImmutableSet.of(
+                buildEventId, ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventId.buildFinished()));
+    BuildCompleteEvent buildCompleteEvent =
+        buildCompleteEvent(ExitCode.BUILD_FAILURE, true, new RuntimeException(), false);
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(buildCompleteEvent);
+    streamer.close();
+
+    BuildEventStreamProtos.BuildEvent aborted = getBepEvent(buildEventId);
+    assertThat(aborted).isNotNull();
+    assertThat(aborted.hasAborted()).isNotNull();
+    assertThat(aborted.getAborted().getReason()).isEqualTo(AbortReason.INTERNAL);
+    assertThat(aborted.getAborted().getDescription()).isEmpty();
+  }
+
+  @Test
+  public void testBuildCatastrophe() {
+    BuildEventId buildEventId = testId("abort_expected");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            BuildEventId.buildStartedId(),
+            ImmutableSet.of(
+                buildEventId, ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventId.buildFinished()));
+    BuildCompleteEvent buildCompleteEvent =
+        buildCompleteEvent(ExitCode.BUILD_FAILURE, true, null, true);
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(buildCompleteEvent);
+    streamer.close();
+
+    BuildEventStreamProtos.BuildEvent aborted = getBepEvent(buildEventId);
+    assertThat(aborted).isNotNull();
+    assertThat(aborted.hasAborted()).isNotNull();
+    assertThat(aborted.getAborted().getReason()).isEqualTo(AbortReason.INTERNAL);
+    assertThat(aborted.getAborted().getDescription()).isEmpty();
+  }
+
+  @Test
+  public void testStreamAbortedWithTimeout() {
+    BuildEventId buildEventId = testId("abort_expected");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            BuildEventId.buildStartedId(),
+            ImmutableSet.of(
+                buildEventId, ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventId.buildFinished()));
+
+    streamer.buildEvent(startEvent);
+    streamer.close(AbortReason.TIME_OUT);
+
+    BuildEventStreamProtos.BuildEvent aborted0 = getBepEvent(buildEventId);
+    assertThat(aborted0).isNotNull();
+    assertThat(aborted0.hasAborted()).isNotNull();
+    assertThat(aborted0.getAborted().getReason()).isEqualTo(AbortReason.TIME_OUT);
+    assertThat(aborted0.getAborted().getDescription()).isEmpty();
+
+    BuildEventStreamProtos.BuildEvent aborted1 = getBepEvent(BuildEventId.buildFinished());
+    assertThat(aborted1).isNotNull();
+    assertThat(aborted1.hasAborted()).isNotNull();
+    assertThat(aborted1.getAborted().getReason()).isEqualTo(AbortReason.TIME_OUT);
+    assertThat(aborted1.getAborted().getDescription()).isEmpty();
+  }
+
+  @Test
+  public void testBuildFailureMultipleReasons() {
+    BuildEventId buildEventId = testId("abort_expected");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            BuildEventId.buildStartedId(),
+            ImmutableSet.of(
+                buildEventId, ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventId.buildFinished()));
+    BuildCompleteEvent buildCompleteEvent =
+        buildCompleteEvent(ExitCode.BUILD_FAILURE, false, new RuntimeException(), false);
+
+    streamer.buildEvent(startEvent);
+    streamer.noAnalyze(new NoAnalyzeEvent());
+    streamer.buildEvent(buildCompleteEvent);
+    streamer.close();
+
+    BuildEventStreamProtos.BuildEvent aborted = getBepEvent(buildEventId);
+    assertThat(aborted).isNotNull();
+    assertThat(aborted.hasAborted()).isNotNull();
+    assertThat(aborted.getAborted().getReason()).isEqualTo(AbortReason.INTERNAL);
+    assertThat(aborted.getAborted().getDescription())
+        .isEqualTo("Multiple abort reasons reported: [NO_ANALYZE, INTERNAL]");
+  }
+
+  @Nullable
+  private BuildEventStreamProtos.BuildEvent getBepEvent(BuildEventId buildEventId) {
+    return transport.getEventProtos().stream()
+        .filter(e -> e.getId().equals(buildEventId.asStreamProto()))
+        .findFirst()
+        .orElse(null);
+  }
+
+  private BuildCompleteEvent buildCompleteEvent(
+      ExitCode exitCode, boolean stopOnFailure, Throwable crash, boolean catastrophe) {
+    BuildResult result = new BuildResult(0);
+    result.setExitCondition(exitCode);
+    result.setStopOnFirstFailure(stopOnFailure);
+    if (catastrophe) {
+      result.setCatastrophe();
+    }
+    if (crash != null) {
+      result.setUnhandledThrowable(crash);
+    }
+    return new BuildCompleteEvent(result);
   }
 }

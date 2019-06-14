@@ -11,6 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
+
 #include "src/main/cpp/util/strings.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)

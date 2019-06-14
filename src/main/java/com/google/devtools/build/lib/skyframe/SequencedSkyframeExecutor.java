@@ -490,9 +490,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
     ExternalFilesHelper tmpExternalFilesHelper =
         externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
     // See the comment for FileType.OUTPUT for why we need to consider output files here.
-    EnumSet<FileType> fileTypesToCheck = checkOutputFiles
-        ? EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.OUTPUT)
-        : EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO);
+    EnumSet<FileType> fileTypesToCheck =
+        checkOutputFiles
+            ? EnumSet.of(
+                FileType.EXTERNAL,
+                FileType.EXTERNAL_REPO,
+                FileType.EXTERNAL_IN_MANAGED_DIRECTORY,
+                FileType.OUTPUT)
+            : EnumSet.of(
+                FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
     logger.info(
         "About to scan skyframe graph checking for filesystem nodes of types "
             + Iterables.toString(fileTypesToCheck));
@@ -895,37 +901,35 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
 
     WorkspaceFileValue oldValue =
         (WorkspaceFileValue) memoizingEvaluator.getExistingValue(workspaceFileKey);
-    maybeInvalidateWorkspaceFileStateValue(workspacePath);
+    FileStateValue newFileStateValue = maybeInvalidateWorkspaceFileStateValue(workspacePath);
     WorkspaceFileValue newValue =
         (WorkspaceFileValue) evaluateSingleValue(workspaceFileKey, eventHandler);
+    if (newValue != null
+        && !newValue.getManagedDirectories().isEmpty()
+        && FileStateType.SYMLINK.equals(newFileStateValue.getType())) {
+      throw new AbruptExitException(
+          "WORKSPACE file can not be a symlink if incrementally updated directories are used.",
+          ExitCode.PARSING_FAILURE);
+    }
     return managedDirectoriesKnowledge.workspaceHeaderReloaded(oldValue, newValue);
   }
 
   // We only check the FileStateValue of the WORKSPACE file; we do not support the case
   // when the WORKSPACE file is a symlink.
-  private void maybeInvalidateWorkspaceFileStateValue(RootedPath workspacePath)
+  private FileStateValue maybeInvalidateWorkspaceFileStateValue(RootedPath workspacePath)
       throws InterruptedException, AbruptExitException {
     SkyKey workspaceFileStateKey = FileStateValue.key(workspacePath);
     SkyValue oldWorkspaceFileState = memoizingEvaluator.getExistingValue(workspaceFileStateKey);
-    if (oldWorkspaceFileState == null) {
-      // no need to invalidate if not cached
-      return;
-    }
     FileStateValue newWorkspaceFileState;
     try {
       newWorkspaceFileState = FileStateValue.create(workspacePath, tsgm.get());
-      if (FileStateType.SYMLINK.equals(newWorkspaceFileState.getType())) {
-        throw new AbruptExitException(
-            "WORKSPACE file can not be a symlink if incrementally"
-                + " updated directories feature is enabled.",
-            ExitCode.PARSING_FAILURE);
-      }
     } catch (IOException e) {
       throw new AbruptExitException("Can not read WORKSPACE file.", ExitCode.PARSING_FAILURE, e);
     }
-    if (!oldWorkspaceFileState.equals(newWorkspaceFileState)) {
+    if (oldWorkspaceFileState != null && !oldWorkspaceFileState.equals(newWorkspaceFileState)) {
       recordingDiffer.invalidate(ImmutableSet.of(workspaceFileStateKey));
     }
+    return newWorkspaceFileState;
   }
 
   private SkyValue evaluateSingleValue(SkyKey key, ExtendedEventHandler eventHandler)

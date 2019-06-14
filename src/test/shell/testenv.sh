@@ -19,6 +19,8 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
+# TODO(bazel-team): Factor each test suite's is-this-windows setup check to use
+# this var instead, or better yet a common $IS_WINDOWS var.
 PLATFORM="$(uname -s | tr [:upper:] [:lower:])"
 
 function is_darwin() {
@@ -363,6 +365,54 @@ java_import(
 EOF
 }
 
+# If the current platform is Windows, defines a Python toolchain for our
+# Windows CI machines. Otherwise does nothing.
+#
+# Our Windows CI machines have Python 2 and 3 installed at C:\Python2 and
+# C:\Python3 respectively.
+#
+# Since the tools directory is not cleared between test cases, this only needs
+# to run once per suite. However, the toolchain must still be registered
+# somehow.
+#
+# TODO(#7844): Delete this custom (and machine-specific) test setup once we have
+# an autodetecting Python toolchain for Windows.
+function maybe_setup_python_windows_tools() {
+  if [[ ! $PLATFORM =~ msys ]]; then
+    return
+  fi
+
+  mkdir -p tools/python/windows
+  cat > tools/python/windows/BUILD << EOF
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
+py_runtime(
+  name = "py2_runtime",
+  interpreter_path = r"C:\Python2\python.exe",
+  python_version = "PY2",
+)
+
+py_runtime(
+  name = "py3_runtime",
+  interpreter_path = r"C:\Python3\python.exe",
+  python_version = "PY3",
+)
+
+py_runtime_pair(
+  name = "py_runtime_pair",
+  py2_runtime = ":py2_runtime",
+  py3_runtime = ":py3_runtime",
+)
+
+toolchain(
+  name = "py_toolchain",
+  toolchain = ":py_runtime_pair",
+  toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+  target_compatible_with = ["@platforms//os:windows"],
+)
+EOF
+}
+
 function setup_skylark_javatest_support() {
   setup_javatest_common
   grep -q "name = \"junit4-jars\"" third_party/BUILD \
@@ -403,6 +453,27 @@ function write_workspace_file() {
   cat > WORKSPACE << EOF
 workspace(name = '$WORKSPACE_NAME')
 EOF
+
+  maybe_setup_python_windows_workspace
+}
+
+# If the current platform is Windows, registers our custom Windows Python
+# toolchain. Otherwise does nothing.
+#
+# Since this modifies the WORKSPACE file, it must be called between test cases.
+function maybe_setup_python_windows_workspace() {
+  if [[ ! $PLATFORM =~ msys ]]; then
+    return
+  fi
+
+  # --extra_toolchains has left-to-right precedence semantics, but the bazelrc
+  # is processed before the command line. This means that any matching
+  # toolchains added to the bazelrc will always take precedence over toolchains
+  # set up by test cases. Instead, we add the toolchain to WORKSPACE so that it
+  # has lower priority than whatever is passed on the command line.
+  cat >> WORKSPACE << EOF
+register_toolchains("//tools/python/windows:py_toolchain")
+EOF
 }
 
 workspaces=()
@@ -422,6 +493,8 @@ function create_new_workspace() {
     || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9+181-r4173-1.jar
 
   write_workspace_file
+
+  maybe_setup_python_windows_tools
 }
 
 

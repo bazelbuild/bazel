@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -58,9 +58,9 @@ public class CustomCommandLineTest {
   @Before
   public void createArtifacts() throws Exception  {
     scratch = new Scratch();
-    rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/exec/root")));
-    artifact1 = new Artifact(scratch.file("/exec/root/dir/file1.txt"), rootDir);
-    artifact2 = new Artifact(scratch.file("/exec/root/dir/file2.txt"), rootDir);
+    rootDir = ArtifactRoot.asDerivedRoot(scratch.dir("/exec/root"), scratch.dir("/exec/root/dir"));
+    artifact1 = ActionsTestUtil.createArtifact(rootDir, scratch.file("/exec/root/dir/file1.txt"));
+    artifact2 = ActionsTestUtil.createArtifact(rootDir, scratch.file("/exec/root/dir/file2.txt"));
   }
 
   @Test
@@ -901,10 +901,12 @@ public class CustomCommandLineTest {
             .addPlaceholderTreeArtifactExecPath("--argTwo", treeArtifactTwo)
             .build();
 
-    TreeFileArtifact treeFileArtifactOne = createTreeFileArtifact(
-        treeArtifactOne, "children/child1");
-    TreeFileArtifact treeFileArtifactTwo = createTreeFileArtifact(
-        treeArtifactTwo, "children/child2");
+    TreeFileArtifact treeFileArtifactOne =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            treeArtifactOne, "children/child1");
+    TreeFileArtifact treeFileArtifactTwo =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            treeArtifactTwo, "children/child2");
 
     CustomCommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
         ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo));
@@ -912,9 +914,9 @@ public class CustomCommandLineTest {
     assertThat(commandLine.arguments())
         .containsExactly(
             "--argOne",
-            "myArtifact/treeArtifact1/children/child1",
+            "dir/myArtifact/treeArtifact1/children/child1",
             "--argTwo",
-            "myArtifact/treeArtifact2/children/child2")
+            "dir/myArtifact/treeArtifact2/children/child2")
         .inOrder();
   }
 
@@ -974,15 +976,8 @@ public class CustomCommandLineTest {
     return new SpecialArtifact(
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
+        ActionsTestUtil.NULL_ACTION_LOOKUP_DATA.getActionLookupKey(),
         SpecialArtifactType.TREE);
-  }
-
-  private TreeFileArtifact createTreeFileArtifact(
-      SpecialArtifact inputTreeArtifact, String parentRelativePath) {
-    return ActionInputHelper.treeFileArtifact(
-        inputTreeArtifact,
-        PathFragment.create(parentRelativePath));
   }
 
   private static <T> ImmutableList<T> list(T... objects) {

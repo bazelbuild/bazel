@@ -78,26 +78,21 @@ public abstract class AndroidSkylarkData
   public AndroidResourcesInfo resourcesFromDeps(
       AndroidDataContext ctx,
       SkylarkList<AndroidResourcesInfo> deps,
+      SkylarkList<AndroidAssetsInfo> assets,
       boolean neverlink,
-      Object customPackage,
+      String customPackage,
       Location location,
       Environment env)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
-      String pkg = fromNoneable(customPackage, String.class);
-      if (pkg == null) {
-        pkg =
-            AndroidManifest.getDefaultPackage(
-                env.getCallerLabel(), ctx.getActionConstructionContext(), errorReporter);
-      }
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
               DataBinding.getDisabledDataBindingContext(ctx),
               ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
-              AssetDependencies.empty(),
+              AssetDependencies.fromProviders(assets, /* neverlink = */ neverlink),
               StampedAndroidManifest.createEmpty(
-                  ctx.getActionConstructionContext(), pkg, /* exported = */ false))
+                  ctx.getActionConstructionContext(), customPackage, /* exported = */ false))
           .toResourceInfo(ctx.getLabel());
     }
   }

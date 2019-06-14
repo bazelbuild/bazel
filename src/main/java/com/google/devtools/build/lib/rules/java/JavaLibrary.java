@@ -53,6 +53,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
       boolean includeGeneratedExtensionRegistry,
       boolean isJavaPluginRule)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    semantics.checkDependencyRuleKinds(ruleContext);
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
 
     // Collect the transitive dependencies.

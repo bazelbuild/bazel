@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/cpp/blaze_util_platform.h"
-
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -26,7 +24,6 @@
 #include <objbase.h>         // CoTaskMemFree
 #include <shlobj.h>          // SHGetKnownFolderPath
 #include <stdarg.h>          // va_start, va_end, va_list
-#include <versionhelpers.h>  // IsWindows8OrGreater
 
 #include <algorithm>
 #include <cstdio>
@@ -40,6 +37,7 @@
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
@@ -299,17 +297,17 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
       if (++sigint_count >= 3) {
         SigPrintf(
             "\n%s caught third Ctrl+C handler signal; killed.\n\n",
-            SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+            SignalHandler::Get().GetProductName().c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
           KillServerProcess(
               SignalHandler::Get().GetGlobals()->server_pid,
-              SignalHandler::Get().GetGlobals()->options->output_base);
+              SignalHandler::Get().GetOutputBase());
         }
         _exit(1);
       }
       SigPrintf(
           "\n%s Ctrl+C handler; shutting down.\n\n",
-          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+          SignalHandler::Get().GetProductName().c_str());
       SignalHandler::Get().CancelServer();
       return TRUE;
 
@@ -320,10 +318,14 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
   return false;
 }
 
-void SignalHandler::Install(GlobalVariables* globals,
+void SignalHandler::Install(const string &product_name,
+                            const string &output_base,
+                            GlobalVariables* globals,
                             SignalHandler::Callback cancel_server) {
-  _globals = globals;
-  _cancel_server = cancel_server;
+  product_name_ = product_name;
+  output_base_ = output_base;
+  globals_ = globals;
+  cancel_server_ = cancel_server;
   ::SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
 
@@ -656,7 +658,7 @@ int ExecuteDaemon(const string& exe,
                   const bool daemon_out_append,
                   const string& binaries_dir,
                   const string& server_dir,
-                  const StartupOptions* options,
+                  const StartupOptions &options,
                   BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
   string error;
@@ -765,12 +767,6 @@ int ExecuteDaemon(const string& exe,
   CloseHandle(processInfo.hThread);
 
   return processInfo.dwProcessId;
-}
-
-// Returns whether nested jobs are not available on the current system.
-static bool NestedJobsSupported() {
-  // Nested jobs are supported from Windows 8
-  return IsWindows8OrGreater();
 }
 
 // Run the given program in the current working directory, using the given

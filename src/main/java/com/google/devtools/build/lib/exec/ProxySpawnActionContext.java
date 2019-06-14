@@ -91,11 +91,22 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
     }
 
     if (strategies.isEmpty()) {
-      throw new UserExecException(
-          String.format(
-              "No usable spawn strategy found for spawn with mnemonic %s. Are your --spawn_strategy"
-                  + " or --strategy flags too strict?",
-              spawn.getMnemonic()));
+      // TODO(ishikhman): remove with --incompatible_list_based_execution_strategy_selection
+      if (listBasedExecutionStrategySelection) {
+        throw new UserExecException(
+            String.format(
+                "No usable spawn strategy found for spawn with mnemonic %s.  Your"
+                    + " --spawn_strategy, --genrule_strategy or --strategy flags are probably too"
+                    + " strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
+                    + " migration advice",
+                spawn.getMnemonic()));
+      } else {
+        throw new UserExecException(
+            String.format(
+                "No usable spawn strategy found for spawn with mnemonic %s."
+                    + " Are your --spawn_strategy or --strategy flags too strict?",
+                spawn.getMnemonic()));
+      }
     }
 
     return strategies;

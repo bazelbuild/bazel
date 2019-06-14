@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CanonicalizeCommand;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand;
+import com.google.devtools.build.lib.runtime.commands.ConfigCommand;
 import com.google.devtools.build.lib.runtime.commands.CoverageCommand;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.DumpCommand;
@@ -60,7 +61,8 @@ public class BuiltinCommandModule extends BlazeModule {
         new TestCommand(),
         new VersionCommand(),
         new AqueryCommand(),
-        new CqueryCommand());
+        new CqueryCommand(),
+        new ConfigCommand());
     // Only enable the "license" command when this binary has an embedded LICENSE file.
     if (LicenseCommand.isSupported()) {
       builder.addCommands(new LicenseCommand());

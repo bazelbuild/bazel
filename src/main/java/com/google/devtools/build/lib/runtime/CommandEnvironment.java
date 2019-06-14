@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -30,7 +28,6 @@ import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -92,6 +89,7 @@ public final class CommandEnvironment {
   private OutputService outputService;
   private Path workingDirectory;
   private String workspaceName;
+  private boolean haveSetupPackageCache = false;
 
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
 
@@ -387,17 +385,6 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Creates and returns a new target pattern preloader.
-   */
-  public TargetPatternPreloader newTargetPatternPreloader() {
-    return getPackageManager().newTargetPatternPreloader();
-  }
-
-  public PackageRootResolver getPackageRootResolver() {
-    return new SkyframePackageRootResolver(getSkyframeExecutor(), reporter);
-  }
-
-  /**
    * Returns the UUID that Blaze uses to identify everything logged from the current build command.
    * It's also used to invalidate Skyframe nodes that are specific to a certain invocation, such as
    * the build info.
@@ -441,6 +428,7 @@ public final class CommandEnvironment {
   public void setWorkspaceName(String workspaceName) {
     Preconditions.checkState(this.workspaceName == null, "workspace name can only be set once");
     this.workspaceName = workspaceName;
+    eventBus.post(new ExecRootEvent(getExecRoot()));
   }
   /**
    * Returns if the client passed a valid workspace to be used for the build.
@@ -584,6 +572,15 @@ public final class CommandEnvironment {
    */
   public void setupPackageCache(OptionsProvider options)
       throws InterruptedException, AbruptExitException {
+    // We want to ensure that we're never calling #setupPackageCache twice in the same build because
+    // it does the very expensive work of diffing the cache between incremental builds.
+    // {@link SequencedSkyframeExecutor#handleDiffs} is the particular method we don't want to be
+    // calling twice. We could feasibly factor it out of this call.
+    if (this.haveSetupPackageCache) {
+      throw new IllegalStateException(
+          "We should never call this method more than once over the course of a single command");
+    }
+    this.haveSetupPackageCache = true;
     getSkyframeExecutor()
         .sync(
             reporter,
@@ -594,19 +591,6 @@ public final class CommandEnvironment {
             clientEnv,
             timestampGranularityMonitor,
             options);
-  }
-
-  public void syncPackageLoading(
-      PackageCacheOptions packageCacheOptions, StarlarkSemanticsOptions starlarkSemanticsOptions)
-      throws AbruptExitException {
-    getSkyframeExecutor()
-        .syncPackageLoading(
-            packageCacheOptions,
-            packageLocator,
-            starlarkSemanticsOptions,
-            getCommandId(),
-            clientEnv,
-            timestampGranularityMonitor);
   }
 
   public void recordLastExecutionTime() {
@@ -636,15 +620,11 @@ public final class CommandEnvironment {
   /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
    *
-   * @param commonOptions The CommonCommandOptions used by every command.
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(
-      OptionsParsingResult options,
-      CommonCommandOptions commonOptions,
-      long waitTimeInMs,
-      InvocationPolicy invocationPolicy)
+  void beforeCommand(long waitTimeInMs, InvocationPolicy invocationPolicy)
       throws AbruptExitException {
+    CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     commandStartTime -= commonOptions.startupTime;
 
     eventBus.post(
@@ -704,6 +684,9 @@ public final class CommandEnvironment {
     eventBus.post(new CommandStartEvent(
         command.name(), getCommandId(), getClientEnv(), workingDirectory, getDirectories(),
         waitTimeInMs + commonOptions.waitTime));
+
+    // Modules that are subscribed to CommandStartEvents may create pending exceptions.
+    throwPendingException();
   }
 
   /** Returns the name of the file system we are writing output to. */

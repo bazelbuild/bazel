@@ -8,7 +8,7 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//src/test/starlark/skylint:srcs"],
+    srcs = glob(["**"]),
 )
 
 [

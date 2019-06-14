@@ -42,7 +42,7 @@ public class GoldenCase {
       name = "struct_field_method_with_info",
       documented = false,
       structField = true,
-      useSkylarkSemantics = true)
+      useStarlarkSemantics = true)
   public String structFieldMethodWithInfo(StarlarkSemantics semantics) {
     return "foo";
   }
@@ -66,7 +66,7 @@ public class GoldenCase {
       useAst = true,
       useLocation = true,
       useEnvironment = true,
-      useSkylarkSemantics = true)
+      useStarlarkSemantics = true)
   public Integer zeroArgMethod(
       Location location,
       FuncallExpression ast,
@@ -116,7 +116,7 @@ public class GoldenCase {
       useAst = true,
       useLocation = true,
       useEnvironment = true,
-      useSkylarkSemantics = true)
+      useStarlarkSemantics = true)
   public String threeArgMethodWithParams(
       String one,
       Integer two,
@@ -165,7 +165,7 @@ public class GoldenCase {
       useAst = true,
       useLocation = true,
       useEnvironment = true,
-      useSkylarkSemantics = true,
+      useStarlarkSemantics = true,
       useContext = true)
   public String twoArgMethodWithParamsAndInfoAndKwargs(
       String one,
@@ -218,7 +218,7 @@ public class GoldenCase {
       structField = true,
       useLocation = true,
       useEnvironment = true,
-      useSkylarkSemantics = true)
+      useStarlarkSemantics = true)
   public String structFieldMethodWithInfo(
       Location location, Environment environment, StarlarkSemantics starlarkSemantics) {
     return "dragon";

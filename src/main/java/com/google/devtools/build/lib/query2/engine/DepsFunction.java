@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.CustomFunctionQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
@@ -74,6 +75,15 @@ final class DepsFunction implements QueryFunction {
     }
 
     final int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
+    if (env instanceof QueryEnvironment.CustomFunctionQueryEnvironment) {
+      return env.eval(
+          queryExpression,
+          context,
+          partialResult ->
+              ((CustomFunctionQueryEnvironment<T>) env)
+                  .deps(partialResult, depthBound, expression, callback));
+    }
+
     final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
     return env.eval(
         queryExpression,

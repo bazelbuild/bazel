@@ -252,6 +252,8 @@ class InterfaceDesugaring extends ClassVisitor {
         }
 
         // TODO(b/37110951): adjust signature with explicit receiver type, which may be generic
+        // Method visitor that passes through all code but sends annotations into a second given
+        // MethodVisitor instead.
         MethodVisitor codeDest =
             companion()
                 .visitMethod(
@@ -583,6 +585,7 @@ class InterfaceDesugaring extends ClassVisitor {
    */
   private static class MultiplexAnnotations extends MethodVisitor {
 
+    /** Method visitor for creating desugared interfaces (with static/default methods). */
     private final MethodVisitor annotationOnlyDest;
 
     public MultiplexAnnotations(@Nullable MethodVisitor dest, MethodVisitor annotationOnlyDest) {
@@ -592,8 +595,8 @@ class InterfaceDesugaring extends ClassVisitor {
 
     @Override
     public void visitParameter(String name, int access) {
-      super.visitParameter(name, access);
       annotationOnlyDest.visitParameter(name, access);
+      // Intentionally without super call: Method parameter attributes are not supported in Java 7.
     }
 
     @Override
@@ -606,18 +609,18 @@ class InterfaceDesugaring extends ClassVisitor {
     @Override
     public AnnotationVisitor visitTypeAnnotation(
         int typeRef, TypePath typePath, String desc, boolean visible) {
-      AnnotationVisitor dest = super.visitTypeAnnotation(typeRef, typePath, desc, visible);
-      AnnotationVisitor annoDest =
-          annotationOnlyDest.visitTypeAnnotation(typeRef, typePath, desc, visible);
-      return new MultiplexAnnotationVisitor(dest, annoDest);
+      // Intentionally without super call: Type annotations are not supported in Java 7.
+      return annotationOnlyDest.visitTypeAnnotation(typeRef, typePath, desc, visible);
     }
 
     @Override
     public AnnotationVisitor visitParameterAnnotation(int parameter, String desc, boolean visible) {
-      AnnotationVisitor dest = super.visitParameterAnnotation(parameter, desc, visible);
-      AnnotationVisitor annoDest =
-          annotationOnlyDest.visitParameterAnnotation(parameter, desc, visible);
-      return new MultiplexAnnotationVisitor(dest, annoDest);
+      // Intentionally without super call: Prodction code should depend on the parameter annotation
+      // attributes of the desugared class instead of the companion class instead, and therefore
+      // dropping the parameter annotations. Note in the companion class, the corresponding method
+      // contains one more parameter than the method in the desugared class, a direct propagation
+      // would cause position mistach. see b/129719629.
+      return annotationOnlyDest.visitParameterAnnotation(parameter, desc, visible);
     }
   }
 

@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -111,11 +112,19 @@ public abstract class OutputFormatter implements Serializable {
         new LocationOutputFormatter(),
         new GraphOutputFormatter(),
         new XmlOutputFormatter(),
-        new ProtoOutputFormatter());
+        new ProtoOutputFormatter(),
+        new StreamedProtoOutputFormatter());
   }
 
   public static String formatterNames(Iterable<OutputFormatter> formatters) {
     return Streams.stream(formatters).map(OutputFormatter::getName).collect(joining(", "));
+  }
+
+  public static String streamingFormatterNames(Iterable<OutputFormatter> formatters) {
+    return Streams.stream(formatters)
+        .filter(Predicates.instanceOf(StreamedFormatter.class))
+        .map(OutputFormatter::getName)
+        .collect(joining(", "));
   }
 
   /**
@@ -219,15 +228,6 @@ public abstract class OutputFormatter implements Serializable {
     protected AspectResolver aspectResolver;
     protected DependencyFilter dependencyFilter;
 
-    protected Iterable<Target> getOrderedTargets(
-        Digraph<Target> result, QueryOptions options) {
-      Iterable<Node<Target>> orderedResult =
-          options.orderOutput == OrderOutput.DEPS
-              ? result.getTopologicalOrder()
-              : result.getTopologicalOrder(new TargetOrdering());
-      return Iterables.transform(orderedResult, EXTRACT_NODE_LABEL);
-    }
-
     @Override
     public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
       this.options = options;
@@ -246,6 +246,14 @@ public abstract class OutputFormatter implements Serializable {
       setOptions(options, aspectResolver);
       OutputFormatterCallback.processAllTargets(
           createPostFactoStreamCallback(out, options), getOrderedTargets(result, options));
+    }
+
+    protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {
+      Iterable<Node<Target>> orderedResult =
+          options.orderOutput == OrderOutput.DEPS
+              ? result.getTopologicalOrder()
+              : result.getTopologicalOrder(new TargetOrdering());
+      return Iterables.transform(orderedResult, EXTRACT_NODE_LABEL);
     }
   }
 
@@ -288,13 +296,13 @@ public abstract class OutputFormatter implements Serializable {
       return new TextOutputFormatterCallback<Target>(out) {
         @Override
         public void processOutput(Iterable<Target> partialResult) {
+          String lineTerm = options.getLineTerminator();
           for (Target target : partialResult) {
             if (showKind) {
               printStream.print(target.getTargetKind());
               printStream.print(' ');
             }
-            printStream.printf(
-                "%s%s", target.getLabel().getDefaultCanonicalForm(), options.getLineTerminator());
+            printStream.print(target.getLabel().getDefaultCanonicalForm() + lineTerm);
           }
         }
       };
@@ -350,7 +358,7 @@ public abstract class OutputFormatter implements Serializable {
           if (!failFast) {
             final String lineTerm = options.getLineTerminator();
             for (String packageName : packageNames) {
-              printStream.printf("%s%s", packageName, lineTerm);
+              printStream.print(packageName + lineTerm);
             }
           }
           super.close(failFast);
@@ -525,7 +533,7 @@ public abstract class OutputFormatter implements Serializable {
       if (outputToOrder != null) {
         Collections.sort(outputToOrder);
         for (RankAndLabel item : outputToOrder) {
-          printStream.printf("%s%s", item, lineTerm);
+          printStream.print(item + lineTerm);
         }
       }
 
@@ -601,7 +609,7 @@ public abstract class OutputFormatter implements Serializable {
       final String lineTerm = options.getLineTerminator();
       PrintStream printStream = new PrintStream(out);
       for (RankAndLabel item : output) {
-        printStream.printf("%s%s", item, lineTerm);
+        printStream.print(item + lineTerm);
       }
       flushAndCheckError(printStream);
     }

@@ -73,7 +73,8 @@ public final class SpawnLogModule extends BlazeModule {
     FileSystem fileSystem = env.getRuntime().getFileSystem();
     Path workingDirectory = env.getWorkingDirectory();
 
-    if (executionOptions.executionLogBinaryFile != null) {
+    if (executionOptions.executionLogBinaryFile != null
+        && !executionOptions.executionLogBinaryFile.isEmpty()) {
       outputStreams.addStream(
           new BinaryOutputStreamWrapper(
               workingDirectory
@@ -81,7 +82,8 @@ public final class SpawnLogModule extends BlazeModule {
                   .getOutputStream()));
     }
 
-    if (executionOptions.executionLogJsonFile != null) {
+    if (executionOptions.executionLogJsonFile != null
+        && !executionOptions.executionLogJsonFile.isEmpty()) {
       outputStreams.addStream(
           new JsonOutputStreamWrapper(
               workingDirectory
@@ -90,8 +92,8 @@ public final class SpawnLogModule extends BlazeModule {
     }
 
     AsynchronousFileOutputStream outStream = null;
-    if (executionOptions.executionLogFile != null) {
-      rawOutput = env.getRuntime().getFileSystem().getPath(executionOptions.executionLogFile);
+    if (executionOptions.executionLogFile != null && !executionOptions.executionLogFile.isEmpty()) {
+      rawOutput = workingDirectory.getRelative(executionOptions.executionLogFile);
       outStream =
           new AsynchronousFileOutputStream(
               workingDirectory.getRelative(executionOptions.executionLogFile));

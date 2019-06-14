@@ -627,6 +627,13 @@ sh_test(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
+sh_test(
+    name = "bash_runfiles_v1_test",
+    srcs = ["bash_runfiles_v1_test.sh"],
+    data = ["BUILD"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
 ########################################################################
 # Test suites.
 

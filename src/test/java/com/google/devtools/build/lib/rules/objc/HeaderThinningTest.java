@@ -23,9 +23,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -120,7 +122,7 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
     List<Artifact> expectedHeaders =
         ImmutableList.of(getSourceArtifact("objc/a.h"), getTreeArtifact("tree/dir"));
     HeaderThinning headerThinning = new HeaderThinning(getPotentialHeaders(expectedHeaders));
-    writeToHeadersListFile(action, "objc/a.h", "tree/dir/c.h");
+    writeToHeadersListFile(action, "objc/a.h", "out/tree/dir/c.h");
 
     Iterable<Artifact> headersFound = determineAdditionalInputs(headerThinning, action);
     assertThat(headersFound).containsExactlyElementsIn(expectedHeaders);
@@ -206,7 +208,12 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
   }
 
   private Artifact getTreeArtifact(String name) {
-    Artifact treeArtifactBase = getSourceArtifact(name);
+    DerivedArtifact treeArtifactBase =
+        getDerivedArtifact(
+            PathFragment.create(name),
+            ArtifactRoot.asDerivedRoot(
+                directories.getExecRoot(), directories.getExecRoot().getChild("out")),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     return new SpecialArtifact(
         treeArtifactBase.getRoot(),
         treeArtifactBase.getExecPath(),

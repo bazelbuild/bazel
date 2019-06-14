@@ -69,6 +69,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean mergeGenfilesDirectory;
 
   @Option(
+      name = "incompatible_use_platforms_repo_for_constraints",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, constraint settings from @bazel_tools are removed.")
+  public boolean usePlatformsRepoForConstraints;
+
+  @Option(
       name = "define",
       converter = Converters.AssignmentConverter.class,
       defaultValue = "",
@@ -556,6 +568,15 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "target_environment values.")
   public Label autoCpuEnvironmentGroup;
 
+  @Option(
+      name = "experimental_bep_report_only_important_artifacts",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If false, the BEP no longer contains information about hidden output groups.")
+  public boolean bepReportOnlyImportantArtifacts;
+
   /** Values for --experimental_dynamic_configs. */
   public enum ConfigsMode {
     /**
@@ -596,6 +617,46 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Instantiates build configurations with the specified properties")
   public ConfigsMode configsMode;
+
+  /** Values for --experimental_output_paths. */
+  public enum OutputPathsMode {
+    /** Use the production output path model. */
+    OFF,
+    /**
+     * Use <a href="https://github.com/bazelbuild/bazel/issues/6526#issuecomment-488103473">
+     * content-based paths</a>.
+     *
+     * <p>Rule implementations also have to individually opt into this. So this setting doesn't mean
+     * all outputs follow this. Non-opted-in outputs continue to use the production model.
+     *
+     * <p>Follow the above link for latest details on exact scope.
+     */
+    CONTENT,
+  }
+
+  /** Converter for --experimental_output_paths. */
+  public static class OutputPathsConverter extends EnumConverter<OutputPathsMode> {
+    public OutputPathsConverter() {
+      super(OutputPathsMode.class, "output path mode");
+    }
+  }
+
+  @Option(
+      name = "experimental_output_paths",
+      converter = OutputPathsConverter.class,
+      defaultValue = "off",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.EXECUTION
+      },
+      help =
+          "Which model to use for where in the output tree rules write their outputs, particularly "
+              + "for multi-platform / multi-configuration builds. This is highly experimental. See "
+              + "https://github.com/bazelbuild/bazel/issues/6526 for details.")
+  public OutputPathsMode outputPathsMode;
 
   @Option(
       name = "enable_runfiles",
@@ -641,6 +702,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.configsMode = configsMode;
+    host.outputPathsMode = outputPathsMode;
     host.enableRunfiles = enableRunfiles;
     host.executionInfoModifier = executionInfoModifier;
     host.commandLineBuildVariables = commandLineBuildVariables;
@@ -669,6 +731,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     // === Pass on C++ compiler features.
     host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+
+    // Save host options in case of a further exec->host transition.
+    host.hostCpu = hostCpu;
+    host.hostCompilationMode = hostCompilationMode;
 
     return host;
   }

@@ -86,22 +86,35 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     }
 
     TransitiveInfoCollection javacDep = ruleContext.getPrerequisite("javac", Mode.HOST);
-    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> locations = ImmutableMap.builder();
+
+    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> locationsBuilder =
+        ImmutableMap.builder();
     if (javacDep != null) {
-      locations.put(AliasProvider.getDependencyLabel(javacDep), ImmutableList.of(javac));
+      locationsBuilder.put(AliasProvider.getDependencyLabel(javacDep), ImmutableList.of(javac));
     }
-    ImmutableList<String> jvmOpts = getJvmOpts(ruleContext, locations.build());
+    ImmutableMap<Label, ImmutableCollection<Artifact>> locations = locationsBuilder.build();
+
+    ImmutableList<String> jvmOpts = getJvmOpts(ruleContext, locations, "jvm_opts");
+    ImmutableList<String> javabuilderJvmOpts =
+        ImmutableList.<String>builder()
+            .addAll(jvmOpts)
+            .addAll(getJvmOpts(ruleContext, locations, "javabuilder_jvm_opts"))
+            .build();
 
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(
             ruleContext.getPrerequisites(
                 "package_configuration", Mode.HOST, JavaPackageConfigurationProvider.class));
 
+    FilesToRunProvider jacocoRunner =
+        ruleContext.getExecutablePrerequisite("jacocorunner", Mode.HOST);
+
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(
             ruleContext.getLabel(),
             javacopts,
             jvmOpts,
+            javabuilderJvmOpts,
             javacSupportsWorkers,
             bootclasspath,
             extclasspath,
@@ -120,6 +133,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             ijar,
             compatibleJavacOptions,
             packageConfiguration,
+            jacocoRunner,
             semantics);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
@@ -161,7 +175,9 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
   }
 
   private static ImmutableList<String> getJvmOpts(
-      RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> locations) {
-    return ruleContext.getExpander().withExecLocations(locations).list("jvm_opts");
+      RuleContext ruleContext,
+      ImmutableMap<Label, ImmutableCollection<Artifact>> locations,
+      String attribute) {
+    return ruleContext.getExpander().withExecLocations(locations).list(attribute);
   }
 }

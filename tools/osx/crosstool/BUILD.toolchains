@@ -1,0 +1,18 @@
+package(default_visibility = ["//visibility:public"])
+
+load(":osx_archs.bzl", "OSX_TOOLS_ARCHS", "OSX_TOOLS_CONSTRAINTS")
+
+[
+    toolchain(
+        name = "cc-toolchain-" + arch,
+        exec_compatible_with = [
+            # These only execute on macOS.
+            "@platforms//os:osx",
+            "@platforms//cpu:x86_64",
+        ],
+        target_compatible_with = OSX_TOOLS_CONSTRAINTS[arch],
+        toolchain = "@local_config_cc//:cc-compiler-" + arch,
+        toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+    )
+    for arch in OSX_TOOLS_ARCHS
+]

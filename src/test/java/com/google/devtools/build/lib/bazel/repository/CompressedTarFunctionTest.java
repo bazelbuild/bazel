@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.repository;
 import static com.google.devtools.build.lib.bazel.repository.TestArchiveDescriptor.INNER_FOLDER_NAME;
 import static com.google.devtools.build.lib.bazel.repository.TestArchiveDescriptor.ROOT_FOLDER_NAME;
 
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -65,8 +64,7 @@ public class CompressedTarFunctionTest {
     archiveDescriptor.assertOutputFiles(outputDir, INNER_FOLDER_NAME);
   }
 
-  private Path decompress(DecompressorDescriptor.Builder descriptorBuilder)
-      throws IOException, RepositoryFunctionException {
+  private Path decompress(DecompressorDescriptor.Builder descriptorBuilder) throws Exception {
     descriptorBuilder.setDecompressor(TarGzFunction.INSTANCE);
     return new CompressedTarFunction() {
       @Override

@@ -1320,6 +1320,32 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
   }
 
+  /**
+   * Regression test to ensure that non-String typed build setting values are being properly
+   * converted from Strings to their real type.
+   */
+  @Test
+  public void buildsettings_convertedType() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "bool_flag = rule(implementation = _impl, build_setting = config.bool(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'bool_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'True',",
+        "    },",
+        ")",
+        "bool_flag(name = 'cheese', build_setting_default = True)");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
   @Test
   public void buildsettings_doesntMatch() throws Exception {
     setSkylarkSemanticsOptions("--experimental_build_setting_api=true");

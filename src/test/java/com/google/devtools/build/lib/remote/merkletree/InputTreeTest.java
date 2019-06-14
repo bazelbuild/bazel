@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.merkletree.InputTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.InputTree.FileNode;
@@ -147,7 +148,7 @@ public class InputTreeTest {
     ActionInput buzz = ActionInputHelper.fromPath(buzzPath.relativeTo(execRoot));
     metadata.put(buzz, FileArtifactValue.createShareable(buzzPath));
 
-    Artifact dir = new Artifact(dirPath, artifactRoot);
+    Artifact dir = ActionsTestUtil.createArtifact(artifactRoot, dirPath);
     sortedInputs.put(dirPath.relativeTo(execRoot), dir);
     metadata.put(dir, FileArtifactValue.createShareable(dirPath));
 
@@ -202,7 +203,7 @@ public class InputTreeTest {
     Path p = execRoot.getRelative(path);
     p.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(p, content);
-    Artifact a = new Artifact(p, artifactRoot);
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
 
     sortedInputs.put(PathFragment.create(path), a);
     metadata.put(a, FileArtifactValue.create(a));

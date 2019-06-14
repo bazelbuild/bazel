@@ -36,6 +36,9 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -58,6 +61,7 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -81,6 +85,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
@@ -96,6 +101,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -205,6 +211,40 @@ public final class ActionsTestUtil {
     };
   }
 
+  public static Artifact createArtifact(ArtifactRoot root, Path path) {
+    return createArtifactWithRootRelativePath(root, root.getRoot().relativize(path));
+  }
+
+  public static Artifact createArtifact(ArtifactRoot root, String path) {
+    return createArtifactWithRootRelativePath(root, PathFragment.create(path));
+  }
+
+  public static Artifact createArtifactWithRootRelativePath(
+      ArtifactRoot root, PathFragment rootRelativePath) {
+    PathFragment execPath = root.getExecPath().getRelative(rootRelativePath);
+    return createArtifactWithExecPath(root, execPath);
+  }
+
+  public static Artifact createArtifactWithExecPath(ArtifactRoot root, PathFragment execPath) {
+    return root.isSourceRoot()
+        ? new Artifact.SourceArtifact(root, execPath, ArtifactOwner.NullArtifactOwner.INSTANCE)
+        : new Artifact.DerivedArtifact(root, execPath, NULL_ARTIFACT_OWNER);
+  }
+
+  public static TreeFileArtifact createTreeFileArtifactWithNoGeneratingAction(
+      SpecialArtifact parent, String relativePath) {
+    return ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+        parent, PathFragment.create(relativePath), parent.getArtifactOwner());
+  }
+
+  public static void assertNoArtifactEndingWith(RuleConfiguredTarget target, String path) {
+    Pattern endPattern = Pattern.compile(path + "$");
+    for (ActionAnalysisMetadata action : target.getActions()) {
+      for (Artifact output : action.getOutputs()) {
+        assertThat(output.getExecPathString()).doesNotMatch(endPattern);
+      }
+    }
+  }
 
   /**
    * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
@@ -267,10 +307,34 @@ public final class ActionsTestUtil {
     }
   }
 
+  static class NullArtifactOwner implements ArtifactOwner {
+    private NullArtifactOwner() {}
+
+    @Override
+    public Label getLabel() {
+      return NULL_LABEL;
+    }
+  }
+
+  @AutoCodec
+  public static final ActionLookupKey NULL_ARTIFACT_OWNER =
+      new ActionLookupValue.ActionLookupKey() {
+        @Override
+        public SkyFunctionName functionName() {
+          return null;
+        }
+
+        @Override
+        public Label getLabel() {
+          return NULL_LABEL;
+        }
+      };
+
   public static final Artifact DUMMY_ARTIFACT =
-      new Artifact(
+      new Artifact.SourceArtifact(
+          ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())),
           PathFragment.create("/dummy"),
-          ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())));
+          NULL_ARTIFACT_OWNER);
 
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(
@@ -284,16 +348,9 @@ public final class ActionsTestUtil {
           null,
           null);
 
-  static class NullArtifactOwner implements ArtifactOwner {
-    private NullArtifactOwner() {}
-
-    @Override
-    public Label getLabel() {
-      return NULL_LABEL;
-    }
-  }
-
-  @AutoCodec public static final ArtifactOwner NULL_ARTIFACT_OWNER = new NullArtifactOwner();
+  @AutoCodec
+  public static final ActionLookupData NULL_ACTION_LOOKUP_DATA =
+      ActionLookupData.create(NULL_ARTIFACT_OWNER, 0);
 
   /** An unchecked exception class for action conflicts. */
   public static class UncheckedActionConflictException extends RuntimeException {
@@ -540,7 +597,7 @@ public final class ActionsTestUtil {
    * suffix and returns the Artifact.
    */
   public static Artifact getFirstArtifactEndingWith(
-      Iterable<Artifact> artifacts, String suffix) {
+      Iterable<? extends Artifact> artifacts, String suffix) {
     for (Artifact a : artifacts) {
       if (a.getExecPath().getPathString().endsWith(suffix)) {
         return a;
@@ -746,7 +803,7 @@ public final class ActionsTestUtil {
 
     @Override
     public void injectRemoteDirectory(
-        Artifact treeArtifact, Map<PathFragment, RemoteFileArtifactValue> children) {
+        SpecialArtifact treeArtifact, Map<PathFragment, RemoteFileArtifactValue> children) {
       throw new UnsupportedOperationException();
     }
 

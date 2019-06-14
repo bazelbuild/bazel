@@ -724,8 +724,18 @@ public class AndroidCommon {
             .setNeverlink(isNeverlink)
             .build();
 
-    resourceApk.addToConfiguredTargetBuilder(
-        builder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ true, isLibrary);
+    if (ruleContext
+            .getFragment(AndroidConfiguration.class)
+            .omitResourcesInfoProviderFromAndroidBinary()
+        && !isLibrary) {
+      // Binary rule; allow extracting merged manifest from Starlark via
+      // ctx.attr.android_binary.android.merged_manifest, but not much more.
+      builder.addSkylarkTransitiveInfo(
+          AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider(/*resourceInfo=*/ null));
+    } else {
+      resourceApk.addToConfiguredTargetBuilder(
+          builder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ true, isLibrary);
+    }
 
     return builder
         .setFilesToBuild(filesToBuild)

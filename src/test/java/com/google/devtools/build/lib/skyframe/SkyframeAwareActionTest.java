@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
@@ -41,13 +42,14 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -240,7 +242,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
   /** A mock skyframe-aware action that counts how many times it was executed. */
   private static class SkyframeAwareExecutionCountingAction
-      extends ExecutionCountingCacheBypassingAction implements SkyframeAwareAction {
+      extends ExecutionCountingCacheBypassingAction implements SkyframeAwareAction<IOException> {
     private final SkyKey actionDepKey;
 
     SkyframeAwareExecutionCountingAction(
@@ -250,12 +252,23 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public Object establishSkyframeDependencies(Environment env)
-        throws ExceptionBase, InterruptedException {
-      // Establish some Skyframe dependency. A real action would then use this to compute and
-      // cache data for the execute(...) method.
-      env.getValue(actionDepKey);
+    public Object processSkyframeValues(
+        ImmutableList<? extends SkyKey> keys,
+        Map<SkyKey, ValueOrException<IOException>> values,
+        boolean valuesMissing) {
+      assertThat(keys).containsExactly(actionDepKey);
+      assertThat(values.keySet()).containsExactly(actionDepKey);
       return null;
+    }
+
+    @Override
+    public ImmutableList<SkyKey> getDirectSkyframeDependencies() {
+      return ImmutableList.of(actionDepKey);
+    }
+
+    @Override
+    public Class<IOException> getExceptionType() {
+      return IOException.class;
     }
 
     @Override
@@ -424,7 +437,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null);
 
     // Sanity check that our invalidation receiver is working correctly. We'll rely on it again.
-    SkyKey actionKey = ActionExecutionValue.key(ACTION_LOOKUP_KEY, 0);
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     TrackingEvaluationProgressReceiver.EvaluatedEntry evaluatedAction =
         progressReceiver.getEvalutedEntry(actionKey);
     assertThat(evaluatedAction).isNotNull();
@@ -703,7 +716,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   private abstract static class SingleOutputSkyframeAwareAction extends SingleOutputAction
-      implements SkyframeAwareAction {
+      implements SkyframeAwareAction<IOException> {
     SingleOutputSkyframeAwareAction(@Nullable Artifact input, Artifact output) {
       super(input, output);
     }
@@ -716,6 +729,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     public boolean isVolatile() {
       return true;
+    }
+
+    @Override
+    public Class<IOException> getExceptionType() {
+      return IOException.class;
     }
   }
 
@@ -813,9 +831,20 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
     registerAction(
         new SingleOutputSkyframeAwareAction(genFile1, genFile2) {
+
           @Override
-          public Object establishSkyframeDependencies(Environment env) throws ExceptionBase {
-            assertThat(env.valuesMissing()).isFalse();
+          public ImmutableList<SkyKey> getDirectSkyframeDependencies() {
+            return ImmutableList.of();
+          }
+
+          @Override
+          public Object processSkyframeValues(
+              ImmutableList<? extends SkyKey> keys,
+              Map<SkyKey, ValueOrException<IOException>> values,
+              boolean valuesMissing) {
+            assertThat(keys).isEmpty();
+            assertThat(values).isEmpty();
+            assertThat(valuesMissing).isFalse();
             return null;
           }
 
@@ -826,7 +855,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
           @Override
           public ActionResult execute(ActionExecutionContext actionExecutionContext)
-              throws ActionExecutionException, InterruptedException {
+              throws ActionExecutionException {
             writeOutput(readInput(), "gen2");
             return ActionResult.EMPTY;
           }

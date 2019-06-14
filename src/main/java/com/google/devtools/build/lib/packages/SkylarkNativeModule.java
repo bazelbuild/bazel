@@ -37,7 +37,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       SkylarkList<?> include,
       SkylarkList<?> exclude,
       Integer excludeDirectories,
-      Boolean allowEmpty,
+      Object allowEmpty,
       FuncallExpression ast,
       Environment env)
       throws EvalException, ConversionException, InterruptedException {

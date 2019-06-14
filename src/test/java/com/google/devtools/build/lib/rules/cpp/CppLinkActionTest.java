@@ -18,19 +18,18 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -92,9 +91,18 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
-          public Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+          public Artifact.DerivedArtifact getDerivedArtifact(
+              PathFragment rootRelativePath, ArtifactRoot root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
+          }
+
+          @Override
+          public Artifact.DerivedArtifact getDerivedArtifact(
+              PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPaths) {
+            Preconditions.checkArgument(
+                !contentBasedPaths, "C++ tests don't use content-based outputs");
+            return getDerivedArtifact(rootRelativePath, root);
           }
         },
         masterConfig);
@@ -702,17 +710,16 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ruleContext,
                 ruleContext,
                 ruleContext.getLabel(),
-                new Artifact(
-                    PathFragment.create(outputPath),
-                    getTargetConfiguration()
-                        .getBinDirectory(ruleContext.getRule().getRepository())),
+                ActionsTestUtil.createArtifact(
+                    getTargetConfiguration().getBinDirectory(ruleContext.getRule().getRepository()),
+                    outputPath),
                 ruleContext.getConfiguration(),
                 toolchain,
                 toolchain.getFdoContext(),
                 featureConfiguration,
                 MockCppSemantics.INSTANCE)
             .addObjectFiles(nonLibraryInputs)
-            .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
+            .addLibraries(libraryInputs)
             .setLinkType(type)
             .setLinkerFiles(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
             .setLinkingMode(LinkingMode.STATIC);
@@ -732,7 +739,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   public Artifact getOutputArtifact(String relpath) {
-    return new Artifact(
+    return ActionsTestUtil.createArtifactWithExecPath(
         getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
         getTargetConfiguration().getBinFragment().getRelative(relpath));
   }
@@ -742,7 +749,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
     Path outputRoot = execRoot.getRelative("out");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRoot);
     try {
-      return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
+      return ActionsTestUtil.createArtifact(
+          root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -900,7 +908,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     return new SpecialArtifact(
         ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
+        ActionsTestUtil.NULL_ARTIFACT_OWNER,
         SpecialArtifactType.TREE);
   }
 
@@ -918,8 +926,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         new ArtifactExpander() {
@@ -969,8 +981,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         (artifact, output) -> {
@@ -1170,41 +1186,5 @@ public class CppLinkActionTest extends BuildViewTestCase {
             "-Wl,-S",
             "--sysroot=/usr/grte/v1")
         .inOrder();
-  }
-
-  @Test
-  @Deprecated
-  // TODO(b/113358321): Remove once #7670 is finished.
-  public void testSplitExecutableLinkCommandDynamicWithSplitting() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
-
-    FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
-
-    CppLinkAction linkAction =
-        createLinkBuilder(
-                ruleContext,
-                LinkTargetType.DYNAMIC_LIBRARY,
-                "dummyRuleContext/out.so",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                featureConfiguration)
-            .setLibraryIdentifier("library")
-            .build();
-    Pair<List<String>, List<String>> result = linkAction.getLinkCommandLine().splitCommandline();
-
-    assertThat(
-            result.first.stream()
-                .map(x -> removeOutDirectory(x))
-                .collect(ImmutableList.toImmutableList()))
-        .containsExactly(
-            "crosstool/gcc_tool",
-            "-shared",
-            "-o",
-            "/k8-fastbuild/bin/dummyRuleContext/out.so",
-            "-Wl,-S",
-            "--sysroot=/usr/grte/v1",
-            "@/k8-fastbuild/bin/dummyRuleContext/out.so-2.params")
-        .inOrder();
-    assertThat(result.second).isEmpty();
   }
 }

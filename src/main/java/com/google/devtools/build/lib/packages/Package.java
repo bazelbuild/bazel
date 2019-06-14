@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -23,6 +25,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -30,7 +33,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -55,7 +58,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -508,11 +510,9 @@ public class Package {
     return targets;
   }
 
-  /**
-   * Common getTargets implementation, accessible by {@link Package.Builder}.
-   */
-  private static Collection<Target> getTargets(Map<String, Target> targetMap) {
-    return Collections.unmodifiableCollection(targetMap.values());
+  /** Common getTargets implementation, accessible by {@link Package.Builder}. */
+  private static Set<Target> getTargets(BiMap<String, Target> targetMap) {
+    return targetMap.values();
   }
 
   /**
@@ -770,12 +770,13 @@ public class Package {
        *
        * @param pkg the loaded {@link Package}
        * @param starlarkSemantics are the semantics used to load the package
-       * @param loadTimeMs the wall time, in ms, that it took to load the package. More precisely,
-       *     this is the wall time of the call to {@link PackageFactory#createPackageFromAst}.
-       *     Notably, this does not include the time to read and parse the package's BUILD file, nor
-       *     the time to read, parse, or evaluate any of the transitively loaded .bzl files.
+       * @param loadTimeNanos the wall time, in ns, that it took to load the package. More
+       *     precisely, this is the wall time of the call to {@link
+       *     PackageFactory#createPackageFromAst}. Notably, this does not include the time to read
+       *     and parse the package's BUILD file, nor the time to read, parse, or evaluate any of the
+       *     transitively loaded .bzl files.
        */
-      void onLoadingComplete(Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeMs);
+      void onLoadingComplete(Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
     }
 
     /** {@link Helper} that simply calls the {@link Package} constructor. */
@@ -830,7 +831,7 @@ public class Package {
     private License defaultLicense = License.NO_LICENSE;
     private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
-    private Map<String, Target> targets = new LinkedHashMap<>();
+    private BiMap<String, Target> targets = HashBiMap.create();
     private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
     private ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
@@ -857,7 +858,22 @@ public class Package {
      */
     private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
-    private final Interner<ImmutableList<?>> listInterner = BlazeInterners.newStrongInterner();
+    private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
+
+    @ThreadCompatible
+    private static class ThreadCompatibleInterner<T> implements Interner<T> {
+      private final Map<T, T> interns = new HashMap<>();
+
+      @Override
+      public T intern(T sample) {
+        T t = interns.get(sample);
+        if (t != null) {
+          return t;
+        }
+        interns.put(sample, sample);
+        return sample;
+      }
+    }
 
     private boolean alreadyBuilt = false;
 
@@ -1212,7 +1228,7 @@ public class Package {
       }
     }
 
-    public Collection<Target> getTargets() {
+    public Set<Target> getTargets() {
       return Package.getTargets(targets);
     }
 
@@ -1425,36 +1441,47 @@ public class Package {
 
       // The Iterable returned by getTargets is sorted, so when we build up the list of tests by
       // processing it in order below, that list will be sorted too.
-      Iterable<Rule> sortedRules = Lists.newArrayList(getTargets(Rule.class));
 
-      if (discoverAssumedInputFiles) {
-        // All labels mentioned in a rule that refer to an unknown target in the
-        // current package are assumed to be InputFiles, so let's create them:
-        for (final Rule rule : sortedRules) {
+      List<Label> sortedTests = new ArrayList<>();
+      List<Rule> implicitTestSuites = new ArrayList<>();
+      Map<Label, InputFile> newInputFiles = new HashMap<>();
+      for (final Rule rule : getTargets(Rule.class)) {
+        if (discoverAssumedInputFiles) {
+          // All labels mentioned in a rule that refer to an unknown target in the
+          // current package are assumed to be InputFiles, so let's create them:
           for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-            createInputFileMaybe(
-                depEdge.getLabel(), rule.getAttributeLocation(depEdge.getAttribute().getName()));
+            InputFile inputFile =
+                createInputFileMaybe(
+                    depEdge.getLabel(),
+                    rule.getAttributeLocation(depEdge.getAttribute().getName()));
+            if (inputFile != null && !newInputFiles.containsKey(depEdge.getLabel())) {
+              newInputFiles.put(depEdge.getLabel(), inputFile);
+            }
           }
         }
-      }
 
-      // "test_suite" rules have the idiosyncratic semantics of implicitly
-      // depending on all tests in the package, iff tests=[] and suites=[].
-      // Note, we implement this here when the Package is fully constructed,
-      // since clearly this information isn't available at Rule construction
-      // time, as forward references are permitted.
-      List<Label> sortedTests = new ArrayList<>();
-      for (Rule rule : sortedRules) {
+        // "test_suite" rules have the idiosyncratic semantics of implicitly
+        // depending on all tests in the package, iff tests=[] and suites=[].
+        // Note, we implement this here when the Package is fully constructed,
+        // since clearly this information isn't available at Rule construction
+        // time, as forward references are permitted.
         if (TargetUtils.isTestRule(rule) && !TargetUtils.hasManualTag(rule)) {
           sortedTests.add(rule.getLabel());
         }
-      }
-      for (Rule rule : sortedRules) {
+
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
         if (rule.getRuleClass().equals("test_suite")
             && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()) {
-          rule.setAttributeValueByName("$implicit_tests", sortedTests);
+          implicitTestSuites.add(rule);
         }
+      }
+
+      for (InputFile inputFile : newInputFiles.values()) {
+        addInputFile(inputFile);
+      }
+
+      for (Rule rule : implicitTestSuites) {
+        rule.setAttributeValueByName("$implicit_tests", sortedTests);
       }
       return this;
     }
@@ -1474,7 +1501,7 @@ public class Package {
       }
 
       // Freeze targets and distributions.
-      targets = ImmutableMap.copyOf(targets);
+      targets = Maps.unmodifiableBiMap(targets);
       defaultDistributionSet =
           Collections.unmodifiableSet(defaultDistributionSet);
 
@@ -1510,20 +1537,24 @@ public class Package {
     }
 
     /**
-     * If "label" refers to a non-existent target in the current package, create
-     * an InputFile target.
+     * If "label" refers to a non-existent target in the current package, create an InputFile
+     * target.
      */
-    private void createInputFileMaybe(Label label, Location location) {
+    private InputFile createInputFileMaybe(Label label, Location location) {
       if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
         if (!targets.containsKey(label.getName())) {
-          addInputFile(label, location);
+          return new InputFile(pkg, label, location);
         }
       }
+      return null;
     }
 
     private InputFile addInputFile(Label label, Location location) {
-      InputFile inputFile = new InputFile(pkg, label, location);
-      Target prev = targets.put(label.getName(), inputFile);
+      return addInputFile(new InputFile(pkg, label, location));
+    }
+
+    private InputFile addInputFile(InputFile inputFile) {
+      Target prev = targets.put(inputFile.getLabel().getName(), inputFile);
       Preconditions.checkState(prev == null);
       return inputFile;
     }

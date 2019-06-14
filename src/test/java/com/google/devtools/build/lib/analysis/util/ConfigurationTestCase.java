@@ -114,6 +114,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     mockToolsConfig.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
     mockToolsConfig.create(
+        "/bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
+        "def maybe(repo_rule, name, **kwargs):",
+        "  if name not in native.existing_rules():",
+        "    repo_rule(name = name, **kwargs)");
+    mockToolsConfig.create(
         "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
         "def http_archive(**kwargs):",
         "  pass",

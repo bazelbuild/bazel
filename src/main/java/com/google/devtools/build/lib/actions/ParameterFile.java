@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.GccParamFileEscaper;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -55,13 +56,18 @@ public class ParameterFile {
     UNQUOTED,
 
     /**
-     * A parameter file where each parameter is correctly quoted for shell
-     * use, and separated by white space (space, tab, newline). This format is
-     * safe for all characters, but must be specially supported by the tool. In
-     * particular, it must not be used with gcc and related tools, which do not
-     * support this format as it is.
+     * A parameter file where each parameter is correctly quoted for shell use, and separated by
+     * white space (space, tab, newline). This format is safe for all characters, but must be
+     * specially supported by the tool. In particular, it must not be used with gcc and related
+     * tools, which do not support this format as it is.
      */
-    SHELL_QUOTED;
+    SHELL_QUOTED,
+
+    /**
+     * A parameter file where each parameter is correctly quoted for gcc or clang use, and separated
+     * by white space (space, tab, newline).
+     */
+    GCC_QUOTED;
   }
 
   @VisibleForTesting
@@ -92,8 +98,10 @@ public class ParameterFile {
       throws IOException {
     switch (type) {
       case SHELL_QUOTED:
-        Iterable<String> quotedContent = ShellEscaper.escapeAll(arguments);
-        writeContent(out, quotedContent, charset);
+        writeContent(out, ShellEscaper.escapeAll(arguments), charset);
+        break;
+      case GCC_QUOTED:
+        writeContent(out, GccParamFileEscaper.escapeAll(arguments), charset);
         break;
       case UNQUOTED:
         writeContent(out, arguments, charset);

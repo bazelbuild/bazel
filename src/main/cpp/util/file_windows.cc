@@ -11,8 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <ctype.h>  // isalpha
-#include <wchar.h>  // wcslen
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <ctype.h>   // isalpha
+#include <wchar.h>   // wcslen
 #include <wctype.h>  // iswalpha
 #include <windows.h>
 

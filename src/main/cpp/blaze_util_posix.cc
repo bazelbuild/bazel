@@ -141,23 +141,23 @@ static void handler(int signum) {
       if (++sigint_count >= 3) {
         SigPrintf(
             "\n%s caught third interrupt signal; killed.\n\n",
-            SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+            SignalHandler::Get().GetProductName().c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
           KillServerProcess(
               SignalHandler::Get().GetGlobals()->server_pid,
-              SignalHandler::Get().GetGlobals()->options->output_base);
+              SignalHandler::Get().GetOutputBase());
         }
         _exit(1);
       }
       SigPrintf(
           "\n%s caught interrupt signal; shutting down.\n\n",
-          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+          SignalHandler::Get().GetProductName().c_str());
       SignalHandler::Get().CancelServer();
       break;
     case SIGTERM:
       SigPrintf(
           "\n%s caught terminate signal; shutting down.\n\n",
-          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+          SignalHandler::Get().GetProductName().c_str());
       SignalHandler::Get().CancelServer();
       break;
     case SIGPIPE:
@@ -174,10 +174,14 @@ static void handler(int signum) {
   errno = saved_errno;
 }
 
-void SignalHandler::Install(GlobalVariables* globals,
+void SignalHandler::Install(const string &product_name,
+                            const string &output_base,
+                            GlobalVariables* globals,
                             SignalHandler::Callback cancel_server) {
-  _globals = globals;
-  _cancel_server = cancel_server;
+  product_name_ = product_name;
+  output_base_ = output_base;
+  globals_ = globals;
+  cancel_server_ = cancel_server;
 
   // Unblock all signals.
   sigset_t sigset;
@@ -335,7 +339,7 @@ bool SocketBlazeServerStartup::IsStillAlive() {
 // Returns zero on success or -1 on error, in which case errno is set to the
 // corresponding error details.
 int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
-                           const StartupOptions* options);
+                           const StartupOptions &options);
 
 void WriteSystemSpecificProcessIdentifier(
     const string& server_dir, pid_t server_pid);
@@ -347,7 +351,7 @@ int ExecuteDaemon(const string& exe,
                   const bool daemon_output_append,
                   const string& binaries_dir,
                   const string& server_dir,
-                  const StartupOptions* options,
+                  const StartupOptions &options,
                   BlazeServerStartup** server_startup) {
   const string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
   const string daemonize = blaze_util::JoinPath(binaries_dir, "daemonize");
@@ -715,9 +719,17 @@ bool IsEmacsTerminal() {
 // control characters is stderr, so we only care for the stderr descriptor type.
 bool IsStderrStandardTerminal() {
   string term = GetEnv("TERM");
+  bool isEmacs = IsEmacsTerminal();
+
+  // Emacs 22+ terminal emulation uses 'eterm-color' as its terminfo name and,
+  // more importantly, supports color in terminals.
+  // see https://github.com/emacs-mirror/emacs/blob/master/etc/NEWS.22#L331-L333
+  if (isEmacs && term == "eterm-color") {
+    return true;
+  }
   if (term.empty() || term == "dumb" || term == "emacs" ||
       term == "xterm-mono" || term == "symbolics" || term == "9term" ||
-      IsEmacsTerminal()) {
+      isEmacs) {
     return false;
   }
   return isatty(STDERR_FILENO);

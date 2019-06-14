@@ -22,7 +22,6 @@ java_library(
     ),
     deps = [
         ":abstract-blaze-query-env",
-        ":aquery-utils",
         ":aspect-resolver",
         ":fake-load-target",
         ":query-engine",
@@ -41,6 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

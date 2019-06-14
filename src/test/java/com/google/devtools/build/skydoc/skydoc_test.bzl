@@ -30,7 +30,8 @@ def skydoc_test(
         skydoc,
         deps = [],
         whitelisted_symbols = [],
-        semantic_flags = []):
+        semantic_flags = [],
+        format = "markdown"):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
     The test target is named "{name}_e2e_test".
@@ -53,6 +54,7 @@ def skydoc_test(
           <code>//foo:bar.bzl</code> does not build except when a user would specify
           <code>--incompatible_foo_semantic=false</code>, then this attribute should contain
           "--incompatible_foo_semantic=false"
+      format: The format of the output file.
     """
     actual_generated_doc = "%s_output.txt" % name
 
@@ -87,4 +89,5 @@ def skydoc_test(
         deps = ["%s_lib" % name],
         stardoc = skydoc,
         semantic_flags = semantic_flags,
+        format = format,
     )

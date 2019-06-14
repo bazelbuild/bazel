@@ -196,7 +196,14 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
   public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(CommandEnvironment env,
       boolean keepGoing, boolean orderedResults, int loadingPhaseThreads,
       Set<Setting> settings) {
-    return newQueryEnvironment(env, keepGoing, orderedResults, ImmutableList.<String>of(),
-        loadingPhaseThreads, settings);
+    return newQueryEnvironment(
+        env,
+        keepGoing,
+        orderedResults,
+        ImmutableList.<String>of(),
+        loadingPhaseThreads,
+        settings,
+        /* useForkJoinPool= */ false,
+        /*useGraphlessQuery=*/ false);
   }
 }

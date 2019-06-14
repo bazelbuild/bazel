@@ -3,64 +3,184 @@ layout: documentation
 title: Installing Bazel on Windows
 ---
 
-# <a name="windows"></a>Installing Bazel on Windows
+# Installing Bazel on Windows
 
-### Prerequisites
+## 1. Check your system
 
-*   64 bit Windows 7 or newer, or 64 bit Windows Server 2008 R2 or newer
+Recommended: 64 bit Windows 10, version 1703 (Creators Update) or newer, enable "Developer Mode".
 
-*   [Microsoft Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
+<!-- Developer mode: for symlink support. -->
 
-    These are common DLLs that Bazel needs. You may already have them installed.
+Also supported:
 
-Bazel 0.24.x and older:
+*   64 bit Windows 7 or newer
 
-*   [MSYS2 shell](https://msys2.github.io/)
+*   64 bit Windows Server 2008 R2 or newer
 
-Bazel 0.25.0 and newer:
+## 2. Install the prerequisites
 
-*   MSYS2 is not always required. Read about [Using Bazel without Bash](windows.html#using-bazel-without-bash).
+*   [Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
 
-### Getting Bazel
+*   [MSYS2 x86_64](https://www.msys2.org/)
 
-1.  [Download Bazel for Windows from GitHub](https://github.com/bazelbuild/bazel/releases).
+    You should use the default install path.
 
-    Look for `bazel-<version>-windows-x86_64.exe`, for example
-    `bazel-0.16.1-windows-x86_64.exe`.
+*   MSYS2 packages
 
-    **Tip:** Rename the binary to `bazel.exe` and move it to a directory on your
-    `%PATH%` (for example to `c:\bazel`), so you can run Bazel by typing `bazel`
-    in any directory.
+    Open the MSYS2 terminal, and run this command:
 
-1.  Edit environment variables.
+    ```
+    pacman -S zip unzip patch diffutils git
+    ```
 
-    Open the "Environment Variables" dialog box from Control Panel or Start
-    Menu, and add or edit the following variables under the "User variables"
-    section:
-    1.  **Edit `Path`**. Add new entries to the beginning of the list:
-        *   The directory of `bazel.exe`. (Example: `c:\bazel`).
-        *   The `usr\bin` directory of MSYS2. (Example: `c:\msys64\usr\bin`).
-        *   If you will build **Python** code: the directory of `python.exe`.
-            (Example: `c:\python3`).
-    1.  **Add `BAZEL_SH`**. Its value must be the path to MSYS2 Bash.
-        Example: `c:\msys64\usr\bin\bash.exe`
-    1.  **Add `JAVA_HOME`** (if you will build **Java** code). Its value must be
-        the directory where you installed the Java JDK 8, for example
-        `C:\Program Files\Java\jdk1.8.0_152`. In order to use this with the
-        default local_jdk javabase, it must be installed on a volume which
-        Windows considers to be **local**, network mounted filesystems will not
-        work.
+## 3. Download Bazel
 
-    **None of these paths should contain spaces or non-ASCII characters.**
+[Download the Bazel binary (<code>bazel-&lt;version&gt;-windows-x86_64.exe</code>) from
+ GitHub](https://github.com/bazelbuild/bazel/releases).
 
+Recommended: rename this binary to `bazel.exe` and move it to a directory on the `PATH`.
 
-### Other ways to get Bazel
+Alternatively you can:
 
-*   [Install Bazel using the Chocolatey package manager](#install-using-chocolatey)
-*   [Install Bazel using the Scoop package manager](#install-using-scoop)
-*   [Compile Bazel from source](install-compile-source.html)
+*   [Install from Chocolatey](#install-using-chocolatey) (see below)
+*   [Install from Scoop](#install-using-scoop) (see below)
+*   [Build from source](install-compile-source.html)
 
-#### Install using Chocolatey
+## 4. Optional: install compilers
+
+**You can skip this step. Bazel can work without these programs, but you may need them.**
+
+We recommend installing:
+
+*   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)
+
+    Make sure you install the C++ build tools with the Windows 10 SDK.
+
+    You will need this to build C++ code on Windows.
+
+    Also supported:
+
+    *   Visual Studio 2015 (or newer) with Visual C++ and Windows 10 SDK
+
+    *   Visual C++ Build Tools 2015 (or newer) and Windows 10 SDK
+
+*   Java SE Development Kit 10 (JDK) for Windows x64
+
+    You will need this to build Java code on Windows.
+
+    Also supported: Java 8, 9
+
+*   [Python 2.7 for Windows x86-64](https://www.python.org/downloads/windows/)
+
+    You will need this to build Python code on Windows.
+
+    Also supported: Python 3 or newer for Windows x86-64
+
+## 5. Done
+
+**You have successfully installed Bazel.**
+
+Troubleshooting: see the "Appendix" &gt; "Troubleshooting" section below.
+
+Tutorials: see the "Tutorials" section on the left navigation panel.
+
+---
+
+# Appendix
+
+Table of contents:
+
+*   [Troubleshooting](#troubleshooting)
+    *   [Problem: Bazel does not find Bash or bash.exe](#problem-bazel-does-not-find-bash-or-bashexe)
+    *   [Problem: Bazel does not find Visual Studio or Visual C++](#problem-bazel-does-not-find-visual-studio-or-visual-c)
+
+*   [Other ways to install Bazel](#other-ways-to-install-bazel)
+    *   [Install from Chocolatey](#install-using-chocolatey)
+    *   [Install from Scoop](#install-using-scoop)
+    *   [Build from source](install-compile-source.html)
+
+## Troubleshooting
+
+### Problem: Bazel does not find Bash or bash.exe
+
+**Possible reasons**:
+
+*   you installed MSYS2 not under the default install path
+
+*   you installed MSYS2 i686 instead of MSYS2 x86\_64
+
+*   you installed MSYS instead of MSYS2
+
+**Solution**:
+
+Ensure you installed MSYS2 x86\_64.
+
+If that doesn't help:
+
+1.  Go to Start Menu &gt; Settings.
+
+2.  Find the setting "Edit environment variables for your account"
+
+3.  Look at the list on the top ("User variables for &lt;username&gt;"), and click the "New..."
+    button below it.
+
+4.  For "Variable name", enter `BAZEL_SH`
+
+5.  Click "Browse File..."
+
+6.  Navigate to the MSYS2 directory, then to `usr\bin` below it.
+
+    For example, this might be `C:\msys64\usr\bin` on your system.
+
+7.  Select the `bash.exe` or `bash` file and click OK
+
+8.  The "Variable value" field now has the path to `bash.exe`. Click OK to close the window.
+
+9.  Done.
+
+    If you open a new cmd.exe or PowerShell terminal and run Bazel now, it will find Bash.
+
+### Problem: Bazel does not find Visual Studio or Visual C++
+
+**Possible reasons**:
+
+*   you installed multiple versions of Visual Studio
+
+*   you installed and removed various versions of Visual Studio
+
+*   you installed various versions of the Windows SDK
+
+*   you installed Visual Studio not under the default install path
+
+**Solution**:
+
+1.  Go to Start Menu &gt; Settings.
+
+2.  Find the setting "Edit environment variables for your account"
+
+3.  Look at the list on the top ("User variables for &lt;username&gt;"), and click the "New..."
+    button below it.
+
+4.  For "Variable name", enter `BAZEL_VC`
+
+5.  Click "Browse Directory..."
+
+6.  Navigate to the `VC` directory of Visual Studio.
+
+    For example, this might be `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC`
+    on your system.
+
+7.  Select the `VC` folder and click OK
+
+8.  The "Variable value" field now has the path to `VC`. Click OK to close the window.
+
+9.  Done.
+
+    If you open a new cmd.exe or PowerShell terminal and run Bazel now, it will find Visual C++.
+
+## Other ways to install Bazel
+
+### Install using Chocolatey
 
 1.  Install the [Chocolatey](https://chocolatey.org) package manager
 
@@ -76,7 +196,7 @@ See [Chocolatey installation and package maintenance
 guide](https://bazel.build/windows-chocolatey-maintenance.html) for more
 information about the Chocolatey package.
 
-#### Install using Scoop
+### Install using Scoop
 
 1.  Install the [Scoop](https://scoop.sh/) package manager using the following PowerShell command:
 
@@ -89,7 +209,3 @@ information about the Chocolatey package.
 See [Scoop installation and package maintenance
 guide](https://bazel.build/windows-scoop-maintenance.html) for more
 information about the Scoop package.
-
-### Using Bazel
-
-Once you have installed Bazel, see [Using Bazel on Windows](windows.html).

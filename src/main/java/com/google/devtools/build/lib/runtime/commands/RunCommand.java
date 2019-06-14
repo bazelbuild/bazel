@@ -394,7 +394,8 @@ public class RunCommand implements BlazeCommand  {
 
     if (targetToRun.getProvider(TestProvider.class) != null) {
       // This is a test. Provide it with a reasonable approximation of the actual test environment
-      ImmutableList<Artifact> statusArtifacts = TestProvider.getTestStatusArtifacts(targetToRun);
+      ImmutableList<Artifact.DerivedArtifact> statusArtifacts =
+          TestProvider.getTestStatusArtifacts(targetToRun);
       if (statusArtifacts.size() != 1) {
         env.getReporter().handle(Event.error(MULTIPLE_TESTS_MESSAGE));
         return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);

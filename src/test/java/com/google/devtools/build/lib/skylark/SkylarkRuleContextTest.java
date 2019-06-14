@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
@@ -31,7 +32,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -587,30 +588,31 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     result = (List<String>) evalRuleContextCode(
         createRuleContext("//test/getrule:genrule_attr"), "ruleContext.attr.s");
-    assertThat(result).containsExactly(
-        "name",
-        "visibility",
-        "transitive_configs",
-        "tags",
-        "generator_name",
-        "generator_function",
-        "generator_location",
-        "features",
-        "compatible_with",
-        "restricted_to",
-        "srcs",
-        "tools",
-        "toolchains",
-        "outs",
-        "cmd",
-        "output_to_bindir",
-        "local",
-        "message",
-        "executable",
-        "stamp",
-        "heuristic_label_expansion",
-        "kind",
-        "exec_compatible_with");
+    assertThat(result)
+        .containsAtLeast(
+            "name",
+            "visibility",
+            "transitive_configs",
+            "tags",
+            "generator_name",
+            "generator_function",
+            "generator_location",
+            "features",
+            "compatible_with",
+            "restricted_to",
+            "srcs",
+            "tools",
+            "toolchains",
+            "outs",
+            "cmd",
+            "output_to_bindir",
+            "local",
+            "message",
+            "executable",
+            "stamp",
+            "heuristic_label_expansion",
+            "kind",
+            "exec_compatible_with");
   }
 
   @Test
@@ -679,16 +681,54 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.actions.run(\n"
-            + "  inputs = ruleContext.files.srcs,\n"
-            + "  outputs = ruleContext.files.srcs,\n"
-            + "  arguments = ['--a','--b'],\n"
-            + "  executable = ruleContext.executable._idlclass)\n");
-    SpawnAction action =
-        (SpawnAction)
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = ['--a','--b'],",
+        "  executable = ruleContext.executable._idlclass)");
+    StarlarkAction action =
+        (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(action.getCommandFilename()).matches("^.*/IdlClass(\\.exe){0,1}$");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithUnusedInputsList() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_unused_inputs_list=True");
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = 'executable',",
+        "  unused_inputs_list = ruleContext.files.srcs[0])");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getUnusedInputsList()).isPresent();
+    assertThat(action.getUnusedInputsList().get().getFilename()).isEqualTo("a.txt");
+    assertThat(action.discoversInputs()).isTrue();
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithoutUnusedInputsList() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = 'executable',",
+        "  unused_inputs_list = None)");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getUnusedInputsList()).isEmpty();
+    assertThat(action.discoversInputs()).isFalse();
   }
 
   @Test
@@ -833,6 +873,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testDeriveArtifactLegacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(
@@ -845,7 +886,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testDeriveArtifact() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result = evalRuleContextCode(ruleContext, "ruleContext.new_file('a/b.txt')");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.actions.declare_file('a/b.txt')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/a/b.txt");
   }
@@ -889,6 +930,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testParamFileLegacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(
@@ -901,6 +943,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testParamFileSuffixLegacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(
@@ -1530,13 +1573,14 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//test:foo");
     Object filenames =
         evalRuleContextCode(
-            ruleContext, "[f.short_path for f in ruleContext.attr.dep.default_runfiles.files]");
+            ruleContext,
+            "[f.short_path for f in ruleContext.attr.dep.default_runfiles.files.to_list()]");
     assertThat(filenames).isInstanceOf(SkylarkList.class);
     SkylarkList filenamesList = (SkylarkList) filenames;
     assertThat(filenamesList).containsAtLeast("test/lib.py", "test/lib2.py");
     Object emptyFilenames =
         evalRuleContextCode(
-            ruleContext, "list(ruleContext.attr.dep.default_runfiles.empty_filenames)");
+            ruleContext, "ruleContext.attr.dep.default_runfiles.empty_filenames.to_list()");
     assertThat(emptyFilenames).isInstanceOf(SkylarkList.class);
     SkylarkList emptyFilenamesList = (SkylarkList) emptyFilenames;
     assertThat(emptyFilenamesList).containsExactly("test/__init__.py");
@@ -1544,7 +1588,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleWithInitContext = createRuleContext("//test:foo_with_init");
     Object noEmptyFilenames =
         evalRuleContextCode(
-            ruleWithInitContext, "list(ruleContext.attr.dep.default_runfiles.empty_filenames)");
+            ruleWithInitContext, "ruleContext.attr.dep.default_runfiles.empty_filenames.to_list()");
     assertThat(noEmptyFilenames).isInstanceOf(SkylarkList.class);
     SkylarkList noEmptyFilenamesList = (SkylarkList) noEmptyFilenames;
     assertThat(noEmptyFilenamesList).isEmpty();
@@ -1587,7 +1631,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         evalRuleContextCode(
             ruleWithSymlinkContext,
             "[s.path for s in",
-            "ruleContext.attr.data[0].data_runfiles.symlinks]");
+            "ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     assertThat(symlinkPaths).isInstanceOf(SkylarkList.class);
     SkylarkList<String> symlinkPathsList = (SkylarkList<String>) symlinkPaths;
     assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
@@ -1595,7 +1639,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         evalRuleContextCode(
             ruleWithSymlinkContext,
             "[s.target_file.short_path for s in",
-            "ruleContext.attr.data[0].data_runfiles.symlinks]");
+            "ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     assertThat(symlinkFilenames).isInstanceOf(SkylarkList.class);
     SkylarkList<String> symlinkFilenamesList = (SkylarkList<String>) symlinkFilenames;
     assertThat(symlinkFilenamesList).containsExactly("test/a.py").inOrder();
@@ -1638,7 +1682,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         evalRuleContextCode(
             ruleWithSymlinkContext,
             "[s.path for s in",
-            "ruleContext.attr.data[0].data_runfiles.symlinks]");
+            "ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     assertThat(symlinkPaths).isInstanceOf(SkylarkList.class);
     SkylarkList<String> symlinkPathsList = (SkylarkList<String>) symlinkPaths;
     assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
@@ -1646,7 +1690,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         evalRuleContextCode(
             ruleWithSymlinkContext,
             "[s.target_file.short_path for s in",
-            "ruleContext.attr.data[0].data_runfiles.symlinks]");
+            "ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     assertThat(symlinkFilenames).isInstanceOf(SkylarkList.class);
     SkylarkList<String> symlinkFilenamesList = (SkylarkList<String>) symlinkFilenames;
     assertThat(symlinkFilenamesList).containsExactly("test/a.py").inOrder();
@@ -1690,7 +1734,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         evalRuleContextCode(
             ruleWithRootSymlinkContext,
             "[s.path for s in",
-            "ruleContext.attr.data[0].data_runfiles.root_symlinks]");
+            "ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
     assertThat(rootSymlinkPaths).isInstanceOf(SkylarkList.class);
     SkylarkList<String> rootSymlinkPathsList = (SkylarkList<String>) rootSymlinkPaths;
     assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
@@ -1698,7 +1742,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         evalRuleContextCode(
             ruleWithRootSymlinkContext,
             "[s.target_file.short_path for s in",
-            "ruleContext.attr.data[0].data_runfiles.root_symlinks]");
+            "ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
     assertThat(rootSymlinkFilenames).isInstanceOf(SkylarkList.class);
     SkylarkList<String> rootSymlinkFilenamesList = (SkylarkList<String>) rootSymlinkFilenames;
     assertThat(rootSymlinkFilenamesList).containsExactly("test/a.py").inOrder();
@@ -1742,7 +1786,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         evalRuleContextCode(
             ruleWithRootSymlinkContext,
             "[s.path for s in",
-            "ruleContext.attr.data[0].data_runfiles.root_symlinks]");
+            "ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
     assertThat(rootSymlinkPaths).isInstanceOf(SkylarkList.class);
     SkylarkList<String> rootSymlinkPathsList = (SkylarkList<String>) rootSymlinkPaths;
     assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
@@ -1750,7 +1794,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         evalRuleContextCode(
             ruleWithRootSymlinkContext,
             "[s.target_file.short_path for s in",
-            "ruleContext.attr.data[0].data_runfiles.root_symlinks]");
+            "ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
     assertThat(rootSymlinkFilenames).isInstanceOf(SkylarkList.class);
     SkylarkList<String> rootSymlinkFilenamesList = (SkylarkList<String>) rootSymlinkFilenames;
     assertThat(rootSymlinkFilenamesList).containsExactly("test/a.py").inOrder();
@@ -1851,7 +1895,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object mapping = eval("actions.by_file");
     assertThat(mapping).isInstanceOf(SkylarkDict.class);
     assertThat((SkylarkDict<?, ?>) mapping).hasSize(1);
-    update("file", eval("list(ruleContext.attr.dep.files)[0]"));
+    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     Object actionUnchecked = eval("actions.by_file[file]");
     assertThat(actionUnchecked).isInstanceOf(ActionAnalysisMetadata.class);
   }
@@ -1881,7 +1925,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testAbstractActionInterface() throws Exception {
     setSkylarkSemanticsOptions(
-        "--incompatible_disallow_struct_provider_syntax=false");
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_rule_outputs_param=false");
     scratch.file("test/rules.bzl",
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
@@ -1913,10 +1958,10 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(eval("action2.content")).isEqualTo(Runtime.NONE);
     assertThat(eval("action1.substitutions")).isEqualTo(Runtime.NONE);
 
-    assertThat(eval("list(action1.inputs)")).isEqualTo(eval("[]"));
-    assertThat(eval("list(action1.outputs)")).isEqualTo(eval("[file1]"));
-    assertThat(eval("list(action2.inputs)")).isEqualTo(eval("[file1]"));
-    assertThat(eval("list(action2.outputs)")).isEqualTo(eval("[file2]"));
+    assertThat(eval("action1.inputs.to_list()")).isEqualTo(eval("[]"));
+    assertThat(eval("action1.outputs.to_list()")).isEqualTo(eval("[file1]"));
+    assertThat(eval("action2.inputs.to_list()")).isEqualTo(eval("[file1]"));
+    assertThat(eval("action2.outputs.to_list()")).isEqualTo(eval("[file2]"));
   }
 
   // For created_actions() tests, the "undertest" rule represents both the code under test and the
@@ -1925,7 +1970,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testCreatedActions() throws Exception {
     setSkylarkSemanticsOptions(
-        "--incompatible_disallow_struct_provider_syntax=false");
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
@@ -1991,7 +2037,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         simpleBuildDefinition);
     SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
     update("ruleContext", ruleContext);
-    update("file", eval("list(ruleContext.attr.dep.files)[0]"));
+    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(eval("type(action)")).isEqualTo("Action");
@@ -2008,7 +2054,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testRunShellUsesHelperScriptForLongCommand() throws Exception {
     setSkylarkSemanticsOptions(
-        "--incompatible_disallow_struct_provider_syntax=false");
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
@@ -2102,7 +2149,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         simpleBuildDefinition);
     SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
     update("ruleContext", ruleContext);
-    update("file", eval("list(ruleContext.attr.dep.files)[0]"));
+    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(eval("type(action)")).isEqualTo("Action");
@@ -2141,7 +2188,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         ")");
     SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
     update("ruleContext", ruleContext);
-    update("file", eval("list(ruleContext.attr.dep.files)[0]"));
+    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(eval("type(action)")).isEqualTo("Action");
@@ -2273,6 +2320,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     scratch.file("test/BUILD",
         "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
         "dep_rule(name = 'dep')",
@@ -2315,6 +2363,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testFrozenRuleContextForAspectsHasInaccessibleAttributes() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
     List<String> attributes = new ArrayList<>();
     attributes.addAll(ctxAttributes);
     attributes.addAll(ImmutableList.of(

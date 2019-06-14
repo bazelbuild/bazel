@@ -35,6 +35,7 @@ java_library(
     deps = [
         ":deps_collector_api",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//third_party:asm",

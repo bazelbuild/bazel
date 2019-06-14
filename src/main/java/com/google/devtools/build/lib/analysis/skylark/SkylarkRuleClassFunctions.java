@@ -703,11 +703,20 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             throw new EvalException(
                 location, "_whitelist_function_transition attribute must have a default value");
           }
-          if (!attr.getDefaultValueUnchecked()
-              .equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL)) {
+          Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
+          // Check the label value for package and target name, to make sure this works properly
+          // in Bazel where it is expected to be found under @bazel_tools.
+          if (!defaultLabel
+                  .getPackageName()
+                  .equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL.getPackageName())
+              || !defaultLabel
+                  .getName()
+                  .equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL.getName())) {
             throw new EvalException(
                 location,
-                "_whitelist_function_transition attribute does not have the expected value "
+                "_whitelist_function_transition attribute ("
+                    + defaultLabel
+                    + ") does not have the expected value "
                     + FunctionSplitTransitionWhitelist.WHITELIST_LABEL);
           }
           hasFunctionTransitionWhitelist = true;
@@ -789,18 +798,5 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {
       throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
     }
-  }
-
-  @Override
-  public SkylarkFileType fileType(SkylarkList types, Location loc, Environment env)
-      throws EvalException {
-    if (env.getSemantics().incompatibleDisallowFileType()) {
-      throw new EvalException(
-          loc,
-          "FileType function is not available. You may use a list of strings instead. "
-              + "You can temporarily reenable the function by passing the flag "
-              + "--incompatible_disallow_filetype=false");
-    }
-    return SkylarkFileType.of(types.getContents(String.class, "types"));
   }
 }

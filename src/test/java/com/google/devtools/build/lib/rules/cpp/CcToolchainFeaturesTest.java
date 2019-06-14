@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
@@ -136,7 +137,8 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
     Path outputRoot = execRoot.getRelative("out");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRoot);
     try {
-      return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
+      return ActionsTestUtil.createArtifact(
+          root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

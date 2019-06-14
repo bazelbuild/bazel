@@ -67,18 +67,20 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public List<String> getWorkspaceContents(MockToolsConfig config) {
     String bazelToolWorkspace = config.getPath("/bazel_tools_workspace").getPathString();
+    String bazelPlatformsWorkspace = config.getPath("/platforms").getPathString();
     String localConfigPlatformWorkspace =
         config.getPath("/local_config_platform_workspace").getPathString();
 
     return new ArrayList<>(
         ImmutableList.of(
             "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
+            "local_repository(name = 'platforms', path = '" + bazelPlatformsWorkspace + "')",
             "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "register_toolchains('@bazel_tools//tools/cpp:all')",
             "register_toolchains('@bazel_tools//tools/jdk:all')",
-            "register_toolchains('@bazel_tools//tools/python:all')",
+            "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
             "local_repository(name = 'local_config_platform', path = '"
                 + localConfigPlatformWorkspace
                 + "')"));
@@ -99,6 +101,25 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/local_config_xcode/WORKSPACE");
     config.create("/protobuf/WORKSPACE");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
+    config.create("/platforms/WORKSPACE", "workspace(name = 'platforms')");
+    config.create("/platforms/BUILD");
+    config.create(
+        "/platforms/cpu/BUILD",
+        "constraint_setting(name = 'cpu')",
+        "constraint_value(name = 'x86_32', constraint_setting = ':cpu')",
+        "constraint_value(name = 'x86_64', constraint_setting = ':cpu')",
+        "constraint_value(name = 'ppc', constraint_setting = ':cpu')",
+        "constraint_value(name = 'arm', constraint_setting = ':cpu')",
+        "constraint_value(name = 'aarch64', constraint_setting = ':cpu')",
+        "constraint_value(name = 's390x', constraint_setting = ':cpu')");
+
+    config.create(
+        "/platforms/os/BUILD",
+        "constraint_setting(name = 'os')",
+        "constraint_value(name = 'linux', constraint_setting = ':os')",
+        "constraint_value(name = 'osx', constraint_setting = ':os')",
+        "constraint_value(name = 'freebsd', constraint_setting = ':os')",
+        "constraint_value(name = 'windows', constraint_setting = ':os')");
     config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
     for (String filename :
@@ -152,6 +173,15 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  jars = ['JacocoCoverage_jarjar_deploy.jar'],",
         ")",
         "java_import(",
+        "  name = 'proguard_import',",
+        "  jars = ['proguard_rt.jar'],",
+        ")",
+        "java_binary(",
+        "  name = 'proguard',",
+        "  main_class = 'proguard.Proguard',",
+        "  runtime_deps = [':proguard_import'],",
+        ")",
+        "java_import(",
         "  name = 'TestRunner',",
         "  jars = ['TestRunner.jar'],",
         ")",
@@ -174,7 +204,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",
         "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
         "filegroup(name='JacocoCoverage', srcs = [])",
-        "filegroup(name='jacoco-blaze-agent', srcs = [])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar',",
         "               'turbine_deploy.jar','ExperimentalTestRunner_deploy.jar'])",
@@ -199,10 +228,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "/bazel_tools_workspace/tools/android/emulator/BUILD",
         Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
-    // Bundled Proguard used by android_sdk_repository
-    config.create(
-        "/bazel_tools_workspace/third_party/java/proguard/BUILD",
-        "exports_files(['proguard'])");
 
     config.create(
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
@@ -372,6 +397,24 @@ public final class BazelAnalysisMock extends AnalysisMock {
     embeddedBinariesRoot.createDirectoryAndParents();
     Path jdkWorkspacePath = embeddedBinariesRoot.getRelative("jdk.WORKSPACE");
     FileSystemUtils.writeContentAsLatin1(jdkWorkspacePath, "");
+  }
+
+  @Override
+  public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
+    config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    config.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
+    config.create(
+        "/bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
+        "def maybe(repo_rule, name, **kwargs):",
+        "  if name not in native.existing_rules():",
+        "    repo_rule(name = name, **kwargs)");
+    config.create(
+        "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
+        "def http_archive(**kwargs):",
+        "  pass",
+        "",
+        "def http_file(**kwargs):",
+        "  pass");
   }
 
   @Override

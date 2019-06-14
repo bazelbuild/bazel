@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -454,8 +456,20 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             derivedJarFunction,
             proguardOutputMap);
 
-    NestedSet<Artifact> nativeLibsAar =
-        AndroidCommon.collectTransitiveNativeLibs(ruleContext).build();
+    // Collect all native shared libraries across split transitions. Some AARs contain shared
+    // libraries across multiple architectures, e.g. x86 and armeabi-v7a, and need to be packed
+    // into the APK.
+    NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
+    for (Map.Entry<
+            com.google.common.base.Optional<String>,
+            ? extends List<? extends TransitiveInfoCollection>>
+        entry : ruleContext.getSplitPrerequisites("deps").entrySet()) {
+      for (AndroidNativeLibsInfo provider :
+          AnalysisUtils.getProviders(entry.getValue(), AndroidNativeLibsInfo.PROVIDER)) {
+        transitiveNativeLibs.addTransitive(provider.getNativeLibs());
+      }
+    }
+    NestedSet<Artifact> nativeLibsAar = transitiveNativeLibs.build();
 
     DexPostprocessingOutput dexPostprocessingOutput =
         androidSemantics.postprocessClassesDexZip(
@@ -560,11 +574,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ApkInfo targetApkProvider =
           ruleContext.getPrerequisite("instruments", Mode.TARGET, ApkInfo.PROVIDER);
 
-      Artifact targetApk = targetApkProvider.getApk();
-      Artifact instrumentationApk = zipAlignedApk;
-
       AndroidInstrumentationInfo instrumentationProvider =
-          new AndroidInstrumentationInfo(targetApk, instrumentationApk);
+          new AndroidInstrumentationInfo(targetApkProvider);
 
       builder.addNativeDeclaredProvider(instrumentationProvider);
 

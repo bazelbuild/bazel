@@ -167,6 +167,24 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
+  public void testGetArtifactOwnerInStarlark() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  f = ctx.actions.declare_file('rule_output')",
+        "  print('f owner is ' + str(f.owner))",
+        "  ctx.actions.write(",
+        "    output = f,",
+        "    content = 'foo',",
+        "  )",
+        "gen = rule(implementation = _impl)");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'gen')", "gen(name = 'a')");
+
+    update("//foo:a");
+    assertContainsEvent("DEBUG /workspace/foo/rule.bzl:3:3: f owner is //foo:a");
+  }
+
+  @Test
   public void testSyntaxErrorInDepPackage() throws Exception {
     // Check that a loading error in a dependency is properly reported.
     scratch.file("a/BUILD",
@@ -448,7 +466,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "java/b/rules.bzl",
         "def _impl(ctx):",
         "  print('debug in b')",
-        "  ctx.file_action(",
+        "  ctx.actions.write(",
         "    output = ctx.outputs.my_output,",
         "    content = 'foo',",
         "  )",
@@ -638,15 +656,13 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("parent/BUILD",
         "sh_library(name = 'foo',",
         "           srcs = ['//badpkg1:okay-target', '//okaypkg:transitively-bad-target'])");
-    Path badpkg1BuildFile = scratch.file("badpkg1/BUILD",
-        "exports_files(['okay-target'])",
-        "invalidbuildsyntax");
+    Path badpkg1BuildFile =
+        scratch.file("badpkg1/BUILD", "exports_files(['okay-target'])", "fail()");
     scratch.file("okaypkg/BUILD",
         "sh_library(name = 'transitively-bad-target',",
         "           srcs = ['//badpkg2:bad-target'])");
-    Path badpkg2BuildFile = scratch.file("badpkg2/BUILD",
-        "sh_library(name = 'bad-target')",
-        "invalidbuildsyntax");
+    Path badpkg2BuildFile =
+        scratch.file("badpkg2/BUILD", "sh_library(name = 'bad-target')", "fail()");
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:foo");
     assertThat(getFrequencyOfErrorsWithLocation(badpkg1BuildFile.asFragment(), eventCollector))
         .isEqualTo(1);
@@ -695,12 +711,9 @@ public class BuildViewTest extends BuildViewTestBase {
       return;
     }
     reporter.removeHandler(failFastHandler);
-    scratch.file("parent/BUILD",
-        "sh_library(name = 'a', deps = ['//child:b'])",
-        "parentisbad");
-    scratch.file("child/BUILD",
-        "sh_library(name = 'b')",
-        "childisbad");
+    scratch.file(
+        "parent/BUILD", "sh_library(name = 'a', deps = ['//child:b'])", "fail('parentisbad')");
+    scratch.file("child/BUILD", "sh_library(name = 'b')", "fail('childisbad')");
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:a");
     assertContainsEventWithFrequency("parentisbad", 1);
     assertContainsEventWithFrequency("childisbad", 1);
@@ -1042,12 +1055,10 @@ public class BuildViewTest extends BuildViewTestBase {
     }
     scratch.file("parent/BUILD",
         "sh_library(name = 'a', deps = ['//child:b'])");
-    scratch.file("child/BUILD",
-        "sh_library(name = 'b')",
-        "undefined_symbol");
+    scratch.file("child/BUILD", "sh_library(name = 'b')", "fail('some error')");
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//parent:a"));
-    assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    assertContainsEventWithFrequency("some error", 1);
     assertContainsEventWithFrequency(
         "Target '//child:b' contains an error and its package is in error and referenced "
         + "by '//parent:a'", 1);
@@ -1061,12 +1072,10 @@ public class BuildViewTest extends BuildViewTestBase {
     }
     scratch.file("parent/BUILD",
         "sh_library(name = 'a', deps = ['//child:b'])");
-    scratch.file("child/BUILD",
-        "sh_library(name = 'b')",
-        "undefined_symbol");
+    scratch.file("child/BUILD", "sh_library(name = 'b')", "fail('some error')");
     reporter.removeHandler(failFastHandler);
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:a");
-    assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    assertContainsEventWithFrequency("some error", 1);
     assertContainsEventWithFrequency(
         "Target '//child:b' contains an error and its package is in error and referenced "
         + "by '//parent:a'", 1);
@@ -1080,15 +1089,13 @@ public class BuildViewTest extends BuildViewTestBase {
     }
     scratch.file("parent/BUILD",
         "sh_library(name = 'a', deps = ['//child:b'])");
-    scratch.file("child/BUILD",
-        "sh_library(name = 'b')",
-        "undefined_symbol");
+    scratch.file("child/BUILD", "sh_library(name = 'b')", "fail('some error')");
     scratch.file("okay/BUILD",
         "sh_binary(name = 'okay', srcs = ['okay.sh'])");
     useConfiguration("--experimental_action_listener=//parent:a");
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//okay"));
-    assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    assertContainsEventWithFrequency("some error", 1);
     assertContainsEventWithFrequency(
         "Target '//child:b' contains an error and its package is in error and referenced "
         + "by '//parent:a'", 1);
@@ -1102,15 +1109,13 @@ public class BuildViewTest extends BuildViewTestBase {
     }
     scratch.file("parent/BUILD",
         "sh_library(name = 'a', deps = ['//child:b'])");
-    scratch.file("child/BUILD",
-        "sh_library(name = 'b')",
-        "undefined_symbol");
+    scratch.file("child/BUILD", "sh_library(name = 'b')", "fail('some error')");
     scratch.file("okay/BUILD",
         "sh_binary(name = 'okay', srcs = ['okay.sh'])");
     useConfiguration("--experimental_action_listener=//parent:a");
     reporter.removeHandler(failFastHandler);
     update(defaultFlags().with(Flag.KEEP_GOING), "//okay");
-    assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    assertContainsEventWithFrequency("some error", 1);
     assertContainsEventWithFrequency(
         "Target '//child:b' contains an error and its package is in error and referenced "
         + "by '//parent:a'", 1);

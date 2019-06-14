@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -93,6 +94,10 @@ public final class RuleConfiguredTargetBuilder {
    */
   @Nullable
   public ConfiguredTarget build() throws ActionConflictException {
+    // If allowing analysis failures, the current target may not propagate all of the
+    // expected providers; be lenient on such cases (for example, avoid precondition checks).
+    boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
+
     if (ruleContext.getConfiguration().enforceConstraints()) {
       checkConstraints();
     }
@@ -134,8 +139,13 @@ public final class RuleConfiguredTargetBuilder {
     // Create test action and artifacts if target was successfully initialized
     // and is a test.
     if (TargetUtils.isTestRule(ruleContext.getTarget())) {
-      Preconditions.checkState(runfilesSupport != null);
-      add(TestProvider.class, initializeTestProvider(filesToRunProvider));
+      if (runfilesSupport != null) {
+        add(TestProvider.class, initializeTestProvider(filesToRunProvider));
+      } else {
+        if (!allowAnalysisFailures) {
+          throw new IllegalStateException("Test rules must have runfiles");
+        }
+      }
     }
 
     ExtraActionArtifactsProvider extraActionsProvider =
@@ -213,13 +223,17 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    GeneratingActions generatingActions = Actions.filterSharedActionsAndThrowActionConflict(
-          analysisEnvironment.getActionKeyContext(), analysisEnvironment.getRegisteredActions());
+    GeneratingActions generatingActions =
+        Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+            analysisEnvironment.getActionKeyContext(),
+            analysisEnvironment.getRegisteredActions(),
+            ruleContext.getOwner(),
+            ((Rule) ruleContext.getTarget()).getOutputFiles());
     return new RuleConfiguredTarget(
         ruleContext,
         providers,
         generatingActions.getActions(),
-        generatingActions.getGeneratingActionIndex());
+        generatingActions.getArtifactsByOutputLabel());
   }
 
   private NestedSet<Label> transitiveLabels() {

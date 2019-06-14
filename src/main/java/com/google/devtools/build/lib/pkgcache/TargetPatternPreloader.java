@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -24,7 +23,18 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
- * A preloader for target patterns. See {@link TargetPatternEvaluator} for more details.
+ * A preloader for target patterns. Target patterns are a generalisation of labels to include
+ * wildcards for finding all packages recursively beneath some root, and for finding all targets
+ * within a package.
+ *
+ * <p>A list of target patterns implies a union of all the labels of each pattern. Each item in a
+ * list of target patterns may include a prefix negation operator, indicating that the sets of
+ * targets for this pattern should be subtracted from the set of targets for the preceding patterns
+ * (note this means that order matters). Thus, the following list of target patterns:
+ *
+ * <pre>foo/... -foo/bar:all</pre>
+ *
+ * means "all targets beneath <tt>foo</tt> except for those targets in package <tt>foo/bar</tt>.
  */
 @ThreadSafety.ThreadSafe
 public interface TargetPatternPreloader {
@@ -37,10 +47,11 @@ public interface TargetPatternPreloader {
    * keepGoing} is set to true. In that case, the patterns that failed to load have the error flag
    * set.
    */
-  Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
+  Map<String, Collection<Target>> preloadTargetPatterns(
       ExtendedEventHandler eventHandler,
       PathFragment relativeWorkingDirectory,
       Collection<String> patterns,
-      boolean keepGoing)
-          throws TargetParsingException, InterruptedException;
+      boolean keepGoing,
+      boolean useForkJoinPool)
+      throws TargetParsingException, InterruptedException;
 }

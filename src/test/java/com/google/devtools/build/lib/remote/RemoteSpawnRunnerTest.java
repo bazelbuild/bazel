@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -910,7 +911,8 @@ public class RemoteSpawnRunnerTest {
     options.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
 
     ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("outs"));
-    Artifact topLevelOutput = new Artifact(outputRoot.getRoot().getRelative("foo.bin"), outputRoot);
+    Artifact topLevelOutput =
+        ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("foo.bin"));
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(succeededAction);
@@ -1067,7 +1069,7 @@ public class RemoteSpawnRunnerTest {
 
         @Override
         public void injectRemoteDirectory(
-            Artifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+            Artifact.SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
           throw new UnsupportedOperationException();
         }
 

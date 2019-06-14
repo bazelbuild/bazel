@@ -14,6 +14,10 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_H_
 #define BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_H_
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <windows.h>
 
 #include <memory>
@@ -39,6 +43,15 @@ bool IsDevNull(const char_type* path) {
   return (path[0] == 'N' || path[0] == 'n') &&
          (path[1] == 'U' || path[1] == 'u') &&
          (path[2] == 'L' || path[2] == 'l');
+}
+
+template <typename char_type>
+bool HasDriveSpecifierPrefix(const char_type* p) {
+  if (HasUncPrefix(p)) {
+    return iswalpha(p[4]) && p[5] == ':' && (p[6] == '\\' || p[6] == '/');
+  } else {
+    return iswalpha(p[0]) && p[1] == ':' && (p[2] == '\\' || p[2] == '/');
+  }
 }
 
 std::wstring AddUncPrefixMaybe(const std::wstring& path);
@@ -143,6 +156,44 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result, wstring* error);
 // Returns DELETE_PATH_ERROR for unexpected errors. If `error` is not null, the
 // function writes an error message into it.
 int DeletePath(const wstring& path, wstring* error);
+
+// Returns a normalized form of the input `path`.
+//
+// Normalization:
+//   Normalization means removing "." references, resolving ".." references,
+//   and deduplicating "/" characters while converting them to "\\".  For
+//   example if `path` is "foo/../bar/.//qux", the result is "bar\\qux".
+//
+//   Uplevel references ("..") that cannot go any higher in the directory tree
+//   are preserved if the path is relative, and ignored if the path is
+//   absolute, e.g. "../../foo" is normalized to "..\\..\\foo" but "c:/.." is
+//   normalized to "c:\\".
+//
+//   This method does not check the semantics of the `path` beyond checking if
+//   it starts with a directory separator. Illegal paths such as one with a
+//   drive specifier in the middle (e.g. "foo/c:/bar") are accepted -- it's the
+//   caller's responsibility to pass a path that, when normalized, will be
+//   semantically correct.
+//
+//   Current directory references (".") are preserved if and only if they are
+//   the only path segment, so "./" becomes "." but "./foo" becomes "foo".
+//
+// Arguments:
+//   `path` must be a relative or absolute Windows path, it may use "/" instead
+//   of "\\". The path should not start with "/" or "\\".
+//
+// Result:
+//   Returns false if and only if the path starts with a directory separator.
+//
+//   The result won't have a UNC prefix, even if `path` did. The result won't
+//   have a trailing "\\" except when and only when the path is normalized to
+//   just a drive specifier (e.g. when `path` is "c:/" or "c:/foo/.."). The
+//   result will preserve the casing of the input, so "D:/Bar" becomes
+//   "D:\\Bar".
+std::string Normalize(const std::string& p);
+std::wstring Normalize(const std::wstring& p);
+
+bool GetCwd(std::wstring* result, DWORD* err_code);
 
 }  // namespace windows
 }  // namespace bazel

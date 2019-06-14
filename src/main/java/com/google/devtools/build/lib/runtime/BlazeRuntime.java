@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
@@ -344,8 +344,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             clock,
             execStartTimeNanos,
             options.enableCpuUsageProfiling,
-            options.enableJsonProfileDiet,
-            options.enableJsonMetadata);
+            options.enableJsonProfileDiet);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
@@ -464,14 +463,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return options;
   }
 
+  /**
+   * Returns the first module that is an instance of a given class or interface.
+   *
+   * @param moduleClass a class or interface that we want to match to a module
+   * @param <T> the type of the module's class
+   * @return a module that is an instance of this class or interface
+   */
   @SuppressWarnings("unchecked")
-  public <T extends BlazeModule> T getBlazeModule(Class<T> moduleClass) {
+  public <T> T getBlazeModule(Class<T> moduleClass) {
     for (BlazeModule module : blazeModules) {
-      if (module.getClass() == moduleClass) {
+      if (moduleClass.isInstance(module)) {
         return (T) module;
       }
     }
-
     return null;
   }
 
@@ -528,25 +533,18 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // exiting for us.
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
       if (eventBus != null) {
-        try {
-          workspace
-              .getSkyframeExecutor()
-              .notifyCommandComplete(
-                  new ExtendedEventHandler() {
-                    @Override
-                    public void post(Postable obj) {
-                      eventBus.post(obj);
-                    }
+        workspace
+            .getSkyframeExecutor()
+            .postLoggingStatsWhenCrashing(
+                new ExtendedEventHandler() {
+                  @Override
+                  public void post(Postable obj) {
+                    eventBus.post(obj);
+                  }
 
-                    @Override
-                    public void handle(Event event) {}
-                  });
-        } catch (InterruptedException e) {
-          logger.severe("InterruptedException when crashing: " + e);
-          // Follow the convention of interrupting the current thread, even though nothing can throw
-          // an interrupt after this.
-          Thread.currentThread().interrupt();
-        }
+                  @Override
+                  public void handle(Event event) {}
+                });
         eventBus.post(new CommandCompleteEvent(exitCode.getNumericExitCode()));
       }
     }
@@ -800,7 +798,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
     } catch (RuntimeException | Error e) { // A definite bug...
-      BugReport.printBug(OutErr.SYSTEM_OUT_ERR, e);
+      BugReport.printBug(OutErr.SYSTEM_OUT_ERR, e, /* oomMessage = */ null);
       BugReport.sendBugReport(e, Arrays.asList(args));
       System.exit(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
       throw e; // Shouldn't get here.
@@ -1149,8 +1147,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         BlazeCommandUtils.getStartupOptions(modules);
 
     // First parse the command line so that we get the option_sources argument
-    OptionsParser parser = OptionsParser.newOptionsParser(optionClasses);
-    parser.setAllowResidue(false);
+    OptionsParser parser = OptionsParser.newOptionsParser(false, optionClasses);
     parser.parse(PriorityCategory.COMMAND_LINE, null, args);
     Map<String, String> optionSources =
         parser.getOptions(BlazeServerStartupOptions.class).optionSources;
@@ -1163,8 +1160,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     : optionSources.get(option.getOptionName());
 
     // Then parse the command line again, this time with the correct option sources
-    parser = OptionsParser.newOptionsParser(optionClasses);
-    parser.setAllowResidue(false);
+    parser = OptionsParser.newOptionsParser(false, optionClasses);
     parser.parseWithSourceFunction(PriorityCategory.COMMAND_LINE, sourceFunction, args);
     return parser;
   }

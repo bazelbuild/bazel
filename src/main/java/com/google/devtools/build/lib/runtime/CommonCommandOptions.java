@@ -188,8 +188,17 @@ public class CommonCommandOptions extends OptionsBase {
   public String buildRequestId;
 
   @Option(
+      name = "oom_message",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "Custom message to be emitted on an out of memory failure.")
+  public String oomMessage;
+
+  @Option(
       name = "incompatible_remove_binary_profile",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {
@@ -198,6 +207,18 @@ public class CommonCommandOptions extends OptionsBase {
       },
       help = "If enabled, Bazel will write JSON-format profiles instead of binary profiles.")
   public boolean removeBinaryProfile;
+
+  @Option(
+      name = "incompatible_enable_profile_by_default",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, Bazel will generate a JSON profile by default.")
+  public boolean enableProfileByDefault;
 
   @Option(
     name = "experimental_generate_json_trace_profile",
@@ -254,14 +275,14 @@ public class CommonCommandOptions extends OptionsBase {
               + " too large.")
   public boolean enableJsonProfileDiet;
 
+  // TODO(twerth): Remove after Blaze is released with cl/248143034.
   @Option(
       name = "experimental_json_profile_metadata",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help =
-          "Adds some metadata (e.g. build ID) to the JSON profile."
-              + " Changes output from JSON array to JSON object format.")
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help = "Deprecated no-op.")
   public boolean enableJsonMetadata;
 
   @Option(

@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.makeUrl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 

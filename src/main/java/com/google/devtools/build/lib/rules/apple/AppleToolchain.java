@@ -106,7 +106,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
       case IOS_SIMULATOR:
         if (xcodeConfig
                 .getSdkVersionForPlatform(targetPlatform)
-                .compareTo(DottedVersion.fromString("9.0"))
+                .compareTo(DottedVersion.fromStringUnchecked("9.0"))
             >= 0) {
           relativePath = SYSTEM_FRAMEWORK_PATH;
         } else {

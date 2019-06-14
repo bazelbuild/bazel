@@ -1121,7 +1121,7 @@ public final class CcCompilationHelper {
   }
 
   /** @return the no-PIC header module artifact for the current target. */
-  private Artifact getHeaderModule(Artifact moduleMapArtifact) {
+  private Artifact.DerivedArtifact getHeaderModule(Artifact moduleMapArtifact) {
     PathFragment objectDir = CppHelper.getObjDirectory(label);
     PathFragment outputName =
         objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());
@@ -1129,7 +1129,7 @@ public final class CcCompilationHelper {
   }
 
   /** @return the pic header module artifact for the current target. */
-  private Artifact getPicHeaderModule(Artifact moduleMapArtifact) {
+  private Artifact.DerivedArtifact getPicHeaderModule(Artifact moduleMapArtifact) {
     PathFragment objectDir = CppHelper.getObjDirectory(label);
     PathFragment outputName =
         objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());

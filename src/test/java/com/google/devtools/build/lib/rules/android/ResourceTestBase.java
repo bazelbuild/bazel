@@ -213,7 +213,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
 
   private Artifact getArtifact(String subdir, String pathString) {
     Path path = fileSystem.getPath("/" + subdir + "/" + pathString);
-    return new Artifact(
+    return new Artifact.SourceArtifact(
         root, root.getExecPath().getRelative(root.getRoot().relativize(path)), OWNER);
   }
 

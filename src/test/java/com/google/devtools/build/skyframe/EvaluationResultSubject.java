@@ -14,8 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Fact.simpleFact;
-import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.skyframe.ErrorInfoSubjectFactory.assertThatErrorInfo;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.FailureMetadata;
@@ -26,7 +24,7 @@ import com.google.common.truth.Subject;
  * {@link Subject} for {@link EvaluationResult}. Please add to this class if you need more
  * functionality!
  */
-public class EvaluationResultSubject extends Subject<EvaluationResultSubject, EvaluationResult<?>> {
+public class EvaluationResultSubject extends Subject {
   private final EvaluationResult<?> actual;
 
   public EvaluationResultSubject(
@@ -47,21 +45,23 @@ public class EvaluationResultSubject extends Subject<EvaluationResultSubject, Ev
     }
   }
 
-  public Subject<?, ?> hasEntryThat(SkyKey key) {
-    return assertWithMessage("Entry for " + actualAsString()).that(actual.get(key));
+  public Subject hasEntryThat(SkyKey key) {
+    return check("get(%s)", key).that(actual.get(key));
   }
 
   public ErrorInfoSubject hasErrorEntryForKeyThat(SkyKey key) {
-    return assertThatErrorInfo(actual.getError(key)).named("Error entry for " + actualAsString());
+    return check("getError(%s)", key)
+        .about(new ErrorInfoSubjectFactory())
+        .that(actual.getError(key));
   }
 
   public IterableSubject hasDirectDepsInGraphThat(SkyKey parent) throws InterruptedException {
-    return assertWithMessage("Direct deps for " + parent + " in " + actualAsString())
+    return check("directDeps(%s)", parent)
         .that(actual.getWalkableGraph().getDirectDeps(ImmutableList.of(parent)).get(parent));
   }
 
   public IterableSubject hasReverseDepsInGraphThat(SkyKey child) throws InterruptedException {
-    return assertWithMessage("Reverse deps for " + child + " in " + actualAsString())
+    return check("reverseDeps(%s)", child)
         .that(actual.getWalkableGraph().getReverseDeps(ImmutableList.of(child)).get(child));
   }
 }

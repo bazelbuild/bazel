@@ -8,9 +8,6 @@ title: Aspects
 * ToC
 {:toc}
 
-**Status: Experimental**. We may make breaking changes to the API, but we will
-announce them.
-
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
 
@@ -175,7 +172,7 @@ an argument into an aspect implementation, and how to invoke an aspect from a ru
 FileCount.bzl file:
 
 ```python
-FileCount = provider(
+FileCountInfo = provider(
     fields = {
         'count' : 'number of files'
     }
@@ -192,8 +189,8 @@ def _file_count_aspect_impl(target, ctx):
                     count = count + 1
     # Get the counts from our dependencies.
     for dep in ctx.rule.attr.deps:
-        count = count + dep[FileCount].count
-    return [FileCount(count = count)]
+        count = count + dep[FileCountInfo].count
+    return [FileCountInfo(count = count)]
 
 file_count_aspect = aspect(implementation = _file_count_aspect_impl,
     attr_aspects = ['deps'],
@@ -204,7 +201,7 @@ file_count_aspect = aspect(implementation = _file_count_aspect_impl,
 
 def _file_count_rule_impl(ctx):
     for dep in ctx.attr.deps:
-        print(dep[FileCount].count)
+        print(dep[FileCountInfo].count)
 
 file_count_rule = rule(
     implementation = _file_count_rule_impl,
@@ -289,7 +286,7 @@ demonstrates how you could pass in a tool to a aspect:
 ### Aspect implementation
 
 ```python
-FileCount = provider(
+FileCountInfo = provider(
     fields = {
         'count' : 'number of files'
     }
@@ -306,16 +303,16 @@ def _file_count_aspect_impl(target, ctx):
                     count = count + 1
     # Get the counts from our dependencies.
     for dep in ctx.rule.attr.deps:
-        count = count + dep[FileCount].count
-    return [FileCount(count = count)]
+        count = count + dep[FileCountInfo].count
+    return [FileCountInfo(count = count)]
 ```
 
 Just like a rule implementation function, an aspect implementation function
 returns a struct of providers that are accessible to its dependencies.
 
-In this example, the ``FileCount`` is defined as a provider that has one field
-``count``. It is best practice to explicitly define the fields of a provider
-using the ``fields`` attribute.
+In this example, the ``FileCountInfo`` is defined as a provider that has one
+field ``count``. It is best practice to explicitly define the fields of a
+provider using the ``fields`` attribute.
 
 The set of providers for an aspect application A(X) is the union of providers
 that come from the implementation of a rule for target X and from
@@ -336,7 +333,7 @@ In this example, ``ctx.rule.attr.deps`` are Target objects that are the
 results of applying the aspect to the 'deps' of the original target to which
 the aspect has been applied.
 
-In the example, the aspect to accesses the ``FileCount`` provider from the
+In the example, the aspect to accesses the ``FileCountInfo`` provider from the
 target's dependencies to accumulate the total transitive number of files.
 
 ### Invoking the aspect from a rule
@@ -344,7 +341,7 @@ target's dependencies to accumulate the total transitive number of files.
 ```python
 def _file_count_rule_impl(ctx):
     for dep in ctx.attr.deps:
-        print(dep[FileCount].count)
+        print(dep[FileCountInfo].count)
 
 file_count_rule = rule(
     implementation = _file_count_rule_impl,
@@ -355,8 +352,8 @@ file_count_rule = rule(
 )
 ```
 
-The rule implementation demonstrates how to access the ``FileCount`` via
-the ``ctx.attr.deps``.
+The rule implementation demonstrates how to access the ``FileCountInfo``
+via the ``ctx.attr.deps``.
 
 The rule definition demonstrates how to define a parameter (``extension``)
 and give it a default value (``*``). Note that having a default value that

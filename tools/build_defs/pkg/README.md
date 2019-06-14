@@ -396,6 +396,31 @@ for more details on this.
       </td>
     </tr>
     <tr>
+      <td><code>config</code></td>
+      <td>
+        <code>File, optional</code>
+        <p>
+          config file used for debconf integration.
+        </p>
+        <p>
+          See <a href="https://www.debian.org/doc/debian-policy/ch-binary.html#prompting-in-maintainer-scripts">https://www.debian.org/doc/debian-policy/ch-binary.html#prompting-in-maintainer-scripts</a>.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>templates</code></td>
+      <td>
+        <code>File, optional</code>
+        <p>
+          templates file used for debconf integration.
+        </p>
+        <p>
+          See <a href="https://www.debian.org/doc/debian-policy/ch-binary.html#prompting-in-maintainer-scripts">https://www.debian.org/doc/debian-policy/ch-binary.html#prompting-in-maintainer-scripts</a>.
+        </p>
+      </td>
+    </tr>
+
+    <tr>
       <td><code>conffiles</code>, <code>conffiles_file</code></td>
       <td>
         <code>String list or File, optional</code>

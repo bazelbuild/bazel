@@ -126,6 +126,13 @@ public final class BuildEventId implements Serializable {
             .build());
   }
 
+  public static BuildEventId workspaceConfigId() {
+    BuildEventStreamProtos.BuildEventId.WorkspaceConfigId workspaceConfigId =
+        BuildEventStreamProtos.BuildEventId.WorkspaceConfigId.getDefaultInstance();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setWorkspace(workspaceConfigId).build());
+  }
+
   public static BuildEventId fetchId(String url) {
     BuildEventStreamProtos.BuildEventId.FetchId fetchId =
         BuildEventStreamProtos.BuildEventId.FetchId.newBuilder().setUrl(url).build();

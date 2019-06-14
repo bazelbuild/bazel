@@ -52,7 +52,7 @@ class RetainedHeapLimiter implements NotificationListener {
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
   private final ImmutableList<NotificationEmitter> tenuredGcEmitters;
   private OptionalInt occupiedHeapPercentageThreshold = OptionalInt.empty();
-  private AtomicLong lastTriggeredGcInMilliseconds = new AtomicLong();
+  private final AtomicLong lastTriggeredGcInMilliseconds = new AtomicLong();
 
   RetainedHeapLimiter() {
     this(ManagementFactory.getGarbageCollectorMXBeans());
@@ -145,9 +145,7 @@ class RetainedHeapLimiter implements NotificationListener {
                 String.format(
                     "RetainedHeapLimiter forcing exit due to GC thrashing: tenured space "
                         + "%s out of %s (>%s%%) occupied after back-to-back full GCs",
-                    space.getUsed(),
-                    space.getMax(),
-                    occupiedHeapPercentageThreshold);
+                    space.getUsed(), space.getMax(), occupiedHeapPercentageThreshold.getAsInt());
             System.err.println(exitMsg);
             logger.atInfo().log(exitMsg);
             // Exits the runtime.

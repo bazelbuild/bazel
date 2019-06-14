@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
+import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -100,6 +101,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -181,7 +183,7 @@ public final class SkyframeActionExecutor {
   // the lost input's generating action must be rerun before the failed action tries input discovery
   // again. A previously failed action satisfies that requirement by requesting the deps in this map
   // at the start of its next attempt,
-  private ConcurrentMap<OwnerlessArtifactWrapper, ImmutableList<Artifact>> lostDiscoveredInputsMap;
+  private ConcurrentMap<OwnerlessArtifactWrapper, ImmutableList<SkyKey>> lostDiscoveredInputsMap;
 
   // Errors found when examining all actions in the graph are stored here, so that they can be
   // thrown when execution of the action is requested. This field is set during each call to
@@ -355,12 +357,9 @@ public final class SkyframeActionExecutor {
     ExecutorService executor = Executors.newFixedThreadPool(
         numJobs,
         new ThreadFactoryBuilder().setNameFormat("ActionLookupValue Processor %d").build());
-    Set<ActionAnalysisMetadata> registeredActions = Sets.newConcurrentHashSet();
     for (List<ActionLookupValue> shard : actionShards) {
       executor.execute(
-          wrapper.wrap(
-              actionRegistration(
-                  shard, actionGraph, artifactPathMap, badActionMap, registeredActions)));
+          wrapper.wrap(actionRegistration(shard, actionGraph, artifactPathMap, badActionMap)));
     }
     boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
@@ -374,31 +373,22 @@ public final class SkyframeActionExecutor {
       final List<ActionLookupValue> values,
       final MutableActionGraph actionGraph,
       final ConcurrentMap<PathFragment, Artifact> artifactPathMap,
-      final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap,
-      final Set<ActionAnalysisMetadata> registeredActions) {
-    return new Runnable() {
-      @Override
-      public void run() {
-        for (ActionLookupValue value : values) {
-          for (Map.Entry<Artifact, ActionAnalysisMetadata> entry :
-              value.getMapForConsistencyCheck().entrySet()) {
-            ActionAnalysisMetadata action = entry.getValue();
-            // We have an entry for each <action, artifact> pair. Only try to register each action
-            // once.
-            if (registeredActions.add(action)) {
-              try {
-                actionGraph.registerAction(action);
-              } catch (ActionConflictException e) {
-                Exception oldException = badActionMap.put(action, new ConflictException(e));
-                Preconditions.checkState(
-                    oldException == null, "%s | %s | %s", action, e, oldException);
-                // We skip the rest of the loop, and do not add the path->artifact mapping for this
-                // artifact below -- we don't need to check it since this action is already in
-                // error.
-                continue;
-              }
-            }
-            artifactPathMap.put(entry.getKey().getExecPath(), entry.getKey());
+      final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
+    return () -> {
+      for (ActionLookupValue value : values) {
+        for (ActionAnalysisMetadata action : value.getActions()) {
+          try {
+            actionGraph.registerAction(action);
+          } catch (ActionConflictException e) {
+            Exception oldException = badActionMap.put(action, new ConflictException(e));
+            Preconditions.checkState(oldException == null, "%s | %s | %s", action, e, oldException);
+            // We skip the rest of the loop, and do not add the path->artifact mapping for this
+            // artifact below -- we don't need to check it since this action is already in
+            // error.
+            continue;
+          }
+          for (Artifact output : action.getOutputs()) {
+            artifactPathMap.put(output.getExecPath(), output);
           }
         }
       }
@@ -512,11 +502,11 @@ public final class SkyframeActionExecutor {
   }
 
   @Nullable
-  ImmutableList<Artifact> getLostDiscoveredInputs(Action action) {
+  ImmutableList<SkyKey> getLostDiscoveredInputs(Action action) {
     return lostDiscoveredInputsMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
-  void resetFailedActionExecution(Action action, ImmutableList<Artifact> lostDiscoveredInputs) {
+  void resetFailedActionExecution(Action action, ImmutableList<SkyKey> lostDiscoveredInputs) {
     OwnerlessArtifactWrapper ownerlessArtifactWrapper =
         new OwnerlessArtifactWrapper(action.getPrimaryOutput());
     buildActionMap.remove(ownerlessArtifactWrapper);
@@ -762,6 +752,8 @@ public final class SkyframeActionExecutor {
           e,
           actionExecutionContext.getFileOutErr(),
           ErrorTiming.BEFORE_EXECUTION);
+    } finally {
+      actionExecutionContext.getEventHandler().post(new StoppedScanningActionEvent(action));
     }
   }
 
@@ -1215,7 +1207,10 @@ public final class SkyframeActionExecutor {
             outputDir.createDirectoryAndParents();
           } catch (IOException e) {
             throw new ActionExecutionException(
-                "failed to create output directory '" + outputDir + "'", e, action, false);
+                "failed to create output directory '" + outputDir + "': " + e.getMessage(),
+                e,
+                action,
+                false);
           }
         }
       }
@@ -1238,8 +1233,13 @@ public final class SkyframeActionExecutor {
       fileOutErr.getErrorPath().getParentDirectory().createDirectoryAndParents();
     } catch (IOException e) {
       throw new ActionExecutionException(
-          "failed to create output directory for output streams'" + fileOutErr.getErrorPath() + "'",
-          e, action, false);
+          "failed to create output directory for output streams'"
+              + fileOutErr.getErrorPath()
+              + "': "
+              + e.getMessage(),
+          e,
+          action,
+          false);
     }
   }
 

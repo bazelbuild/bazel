@@ -181,9 +181,6 @@ def _generate_build_file(ctx, template, paths):
     )
     ctx.file("%s/BUILD" % paths.symlink_dir, contents, False)
 
-def _file_exists(ctx, filename):
-    return _execute(ctx, "[[ -f %s ]] && exit 0 || exit 1" % filename).return_code == 0
-
 # Constructs the maven command to retrieve the dependencies from remote
 # repositories using the dependency plugin, and executes it.
 def _mvn_download(ctx, paths, fully_qualified_name):

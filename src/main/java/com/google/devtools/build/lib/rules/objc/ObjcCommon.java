@@ -200,13 +200,18 @@ public final class ObjcCommon {
 
       for (ConfiguredTargetAndData dep : deps) {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
-        addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
-        addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
-        if (isCcLibrary(dep)) {
-          cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingContext());
-          CcCompilationContext ccCompilationContext =
-              depCT.get(CcInfo.PROVIDER).getCcCompilationContext();
-          addDefines(ccCompilationContext.getDefines());
+        // It is redundant to process both ObjcProvider and CcInfo; doing so causes direct header
+        // field to include indirect headers from deps.
+        if (depCT.get(ObjcProvider.SKYLARK_CONSTRUCTOR) != null) {
+          addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        } else {
+          addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
+          if (isCcLibrary(dep)) {
+            cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingContext());
+            CcCompilationContext ccCompilationContext =
+                depCT.get(CcInfo.PROVIDER).getCcCompilationContext();
+            addDefines(ccCompilationContext.getDefines());
+          }
         }
       }
       ImmutableList.Builder<CcCompilationContext> ccCompilationContextBuilder =
@@ -415,7 +420,8 @@ public final class ObjcCommon {
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))
             .addAll(HEADER, filterFileset(attributes.textualHdrs()))
-            .addAll(INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
+            .addTransitiveAndPropagate(
+                INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
             .addAll(INCLUDE, sdkIncludes)
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
             .addAll(WEAK_SDK_FRAMEWORK, attributes.weakSdkFrameworks())

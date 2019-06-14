@@ -205,7 +205,7 @@ public class GlobTest {
           }
 
           @Override
-          public Collection<Dirent> readdir(Path path, Symlinks symlinks) {
+          public Collection<Dirent> readdir(Path path) {
             throw new IllegalStateException();
           }
 
@@ -236,7 +236,7 @@ public class GlobTest {
           }
 
           @Override
-          public Collection<Dirent> readdir(Path path, Symlinks symlinks) {
+          public Collection<Dirent> readdir(Path path) {
             throw new IllegalStateException();
           }
 

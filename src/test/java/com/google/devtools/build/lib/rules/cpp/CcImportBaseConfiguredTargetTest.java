@@ -114,7 +114,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   }
 
   @Test
-  public void testWrongCcImportDefinitionsOnWindows() throws Exception {
+  public void testRuntimeOnlyCcImportDefinitionsOnWindows() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -124,15 +124,22 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
                     CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
                     CppRuleClasses.TARGETS_WINDOWS));
     useConfiguration();
-    checkError(
-        "a",
-        "foo",
-        "'interface library' must be specified when using cc_import for shared library on Windows",
-        skylarkImplementationLoadStatement,
-        "cc_import(",
-        "  name = 'foo',",
-        "  shared_library = 'libfoo.dll',",
-        ")");
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "a",
+            "foo",
+            skylarkImplementationLoadStatement,
+            "cc_import(name = 'foo', shared_library = 'libfoo.dll')");
+    Artifact dynamicLibrary =
+        Iterables.getOnlyElement(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries())
+            .getResolvedSymlinkDynamicLibrary();
+    Iterable<Artifact> dynamicLibrariesForRuntime =
+        target
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
+    assertThat(dynamicLibrary).isEqualTo(null);
+    assertThat(artifactsToStrings(dynamicLibrariesForRuntime)).containsExactly("src a/libfoo.dll");
   }
 
   @Test

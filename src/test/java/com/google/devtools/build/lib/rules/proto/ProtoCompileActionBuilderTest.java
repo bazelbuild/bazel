@@ -23,6 +23,7 @@ import static org.mockito.Mockito.mock;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -144,8 +145,7 @@ public class ProtoCompileActionBuilderTest {
             /* toolchainInvocations= */ ImmutableList.of(),
             "bazel-out",
             protoInfo(
-                /* directProtos */ ImmutableList.of(
-                    derivedArtifact("//:dont-care", "source_file.proto")),
+                /* directProtos */ ImmutableList.of(derivedArtifact("source_file.proto")),
                 /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
                 /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
                 /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(
@@ -367,35 +367,31 @@ public class ProtoCompileActionBuilderTest {
     assertThat(
             protoArgv(
                 null /* directDependencies */,
-                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")),
+                ImmutableList.of(derivedArtifact("foo.proto")),
                 ImmutableList.of(".")))
         .containsExactly("-Ifoo.proto=out/foo.proto");
 
     assertThat(
             protoArgv(
                 ImmutableList.of() /* directDependencies */,
-                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")),
+                ImmutableList.of(derivedArtifact("foo.proto")),
                 ImmutableList.of(".")))
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=");
 
     assertThat(
             protoArgv(
                 ImmutableList.of(
-                    Pair.of(
-                        derivedArtifact("//:dont-care", "foo.proto"),
-                        null)) /* directDependencies */,
-                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")),
+                    Pair.of(derivedArtifact("foo.proto"), null)) /* directDependencies */,
+                ImmutableList.of(derivedArtifact("foo.proto")),
                 ImmutableList.of(".")))
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto");
 
     assertThat(
             protoArgv(
                 ImmutableList.of(
-                    Pair.of(derivedArtifact("//:dont-care", "foo.proto"), null),
-                    Pair.of(
-                        derivedArtifact("//:dont-care", "bar.proto"),
-                        null)) /* directDependencies */,
-                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")),
+                    Pair.of(derivedArtifact("foo.proto"), null),
+                    Pair.of(derivedArtifact("bar.proto"), null)) /* directDependencies */,
+                ImmutableList.of(derivedArtifact("foo.proto")),
                 ImmutableList.of(".")))
         .containsExactly(
             "-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto:bar.proto");
@@ -429,18 +425,21 @@ public class ProtoCompileActionBuilderTest {
   }
 
   private Artifact artifact(String ownerLabel, String path) {
-    return new Artifact(
+    return new Artifact.SourceArtifact(
         root,
         root.getExecPath().getRelative(path),
         new LabelArtifactOwner(Label.parseAbsoluteUnchecked(ownerLabel)));
   }
 
   /** Creates a dummy artifact with the given path, that actually resides in /out/<path>. */
-  private Artifact derivedArtifact(String ownerLabel, String path) {
-    return new Artifact(
-        derivedRoot,
-        derivedRoot.getExecPath().getRelative(path),
-        new LabelArtifactOwner(Label.parseAbsoluteUnchecked(ownerLabel)));
+  private Artifact derivedArtifact(String path) {
+    Artifact.DerivedArtifact derivedArtifact =
+        new Artifact.DerivedArtifact(
+            derivedRoot,
+            derivedRoot.getExecPath().getRelative(path),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    derivedArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    return derivedArtifact;
   }
 
   private static Iterable<String> protoArgv(

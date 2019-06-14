@@ -93,27 +93,6 @@ class StartupOptions {
  public:
   virtual ~StartupOptions();
 
-  // Parses a single argument, either from the command line or from the .blazerc
-  // "startup" options.
-  //
-  // rcfile should be an empty string if the option being parsed does not come
-  // from a blazerc.
-  //
-  // Sets "is_space_separated" true if arg is unary and uses the "--foo bar"
-  // style, so its value is in next_arg.
-  //
-  // Sets "is_space_separated" false if arg is either nullary
-  // (e.g. "--[no]batch") or is unary but uses the "--foo=bar" style.
-  //
-  // Returns the exit code after processing the argument. "error" will contain
-  // a descriptive string for any return value other than
-  // blaze_exit_code::SUCCESS.
-  blaze_exit_code::ExitCode ProcessArg(const std::string &arg,
-                                       const std::string &next_arg,
-                                       const std::string &rcfile,
-                                       bool *is_space_separated,
-                                       std::string *error);
-
   // Process an ordered list of RcStartupFlags using ProcessArg.
   blaze_exit_code::ExitCode ProcessArgs(
       const std::vector<RcStartupFlag>& rcstartup_flags,
@@ -125,35 +104,18 @@ class StartupOptions {
   // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
   virtual void AddExtraOptions(std::vector<std::string> *result) const;
 
-  // Checks extra fields when processing arg.
-  //
-  // Returns the exit code after processing the argument. "error" will contain
-  // a descriptive string for any return value other than
-  // blaze_exit_code::SUCCESS.
-  //
-  // TODO(jmmv): Now that we support site-specific options via subclasses of
-  // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
-  virtual blaze_exit_code::ExitCode ProcessArgExtra(
-      const char *arg, const char *next_arg, const std::string &rcfile,
-      const char **value, bool *is_processed, std::string *error) = 0;
-
   // Once startup options have been parsed, warn the user if certain options
   // might combine in surprising ways.
   virtual void MaybeLogStartupOptionWarnings() const = 0;
 
-  // Returns the absolute path to the user's local JDK install, to be used as
-  // the default target javabase and as a fall-back host_javabase. This is not
-  // the embedded JDK.
-  virtual std::string GetSystemJavabase() const;
-
   // Returns the path to the JVM. This should be called after parsing
   // the startup options.
-  virtual std::string GetJvm();
+  virtual std::string GetJvm() const;
 
   // Returns the executable used to start the Blaze server, typically the given
   // JVM.
   virtual std::string GetExe(const std::string &jvm,
-                             const std::string &jar_path);
+                             const std::string &jar_path) const;
 
   // Adds JVM prefix flags to be set. These will be added before all other
   // JVM flags.
@@ -171,20 +133,6 @@ class StartupOptions {
   // Returns the exit code after this operation. "error" will be set to a
   // descriptive string for any value other than blaze_exit_code::SUCCESS.
   blaze_exit_code::ExitCode AddJVMArguments(
-      const std::string &server_javabase, std::vector<std::string> *result,
-      const std::vector<std::string> &user_options, std::string *error) const;
-
-  // Adds JVM logging-related flags for Bazel.
-  //
-  // This is called by StartupOptions::AddJVMArguments and is a separate method
-  // so that subclasses of StartupOptions can override it.
-  virtual void AddJVMLoggingArguments(std::vector<std::string> *result) const;
-
-  // Adds JVM memory tuning flags for Bazel.
-  //
-  // This is called by StartupOptions::AddJVMArguments and is a separate method
-  // so that subclasses of StartupOptions can override it.
-  virtual blaze_exit_code::ExitCode AddJVMMemoryArguments(
       const std::string &server_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
 
@@ -273,11 +221,11 @@ class StartupOptions {
   std::map<std::string, std::string> option_sources;
 
   // Returns the embedded JDK, or an empty string.
-  std::string GetEmbeddedJavabase();
+  std::string GetEmbeddedJavabase() const;
 
   // Returns the GetHostJavabase. This should be called after parsing
   // the --server_javabase option.
-  std::string GetServerJavabase();
+  std::string GetServerJavabase() const;
 
   // Returns the explicit value of the --server_javabase startup option or the
   // empty string if it was not specified on the command line.
@@ -326,13 +274,69 @@ class StartupOptions {
   StartupOptions(const std::string &product_name,
                  const WorkspaceLayout *workspace_layout);
 
+  // Checks extra fields when processing arg.
+  //
+  // Returns the exit code after processing the argument. "error" will contain
+  // a descriptive string for any return value other than
+  // blaze_exit_code::SUCCESS.
+  //
+  // TODO(jmmv): Now that we support site-specific options via subclasses of
+  // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
+  virtual blaze_exit_code::ExitCode ProcessArgExtra(
+      const char *arg, const char *next_arg, const std::string &rcfile,
+      const char **value, bool *is_processed, std::string *error) = 0;
+
+  // Returns the absolute path to the user's local JDK install, to be used as
+  // the default target javabase and as a fall-back host_javabase. This is not
+  // the embedded JDK.
+  virtual std::string GetSystemJavabase() const;
+
+  // Adds JVM logging-related flags for Bazel.
+  //
+  // This is called by StartupOptions::AddJVMArguments and is a separate method
+  // so that subclasses of StartupOptions can override it.
+  virtual void AddJVMLoggingArguments(std::vector<std::string> *result) const;
+
+  // Adds JVM memory tuning flags for Bazel.
+  //
+  // This is called by StartupOptions::AddJVMArguments and is a separate method
+  // so that subclasses of StartupOptions can override it.
+  virtual blaze_exit_code::ExitCode AddJVMMemoryArguments(
+      const std::string &server_javabase, std::vector<std::string> *result,
+      const std::vector<std::string> &user_options, std::string *error) const;
+
   void RegisterUnaryStartupFlag(const std::string& flag_name);
 
   void RegisterNullaryStartupFlag(const std::string& flag_name);
 
  private:
-  std::string server_javabase_;
-  std::string default_server_javabase_;
+  // Parses a single argument, either from the command line or from the .blazerc
+  // "startup" options.
+  //
+  // rcfile should be an empty string if the option being parsed does not come
+  // from a blazerc.
+  //
+  // Sets "is_space_separated" true if arg is unary and uses the "--foo bar"
+  // style, so its value is in next_arg.
+  //
+  // Sets "is_space_separated" false if arg is either nullary
+  // (e.g. "--[no]batch") or is unary but uses the "--foo=bar" style.
+  //
+  // Returns the exit code after processing the argument. "error" will contain
+  // a descriptive string for any return value other than
+  // blaze_exit_code::SUCCESS.
+  blaze_exit_code::ExitCode ProcessArg(const std::string &arg,
+                                       const std::string &next_arg,
+                                       const std::string &rcfile,
+                                       bool *is_space_separated,
+                                       std::string *error);
+
+  // The server javabase as provided on the commandline.
+  std::string explicit_server_javabase_;
+
+  // The server javabase to be used (computed lazily).
+  mutable std::string default_server_javabase_;
+
   // Contains the collection of startup flags that Bazel accepts.
   std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
 };

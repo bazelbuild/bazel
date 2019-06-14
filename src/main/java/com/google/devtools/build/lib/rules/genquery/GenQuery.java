@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -116,8 +117,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     final String query = ruleContext.attributes().get("expression", Type.STRING);
 
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(QueryOptions.class, KeepGoingOption.class);
-    optionsParser.setAllowResidue(false);
+        OptionsParser.newOptionsParser(false, QueryOptions.class, KeepGoingOption.class);
     try {
       optionsParser.parse(ruleContext.attributes().get("opts", Type.STRING_LIST));
     } catch (OptionsParsingException e) {
@@ -342,7 +342,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   settings,
                   /*extraFunctions=*/ ImmutableList.of(),
                   /*packagePath=*/ null,
-                  /*blockUniverseEvaluationErrors=*/ false);
+                  /*blockUniverseEvaluationErrors=*/ false,
+                  /*useForkJoinPool=*/ false,
+                  /*useGraphlessQuery=*/ false);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
@@ -414,16 +416,17 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
+    public Map<String, Collection<Target>> preloadTargetPatterns(
         ExtendedEventHandler eventHandler,
         PathFragment relativeWorkingDirectory,
         Collection<String> patterns,
-        boolean keepGoing)
-            throws TargetParsingException, InterruptedException {
+        boolean keepGoing,
+        boolean useForkJoinPool)
+        throws TargetParsingException, InterruptedException {
       Preconditions.checkArgument(!keepGoing);
       Preconditions.checkArgument(relativeWorkingDirectory.isEmpty());
       boolean ok = true;
-      Map<String, ResolvedTargets<Target>> preloadedPatterns =
+      Map<String, Collection<Target>> preloadedPatterns =
           Maps.newHashMapWithExpectedSize(patterns.size());
       Map<TargetPatternKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
       for (String pattern : patterns) {
@@ -480,14 +483,11 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       for (Map.Entry<String, ResolvedTargets<Label>> entry : resolvedLabelsMap.entrySet()) {
         String pattern = entry.getKey();
         ResolvedTargets<Label> resolvedLabels = resolvedLabelsMap.get(pattern);
-        ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
+        Set<Target> builder = CompactHashSet.create();
         for (Label label : resolvedLabels.getTargets()) {
           builder.add(getExistingTarget(label, packages));
         }
-        for (Label label : resolvedLabels.getFilteredTargets()) {
-          builder.remove(getExistingTarget(label, packages));
-        }
-        preloadedPatterns.put(pattern, builder.build());
+        preloadedPatterns.put(pattern, builder);
       }
       return preloadedPatterns;
     }

@@ -48,7 +48,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 /** A testing utility that allows assertions against Paths. */
-public class PathsSubject extends Subject<PathsSubject, Path> {
+public class PathsSubject extends Subject {
 
   private static final String PATH_NORMALIZER =
       String.format(
@@ -72,6 +72,21 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
     if (!Files.exists(actual)) {
       failWithActual(simpleFact("expected to exist"));
     }
+  }
+
+  void containsExactlyUncompressedFilesIn(String... paths) throws IOException {
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
+    }
+    exists();
+    assertThat(
+            new ZipFile(actual.toFile())
+                .stream()
+                    .filter(entry -> entry.getMethod() == ZipEntry.STORED)
+                    .map(ZipEntry::getName)
+                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
+                    .collect(Collectors.toSet()))
+        .containsExactlyElementsIn(paths);
   }
 
   void containsAllArchivedFilesIn(String... paths) throws IOException {

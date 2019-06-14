@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -182,7 +182,8 @@ public class RemoteSpawnCacheTest {
 
             @Override
             public void injectRemoteDirectory(
-                Artifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+                Artifact.SpecialArtifact output,
+                Map<PathFragment, RemoteFileArtifactValue> children) {
               throw new UnsupportedOperationException();
             }
 

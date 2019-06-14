@@ -14,11 +14,14 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Map;
@@ -65,4 +68,60 @@ public interface RecursivePackageProvider extends PackageProvider {
    */
   Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
       throws NoSuchPackageException, InterruptedException;
+
+  /**
+   * A {@link RecursivePackageProvider} in terms of a map of pre-fetched packages.
+   *
+   * <p>Note that this class implements neither {@link #getPackagesUnderDirectory} nor {@link
+   * #bulkGetPackages}, so it can only be used for use cases that do not call either of these
+   * methods. When used for target pattern resolution, it can be used to resolve SINGLE_TARGET and
+   * TARGETS_IN_PACKAGE patterns by pre-fetching the corresponding packages. It can also be used to
+   * resolve PATH_AS_TARGET patterns either by finding the outermost package or by pre-fetching all
+   * possible packages.
+   *
+   * @see com.google.devtools.build.lib.cmdline.TargetPattern.Type
+   */
+  class PackageBackedRecursivePackageProvider implements RecursivePackageProvider {
+    private final Map<PackageIdentifier, Package> packages;
+
+    public PackageBackedRecursivePackageProvider(Map<PackageIdentifier, Package> packages) {
+      this.packages = packages;
+    }
+
+    @Override
+    public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
+        throws NoSuchPackageException {
+      Package pkg = packages.get(packageName);
+      if (pkg == null) {
+        throw new NoSuchPackageException(packageName, "");
+      }
+      return pkg;
+    }
+
+    @Override
+    public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName) {
+      return packages.containsKey(packageName);
+    }
+
+    @Override
+    public Target getTarget(ExtendedEventHandler eventHandler, Label label)
+        throws NoSuchPackageException, NoSuchTargetException {
+      return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
+    }
+
+    @Override
+    public Iterable<PathFragment> getPackagesUnderDirectory(
+        ExtendedEventHandler eventHandler,
+        RepositoryName repository,
+        PathFragment directory,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> excludedSubdirectories) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds) {
+      throw new UnsupportedOperationException();
+    }
+  }
 }

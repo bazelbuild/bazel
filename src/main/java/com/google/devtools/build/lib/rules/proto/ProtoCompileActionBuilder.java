@@ -20,9 +20,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -71,10 +69,8 @@ public class ProtoCompileActionBuilder {
   private final String langPrefix;
   private final Iterable<Artifact> outputs;
   private Iterable<Artifact> inputs;
-  private String langParameter;
-  private String langPluginName;
-  private String langPluginParameter;
-  private Supplier<String> langPluginParameterSupplier;
+  private FilesToRunProvider langPlugin;
+  private Supplier<String> langPluginParameter;
   private boolean hasServices;
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
@@ -90,24 +86,13 @@ public class ProtoCompileActionBuilder {
     return this;
   }
 
-  public ProtoCompileActionBuilder setLangParameter(String langParameter) {
-    this.langParameter = langParameter;
+  public ProtoCompileActionBuilder setLangPlugin(FilesToRunProvider langPlugin) {
+    this.langPlugin = langPlugin;
     return this;
   }
 
-  public ProtoCompileActionBuilder setLangPluginName(String langPluginName) {
-    this.langPluginName = langPluginName;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setLangPluginParameter(String langPluginParameter) {
+  public ProtoCompileActionBuilder setLangPluginParameter(Supplier<String> langPluginParameter) {
     this.langPluginParameter = langPluginParameter;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setLangPluginParameterSupplier(
-      Supplier<String> langPluginParameterSupplier) {
-    this.langPluginParameterSupplier = langPluginParameterSupplier;
     return this;
   }
 
@@ -206,10 +191,6 @@ public class ProtoCompileActionBuilder {
   }
 
   public Action[] build() {
-    checkState(
-        langPluginParameter == null || langPluginParameterSupplier == null,
-        "Only one of {langPluginParameter, langPluginParameterSupplier} should be set.");
-
     if (isEmpty(outputs)) {
       return NO_ACTIONS;
     }
@@ -225,9 +206,8 @@ public class ProtoCompileActionBuilder {
     SpawnAction.Builder result =
         new SpawnAction.Builder().addTransitiveInputs(protoInfo.getTransitiveProtoSources());
 
-    FilesToRunProvider langPluginTarget = getLangPluginTarget();
-    if (langPluginTarget != null) {
-      result.addTool(langPluginTarget);
+    if (langPlugin != null) {
+      result.addTool(langPlugin);
     }
 
     if (inputs != null) {
@@ -262,42 +242,20 @@ public class ProtoCompileActionBuilder {
     return ruleContext.getBinDirectory().getExecPath().getSegment(0);
   }
 
-  @Nullable
-  private FilesToRunProvider getLangPluginTarget() throws MissingPrerequisiteException {
-    if (langPluginName == null) {
-      return null;
-    }
-    FilesToRunProvider result =
-        ruleContext.getExecutablePrerequisite(langPluginName, RuleConfiguredTarget.Mode.HOST);
-    if (result == null) {
-      throw new MissingPrerequisiteException();
-    }
-    return result;
-  }
-
   /** Commandline generator for protoc invocations. */
   @VisibleForTesting
   CustomCommandLine.Builder createProtoCompilerCommandLine() throws MissingPrerequisiteException {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
-    if (langPluginName == null) {
-      if (langParameter != null) {
-        result.addDynamicString(langParameter);
-      }
-    } else {
-      FilesToRunProvider langPluginTarget = getLangPluginTarget();
-      Supplier<String> langPluginParameter1 =
-          langPluginParameter == null
-              ? langPluginParameterSupplier
-              : Suppliers.ofInstance(langPluginParameter);
-
-      Preconditions.checkArgument(langParameter == null);
-      Preconditions.checkArgument(langPluginParameter1 != null);
-      // We pass a separate langPluginName as there are plugins that cannot be overridden
+    if (langPlugin != null) {
+      // We pass a separate langPlugin as there are plugins that cannot be overridden
       // and thus we have to deal with "$xx_plugin" and "xx_plugin".
       result.addFormatted(
-          "--plugin=protoc-gen-%s=%s", langPrefix, langPluginTarget.getExecutable().getExecPath());
-      result.addLazyString(new LazyLangPluginFlag(langPrefix, langPluginParameter1));
+          "--plugin=protoc-gen-%s=%s", langPrefix, langPlugin.getExecutable().getExecPath());
+    }
+
+    if (langPluginParameter != null) {
+      result.addLazyString(new LazyLangPluginFlag(langPrefix, langPluginParameter));
     }
 
     result.addAll(ruleContext.getFragment(ProtoConfiguration.class).protocOpts());

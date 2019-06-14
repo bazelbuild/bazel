@@ -498,7 +498,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
 
     reporter.removeHandler(failFastHandler);
-    getConfiguration(getConfiguredTarget("//test"));
+    getConfiguredTarget("//test");
     assertContainsEvent(
         "expected value of type 'string' for " + "//test:cute-animal-fact, but got 24 (int)");
   }
@@ -519,10 +519,30 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
     reporter.removeHandler(failFastHandler);
-    getConfiguration(getConfiguredTarget("//test"));
+    getConfiguredTarget("//test");
     assertContainsEvent(
         "no such target '//test:i-am-not-real': target "
             + "'i-am-not-real' not declared in package 'test'");
+  }
+
+  @Test
+  public void testTransitionOnBuildSetting_noSuchPackage() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//i-am-not-real': 'imaginary-friend'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//i-am-not-real']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("no such package 'i-am-not-real': Unable to find build setting package");
   }
 
   @Test
@@ -709,6 +729,222 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     assertContainsEvent(
         "no such target '//test:i-am-not-real': target "
             + "'i-am-not-real' not declared in package 'test'");
+  }
+
+  @Test
+  public void testAliasedBuildSetting() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:fact':  'puffins mate for life'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:fact']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "alias(name = 'fact', actual = ':cute-animal-fact')",
+        "string_flag(",
+        "  name = 'cute-animal-fact',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
+        ")");
+
+    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish"));
+
+    ImmutableMap<Label, Object> starlarkOptions =
+        getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions();
+    assertThat(starlarkOptions.get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+        .isEqualTo("puffins mate for life");
+    assertThat(starlarkOptions).doesNotContainKey(Label.parseAbsoluteUnchecked("//test:fact"));
+    assertThat(starlarkOptions.keySet())
+        .containsExactly(Label.parseAbsoluteUnchecked("//test:cute-animal-fact"));
+  }
+
+  @Test
+  public void testAliasedBuildSetting_chainedAliases() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:fact':  'puffins mate for life'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:fact']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "alias(name = 'fact', actual = ':alias2')",
+        "alias(name = 'alias2', actual = ':cute-animal-fact')",
+        "string_flag(",
+        "  name = 'cute-animal-fact',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
+        ")");
+
+    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish"));
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(
+            configuration
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+        .isEqualTo("puffins mate for life");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_configuredActualValue() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:fact':  'puffins mate for life'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:fact']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "alias(",
+        "  name = 'fact',",
+        "  actual = select({",
+        "    '//conditions:default': ':cute-animal-fact',",
+        "    ':true-config': 'other-cute-animal-fact',",
+        "  })",
+        ")",
+        "config_setting(",
+        "  name = 'true-config',",
+        "  values = {'test_arg': 'true'},",
+        ")",
+        "string_flag(",
+        "  name = 'cute-animal-fact',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
+        ")",
+        "string_flag(",
+        "  name = 'other-cute-animal-fact',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "attempting to transition on aliased build setting '//test:fact', the actual value of"
+            + " which uses select().");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_cyclicalAliases() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:alias1':  'puffins mate for life'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:alias1']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "alias(name = 'alias1', actual = ':alias2')",
+        "alias(name = 'alias2', actual = ':alias1')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("Error with aliased build settings related to '//test:alias1'.");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_setAliasAndActual() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "    '//test:alias':  'puffins mate for life',",
+        "    '//test:actual':  'cats cannot taste sugar',",
+        "}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = [",
+        "    '//test:alias',",
+        "    '//test:actual',",
+        "  ]",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "alias(name = 'alias', actual = ':actual')",
+        "string_flag(",
+        "  name = 'actual',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("Error with aliased build settings related to '//test:actual'.");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_outputReturnMismatch() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "    '//test:actual':  'cats cannot taste sugar',",
+        "}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = [",
+        "    '//test:alias',",
+        "  ]",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "alias(name = 'alias', actual = ':actual')",
+        "string_flag(",
+        "  name = 'actual',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("transition function returned undeclared output '//test:actual'");
   }
 
   @Test
@@ -907,5 +1143,40 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(TestOptions.class).testArguments)
         .containsExactly("post-transition");
+  }
+
+  /**
+   * Regression test to ensure that an empty dict is not interpreted as a dict of dicts and
+   * generates the proper error message.
+   */
+  @Test
+  public void testEmptyReturnDict() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:test_arg'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "transition outputs [//command_line_option:test_arg] were "
+            + "not defined by transition function");
   }
 }

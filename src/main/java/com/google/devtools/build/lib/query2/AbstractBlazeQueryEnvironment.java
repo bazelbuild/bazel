@@ -57,7 +57,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   protected final boolean strictScope;
 
   protected final DependencyFilter dependencyFilter;
-  private final Predicate<Label> labelFilter;
+  protected final Predicate<Label> labelFilter;
 
   protected final Set<Setting> settings;
   protected final List<QueryFunction> extraFunctions;

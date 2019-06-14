@@ -37,7 +37,10 @@ public class ExecutionTransitionFactoryTest {
     ExecutionTransitionFactory execTransitionFactory = new ExecutionTransitionFactory();
     PatchTransition transition =
         execTransitionFactory.create(
-            AttributeTransitionData.create(FakeAttributeMapper.empty(), EXECUTION_PLATFORM));
+            AttributeTransitionData.builder()
+                .attributes(FakeAttributeMapper.empty())
+                .executionPlatform(EXECUTION_PLATFORM)
+                .build());
 
     assertThat(transition).isNotNull();
 
@@ -63,7 +66,10 @@ public class ExecutionTransitionFactoryTest {
     // No execution platform available.
     PatchTransition transition =
         execTransitionFactory.create(
-            AttributeTransitionData.create(FakeAttributeMapper.empty(), null));
+            AttributeTransitionData.builder()
+                .attributes(FakeAttributeMapper.empty())
+                .executionPlatform(null)
+                .build());
 
     assertThat(transition).isNotNull();
 

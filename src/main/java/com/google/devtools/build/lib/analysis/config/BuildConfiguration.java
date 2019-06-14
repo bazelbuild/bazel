@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -206,12 +207,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   public void describe(StringBuilder sb) {
-    for (Fragment fragment : fragments.values()) {
-      sb.append(fragment.getClass().getName()).append('\n');
-    }
-    for (String s : buildOptions.toString().split(" ")) {
-      sb.append(s).append('\n');
-    }
+    sb.append("BuildConfiguration ").append(checksum()).append(":\n");
+    getOptions().getFragmentClasses().stream()
+        .sorted(comparing(Class::getName))
+        .map(fragmentClass -> getOptions().get(fragmentClass))
+        .forEach(fragment -> fragment.describe(sb));
   }
 
   @Override
@@ -783,6 +783,21 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   public boolean trimConfigurationsRetroactively() {
     return options.configsMode == CoreOptions.ConfigsMode.RETROACTIVE;
+  }
+
+  /**
+   * <b>>Experimental feature:</b> if true, qualifying outputs use path prefixes based on their
+   * content instead of the traditional <code>blaze-out/$CPU-$COMPILATION_MODE</code>.
+   *
+   * <p>This promises both more intrinsic correctness (outputs with different contents can't write
+   * to the same path) and efficiency (outputs with the <i>same</i> contents share the same path and
+   * therefore permit better action caching). But it's highly experimental and should not be relied
+   * on in any serious way any time soon.
+   *
+   * <p>See <a href="https://github.com/bazelbuild/bazel/issues/6526">#6526</a> for details.
+   */
+  public boolean useContentBasedOutputPaths() {
+    return options.outputPathsMode == CoreOptions.OutputPathsMode.CONTENT;
   }
 
   /**

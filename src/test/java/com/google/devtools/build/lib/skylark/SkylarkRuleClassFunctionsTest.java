@@ -557,6 +557,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrNonEmpty() throws Exception {
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+                .incompatibleDisableDeprecatedAttrParams(false)
+                .build());
+    ev.initialize();
+
     Attribute attr = buildAttribute("a1", "attr.string_list(non_empty=True)");
     assertThat(attr.isNonEmpty()).isTrue();
     assertThat(attr.isMandatory()).isFalse();
@@ -837,15 +844,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeByName("a1");
     assertThat(a.getDefaultValueUnchecked()).isEqualTo(42);
-  }
-
-  @Test
-  public void testFileTypeIsDisabled() throws Exception {
-    StarlarkSemantics semantics =
-        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder().incompatibleDisallowFileType(true).build();
-    EvalException expected =
-        assertThrows(EvalException.class, () -> evalRuleClassCode(semantics, "FileType(['.css'])"));
-    assertThat(expected).hasMessageThat().contains("FileType function is not available.");
   }
 
   @Test

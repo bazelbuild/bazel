@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 // For rand_s function, https://msdn.microsoft.com/en-us/library/sxtz2fa8.aspx
 #define _CRT_RAND_S
 #include <fcntl.h>
@@ -20,7 +25,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <windows.h>
 #include <algorithm>
 #include <sstream>
 #include <string>
@@ -118,8 +122,9 @@ bool DeleteDirectoryByPath(const wchar_t* path) {
 }
 
 wstring GetBinaryPathWithoutExtension(const wstring& binary) {
-  if (binary.find(L".exe", binary.size() - 4) != wstring::npos) {
-    return binary.substr(0, binary.length() - 4);
+  if (binary.size() >= 4 &&
+      binary.find(L".exe", binary.size() - 4) != wstring::npos) {
+    return binary.substr(0, binary.size() - 4);
   }
   return binary;
 }

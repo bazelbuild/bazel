@@ -37,12 +37,17 @@ public class FakeAndroidSkylarkCommon
 
   @Override
   public AndroidSplitTransititionApi getAndroidSplitTransition() {
-    return null;
+    return new FakeAndroidSplitTransitition();
   }
 
   @Override
   public JavaInfoApi<FileApi> enableImplicitSourcelessDepsExportsCompatibility(
       JavaInfoApi<FileApi> javaInfo) {
+    return null;
+  }
+
+  @Override
+  public JavaInfoApi<FileApi> addRJarToJavaInfo(JavaInfoApi<FileApi> javaInfo, FileApi rJar) {
     return null;
   }
 }

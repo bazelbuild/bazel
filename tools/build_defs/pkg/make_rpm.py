@@ -250,7 +250,7 @@ class RpmBuilder(object):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         env={'LANG': 'C'})
-    output = p.communicate()[0]
+    output = p.communicate()[0].decode()
 
     if p.returncode == 0:
       # Find the created file.

@@ -349,10 +349,13 @@ public abstract class DependencyResolver {
       if (toolchainContext != null && toolchainContext.executionPlatform() != null) {
         executionPlatformLabel = toolchainContext.executionPlatform().label();
       }
+      AttributeTransitionData attributeTransitionData =
+          AttributeTransitionData.builder()
+              .attributes(attributeMap)
+              .executionPlatform(executionPlatformLabel)
+              .build();
       ConfigurationTransition attributeTransition =
-          attribute
-              .getTransitionFactory()
-              .create(AttributeTransitionData.create(attributeMap, executionPlatformLabel));
+          attribute.getTransitionFactory().create(attributeTransitionData);
       partiallyResolvedDeps.put(
           entry.getKey(),
           PartiallyResolvedDependency.of(toLabel, attributeTransition, propagatingAspects.build()));

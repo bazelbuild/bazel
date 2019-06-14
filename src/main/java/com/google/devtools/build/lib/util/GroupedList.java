@@ -349,19 +349,40 @@ public class GroupedList<T> implements Iterable<List<T>> {
     return new GroupedList<>(1, ImmutableList.of(compressed));
   }
 
-  /** Creates an already compressed {@code GroupedList} for storage. */
+  /** Creates an already compressed {@code GroupedList} of a single element. */
+  public static <E> @Compressed Object createCompressedSingleton(E singleton) {
+    return castAsCompressed(singleton);
+  }
+
+  /** Creates an already compressed {@code GroupedList} with two groups. */
   public static <E> @Compressed Object createCompressedWithTwoGroups(
       E singletonElementOfFirstGroup, List<? extends E> elementsOfSecondGroup) {
-    switch (elementsOfSecondGroup.size()) {
-      case 0:
-        return singletonElementOfFirstGroup;
-      case 1:
-        return new Object[] {
-          singletonElementOfFirstGroup, Iterables.getOnlyElement(elementsOfSecondGroup)
-        };
-      default:
-        return new Object[] {singletonElementOfFirstGroup, elementsOfSecondGroup};
+    if (elementsOfSecondGroup.isEmpty()) {
+      return createCompressedSingleton(singletonElementOfFirstGroup);
     }
+    return new Object[] {singletonElementOfFirstGroup, singleElementOrList(elementsOfSecondGroup)};
+  }
+
+  /** Creates an already compressed {@code GroupedList} with three groups. */
+  public static <E> @Compressed Object createCompressedWithThreeGroups(
+      E singletonElementOfFirstGroup,
+      List<? extends E> elementsOfSecondGroup,
+      List<? extends E> elementsOfThirdGroup) {
+    if (elementsOfSecondGroup.isEmpty()) {
+      return createCompressedWithTwoGroups(singletonElementOfFirstGroup, elementsOfThirdGroup);
+    }
+    if (elementsOfThirdGroup.isEmpty()) {
+      return createCompressedWithTwoGroups(singletonElementOfFirstGroup, elementsOfSecondGroup);
+    }
+    return new Object[] {
+      singletonElementOfFirstGroup,
+      singleElementOrList(elementsOfSecondGroup),
+      singleElementOrList(elementsOfThirdGroup)
+    };
+  }
+
+  private static Object singleElementOrList(List<?> list) {
+    return list.size() == 1 ? list.get(0) : list;
   }
 
   @Override

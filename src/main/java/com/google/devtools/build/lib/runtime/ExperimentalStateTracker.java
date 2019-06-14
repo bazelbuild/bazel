@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
+import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
@@ -231,6 +232,19 @@ class ExperimentalStateTracker {
     synchronized void setScanning(long nanoChangeTime) {
       if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
         scanning = true;
+        nanoStartTime = nanoChangeTime;
+      }
+    }
+
+    /**
+     * Marks the action as no longer scanning.
+     *
+     * <p>Because we may receive events out of order, this does nothing if the action is already
+     * scheduled or running.
+     */
+    synchronized void setStopScanning(long nanoChangeTime) {
+      if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
+        scanning = false;
         nanoStartTime = nanoChangeTime;
       }
     }
@@ -465,6 +479,13 @@ class ExperimentalStateTracker {
     Artifact actionId = event.getActionMetadata().getPrimaryOutput();
     long now = clock.nanoTime();
     getActionState(action, actionId, now).setScanning(now);
+  }
+
+  void stopScanningAction(StoppedScanningActionEvent event) {
+    Action action = event.getAction();
+    Artifact actionId = action.getPrimaryOutput();
+    long now = clock.nanoTime();
+    getActionState(action, actionId, now).setStopScanning(now);
   }
 
   void schedulingAction(SchedulingActionEvent event) {
@@ -757,8 +778,8 @@ class ExperimentalStateTracker {
     Map<ActionState, Artifact> copy =
         new TreeMap<>(
             Comparator.comparing((ActionState entry) -> entry.runningStrategiesBitmap == 0)
-                .thenComparing(entry -> entry.nanoStartTime)
-                .thenComparing(ActionState::hashCode));
+                .thenComparingLong(entry -> entry.nanoStartTime)
+                .thenComparingInt(ActionState::hashCode));
     for (Map.Entry<Artifact, ActionState> action : activeActions.entrySet()) {
       copy.put(action.getValue().deepCopy(), action.getKey());
     }

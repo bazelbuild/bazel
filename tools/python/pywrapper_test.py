@@ -94,14 +94,20 @@ class PywrapperTest(test_base.TestBase):
         path, msg="Could not locate '%s' command on PATH" % cmd)
     self.CopyFile(path, os.path.join("dir", cmd), executable=True)
 
+  def locate_runfile(self, runfile_path):
+    resolved_path = self.Rlocation(runfile_path)
+    self.assertIsNotNone(
+        resolved_path, msg="Could not locate %s in runfiles" % runfile_path)
+    return resolved_path
+
   def setUp(self):
     super(PywrapperTest, self).setUp()
 
-    # Locate script under test.
-    wrapper_path = self.Rlocation("io_bazel/tools/python/py2wrapper.sh")
-    self.assertIsNotNone(
-        wrapper_path, msg="Could not locate py2wrapper.sh in runfiles")
-    self.wrapper_path = wrapper_path
+    # Locate scripts under test.
+    self.wrapper_path = \
+        self.locate_runfile("io_bazel/tools/python/py2wrapper.sh")
+    self.nonstrict_wrapper_path = \
+        self.locate_runfile("io_bazel/tools/python/py2wrapper_nonstrict.sh")
 
     # Setup scratch directory with all executables the script depends on.
     #
@@ -112,10 +118,10 @@ class PywrapperTest(test_base.TestBase):
     self.setup_tool("echo")
     self.setup_tool("grep")
 
-  def run_wrapper(self, title_for_logging=None):
+  def run_with_restricted_path(self, program, title_for_logging=None):
     new_env = dict(os.environ)
     new_env["PATH"] = self.Path("dir")
-    proc = subprocess.Popen([self.wrapper_path],
+    proc = subprocess.Popen([program],
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             universal_newlines=True,
@@ -135,6 +141,13 @@ class PywrapperTest(test_base.TestBase):
           ----------------
           """) % (title_for_logging, proc.returncode, out, err))
     return proc.returncode, out, err
+
+  def run_wrapper(self, title_for_logging):
+    return self.run_with_restricted_path(self.wrapper_path, title_for_logging)
+
+  def run_nonstrict_wrapper(self, title_for_logging):
+    return self.run_with_restricted_path(self.nonstrict_wrapper_path,
+                                         title_for_logging)
 
   def assert_wrapper_success(self, returncode, out, err):
     self.assertEqual(returncode, 0, msg="Expected to exit without error")
@@ -189,6 +202,13 @@ class PywrapperTest(test_base.TestBase):
     returncode, out, err = self.run_wrapper("test_interpreter_not_executable")
     self.assert_wrapper_failure(returncode, out, err,
                                 "Neither 'python2' nor 'python' were found")
+
+  def test_wrong_version_ok_for_nonstrict(self):
+    self.ScratchFile(
+        "dir/python2", MockPythonLines.WRONG_VERSION, executable=True)
+    returncode, out, err = \
+        self.run_nonstrict_wrapper("test_wrong_version_ok_for_nonstrict")
+    self.assert_wrapper_success(returncode, out, err)
 
 
 if __name__ == "__main__":

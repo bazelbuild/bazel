@@ -459,6 +459,7 @@ public class SkylarkRepositoryContext
       String sha256,
       Boolean executable,
       Boolean allowFail,
+      String canonicalId,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
@@ -480,6 +481,7 @@ public class SkylarkRepositoryContext
           httpDownloader.download(
               urls,
               sha256,
+              canonicalId,
               Optional.<String>absent(),
               outputPath.getPath(),
               env.getListener(),
@@ -558,6 +560,7 @@ public class SkylarkRepositoryContext
       String type,
       String stripPrefix,
       Boolean allowFail,
+      String canonicalId,
       Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
@@ -588,6 +591,7 @@ public class SkylarkRepositoryContext
           httpDownloader.download(
               urls,
               sha256,
+              canonicalId,
               Optional.of(type),
               outputPath.getPath(),
               env.getListener(),
@@ -641,7 +645,8 @@ public class SkylarkRepositoryContext
     return StructProvider.STRUCT.createStruct(dict, null);
   }
 
-  private String calculateSha256(String originalSha, Path path) throws IOException {
+  private String calculateSha256(String originalSha, Path path)
+      throws IOException, InterruptedException {
     if (!Strings.isNullOrEmpty(originalSha)) {
       // The sha is checked on download, so if we got here, the user provided sha is good
       return originalSha;
@@ -681,11 +686,6 @@ public class SkylarkRepositoryContext
     }
 
     return result.build();
-  }
-
-  private static List<URL> getUrls(Object urlOrList)
-      throws RepositoryFunctionException, EvalException {
-    return getUrls(urlOrList, /* ensureNonEmpty= */ true);
   }
 
   private static List<URL> getUrls(Object urlOrList, boolean ensureNonEmpty)

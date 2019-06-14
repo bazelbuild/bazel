@@ -198,12 +198,8 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
     assertThat(e).hasMessageThat().contains("Error loading option //fake_flag");
   }
 
-  // test -flag=value (Note - there's currently no way in real life to allow single dash long form
-  // options.)
   @Test
   public void testSingleDash_notAllowed() throws Exception {
-    optionsParser.setAllowSingleDashLongOptions(false);
-
     writeBasicIntFlag();
 
     OptionsParsingResult result = parseStarlarkOptions("-//test:my_int_setting=666");
@@ -247,10 +243,10 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
   public void testBooleanFlag() throws Exception {
     writeBasicBoolFlag();
 
-    OptionsParsingResult result = parseStarlarkOptions("--//test:my_bool_setting");
+    OptionsParsingResult result = parseStarlarkOptions("--//test:my_bool_setting=false");
 
     assertThat(result.getStarlarkOptions()).hasSize(1);
-    assertThat(result.getStarlarkOptions().get("//test:my_bool_setting")).isEqualTo(true);
+    assertThat(result.getStarlarkOptions().get("//test:my_bool_setting")).isEqualTo(false);
     assertThat(result.getResidue()).isEmpty();
   }
 
@@ -395,5 +391,16 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("While parsing option //test:my_bool_setting=woohoo: 'woohoo' is not a boolean");
+  }
+
+  // test --int-flag=same value as default
+  @Test
+  public void testDontStoreDefaultValue() throws Exception {
+    // build_setting_default = 42
+    writeBasicIntFlag();
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:my_int_setting=42");
+
+    assertThat(result.getStarlarkOptions()).isEmpty();
   }
 }

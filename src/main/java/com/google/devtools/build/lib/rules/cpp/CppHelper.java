@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -241,6 +242,19 @@ public class CppHelper {
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
       RuleContext ruleContext) throws RuleErrorException {
+    try {
+      return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext);
+    } catch (EvalException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
+    }
+  }
+
+  /**
+   * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
+   * for Starlark-defined rules that link against the C++ runtime.
+   */
+  public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(
+      RuleContext ruleContext) throws EvalException {
     CcToolchainProvider defaultToolchain =
         getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     if (defaultToolchain == null) {
@@ -248,11 +262,8 @@ public class CppHelper {
     }
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
-    try {
-      return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
-    } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
-    }
+
+    return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
   }
 
   /**
@@ -441,8 +452,38 @@ public class CppHelper {
       ruleContext.throwWithRuleError("Cannot get linked artifact name: " + e.getMessage());
     }
 
-    return ruleContext.getPackageRelativeArtifact(
-        name, config.getBinDirectory(ruleContext.getRule().getRepository()));
+    return getLinkedArtifact(
+        ruleContext.getLabel(), ruleContext, config, linkType, linkedArtifactNameSuffix, name);
+  }
+
+  public static Artifact getLinkedArtifact(
+      Label label,
+      ActionConstructionContext actionConstructionContext,
+      BuildConfiguration config,
+      LinkTargetType linkType,
+      String linkedArtifactNameSuffix,
+      PathFragment name) {
+    Artifact result =
+        actionConstructionContext.getPackageRelativeArtifact(
+            name, config.getBinDirectory(label.getPackageIdentifier().getRepository()));
+
+    // If the linked artifact is not the linux default, then a FailAction is generated for said
+    // linux default to satisfy the requirements of any implicit outputs.
+    // TODO(b/30132703): Remove the implicit outputs of cc_library.
+    Artifact linuxDefault =
+        getLinuxLinkedArtifact(
+            label, actionConstructionContext, config, linkType, linkedArtifactNameSuffix);
+    if (!result.equals(linuxDefault)) {
+      actionConstructionContext.registerAction(
+          new FailAction(
+              actionConstructionContext.getActionOwner(),
+              ImmutableList.of(linuxDefault),
+              String.format(
+                  "the given toolchain supports creation of %s instead of %s",
+                  result.getExecPathString(), linuxDefault.getExecPathString())));
+    }
+
+    return result;
   }
 
   public static Artifact getLinuxLinkedArtifact(

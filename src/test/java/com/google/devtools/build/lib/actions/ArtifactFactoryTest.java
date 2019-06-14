@@ -222,8 +222,12 @@ public class ArtifactFactoryTest {
 
   @Test
   public void testSetGeneratingActionIdempotenceNewActionGraph() throws Exception {
-    Artifact a = artifactFactory.getDerivedArtifact(fooRelative, outRoot, NULL_ARTIFACT_OWNER);
-    Artifact b = artifactFactory.getDerivedArtifact(barRelative, outRoot, NULL_ARTIFACT_OWNER);
+    Artifact.DerivedArtifact a =
+        artifactFactory.getDerivedArtifact(fooRelative, outRoot, NULL_ARTIFACT_OWNER);
+    Artifact.DerivedArtifact b =
+        artifactFactory.getDerivedArtifact(barRelative, outRoot, NULL_ARTIFACT_OWNER);
+    a.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    b.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     Action originalAction = new ActionsTestUtil.NullAction(NULL_ACTION_OWNER, a);
     actionGraph.registerAction(originalAction);

@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /** Test for {@link TransitiveTraversalFunction}. */
@@ -127,7 +128,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     // Try two evaluations, with the environment reversing the order of the map it returns.
     when(mockEnv.getValuesOrThrow(
-            Mockito.any(),
+            ArgumentMatchers.any(),
             Mockito.eq(NoSuchPackageException.class),
             Mockito.eq(NoSuchTargetException.class)))
         .thenReturn(returnedDeps);
@@ -141,7 +142,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         reversedDeps =
             ImmutableMap.of(dep2, makeException("bad baz"), dep1, makeException("bad bar"));
     when(mockEnv.getValuesOrThrow(
-            Mockito.any(),
+            ArgumentMatchers.any(),
             Mockito.eq(NoSuchPackageException.class),
             Mockito.eq(NoSuchTargetException.class)))
         .thenReturn(reversedDeps);
@@ -174,7 +175,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     SkyKey dep = function.getKey(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     when(mockEnv.getValuesOrThrow(
-            Mockito.any(),
+            ArgumentMatchers.any(),
             Mockito.eq(NoSuchPackageException.class),
             Mockito.eq(NoSuchTargetException.class)))
         .thenReturn(ImmutableMap.of(dep, makeException("bad bar")));

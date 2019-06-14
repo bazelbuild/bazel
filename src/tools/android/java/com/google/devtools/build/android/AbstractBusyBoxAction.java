@@ -18,8 +18,6 @@ import com.google.common.base.Stopwatch;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -54,8 +52,6 @@ public abstract class AbstractBusyBoxAction {
   @VisibleForTesting
   void invokeWithoutExit(String[] args) throws Exception {
     timer.start();
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parse(args);
 
     try (ScopedTemporaryDirectory scopedTmp = new ScopedTemporaryDirectory(description + "_tmp");

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -289,18 +289,9 @@ public final class LtoBackendArtifacts {
       builder.setExecutable(compiler);
     }
 
-    List<String> execArgs = new ArrayList<>();
-    execArgs.addAll(
-        CppHelper.getCommandLine(
-            ruleErrorConsumer, featureConfiguration, buildVariables, CppActionNames.LTO_BACKEND));
-    // If this is a PIC compile (set based on the CppConfiguration), the PIC
-    // option should be added after the rest of the command line so that it
-    // cannot be overridden. This is consistent with the ordering in the
-    // CppCompileAction's compiler options.
-    if (usePic) {
-      execArgs.add("-fPIC");
-    }
-    builder.addExecutableArguments(execArgs);
+    CommandLine ltoCommandLine =
+        new LtoBackendCommandLine(featureConfiguration, buildVariables, usePic);
+    builder.addCommandLine(ltoCommandLine);
 
     actionConstructionContext.registerAction(builder.build(actionConstructionContext));
   }

@@ -125,7 +125,7 @@ simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
 cat > failingaspect.bzl <<'EOF'
 def _failing_aspect_impl(target, ctx):
-    for orig_out in ctx.rule.attr.outs:
+    for orig_out in ctx.rule.attr.outs.to_list():
         aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
         ctx.actions.run_shell(
             inputs = [],
@@ -933,6 +933,24 @@ function test_server_pid() {
     || fail "Build failed but should have succeeded"
   cat bep.txt | grep server_pid >> "$TEST_log"
   expect_log_once "server_pid:.*$(bazel info server_pid)$"
+  rm bep.txt
+}
+
+function test_bep_report_all_artifacts() {
+  bazel build --test_output=all --build_event_text_file=bep.txt \
+      --experimental_bep_report_only_important_artifacts=false //pkg:true \
+      || fail "Build failed but should have succeeded"
+  cat bep.txt >> "$TEST_log"
+  expect_log "_hidden_top_level_INTERNAL_"
+  rm bep.txt
+}
+
+function test_bep_report_only_important_artifacts() {
+  bazel build --test_output=all --build_event_text_file=bep.txt \
+      --experimental_bep_report_only_important_artifacts=true //pkg:true \
+      || fail "Build failed but should have succeeded"
+  cat bep.txt >> "$TEST_log"
+  expect_not_log "_hidden_top_level_INTERNAL_"
   rm bep.txt
 }
 

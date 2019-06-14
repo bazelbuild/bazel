@@ -432,6 +432,17 @@ public class CppOptions extends FragmentOptions {
   public String csFdoInstrumentForBuild;
 
   @Option(
+      name = "cs_fdo_absolute_path",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Use CSFDO profile information to optimize compilation. Specify the absolute path name "
+              + "of the zip file containing the profile file, a raw or an indexed "
+              + "LLVM profile file.")
+  public String csFdoAbsolutePathForBuild;
+
+  @Option(
       name = "xbinary_fdo",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -726,7 +737,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_dont_enable_host_nonhost_crosstool_features",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -754,7 +765,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_require_ctx_in_configure_features",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -864,6 +875,34 @@ public class CppOptions extends FragmentOptions {
       help = "Save the state of enabled and requested feautres as an output of compilation.")
   public boolean saveFeatureState;
 
+  @Option(
+      name = "incompatible_use_specific_tool_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Use cc toolchain's compiler_files, as_files, and ar_files as inputs to appropriate "
+              + "actions. See https://github.com/bazelbuild/bazel/issues/8531")
+  public boolean useSpecificToolFiles;
+
+  @Option(
+      name = "incompatible_disable_static_cc_toolchains",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "@bazel_tools//tools/cpp:default-toolchain target was removed."
+              + "See https://github.com/bazelbuild/bazel/issues/8546.")
+  public boolean disableStaticCcToolchains;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -918,6 +957,18 @@ public class CppOptions extends FragmentOptions {
     host.dontEnableHostNonhost = dontEnableHostNonhost;
     host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
     host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
+    host.useSpecificToolFiles = useSpecificToolFiles;
+    host.disableStaticCcToolchains = disableStaticCcToolchains;
+
+    // Save host options for further use.
+    host.hostCoptList = hostCoptList;
+    host.hostConlyoptList = hostConlyoptList;
+    host.hostCppCompiler = hostCppCompiler;
+    host.hostCrosstoolTop = hostCrosstoolTop;
+    host.hostCxxoptList = hostCxxoptList;
+    host.hostLibcTopLabel = hostLibcTopLabel;
+    host.hostLinkoptList = hostLinkoptList;
+
     return host;
   }
 

@@ -70,18 +70,9 @@ public interface PythonSemantics {
   /** Returns a list of PathFragments for the import paths specified in the imports attribute. */
   List<String> getImports(RuleContext ruleContext);
 
-  /**
-   * Create the actual executable artifact.
-   *
-   * <p>This should create a generating action for {@code common.getExecutable()}.
-   */
-  // TODO(brandjon): I believe this always returns common.getExecutable(), so we should be able to
-  // eliminate the return as redundant.
-  Artifact createExecutable(
-      RuleContext ruleContext,
-      PyCommon common,
-      CcInfo ccInfo,
-      Runfiles.Builder runfilesBuilder)
+  /** Create a generating action for {@code common.getExecutable()}. */
+  void createExecutable(
+      RuleContext ruleContext, PyCommon common, CcInfo ccInfo, Runfiles.Builder runfilesBuilder)
       throws InterruptedException, RuleErrorException;
 
   /**

@@ -93,9 +93,7 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
     scratch.file("okaypkg/BUILD",
         "sh_library(name = 'transitively-a-cycle',",
         "           srcs = ['//symlinkcycle:cycle'])");
-    Path badpkgBuildFile = scratch.file("badpkg/BUILD",
-        "exports_files(['okay-target'])",
-        "invalidbuildsyntax");
+    Path badpkgBuildFile = scratch.file("badpkg/BUILD", "exports_files(['okay-target'])", "fail()");
     if (incremental) {
       update(defaultFlags().with(Flag.KEEP_GOING), "//okaypkg:transitively-a-cycle");
       assertContainsEvent("circular symlinks detected");

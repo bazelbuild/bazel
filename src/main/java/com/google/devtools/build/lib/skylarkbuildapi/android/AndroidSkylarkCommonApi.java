@@ -81,4 +81,29 @@ public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extend
             type = JavaInfoApi.class)
       })
   JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(JavaInfoT javaInfo);
+
+  @SkylarkCallable(
+      name = "add_r_jar_to_java_info",
+      doc =
+          "Takes a resources Jar artifact and adds it to the beginning of the compile-time and"
+              + " runtime classpaths of the JavaInfo.",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
+      parameters = {
+        @Param(
+            name = "java_info",
+            doc =
+                "The JavaInfo that will receive the resources Jar artifact in its compile-time and"
+                    + " runtime classpaths.",
+            positional = true,
+            named = false,
+            type = JavaInfoApi.class),
+        @Param(
+            name = "r_jar",
+            doc = "The resources Jar artifact.",
+            positional = true,
+            named = false,
+            type = FileApi.class)
+      })
+  JavaInfoT addRJarToJavaInfo(JavaInfoT javaInfo, FileT rJar);
 }

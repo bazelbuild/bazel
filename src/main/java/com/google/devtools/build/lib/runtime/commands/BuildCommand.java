@@ -70,6 +70,7 @@ public final class BuildCommand implements BlazeCommand {
     BlazeRuntime runtime = env.getRuntime();
     List<String> targets;
     try (SilentCloseable closeable = Profiler.instance().profile("ProjectFileSupport.getTargets")) {
+      // only takes {@code options} to get options.getResidue()
       targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
     }
     if (targets.isEmpty()) {

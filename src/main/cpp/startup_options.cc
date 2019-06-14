@@ -238,7 +238,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              NULL) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
-    server_javabase_ = blaze::AbsolutePathFromFlag(value);
+    explicit_server_javabase_ = blaze::AbsolutePathFromFlag(value);
     option_sources["server_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              NULL) {
@@ -482,7 +482,7 @@ string StartupOptions::GetSystemJavabase() const {
   return blaze::GetSystemJavabase();
 }
 
-string StartupOptions::GetEmbeddedJavabase() {
+string StartupOptions::GetEmbeddedJavabase() const {
   string bundled_jre_path = blaze_util::JoinPath(
       install_base, "_embedded_binaries/embedded_tools/jdk");
   if (blaze_util::CanExecuteFile(blaze_util::JoinPath(
@@ -492,10 +492,10 @@ string StartupOptions::GetEmbeddedJavabase() {
   return "";
 }
 
-string StartupOptions::GetServerJavabase() {
+string StartupOptions::GetServerJavabase() const {
   // 1) Allow overriding the server_javabase via --server_javabase.
-  if (!server_javabase_.empty()) {
-    return server_javabase_;
+  if (!explicit_server_javabase_.empty()) {
+    return explicit_server_javabase_;
   }
   if (default_server_javabase_.empty()) {
     string bundled_jre_path = GetEmbeddedJavabase();
@@ -517,10 +517,10 @@ string StartupOptions::GetServerJavabase() {
 }
 
 string StartupOptions::GetExplicitServerJavabase() const {
-  return server_javabase_;
+  return explicit_server_javabase_;
 }
 
-string StartupOptions::GetJvm() {
+string StartupOptions::GetJvm() const {
   string java_program =
       blaze_util::JoinPath(GetServerJavabase(), GetJavaBinaryUnderJavabase());
   if (!blaze_util::CanExecuteFile(java_program)) {
@@ -554,7 +554,7 @@ string StartupOptions::GetJvm() {
   exit(1);
 }
 
-string StartupOptions::GetExe(const string &jvm, const string &jar_path) {
+string StartupOptions::GetExe(const string &jvm, const string &jar_path) const {
   return jvm;
 }
 

@@ -332,7 +332,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
         "  f = ctx.attr.dep.output_group('_hidden_top_level" + INTERNAL_SUFFIX + "')",
-        "  g = list(f)",
+        "  g = f.to_list()",
         "  return [MyInfo(result = f),",
         "      OutputGroupInfo(my_group = g, my_empty_group = [])]",
         "my_rule = rule(implementation = _impl,",
@@ -361,7 +361,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
         "  f = ctx.attr.dep[OutputGroupInfo]._hidden_top_level" + INTERNAL_SUFFIX,
-        "  g = list(f)",
+        "  g = f.to_list()",
         "  return [MyInfo(result = f),",
         "      OutputGroupInfo(my_group = g, my_empty_group = [])]",
         "my_rule = rule(implementation = _impl,",
@@ -2084,6 +2084,29 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testAnalysisFailureInfo_forTest() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "   fail('This Is My Failure Message')",
+        "",
+        "custom_test = rule(implementation = custom_rule_impl,",
+        "    test = True)");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'custom_test')", "", "custom_test(name = 'r')");
+
+    useConfiguration("--allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:r");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure failure = info.getCauses().toList().get(0);
+    assertThat(failure.getMessage()).contains("This Is My Failure Message");
+    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
+  }
+
+  @Test
   public void testAnalysisFailureInfoWithOutput() throws Exception {
     scratch.file(
         "test/extension.bzl",
@@ -2139,18 +2162,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
 
     Correspondence<AnalysisFailure, AnalysisFailure> correspondence =
-        new Correspondence<AnalysisFailure, AnalysisFailure>() {
-          @Override
-          public boolean compare(AnalysisFailure actual, AnalysisFailure expected) {
-            return actual.getLabel().equals(expected.getLabel())
-                && actual.getMessage().contains(expected.getMessage());
-          }
-
-          @Override
-          public String toString() {
-            return "is equivalent to";
-          }
-        };
+        Correspondence.from(
+            (actual, expected) ->
+                actual.getLabel().equals(expected.getLabel())
+                    && actual.getMessage().contains(expected.getMessage()),
+            "is equivalent to");
 
     AnalysisFailure expectedOne =
         new AnalysisFailure(
@@ -2591,7 +2607,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
     assertContainsEvent(
-        "_whitelist_function_transition attribute does not have the expected value");
+        " _whitelist_function_transition attribute (//test:my_other_rule) does not have the"
+            + " expected value");
   }
 
   @Test
@@ -2721,12 +2738,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test");
     // Test print from top level transition
-    assertContainsEventWithFrequency("printing from transition impl [\"meow\"]", 1);
+    assertContainsEvent("printing from transition impl [\"meow\"]");
     // Test print from dep transition
-    assertContainsEventWithFrequency("printing from transition impl [\"meow\", \"meow\"]", 1);
+    assertContainsEvent("printing from transition impl [\"meow\", \"meow\"]");
     // Test print from (non-top level) rule class transition
-    assertContainsEventWithFrequency(
-        "printing from transition impl [\"meow\", \"meow\", \"meow\"]", 1);
+    assertContainsEvent("printing from transition impl [\"meow\", \"meow\", \"meow\"]");
   }
 
   @Test
@@ -2893,6 +2909,30 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testNoRuleOutputsParam() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_no_rule_outputs_param=true");
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _impl(ctx):",
+        "  output = ctx.outputs.out",
+        "  ctx.actions.write(output = output, content = 'hello')",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  outputs = {\"out\": \"%{name}.txt\"})");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:target");
+    assertContainsEvent(
+        "parameter 'outputs' is deprecated and will be removed soon. It may be temporarily "
+            + "re-enabled by setting --incompatible_no_rule_outputs_param=false");
+  }
+
+  @Test
   public void testExecutableNotInRunfiles() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
@@ -2912,6 +2952,26 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/skylark:target");
     assertContainsEvent("exe not included in runfiles");
+  }
+
+  @Test
+  public void testCommandStringList() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_run_shell_command_string");
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _my_rule_impl(ctx):",
+        "  exe = ctx.actions.declare_file('exe')",
+        "  ctx.actions.run_shell(outputs=[exe], command=['touch', 'exe'])",
+        "  return []",
+        "my_rule = rule(implementation = _my_rule_impl)");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:target");
+    assertContainsEvent("'command' must be of type string");
   }
 
   /**
@@ -2979,23 +3039,23 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOldOctalNotationIsForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_octal_notation=true");
+  public void testUnknownStringEscapesForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=true");
 
-    scratch.file("test/extension.bzl", "y = 0246");
+    scratch.file("test/extension.bzl", "y = \"\\z\"");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
-    assertContainsEvent("Invalid octal value `0246`, should be: `0o246`");
+    assertContainsEvent("invalid escape sequence: \\z");
   }
 
   @Test
-  public void testOldOctalNotation() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_octal_notation=false");
+  public void testUnknownStringEscapes() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=false");
 
-    scratch.file("test/extension.bzl", "y = 0246");
+    scratch.file("test/extension.bzl", "y = \"\\z\"");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
 

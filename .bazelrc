@@ -1,26 +1,24 @@
 # Configuration to build and test Bazel itself on RBE.
-build:remote --host_javabase=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804/java:jdk
-build:remote --javabase=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804/java:jdk
+build:remote --host_javabase=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804/java:jdk
+build:remote --javabase=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804/java:jdk
 build:remote --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
 build:remote --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
-build:remote --crosstool_top=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804/cc:toolchain
+build:remote --crosstool_top=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804/cc:toolchain
 
-build:remote --extra_toolchains=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804/config:cc-toolchain
-build:remote --extra_execution_platforms=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
+build:remote --extra_toolchains=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804/config:cc-toolchain
+build:remote --extra_execution_platforms=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804:default_platform
 build:remote --extra_execution_platforms=//:rbe_highcpu_platform
-build:remote --host_platform=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
-build:remote --platforms=@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform
+build:remote --host_platform=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804:default_platform
+build:remote --platforms=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804:default_platform
 
-build:remote --spawn_strategy=remote
-build:remote --strategy=Javac=remote
-build:remote --strategy=Closure=remote
-build:remote --strategy=Genrule=remote
+ # TODO(ishikhman): Remove this flag after upgrading Bazel to 0.27.0
+build:remote --incompatible_list_based_execution_strategy_selection
+
 build:remote --define=EXECUTOR=remote
 
 build:remote --remote_instance_name=projects/bazel-untrusted/instances/default_instance
-build:remote --remote_executor=remotebuildexecution.googleapis.com
+build:remote --remote_executor=grpcs://remotebuildexecution.googleapis.com
 build:remote --remote_timeout=600
-build:remote --tls_enabled
 build:remote --google_default_credentials
 
 build:remote --jobs=100
@@ -28,5 +26,4 @@ build:remote --action_env=PATH=/bin:/usr/bin:/usr/local/bin
 build:remote --disk_cache=
 
 # Flags for Android
-build:remote --strategy=DexBuilder=remote        # RBE C++ toolchain is built for RBE container
 build:remote --noexperimental_check_desugar_deps # Workaround for singlejar incompatibility with RBE

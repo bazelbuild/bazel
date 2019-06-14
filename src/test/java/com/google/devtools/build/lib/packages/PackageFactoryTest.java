@@ -661,7 +661,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "glob()",
         "insufficient arguments received by glob(include: sequence of strings, "
             + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
-            + "allow_empty: bool = True) (got 0, expected at least 1)");
+            + "allow_empty: bool = <unbound>) (got 0, expected at least 1)");
   }
 
   @Test
@@ -671,7 +671,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "glob(['a'], ['b'])",
         "too many (2) positional arguments in call to glob(include: sequence of strings, "
             + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
-            + "allow_empty: bool = True)");
+            + "allow_empty: bool = <unbound>)");
   }
 
   @Test
@@ -681,7 +681,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "glob(1,2,3,4)",
         "too many (4) positional arguments in call to glob(include: sequence of strings, "
             + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
-            + "allow_empty: bool = True)");
+            + "allow_empty: bool = <unbound>)");
   }
 
   @Test
@@ -714,9 +714,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
                     /*includes=*/ ImmutableList.of("W*", "subdir"),
                     /*excludes=*/ ImmutableList.<String>of(),
                     /* excludeDirs= */ true));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("ERROR /globs/BUILD:2:73: name 'this_will_fail' is not defined");
+    assertThat(e).hasMessageThat().isEqualTo("ERROR /globs/BUILD:2:73: incorrect glob result");
   }
 
   @Test
@@ -811,25 +809,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testNativeModuleIsAvailable() throws Exception {
-    Path buildFile = scratch.file("/pkg/BUILD", "native.cc_library(name='bar')");
-    Package pkg =
-        packages.createPackage(
-            "pkg",
-            RootedPath.toRootedPath(root, buildFile),
-            "--incompatible_disallow_native_in_build_file=false");
-    assertThat(pkg.containsErrors()).isFalse();
-  }
-
-  @Test
   public void testNativeModuleIsDisabled() throws Exception {
     events.setFailFast(false);
     Path buildFile = scratch.file("/pkg/BUILD", "native.cc_library(name='bar')");
-    Package pkg =
-        packages.createPackage(
-            "pkg",
-            RootedPath.toRootedPath(root, buildFile),
-            "--incompatible_disallow_native_in_build_file=true");
+    Package pkg = packages.createPackage("pkg", RootedPath.toRootedPath(root, buildFile));
     assertThat(pkg.containsErrors()).isTrue();
   }
 

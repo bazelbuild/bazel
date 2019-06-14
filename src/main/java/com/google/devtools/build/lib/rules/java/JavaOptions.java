@@ -684,6 +684,12 @@ public class JavaOptions extends FragmentOptions {
 
     host.disallowResourceJars = disallowResourceJars;
 
+    // Save host options for further use.
+    host.hostJavaBase = hostJavaBase;
+    host.hostJavacOpts = hostJavacOpts;
+    host.hostJavaLauncher = hostJavaLauncher;
+    host.hostJavaToolchain = hostJavaToolchain;
+
     return host;
   }
 

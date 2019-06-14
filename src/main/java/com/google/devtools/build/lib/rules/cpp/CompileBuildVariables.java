@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Enum covering all build variables we create for all various {@link CppCompileAction}. */
@@ -39,8 +38,6 @@ public enum CompileBuildVariables {
   USER_COMPILE_FLAGS("user_compile_flags"),
   /** Variable for flags coming from unfiltered_cxx_flag CROSSTOOL fields. */
   UNFILTERED_COMPILE_FLAGS("unfiltered_compile_flags"),
-  /** Variable for the path to the output file when output is an object file. */
-  OUTPUT_OBJECT_FILE("output_object_file"),
   /** Variable for the path to the compilation output file. */
   OUTPUT_FILE("output_file"),
   /** Variable for the dependency file path */
@@ -168,8 +165,6 @@ public enum CompileBuildVariables {
       BuildOptions buildOptions,
       CppConfiguration cppConfiguration,
       String sourceFile,
-      // TODO(b/76195763): Remove once blaze with cl/189769259 is released and crosstools are
-      // updated.
       String outputFile,
       String gcnoFile,
       boolean isUsingFission,
@@ -209,20 +204,6 @@ public enum CompileBuildVariables {
     String fakeOutputFileOrRealOutputFile = fakeOutputFile != null ? fakeOutputFile : outputFile;
 
     if (outputFile != null) {
-      // TODO(b/76195763): Remove once blaze with cl/189769259 is released and crosstools are
-      // updated.
-      if (!FileType.contains(
-          PathFragment.create(outputFile),
-          CppFileTypes.ASSEMBLER,
-          CppFileTypes.PIC_ASSEMBLER,
-          CppFileTypes.PREPROCESSED_C,
-          CppFileTypes.PREPROCESSED_CPP,
-          CppFileTypes.PIC_PREPROCESSED_C,
-          CppFileTypes.PIC_PREPROCESSED_CPP)) {
-        buildVariables.addStringVariable(
-            OUTPUT_OBJECT_FILE.getVariableName(), fakeOutputFileOrRealOutputFile);
-      }
-
       buildVariables.addStringVariable(
           OUTPUT_FILE.getVariableName(), fakeOutputFileOrRealOutputFile);
     }

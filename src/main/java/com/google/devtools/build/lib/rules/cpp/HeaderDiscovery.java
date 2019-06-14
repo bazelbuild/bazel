@@ -160,14 +160,19 @@ public class HeaderDiscovery {
           artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repository);
         } catch (LabelSyntaxException e) {
           throw new ActionExecutionException(
-              String.format("Could not find the external repository for %s", execPathFragment),
+              String.format(
+                  "Could not find the external repository for %s: " + e.getMessage(),
+                  execPathFragment),
               e,
               action,
               false);
         }
       }
       if (artifact != null) {
-        inputs.add(artifact);
+        // We don't need to add the sourceFile itself as it is a mandatory input.
+        if (!artifact.equals(sourceFile)) {
+          inputs.add(artifact);
+        }
         continue;
       }
 

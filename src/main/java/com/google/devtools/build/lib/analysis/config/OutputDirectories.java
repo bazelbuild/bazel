@@ -104,13 +104,17 @@ public class OutputDirectories {
       // e.g., execroot/repo1
       Path execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
       // e.g., execroot/repo1/bazel-out/config/bin
-      Path outputDir =
-          execRoot.getRelative(directories.getRelativeOutputPath()).getRelative(outputDirName);
       if (middleman) {
+        Path outputDir =
+            execRoot.getRelative(directories.getRelativeOutputPath()).getRelative(outputDirName);
         return ArtifactRoot.middlemanRoot(execRoot, outputDir);
       }
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
-      return ArtifactRoot.asDerivedRoot(execRoot, outputDir.getRelative(nameFragment));
+      return ArtifactRoot.asDerivedRoot(
+          execRoot,
+          PathFragment.create(directories.getRelativeOutputPath()),
+          PathFragment.create(outputDirName),
+          nameFragment);
     }
   }
 

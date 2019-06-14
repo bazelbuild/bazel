@@ -218,9 +218,10 @@ public class AndroidResourceMergingAction {
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, AaptConfigOptions.class);
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+        OptionsParser.newOptionsParser(
+            new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()),
+            Options.class,
+            AaptConfigOptions.class);
     optionsParser.parseAndExitUponError(args);
     AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);

@@ -49,7 +49,7 @@ public class BuildFileAST extends ASTNode {
    */
   private final boolean containsErrors;
 
-  private final List<Event> octalEvents;
+  private final List<Event> stringEscapeEvents;
 
   @Nullable private final String contentHashCode;
 
@@ -60,14 +60,14 @@ public class BuildFileAST extends ASTNode {
       Location location,
       ImmutableList<Comment> comments,
       @Nullable ImmutableList<SkylarkImport> imports,
-      List<Event> octalEvents) {
+      List<Event> stringEscapeEvents) {
     this.statements = statements;
     this.containsErrors = containsErrors;
     this.contentHashCode = contentHashCode;
     this.comments = comments;
     this.setLocation(location);
     this.imports = imports;
-    this.octalEvents = octalEvents;
+    this.stringEscapeEvents = stringEscapeEvents;
   }
 
   private static BuildFileAST create(
@@ -103,7 +103,7 @@ public class BuildFileAST extends ASTNode {
         result.location,
         ImmutableList.copyOf(result.comments),
         skylarkImports.second,
-        result.octalEvents);
+        result.stringEscapeEvents);
   }
 
   private static BuildFileAST create(
@@ -141,7 +141,7 @@ public class BuildFileAST extends ASTNode {
         this.statements.get(firstStatement).getLocation(),
         ImmutableList.of(),
         imports.build(),
-        octalEvents);
+        stringEscapeEvents);
   }
 
   /**
@@ -210,8 +210,8 @@ public class BuildFileAST extends ASTNode {
 
   /** Returns true if there was no error event. */
   public boolean replayLexerEvents(Environment env, EventHandler eventHandler) {
-    if (env.getSemantics().incompatibleDisallowOldOctalNotation() && !octalEvents.isEmpty()) {
-      Event.replayEventsOn(eventHandler, octalEvents);
+    if (env.getSemantics().incompatibleRestrictStringEscapes() && !stringEscapeEvents.isEmpty()) {
+      Event.replayEventsOn(eventHandler, stringEscapeEvents);
       return false;
     }
     return true;
@@ -235,9 +235,6 @@ public class BuildFileAST extends ASTNode {
    */
   public boolean exec(Environment env, EventHandler eventHandler) throws InterruptedException {
     boolean ok = true;
-    if (!replayLexerEvents(env, eventHandler)) {
-      return false;
-    }
     for (Statement stmt : statements) {
       if (!execTopLevelStatement(stmt, env, eventHandler)) {
         ok = false;
@@ -390,7 +387,7 @@ public class BuildFileAST extends ASTNode {
         result.location,
         ImmutableList.copyOf(result.comments),
         /* imports= */ null,
-        result.octalEvents);
+        result.stringEscapeEvents);
   }
 
   /**
@@ -404,7 +401,7 @@ public class BuildFileAST extends ASTNode {
       return this;
     }
     return new BuildFileAST(
-        statements, true, contentHashCode, getLocation(), comments, imports, octalEvents);
+        statements, true, contentHashCode, getLocation(), comments, imports, stringEscapeEvents);
   }
 
   public static BuildFileAST parseString(EventHandler eventHandler, String... content) {
@@ -466,6 +463,7 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseAndValidateSkylarkString(Environment env, String[] input)
       throws EvalException {
     BuildFileAST ast = parseString(env.getEventHandler(), input);
+    ast.replayLexerEvents(env, env.getEventHandler());
     ValidationEnvironment.validateAst(env, ast.getStatements());
     return ast;
   }

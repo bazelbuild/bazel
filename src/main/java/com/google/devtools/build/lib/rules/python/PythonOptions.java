@@ -231,7 +231,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_python_toolchains",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -256,7 +256,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_windows_escape_python_args",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
         OptionEffectTag.ACTION_COMMAND_LINES,
@@ -393,6 +393,10 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
     hostPythonOptions.windowsEscapePythonArgs = windowsEscapePythonArgs;
+
+    // Save host options in case of a further exec->host transition.
+    hostPythonOptions.hostForcePython = hostForcePython;
+
     return hostPythonOptions;
   }
 

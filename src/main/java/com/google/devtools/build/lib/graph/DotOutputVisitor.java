@@ -58,11 +58,11 @@ public class DotOutputVisitor<T> implements GraphVisitor<T> {
   public void visitEdge(Node<T> lhs, Node<T> rhs) {
     String s_lhs = disp.serialize(lhs);
     String s_rhs = disp.serialize(rhs);
-    out.println("\"" + s_lhs + "\" -> \"" + s_rhs + "\"");
+    out.println("  \"" + s_lhs + "\" -> \"" + s_rhs + "\"");
   }
 
   @Override
   public void visitNode(Node<T> node) {
-    out.println("\"" + disp.serialize(node) + "\"");
+    out.println("  \"" + disp.serialize(node) + "\"");
   }
 }

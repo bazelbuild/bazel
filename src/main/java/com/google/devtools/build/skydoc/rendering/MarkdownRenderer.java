@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import java.io.IOException;
 import java.io.StringWriter;
 import org.apache.velocity.VelocityContext;

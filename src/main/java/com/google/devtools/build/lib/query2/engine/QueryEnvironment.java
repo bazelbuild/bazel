@@ -74,7 +74,7 @@ public interface QueryEnvironment<T> {
     }
 
     public QueryExpression getExpression() {
-      return Preconditions.checkNotNull(expression, "Expected expression argument: %s", expression);
+      return Preconditions.checkNotNull(expression, "Expected expression argument");
     }
 
     public String getWord() {
@@ -166,6 +166,43 @@ public interface QueryEnvironment<T> {
     public TargetNotFoundException(Throwable cause) {
       super(cause.getMessage(), cause);
     }
+  }
+
+  /**
+   * QueryEnvironment implementations can optionally also implement this interface to provide custom
+   * implementations of various operators.
+   */
+  interface CustomFunctionQueryEnvironment<T> extends QueryEnvironment<T> {
+    /**
+     * Computes the transitive closure of dependencies at most maxDepth away from the given targets,
+     * and calls the given callback with the results.
+     */
+    void deps(Iterable<T> from, int maxDepth, QueryExpression caller, Callback<T> callback)
+        throws InterruptedException, QueryException;
+
+    /** Computes some path from a node in 'from' to a node in 'to'. */
+    void somePath(Iterable<T> from, Iterable<T> to, QueryExpression caller, Callback<T> callback)
+        throws InterruptedException, QueryException;
+
+    /** Computes all paths from a node in 'from' to a node in 'to'. */
+    void allPaths(Iterable<T> from, Iterable<T> to, QueryExpression caller, Callback<T> callback)
+        throws InterruptedException, QueryException;
+
+    /**
+     * Computes all reverse dependencies of a node in 'from' with at most distance maxDepth within
+     * the transitive closure of 'universe'.
+     */
+    void rdeps(
+        Iterable<T> from,
+        Iterable<T> universe,
+        int maxDepth,
+        QueryExpression caller,
+        Callback<T> callback)
+        throws InterruptedException, QueryException;
+
+    /** Computes direct reverse deps of all nodes in 'from' within the same package. */
+    void samePkgDirectRdeps(Iterable<T> from, QueryExpression caller, Callback<T> callback)
+        throws InterruptedException, QueryException;
   }
 
   /** Returns all of the targets in <code>target</code>'s package, in some stable order. */

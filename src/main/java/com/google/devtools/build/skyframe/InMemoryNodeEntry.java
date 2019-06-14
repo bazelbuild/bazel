@@ -207,12 +207,17 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Iterable<SkyKey> getDirectDeps() {
+  public Iterable<SkyKey> getDirectDeps() {
     return GroupedList.compressedToIterable(getCompressedDirectDepsForDoneEntry());
   }
 
+  @Override
+  public int getNumberOfDirectDepGroups() {
+    return GroupedList.numGroups(getCompressedDirectDepsForDoneEntry());
+  }
+
   /** Returns the compressed {@link GroupedList} of direct deps. Can only be called when done. */
-  public synchronized @GroupedList.Compressed Object getCompressedDirectDepsForDoneEntry() {
+  public final synchronized @GroupedList.Compressed Object getCompressedDirectDepsForDoneEntry() {
     assertKeepDeps();
     Preconditions.checkState(isDone(), "no deps until done. NodeEntry: %s", this);
     Preconditions.checkNotNull(directDeps, "deps can't be null: %s", this);
@@ -260,22 +265,6 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized Set<SkyKey> getInProgressReverseDeps() {
     Preconditions.checkState(!isDone(), this);
     return ReverseDepsUtility.returnNewElements(this, getOpToStoreBare());
-  }
-
-  /**
-   * Highly dangerous method. Used only for testing/debugging. Can only be called on an in-progress
-   * entry that is not dirty and that will not keep edges. Returns all the entry's reverse deps,
-   * which must all be {@link SkyKey}s representing {@link Op#ADD} operations, since that is the
-   * operation that is stored bare. Used for speed, since it avoids making any copies, so should be
-   * much faster than {@link #getInProgressReverseDeps}.
-   */
-  @SuppressWarnings("unchecked")
-  public synchronized Iterable<SkyKey> unsafeGetUnconsolidatedRdeps() {
-    Preconditions.checkState(!isDone(), this);
-    Preconditions.checkState(!isDirty(), this);
-    Preconditions.checkState(keepEdges().equals(KeepEdgesPolicy.NONE), this);
-    Preconditions.checkState(getOpToStoreBare() == OpToStoreBare.ADD, this);
-    return (Iterable<SkyKey>) (List<?>) reverseDepsDataToConsolidate;
   }
 
   // In this method it is critical that this.lastChangedVersion is set prior to this.value because

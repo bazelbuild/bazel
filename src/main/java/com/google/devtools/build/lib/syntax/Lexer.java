@@ -104,12 +104,12 @@ public final class Lexer {
   private int dents; // number of saved INDENT (>0) or OUTDENT (<0) tokens to return
 
   /**
-   * OctalEvents contains the errors related to the old octal notation (0123 instead of 0o123). This
-   * is not handled by the normal eventHandler. Instead, it is passed to the parser and then the
-   * AST. During the evaluation, we can decide to show the events based on a flag in
-   * StarlarkSemantics. This code is temporary, during the migration.
+   * StringEscapeEvents contains the errors related to invalid escape sequences like "\a". This is
+   * not handled by the normal eventHandler. Instead, it is passed to the parser and then the AST.
+   * During the evaluation, we can decide to show the events based on a flag in StarlarkSemantics.
+   * This code is temporary, during the migration.
    */
-  private List<Event> octalEvents = new ArrayList<>();
+  private final List<Event> stringEscapeEvents = new ArrayList<>();
 
   /**
    * Constructs a lexer which tokenizes the contents of the specified InputBuffer. Any errors during
@@ -137,8 +137,8 @@ public final class Lexer {
     return comments;
   }
 
-  List<Event> getOctalEvents() {
-    return octalEvents;
+  List<Event> getStringEscapeEvents() {
+    return stringEscapeEvents;
   }
 
   /**
@@ -469,10 +469,18 @@ public final class Lexer {
             case 'v':
             case 'x':
               // exists in Python but not implemented in Blaze => error
-              error("escape sequence not implemented: \\" + c, literalStartPos, pos);
+              error("invalid escape sequence: \\" + c, literalStartPos, pos);
               break;
             default:
               // unknown char escape => "\literal"
+              stringEscapeEvents.add(
+                  Event.error(
+                      createLocation(pos - 1, pos),
+                      "invalid escape sequence: \\"
+                          + c
+                          + ". You can enable unknown escape sequences by passing the flag "
+                          + "--incompatible_restrict_string_escapes=false"));
+
               literal.append('\\');
               literal.append(c);
               break;
@@ -701,10 +709,7 @@ public final class Lexer {
     } else if (literal.startsWith("0") && literal.length() > 1) {
       radix = 8;
       substring = literal.substring(1);
-      octalEvents.add(
-          Event.error(
-              createLocation(oldPos, pos),
-              "Invalid octal value `" + literal + "`, should be: `0o" + substring + "`."));
+      error("invalid octal value `" + literal + "`, should be: `0o" + substring + "`");
     } else {
       radix = 10;
       substring = literal;

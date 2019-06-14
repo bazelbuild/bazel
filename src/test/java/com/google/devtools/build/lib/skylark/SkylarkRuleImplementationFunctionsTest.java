@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -248,6 +249,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @SuppressWarnings("unchecked")
   @Test
   public void testListComprehensionsWithNestedSet() throws Exception {
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+                .incompatibleDepsetIsNotIterable(false)
+                .build());
+    ev.initialize();
+
     Object result = eval("[x + x for x in depset([1, 2, 3])]");
     assertThat((Iterable<Object>) result).containsExactly(2, 4, 6).inOrder();
   }
@@ -381,15 +389,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "unexpected keyword 'bad_param', for call to method run(",
         "f = ruleContext.actions.declare_file('foo.sh')",
         "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
-  }
-
-  @Test
-  public void testCreateSpawnActionNoExecutable() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    checkErrorContains(
-        ruleContext,
-        "You must specify either 'command' or 'executable' argument",
-        "ruleContext.action(outputs=[])");
   }
 
   private Object createTestSpawnAction(SkylarkRuleContext ruleContext) throws Exception {
@@ -706,8 +705,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  label_dict = {}",
         "  all = []",
         "  for dep in ruleContext.attr.srcs + ruleContext.attr.tools:",
-        "    all.extend(list(dep.files))",
-        "    label_dict[dep.label] = list(dep.files)",
+        "    all.extend(dep.files.to_list())",
+        "    label_dict[dep.label] = dep.files.to_list()",
         "  return ruleContext.resolve_command(",
         "    command='A$(locations //foo:mytool) B$(location //foo:file3.dat)',",
         "    attribute='cmd', expand_locations=True, label_dict=label_dict)",
@@ -1804,6 +1803,28 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testReturnNonExportedProvider() throws Exception {
+    scratch.file(
+        "test/my_rule.bzl",
+        "def _rule_impl(ctx):",
+        "    foo_provider = provider()",
+        "    foo = foo_provider()",
+        "    return [foo]",
+        "",
+        "my_rule = rule(",
+        "    implementation = _rule_impl,",
+        ")");
+    scratch.file("test/BUILD", "load(':my_rule.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
+
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "cannot return a non-exported provider instance from a rule implementation function.");
+  }
+
+  @Test
   public void testFilesForFileConfiguredTarget() throws Exception {
     Object result =
         evalRuleContextCode(createRuleContext("//foo:bar"), "ruleContext.attr.srcs[0].files");
@@ -2729,6 +2750,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    '_attr': attr.label(",
         "        cfg = android_common.multi_cpu_configuration,",
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
 
@@ -3185,4 +3207,3 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
   }
 }
-

@@ -122,6 +122,8 @@ def define_autodetecting_toolchain(
         windows_config_setting):
     """Defines the autodetecting Python toolchain.
 
+    This includes both strict and non-strict variants.
+
     For use only by @bazel_tools//tools/python:BUILD; see the documentation
     comment there.
 
@@ -146,6 +148,8 @@ def define_autodetecting_toolchain(
         template = pywrapper_template,
         out2 = ":py2wrapper.sh",
         out3 = ":py3wrapper.sh",
+        out2_nonstrict = ":py2wrapper_nonstrict.sh",
+        out3_nonstrict = ":py3wrapper_nonstrict.sh",
         visibility = ["//visibility:private"],
     )
 
@@ -165,6 +169,20 @@ def define_autodetecting_toolchain(
     native.py_runtime(
         name = "_autodetecting_py3_runtime",
         interpreter = ":py3wrapper.sh",
+        python_version = "PY3",
+        visibility = ["//visibility:private"],
+    )
+
+    native.py_runtime(
+        name = "_autodetecting_py2_runtime_nonstrict",
+        interpreter = ":py2wrapper_nonstrict.sh",
+        python_version = "PY2",
+        visibility = ["//visibility:private"],
+    )
+
+    native.py_runtime(
+        name = "_autodetecting_py3_runtime_nonstrict",
+        interpreter = ":py3wrapper_nonstrict.sh",
         python_version = "PY3",
         visibility = ["//visibility:private"],
     )
@@ -193,9 +211,28 @@ def define_autodetecting_toolchain(
         visibility = ["//visibility:public"],
     )
 
+    py_runtime_pair(
+        name = "_autodetecting_py_runtime_pair_nonstrict",
+        py2_runtime = select({
+            # Same hack as above.
+            # TODO(#7844): Remove this hack.
+            windows_config_setting: ":_sentinel_py2_runtime",
+            "//conditions:default": ":_autodetecting_py2_runtime_nonstrict",
+        }),
+        py3_runtime = ":_autodetecting_py3_runtime_nonstrict",
+        visibility = ["//visibility:public"],
+    )
+
     native.toolchain(
         name = name,
         toolchain = ":_autodetecting_py_runtime_pair",
+        toolchain_type = ":toolchain_type",
+        visibility = ["//visibility:public"],
+    )
+
+    native.toolchain(
+        name = name + "_nonstrict",
+        toolchain = ":_autodetecting_py_runtime_pair_nonstrict",
         toolchain_type = ":toolchain_type",
         visibility = ["//visibility:public"],
     )

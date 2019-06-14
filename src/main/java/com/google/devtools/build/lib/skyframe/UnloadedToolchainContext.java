@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -92,15 +93,36 @@ public abstract class UnloadedToolchainContext implements ToolchainContext, SkyV
     /** Sets the toolchain types that were requested. */
     Builder setRequiredToolchainTypes(Set<ToolchainTypeInfo> requiredToolchainTypes);
 
+    /**
+     * Maps from the actual toolchain type to the resolved toolchain implementation that should be
+     * used.
+     */
     Builder setToolchainTypeToResolved(
         ImmutableBiMap<ToolchainTypeInfo, Label> toolchainTypeToResolved);
+
+    /**
+     * Maps from the actual requested {@link Label} to the discovered {@link ToolchainTypeInfo}.
+     *
+     * <p>Note that the key may be different from {@link ToolchainTypeInfo#typeLabel()} if the
+     * requested {@link Label} is an {@code alias}.
+     */
+    Builder setRequestedLabelToToolchainType(
+        ImmutableMap<Label, ToolchainTypeInfo> requestedLabelToToolchainType);
 
     UnloadedToolchainContext build();
   }
 
   /** The map of toolchain type to resolved toolchain to be used. */
-  // TODO(https://github.com/bazelbuild/bazel/issues/7935): Make this package-protected again.
   public abstract ImmutableBiMap<ToolchainTypeInfo, Label> toolchainTypeToResolved();
+
+  /**
+   * Maps from the actual requested {@link Label} to the discovered {@link ToolchainTypeInfo}.
+   *
+   * <p>Note that the key may be different from {@link ToolchainTypeInfo#typeLabel()} if the
+   * requested {@link Label} is an {@code alias}. In this case, there will be two {@link Label
+   * labels} for the same {@link ToolchainTypeInfo}.
+   */
+  public abstract ImmutableMap<Label, ToolchainTypeInfo> requestedLabelToToolchainType();
 
   @Override
   public ImmutableSet<Label> resolvedToolchainLabels() {

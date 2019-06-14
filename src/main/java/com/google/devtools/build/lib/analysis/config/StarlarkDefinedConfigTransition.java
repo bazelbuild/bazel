@@ -214,6 +214,13 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       }
 
       if (result instanceof SkylarkDict<?, ?>) {
+        // If we're recieving an empty dictionary, it's an error. Even if a
+        // transition function sometimes evaluates to a no-op, it needs to return the passed in
+        // settings. Return early for now since better error reporting will happen in
+        // {@link FunctionTransitionUtil#validateFunctionOutputsMatchesDeclaredOutputs}
+        if (((SkylarkDict) result).isEmpty()) {
+          return ImmutableList.of(ImmutableMap.of());
+        }
         // TODO(bazel-team): integrate keys with ctx.split_attr. Currently ctx.split_attr always
         // keys on cpu value - we should be able to key on the keys returned here.
         try {

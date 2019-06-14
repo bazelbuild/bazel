@@ -321,7 +321,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       InfoInterface info = (InfoInterface) target;
       // Use the creation location of this struct as a better reference in error messages
       loc = info.getCreationLoc();
-      if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
+      if (getProviderKey(loc, info).equals(StructProvider.STRUCT.getKey())) {
 
         if (context.getSkylarkSemantics().incompatibleDisallowStructProviderSyntax()) {
           throw new EvalException(
@@ -345,7 +345,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
                     InfoInterface.class,
                     loc,
                     "The value of 'providers' should be a sequence of declared providers");
-            Provider.Key providerKey = declaredProvider.getProvider().getKey();
+            Provider.Key providerKey = getProviderKey(loc, declaredProvider);
             if (declaredProviders.put(providerKey, declaredProvider) != null) {
               context
                   .getRuleContext()
@@ -354,7 +354,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
           }
         }
       } else {
-        Provider.Key providerKey = info.getProvider().getKey();
+        Provider.Key providerKey = getProviderKey(loc, info);
         // Single declared provider
         declaredProviders.put(providerKey, info);
       }
@@ -368,7 +368,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
                 loc,
                 "A return value of a rule implementation function should be "
                     + "a sequence of declared providers");
-        Provider.Key providerKey = declaredProvider.getProvider().getKey();
+        Provider.Key providerKey = getProviderKey(loc, declaredProvider);
         if (declaredProviders.put(providerKey, declaredProvider)  != null) {
           context
               .getRuleContext()
@@ -380,10 +380,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
     boolean defaultProviderProvidedExplicitly = false;
 
     for (InfoInterface declaredProvider : declaredProviders.values()) {
-      if (declaredProvider
-          .getProvider()
-          .getKey()
-          .equals(DefaultInfo.PROVIDER.getKey())) {
+      if (getProviderKey(loc, declaredProvider).equals(DefaultInfo.PROVIDER.getKey())) {
         parseDefaultProviderFields((DefaultInfo) declaredProvider, context, builder);
         defaultProviderProvidedExplicitly = true;
       } else {
@@ -421,6 +418,26 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
   }
 
+  /**
+   * Returns the provider key from an info object.
+   *
+   * @throws EvalException if the provider for this info object has not been exported, which can
+   *     occur if the provider was declared in a non-global scope (for example a rule implementation
+   *     function)
+   */
+  private static Provider.Key getProviderKey(Location loc, InfoInterface infoObject)
+      throws EvalException {
+    if (!infoObject.getProvider().isExported()) {
+      throw new EvalException(
+          loc,
+          "cannot return a non-exported provider instance from a "
+              + "rule implementation function. provider defined at "
+              + infoObject.getProvider().getLocation()
+              + " must be defined outside of a function scope.");
+    }
+    return infoObject.getProvider().getKey();
+  }
+
   private static boolean isNativeDeclaredProviderWithLegacySkylarkName(Object value) {
     if (!(value instanceof InfoInterface)) {
       return false;
@@ -443,10 +460,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
     Location loc = provider.getCreationLoc();
 
-    if (provider
-        .getProvider()
-        .getKey()
-        .equals(DefaultInfo.PROVIDER.getKey())) {
+    if (getProviderKey(loc, provider).equals(DefaultInfo.PROVIDER.getKey())) {
       DefaultInfo defaultInfo = (DefaultInfo) provider;
 
       files = defaultInfo.getFiles();

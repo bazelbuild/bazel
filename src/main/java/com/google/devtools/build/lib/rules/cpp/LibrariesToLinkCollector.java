@@ -286,15 +286,18 @@ public class LibrariesToLinkCollector {
         !Link.useStartEndLib(
             input,
             CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider, featureConfiguration)));
+
+    expandedLinkerInputsBuilder.add(input);
     if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
         && ccToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)) {
       // On Windows, dynamic library (dll) cannot be linked directly when using toolchains that
-      // support interface library (eg. MSVC).
-      Preconditions.checkState(
-          !CppFileTypes.SHARED_LIBRARY.matches(input.getArtifact().getFilename()));
+      // support interface library (eg. MSVC). If the user is doing so, it is only to be referenced
+      // in other places (such as copy_dynamic_libraries_to_binary); skip adding it.
+      if (CppFileTypes.SHARED_LIBRARY.matches(input.getArtifact().getFilename())) {
+        return;
+      }
     }
 
-    expandedLinkerInputsBuilder.add(input);
     Artifact inputArtifact = input.getArtifact();
     PathFragment libDir = inputArtifact.getExecPath().getParentDirectory();
     if (!libDir.equals(solibDir)

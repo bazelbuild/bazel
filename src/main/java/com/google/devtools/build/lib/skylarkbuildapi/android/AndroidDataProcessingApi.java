@@ -97,6 +97,14 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc = "Dependencies to inherit resources from."),
         @Param(
+            name = "assets",
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = AndroidAssetsInfoApi.class,
+            positional = false,
+            named = true,
+            doc = "Dependencies to inherit assets from."),
+        @Param(
             name = "neverlink",
             defaultValue = "False",
             type = Boolean.class,
@@ -108,15 +116,10 @@ public interface AndroidDataProcessingApi<
         @Param(
             name = "custom_package",
             positional = false,
-            defaultValue = "None",
             type = String.class,
-            noneable = true,
+            noneable = false,
             named = true,
-            doc =
-                "The Android application package to stamp the manifest with. If not provided, the"
-                    + " current Java package, derived from the location of this target's BUILD"
-                    + " file, will be used. For example, given a BUILD file in"
-                    + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
+            doc = "The Android application package to stamp the manifest with."),
       },
       useLocation = true,
       useEnvironment = true,
@@ -130,8 +133,9 @@ public interface AndroidDataProcessingApi<
   AndroidResourcesInfoT resourcesFromDeps(
       AndroidDataContextT ctx,
       SkylarkList<AndroidResourcesInfoT> deps,
+      SkylarkList<AndroidAssetsInfoT> assets,
       boolean neverlink,
-      Object customPackage,
+      String customPackage,
       Location location,
       Environment env)
       throws InterruptedException, EvalException;

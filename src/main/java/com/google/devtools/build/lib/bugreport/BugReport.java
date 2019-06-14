@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bugreport;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -129,7 +131,7 @@ public abstract class BugReport {
     if (sendBugReport) {
       BugReport.sendBugReport(throwable, Arrays.asList(args));
     }
-    BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable);
+    BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable, /* oomMessage = */ null);
     System.err.println("ERROR: " + getProductName() + " crash in async thread:");
     throwable.printStackTrace();
   }
@@ -227,10 +229,15 @@ public abstract class BugReport {
    * @param outErr where to write the output
    * @param e the exception thrown
    */
-  public static void printBug(OutErr outErr, Throwable e) {
+  public static void printBug(OutErr outErr, Throwable e, String oomMessage) {
     if (e instanceof OutOfMemoryError) {
       outErr.printErr(
-          e.getMessage() + "\n\nERROR: " + getProductName() + " ran out of memory and crashed.\n");
+          e.getMessage()
+              + "\n\nERROR: "
+              + getProductName()
+              + " ran out of memory and crashed."
+              + (isNullOrEmpty(oomMessage) ? "" : (" " + oomMessage))
+              + "\n");
     } else {
       printThrowableTo(outErr, e);
     }

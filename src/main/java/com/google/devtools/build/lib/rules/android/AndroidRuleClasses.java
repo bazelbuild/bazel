@@ -217,11 +217,7 @@ public final class AndroidRuleClasses {
       AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
 
       CppOptions cppOptions = options.get(CppOptions.class);
-      if (androidOptions.androidCrosstoolTop != null
-          && !cppOptions.crosstoolTop.equals(androidOptions.androidCrosstoolTop)) {
-        if (cppOptions.hostCrosstoolTop == null) {
-          cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
-        }
+      if (androidOptions.androidCrosstoolTop != null) {
         cppOptions.crosstoolTop = androidOptions.androidCrosstoolTop;
       }
 
