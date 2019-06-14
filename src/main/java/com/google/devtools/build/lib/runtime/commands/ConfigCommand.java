@@ -147,8 +147,9 @@ public class ConfigCommand implements BlazeCommand {
         .map(Map.Entry::getValue)
         .map(v -> (BuildConfigurationValue) v)
         .map(BuildConfigurationValue::getConfiguration)
-        .distinct()
-        .collect(toImmutableMap(BuildConfiguration::checksum, Functions.identity()));
+        .collect(
+            toImmutableMap(
+                BuildConfiguration::checksum, Functions.identity(), (config1, config2) -> config1));
   }
 
   private Table<Class<? extends FragmentOptions>, String, Pair<Object, Object>> diffConfigurations(
