@@ -47,6 +47,7 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       STDOUT,
       STDERR,
       LOG,
+      PERFORMANCE_LOG,
     }
 
     public final Path path;

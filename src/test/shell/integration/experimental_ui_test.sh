@@ -480,7 +480,7 @@ function test_status_despite_output_limit {
 
 function test_error_message_despite_output_limit {
     # Verify that, even if we limit the output very strictly, we
-    # still the the final error message.
+    # still the final error message.
     bazel clean --expunge
     bazel version
     bazel build --experimental_ui --curses=yes --color=yes \

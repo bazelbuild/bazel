@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Range;
@@ -25,6 +24,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.Retrier.Sleeper;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.common.options.Options;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -96,7 +96,7 @@ public class RemoteRetrierTest {
   @Test
   public void testNoRetries() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.experimentalRemoteRetry = false;
+    options.remoteMaxRetryAttempts = 0;
 
     RemoteRetrier retrier =
         Mockito.spy(new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS));
@@ -147,16 +147,17 @@ public class RemoteRetrierTest {
     InterruptedException thrown = new InterruptedException();
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.experimentalRemoteRetry = false;
+    options.remoteMaxRetryAttempts = 0;
     RemoteRetrier retrier =
         new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
-    try {
-      retrier.execute(() -> {
-        throw thrown;
-      });
-      fail();
-    } catch (InterruptedException expected) {
-      assertThat(expected).isSameAs(thrown);
-    }
+    InterruptedException expected =
+        assertThrows(
+            InterruptedException.class,
+            () ->
+                retrier.execute(
+                    () -> {
+                      throw thrown;
+                    }));
+    assertThat(expected).isSameInstanceAs(thrown);
   }
 }

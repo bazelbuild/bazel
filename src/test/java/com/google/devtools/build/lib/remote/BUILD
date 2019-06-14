@@ -17,6 +17,7 @@ filegroup(
 
 java_test(
     name = "remote",
+    size = "small",
     srcs = glob(["**/*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -32,7 +33,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
+        "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -44,7 +47,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/remote/util",
         "//third_party:api_client",
         "//third_party:guava",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party:truth",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",

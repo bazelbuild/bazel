@@ -25,10 +25,11 @@ import java.io.OutputStream;
  * <p>Implementations must be thread-safe.
  */
 public interface SimpleBlobStore {
-  /**
-   * Returns {@code key} if the provided {@code key} is stored in the CAS.
-   */
-  boolean containsKey(String key) throws IOException, InterruptedException;
+  /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
+  boolean contains(String key) throws IOException, InterruptedException;
+
+  /** Returns {@code true} if the provided {@code key} is stored in the Action Cache. */
+  boolean containsActionResult(String key) throws IOException, InterruptedException;
 
   /**
    * Fetches the BLOB associated with the {@code key} from the CAS and writes it to {@code out}.
@@ -47,8 +48,7 @@ public interface SimpleBlobStore {
    *
    * @return {@code true} if the {@code key} was found. {@code false} otherwise.
    */
-  boolean getActionResult(String actionKey, OutputStream out)
-      throws IOException, InterruptedException;
+  ListenableFuture<Boolean> getActionResult(String actionKey, OutputStream out);
 
   /**
    * Uploads a BLOB (as {@code in}) with length {@code length} indexed by {@code key} to the CAS.

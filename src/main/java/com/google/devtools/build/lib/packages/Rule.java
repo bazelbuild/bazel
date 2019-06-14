@@ -74,6 +74,8 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   private boolean containsErrors;
 
+  private String definitionInformation;
+
   private final Location location;
 
   private final ImplicitOutputsFunction implicitOutputsFunction;
@@ -115,6 +117,10 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   void setVisibility(RuleVisibility visibility) {
     this.visibility = visibility;
+  }
+
+  void setDefinitionInformation(String info) {
+    this.definitionInformation = info;
   }
 
   void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
@@ -189,6 +195,10 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     return ruleClass.hasAnalysisTestTransition();
   }
 
+  public boolean isBuildSetting() {
+    return ruleClass.getBuildSetting() != null;
+  }
+
   /**
    * Returns true iff there were errors while constructing this rule, such as
    * attributes with missing values or values of the wrong type.
@@ -258,6 +268,10 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   @Override
   public Location getLocation() {
     return location;
+  }
+
+  public String getDefinitionInformation() {
+    return definitionInformation;
   }
 
   public ImplicitOutputsFunction getImplicitOutputsFunction() {
@@ -656,7 +670,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     if (isAttrDefined("licenses", BuildType.LICENSE)
         && isAttributeValueExplicitlySpecified("licenses")) {
       return NonconfigurableAttributeMapper.of(this).get("licenses", BuildType.LICENSE);
-    } else if (getRuleClassObject().ignorePackageLicenses()) {
+    } else if (getRuleClassObject().ignoreLicenses()) {
       return License.NO_LICENSE;
     } else {
       return getPackage().getDefaultLicense();

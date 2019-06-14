@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,22 +31,17 @@ public class ErrorTransienceValueTest {
   public void testNotSerializable() throws IOException {
     ObjectOutputStream objOut = new ObjectOutputStream(new ByteArrayOutputStream());
 
-    try {
-      objOut.writeObject(ErrorTransienceValue.INSTANCE);
-      fail("Expected exception");
-    } catch (UnsupportedOperationException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Java serialization not supported");
-    }
+    UnsupportedOperationException e =
+        assertThrows(
+            UnsupportedOperationException.class,
+            () -> objOut.writeObject(ErrorTransienceValue.INSTANCE));
+    assertThat(e).hasMessageThat().isEqualTo("Java serialization not supported");
   }
 
   @Test
   public void testHashCodeNotSupported() {
-    try {
-      ErrorTransienceValue.INSTANCE.hashCode();
-      fail("Expected exception");
-    } catch (UnsupportedOperationException e) {
-      // Expected.
-    }
+    assertThrows(
+        UnsupportedOperationException.class, () -> ErrorTransienceValue.INSTANCE.hashCode());
   }
 
   @Test

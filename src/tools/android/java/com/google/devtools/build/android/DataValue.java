@@ -42,4 +42,11 @@ public interface DataValue {
    * equivalent to another given DataValue object
    */
   boolean valueEquals(DataValue value);
+
+  /**
+   * Compares priority in hopes of auto-resolving a merge conflict. Returns 1 if the value
+   * properties are higher in priority than those in another given DataValue object, -1 if lower
+   * priority, 0 if same priority (i.e. in conflict).
+   */
+  int compareMergePriorityTo(DataValue value);
 }

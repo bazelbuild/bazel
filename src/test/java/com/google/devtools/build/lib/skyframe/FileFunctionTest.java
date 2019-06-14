@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithStore
 import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithoutStoredChain;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.skyframe.BuildDriver;
@@ -154,13 +156,17 @@ public class FileFunctionTest {
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);
     differencer = new SequencedRecordingDifferencer();
+    ConfiguredRuleClassProvider ruleClassProvider =
+        TestRuleClassProvider.getRuleClassProvider(true);
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper))
+                        new AtomicReference<TimestampGranularityMonitor>(),
+                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+                        externalFilesHelper))
                 .put(
                     SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
                     new FileSymlinkCycleUniquenessFunction())
@@ -177,16 +183,14 @@ public class FileFunctionTest {
                         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
-                .put(
-                    SkyFunctions.WORKSPACE_AST,
-                    new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
+                .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
                 .put(
                     WorkspaceFileValue.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
-                        TestRuleClassProvider.getRuleClassProvider(),
+                        ruleClassProvider,
                         TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
                             .builder(directories)
-                            .build(TestRuleClassProvider.getRuleClassProvider(), fs),
+                            .build(ruleClassProvider, fs),
                         directories,
                         /*skylarkImportLookupFunctionForInlining=*/ null))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
@@ -709,7 +713,7 @@ public class FileFunctionTest {
       fail(String.format("Evaluation error for %s: %s", key, result.getError()));
     }
     FileValue newValue = (FileValue) result.get(key);
-    assertThat(newValue).isNotSameAs(oldValue);
+    assertThat(newValue).isNotSameInstanceAs(oldValue);
     assertThat(newValue.exists()).isFalse();
   }
 
@@ -821,38 +825,20 @@ public class FileFunctionTest {
     assertThat(valueForPath(file).getSize()).isEqualTo(fileSize);
     Path dir = directory("directory");
     file(dir.getChild("child").getPathString());
-    try {
-      valueForPath(dir).getSize();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(IllegalStateException.class, () -> valueForPath(dir).getSize());
     Path nonexistent = fs.getPath("/root/noexist");
-    try {
-      valueForPath(nonexistent).getSize();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
-    Path symlink = symlink("link", "/root/file");
+    assertThrows(IllegalStateException.class, () -> valueForPath(nonexistent).getSize());
+    Path fileSymlink = symlink("link", "/root/file");
     // Symlink stores size of target, not link.
-    assertThat(valueForPath(symlink).getSize()).isEqualTo(fileSize);
-    assertThat(symlink.delete()).isTrue();
-    symlink = symlink("link", "/root/directory");
-    try {
-      valueForPath(symlink).getSize();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
-    assertThat(symlink.delete()).isTrue();
-    symlink = symlink("link", "/root/noexist");
-    try {
-      valueForPath(symlink).getSize();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThat(valueForPath(fileSymlink).getSize()).isEqualTo(fileSize);
+    assertThat(fileSymlink.delete()).isTrue();
+
+    Path rootDirSymlink = symlink("link", "/root/directory");
+    assertThrows(IllegalStateException.class, () -> valueForPath(rootDirSymlink).getSize());
+    assertThat(rootDirSymlink.delete()).isTrue();
+
+    Path noExistSymlink = symlink("link", "/root/noexist");
+    assertThrows(IllegalStateException.class, () -> valueForPath(noExistSymlink).getSize());
   }
 
   @Test
@@ -888,20 +874,13 @@ public class FileFunctionTest {
     assertThat(digestCalls.get()).isEqualTo(0);
     fastDigest = true;
     Path dir = directory("directory");
-    try {
-      assertThat(valueForPath(dir).getDigest()).isNull();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class, () -> assertThat(valueForPath(dir).getDigest()).isNull());
     assertThat(digestCalls.get()).isEqualTo(0); // No digest calls made for directory.
     Path nonexistent = fs.getPath("/root/noexist");
-    try {
-      assertThat(valueForPath(nonexistent).getDigest()).isNull();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> assertThat(valueForPath(nonexistent).getDigest()).isNull());
     assertThat(digestCalls.get()).isEqualTo(0); // No digest calls made for nonexistent file.
     Path symlink = symlink("link", "/root/file");
     value = valueForPath(symlink);
@@ -911,14 +890,10 @@ public class FileFunctionTest {
     assertThat(digestCalls.get()).isEqualTo(1);
     digestCalls.set(0);
     assertThat(symlink.delete()).isTrue();
-    symlink = symlink("link", "/root/directory");
     // Symlink stores digest of target, not link, for directories too.
-    try {
-      assertThat(valueForPath(symlink).getDigest()).isNull();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> assertThat(valueForPath(symlink("link", "/root/directory")).getDigest()).isNull());
     assertThat(digestCalls.get()).isEqualTo(0);
   }
 

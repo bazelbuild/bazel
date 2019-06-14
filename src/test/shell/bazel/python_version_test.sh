@@ -52,15 +52,15 @@ case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*)
   # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
   declare -r is_windows=true
-  # As of 2018-12-17, this test is disabled on windows (via "no_windows" tag),
-  # so this code shouldn't even have run. See the TODO at
-  # use_system_python_2_3_runtimes.
+  # As of 2019-04-26, this test is disabled on Windows (via "no_windows" tag),
+  # so this code shouldn't even have run.
+  # TODO(bazelbuild/continuous-integration#578): Enable this test for Windows.
   fail "This test does not run on Windows."
   ;;
 darwin*)
-  # As of 2018-12-17, this test is disabled on mac, but there's no "no_mac" tag
-  # so we just have to trivially succeed. See the TODO at
-  # use_system_python_2_3_runtimes.
+  # As of 2019-04-26, this test is disabled on mac, but there's no "no_mac" tag
+  # so we just have to trivially succeed.
+  # TODO(bazelbuild/continuous-integration#578): Enable this test for Mac.
   echo "This test does not run on Mac; exiting early." >&2
   exit 0
   ;;
@@ -75,50 +75,6 @@ if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
 fi
-
-# Use a py_runtime that invokes either the system's Python 2 or Python 3
-# interpreter based on the Python mode. On Unix this is a workaround for #4815.
-#
-# TODO(brandjon): Get this running on windows by creating .bat wrappers that
-# invoke "py -2" and "py -3". Make sure our windows workers have both Python
-# versions installed.
-#
-# TODO(brandjon): Get this running on mac -- our workers lack a Python 2
-# installation.
-#
-function use_system_python_2_3_runtimes() {
-  PYTHON2_BIN=$(which python2 || echo "")
-  PYTHON3_BIN=$(which python3 || echo "")
-  # Debug output.
-  echo "Python 2 interpreter: ${PYTHON2_BIN:-"Not found"}"
-  echo "Python 3 interpreter: ${PYTHON3_BIN:-"Not found"}"
-  # Fail if either isn't present.
-  if [[ -z "${PYTHON2_BIN:-}" || -z "${PYTHON3_BIN:-}" ]]; then
-    fail "Can't use system interpreter: Could not find one or both of \
-'python2', 'python3'"
-  fi
-
-  # Point Python builds at a py_runtime target defined in a //tools package of
-  # the main repo. This is not related to @bazel_tools//tools/python.
-  add_to_bazelrc "build --python_top=//tools/python:default_runtime"
-
-  mkdir -p tools/python
-
-  cat > tools/python/BUILD << EOF
-package(default_visibility=["//visibility:public"])
-
-py_runtime(
-    name = "default_runtime",
-    files = [],
-    interpreter_path = select({
-        "@bazel_tools//tools/python:PY2": "${PYTHON2_BIN}",
-        "@bazel_tools//tools/python:PY3": "${PYTHON3_BIN}",
-    }),
-)
-EOF
-}
-
-use_system_python_2_3_runtimes
 
 #### TESTS #############################################################
 
@@ -191,6 +147,61 @@ EOF
   expect_log "File contents: abcdefg"
 }
 
+# Regression test for #5104. This test ensures that it's possible to use
+# --build_python_zip in combination with a py_runtime (as opposed to not using
+# a py_runtime, i.e., the legacy --python_path mechanism).
+#
+# Note that with --incompatible_use_python_toolchains flipped, we're always
+# using a py_runtime, so in that case this amounts to a test that
+# --build_python_zip works at all.
+#
+# The specific issue #5104 was caused by file permissions being lost when
+# unzipping runfiles, which led to an unexecutable runtime.
+function test_build_python_zip_works_with_py_runtime() {
+  mkdir -p test
+
+  cat > test/BUILD << EOF
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
+py_binary(
+    name = "pybin",
+    srcs = ["pybin.py"],
+)
+
+py_runtime(
+    name = "mock_runtime",
+    interpreter = ":mockpy.sh",
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "mock_runtime_pair",
+    py3_runtime = ":mock_runtime",
+)
+
+toolchain(
+    name = "mock_toolchain",
+    toolchain = ":mock_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+EOF
+  cat > test/pybin.py << EOF
+# This doesn't actually run because we use a mock Python runtime that never
+# executes the Python code.
+print("I am pybin!")
+EOF
+  cat > test/mockpy.sh <<EOF
+#!/bin/bash
+echo "I am mockpy!"
+EOF
+  chmod u+x test/mockpy.sh
+
+  bazel run //test:pybin \
+      --extra_toolchains=//test:mock_toolchain --build_python_zip \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am mockpy!"
+}
+
 function test_pybin_can_have_different_version_pybin_as_data_dep() {
   mkdir -p test
 
@@ -243,7 +254,9 @@ EOF
   sed s/py3bin/py2bin/ test/py2bin_calling_py3bin.py > test/py3bin_calling_py2bin.py
   chmod u+x test/py2bin_calling_py3bin.py test/py3bin_calling_py2bin.py
 
-  EXPFLAG="--incompatible_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"
 
   bazel build $EXPFLAG //test:py2bin_calling_py3bin //test:py3bin_calling_py2bin \
       || fail "bazel build failed"
@@ -322,7 +335,9 @@ EOF
 
   chmod u+x test/shbin_calling_py23bins.sh
 
-  EXPFLAG="--incompatible_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"
 
   bazel build $EXPFLAG //test:shbin_calling_py23bins \
       || fail "bazel build failed"
@@ -362,8 +377,12 @@ EOF
 
   # Run under both old and new semantics.
   for EXPFLAG in \
-      "--incompatible_allow_python_version_transitions=true" \
-      "--incompatible_allow_python_version_transitions=false"; do
+      "--incompatible_allow_python_version_transitions=true \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false" \
+      "--incompatible_allow_python_version_transitions=false \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"; do
     echo "Using $EXPFLAG" > $TEST_log
     bazel build $EXPFLAG --host_force_python=PY2 //test:genrule_calling_pybin \
         || fail "bazel build failed"
@@ -452,7 +471,9 @@ $(rlocation {{WORKSPACE_NAME}}/test/py3bin)
 EOF
   chmod u+x test/shbin.sh
 
-  EXPFLAG="--incompatible_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"
 
   bazel build $EXPFLAG //test:shbin \
       || fail "bazel build failed"

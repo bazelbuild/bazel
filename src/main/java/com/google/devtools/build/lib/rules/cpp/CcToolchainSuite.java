@@ -25,12 +25,9 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import java.util.Map;
 
 /**
@@ -52,16 +49,6 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     String key = transformedCpu + (compiler == null ? "" : ("|" + compiler));
     Map<String, Label> toolchains =
         ruleContext.attributes().get("toolchains", BuildType.LABEL_DICT_UNARY);
-    CrosstoolRelease crosstoolFromProtoAttribute = null;
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("proto")) {
-      try {
-        crosstoolFromProtoAttribute =
-            CcSkyframeSupportFunction.toReleaseConfiguration(
-                ruleContext.attributes().get("proto", Type.STRING));
-      } catch (InvalidConfigurationException e) {
-        ruleContext.throwWithRuleError(e.getMessage());
-      }
-    }
     Label selectedCcToolchain = toolchains.get(key);
     CcToolchainProvider ccToolchainProvider;
 
@@ -87,14 +74,15 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
               compiler,
               selectedCcToolchain);
       ccToolchainProvider =
-          CcToolchainProviderHelper.getCcToolchainProvider(
-              ruleContext, selectedAttributes, crosstoolFromProtoAttribute);
+          CcToolchainProviderHelper.getCcToolchainProvider(ruleContext, selectedAttributes);
 
       if (ccToolchainProvider == null) {
         // Skyframe restart
         return null;
       }
     }
+
+    CcCommon.reportInvalidOptions(ruleContext, cppConfiguration, ccToolchainProvider);
 
     TemplateVariableInfo templateVariableInfo =
         CcToolchain.createMakeVariableProvider(

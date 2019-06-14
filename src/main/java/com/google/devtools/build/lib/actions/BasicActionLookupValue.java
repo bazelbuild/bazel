@@ -51,7 +51,7 @@ public class BasicActionLookupValue extends ActionLookupValue {
   }
 
   @Override
-  protected ImmutableList<ActionAnalysisMetadata> getActions() {
+  public ImmutableList<ActionAnalysisMetadata> getActions() {
     return actions;
   }
 

@@ -92,7 +92,8 @@ public class WorkspaceFileFunction implements SkyFunction {
             /* bindings = */ ImmutableMap.<String, Object>of(),
             workspaceRoot,
             /* idx = */ 0, // first fragment
-            /* hasNext = */ false);
+            /* hasNext = */ false,
+            ImmutableMap.of());
       } catch (NoSuchPackageException e) {
         throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
       }
@@ -149,7 +150,8 @@ public class WorkspaceFileFunction implements SkyFunction {
           parser.getVariableBindings(),
           workspaceRoot,
           key.getIndex(),
-          key.getIndex() < workspaceASTValue.getASTs().size() - 1);
+          key.getIndex() < workspaceASTValue.getASTs().size() - 1,
+          ImmutableMap.copyOf(parser.getManagedDirectories()));
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
     }

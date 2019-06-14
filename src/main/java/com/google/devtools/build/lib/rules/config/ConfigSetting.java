@@ -29,6 +29,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -58,9 +58,11 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -79,6 +81,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     AttributeMap attributes = NonconfigurableAttributeMapper.of(ruleContext.getRule());
+
     // Get the built-in Blaze flag settings that match this rule.
     ImmutableMultimap<String, String> nativeFlagSettings =
         ImmutableMultimap.<String, String>builder()
@@ -93,42 +96,34 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     // Get the user-defined flag settings that match this rule.
     Map<Label, String> userDefinedFlagSettings =
-        NonconfigurableAttributeMapper.of(ruleContext.getRule())
-            .get(
-                ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
-                BuildType.LABEL_KEYED_STRING_DICT);
+        attributes.get(
+            ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, BuildType.LABEL_KEYED_STRING_DICT);
 
-    List<? extends TransitiveInfoCollection> flagValues =
-        ruleContext.getPrerequisites(
-            ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET);
-
-    // Get the constraint values that match this rule
-    Iterable<ConstraintValueInfo> constraintValues =
-        PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(
-                ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, Mode.DONT_CHECK));
-
-    // Get the target platform
-    PlatformInfo targetPlatform = ruleContext.getToolchainContext().targetPlatform();
+    // Get the platform constraint settings that match this rule.
+    List<Label> constraintValueSettings =
+        attributes.get(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, BuildType.LABEL_LIST);
 
     // Check that this config_setting contains at least one of {values, define_values,
     // constraint_values}
-    if (!checkValidConditions(
-        nativeFlagSettings, userDefinedFlagSettings, constraintValues, ruleContext)) {
+    if (!valuesAreSet(
+        nativeFlagSettings, userDefinedFlagSettings, constraintValueSettings, ruleContext)) {
       return null;
     }
 
+    TransitiveOptionDetails optionDetails =
+        BuildConfigurationOptionDetails.get(ruleContext.getConfiguration());
+
     boolean nativeFlagsMatch =
-        matchesConfig(
-            nativeFlagSettings.entries(),
-            BuildConfigurationOptionDetails.get(ruleContext.getConfiguration()),
+        matchesConfig(nativeFlagSettings.entries(), optionDetails, ruleContext);
+
+    UserDefinedFlagMatch userDefinedFlags =
+        UserDefinedFlagMatch.fromAttributeValueAndPrerequisites(
+            userDefinedFlagSettings,
+            ruleContext.getPrerequisites(ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET),
+            optionDetails,
             ruleContext);
 
-    ConfigFeatureFlagMatch featureFlags =
-        ConfigFeatureFlagMatch.fromAttributeValueAndPrerequisites(
-            userDefinedFlagSettings, flagValues, ruleContext);
-
-    boolean constraintValuesMatch = targetPlatform.constraints().containsAll(constraintValues);
+    boolean constraintValuesMatch = constraintValuesMatch(ruleContext);
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -138,8 +133,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         new ConfigMatchingProvider(
             ruleContext.getLabel(),
             nativeFlagSettings,
-            featureFlags.getSpecifiedFlagValues(),
-            nativeFlagsMatch && featureFlags.matches() && constraintValuesMatch);
+            userDefinedFlags.getSpecifiedFlagValues(),
+            nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
@@ -150,12 +145,26 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private boolean checkValidConditions(
-      ImmutableMultimap<String, String> nativeFlagSettings,
-      Map<Label, String> userDefinedFlagSettings,
-      Iterable<ConstraintValueInfo> constraintValues,
-      RuleErrorConsumer errors) {
-    if (!valuesAreSet(nativeFlagSettings, userDefinedFlagSettings, constraintValues, errors)) {
+  /**
+   * Returns true if all <code>constraint_values</code> settings are valid and match this
+   * configuration, false otherwise.
+   *
+   * <p>May generate rule errors on bad settings (e.g. wrong target types).
+   */
+  boolean constraintValuesMatch(RuleContext ruleContext) {
+    List<ConstraintValueInfo> constraintValues = new ArrayList<>();
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites(
+            ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, Mode.DONT_CHECK)) {
+      if (!PlatformProviderUtils.hasConstraintValue(dep)) {
+        ruleContext.attributeError(
+            ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE,
+            String.format(dep.getLabel() + " is not a constraint_value"));
+      } else {
+        constraintValues.add(PlatformProviderUtils.constraintValue(dep));
+      }
+    }
+    if (ruleContext.hasErrors()) {
       return false;
     }
 
@@ -165,12 +174,16 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     try {
       ConstraintCollection.validateConstraints(constraintValues);
     } catch (ConstraintCollection.DuplicateConstraintException e) {
-      errors.ruleError(
+      ruleContext.ruleError(
           ConstraintCollection.DuplicateConstraintException.formatError(e.duplicateConstraints()));
         return false;
     }
 
-    return true;
+    return ruleContext
+        .getToolchainContext()
+        .targetPlatform()
+        .constraints()
+        .containsAll(constraintValues);
   }
 
   private static RepositoryName getToolsRepository(RuleContext ruleContext) {
@@ -212,7 +225,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   private boolean valuesAreSet(
       ImmutableMultimap<String, String> nativeFlagSettings,
       Map<Label, String> userDefinedFlagSettings,
-      Iterable<ConstraintValueInfo> constraintValues,
+      Iterable<Label> constraintValues,
       RuleErrorConsumer errors) {
     if (nativeFlagSettings.isEmpty()
         && userDefinedFlagSettings.isEmpty()
@@ -358,14 +371,13 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     return actualList.contains(expectedSingleValue);
   }
 
-  private static final class ConfigFeatureFlagMatch {
+  private static final class UserDefinedFlagMatch {
     private final boolean matches;
     private final ImmutableMap<Label, String> specifiedFlagValues;
 
     private static final Joiner QUOTED_COMMA_JOINER = Joiner.on("', '");
 
-    private ConfigFeatureFlagMatch(
-        boolean matches, ImmutableMap<Label, String> specifiedFlagValues) {
+    private UserDefinedFlagMatch(boolean matches, ImmutableMap<Label, String> specifiedFlagValues) {
       this.matches = matches;
       this.specifiedFlagValues = specifiedFlagValues;
     }
@@ -376,7 +388,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     }
 
     /** Gets the specified flag values, with aliases converted to their original targets' labels. */
-    public ImmutableMap<Label, String> getSpecifiedFlagValues() {
+    ImmutableMap<Label, String> getSpecifiedFlagValues() {
       return specifiedFlagValues;
     }
 
@@ -391,20 +403,16 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       return targetsToAliases.build();
     }
 
-    public static ConfigFeatureFlagMatch fromAttributeValueAndPrerequisites(
+    static UserDefinedFlagMatch fromAttributeValueAndPrerequisites(
         Map<Label, String> attributeValue,
         Iterable<? extends TransitiveInfoCollection> prerequisites,
+        TransitiveOptionDetails optionDetails,
         RuleErrorConsumer errors) {
       Map<Label, String> specifiedFlagValues = new LinkedHashMap<>();
       boolean matches = true;
       boolean foundDuplicate = false;
 
       for (TransitiveInfoCollection target : prerequisites) {
-        ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.fromTarget(target);
-        // We know the provider exists because only labels with ConfigFeatureFlagProvider can be
-        // added to this attribute.
-        assert provider != null;
-
         Label actualLabel = target.getLabel();
         Label specifiedLabel = AliasProvider.getDependencyLabel(target);
         String specifiedValue = attributeValue.get(specifiedLabel);
@@ -413,17 +421,52 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         }
         specifiedFlagValues.put(actualLabel, specifiedValue);
 
-        if (!provider.isValidValue(specifiedValue)) {
+        if (target.satisfies(ConfigFeatureFlagProvider.REQUIRE_CONFIG_FEATURE_FLAG_PROVIDER)) {
+          // config_feature_flag
+          ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.fromTarget(target);
+          if (!provider.isValidValue(specifiedValue)) {
+            errors.attributeError(
+                ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                String.format(
+                    "error while parsing user-defined configuration values: "
+                        + "'%s' is not a valid value for '%s'",
+                    specifiedValue, specifiedLabel));
+            matches = false;
+            continue;
+          }
+          if (!provider.getFlagValue().equals(specifiedValue)) {
+            matches = false;
+          }
+        } else if (target.satisfies(BuildSettingProvider.REQUIRE_BUILD_SETTING_PROVIDER)) {
+          // build setting
+          BuildSettingProvider provider = target.getProvider(BuildSettingProvider.class);
+          Object configurationValue =
+              optionDetails.getOptionValue(specifiedLabel) != null
+                  ? optionDetails.getOptionValue(specifiedLabel)
+                  : provider.getDefaultValue();
+          Object convertedSpecifiedValue;
+          try {
+            convertedSpecifiedValue = provider.getType().convert(specifiedValue, specifiedLabel);
+          } catch (ConversionException e) {
+            errors.attributeError(
+                ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                String.format(
+                    "error while parsing user-defined configuration values: "
+                        + "'%s' cannot be converted to %s type %s",
+                    specifiedValue, specifiedLabel, provider.getType()));
+            matches = false;
+            continue;
+          }
+          if (!configurationValue.equals(convertedSpecifiedValue)) {
+            matches = false;
+          }
+        } else {
           errors.attributeError(
               ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
               String.format(
                   "error while parsing user-defined configuration values: "
-                      + "'%s' is not a valid value for '%s'",
-                  specifiedValue, specifiedLabel));
-          matches = false;
-          continue;
-        }
-        if (!provider.getFlagValue().equals(specifiedValue)) {
+                      + "%s keys must be build settings or feature flags and %s is not",
+                  ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, specifiedLabel));
           matches = false;
         }
       }
@@ -444,11 +487,10 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
                     actualLabel, QUOTED_COMMA_JOINER.join(aliasList)));
           }
         }
-
         matches = false;
       }
 
-      return new ConfigFeatureFlagMatch(matches, ImmutableMap.copyOf(specifiedFlagValues));
+      return new UserDefinedFlagMatch(matches, ImmutableMap.copyOf(specifiedFlagValues));
     }
   }
 }

@@ -19,13 +19,16 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -90,6 +93,65 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
               }
             });
     Runtime.getRuntime().addShutdownHook(shutdownHook);
+  }
+
+  /**
+   * Checks if the given sandboxfs binary is available and is valid.
+   *
+   * @param binary path to the sandboxfs binary that will later be used in the {@link #mount} call.
+   * @return true if the binary looks good, false otherwise
+   * @throws IOException if there is a problem trying to start the subprocess
+   */
+  static boolean isAvailable(PathFragment binary) {
+    Subprocess process;
+    try {
+      process =
+          new SubprocessBuilder()
+              .setArgv(binary.getPathString(), "--version")
+              .setStdout(StreamAction.STREAM)
+              .redirectErrorStream(true)
+              .start();
+    } catch (IOException e) {
+      log.warning("sandboxfs binary at " + binary + " seems to be missing; got error " + e);
+      return false;
+    }
+
+    ByteArrayOutputStream outErrBytes = new ByteArrayOutputStream();
+    try {
+      ByteStreams.copy(process.getInputStream(), outErrBytes);
+    } catch (IOException e) {
+      try {
+        outErrBytes.write(("Failed to read stdout: " + e).getBytes());
+      } catch (IOException e2) {
+        // Should not really have happened. There is nothing we can do.
+      }
+    }
+    String outErr = outErrBytes.toString().replaceFirst("\n$", "");
+
+    int exitCode = waitForProcess(process);
+    if (exitCode == 0) {
+      // TODO(jmmv): Validate the version number and ensure we support it. Would be nice to reuse
+      // the DottedVersion logic from the Apple rules.
+      if (outErr.matches("sandboxfs .*")) {
+        return true;
+      } else {
+        log.warning(
+            "sandboxfs binary at "
+                + binary
+                + " exists but doesn't seem valid; output was: "
+                + outErr);
+        return false;
+      }
+    } else {
+      log.warning(
+          "sandboxfs binary at "
+              + binary
+              + " returned non-zero exit code "
+              + exitCode
+              + " and output "
+              + outErr);
+      return false;
+    }
   }
 
   /**
@@ -164,21 +226,18 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
   }
 
   /**
-   * Destroys a process and waits for it to exit.
+   * Waits for a process to terminate.
    *
-   * @param process the process to destroy.
+   * @param process the process to wait for
+   * @return the exit code of the terminated process
    */
-  // TODO(jmmv): This is adapted from Worker.java. Should probably replace both with a new variant
-  // of Uninterruptibles.callUninterruptibly that takes a lambda instead of a callable.
-  private static void destroyProcess(Subprocess process) {
-    process.destroy();
-
+  private static int waitForProcess(Subprocess process) {
     boolean interrupted = false;
     try {
       while (true) {
         try {
           process.waitFor();
-          return;
+          break;
         } catch (InterruptedException ie) {
           interrupted = true;
         }
@@ -188,6 +247,19 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
         Thread.currentThread().interrupt();
       }
     }
+    return process.exitValue();
+  }
+
+  /**
+   * Destroys a process and waits for it to exit.
+   *
+   * @param process the process to destroy
+   */
+  // TODO(jmmv): This is adapted from Worker.java. Should probably replace both with a new variant
+  // of Uninterruptibles.callUninterruptibly that takes a lambda instead of a callable.
+  private static void destroyProcess(Subprocess process) {
+    process.destroy();
+    waitForProcess(process);
   }
 
   @Override

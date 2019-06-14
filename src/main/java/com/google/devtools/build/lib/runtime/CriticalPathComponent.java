@@ -184,7 +184,17 @@ public class CriticalPathComponent {
   }
 
   long getElapsedTimeNanos() {
-    Preconditions.checkState(!isRunning, "Still running %s", this);
+    if (isRunning) {
+      // It can happen that we're being asked to compute a critical path even though the build was
+      // interrupted. In that case, we may not have gotten an action completion event. We don't have
+      // access to the clock from here, so we have to return 0.
+      // Note that the critical path never includes interrupted actions, so getAggregatedElapsedTime
+      // does not get called in this state.
+      // If we want the critical path to contain partially executed actions in a case of interrupt,
+      // then we need to tell the critical path computer that the build was interrupt, and let it
+      // artifically mark all such actions as done.
+      return 0;
+    }
     return getElapsedTimeNanosNoCheck();
   }
 

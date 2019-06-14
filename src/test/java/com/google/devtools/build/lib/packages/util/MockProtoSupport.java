@@ -201,21 +201,24 @@ public final class MockProtoSupport {
         "    srcs = ['plugin.cc'])");
     config.create(
         "javascript/apps/jspb/BUILD",
+        "load('//tools/build_defs/js:rules.bzl', 'js_library')",
         "package(default_visibility=['//visibility:public'])",
         "js_library(name = 'message',",
-        "    srcs = ['message.js'],",
-        "    deps_mgmt = 'legacy')");
+        "       srcs = ['message.js'],",
+        "       deps_mgmt = 'legacy')");
     config.create(
         "javascript/closure/array/BUILD",
+        "load('//tools/build_defs/js:rules.bzl', 'js_library')",
         "package(default_visibility=['//visibility:public'])",
         "js_library(name = 'array',",
-        "    srcs = ['array.js'],",
-        "    deps_mgmt = 'legacy')");
+        "       srcs = ['array.js'],",
+        "       deps_mgmt = 'legacy')");
     config.create(
         "javascript/apps/xid/BUILD",
+        "load('//tools/build_defs/js:rules.bzl', 'js_library')",
         "package(default_visibility=['//visibility:public'])",
         "js_library(name = 'xid',",
-        "    srcs = ['xid.js'],",
-        "    deps_mgmt = 'legacy')");
+        "       srcs = ['xid.js'],",
+        "       deps_mgmt = 'legacy')");
   }
 }

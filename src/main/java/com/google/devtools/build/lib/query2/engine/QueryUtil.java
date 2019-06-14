@@ -264,8 +264,19 @@ public final class QueryUtil {
     private final Set<K> alreadySeen;
 
     public UniquifierImpl(KeyExtractor<T, K> extractor) {
+      this(extractor, /*queryEvaluationParallelismLevel=*/ 1);
+    }
+
+    public UniquifierImpl(KeyExtractor<T, K> extractor, int queryEvaluationParallelismLevel) {
       this.extractor = extractor;
-      this.alreadySeen = Collections.newSetFromMap(new ConcurrentHashMap<>());
+      this.alreadySeen =
+          Collections.newSetFromMap(
+              // Note that ConcurrentHashMap sadly only uses these 3 parameters as an *initial*
+              // sizing hint.
+              new ConcurrentHashMap<>(
+                  /*initialCapacity=*/ 16,
+                  /*loadFactor=*/ 0.75f,
+                  /*concurrencyLevel=*/ queryEvaluationParallelismLevel));
     }
 
     @Override

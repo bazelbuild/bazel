@@ -16,7 +16,6 @@ title: Functions
   <ul>
     <li><a href="#package">package</a></li>
     <li><a href="#package_group">package_group</a></li>
-    <li><a href="#licenses">licenses</a></li>
     <li><a href="#exports_files">exports_files</a></li>
     <li><a href="#glob">glob</a></li>
     <li><a href="#select">select</a></li>
@@ -245,52 +244,6 @@ package_group(
 </pre>
 
 <!-- =================================================================
-                              licenses()
-     =================================================================
--->
-
-<h2 id="licenses">licenses</h2>
-
-<pre>licenses(license_types)</pre>
-
-<p><code>licenses()</code> specifies the default license type (or types)
-   of the build rules in a <code>BUILD</code> file.
-
-   The <code>licenses()</code> directive should appear close to the
-   beginning of the <code>BUILD</code> file, before any build rules, as it
-   sets the <code>BUILD</code>-file scope default for build rule license
-   types.</p>
-
-<h3 id="licenses_args">Arguments</h3>
-
-<p>The argument, <code id="licenses.licence_types">license_types</code>,
-   is a list of license-type strings.
-   <!-- TODO(bazel-team): specify some examples -->
-
-</p>
-
-<p>Valid license types include:</p>
-<dl>
-  <dt><code>restricted</code></dt><dd>Requires mandatory source
-    distribution.</dd>
-  <dt><code>reciprocal</code></dt><dd>Allows usage of software freely in
-    <b>unmodified</b> form. Any modifications must be made freely
-    available.</dd>
-  <dt><code>notice</code></dt><dd>Original or modified third-party software may
-    be shipped without danger nor encumbering other sources. All of the
-    licenses in this category do, however, have an "original Copyright notice"
-    or "advertising clause", wherein any external distributions must include
-    the notice or clause specified in the license.</dd>
-  <dt><code>permissive</code></dt><dd>Code that is under a license but does not
-    require a notice.</dd>
-  <dt><code>unencumbered</code></dt><dd>Public domain, free for any use.</dd>
-</dl>
-licenses(["notice"])  # MIT license
-
-exports_files(["jquery-2.1.1.js"])
-</pre>
-
-<!-- =================================================================
                         exports_files([label, ...])
      =================================================================
   -->
@@ -488,9 +441,20 @@ sh_test(
 
 <h3 id="recursive_glob_example">Recursive Glob Examples</h3>
 
+<p>Make the test depend on all txt files in the testdata directory and any
+   of its subdirectories (and their subdirectories, and so on).
+   Subdirectories containing a BUILD file are ignored. (See limitations
+   and caveats above.)</p>
+<pre class="code">
+sh_test(
+    name = "mytest",
+    srcs = ["mytest.sh"],
+    data = glob(["testdata/**/*.txt"]),
+)
+</pre>
+
 <p>Create a library built from all java files in this directory and all
 subdirectories except those whose path includes a directory named testing.
-Subdirectories containing a BUILD file are ignored.
 <b>This pattern should be avoided if possible, as it can reduce build
 incrementality and therefore increase build times.</b>
 </p>
@@ -501,16 +465,6 @@ java_library(
         ["**/*.java"],
         exclude = ["**/testing/**"],
     ),
-)
-</pre>
-
-<p>Make the test depend on all txt files in the testdata directory,
-   its subdirectories</p>
-<pre class="code">
-sh_test(
-    name = "mytest",
-    srcs = ["mytest.sh"],
-    data = glob(["testdata/**/*.txt"]),
 )
 </pre>
 

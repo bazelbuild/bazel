@@ -54,6 +54,7 @@ public class HttpDownloader {
 
   protected final RepositoryCache repositoryCache;
   private List<Path> distdir = ImmutableList.of();
+  private float timeoutScaling = 1.0f;
 
   public HttpDownloader(RepositoryCache repositoryCache) {
     this.repositoryCache = repositoryCache;
@@ -61,6 +62,10 @@ public class HttpDownloader {
 
   public void setDistdir(List<Path> distdir) {
     this.distdir = ImmutableList.copyOf(distdir);
+  }
+
+  public void setTimeoutScaling(float timeoutScaling) {
+    this.timeoutScaling = timeoutScaling;
   }
 
   /**
@@ -95,7 +100,18 @@ public class HttpDownloader {
       throw new InterruptedException();
     }
 
-    Path destination = getDownloadDestination(urls.get(0), type, output);
+    URL mainUrl; // The "main" URL for this request
+    // Used for reporting only and determining the file name only.
+    if (urls.isEmpty()) {
+      if (type.isPresent() && !Strings.isNullOrEmpty(type.get())) {
+        mainUrl = new URL("http://nonexistent.example.org/cacheprobe." + type.get());
+      } else {
+        mainUrl = new URL("http://nonexistent.example.org/cacheprobe");
+      }
+    } else {
+      mainUrl = urls.get(0);
+    }
+    Path destination = getDownloadDestination(mainUrl, type, output);
 
     // Is set to true if the value should be cached by the sha256 value provided
     boolean isCachingByProvidedSha256 = false;
@@ -119,12 +135,16 @@ public class HttpDownloader {
           Path cachedDestination = repositoryCache.get(sha256, destination, KeyType.SHA256);
           if (cachedDestination != null) {
             // Cache hit!
-            eventHandler.post(new RepositoryCacheHitEvent(repo, sha256, urls.get(0)));
+            eventHandler.post(new RepositoryCacheHitEvent(repo, sha256, mainUrl));
             return cachedDestination;
           }
         } catch (IOException e) {
           // Ignore error trying to get. We'll just download again.
         }
+      }
+
+      if (urls.isEmpty()) {
+        throw new IOException("Cache miss and no url specified");
       }
 
       for (Path dir : distdir) {
@@ -166,7 +186,8 @@ public class HttpDownloader {
     Sleeper sleeper = new JavaSleeper();
     Locale locale = Locale.getDefault();
     ProxyHelper proxyHelper = new ProxyHelper(clientEnv);
-    HttpConnector connector = new HttpConnector(locale, eventHandler, proxyHelper, sleeper);
+    HttpConnector connector =
+        new HttpConnector(locale, eventHandler, proxyHelper, sleeper, timeoutScaling);
     ProgressInputStream.Factory progressInputStreamFactory =
         new ProgressInputStream.Factory(locale, clock, eventHandler);
     HttpStream.Factory httpStreamFactory = new HttpStream.Factory(progressInputStreamFactory);

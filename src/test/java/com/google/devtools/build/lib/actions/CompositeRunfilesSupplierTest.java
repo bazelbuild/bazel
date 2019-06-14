@@ -58,17 +58,17 @@ public class CompositeRunfilesSupplierTest {
     assertThat(
             CompositeRunfilesSupplier.of(
                 EmptyRunfilesSupplier.INSTANCE, EmptyRunfilesSupplier.INSTANCE))
-        .isSameAs(EmptyRunfilesSupplier.INSTANCE);
+        .isSameInstanceAs(EmptyRunfilesSupplier.INSTANCE);
     assertThat(CompositeRunfilesSupplier.of(EmptyRunfilesSupplier.INSTANCE, mockFirst))
-        .isSameAs(mockFirst);
+        .isSameInstanceAs(mockFirst);
     assertThat(CompositeRunfilesSupplier.of(mockFirst, EmptyRunfilesSupplier.INSTANCE))
-        .isSameAs(mockFirst);
+        .isSameInstanceAs(mockFirst);
   }
 
   @Test
   public void fromSuppliersSeleton() {
     assertThat(CompositeRunfilesSupplier.fromSuppliers(ImmutableList.of(mockFirst)))
-        .isSameAs(mockFirst);
+        .isSameInstanceAs(mockFirst);
   }
 
   @Test

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.jimfs.Jimfs;
@@ -125,50 +125,38 @@ public class DependencyAndroidDataTest {
   }
 
   @Test public void flagNoManifestFails() {
-    try {
-      DependencyAndroidData.valueOf(":::r.txt", fileSystem);
-      fail("expected exception for bad flag format");
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> DependencyAndroidData.valueOf(":::r.txt", fileSystem));
   }
 
   @Test public void flagMissingManifestFails() {
-    try {
-      DependencyAndroidData.valueOf("::Manifest.xml:r.txt:symbols.bin", fileSystem);
-      fail("expected exception for bad flag format");
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> DependencyAndroidData.valueOf("::Manifest.xml:r.txt:symbols.bin", fileSystem));
   }
 
   @Test public void flagNoRTxtFails() {
-    try {
-      DependencyAndroidData.valueOf("::AndroidManifest.xml:", fileSystem);
-      fail("expected exception for bad flag format");
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> DependencyAndroidData.valueOf("::AndroidManifest.xml:", fileSystem));
   }
 
   @Test public void flagNoRTxtWithSymbolsFails() {
-    try {
-      DependencyAndroidData.valueOf("::AndroidManifest.xml:::symbols.bin", fileSystem);
-      fail("expected exception for bad flag format");
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> DependencyAndroidData.valueOf("::AndroidManifest.xml:::symbols.bin", fileSystem));
   }
 
   @Test public void flagMissingRTxtFails() {
-    try {
-      DependencyAndroidData.valueOf("::Manifest.xml:missing_file", fileSystem);
-      fail("expected exception for bad flag format");
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> DependencyAndroidData.valueOf("::Manifest.xml:missing_file", fileSystem));
   }
 
   @Test public void flagMissingSymbolsFails() {
-    try {
-      DependencyAndroidData.valueOf("::Manifest.xml:r.txt:missing_file", fileSystem);
-      fail("expected exception for bad flag format");
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> DependencyAndroidData.valueOf("::Manifest.xml:r.txt:missing_file", fileSystem));
   }
 }

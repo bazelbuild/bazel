@@ -40,12 +40,14 @@ public class ObjectCodecRegistryTest {
             .build();
 
     CodecDescriptor fooDescriptor = underTest.getCodecDescriptorForObject("hello");
-    assertThat(fooDescriptor.getCodec()).isSameAs(codec1);
-    assertThat(underTest.getCodecDescriptorByTag(fooDescriptor.getTag())).isSameAs(fooDescriptor);
+    assertThat(fooDescriptor.getCodec()).isSameInstanceAs(codec1);
+    assertThat(underTest.getCodecDescriptorByTag(fooDescriptor.getTag()))
+        .isSameInstanceAs(fooDescriptor);
 
     CodecDescriptor barDescriptor = underTest.getCodecDescriptorForObject(1);
-    assertThat(barDescriptor.getCodec()).isSameAs(codec2);
-    assertThat(underTest.getCodecDescriptorByTag(barDescriptor.getTag())).isSameAs(barDescriptor);
+    assertThat(barDescriptor.getCodec()).isSameInstanceAs(codec2);
+    assertThat(underTest.getCodecDescriptorByTag(barDescriptor.getTag()))
+        .isSameInstanceAs(barDescriptor);
 
     assertThat(barDescriptor.getTag()).isNotEqualTo(fooDescriptor.getTag());
 
@@ -66,16 +68,16 @@ public class ObjectCodecRegistryTest {
             .build();
 
     CodecDescriptor fooDescriptor = underTest.getCodecDescriptorForObject("value1");
-    assertThat(fooDescriptor.getCodec()).isSameAs(codec);
+    assertThat(fooDescriptor.getCodec()).isSameInstanceAs(codec);
 
     CodecDescriptor barDefaultDescriptor = underTest.getCodecDescriptorForObject(15);
-    assertThat(barDefaultDescriptor.getCodec()).isNotSameAs(codec);
+    assertThat(barDefaultDescriptor.getCodec()).isNotSameInstanceAs(codec);
     assertThat(barDefaultDescriptor.getTag()).isNotEqualTo(fooDescriptor.getTag());
     assertThat(underTest.getCodecDescriptorByTag(barDefaultDescriptor.getTag()))
-        .isSameAs(barDefaultDescriptor);
+        .isSameInstanceAs(barDefaultDescriptor);
 
     assertThat(underTest.getCodecDescriptorForObject((byte) 9).getCodec().getClass())
-        .isSameAs(barDefaultDescriptor.getCodec().getClass());
+        .isSameInstanceAs(barDefaultDescriptor.getCodec().getClass());
 
     // Bogus tags still throw.
     assertThrows(NoCodecException.class, () -> underTest.getCodecDescriptorByTag(42));

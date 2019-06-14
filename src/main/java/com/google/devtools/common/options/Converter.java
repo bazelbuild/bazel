@@ -20,7 +20,8 @@ package com.google.devtools.common.options;
 public interface Converter<T> {
 
   /**
-   * Convert a string into type T.
+   * Convert a string into type T. Please note that we assume that converting the same string (if
+   * successful) will produce objects which are equal ({@link Object#equals)}).
    */
   T convert(String input) throws OptionsParsingException;
 

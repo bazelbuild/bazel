@@ -136,7 +136,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
     // Spawn a lot of threads to help uncover concurrency issues
     boolean result = visitor.sync(reporter, startingLabels, keepGoing, /*parallelThreads=*/ 200);
 
-    assertThat(result).isNotSameAs(expectError);
+    assertThat(result).isNotSameInstanceAs(expectError);
     assertExpectedTargets(expectedLabels, startingLabels);
   }
 
@@ -210,9 +210,9 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
 
     // Spawn a lot of threads to help uncover concurrency issues
     boolean result = visitor.sync(reporter, labels, keepGoing, 200);
-    assertThat(result).isNotSameAs(expectError);
+    assertThat(result).isNotSameInstanceAs(expectError);
     assertThat(getVisitedLabels(asLabelSet(startingLabels), skyframeExecutor))
-        .containsAllIn(asLabelSet(expectedLabels));
+        .containsAtLeastElementsIn(asLabelSet(expectedLabels));
   }
 
   protected void syncPackages() throws InterruptedException {

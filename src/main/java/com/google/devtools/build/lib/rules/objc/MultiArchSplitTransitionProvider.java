@@ -22,11 +22,11 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -36,21 +36,26 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * {@link SplitTransitionProvider} implementation for multi-architecture apple rules which can
- * accept different apple platform types (such as ios or watchos).
+ * {@link TransitionFactory} implementation for multi-architecture apple rules which can accept
+ * different apple platform types (such as ios or watchos).
  */
-public class MultiArchSplitTransitionProvider implements SplitTransitionProvider, SkylarkValue {
+// TODO(https://github.com/bazelbuild/bazel/pull/7825): Rename to MultiArchSplitTransitionFactory.
+public class MultiArchSplitTransitionProvider
+    implements TransitionFactory<AttributeTransitionData>,
+        SplitTransitionProviderApi,
+        SkylarkValue {
 
   @VisibleForTesting
   static final String UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT =
       "Unsupported platform type \"%s\"";
-  
+
   @VisibleForTesting
   static final String INVALID_VERSION_STRING_ERROR_FORMAT =
       "Invalid version string \"%s\". Version must be of the form 'x.y' without alphabetic "
@@ -126,9 +131,9 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
   }
 
   @Override
-  public SplitTransition apply(AttributeMap attrMapper) {
-    String platformTypeString = attrMapper.get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
-    String minimumOsVersionString = attrMapper.get(PlatformRule.MINIMUM_OS_VERSION, STRING);
+  public SplitTransition create(AttributeTransitionData data) {
+    String platformTypeString = data.attributes().get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
+    String minimumOsVersionString = data.attributes().get(PlatformRule.MINIMUM_OS_VERSION, STRING);
     PlatformType platformType;
     Optional<DottedVersion> minimumOsVersion;
     try {
@@ -148,6 +153,11 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
     }
 
     return new AppleBinaryTransition(platformType, minimumOsVersion);
+  }
+
+  @Override
+  public boolean isSplit() {
+    return true;
   }
 
   @Override
@@ -195,7 +205,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
           if (cpus.isEmpty()) {
             cpus =
                 ImmutableList.of(
-                    AppleConfiguration.iosCpuFromCpu(buildOptions.get(Options.class).cpu));
+                    AppleConfiguration.iosCpuFromCpu(buildOptions.get(CoreOptions.class).cpu));
           }
           if (actualMinimumOsVersion != null
               && actualMinimumOsVersion.compareTo(DottedVersion.fromString("11.0")) >= 0) {

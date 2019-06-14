@@ -449,4 +449,28 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
             "");
     assertThat(result).isEqualTo(golden);
   }
+
+  @Test
+  public void toleratesTargetsWithoutDepsAttr() throws Exception {
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _dummy_rule_impl(ctx):",
+        "    info = PyInfo(transitive_sources = depset([]))",
+        "    return [info]",
+        "dummy_rule = rule(",
+        "    implementation = _dummy_rule_impl,",
+        ")");
+    scratch.file(
+        "pkg/BUILD",
+        "load(':rules.bzl', 'dummy_rule')",
+        "dummy_rule(",
+        "    name = 'lib',",
+        ")",
+        "py_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.py'],",
+        "    deps = [':lib'],",
+        ")");
+    evaluateAspectFor("//pkg:bin");
+  }
 }

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -83,36 +82,13 @@ public class CppCompileActionBuilder {
   private ImmutableList<PathFragment> builtinIncludeDirectories;
   // New fields need to be added to the copy constructor.
 
-  /**
-   * Creates a builder from a rule. This also uses the configuration and artifact factory from the
-   * rule.
-   */
-  public CppCompileActionBuilder(RuleContext ruleContext, CcToolchainProvider ccToolchain) {
-    this(
-        ruleContext,
-        ruleContext.attributes().has("$grep_includes")
-            ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
-            : null,
-        ccToolchain,
-        ruleContext.getConfiguration());
-  }
-
   /** Creates a builder from a rule and configuration. */
   public CppCompileActionBuilder(
       ActionConstructionContext actionConstructionContext,
-      Artifact grepIncludes,
+      @Nullable Artifact grepIncludes,
       CcToolchainProvider ccToolchain,
       BuildConfiguration configuration) {
-    this(actionConstructionContext.getActionOwner(), configuration, ccToolchain, grepIncludes);
-  }
-
-  /** Creates a builder from a rule and configuration. */
-  private CppCompileActionBuilder(
-      ActionOwner actionOwner,
-      BuildConfiguration configuration,
-      CcToolchainProvider ccToolchain,
-      @Nullable Artifact grepIncludes) {
-    this.owner = actionOwner;
+    this.owner = actionConstructionContext.getActionOwner();
     this.shareable = false;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -286,10 +262,7 @@ public class CppCompileActionBuilder {
     }
 
     NestedSet<Artifact> realMandatoryInputs = buildMandatoryInputs();
-    NestedSet<Artifact> prunableHeaders =
-        NestedSetBuilder.fromNestedSet(cppSemantics.getAdditionalPrunableIncludes())
-            .addAll(additionalPrunableHeaders)
-            .build();
+    NestedSet<Artifact> prunableHeaders = buildPrunableHeaders();
 
     configuration.modifyExecutionInfo(
         executionInfo, CppCompileAction.actionNameToMnemonic(getActionName()));
@@ -362,7 +335,7 @@ public class CppCompileActionBuilder {
 
   private ImmutableList<Artifact> getBuiltinIncludeFiles() {
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    result.addAll(ccToolchain.getBuiltinIncludeFiles());
+    result.addAll(ccToolchain.getBuiltinIncludeFiles(cppConfiguration));
     if (builtinIncludeFiles != null) {
       result.addAll(builtinIncludeFiles);
     }
@@ -385,6 +358,12 @@ public class CppCompileActionBuilder {
       realMandatoryInputsBuilder.add(grepIncludes);
     }
     return realMandatoryInputsBuilder.build();
+  }
+
+  NestedSet<Artifact> buildPrunableHeaders() {
+    return NestedSetBuilder.fromNestedSet(cppSemantics.getAdditionalPrunableIncludes())
+        .addAll(additionalPrunableHeaders)
+        .build();
   }
 
   Iterable<Artifact> buildInputsForInvalidation() {
@@ -424,6 +403,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  FeatureConfiguration getFeatureConfiguration() {
+    return featureConfiguration;
+  }
+
   /** Sets the feature build variables to be used for the action. */
   public CppCompileActionBuilder setVariables(CcToolchainVariables variables) {
     this.variables = variables;
@@ -440,9 +423,17 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  Map<String, String> getExecutionInfo() {
+    return executionInfo;
+  }
+
   public CppCompileActionBuilder setActionClassId(UUID uuid) {
     this.actionClassId = uuid;
     return this;
+  }
+
+  UUID getActionClassId() {
+    return actionClassId;
   }
 
   public CppCompileActionBuilder addMandatoryInputs(Iterable<Artifact> artifacts) {
@@ -576,6 +567,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  CoptsFilter getCoptsFilter() {
+    return coptsFilter;
+  }
+
   public CppCompileActionBuilder setBuiltinIncludeFiles(
       ImmutableList<Artifact> builtinIncludeFiles) {
     this.builtinIncludeFiles = builtinIncludeFiles;
@@ -605,6 +600,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  ActionEnvironment getActionEnvironment() {
+    return env;
+  }
+
   public CppCompileActionBuilder setAdditionalPrunableHeaders(
       Iterable<Artifact> additionalPrunableHeaders) {
     this.additionalPrunableHeaders = Preconditions.checkNotNull(additionalPrunableHeaders);
@@ -618,8 +617,12 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  ImmutableList<PathFragment> getBuiltinIncludeDirectories() {
+    return builtinIncludeDirectories;
+  }
+
   public boolean shouldCompileHeaders() {
     Preconditions.checkNotNull(featureConfiguration);
-    return ccToolchain.shouldProcessHeaders(featureConfiguration);
+    return ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration);
   }
 }

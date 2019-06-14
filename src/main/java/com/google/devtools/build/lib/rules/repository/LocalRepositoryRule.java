@@ -54,6 +54,20 @@ public class LocalRepositoryRule implements RuleDefinition {
         .build();
   }
 }
+/*<!-- #FAMILY_SUMMARY -->
+
+<p>
+Workspace rules are used to pull in <a href="../external.html">external dependencies</a>, typically
+source code located outside the main repository.
+</p>
+
+<p><em>Note:</em> besides the native workspace rules, Bazel also embeds various
+<a href="../repo/index.html">Starlark workspace rules</a>, in particular those to deal
+with git repositories or archives hosted on the web.
+</p>
+
+<!-- #END_FAMILY_SUMMARY -->*/
+
 /*<!-- #BLAZE_RULE (NAME = local_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
 <p>Allows targets from a local directory to be bound. This means that the current repository can

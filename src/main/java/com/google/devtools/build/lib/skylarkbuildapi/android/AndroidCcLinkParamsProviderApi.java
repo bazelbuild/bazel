@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** A target that provides C++ libraries to be linked into Android targets. */
 @SkylarkModule(
@@ -39,12 +38,7 @@ public interface AndroidCcLinkParamsProviderApi<T extends CcInfoApi> extends Str
   String NAME = "AndroidCcLinkParamsInfo";
 
   /** Returns the cc link params. */
-  @SkylarkCallable(
-      name = "link_params",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "link_params", structField = true, doc = "", documented = false)
   T getLinkParams();
 
   /** The provider implementing this can construct the AndroidCcLinkParamsInfo provider. */
@@ -60,7 +54,6 @@ public interface AndroidCcLinkParamsProviderApi<T extends CcInfoApi> extends Str
         name = NAME,
         doc = "The <code>AndroidCcLinkParamsInfo</code> constructor.",
         documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "store",

@@ -308,8 +308,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   toolchain.getFdoContext())
               .addCcCompilationContexts(CppHelper.getCompilationContextsFromDeps(deps))
               .addCcCompilationContexts(
-                  ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
-              .addQuoteIncludeDirs(cppSemantics.getQuoteIncludes(ruleContext));
+                  ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)));
       // Don't instrument the generated C++ files even when --collect_code_coverage is set.
       helper.setCodeCoverageEnabled(false);
 
@@ -338,12 +337,19 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       CcToolchainProvider toolchain = ccToolchain(ruleContext);
       CcLinkingHelper helper =
           new CcLinkingHelper(
-              ruleContext,
-              cppSemantics,
-              featureConfiguration,
-              toolchain,
-              toolchain.getFdoContext(),
-              ruleContext.getConfiguration());
+                  ruleContext,
+                  ruleContext.getLabel(),
+                  ruleContext,
+                  ruleContext,
+                  cppSemantics,
+                  featureConfiguration,
+                  toolchain,
+                  toolchain.getFdoContext(),
+                  ruleContext.getConfiguration(),
+                  ruleContext.getFragment(CppConfiguration.class),
+                  ruleContext.getSymbolGenerator())
+              .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+              .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget());
       helper.addCcLinkingContexts(CppHelper.getLinkingContextsFromDeps(deps));
       // TODO(dougk): Configure output artifact with action_config
       // once proto compile action is configurable from the crosstool.

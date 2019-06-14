@@ -15,6 +15,8 @@
 package com.google.devtools.build.skydoc.rendering;
 
 import com.google.common.base.Joiner;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -99,9 +101,49 @@ public final class MarkdownUtil {
         break;
     }
     if (typeLink == null) {
-      return attrInfo.getType().getDescription();
+      return attributeTypeDescription(attrInfo.getType());
     } else {
-      return String.format("<a href=\"%s\">%s</a>", typeLink, attrInfo.getType().getDescription());
+      return String.format(
+          "<a href=\"%s\">%s</a>", typeLink, attributeTypeDescription(attrInfo.getType()));
     }
+  }
+
+  public String mandatoryString(AttributeInfo attrInfo) {
+    return attrInfo.getMandatory() ? "required" : "optional";
+  }
+
+  private String attributeTypeDescription(AttributeType attributeType) {
+    switch (attributeType) {
+      case NAME:
+        return "Name";
+      case INT:
+        return "Integer";
+      case LABEL:
+        return "Label";
+      case STRING:
+        return "String";
+      case STRING_LIST:
+        return "List of strings";
+      case INT_LIST:
+        return "List of integers";
+      case LABEL_LIST:
+        return "List of labels";
+      case BOOLEAN:
+        return "Boolean";
+      case LABEL_STRING_DICT:
+        return "Dictionary: Label -> String";
+      case STRING_DICT:
+        return "Dictionary: String -> String";
+      case STRING_LIST_DICT:
+        return "Dictionary: String -> List of strings";
+      case OUTPUT:
+        return "Label";
+      case OUTPUT_LIST:
+        return "List of labels";
+      case UNKNOWN:
+      case UNRECOGNIZED:
+        throw new IllegalArgumentException("Unhandled type " + attributeType);
+    }
+    throw new IllegalArgumentException("Unhandled type " + attributeType);
   }
 }

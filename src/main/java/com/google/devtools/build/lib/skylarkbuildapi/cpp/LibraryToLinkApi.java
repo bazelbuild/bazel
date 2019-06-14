@@ -52,11 +52,29 @@ public interface LibraryToLinkApi<FileT extends FileApi> {
   FileT getDynamicLibrary();
 
   @SkylarkCallable(
+      name = "resolved_symlink_dynamic_library",
+      doc =
+          "The resolved <code>Artifact</code> of the dynamic library to be linked if "
+              + "<code>dynamic_library</code> is a symlink, otherwise this is None.",
+      allowReturnNones = true,
+      structField = true)
+  FileT getResolvedSymlinkDynamicLibrary();
+
+  @SkylarkCallable(
       name = "interface_library",
       doc = "<code>Artifact</code> of interface library to be linked.",
       allowReturnNones = true,
       structField = true)
   FileT getInterfaceLibrary();
+
+  @SkylarkCallable(
+      name = "resolved_symlink_interface_library",
+      doc =
+          "The resolved <code>Artifact</code> of the interface library to be linked if "
+              + "<code>interface_library</code> is a symlink, otherwise this is None.",
+      allowReturnNones = true,
+      structField = true)
+  FileT getResolvedSymlinkInterfaceLibrary();
 
   @SkylarkCallable(
       name = "alwayslink",

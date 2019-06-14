@@ -15,6 +15,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.fail;
@@ -65,12 +66,10 @@ public class OptionsParserTest {
 
   @Test
   public void errorsDuringConstructionAreWrapped() {
-    try {
-      newOptionsParser(BadOptions.class);
-      fail();
-    } catch (OptionsParser.ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
-    }
+    OptionsParser.ConstructionException e =
+        assertThrows(
+            OptionsParser.ConstructionException.class, () -> newOptionsParser(BadOptions.class));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
   }
 
   public static class ExampleFoo extends OptionsBase {
@@ -235,25 +234,23 @@ public class OptionsParserTest {
   @Test
   public void parserWithUnknownOption() {
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    try {
-      parser.parse("--unknown", "option");
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
-      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse("--unknown", "option"));
+    assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
     assertThat(parser.getResidue()).isEmpty();
+  }
+
+  @Test
+  public void parserWithSingleDashOption_notAllowed() throws OptionsParsingException {
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.setAllowSingleDashLongOptions(false);
+    assertThrows(OptionsParsingException.class, () -> parser.parse("-baz=oops", "-bar", "17"));
   }
 
   @Test
   public void parserWithSingleDashOption() throws OptionsParsingException {
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    try {
-      parser.parse("-baz=oops", "-bar", "17");
-      fail();
-    } catch (OptionsParsingException expected) {}
-
-    parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
     parser.setAllowSingleDashLongOptions(true);
     parser.parse("-baz=oops", "-bar", "17");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
@@ -267,86 +264,74 @@ public class OptionsParserTest {
   public void parsingFailsWithUnknownOptions() {
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
     List<String> unknownOpts = asList("--unknown", "option", "--more_unknowns");
-    try {
-      parser.parse(unknownOpts);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse(unknownOpts));
+    assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
       assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
       assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
-      assertThat(parser.getOptions(ExampleBaz.class)).isNotNull();
-    }
+    assertThat(parser.getOptions(ExampleBaz.class)).isNotNull();
   }
 
   @Test
   public void parsingFailsWithInternalBooleanOptionAsIfUnknown() {
     OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
     List<String> internalOpts = asList("--internal_boolean");
-    try {
-      parser.parse(internalOpts);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e.getInvalidArgument()).isEqualTo("--internal_boolean");
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse(internalOpts));
+    assertThat(e.getInvalidArgument()).isEqualTo("--internal_boolean");
       assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_boolean");
-      assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
-    }
+    assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
   }
 
   @Test
   public void parsingFailsWithNegatedInternalBooleanOptionAsIfUnknown() {
     OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
     List<String> internalOpts = asList("--nointernal_boolean");
-    try {
-      parser.parse(internalOpts);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e.getInvalidArgument()).isEqualTo("--nointernal_boolean");
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse(internalOpts));
+    assertThat(e.getInvalidArgument()).isEqualTo("--nointernal_boolean");
       assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --nointernal_boolean");
-      assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
-    }
+    assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
   }
 
   @Test
   public void parsingFailsForInternalOptionWithValueInSameArgAsIfUnknown() {
     OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
     List<String> internalOpts = asList("--internal_string=any_value");
-    try {
-      parser.parse(internalOpts);
-      fail("parsing should have failed for including a private option");
-    } catch (OptionsParsingException e) {
-      assertThat(e.getInvalidArgument()).isEqualTo("--internal_string=any_value");
+    OptionsParsingException e =
+        assertThrows(
+            "parsing should have failed for including a private option",
+            OptionsParsingException.class,
+            () -> parser.parse(internalOpts));
+    assertThat(e.getInvalidArgument()).isEqualTo("--internal_string=any_value");
       assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_string=any_value");
-      assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
-    }
+    assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
   }
 
   @Test
   public void parsingFailsForInternalOptionWithValueInSeparateArgAsIfUnknown() {
     OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
     List<String> internalOpts = asList("--internal_string", "any_value");
-    try {
-      parser.parse(internalOpts);
-      fail("parsing should have failed for including a private option");
-    } catch (OptionsParsingException e) {
-      assertThat(e.getInvalidArgument()).isEqualTo("--internal_string");
+    OptionsParsingException e =
+        assertThrows(
+            "parsing should have failed for including a private option",
+            OptionsParsingException.class,
+            () -> parser.parse(internalOpts));
+    assertThat(e.getInvalidArgument()).isEqualTo("--internal_string");
       assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_string");
-      assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
-    }
+    assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
   }
 
   @Test
   public void parseKnownAndUnknownOptions() {
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
     List<String> opts = asList("--bar", "17", "--unknown", "option");
-    try {
-      parser.parse(opts);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse(opts));
+    assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
       assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
       assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
-      assertThat(parser.getOptions(ExampleBaz.class)).isNotNull();
-    }
+    assertThat(parser.getOptions(ExampleBaz.class)).isNotNull();
   }
 
   @Test
@@ -433,12 +418,10 @@ public class OptionsParserTest {
   public void parserThrowsExceptionIfResidueIsNotAllowed() {
     OptionsParser parser = newOptionsParser(ExampleFoo.class);
     parser.setAllowResidue(false);
-    try {
-      parser.parse("residue", "is", "not", "OK");
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue is not OK");
-    }
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> parser.parse("residue", "is", "not", "OK"));
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue is not OK");
   }
 
   @Test
@@ -678,13 +661,13 @@ public class OptionsParserTest {
   public void nullExpansions() throws Exception {
     // Ensure that we get the NPE at the time of parser construction, not later when actually
     // parsing.
-    try {
-      newOptionsParser(NullExpansionsOptions.class);
-      fail("Should have failed due to null expansion function result");
-    } catch (OptionsParser.ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(NullPointerException.class);
-      assertThat(e).hasCauseThat().hasMessageThat().contains("null value in entry");
-    }
+    OptionsParser.ConstructionException e =
+        assertThrows(
+            "Should have failed due to null expansion function result",
+            OptionsParser.ConstructionException.class,
+            () -> newOptionsParser(NullExpansionsOptions.class));
+    assertThat(e).hasCauseThat().isInstanceOf(NullPointerException.class);
+    assertThat(e).hasCauseThat().hasMessageThat().contains("null value in entry");
   }
 
   /** ExpansionOptions */
@@ -794,7 +777,7 @@ public class OptionsParserTest {
 
     ParsedOptionDescription effectiveInstance = optionValue.getCanonicalInstances().get(0);
     assertThat(effectiveInstance.getExpandedFrom().getOptionDefinition())
-        .isSameAs(expansionDescription.getOptionDefinition());
+        .isSameInstanceAs(expansionDescription.getOptionDefinition());
     assertThat(effectiveInstance.getImplicitDependent()).isNull();
 
     assertThat(parser.getWarnings()).isEmpty();
@@ -898,12 +881,8 @@ public class OptionsParserTest {
   @Test
   public void getOptionValueDescriptionWithNonExistingOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(NullTestOptions.class);
-    try {
-      parser.getOptionValueDescription("notexisting");
-      fail();
-    } catch (IllegalArgumentException e) {
-      /* Expected exception. */
-    }
+    assertThrows(
+        IllegalArgumentException.class, () -> parser.getOptionValueDescription("notexisting"));
   }
 
   @Test
@@ -1846,12 +1825,9 @@ public class OptionsParserTest {
   @Test
   public void intOutOfBounds() {
     OptionsParser parser = newOptionsParser(LongValueExample.class);
-    try {
-      parser.parse("--intval=2147483648");
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().contains("'2147483648' is not an int");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse("--intval=2147483648"));
+    assertThat(e).hasMessageThat().contains("'2147483648' is not an int");
   }
 
   public static class OldNameExample extends OptionsBase {
@@ -1899,14 +1875,13 @@ public class OptionsParserTest {
 
   @Test
   public void testBooleanUnderscorePrefixError() {
-    try {
-      OptionsParser parser = newOptionsParser(ExampleBooleanFooOptions.class);
-      parser.parse("--no_foo");
-
-      fail("--no_foo should fail to parse.");
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().contains("Unrecognized option: --no_foo");
-    }
+    OptionsParser parser = newOptionsParser(ExampleBooleanFooOptions.class);
+    OptionsParsingException e =
+        assertThrows(
+            "--no_foo should fail to parse.",
+            OptionsParsingException.class,
+            () -> parser.parse("--no_foo"));
+    assertThat(e).hasMessageThat().contains("Unrecognized option: --no_foo");
   }
 
   /** Dummy options that declares it uses only core types. */
@@ -2008,31 +1983,30 @@ public class OptionsParserTest {
 
   @Test
   public void testValidationOfUsesOnlyCoreTypes() {
-    try {
-      OptionsParser.getUsesOnlyCoreTypes(BadCoreTypesOptions.class);
-      fail("Should have detected illegal use of @UsesOnlyCoreTypes");
-    } catch (OptionsParser.ConstructionException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .matches(
-              "Options class '.*BadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but field "
-                  + "'foo' has type '.*Foo'");
-    }
+    OptionsParser.ConstructionException expected =
+        assertThrows(
+            "Should have detected illegal use of @UsesOnlyCoreTypes",
+            OptionsParser.ConstructionException.class,
+            () -> OptionsParser.getUsesOnlyCoreTypes(BadCoreTypesOptions.class));
+    assertThat(expected)
+        .hasMessageThat()
+        .matches(
+            "Options class '.*BadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but field "
+                + "'foo' has type '.*Foo'");
   }
 
   @Test
   public void testValidationOfUsesOnlyCoreTypes_Inherited() {
-    try {
-      OptionsParser.getUsesOnlyCoreTypes(InheritedBadCoreTypesOptions.class);
-      fail("Should have detected illegal use of @UsesOnlyCoreTypes "
-          + "(due to inheritance from bad superclass)");
-    } catch (OptionsParser.ConstructionException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .matches(
-              "Options class '.*InheritedBadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but "
-                  + "field 'foo' has type '.*Foo'");
-    }
+    OptionsParser.ConstructionException expected =
+        assertThrows(
+            "Should have detected illegal use of @UsesOnlyCoreTypes",
+            OptionsParser.ConstructionException.class,
+            () -> OptionsParser.getUsesOnlyCoreTypes(InheritedBadCoreTypesOptions.class));
+    assertThat(expected)
+        .hasMessageThat()
+        .matches(
+            "Options class '.*InheritedBadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but "
+                + "field 'foo' has type '.*Foo'");
   }
 
   @Test
@@ -2130,12 +2104,13 @@ public class OptionsParserTest {
       Consumer<OptionDefinition> visitor,
       String expectedMessage)
       throws Exception {
-    try {
-      OptionsParser.newOptionsParser(CompletionOptions.class).visitOptions(predicate, visitor);
-      fail("Expected a NullPointerException.");
-    } catch (NullPointerException ex) {
-      assertThat(ex).hasMessageThat().isEqualTo(expectedMessage);
-    }
+    NullPointerException ex =
+        assertThrows(
+            NullPointerException.class,
+            () ->
+                OptionsParser.newOptionsParser(CompletionOptions.class)
+                    .visitOptions(predicate, visitor));
+    assertThat(ex).hasMessageThat().isEqualTo(expectedMessage);
   }
 
   @Test

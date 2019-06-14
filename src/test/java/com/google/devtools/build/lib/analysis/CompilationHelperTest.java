@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -98,7 +98,7 @@ public class CompilationHelperTest extends BuildViewTestCase {
     assertThat(middleman).hasSize(1);
     List<Artifact> middlemanWithSymlinks = getAggregatingMiddleman(rule, true);
     assertThat(middlemanWithSymlinks).hasSize(1);
-    assertThat(middlemanWithSymlinks.get(0)).isNotSameAs(middleman.get(0));
+    assertThat(middlemanWithSymlinks.get(0)).isNotSameInstanceAs(middleman.get(0));
   }
 
   /**
@@ -114,15 +114,11 @@ public class CompilationHelperTest extends BuildViewTestCase {
 
     ConfiguredTargetAndData ccRuleA = getConfiguredTargetAndData("//foo:liba.so");
     List<Artifact> middleman1 = getAggregatingMiddleman(ccRuleA, true);
-    try {
-      ConfiguredTargetAndData ccRuleB = getConfiguredTargetAndData("//foo:libb.so");
-      getAggregatingMiddleman(ccRuleB, true);
-      analysisEnvironment.registerWith(getMutableActionGraph());
-      fail("Expected ActionConflictException due to same middleman artifact with different files");
-    } catch (UncheckedActionConflictException e) {
-      // Expected failure: same "purpose" and root directory sent to the middleman generator
-      // (which results in the same output artifact), but different rules / middleman inputs.
-    }
+    ConfiguredTargetAndData ccRuleB = getConfiguredTargetAndData("//foo:libb.so");
+    getAggregatingMiddleman(ccRuleB, true);
+    assertThrows(
+        UncheckedActionConflictException.class,
+        () -> analysisEnvironment.registerWith(getMutableActionGraph()));
 
     // This should succeed because the py_binary's middleman is under the Python configuration's
     // internal directory, while the cc_binary's middleman is under the cc config's directory,
@@ -149,15 +145,11 @@ public class CompilationHelperTest extends BuildViewTestCase {
 
     ConfiguredTargetAndData ccRuleA = getConfiguredTargetAndData("//foo:liba.so");
     List<Artifact> middleman1 = getAggregatingMiddleman(ccRuleA, true);
-    try {
-      ConfiguredTargetAndData ccRuleB = getConfiguredTargetAndData("//foo:libb.so");
-      getAggregatingMiddleman(ccRuleB, true);
-      analysisEnvironment.registerWith(getMutableActionGraph());
-      fail("Expected ActionConflictException due to same middleman artifact with different files");
-    } catch (UncheckedActionConflictException e) {
-      // Expected failure: same "purpose" and root directory sent to the middleman generator
-      // (which results in the same output artifact), but different rules / middleman inputs.
-    }
+    ConfiguredTargetAndData ccRuleB = getConfiguredTargetAndData("//foo:libb.so");
+    getAggregatingMiddleman(ccRuleB, true);
+    assertThrows(
+        UncheckedActionConflictException.class,
+        () -> analysisEnvironment.registerWith(getMutableActionGraph()));
 
     // This should succeed because the java_binary's middleman is under the Java configuration's
     // internal directory, while the cc_binary's middleman is under the cc config's directory.

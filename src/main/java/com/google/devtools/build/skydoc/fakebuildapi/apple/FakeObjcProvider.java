@@ -18,22 +18,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Fake implementation of {@link ObjcProviderApi}.
  */
 public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
-
-  @Override
-  public NestedSet<FileApi> assetCatalog() {
-    return null;
-  }
-
-  @Override
-  public SkylarkNestedSet bundleFile() {
-    return null;
-  }
 
   @Override
   public NestedSet<String> define() {
@@ -67,6 +58,11 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
 
   @Override
   public NestedSet<FileApi> header() {
+    return null;
+  }
+
+  @Override
+  public SkylarkList<FileApi> directHeaders() {
     return null;
   }
 
@@ -136,6 +132,11 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
+  public SkylarkList<FileApi> directModuleMaps() {
+    return null;
+  }
+
+  @Override
   public NestedSet<FileApi> multiArchDynamicLibraries() {
     return null;
   }
@@ -147,11 +148,6 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
 
   @Override
   public NestedSet<FileApi> multiArchLinkedBinaries() {
-    return null;
-  }
-
-  @Override
-  public NestedSet<FileApi> rootMergeZip() {
     return null;
   }
 
@@ -171,17 +167,12 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
+  public SkylarkList<FileApi> directSources() {
+    return null;
+  }
+
+  @Override
   public NestedSet<FileApi> staticFrameworkFile() {
-    return null;
-  }
-
-  @Override
-  public NestedSet<FileApi> storyboard() {
-    return null;
-  }
-
-  @Override
-  public NestedSet<FileApi> strings() {
     return null;
   }
 
@@ -196,22 +187,27 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public SkylarkNestedSet xcassetsDir() {
-    return null;
-  }
-
-  @Override
-  public NestedSet<FileApi> xcdatamodel() {
-    return null;
-  }
-
-  @Override
-  public NestedSet<FileApi> xib() {
-    return null;
-  }
-
-  @Override
   public SkylarkNestedSet getStaticFrameworkDirsForSkylark() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<String> dynamicFrameworkNames() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<String> dynamicFrameworkPaths() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<String> staticFrameworkNames() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<String> staticFrameworkPaths() {
     return null;
   }
 

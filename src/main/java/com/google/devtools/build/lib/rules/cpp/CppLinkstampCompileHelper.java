@@ -18,11 +18,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** Handles creation of CppCompileAction used to compile linkstamp sources. */
 public class CppLinkstampCompileHelper {
@@ -33,7 +36,10 @@ public class CppLinkstampCompileHelper {
    * @param inputsForInvalidation: see {@link CppCompileAction#inputsForInvalidation}
    */
   public static CppCompileAction createLinkstampCompileAction(
-      RuleContext ruleContext,
+      RuleErrorConsumer ruleErrorConsumer,
+      ActionConstructionContext actionConstructionContext,
+      @Nullable Artifact grepIncludes,
+      BuildConfiguration configuration,
       Artifact sourceFile,
       Artifact outputFile,
       Iterable<Artifact> compilationInputs,
@@ -51,11 +57,12 @@ public class CppLinkstampCompileHelper {
       String outputReplacement,
       CppSemantics semantics) {
     CppCompileActionBuilder builder =
-        new CppCompileActionBuilder(ruleContext, ccToolchainProvider)
+        new CppCompileActionBuilder(
+                actionConstructionContext, grepIncludes, ccToolchainProvider, configuration)
             .addMandatoryInputs(compilationInputs)
             .setVariables(
                 getVariables(
-                    ruleContext,
+                    ruleErrorConsumer,
                     sourceFile,
                     outputFile,
                     labelReplacement,
@@ -63,6 +70,7 @@ public class CppLinkstampCompileHelper {
                     additionalLinkstampDefines,
                     buildInfoHeaderArtifacts,
                     featureConfiguration,
+                    configuration.getOptions(),
                     cppConfiguration,
                     ccToolchainProvider,
                     needsPic,
@@ -78,8 +86,7 @@ public class CppLinkstampCompileHelper {
             .setShareable(true)
             .setShouldScanIncludes(false)
             .setActionName(CppActionNames.LINKSTAMP_COMPILE);
-    semantics.finalizeCompileActionBuilder(
-        ruleContext.getConfiguration(), featureConfiguration, builder);
+    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     return builder.buildOrThrowIllegalStateException();
   }
 
@@ -134,6 +141,7 @@ public class CppLinkstampCompileHelper {
       Iterable<String> additionalLinkstampDefines,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
       FeatureConfiguration featureConfiguration,
+      BuildOptions buildOptions,
       CppConfiguration cppConfiguration,
       CcToolchainProvider ccToolchainProvider,
       boolean needsPic,
@@ -147,6 +155,8 @@ public class CppLinkstampCompileHelper {
         ruleErrorConsumer,
         featureConfiguration,
         ccToolchainProvider,
+        buildOptions,
+        cppConfiguration,
         sourceFile.getExecPathString(),
         outputFile.getExecPathString(),
         /* gcnoFile= */ null,

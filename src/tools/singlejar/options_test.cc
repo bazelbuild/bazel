@@ -72,10 +72,10 @@ TEST(OptionsTest, SingleOptargs) {
   EXPECT_EQ("output_jar", options.output_jar);
   EXPECT_EQ("com.google.Main", options.main_class);
   EXPECT_EQ("//tools:mylauncher", options.java_launcher);
-  ASSERT_EQ(2, options.build_info_files.size());
+  ASSERT_EQ(2UL, options.build_info_files.size());
   EXPECT_EQ("build_file1", options.build_info_files[0]);
   EXPECT_EQ("build_file2", options.build_info_files[1]);
-  ASSERT_EQ(2, options.build_info_lines.size());
+  ASSERT_EQ(2UL, options.build_info_lines.size());
   EXPECT_EQ("extra_build_line1", options.build_info_lines[0]);
   EXPECT_EQ("extra_build_line2", options.build_info_lines[1]);
 }
@@ -91,20 +91,20 @@ TEST(OptionsTest, MultiOptargs) {
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
-  ASSERT_EQ(3, options.input_jars.size());
+  ASSERT_EQ(3UL, options.input_jars.size());
   EXPECT_EQ("jar1", options.input_jars[0].first);
   EXPECT_EQ("jar2", options.input_jars[1].first);
   EXPECT_EQ("jar3", options.input_jars[2].first);
-  ASSERT_EQ(2, options.resources.size());
+  ASSERT_EQ(2UL, options.resources.size());
   EXPECT_EQ("res1", options.resources[0]);
   EXPECT_EQ("res2", options.resources[1]);
-  ASSERT_EQ(2, options.classpath_resources.size());
+  ASSERT_EQ(2UL, options.classpath_resources.size());
   EXPECT_EQ("cpres1", options.classpath_resources[0]);
   EXPECT_EQ("cpres2", options.classpath_resources[1]);
-  ASSERT_EQ(2, options.include_prefixes.size());
+  ASSERT_EQ(2UL, options.include_prefixes.size());
   EXPECT_EQ("prefix1", options.include_prefixes[0]);
   EXPECT_EQ("prefix2", options.include_prefixes[1]);
-  EXPECT_EQ(2, options.nocompress_suffixes.size());
+  EXPECT_EQ(2UL, options.nocompress_suffixes.size());
   EXPECT_EQ(".png", options.nocompress_suffixes[0]);
   EXPECT_EQ(".so", options.nocompress_suffixes[1]);
 }
@@ -120,8 +120,8 @@ TEST(OptionsTest, EmptyMultiOptargs) {
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
-  EXPECT_EQ(0, options.input_jars.size());
-  EXPECT_EQ(0, options.resources.size());
-  EXPECT_EQ(0, options.classpath_resources.size());
-  EXPECT_EQ(1, options.include_prefixes.size());
+  EXPECT_EQ(0UL, options.input_jars.size());
+  EXPECT_EQ(0UL, options.resources.size());
+  EXPECT_EQ(0UL, options.classpath_resources.size());
+  EXPECT_EQ(1UL, options.include_prefixes.size());
 }

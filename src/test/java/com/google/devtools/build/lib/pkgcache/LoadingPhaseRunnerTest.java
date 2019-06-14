@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -51,11 +50,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PatternExpandingError;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -112,13 +108,8 @@ public class LoadingPhaseRunnerTest {
   }
 
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
-    try {
-      tester.load(targetPattern);
-      fail();
-    } catch (TargetParsingException e) {
-      // Expected.
-      tester.assertContainsError("circular symlinks detected");
-    }
+    assertThrows(TargetParsingException.class, () -> tester.load(targetPattern));
+    tester.assertContainsError("circular symlinks detected");
     TargetPatternPhaseValue result = tester.loadKeepGoing(targetPattern);
     assertThat(result.hasError()).isTrue();
   }
@@ -155,11 +146,7 @@ public class LoadingPhaseRunnerTest {
 
   @Test
   public void testNonExistentPackageWithoutKeepGoing() throws Exception {
-    try {
-      tester.load("//does/not/exist");
-      fail();
-    } catch (TargetParsingException expected) {
-    }
+    assertThrows(TargetParsingException.class, () -> tester.load("//does/not/exist"));
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//does/not/exist");
   }
@@ -259,27 +246,22 @@ public class LoadingPhaseRunnerTest {
 
   @Test
   public void testMistypedTarget() throws Exception {
-    try {
-      tester.load("foo//bar:missing");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains(
-          "invalid target format 'foo//bar:missing': "
-          + "invalid package name 'foo//bar': "
-          + "package names may not contain '//' path separators");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("foo//bar:missing"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "invalid target format 'foo//bar:missing': "
+                + "invalid package name 'foo//bar': "
+                + "package names may not contain '//' path separators");
     ParsingFailedEvent err = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(err.getPattern()).isEqualTo("foo//bar:missing");
   }
 
   @Test
   public void testEmptyTarget() throws Exception {
-    try {
-      tester.load("");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains("the empty string is not a valid target");
-    }
+    TargetParsingException e = assertThrows(TargetParsingException.class, () -> tester.load(""));
+    assertThat(e).hasMessageThat().contains("the empty string is not a valid target");
   }
 
   @Test
@@ -742,11 +724,7 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("bad/BUILD",
         "sh_binary(name = 'bad', srcs = ['bad.sh'])",
         "undefined_symbol");
-    try {
-      tester.load("//bad");
-      fail();
-    } catch (TargetParsingException expected) {
-    }
+    assertThrows(TargetParsingException.class, () -> tester.load("//bad"));
     tester.assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//bad");
@@ -798,13 +776,11 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("base/BUILD",
         "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
-    try {
-      tester.load("//base:hello");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat()
-          .contains("--compile_one_dependency target '//base:hello' must be a file");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("//base:hello"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("--compile_one_dependency target '//base:hello' must be a file");
   }
 
   @Test
@@ -813,7 +789,7 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.hasError()).isTrue();
     ParsingFailedEvent event = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(event.getPattern()).isEqualTo("//does_not_exist");
-    assertThat(event.getMessage()).contains("BUILD file not found on package path");
+    assertThat(event.getMessage()).contains("BUILD file not found");
   }
 
   @Test
@@ -823,12 +799,9 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("test/cycle2.bzl", "load(':cycle1.bzl', 'make_cycle')");
     // The skyframe target pattern evaluator isn't able to provide partial results in the presence
     // of cycles, so it simply raises an exception rather than returning an empty result.
-    try {
-      tester.load("//test:cycle1");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains("cycles detected");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("//test:cycle1"));
+    assertThat(e).hasMessageThat().contains("cycles detected");
     tester.assertContainsEventWithFrequency("cycle detected in extension", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//test:cycle1");
@@ -839,12 +812,9 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("test/BUILD", "load(':cycle1.bzl', 'make_cycle')");
     tester.addFile("test/cycle1.bzl", "load(':cycle2.bzl', 'make_cycle')");
     tester.addFile("test/cycle2.bzl", "load(':cycle1.bzl', 'make_cycle')");
-    try {
-      tester.load("//test:cycle1");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains("cycles detected");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("//test:cycle1"));
+    assertThat(e).hasMessageThat().contains("cycles detected");
     tester.assertContainsEventWithFrequency("cycle detected in extension", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//test:cycle1");
@@ -957,12 +927,9 @@ public class LoadingPhaseRunnerTest {
   }
 
   private void expectError(String pattern, String message) throws Exception {
-    try {
-      tester.load(pattern);
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains(message);
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load(pattern));
+    assertThat(e).hasMessageThat().contains(message);
   }
 
   @Test
@@ -1083,7 +1050,7 @@ public class LoadingPhaseRunnerTest {
               workspace,
               /* defaultSystemJavabase= */ null,
               analysisMock.getProductName());
-      FileSystemUtils.deleteTree(workspace.getRelative("base"));
+      workspace.getRelative("base").deleteTree();
 
       ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
       PackageFactory pkgFactory =
@@ -1097,22 +1064,15 @@ public class LoadingPhaseRunnerTest {
         throw new RuntimeException(e);
       }
       skyframeExecutor =
-          SequencedSkyframeExecutor.create(
-              pkgFactory,
-              fs,
-              directories,
-              actionKeyContext,
-              null, /* workspaceStatusActionFactory -- not used */
-              ruleClassProvider.getBuildInfoFactories(),
-              ImmutableList.<DiffAwareness.Factory>of(),
-              analysisMock.getSkyFunctions(directories),
-              ImmutableList.<SkyValueDirtinessChecker>of(),
-              BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
-              BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
-              BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
-              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-              BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
-              defaultBuildOptions);
+          BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+              .setPkgFactory(pkgFactory)
+              .setFileSystem(fs)
+              .setDirectories(directories)
+              .setActionKeyContext(actionKeyContext)
+              .setBuildInfoFactories(ruleClassProvider.getBuildInfoFactories())
+              .setDefaultBuildOptions(defaultBuildOptions)
+              .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+              .build();
       TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
       PathPackageLocator pkgLocator =
           PathPackageLocator.create(

@@ -25,10 +25,11 @@ DISABLE_SANDBOX_ARGS=(
 )
 
 # Creates a fake sandboxfs process in "path" that logs interactions with it in
-# the given "log" file.
+# the given "log" file and reports the given "version".
 function create_fake_sandboxfs() {
   local path="${1}"; shift
   local log="${1}"; shift
+  local version="${1}"; shift
 
   cat >"${path}" <<EOF
 #! /bin/sh
@@ -38,6 +39,11 @@ trap 'echo "Terminated" >>"${log}"' EXIT TERM
 
 echo "PID: \${$}" >>"${log}"
 echo "ARGS: \${*}" >>"${log}"
+
+if [ "\${1}" = --version ]; then
+  echo "${version}"
+  exit 0
+fi
 
 while read line; do
   echo "Received: \${line}" >>"${log}"
@@ -64,7 +70,7 @@ EOF
 
 function test_default_sandboxfs_from_path() {
   mkdir -p fake-tools
-  create_fake_sandboxfs fake-tools/sandboxfs "$(pwd)/log"
+  create_fake_sandboxfs fake-tools/sandboxfs "$(pwd)/log" "sandboxfs 0.0.0"
   PATH="$(pwd)/fake-tools:${PATH}"; export PATH
 
   create_hello_package
@@ -97,7 +103,62 @@ function test_explicit_sandboxfs_not_found() {
     --experimental_sandboxfs_path="/non-existent/sandboxfs" \
     //hello >"${TEST_log}" 2>&1 && fail "Build succeeded but should have failed"
 
-  expect_log "Failed to initialize sandbox: .*Cannot run .*/non-existent/"
+  expect_log "/non-existent/sandboxfs.*not be found"
+}
+
+function test_explicit_sandboxfs_is_invalid() {
+  mkdir -p fake-tools
+  create_hello_package
+  do_build() {
+    bazel build \
+      "${DISABLE_SANDBOX_ARGS[@]}" \
+      --experimental_use_sandboxfs=yes \
+      --experimental_sandboxfs_path="$(pwd)/fake-tools/sandboxfs" \
+      //hello
+  }
+
+  # Try with a binary that prints an invalid version string.
+  create_fake_sandboxfs fake-tools/sandboxfs "$(pwd)/log" "not-sandboxfs 0.0.0"
+  do_build >"${TEST_log}" 2>&1 && fail "Build should have failed"
+
+  # Now try with a valid binary just to ensure our test scenario works.
+  create_fake_sandboxfs fake-tools/sandboxfs "$(pwd)/log" "sandboxfs 0.0.0"
+  do_build >"${TEST_log}" 2>&1 || fail "Build should have succeeded"
+  sed -e 's,^,SANDBOXFS: ,' log >>"${TEST_log}"
+
+  grep -q "Terminated" log \
+    || fail "sandboxfs process was not terminated (not executed?)"
+}
+
+function test_use_sandboxfs_if_present() {
+  # This test relies on a PATH change that is only recognized when the server
+  # first starts up, so ensure there are no Bazel servers left behind.
+  #
+  # TODO(philwo): This is awful.  The testing infrastructure should ensure
+  # that tests cannot pollute each other's state, but at the moment that's not
+  # the case.
+  bazel shutdown
+
+  mkdir -p fake-tools
+  PATH="$(pwd)/fake-tools:${PATH}"; export PATH
+  create_hello_package
+  do_build() {
+    bazel build \
+      "${DISABLE_SANDBOX_ARGS[@]}" \
+      --experimental_use_sandboxfs=auto \
+      //hello
+  }
+
+  # Try with sandboxfs not in the PATH.
+  do_build >"${TEST_log}" 2>&1 || fail "Build should have succeeded"
+  [[ ! -f log ]] || echo "sandboxfs was used but should not have"
+
+  # Now try with sandboxfs in the PATH to ensure our test scenario works.
+  create_fake_sandboxfs fake-tools/sandboxfs "$(pwd)/log" "sandboxfs 0.0.0"
+  do_build >"${TEST_log}" 2>&1 || fail "Build should have succeeded"
+  sed -e 's,^,SANDBOXFS: ,' log >>"${TEST_log}"
+  grep -q "Terminated" log \
+    || fail "sandboxfs process was not terminated (not executed?)"
 }
 
 # Runs a build of the given target using a fake sandboxfs that captures its
@@ -105,7 +166,7 @@ function test_explicit_sandboxfs_not_found() {
 function build_with_fake_sandboxfs() {
   local log="${1}"; shift
 
-  create_fake_sandboxfs fake-sandboxfs.sh "${log}"
+  create_fake_sandboxfs fake-sandboxfs.sh "${log}" "sandboxfs 0.0.0"
 
   local ret=0
   bazel build \

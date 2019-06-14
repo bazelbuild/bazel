@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.proto;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.createCommandLineFromToolchains;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
@@ -267,7 +267,7 @@ public class ProtoCompileActionBuilderTest {
             Services.DISALLOW,
             /* protocOpts= */ ImmutableList.of("--foo", "--bar"));
 
-    assertThat(cmdLine.arguments()).containsAllOf("--disallow_services", "--foo", "--bar");
+    assertThat(cmdLine.arguments()).containsAtLeast("--disallow_services", "--foo", "--bar");
   }
 
   @Test
@@ -333,32 +333,33 @@ public class ProtoCompileActionBuilderTest {
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* blacklistedProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
 
-    try {
-      createCommandLineFromToolchains(
-          ImmutableList.of(
-              new ToolchainInvocation("pluginName", toolchain1, "outReplacement"),
-              new ToolchainInvocation("pluginName", toolchain2, "outReplacement")),
-          "bazel-out",
-          protoInfo(
-              /* directProtos */ ImmutableList.of(),
-              /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
-              /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-              /* strictImportableProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-              /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-              /* exportedProtos = */ NestedSetBuilder.emptySet(STABLE_ORDER)),
-          Label.parseAbsoluteUnchecked("//foo:bar"),
-          Deps.STRICT,
-          Exports.DO_NOT_USE,
-          Services.ALLOW,
-          /* protocOpts= */ ImmutableList.of());
-      fail("Expected an exception");
-    } catch (IllegalStateException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "Invocation name pluginName appears more than once. "
-                  + "This could lead to incorrect proto-compiler behavior");
-    }
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                createCommandLineFromToolchains(
+                    ImmutableList.of(
+                        new ToolchainInvocation("pluginName", toolchain1, "outReplacement"),
+                        new ToolchainInvocation("pluginName", toolchain2, "outReplacement")),
+                    "bazel-out",
+                    protoInfo(
+                        /* directProtos */ ImmutableList.of(),
+                        /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
+                        /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
+                        /* strictImportableProtoSourceRoots= */ NestedSetBuilder.emptySet(
+                            STABLE_ORDER),
+                        /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
+                        /* exportedProtos = */ NestedSetBuilder.emptySet(STABLE_ORDER)),
+                    Label.parseAbsoluteUnchecked("//foo:bar"),
+                    Deps.STRICT,
+                    Exports.DO_NOT_USE,
+                    Services.ALLOW,
+                    /* protocOpts= */ ImmutableList.of()));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Invocation name pluginName appears more than once. "
+                + "This could lead to incorrect proto-compiler behavior");
   }
 
   @Test

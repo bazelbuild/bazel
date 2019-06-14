@@ -90,7 +90,9 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new LoadingFailedCause(
-                causeLabel, "no such package 'bar': BUILD file not found on package path"));
+                causeLabel,
+                "no such package 'bar': BUILD file not found in any of the following directories.\n"
+                    + " - /workspace/bar"));
   }
 
   /**

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
-import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
+import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.LinkedList;
 import java.util.List;
@@ -40,7 +40,7 @@ import org.junit.runners.JUnit4;
 public class ParserTest extends EvaluationTestCase {
 
   private BuildFileAST parseFileWithComments(String... input) {
-    return BuildFileAST.parseBuildString(getEventHandler(), input);
+    return BuildFileAST.parseString(getEventHandler(), input);
   }
 
   /** Parses build code (not Skylark) */
@@ -1101,18 +1101,20 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> statements =
         parseFileForSkylark("load('" + importString + "', 'fun_test')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    SkylarkImport imp = SkylarkImports.create(stmt.getImport().getValue());
+    SkylarkImport imp = SkylarkImport.create(stmt.getImport().getValue());
 
-    assertThat(imp.getImportString()).named("getImportString()").isEqualTo(importString);
+    assertWithMessage("getImportString()").that(imp.getImportString()).isEqualTo(importString);
 
     Label containingFileLabel = Label.parseAbsoluteUnchecked(containingFileLabelString);
-    assertThat(imp.getLabel(containingFileLabel)).named("containingFileLabel()")
+    assertWithMessage("containingFileLabel()")
+        .that(imp.getLabel(containingFileLabel))
         .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));
 
     int startOffset = stmt.getImport().getLocation().getStartOffset();
     int endOffset = stmt.getImport().getLocation().getEndOffset();
-    assertThat(startOffset).named("getStartOffset()").isEqualTo(5);
-    assertThat(endOffset).named("getEndOffset()")
+    assertWithMessage("getStartOffset()").that(startOffset).isEqualTo(5);
+    assertWithMessage("getEndOffset()")
+        .that(endOffset)
         .isEqualTo(startOffset + importString.length() + 2);
   }
 
@@ -1124,22 +1126,22 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testRelativeImportPathInIsInvalid() throws Exception {
-    invalidImportTest("file", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("file", SkylarkImport.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void testInvalidRelativePathBzlExtImplicit() throws Exception {
-    invalidImportTest("file.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("file.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativePathNoSubdirs() throws Exception {
-    invalidImportTest("path/to/file", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("path/to/file.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativePathInvalidFilename() throws Exception {
-    invalidImportTest("\tfile", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("\tfile.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   private void validAbsoluteImportLabelTest(String importString)
@@ -1160,23 +1162,22 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testInvalidAbsoluteImportLabel() throws Exception {
-    invalidImportTest("//some/skylark/:file.bzl", SkylarkImports.INVALID_LABEL_PREFIX);
+    invalidImportTest("//some/skylark/:file.bzl", SkylarkImport.INVALID_LABEL_PREFIX);
   }
 
   @Test
   public void testInvalidAbsoluteImportLabelWithRepo() throws Exception {
-    invalidImportTest("@my_repo//some/skylark/:file.bzl",
-        SkylarkImports.INVALID_LABEL_PREFIX);
+    invalidImportTest("@my_repo//some/skylark/:file.bzl", SkylarkImport.INVALID_LABEL_PREFIX);
   }
 
   @Test
   public void testInvalidAbsoluteImportLabelMissingBzlExt() throws Exception {
-    invalidImportTest("//some/skylark:file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
+    invalidImportTest("//some/skylark:file", SkylarkImport.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void testInvalidAbsoluteImportReferencesExternalPkg() throws Exception {
-    invalidImportTest("//external:file.bzl", SkylarkImports.EXTERNAL_PKG_NOT_ALLOWED_MSG);
+    invalidImportTest("//external:file.bzl", SkylarkImport.EXTERNAL_PKG_NOT_ALLOWED_MSG);
   }
 
   @Test
@@ -1206,12 +1207,12 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testInvalidRelativeImportLabelMissingBzlExt() throws Exception {
-    invalidImportTest(":file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
+    invalidImportTest(":file", SkylarkImport.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void testInvalidRelativeImportLabelSyntax() throws Exception {
-    invalidImportTest("::file.bzl", SkylarkImports.INVALID_TARGET_PREFIX);
+    invalidImportTest("::file.bzl", SkylarkImport.INVALID_TARGET_PREFIX);
   }
 
  @Test
@@ -1230,8 +1231,8 @@ public class ParserTest extends EvaluationTestCase {
     Identifier sym = stmt.getBindings().get(0).getLocalName();
     int startOffset = sym.getLocation().getStartOffset();
     int endOffset = sym.getLocation().getEndOffset();
-    assertThat(startOffset).named("getStartOffset()").isEqualTo(27);
-    assertThat(endOffset).named("getEndOffset()").isEqualTo(startOffset + 10);
+    assertWithMessage("getStartOffset()").that(startOffset).isEqualTo(27);
+    assertWithMessage("getEndOffset()").that(endOffset).isEqualTo(startOffset + 10);
   }
 
   @Test
@@ -1290,8 +1291,8 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(sym.getName()).isEqualTo("my_alias");
     int startOffset = sym.getLocation().getStartOffset();
     int endOffset = sym.getLocation().getEndOffset();
-    assertThat(startOffset).named("getStartOffset()").isEqualTo(27);
-    assertThat(endOffset).named("getEndOffset()").isEqualTo(startOffset + 8);
+    assertWithMessage("getStartOffset()").that(startOffset).isEqualTo(27);
+    assertWithMessage("getEndOffset()").that(endOffset).isEqualTo(startOffset + 8);
   }
 
   @Test
@@ -1452,41 +1453,6 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testDefInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("def func(): pass");
-    assertContainsError("function definitions are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testForStatementForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("for _ in []: pass");
-    assertContainsError("for statements are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testIfStatementForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("if False: pass");
-    assertContainsError("if statements are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testKwargsForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("func(**dict)");
-    assertContainsError("**kwargs arguments are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testArgsForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("func(*array)");
-    assertContainsError("*args arguments are not allowed in BUILD files");
-  }
-
-  @Test
   public void testArgumentAfterKwargs() throws Exception {
     setFailFast(false);
     parseFileForSkylark(
@@ -1495,7 +1461,7 @@ public class ParserTest extends EvaluationTestCase {
         "    *[2],",
         "    *[3],", // error on this line
         ")\n");
-    assertContainsError(":4:5: more than one *stararg");
+    assertContainsError(":4:5: *arg argument is misplaced");
   }
 
   @Test
@@ -1507,7 +1473,7 @@ public class ParserTest extends EvaluationTestCase {
         "    a = 4,",
         "    3,", // error on this line
         ")\n");
-    assertContainsError(":4:5: non-keyword arg after keyword arg");
+    assertContainsError(":4:5: positional argument is misplaced (positional arguments come first)");
   }
 
   @Test

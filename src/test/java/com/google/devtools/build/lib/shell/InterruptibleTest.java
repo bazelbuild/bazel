@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.util.OS;
@@ -105,13 +105,10 @@ public class InterruptibleTest {
   public void testInterruptibleCommandRunsToCompletion() throws Exception {
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    try {
-      command.execute();
-      fail();
-    } catch (AbnormalTerminationException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("Process terminated by signal 15");
-      assertThat(expected.getResult().getTerminationStatus().exited()).isFalse();
-    }
+    AbnormalTerminationException expected =
+        assertThrows(AbnormalTerminationException.class, () -> command.execute());
+    assertThat(expected).hasMessageThat().isEqualTo("Process terminated by signal 15");
+    assertThat(expected.getResult().getTerminationStatus().exited()).isFalse();
 
     // The interrupter thread should have set the main thread's interrupt flag.
     assertWithMessage("Main thread was not interrupted during command execution!")

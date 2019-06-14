@@ -20,21 +20,21 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Map;
 
 /**
- * Transition factory which allows for setting the values of config_feature_flags below the rule
- * it is attached to based on one of that rule's attributes.
+ * Transition factory which allows for setting the values of config_feature_flags below the rule it
+ * is attached to based on one of that rule's attributes.
  *
  * <p>Currently, this is only intended for use by android_binary and other Android top-level rules.
  */
-public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory {
+public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<Rule> {
 
   /** Transition which resets the set of flag-value pairs to the map it was constructed with. */
   @AutoCodec
@@ -93,7 +93,7 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
   }
 
   @Override
-  public PatchTransition buildTransitionFor(Rule rule) {
+  public PatchTransition create(Rule rule) {
     NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(rule);
     if (attrs.isAttributeValueExplicitlySpecified(attributeName)) {
       return new ConfigFeatureFlagValuesTransition(

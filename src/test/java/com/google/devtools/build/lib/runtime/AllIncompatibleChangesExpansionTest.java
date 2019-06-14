@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -260,12 +261,12 @@ public class AllIncompatibleChangesExpansionTest {
   // Because javadoc can't resolve inner classes.
   @SuppressWarnings("javadoc")
   private static void assertBadness(Class<? extends OptionsBase> optionsBaseClass, String message) {
-    try {
-      OptionsParser.newOptionsParser(ExampleOptions.class, optionsBaseClass);
-      fail("Should have failed with message \"" + message + "\"");
-    } catch (OptionsParser.ConstructionException e) {
-      assertThat(e).hasMessageThat().contains(message);
-    }
+    OptionsParser.ConstructionException e =
+        assertThrows(
+            "Should have failed with message \"" + message + "\"",
+            OptionsParser.ConstructionException.class,
+            () -> OptionsParser.newOptionsParser(ExampleOptions.class, optionsBaseClass));
+    assertThat(e).hasMessageThat().contains(message);
   }
 
   /** Dummy comment (linter suppression) */

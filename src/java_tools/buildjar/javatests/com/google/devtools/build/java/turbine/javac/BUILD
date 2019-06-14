@@ -25,10 +25,6 @@ java_test(
     data = [
         "//third_party/java/jdk/langtools:javac_jar",
     ],
-    jvm_flags = [
-        # Simulates how Bazel invokes turbine
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
-    ],
     deps = [
         ":AbstractJavacTurbineCompilationTest",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:javac_turbine",
@@ -47,10 +43,6 @@ java_test(
     name = "ProcessorClasspathTest_bootclasspath",
     srcs = ["//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine/javac:ProcessorClasspathTest.java"],
     data = ["//third_party/java/jdk/langtools:javac_jar"],
-    jvm_flags = [
-        # Simulates how Bazel invokes turbine
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
-    ],
     test_class = "com.google.devtools.build.java.turbine.javac.ProcessorClasspathTest",
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:javac_turbine",
@@ -71,10 +63,6 @@ java_test(
     srcs = ["TreePrunerTest.java"],
     data = [
         "//third_party/java/jdk/langtools:javac_jar",
-    ],
-    jvm_flags = [
-        # Simulates how Bazel invokes turbine
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
     ],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:tree_pruner",

@@ -139,40 +139,33 @@ void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
   }
 }
 
-wstring BinaryLauncherBase::Rlocation(const wstring& path,
-                                      bool need_workspace_name) const {
+wstring BinaryLauncherBase::Rlocation(wstring path,
+                                      bool has_workspace_name) const {
   // No need to do rlocation if the path is absolute.
   if (blaze_util::IsAbsolute(path)) {
     return path;
   }
 
+  if (path.find(L"external/") == 0) {
+    // Ignore 'has_workspace_name' when the path is under "external/". Such
+    // paths already have a workspace name in the next path component.
+    path = path.substr(9);
+  } else if (!has_workspace_name) {
+    path = this->workspace_name + L"/" + path;
+  }
+
   // If the manifest file map is empty, then we're using the runfiles directory
   // instead.
   if (manifest_file_map.empty()) {
-    wstring query_path = runfiles_dir;
-    if (need_workspace_name) {
-      query_path += L"/" + this->workspace_name;
-    }
-    query_path += L"/" + path;
-    return query_path;
+    return runfiles_dir + L"/" + path;
   }
 
-  wstring query_path = path;
-  if (need_workspace_name) {
-    query_path = this->workspace_name + L"/" + path;
-  }
-  auto entry = manifest_file_map.find(query_path);
+  auto entry = manifest_file_map.find(path);
   if (entry == manifest_file_map.end()) {
     die(L"Rlocation failed on %s, path doesn't exist in MANIFEST file",
-        query_path.c_str());
+        path.c_str());
   }
   return entry->second;
-}
-
-wstring BinaryLauncherBase::Rlocation(const string& path,
-                                      bool need_workspace_name) const {
-  return this->Rlocation(blaze_util::CstringToWstring(path),
-                         need_workspace_name);
 }
 
 wstring BinaryLauncherBase::GetLaunchInfoByKey(const string& key) {

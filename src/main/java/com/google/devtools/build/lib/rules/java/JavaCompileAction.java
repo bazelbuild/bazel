@@ -23,7 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -37,13 +39,15 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -63,12 +67,12 @@ import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /** Action that represents a Java compilation. */
 @ThreadCompatible
@@ -184,17 +188,20 @@ public class JavaCompileAction extends AbstractAction
    * com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule#computeStrictClasspath}.
    */
   @VisibleForTesting
-  ReducedClasspath getReducedClasspath(JavaCompileActionContext context) {
+  ReducedClasspath getReducedClasspath(
+      ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
+      throws IOException {
     HashSet<String> direct = new HashSet<>();
     for (Artifact directJar : directJars) {
       direct.add(directJar.getExecPathString());
     }
     for (Artifact depArtifact : dependencyArtifacts) {
-      for (Deps.Dependency dep : context.getDependencies(depArtifact).getDependencyList()) {
+      for (Deps.Dependency dep :
+          context.getDependencies(depArtifact, actionExecutionContext).getDependencyList()) {
         direct.add(dep.getPath());
       }
     }
-    Collection<Artifact> transitiveCollection = transitiveInputs.toCollection();
+    ImmutableList<Artifact> transitiveCollection = transitiveInputs.toList();
     ImmutableList<Artifact> reducedJars =
         ImmutableList.copyOf(
             Iterables.filter(
@@ -275,59 +282,36 @@ public class JavaCompileAction extends AbstractAction
   }
 
   @Override
-  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+  public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    SpawnActionContext spawnActionContext =
-        actionExecutionContext.getContext(SpawnActionContext.class);
+    ReducedClasspath reducedClasspath;
+    Spawn spawn;
     try {
-      switch (classpathMode) {
-        case OFF:
-        case JAVABUILDER:
-          // No special classpath logic in Bazel. Just execute with the full spawn.
-          return ActionResult.create(
-              spawnActionContext.exec(
-                  getFullSpawn(actionExecutionContext), actionExecutionContext));
-
-        case BAZEL:
-          // Try a compilation with a reduced classpath and check whether a fallback is required.
-          ReducedClasspath reducedClasspath =
-              getReducedClasspath(
-                  actionExecutionContext.getContext(JavaCompileActionContext.class));
-          List<SpawnResult> results =
-              spawnActionContext.exec(
-                  getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false),
-                  actionExecutionContext);
-
-          SpawnResult spawnResult = Iterables.getOnlyElement(results);
-          InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-          try (InputStream input =
-              inMemoryOutput == null
-                  ? outputDepsProto.getPath().getInputStream()
-                  : inMemoryOutput) {
-            if (!Deps.Dependencies.parseFrom(input).getRequiresReducedClasspathFallback()) {
-              return ActionResult.create(results);
-            }
-          }
-
-          // Fall back to running with the full classpath. This requires first deleting potential
-          // artifacts generated by the reduced action and clearing the metadata caches.
-          deleteOutputs(
-              actionExecutionContext.getFileSystem(), actionExecutionContext.getExecRoot());
-          actionExecutionContext.getMetadataHandler().resetOutputs(getOutputs());
-          List<SpawnResult> fallbackResults =
-              spawnActionContext.exec(
-                  getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback=*/ true),
-                  actionExecutionContext);
-          return ActionResult.create(
-              ImmutableList.copyOf(Iterables.concat(results, fallbackResults)));
+      if (classpathMode == JavaClasspathMode.BAZEL) {
+        JavaCompileActionContext context =
+            actionExecutionContext.getContext(JavaCompileActionContext.class);
+        try {
+          reducedClasspath = getReducedClasspath(actionExecutionContext, context);
+          spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
+        } catch (IOException e) {
+          // There was an error reading some of the dependent .jdeps files. Fall back to a
+          // compilation with the full classpath.
+          reducedClasspath = null;
+          spawn = getFullSpawn(actionExecutionContext);
+        }
+      } else {
+        reducedClasspath = null;
+        spawn = getFullSpawn(actionExecutionContext);
       }
-      throw new AssertionError("Unknown classpath mode");
-    } catch (ExecException e) {
-      throw e.toActionExecutionException(
-          getRawProgressMessage(), actionExecutionContext.getVerboseFailures(), this);
-    } catch (CommandLineExpansionException | IOException e) {
-      throw new ActionExecutionException(e, this, false);
+    } catch (CommandLineExpansionException e) {
+      throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
     }
+    JavaActionContinuation continuation =
+        new JavaActionContinuation(
+            actionExecutionContext,
+            reducedClasspath,
+            SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext));
+    return continuation.execute();
   }
 
   @Override
@@ -337,7 +321,7 @@ public class JavaCompileAction extends AbstractAction
     sb.append(" (");
     boolean first = true;
     first = appendCount(sb, first, sourceFiles.size(), "source file");
-    first = appendCount(sb, first, sourceJars.size(), "source jar");
+    appendCount(sb, first, sourceJars.size(), "source jar");
     sb.append(")");
     sb.append(getProcessorNames(plugins.processorClasses()));
     return sb.toString();
@@ -476,5 +460,118 @@ public class JavaCompileAction extends AbstractAction
 
   public Artifact getOutputDepsProto() {
     return outputDepsProto;
+  }
+
+  private ActionExecutionException toActionExecutionException(
+      ExecException e, boolean verboseFailures) {
+    String failMessage = getRawProgressMessage();
+    return e.toActionExecutionException(failMessage, verboseFailures, this);
+  }
+
+  private final class JavaActionContinuation extends ActionContinuationOrResult {
+    private final ActionExecutionContext actionExecutionContext;
+    @Nullable private final ReducedClasspath reducedClasspath;
+    private final SpawnContinuation spawnContinuation;
+
+    public JavaActionContinuation(
+        ActionExecutionContext actionExecutionContext,
+        @Nullable ReducedClasspath reducedClasspath,
+        SpawnContinuation spawnContinuation) {
+      this.actionExecutionContext = actionExecutionContext;
+      this.reducedClasspath = reducedClasspath;
+      this.spawnContinuation = spawnContinuation;
+    }
+
+    @Override
+    public ListenableFuture<?> getFuture() {
+      return spawnContinuation.getFuture();
+    }
+
+    @Override
+    public ActionContinuationOrResult execute()
+        throws ActionExecutionException, InterruptedException {
+      try {
+        SpawnContinuation nextContinuation = spawnContinuation.execute();
+        if (!nextContinuation.isDone()) {
+          return new JavaActionContinuation(
+              actionExecutionContext, reducedClasspath, nextContinuation);
+        }
+
+        List<SpawnResult> results = nextContinuation.get();
+        if (reducedClasspath == null) {
+          return ActionContinuationOrResult.of(ActionResult.create(results));
+        }
+
+        SpawnResult spawnResult = Iterables.getOnlyElement(results);
+        InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+        try (InputStream input =
+            inMemoryOutput == null
+                ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
+                : inMemoryOutput) {
+          if (!Deps.Dependencies.parseFrom(input).getRequiresReducedClasspathFallback()) {
+            return ActionContinuationOrResult.of(ActionResult.create(results));
+          }
+        }
+
+        // Fall back to running with the full classpath. This requires first deleting potential
+        // artifacts generated by the reduced action and clearing the metadata caches.
+        deleteOutputs(actionExecutionContext.getExecRoot());
+        actionExecutionContext.getMetadataHandler().resetOutputs(getOutputs());
+        Spawn spawn;
+        try {
+          spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback=*/ true);
+        } catch (CommandLineExpansionException e) {
+          throw new ActionExecutionException(e, JavaCompileAction.this, /*catastrophe=*/ false);
+        }
+        return new JavaFallbackActionContinuation(
+                actionExecutionContext,
+                results,
+                SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext))
+            .execute();
+      } catch (IOException e) {
+        throw toActionExecutionException(
+            new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
+      } catch (ExecException e) {
+        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+      }
+    }
+  }
+
+  private final class JavaFallbackActionContinuation extends ActionContinuationOrResult {
+    private final ActionExecutionContext actionExecutionContext;
+    private final List<SpawnResult> primaryResults;
+    private final SpawnContinuation spawnContinuation;
+
+    public JavaFallbackActionContinuation(
+        ActionExecutionContext actionExecutionContext,
+        List<SpawnResult> primaryResults,
+        SpawnContinuation spawnContinuation) {
+      this.actionExecutionContext = actionExecutionContext;
+      this.primaryResults = primaryResults;
+      this.spawnContinuation = spawnContinuation;
+    }
+
+    @Override
+    public ListenableFuture<?> getFuture() {
+      return spawnContinuation.getFuture();
+    }
+
+    @Override
+    public ActionContinuationOrResult execute()
+        throws ActionExecutionException, InterruptedException {
+      try {
+        SpawnContinuation nextContinuation = spawnContinuation.execute();
+        if (!nextContinuation.isDone()) {
+          return new JavaFallbackActionContinuation(
+              actionExecutionContext, primaryResults, nextContinuation);
+        }
+        List<SpawnResult> fallbackResults = nextContinuation.get();
+        return ActionContinuationOrResult.of(
+            ActionResult.create(
+                ImmutableList.copyOf(Iterables.concat(primaryResults, fallbackResults))));
+      } catch (ExecException e) {
+        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+      }
+    }
   }
 }

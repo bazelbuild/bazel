@@ -22,11 +22,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDep;
+import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -133,17 +134,25 @@ public class SimpleCycleDetector implements CycleDetector {
               removeIncompleteChildrenForCycle(
                   key, entry, Iterables.concat(entry.getTemporaryDirectDeps()), evaluatorContext);
         }
+        if (maybeHandleVerifiedCleanNode(key, entry, evaluatorContext, graphPath)) {
+          continue;
+        }
         maybeMarkRebuilding(entry);
         GroupedList<SkyKey> directDeps = entry.getTemporaryDirectDeps();
         // Find out which children have errors. Similar logic to that in Evaluate#run().
         List<ErrorInfo> errorDeps =
-            getChildrenErrorsForCycle(key, Iterables.concat(directDeps), evaluatorContext);
+            getChildrenErrorsForCycle(
+                key,
+                Iterables.concat(directDeps),
+                directDeps.numElements(),
+                entry,
+                evaluatorContext);
         Preconditions.checkState(
             !errorDeps.isEmpty(),
             "Node %s was not successfully evaluated, but had no child errors. NodeEntry: %s",
             key,
             entry);
-        SkyFunctionEnvironment env = null;
+        SkyFunctionEnvironment env;
         try {
           env =
               new SkyFunctionEnvironment(
@@ -151,12 +160,12 @@ public class SimpleCycleDetector implements CycleDetector {
                   directDeps,
                   Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
                   evaluatorContext);
-        } catch (UndonePreviouslyRequestedDep undoneDep) {
+        } catch (UndonePreviouslyRequestedDeps undoneDeps) {
           // All children were finished according to the CHILDREN_FINISHED sentinel, and cycle
           // detection does not do normal SkyFunction evaluation, so no restarting nor child
           // dirtying was possible.
           throw new IllegalStateException(
-              "Previously requested dep not done: " + undoneDep.getDepKey(), undoneDep);
+              "Previously requested dep not done: " + undoneDeps.getDepKeys(), undoneDeps);
         }
         env.setError(entry, ErrorInfo.fromChildErrors(key, errorDeps));
         env.commit(entry, EnqueueParentBehavior.SIGNAL);
@@ -181,13 +190,34 @@ public class SimpleCycleDetector implements CycleDetector {
         Iterable<SkyKey> cycle = graphPath.subList(cycleStart, graphPath.size());
         logger.info("Found cycle : " + cycle + " from " + graphPath);
         // Put this node into a consistent state for building if it is dirty.
-        if (entry.isDirty() && entry.getDirtyState() == NodeEntry.DirtyState.CHECK_DEPENDENCIES) {
-          // In the check deps state, entry has exactly one child not done yet. Note that this node
-          // must be part of the path to the cycle we have found (since done nodes cannot be in
-          // cycles, and this is the only missing one). Thus, it will not be removed below in
-          // removeDescendantsOfCycleValue, so it is safe here to signal that it is done.
-          entry.signalDep(evaluatorContext.getGraphVersion(), null);
-          maybeMarkRebuilding(entry);
+        if (entry.isDirty()) {
+          // If this loop runs more than once, we are in the peculiar position of entry not needing
+          // rebuilding even though it was signaled with the graph version. This can happen when the
+          // entry was previously evaluated at this version, but then invalidated anyway, even
+          // though nothing changed.
+          int loopCount = 0;
+          Version graphVersion = evaluatorContext.getGraphVersion();
+          while (entry.getDirtyState() == NodeEntry.DirtyState.CHECK_DEPENDENCIES) {
+            entry.signalDep(graphVersion, null);
+            loopCount++;
+          }
+          if (loopCount > 1 && !entry.getVersion().equals(graphVersion)) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "Entry needed multiple signaling but didn't have the graph version: "
+                        + key
+                        + ", "
+                        + entry
+                        + ", "
+                        + graphVersion
+                        + ", "
+                        + graphPath));
+          }
+          if (entry.getDirtyState() == NodeEntry.DirtyState.NEEDS_REBUILDING) {
+            entry.markRebuilding();
+          } else if (maybeHandleVerifiedCleanNode(key, entry, evaluatorContext, graphPath)) {
+            continue;
+          }
         }
         if (evaluatorContext.keepGoing()) {
           // Any children of this node that we haven't already visited are not worth visiting,
@@ -290,6 +320,39 @@ public class SimpleCycleDetector implements CycleDetector {
   }
 
   /**
+   * Fully process {@code entry} if it is dirty but verified to be clean. This can only happen in
+   * rare circumstances where a node with a cycle is invalidated at the same version. Returns true
+   * if the entry was successfully processed, meaning that its value has been set and all reverse
+   * deps signaled.
+   */
+  private static boolean maybeHandleVerifiedCleanNode(
+      SkyKey key,
+      NodeEntry entry,
+      ParallelEvaluatorContext evaluatorContext,
+      List<SkyKey> graphPathForDebugging)
+      throws InterruptedException {
+    if (entry.getDirtyState() != NodeEntry.DirtyState.VERIFIED_CLEAN) {
+      return false;
+    }
+    Set<SkyKey> rdeps = entry.markClean();
+    evaluatorContext.signalValuesAndEnqueueIfReady(
+        key, rdeps, entry.getVersion(), EnqueueParentBehavior.SIGNAL);
+    ErrorInfo error = entry.getErrorInfo();
+    if (error.getCycleInfo().isEmpty()) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Entry was unchanged from last build, but cycle was found this time and not"
+                  + " last time: "
+                  + key
+                  + ", "
+                  + entry
+                  + ", "
+                  + graphPathForDebugging));
+    }
+    return true;
+  }
+
+  /**
    * Marker value that we push onto a stack before we push a node's children on. When the marker
    * value is popped, we know that all the children are finished. We would use null instead, but
    * ArrayDeque does not permit null elements.
@@ -314,19 +377,39 @@ public class SimpleCycleDetector implements CycleDetector {
    * @return List of ErrorInfos from all children that had errors.
    */
   private static List<ErrorInfo> getChildrenErrorsForCycle(
-      SkyKey parent, Iterable<SkyKey> children, ParallelEvaluatorContext evaluatorContext)
+      SkyKey parent,
+      Iterable<SkyKey> children,
+      int childrenSize,
+      NodeEntry entryForDebugging,
+      ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
     List<ErrorInfo> allErrors = new ArrayList<>();
     boolean foundCycle = false;
-    for (NodeEntry childNode :
-        getAndCheckDoneBatchForCycle(parent, children, evaluatorContext).values()) {
+    Map<SkyKey, ? extends NodeEntry> childMap =
+        getAndCheckDoneBatchForCycle(parent, children, evaluatorContext);
+    if (childMap.size() < childrenSize) {
+      Set<SkyKey> missingChildren =
+          Sets.difference(ImmutableSet.copyOf(children), childMap.keySet());
+      evaluatorContext
+          .getGraphInconsistencyReceiver()
+          .noteInconsistencyAndMaybeThrow(
+              parent,
+              missingChildren,
+              GraphInconsistencyReceiver.Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+    }
+    for (NodeEntry childNode : childMap.values()) {
       ErrorInfo errorInfo = childNode.getErrorInfo();
       if (errorInfo != null) {
         foundCycle |= !Iterables.isEmpty(errorInfo.getCycleInfo());
         allErrors.add(errorInfo);
       }
     }
-    Preconditions.checkState(foundCycle, "", children, allErrors);
+    Preconditions.checkState(
+        foundCycle,
+        "Key %s with entry %s had no cycle beneath it: %s",
+        parent,
+        entryForDebugging,
+        allErrors);
     return allErrors;
   }
 

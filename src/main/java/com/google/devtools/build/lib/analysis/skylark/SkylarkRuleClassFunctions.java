@@ -172,40 +172,40 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         // Input files for every test action
         .add(
             attr("$test_wrapper", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_wrapper")))
         .add(
             attr("$xml_writer", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:xml_writer")))
         .add(
             attr("$test_runtime", LABEL_LIST)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(
                     ImmutableList.of(
                         labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
         .add(
             attr("$test_setup_script", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_setup")))
         .add(
             attr("$xml_generator_script", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(
                     labelCache.getUnchecked(toolsRepository + "//tools/test:test_xml_generator")))
         .add(
             attr("$collect_coverage_script", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:collect_coverage")))
         // Input files for test actions collecting code coverage
         .add(
             attr(":coverage_support", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(
                     BaseRuleClasses.coverageSupportAttribute(
                         labelCache.getUnchecked(
@@ -213,7 +213,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         // Used in the one-per-build coverage report generation action.
         .add(
             attr(":coverage_report_generator", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(
                     BaseRuleClasses.coverageReportGeneratorAttribute(
                         labelCache.getUnchecked(
@@ -286,7 +286,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       FuncallExpression ast,
       Environment funcallEnv,
       StarlarkContext context)
-      throws EvalException, ConversionException {
+      throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "rule", ast.getLocation());
 
     BazelStarlarkContext bazelContext = (BazelStarlarkContext) context;
@@ -398,8 +398,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               execCompatibleWith.getContents(String.class, "exec_compatile_with"),
               ast.getLocation()));
     }
+
     if (executionPlatformConstraintsAllowed) {
       builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+    } else {
+      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE);
     }
 
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
@@ -718,7 +721,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           throw new EvalException(
               location,
               String.format(
-                  "Use of function-based split transition without whitelist: %s %s",
+                  "Use of Starlark transition without whitelist: %s %s",
                   builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
         }
       } else {

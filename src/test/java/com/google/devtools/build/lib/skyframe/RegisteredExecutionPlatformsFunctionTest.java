@@ -110,7 +110,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Verify that the target registered with the extra_execution_platforms flag is first in the
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
-        .containsAllOf(
+        .containsAtLeast(
             makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
         .inOrder();
   }
@@ -136,7 +136,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Verify that the target registered with the extra_execution_platforms flag is first in the
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
-        .containsAllOf(
+        .containsAtLeast(
             makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
         .inOrder();
   }
@@ -160,7 +160,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Verify that the target registered with the extra_execution_platforms flag is first in the
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
-        .containsAllOf(
+        .containsAtLeast(
             makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
         .inOrder();
   }
@@ -211,7 +211,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Verify that the target registered with the extra_execution_platforms flag is first in the
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
-        .containsAllOf(
+        .containsAtLeast(
             makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
         .inOrder();
   }

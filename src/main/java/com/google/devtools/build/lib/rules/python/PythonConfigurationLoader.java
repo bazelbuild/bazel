@@ -43,7 +43,8 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
         /*useNewPyVersionSemantics=*/ pythonOptions.incompatibleAllowPythonVersionTransitions,
         /*py2OutputsAreSuffixed=*/ pythonOptions.incompatiblePy2OutputsAreSuffixed,
         /*disallowLegacyPyProvider=*/ pythonOptions.incompatibleDisallowLegacyPyProvider,
-        /*useToolchains=*/ pythonOptions.incompatibleUsePythonToolchains);
+        /*useToolchains=*/ pythonOptions.incompatibleUsePythonToolchains,
+        pythonOptions.windowsEscapePythonArgs);
   }
 
   @Override

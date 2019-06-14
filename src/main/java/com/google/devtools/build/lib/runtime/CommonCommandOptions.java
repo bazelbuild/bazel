@@ -188,6 +188,18 @@ public class CommonCommandOptions extends OptionsBase {
   public String buildRequestId;
 
   @Option(
+      name = "incompatible_remove_binary_profile",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, Bazel will write JSON-format profiles instead of binary profiles.")
+  public boolean removeBinaryProfile;
+
+  @Option(
     name = "experimental_generate_json_trace_profile",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -231,6 +243,26 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help = "Specifies additional profile tasks to be included in the profile.")
   public List<ProfilerTask> additionalProfileTasks;
+
+  @Option(
+      name = "experimental_slim_json_profile",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Slims down the size of the JSON profile by merging events if the profile gets "
+              + " too large.")
+  public boolean enableJsonProfileDiet;
+
+  @Option(
+      name = "experimental_json_profile_metadata",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Adds some metadata (e.g. build ID) to the JSON profile."
+              + " Changes output from JSON array to JSON object format.")
+  public boolean enableJsonMetadata;
 
   @Option(
       name = "profile",

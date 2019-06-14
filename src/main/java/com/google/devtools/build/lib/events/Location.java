@@ -174,8 +174,9 @@ public abstract class Location implements Serializable {
   }
 
   /**
-   * A default implementation of toString() that formats the location in the
-   * following ways based on the amount of information available:
+   * A default implementation of toString() that formats the location in the following ways based on
+   * the amount of information available:
+   *
    * <pre>
    *    "foo.cc:23:2"
    *    "23:2"
@@ -185,25 +186,6 @@ public abstract class Location implements Serializable {
    */
   public String print() {
     return printWithPath(getPath());
-  }
-
-  public String printWithPath(PathFragment path) {
-    StringBuilder buf = new StringBuilder();
-    if (path != null) {
-      buf.append(path).append(':');
-    }
-    LineAndColumn start = getStartLineAndColumn();
-    if (start == null) {
-      if (getStartOffset() == 0 && getEndOffset() == 0) {
-        buf.append("1"); // i.e. line 1 (special case: no information at all)
-      } else {
-        buf.append("char offsets ").
-            append(getStartOffset()).append("--").append(getEndOffset());
-      }
-    } else {
-      buf.append(start.getLine()).append(':').append(start.getColumn());
-    }
-    return buf.toString();
   }
 
   /**
@@ -235,6 +217,24 @@ public abstract class Location implements Serializable {
     } else {
       return printWithPath(path);
     }
+  }
+
+  public String printWithPath(PathFragment path) {
+    StringBuilder buf = new StringBuilder();
+    if (path != null) {
+      buf.append(path).append(':');
+    }
+    LineAndColumn start = getStartLineAndColumn();
+    if (start == null) {
+      if (getStartOffset() == 0 && getEndOffset() == 0) {
+        buf.append("1"); // i.e. line 1 (special case: no information at all)
+      } else {
+        buf.append("char offsets ").append(getStartOffset()).append("--").append(getEndOffset());
+      }
+    } else {
+      buf.append(start.getLine()).append(':').append(start.getColumn());
+    }
+    return buf.toString();
   }
 
   /**

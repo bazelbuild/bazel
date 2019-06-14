@@ -435,7 +435,7 @@ public class TestAspects {
               attr("$dep", LABEL)
                   .value(Label.parseAbsolute(baz.iterator().next(), ImmutableMap.of())));
         } catch (LabelSyntaxException e) {
-          throw new IllegalStateException();
+          throw new IllegalStateException(e);
         }
       }
       return builder.build();

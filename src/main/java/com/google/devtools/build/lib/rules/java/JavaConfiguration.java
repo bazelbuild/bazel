@@ -20,8 +20,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -168,6 +168,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> translationTargets;
   private final JavaOptimizationMode javaOptimizationMode;
   private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
+  private final boolean enforceProguardFileExtension;
   private final Label toolchainLabel;
   private final Label runtimeLabel;
   private final boolean explicitJavaTestDeps;
@@ -178,7 +179,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> pluginList;
   private final boolean requireJavaToolchainHeaderCompilerDirect;
   private final boolean disallowResourceJars;
-  private final boolean windowsEscapeJvmFlags;
+  private final boolean disallowLegacyJavaToolchainFlags;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -199,8 +200,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
+    this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.bundleTranslations = javaOptions.bundleTranslations;
-    this.toolchainLabel = javaOptions.getJavaToolchain();
+    this.toolchainLabel = javaOptions.javaToolchain;
     this.runtimeLabel = javaOptions.javaBase;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
@@ -216,7 +218,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.isJlplStrictDepsEnforced = javaOptions.isJlplStrictDepsEnforced;
     this.disallowResourceJars = javaOptions.disallowResourceJars;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
-    this.windowsEscapeJvmFlags = javaOptions.windowsEscapeJvmFlags;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -246,6 +247,35 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
     this.requireJavaToolchainHeaderCompilerDirect =
         javaOptions.requireJavaToolchainHeaderCompilerDirect;
+    this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
+
+    if (javaOptions.disallowLegacyJavaToolchainFlags) {
+      if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--javabase=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.javaBase));
+      }
+      if (!javaOptions.getHostJavaBase().equals(javaOptions.defaultHostJavaBase())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--host_javabase=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.getHostJavaBase()));
+      }
+      if (!javaOptions.javaToolchain.equals(javaOptions.defaultJavaToolchain())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--java_toolchain=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.javaToolchain));
+      }
+      if (!javaOptions.hostJavaToolchain.equals(javaOptions.defaultJavaToolchain())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--host_java_toolchain=%s is no longer supported, use --platforms instead (see"
+                    + " #7849)",
+                javaOptions.hostJavaToolchain));
+      }
+    }
   }
 
   @Override
@@ -341,6 +371,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return extraProguardSpecs;
   }
 
+  /** Returns whether ProGuard configuration files are required to use a *.pgcfg extension. */
+  public boolean enforceProguardFileExtension() {
+    return enforceProguardFileExtension;
+  }
+
   /** Returns the raw translation targets. */
   public ImmutableList<Label> getTranslationTargets() {
     return translationTargets;
@@ -363,6 +398,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       defaultLabel = "//tools/jdk:toolchain",
       defaultInToolRepository = true)
   public Label getToolchainLabel() {
+    if (disallowLegacyJavaToolchainFlags) {
+      throw new IllegalStateException("--java_toolchain is no longer supported");
+    }
     return toolchainLabel;
   }
 
@@ -462,9 +500,5 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean disallowResourceJars() {
     return disallowResourceJars;
-  }
-
-  public boolean windowsEscapeJvmFlags() {
-    return windowsEscapeJvmFlags;
   }
 }

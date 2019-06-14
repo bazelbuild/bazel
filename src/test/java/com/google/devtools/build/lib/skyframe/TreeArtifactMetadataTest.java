@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ActionInputHelper.asTreeFileArtifacts;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
@@ -56,9 +56,14 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -126,6 +131,24 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   }
 
   @Test
+  public void testTreeArtifactOrdering() throws Exception {
+    int rangeSize = 100;
+    int attempts = 10;
+    List<PathFragment> children =
+        IntStream.range(0, rangeSize)
+            .mapToObj(i -> PathFragment.create("file" + i))
+            .collect(Collectors.toList());
+
+    for (int i = 0; i < attempts; i++) {
+      Collections.shuffle(children, new Random());
+      Artifact treeArtifact = createTreeArtifact("out");
+      TreeArtifactValue value = evaluateTreeArtifact(treeArtifact, children);
+      assertThat(value.getChildPaths()).containsExactlyElementsIn(children);
+      assertThat(value.getChildPaths()).isOrdered(Comparator.naturalOrder());
+    }
+  }
+
+  @Test
   public void testEqualTreeArtifacts() throws Exception {
     Artifact treeArtifact = createTreeArtifact("out");
     ImmutableList<PathFragment> children =
@@ -140,7 +163,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       }
     });
     TreeArtifactValue valueTwo = evaluateTreeArtifact(treeArtifact, children);
-    assertThat(valueOne.getDigest()).isNotSameAs(valueTwo.getDigest());
+    assertThat(valueOne.getDigest()).isNotSameInstanceAs(valueTwo.getDigest());
     assertThat(valueOne).isEqualTo(valueTwo);
   }
 
@@ -190,14 +213,12 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
             return super.statIfFound(path, followSymlinks);
           }
         });
-    try {
-      Artifact artifact = createTreeArtifact("outOne");
-      TreeArtifactValue value = evaluateTreeArtifact(artifact,
-          ImmutableList.of(PathFragment.create("one")));
-      fail("MissingInputFileException expected, got " + value);
-    } catch (Exception e) {
-      assertThat(Throwables.getRootCause(e)).hasMessageThat().contains(exception.getMessage());
-    }
+    Artifact artifact = createTreeArtifact("outOne");
+    Exception e =
+        assertThrows(
+            Exception.class,
+            () -> evaluateTreeArtifact(artifact, ImmutableList.of(PathFragment.create("one"))));
+    assertThat(Throwables.getRootCause(e)).hasMessageThat().contains(exception.getMessage());
   }
 
   private void file(Path path, String contents) throws Exception {

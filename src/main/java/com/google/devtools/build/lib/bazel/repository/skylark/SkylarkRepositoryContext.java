@@ -19,6 +19,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,9 +72,11 @@ public class SkylarkRepositoryContext
     implements SkylarkRepositoryContextApi<RepositoryFunctionException> {
 
   private final Rule rule;
+  private final PathPackageLocator packageLocator;
   private final Path outputDirectory;
   private final StructImpl attrObject;
   private final SkylarkOS osObject;
+  private final ImmutableSet<PathFragment> blacklistedPatterns;
   private final Environment env;
   private final HttpDownloader httpDownloader;
   private final double timeoutScaling;
@@ -83,7 +88,9 @@ public class SkylarkRepositoryContext
    */
   SkylarkRepositoryContext(
       Rule rule,
+      PathPackageLocator packageLocator,
       Path outputDirectory,
+      ImmutableSet<PathFragment> blacklistedPatterns,
       Environment environment,
       Map<String, String> env,
       HttpDownloader httpDownloader,
@@ -91,7 +98,9 @@ public class SkylarkRepositoryContext
       Map<String, String> markerData)
       throws EvalException {
     this.rule = rule;
+    this.packageLocator = packageLocator;
     this.outputDirectory = outputDirectory;
+    this.blacklistedPatterns = blacklistedPatterns;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
     this.httpDownloader = httpDownloader;
@@ -122,6 +131,28 @@ public class SkylarkRepositoryContext
   @Override
   public StructImpl getAttr() {
     return attrObject;
+  }
+
+  private SkylarkPath externalPath(String method, Object pathObject)
+      throws EvalException, InterruptedException {
+    SkylarkPath skylarkPath = getPath(method, pathObject);
+    Path path = skylarkPath.getPath();
+    if (packageLocator.getPathEntries().stream().noneMatch(root -> path.startsWith(root.asPath()))
+        || path.startsWith(outputDirectory)) {
+      return skylarkPath;
+    }
+    Path workspaceRoot = packageLocator.getWorkspaceFile().getParentDirectory();
+    PathFragment relativePath = path.relativeTo(workspaceRoot);
+    for (PathFragment blacklistedPattern : blacklistedPatterns) {
+      if (relativePath.startsWith(blacklistedPattern)) {
+        return skylarkPath;
+      }
+    }
+    throw new EvalException(
+        Location.BUILTIN,
+        method
+            + " can only be applied to external paths"
+            + " (that is, outside the workspace or ignored in .bazelignore)");
   }
 
   @Override
@@ -350,6 +381,24 @@ public class SkylarkRepositoryContext
   }
 
   @Override
+  public boolean delete(Object pathObject, Location location)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    SkylarkPath skylarkPath = externalPath("delete()", pathObject);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newDeleteEvent(
+            skylarkPath.toString(), rule.getLabel().toString(), location);
+    env.getListener().post(w);
+    try {
+      Path path = skylarkPath.getPath();
+      FileSystem fileSystem = path.getFileSystem();
+      fileSystem.deleteTreesBelow(path);
+      return fileSystem.delete(path);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @Override
   public SkylarkPath which(String program, Location location) throws EvalException {
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newWhichEvent(program, rule.getLabel().toString(), location);
@@ -405,9 +454,14 @@ public class SkylarkRepositoryContext
 
   @Override
   public StructImpl download(
-      Object url, Object output, String sha256, Boolean executable, Location location)
+      Object url,
+      Object output,
+      String sha256,
+      Boolean executable,
+      Boolean allowFail,
+      Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    List<URL> urls = getUrls(url);
+    List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
       warnAboutSha256Error(urls, sha256);
@@ -438,7 +492,12 @@ public class SkylarkRepositoryContext
       throw new RepositoryFunctionException(
           new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      if (allowFail) {
+        SkylarkDict<String, Object> dict = SkylarkDict.of(null, "success", false);
+        return StructProvider.STRUCT.createStruct(dict, null);
+      } else {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
     }
     if (sha256Validation != null) {
       throw sha256Validation;
@@ -452,7 +511,7 @@ public class SkylarkRepositoryContext
               "Couldn't hash downloaded file (" + downloadedPath.getPathString() + ")", e),
           Transience.PERSISTENT);
     }
-    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256);
+    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256, "success", true);
     return StructProvider.STRUCT.createStruct(dict, null);
   }
 
@@ -493,9 +552,15 @@ public class SkylarkRepositoryContext
 
   @Override
   public StructImpl downloadAndExtract(
-      Object url, Object output, String sha256, String type, String stripPrefix, Location location)
+      Object url,
+      Object output,
+      String sha256,
+      String type,
+      String stripPrefix,
+      Boolean allowFail,
+      Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    List<URL> urls = getUrls(url);
+    List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
       warnAboutSha256Error(urls, sha256);
@@ -534,7 +599,12 @@ public class SkylarkRepositoryContext
           new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       env.getListener().post(w);
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      if (allowFail) {
+        SkylarkDict<String, Object> dict = SkylarkDict.of(null, "success", false);
+        return StructProvider.STRUCT.createStruct(dict, null);
+      } else {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
     }
     if (sha256Validation != null) {
       throw sha256Validation;
@@ -567,7 +637,7 @@ public class SkylarkRepositoryContext
               "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
-    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256);
+    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256, "success", true);
     return StructProvider.STRUCT.createStruct(dict, null);
   }
 
@@ -615,13 +685,18 @@ public class SkylarkRepositoryContext
 
   private static List<URL> getUrls(Object urlOrList)
       throws RepositoryFunctionException, EvalException {
+    return getUrls(urlOrList, /* ensureNonEmpty= */ true);
+  }
+
+  private static List<URL> getUrls(Object urlOrList, boolean ensureNonEmpty)
+      throws RepositoryFunctionException, EvalException {
     List<String> urlStrings;
     if (urlOrList instanceof String) {
       urlStrings = ImmutableList.of((String) urlOrList);
     } else {
       urlStrings = checkAllUrls((Iterable<?>) urlOrList);
     }
-    if (urlStrings.isEmpty()) {
+    if (ensureNonEmpty && urlStrings.isEmpty()) {
       throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
     }
     List<URL> urls = new ArrayList<>();

@@ -74,9 +74,9 @@ assert_eq('{test} and {0}'.format(2, test = 1), "1 and 2")
 ---
 '{} and {}'.format('this') ### No replacement found for index 1
 ---
-'{test} and {}'.format(test = 1, 2) ### non-keyword arg after keyword arg
+'{test} and {}'.format(test = 1, 2) ### positional argument is misplaced (positional arguments come first)
 ---
-'{test} and {0}'.format(test = 1, 2) ### non-keyword arg after keyword arg
+'{test} and {0}'.format(test = 1, 2) ### positional argument is misplaced (positional arguments come first)
 ---
 '{} and {1}'.format(1, 2) ### Cannot mix manual and automatic numbering of positional fields
 ---

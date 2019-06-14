@@ -58,6 +58,31 @@ function tear_down() {
 
 #### TESTS #############################################################
 
+function test_glob_control_chars() {
+  local char escape raw
+  for char in {1..31} 127; do
+    local pkg="$FUNCNAME/char$char"
+    mkdir -p $pkg
+    echo "filegroup(name='t', srcs=glob(['*']))" > $pkg/BUILD
+    printf -v escape \\%03o $char
+    printf -v raw %b "$escape"
+    touch "$pkg/$raw"
+    bazel query "//$pkg:*" >& $TEST_log && fail "Expected failure"
+    expect_log 'invalid label'
+  done
+}
+
+# TODO(b/131100868): Re-enable this test.
+function DISABLED_test_glob_utf8() {
+  local -r pkg="$FUNCNAME"
+  mkdir $pkg
+  echo "filegroup(name='t', srcs=glob(['*']))" > $pkg/BUILD
+  cd $pkg
+  perl -CS -e 'for $i (160..0xd7ff) {print chr $i, $i%80?"":"\n"}' | xargs touch
+  cd ..
+  bazel query "//$pkg:*" >& $TEST_log || fail "Expected success"
+}
+
 function test_glob_with_io_error() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""

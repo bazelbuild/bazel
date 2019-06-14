@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
 
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.io.File;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -112,14 +112,14 @@ public class PathFragmentWindowsTest {
   @Test
   public void testRelativeTo() throws Exception {
     assertThat(create("").relativeTo("").getPathString()).isEqualTo("");
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("").relativeTo("a"));
+    assertThrows(IllegalArgumentException.class, () -> create("").relativeTo("a"));
 
     assertThat(create("a").relativeTo("")).isEqualTo(create("a"));
     assertThat(create("a").relativeTo("a").getPathString()).isEqualTo("");
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("a").relativeTo("b"));
+    assertThrows(IllegalArgumentException.class, () -> create("a").relativeTo("b"));
     assertThat(create("a/b").relativeTo("a")).isEqualTo(create("b"));
 
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("C:/").relativeTo(""));
+    assertThrows(IllegalArgumentException.class, () -> create("C:/").relativeTo(""));
     assertThat(create("C:/").relativeTo("C:/").getPathString()).isEqualTo("");
   }
 
@@ -239,13 +239,13 @@ public class PathFragmentWindowsTest {
   public void testToRelative() {
     assertThat(create("C:/foo/bar").toRelative()).isEqualTo(create("foo/bar"));
     assertThat(create("C:/").toRelative()).isEqualTo(create(""));
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("foo").toRelative());
+    assertThrows(IllegalArgumentException.class, () -> create("foo").toRelative());
   }
 
   @Test
   public void testGetDriveStr() {
     assertThat(create("C:/foo/bar").getDriveStr()).isEqualTo("C:/");
     assertThat(create("C:/").getDriveStr()).isEqualTo("C:/");
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("foo").getDriveStr());
+    assertThrows(IllegalArgumentException.class, () -> create("foo").getDriveStr());
   }
 }

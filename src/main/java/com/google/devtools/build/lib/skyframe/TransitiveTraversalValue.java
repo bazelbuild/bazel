@@ -62,20 +62,18 @@ public abstract class TransitiveTraversalValue implements SkyValue {
   }
 
   static TransitiveTraversalValue unsuccessfulTransitiveTraversal(
-      String firstErrorMessage, Target target) {
+      String errorMessage, Target target) {
     return new TransitiveTraversalValueWithError(
-        Preconditions.checkNotNull(firstErrorMessage), target.getTargetKind());
+        Preconditions.checkNotNull(errorMessage), target.getTargetKind());
   }
 
-  static TransitiveTraversalValue forTarget(Target target, @Nullable String firstErrorMessage) {
-    if (firstErrorMessage == null) {
+  static TransitiveTraversalValue forTarget(Target target, @Nullable String errorMessage) {
+    if (errorMessage == null) {
       if (target instanceof Rule && ((Rule) target).getRuleClassObject().isSkylark()) {
         Rule rule = (Rule) target;
         // Do not intern values for skylark rules.
         return TransitiveTraversalValue.create(
-            rule.getRuleClassObject().getAdvertisedProviders(),
-            rule.getTargetKind(),
-            firstErrorMessage);
+            rule.getRuleClassObject().getAdvertisedProviders(), rule.getTargetKind(), errorMessage);
       } else {
         TransitiveTraversalValue value = VALUES_BY_TARGET_KIND.get(target.getTargetKind());
         if (value != null) {
@@ -95,18 +93,18 @@ public abstract class TransitiveTraversalValue implements SkyValue {
         return value;
       }
     } else {
-      return new TransitiveTraversalValueWithError(firstErrorMessage, target.getTargetKind());
+      return new TransitiveTraversalValueWithError(errorMessage, target.getTargetKind());
     }
   }
 
   @AutoCodec.Instantiator
   public static TransitiveTraversalValue create(
-      AdvertisedProviderSet providers, String kind, @Nullable String firstErrorMessage) {
+      AdvertisedProviderSet providers, String kind, @Nullable String errorMessage) {
     TransitiveTraversalValue value =
-        firstErrorMessage == null
+        errorMessage == null
             ? new TransitiveTraversalValueWithoutError(providers, kind)
-            : new TransitiveTraversalValueWithError(firstErrorMessage, kind);
-    if (firstErrorMessage == null) {
+            : new TransitiveTraversalValueWithError(errorMessage, kind);
+    if (errorMessage == null) {
       TransitiveTraversalValue oldValue = VALUE_INTERNER.getCanonical(value);
       return oldValue == null ? value : oldValue;
     }
@@ -128,11 +126,11 @@ public abstract class TransitiveTraversalValue implements SkyValue {
   }
 
   /**
-   * Returns the first error message, if any, from loading the target and its transitive
+   * Returns a deterministic error message, if any, from loading the target and its transitive
    * dependencies.
    */
   @Nullable
-  public abstract String getFirstErrorMessage();
+  public abstract String getErrorMessage();
 
   @Override
   public boolean equals(Object o) {
@@ -143,14 +141,14 @@ public abstract class TransitiveTraversalValue implements SkyValue {
       return false;
     }
     TransitiveTraversalValue that = (TransitiveTraversalValue) o;
-    return Objects.equals(this.getFirstErrorMessage(), that.getFirstErrorMessage())
+    return Objects.equals(this.getErrorMessage(), that.getErrorMessage())
         && Objects.equals(this.getKind(), that.getKind())
         && this.getProviders().equals(that.getProviders());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(getFirstErrorMessage(), getKind(), getProviders());
+    return Objects.hash(getErrorMessage(), getKind(), getProviders());
   }
 
   @ThreadSafe
@@ -181,7 +179,7 @@ public abstract class TransitiveTraversalValue implements SkyValue {
 
     @Override
     @Nullable
-    public String getFirstErrorMessage() {
+    public String getErrorMessage() {
       return null;
     }
 
@@ -196,12 +194,11 @@ public abstract class TransitiveTraversalValue implements SkyValue {
 
   /** A transitive target reference with error. */
   public static final class TransitiveTraversalValueWithError extends TransitiveTraversalValue {
-    private final String firstErrorMessage;
+    private final String errorMessage;
 
-    private TransitiveTraversalValueWithError(String firstErrorMessage, String kind) {
+    private TransitiveTraversalValueWithError(String errorMessage, String kind) {
       super(kind);
-      this.firstErrorMessage =
-          StringCanonicalizer.intern(Preconditions.checkNotNull(firstErrorMessage));
+      this.errorMessage = StringCanonicalizer.intern(Preconditions.checkNotNull(errorMessage));
     }
 
     @Override
@@ -216,14 +213,14 @@ public abstract class TransitiveTraversalValue implements SkyValue {
 
     @Override
     @Nullable
-    public String getFirstErrorMessage() {
-      return firstErrorMessage;
+    public String getErrorMessage() {
+      return errorMessage;
     }
 
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
-          .add("error", firstErrorMessage)
+          .add("error", errorMessage)
           .add("kind", getKind())
           .toString();
     }

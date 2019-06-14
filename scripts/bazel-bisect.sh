@@ -74,9 +74,14 @@ WORKING_DIR="$PWD"
 #!/bin/bash
 set -eu
 "$BAZEL_BINARY" build //src:bazel || exit 1
-cp -f bazel-bin/src/bazel $TMP_BIN
+cp -f bazel-bin/src/bazel "$TMP_BIN"
 cd "$WORKING_DIR"
-exec "$TMP_BIN" $BAZEL_ARGUMENTS
+# Call the newly built Bazel. If it fails, save the exit code but don't stop
+# the script.
+result=0
+"$TMP_BIN" $BAZEL_ARGUMENTS || result=$\? && true
+"$TMP_BIN" shutdown || true
+exit \$result
 EOF
   chmod +x "$BISECT_SCRIPT"
   cd "$BAZEL_DIR"

@@ -14,26 +14,25 @@
 package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.runtime.commands.proto.BazelFlagsProto.FlagInfo;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
@@ -42,7 +41,6 @@ import org.mockito.MockitoAnnotations;
 /** Tests {@link AsynchronousFileOutputStream}. */
 @RunWith(JUnit4.class)
 public class AsynchronousFileOutputStreamTest {
-  @Rule public TemporaryFolder tmp = new TemporaryFolder();
   private final Random random = ThreadLocalRandom.current();
   private static final char[] RAND_CHARS = "abcdefghijklmnopqrstuvwxzy0123456789-".toCharArray();
   private static final int RAND_STRING_LENGTH = 10;
@@ -80,8 +78,9 @@ public class AsynchronousFileOutputStreamTest {
 
   @Test
   public void testConcurrentWrites() throws Exception {
-    Path logPath = tmp.newFile().toPath();
-    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(logPath.toString());
+    FileSystem fileSystem = new InMemoryFileSystem();
+    Path logPath = fileSystem.getPath("/logFile");
+    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(logPath);
     Thread[] writers = new Thread[10];
     final CountDownLatch start = new CountDownLatch(writers.length);
     for (int i = 0; i < writers.length; ++i) {
@@ -108,7 +107,7 @@ public class AsynchronousFileOutputStreamTest {
     }
     out.close();
     String contents =
-        new String(ByteStreams.toByteArray(Files.newInputStream(logPath)), StandardCharsets.UTF_8);
+        new String(ByteStreams.toByteArray(logPath.getInputStream()), StandardCharsets.UTF_8);
     for (int i = 0; i < writers.length; ++i) {
       for (int j = 0; j < 10; ++j) {
         assertThat(contents).contains("Thread # " + i + " time # " + j + "\n");
@@ -118,8 +117,10 @@ public class AsynchronousFileOutputStreamTest {
 
   @Test
   public void testConcurrentProtoWrites() throws Exception {
-    Path logPath = tmp.newFile().toPath();
-    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(logPath.toString());
+    final String filename = "/logFile";
+    FileSystem fileSystem = new InMemoryFileSystem();
+    Path logPath = fileSystem.getPath(filename);
+    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(logPath);
     ArrayList<FlagInfo> messages = new ArrayList<>();
     for (int i = 0; i < 100; ++i) {
       messages.add(generateRandomMessage());
@@ -150,7 +151,7 @@ public class AsynchronousFileOutputStreamTest {
     }
     out.close();
     ArrayList<FlagInfo> readMessages = new ArrayList<>();
-    try (InputStream in = Files.newInputStream(logPath)) {
+    try (InputStream in = fileSystem.getPath(filename).getInputStream()) {
       for (int i = 0; i < messages.size(); ++i) {
         readMessages.add(FlagInfo.parseDelimitedFrom(in));
       }
@@ -171,12 +172,8 @@ public class AsynchronousFileOutputStreamTest {
     };
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
-    try {
-      out.close();
-      fail("Expected an IOException");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
+    IOException expected = assertThrows(IOException.class, () -> out.close());
+    assertThat(expected).hasMessageThat().isEqualTo("foo");
   }
 
   @Test
@@ -192,12 +189,8 @@ public class AsynchronousFileOutputStreamTest {
     };
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
-    try {
-      out.close();
-      fail("Expected a RuntimeException");
-    } catch (RuntimeException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
+    RuntimeException expected = assertThrows(RuntimeException.class, () -> out.close());
+    assertThat(expected).hasMessageThat().isEqualTo("foo");
   }
 
   @Test
@@ -214,12 +207,8 @@ public class AsynchronousFileOutputStreamTest {
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
     out.write("blo");
-    try {
-      out.close();
-      fail("Expected an IOException");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
+    IOException expected = assertThrows(IOException.class, () -> out.close());
+    assertThat(expected).hasMessageThat().isEqualTo("foo");
   }
 
   @Test
@@ -236,12 +225,8 @@ public class AsynchronousFileOutputStreamTest {
     AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
     out.write("blo");
-    try {
-      out.close();
-      fail("Expected a RuntimeException");
-    } catch (RuntimeException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
+    RuntimeException expected = assertThrows(RuntimeException.class, () -> out.close());
+    assertThat(expected).hasMessageThat().isEqualTo("foo");
   }
 
   @Test
@@ -251,11 +236,6 @@ public class AsynchronousFileOutputStreamTest {
     out.write("bla");
     out.close();
 
-    try {
-      out.write("blo");
-      fail("Expected an IllegalStateException");
-    } catch (IllegalStateException expected) {
-      // Expected.
-    }
+    assertThrows(IllegalStateException.class, () -> out.write("blo"));
   }
 }

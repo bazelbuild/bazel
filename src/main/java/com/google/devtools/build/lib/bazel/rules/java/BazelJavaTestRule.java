@@ -58,7 +58,7 @@ public final class BazelJavaTestRule implements RuleDefinition {
         // Primarily this is intended to help test changes to Proguard.
         .add(
             attr(":proguard", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(JavaSemantics.PROGUARD)
                 .exec())
         .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -309,18 +309,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "not to all transitive dependencies."
   )
   public boolean strictObjcModuleMaps;
-
-  @Option(
-      name = "incompatible_disable_objc_library_resources",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, objc_library resource attributes are disallowed.")
-  public boolean disableObjcLibraryResources;
 
   @Override
   public FragmentOptions getHost() {

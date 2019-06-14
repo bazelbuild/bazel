@@ -274,17 +274,16 @@ public class PlatformMappingFunctionParserTest {
 
     assertThat(exception).hasMessageThat().contains("platform:");
 
-    PlatformMappingFunction.PlatformMappingException exception2 =
-        assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
-            () ->
-                parse(
-                    "platforms:",
-                    "  //platforms:one",
-                    "    --cpu=one",
-                    "flag:",
-                    "  --cpu=one",
-                    "    //platforms:one"));
+    assertThrows(
+        PlatformMappingFunction.PlatformMappingException.class,
+        () ->
+            parse(
+                "platforms:",
+                "  //platforms:one",
+                "    --cpu=one",
+                "flag:",
+                "  --cpu=one",
+                "    //platforms:one"));
 
     assertThat(exception).hasMessageThat().contains("platform");
   }
@@ -345,6 +344,51 @@ public class PlatformMappingFunctionParserTest {
                     "    //platforms:one"));
 
     assertThat(exception).hasMessageThat().contains("-cpu");
+  }
+
+  @Test
+  public void testParsePlatformsDuplicatePlatform() throws Exception {
+    PlatformMappingFunction.PlatformMappingException exception =
+        assertThrows(
+            PlatformMappingFunction.PlatformMappingException.class,
+            () ->
+                parse(
+                    "platforms:", // Force line break
+                    "  //platforms:one", // Force line break
+                    "    --cpu=one", // Force line break
+                    "  //platforms:one", // Force line break
+                    "    --cpu=two"));
+
+    assertThat(exception).hasMessageThat().contains("duplicate");
+    assertThat(exception)
+        .hasCauseThat()
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains("//platforms:one");
+  }
+
+  @Test
+  public void testParseFlagsDuplicateFlags() throws Exception {
+    PlatformMappingFunction.PlatformMappingException exception =
+        assertThrows(
+            PlatformMappingFunction.PlatformMappingException.class,
+            () ->
+                parse(
+                    "flags:", // Force line break
+                    "  --compilation_mode=dbg", // Force line break
+                    "  --cpu=one", // Force line break
+                    "    //platforms:one", // Force line break
+                    "  --compilation_mode=dbg", // Force line break
+                    "  --cpu=one", // Force line break
+                    "    //platforms:two"));
+
+    assertThat(exception).hasMessageThat().contains("duplicate");
+    assertThat(exception).hasCauseThat().hasCauseThat().hasMessageThat().contains("--cpu=one");
+    assertThat(exception)
+        .hasCauseThat()
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains("--compilation_mode=dbg");
   }
 
   private PlatformMappingFunction.Mappings parse(String... lines)

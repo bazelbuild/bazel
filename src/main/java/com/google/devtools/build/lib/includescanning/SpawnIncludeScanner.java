@@ -19,6 +19,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -35,11 +40,13 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.includescanning.IncludeParser.GrepIncludesFileType;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -274,20 +281,10 @@ public class SpawnIncludeScanner {
       throws IOException, ExecException, InterruptedException {
     Path output = getIncludesOutput(file, actionExecutionContext.getPathResolver(), fileType,
         placeNextToFile);
-    if (!inMemoryOutput && !placeNextToFile) {
-      try {
-        Path dir = output.getParentDirectory();
-        if (dir.isDirectory()) {
-          // If the output directory already exists, delete the old include file.
-          output.delete();
-        }
-        dir.createDirectoryAndParents();
-      } catch (IOException e) {
-        throw new IOException(
-            "Error creating output directory "
-                + output.getParentDirectory()
-                + ": "
-                + e.getMessage());
+    if (!inMemoryOutput) {
+      AbstractAction.deleteOutput(output, placeNextToFile ? file.getRoot() : null);
+      if (!placeNextToFile) {
+        output.getParentDirectory().createDirectoryAndParents();
       }
     }
 
@@ -367,12 +364,13 @@ public class SpawnIncludeScanner {
     FileOutErr originalOutErr = actionExecutionContext.getFileOutErr();
     FileOutErr grepOutErr = originalOutErr.childOutErr();
     SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
+    ActionExecutionContext spawnContext = actionExecutionContext.withFileOutErr(grepOutErr);
     List<SpawnResult> results;
     try {
-      results = context.exec(spawn, actionExecutionContext.withFileOutErr(grepOutErr));
-      dump(actionExecutionContext, grepOutErr, originalOutErr);
+      results = context.exec(spawn, spawnContext);
+      dump(spawnContext, actionExecutionContext);
     } catch (ExecException e) {
-      dump(actionExecutionContext, grepOutErr, originalOutErr);
+      dump(spawnContext, actionExecutionContext);
       throw e;
     }
 
@@ -380,10 +378,169 @@ public class SpawnIncludeScanner {
     return result.getInMemoryOutput(output);
   }
 
-  private static void dump(ActionExecutionContext parentContext, FileOutErr from, FileOutErr to) {
-    if (from.hasRecordedOutput()) {
-      synchronized (parentContext) {
-        FileOutErr.dump(from, to);
+  /** Extracts and returns inclusions from "file" using a spawn. */
+  public ListenableFuture<Collection<Inclusion>> extractInclusionsAsync(
+      Artifact file,
+      ActionExecutionMetadata actionExecutionMetadata,
+      ActionExecutionContext actionExecutionContext,
+      Artifact grepIncludes,
+      GrepIncludesFileType fileType,
+      boolean placeNextToFile)
+      throws IOException {
+    Path output =
+        getIncludesOutput(
+            file, actionExecutionContext.getPathResolver(), fileType, placeNextToFile);
+    if (!inMemoryOutput) {
+      AbstractAction.deleteOutput(output, placeNextToFile ? file.getRoot() : null);
+      if (!placeNextToFile) {
+        output.getParentDirectory().createDirectoryAndParents();
+      }
+    }
+
+    ListenableFuture<InputStream> dotIncludeStreamFuture =
+        spawnGrepAsync(
+            file,
+            execPath(output),
+            inMemoryOutput,
+            // We use {@link GrepIncludesAction} primarily to overwrite {@link Action#getMnemonic}.
+            // You might be tempted to use a custom mnemonic on the Spawn instead, but rest assured
+            // that _this does not work_. We call Spawn.getResourceOwner().getMnemonic() in a lot of
+            // places, some of which are downstream from here, and doing so would cause the Spawn
+            // and its owning ActionExecutionMetadata to be inconsistent with each other.
+            new GrepIncludesAction(actionExecutionMetadata, file.getExecPath()),
+            actionExecutionContext,
+            grepIncludes,
+            fileType);
+    return Futures.transform(
+        dotIncludeStreamFuture,
+        (stream) -> {
+          try {
+            return IncludeParser.processIncludes(output, stream);
+          } catch (IOException e) {
+            throw new IORuntimeException(e);
+          }
+        },
+        MoreExecutors.directExecutor());
+  }
+
+  /**
+   * Executes grep-includes.
+   *
+   * @param input the file to parse
+   * @param outputExecPath the output file (exec path)
+   * @param inMemoryOutput if true, return the contents of the output in the return value instead of
+   *     to the given Path
+   * @param resourceOwner the resource owner
+   * @param actionExecutionContext services in the scope of the action. Like the Err/Out stream
+   *     outputs.
+   * @param fileType Either "c++" or "swig", passed verbatim to grep-includes.
+   * @return The InputStream of the .includes file if inMemoryOutput feature retrieved it directly.
+   *     Otherwise "null"
+   * @throws ExecException if scanning fails
+   */
+  private static ListenableFuture<InputStream> spawnGrepAsync(
+      Artifact input,
+      PathFragment outputExecPath,
+      boolean inMemoryOutput,
+      ActionExecutionMetadata resourceOwner,
+      ActionExecutionContext actionExecutionContext,
+      Artifact grepIncludes,
+      GrepIncludesFileType fileType) {
+    ActionInput output = ActionInputHelper.fromPath(outputExecPath);
+    ImmutableList<? extends ActionInput> inputs = ImmutableList.of(grepIncludes, input);
+    ImmutableList<ActionInput> outputs = ImmutableList.of(output);
+    ImmutableList<String> command =
+        ImmutableList.of(
+            grepIncludes.getExecPathString(),
+            input.getExecPath().getPathString(),
+            outputExecPath.getPathString(),
+            fileType.getFileType());
+
+    ImmutableMap.Builder<String, String> execInfoBuilder = ImmutableMap.<String, String>builder();
+    if (inMemoryOutput) {
+      execInfoBuilder.put(
+          ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS, outputExecPath.getPathString());
+    }
+    execInfoBuilder.put(ExecutionRequirements.DO_NOT_REPORT, "");
+
+    Spawn spawn =
+        new SimpleSpawn(
+            resourceOwner,
+            command,
+            ImmutableMap.of(),
+            execInfoBuilder.build(),
+            inputs,
+            outputs,
+            LOCAL_RESOURCES);
+
+    actionExecutionContext.maybeReportSubcommand(spawn);
+
+    // Sharing the originalOutErr across spawnGrep calls would not be thread-safe. Instead, write
+    // outerr to a temporary location and copy it back to the original after execution, using the
+    // parent context as a lock to make it thread-safe (see dump() below).
+    FileOutErr originalOutErr = actionExecutionContext.getFileOutErr();
+    FileOutErr grepOutErr = originalOutErr.childOutErr();
+    SettableFuture<InputStream> future = SettableFuture.create();
+    ActionExecutionContext grepContext = actionExecutionContext.withFileOutErr(grepOutErr);
+    try {
+      process(
+          future,
+          SpawnContinuation.ofBeginExecution(spawn, grepContext).execute(),
+          output,
+          grepContext,
+          actionExecutionContext);
+    } catch (ExecException e) {
+      dump(grepContext, actionExecutionContext);
+      future.setException(e);
+    } catch (InterruptedException e) {
+      dump(grepContext, actionExecutionContext);
+      future.cancel(false);
+    }
+    return future;
+  }
+
+  private static void process(
+      SettableFuture<InputStream> future,
+      SpawnContinuation continuation,
+      ActionInput output,
+      ActionExecutionContext actionExecutionContext,
+      ActionExecutionContext originalActionExecutionContext) {
+    if (continuation.isDone()) {
+      List<SpawnResult> results = continuation.get();
+      dump(actionExecutionContext, originalActionExecutionContext);
+      SpawnResult result = Iterables.getLast(results);
+      InputStream stream = result.getInMemoryOutput(output);
+      try {
+        future.set(
+            stream == null ? actionExecutionContext.getInputPath(output).getInputStream() : stream);
+      } catch (IOException e) {
+        future.setException(e);
+      }
+    } else {
+      continuation
+          .getFuture()
+          .addListener(
+              () -> {
+                try {
+                  SpawnContinuation next = continuation.execute();
+                  process(
+                      future, next, output, actionExecutionContext, originalActionExecutionContext);
+                } catch (ExecException e) {
+                  dump(actionExecutionContext, originalActionExecutionContext);
+                  future.setException(e);
+                } catch (InterruptedException e) {
+                  dump(actionExecutionContext, originalActionExecutionContext);
+                  future.cancel(false);
+                }
+              },
+              MoreExecutors.directExecutor());
+    }
+  }
+
+  private static void dump(ActionExecutionContext fromContext, ActionExecutionContext toContext) {
+    if (fromContext.getFileOutErr().hasRecordedOutput()) {
+      synchronized (toContext) {
+        FileOutErr.dump(fromContext.getFileOutErr(), toContext.getFileOutErr());
       }
     }
   }

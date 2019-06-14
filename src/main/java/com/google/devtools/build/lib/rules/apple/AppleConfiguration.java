@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -441,7 +442,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
     @Override
     public AppleConfiguration create(BuildOptions buildOptions) {
       AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
-      String cpu = buildOptions.get(BuildConfiguration.Options.class).cpu;
+      String cpu = buildOptions.get(CoreOptions.class).cpu;
       return AppleConfiguration.create(appleOptions, cpu);
     }
 

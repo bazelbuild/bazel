@@ -41,7 +41,7 @@ def success_target(ctx, msg):
         content = "cat " + dat.path + " ; echo",
         is_executable = True,
     )
-    return struct(runfiles = ctx.runfiles([exe, dat]))
+    return [DefaultInfo(runfiles = ctx.runfiles([exe, dat]))]
 
 def _successful_test_impl(ctx):
     return success_target(ctx, ctx.attr.msg)
@@ -79,7 +79,7 @@ def failure_target(ctx, msg):
         content = "(cat " + dat.short_path + " ; echo ) >&2 ; exit 1",
         is_executable = True,
     )
-    return struct(runfiles = ctx.runfiles([exe, dat]))
+    return [DefaultInfo(runfiles = ctx.runfiles([exe, dat]))]
 
 def _failed_test_impl(ctx):
     return failure_target(ctx, ctx.attr.msg)
@@ -250,7 +250,7 @@ def _rule_test_impl(ctx):
             ctx.actions.write(output = file_, content = v)
         script = "\n".join(commands + ["true"])
         ctx.actions.write(output = exe, content = script, is_executable = True)
-        return struct(runfiles = ctx.runfiles([exe] + files))
+        return [DefaultInfo(runfiles = ctx.runfiles([exe] + files))]
     else:
         return success_target(ctx, "success")
 
@@ -287,7 +287,7 @@ def _file_test_impl(ctx):
             content = "diff -u %s %s" % (dat.short_path, file_.short_path),
             is_executable = True,
         )
-        return struct(runfiles = ctx.runfiles([exe, dat, file_]))
+        return [DefaultInfo(runfiles = ctx.runfiles([exe, dat, file_]))]
     if matches != -1:
         script = "[ %s == $(grep -c %s %s) ]" % (
             matches,
@@ -301,7 +301,7 @@ def _file_test_impl(ctx):
         content = script,
         is_executable = True,
     )
-    return struct(runfiles = ctx.runfiles([exe, file_]))
+    return [DefaultInfo(runfiles = ctx.runfiles([exe, file_]))]
 
 file_test = rule(
     attrs = {

@@ -90,6 +90,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveHeaders() throws Exception {
+    useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
         "cc_binary(",
@@ -102,13 +103,14 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
         "    srcs = ['lib.cc', 'lib.h'],",
         ")");
     assertThat(ActionsTestUtil.baseArtifactNames(getApi("//pkg:check").getTransitiveHeaders()))
-        .containsAllOf("lib.h", "bin.h");
+        .containsAtLeast("lib.h", "bin.h");
     assertThat(ActionsTestUtil.baseArtifactNames(getApi("//pkg:check_lib").getTransitiveHeaders()))
         .contains("lib.h");
   }
 
   @Test
   public void testLinkFlags() throws Exception {
+    useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
         "cc_binary(",
@@ -135,7 +137,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
     assertThat(getApi("//pkg:check_lib").getLinkopts())
         .contains("-Wl,-M");
     assertThat(getApi("//pkg:dependent_lib").getLinkopts())
-        .containsAllOf("-lz", "-Wl,-M")
+        .containsAtLeast("-lz", "-Wl,-M")
         .inOrder();
     assertThat(getApi("//pkg:check").getLinkopts())
         .isEmpty();
@@ -145,6 +147,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
 
   @Test
   public void testLibraries() throws Exception {
+    useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
         "cc_binary(",
@@ -170,6 +173,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
 
   @Test
   public void testCcFlags() throws Exception {
+    useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
         "cc_binary(",

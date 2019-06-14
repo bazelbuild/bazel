@@ -155,7 +155,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
             ccToolchain);
     boolean stripAsDefault =
-        ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration)
+        ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration)
             && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
     DeployArchiveBuilder unstrippedDeployArchiveBuilder = null;
     if (stripAsDefault) {
@@ -177,8 +177,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Artifact unstrippedLauncher = launcherAndUnstrippedLauncher.second;
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
-    Artifact instrumentationMetadata =
-        helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     Artifact executableForRunfiles = null;
@@ -194,15 +192,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       filesBuilder.add(classJar).add(executableForRunfiles);
 
       if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-        mainClass =
-            semantics.addCoverageSupport(
-                helper,
-                attributesBuilder,
-                executableForRunfiles,
-                instrumentationMetadata,
-                javaArtifactsBuilder,
-                mainClass,
-                ruleContext.getConfiguration().isExperimentalJavaCoverage());
+        mainClass = semantics.addCoverageSupport(helper, executableForRunfiles);
       }
     } else {
       filesBuilder.add(classJar);
@@ -254,7 +244,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             classJar,
             manifestProtoOutput,
             genSourceJar,
-            instrumentationMetadata,
             /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
     ruleOutputJarsProviderBuilder.setJdeps(javaCompileAction.getOutputDepsProto());
@@ -464,8 +453,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     NestedSetBuilder<Pair<String, String>> coverageEnvironment = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> coverageSupportFiles = NestedSetBuilder.stableOrder();
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
-        && ruleContext.getConfiguration().isExperimentalJavaCoverage()) {
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
 
       // Create an artifact that contains the root relative paths of the jars on the runtime
       // classpath.
@@ -612,14 +600,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites("runtime_deps", Mode.TARGET);
     builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
-
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
-        && !ruleContext.getConfiguration().isExperimentalJavaCoverage()) {
-      Artifact instrumentedJar = javaArtifacts.getInstrumentedJar();
-      if (instrumentedJar != null) {
-        builder.addArtifact(instrumentedJar);
-      }
-    }
 
     builder.addArtifacts((Iterable<Artifact>) common.getRuntimeClasspath());
 

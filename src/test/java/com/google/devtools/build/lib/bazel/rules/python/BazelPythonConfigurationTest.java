@@ -33,8 +33,9 @@ public class BazelPythonConfigurationTest extends ConfigurationTestCase {
     scratch.file(
         "a/BUILD",
         "py_runtime(name='b', files=[], interpreter='c')");
-    BazelPythonConfiguration config = create("--python_top=//a:b")
-        .getFragment(BazelPythonConfiguration.class);
+    BazelPythonConfiguration config =
+        create("--incompatible_use_python_toolchains=false", "--python_top=//a:b")
+            .getFragment(BazelPythonConfiguration.class);
     assertThat(config.getPythonTop()).isNotNull();
   }
 
@@ -43,7 +44,7 @@ public class BazelPythonConfigurationTest extends ConfigurationTestCase {
     OptionsParsingException expected =
         assertThrows(
             OptionsParsingException.class,
-            () -> create("--python_top=//a:!b:"));
+            () -> create("--incompatible_use_python_toolchains=false", "--python_top=//a:!b:"));
     assertThat(expected).hasMessageThat().contains("While parsing option --python_top");
   }
 
@@ -60,5 +61,24 @@ public class BazelPythonConfigurationTest extends ConfigurationTestCase {
         InvalidConfigurationException.class,
         () -> create("--python_path=pajama"));
     assertThat(expected).hasMessageThat().contains("python_path must be an absolute path");
+  }
+
+  @Test
+  public void legacyFlagsDeprecatedByPythonToolchains() throws Exception {
+    checkError(
+        "`--python2_path` is disabled by `--incompatible_use_python_toolchains`",
+        "--incompatible_use_python_toolchains=true",
+        "--python2_path=/system/python2");
+    checkError(
+        "`--python3_path` is disabled by `--incompatible_use_python_toolchains`",
+        "--incompatible_use_python_toolchains=true",
+        "--python3_path=/system/python3");
+    checkError(
+        "`--python_top` is disabled by `--incompatible_use_python_toolchains`",
+        "--incompatible_use_python_toolchains=true",
+        "--python_top=//mypkg:my_py_runtime");
+    // TODO(#7901): Also test that --python_path is disallowed (once implemented). Currently we
+    // still need it to communicate the location of python.exe on Windows from the client to the
+    // server.
   }
 }

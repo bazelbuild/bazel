@@ -162,7 +162,7 @@ public final class EnvironmentBackedRecursivePackageProvider
     if (blacklistedSubdirectories.contains(directory)) {
       return ImmutableList.of();
     }
-    ImmutableSet filteredBlacklistedSubdirectories =
+    ImmutableSet<PathFragment> filteredBlacklistedSubdirectories =
         ImmutableSet.copyOf(
             Iterables.filter(
                 blacklistedSubdirectories,

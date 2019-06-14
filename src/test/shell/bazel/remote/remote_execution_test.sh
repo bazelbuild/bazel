@@ -61,6 +61,23 @@ function tear_down() {
   rm -rf "${cas_path}"
 }
 
+function test_remote_grpc_cache_with_protocol() {
+  # Test that if 'grpc' is provided as a scheme for --remote_cache flag, remote cache works.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with remote cache"
+}
+
 function test_cc_binary() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
@@ -638,7 +655,7 @@ EOF
   bazel test \
       --spawn_strategy=remote \
       --remote_executor=bazel.does.not.exist:1234 \
-      --noexperimental_remote_retry \
+      --remote_retries=0 \
       --test_output=all \
       --test_env=USER=boo \
       //a:test >& $TEST_log \
@@ -796,7 +813,264 @@ EOF
            || fail "Failed to run //a:skylark_output_dir_test with remote execution"
 }
 
+function test_downloads_minimal() {
+  # Test that genrule outputs are not downloaded when using
+  # --experimental_remote_download_outputs=minimal
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
 
+genrule(
+  name = "foobar",
+  srcs = [":foo"],
+  outs = ["foobar.txt"],
+  cmd = "cat $(location :foo) > \"$@\" && echo \"bar\" >> \"$@\"",
+)
+EOF
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=minimal \
+    //a:foobar || fail "Failed to build //a:foobar"
+
+  (! [[ -f bazel-bin/a/foo.txt ]] && ! [[ -f bazel-bin/a/foobar.txt ]]) \
+  || fail "Expected no files to have been downloaded"
+}
+
+function test_downloads_minimal_failure() {
+  # Test that outputs of failing actions are downloaded when using
+  # --experimental_remote_download_outputs=minimal
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "fail",
+  srcs = [],
+  outs = ["fail.txt"],
+  cmd = "echo \"foo\" > \"$@\" && exit 1",
+)
+EOF
+
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=minimal \
+    //a:fail && fail "Expected test failure" || true
+
+  [[ -f bazel-bin/a/fail.txt ]] \
+  || fail "Expected fail.txt of failing target //a:fail to be downloaded"
+}
+
+function test_downloads_minimal_prefetch() {
+  # Test that when using --experimental_remote_download_outputs=minimal a remote-only output that's
+  # an input to a local action is downloaded lazily before executing the local action.
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "remote",
+  srcs = [],
+  outs = ["remote.txt"],
+  cmd = "echo -n \"remote\" > \"$@\"",
+)
+
+genrule(
+  name = "local",
+  srcs = [":remote"],
+  outs = ["local.txt"],
+  cmd = "cat $(location :remote) > \"$@\" && echo -n \"local\" >> \"$@\"",
+  tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=minimal \
+    //a:remote || fail "Failed to build //a:remote"
+
+  (! [[ -f bazel-bin/a/remote.txt ]]) \
+  || fail "Expected bazel-bin/a/remote.txt to have not been downloaded"
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=minimal \
+    //a:local || fail "Failed to build //a:local"
+
+  localtxt="bazel-bin/a/local.txt"
+  [[ $(< ${localtxt}) == "remotelocal" ]] \
+  || fail "Unexpected contents in " ${localtxt} ": " $(< ${localtxt})
+
+  (! [[ -f bazel-bin/a/remote.txt ]]) \
+  || fail "Expected bazel-bin/a/remote.txt to have been deleted again"
+}
+
+function test_download_outputs_invalidation() {
+  # Test that when changing values of --experimental_remote_download_outputs all actions are
+  # invalidated.
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "remote",
+  srcs = [],
+  outs = ["remote.txt"],
+  cmd = "echo -n \"remote\" > \"$@\"",
+)
+EOF
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=minimal \
+    //a:remote >& $TEST_log || fail "Failed to build //a:remote"
+
+  expect_log "1 process: 1 remote"
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=all \
+    //a:remote >& $TEST_log || fail "Failed to build //a:remote"
+
+  # Changing --experimental_remote_download_outputs to "all" should invalidate SkyFrames in-memory
+  # caching and make it re-run the action.
+  expect_log "1 process: 1 remote"
+}
+
+function test_downloads_minimal_native_prefetch() {
+  # Test that when using --experimental_remote_download_outputs=minimal a remotely stored output
+  # that's an input to a native action (ctx.actions.expand_template) is staged lazily for action
+  # execution.
+  mkdir -p a
+  cat > a/substitute_username.bzl <<'EOF'
+def _substitute_username_impl(ctx):
+    ctx.actions.expand_template(
+        template = ctx.file.template,
+        output = ctx.outputs.out,
+        substitutions = {
+            "{USERNAME}": ctx.attr.username,
+        },
+    )
+
+substitute_username = rule(
+    implementation = _substitute_username_impl,
+    attrs = {
+        "username": attr.string(mandatory = True),
+        "template": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+        ),
+    },
+    outputs = {"out": "%{name}.txt"},
+)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":substitute_username.bzl", "substitute_username")
+genrule(
+    name = "generate-template",
+    cmd = "echo -n \"Hello {USERNAME}!\" > $@",
+    outs = ["template.txt"],
+    srcs = [],
+)
+
+substitute_username(
+    name = "substitute-buchgr",
+    username = "buchgr",
+    template = ":generate-template",
+)
+EOF
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=minimal \
+    //a:substitute-buchgr >& $TEST_log || fail "Failed to build //a:substitute-buchgr"
+
+  # The genrule //a:generate-template should run remotely and //a:substitute-buchgr
+  # should be a native action running locally.
+  expect_log "1 process: 1 remote"
+
+  outtxt="bazel-bin/a/substitute-buchgr.txt"
+  [[ $(< ${outtxt}) == "Hello buchgr!" ]] \
+  || fail "Unexpected contents in "${outtxt}":" $(< ${outtxt})
+
+  (! [[ -f bazel-bin/a/template.txt ]]) \
+  || fail "Expected bazel-bin/a/template.txt to have been deleted again"
+}
+
+function test_downloads_toplevel() {
+  # Test that when using --experimental_remote_download_outputs=toplevel only the output of the
+  # toplevel target is being downloaded.
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+
+genrule(
+  name = "foobar",
+  srcs = [":foo"],
+  outs = ["foobar.txt"],
+  cmd = "cat $(location :foo) > \"$@\" && echo \"bar\" >> \"$@\"",
+)
+EOF
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=toplevel \
+    //a:foobar || fail "Failed to build //a:foobar"
+
+  (! [[ -f bazel-bin/a/foo.txt ]]) \
+  || fail "Expected intermediate output bazel-bin/a/foo.txt to not be downloaded"
+
+  [[ -f bazel-bin/a/foobar.txt ]] \
+  || fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
+
+
+  # Delete the file to test that the action is re-run
+  rm -f bazel-bin/a/foobar.txt
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=toplevel \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  expect_log "1 process: 1 remote cache hit"
+
+  [[ -f bazel-bin/a/foobar.txt ]] \
+  || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
+
+
+}
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

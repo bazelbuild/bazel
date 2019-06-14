@@ -106,7 +106,11 @@ public class DirtinessCheckerUtils {
     }
   }
 
-  /** Checks files outside of the package roots for changes. */
+  /**
+   * Serves for tracking whether there are external and output files {@see ExternalFilesKnowledge}.
+   * Filtering of files, for which the new values should not be injected into evaluator, is done in
+   * SequencedSkyframeExecutor.handleChangedFiles().
+   */
   static final class ExternalDirtinessChecker extends BasicFilesystemDirtinessChecker {
     private final ExternalFilesHelper externalFilesHelper;
     private final EnumSet<FileType> fileTypesToCheck;

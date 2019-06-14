@@ -441,7 +441,7 @@ EOF
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution: Looking for toolchain of type //toolchain:test_toolchain'
   expect_log 'ToolchainResolution:   For toolchain type //toolchain:test_toolchain, possible execution platforms and toolchains: {@local_config_platform//:host -> //:test_toolchain_impl_1}'
-  expect_log 'ToolchainResolver: Selected execution platform @local_config_platform//:host, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainResolution: Selected execution platform @local_config_platform//:host, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
@@ -820,7 +820,7 @@ EOF
     --extra_execution_platforms=//platform:test_platform \
     --toolchain_resolution_debug \
     //demo:target &> $TEST_log || fail "Build failed"
-  expect_log "ToolchainResolver: Selected execution platform //platform:test_platform"
+  expect_log "ToolchainResolution: Selected execution platform //platform:test_platform"
 }
 
 
@@ -873,7 +873,7 @@ EOF
     --extra_execution_platforms=//platforms:all \
     --toolchain_resolution_debug \
     //demo:use &> $TEST_log || fail "Build failed"
-    expect_log "Selected execution platform //platforms:platform2"
+  expect_log "Selected execution platform //platforms:platform2"
 }
 
 
@@ -930,7 +930,7 @@ EOF
     --extra_execution_platforms=//platforms:all \
     --toolchain_resolution_debug \
     //demo:use &> $TEST_log || fail "Build failed"
-    expect_log "Selected execution platform //platforms:platform2"
+  expect_log "Selected execution platform //platforms:platform2"
 }
 
 function test_rule_and_target_with_execution_constraints() {
@@ -1001,7 +1001,7 @@ EOF
     --extra_execution_platforms=//platforms:all \
     --toolchain_resolution_debug \
     //demo:use &> $TEST_log || fail "Build failed"
-    expect_log "Selected execution platform //platforms:platform2_4"
+  expect_log "Selected execution platform //platforms:platform2_4"
 }
 
 function test_default_constraint_values {
@@ -1326,6 +1326,73 @@ EOF
   expect_not_log "java.lang.IllegalArgumentException"
   expect_log "in exec_compatible_with attribute of toolchain rule //toolchain:test: Duplicate constraint values detected: constraint_setting //toolchain:foo has \[//toolchain:val1, //toolchain:val2\]"
   expect_log "in target_compatible_with attribute of toolchain rule //toolchain:test: Duplicate constraint values detected: constraint_setting //toolchain:bar has \[//toolchain:val3, //toolchain:val4\]"
+}
+
+
+function test_exec_transition() {
+  # Add test platforms.
+  mkdir -p platforms
+  cat >> platforms/BUILD <<EOF
+package(default_visibility = ['//visibility:public'])
+constraint_setting(name = 'setting')
+constraint_value(name = 'value1', constraint_setting = ':setting')
+constraint_value(name = 'value2', constraint_setting = ':setting')
+
+platform(
+    name = 'platform1',
+    constraint_values = [':value1'],
+    visibility = ['//visibility:public'])
+platform(
+    name = 'platform2',
+    constraint_values = [':value2'],
+    visibility = ['//visibility:public'])
+EOF
+
+  # Add a rule with default execution constraints.
+  mkdir -p demo
+  cat >> demo/rule.bzl <<EOF
+def _sample_rule_impl(ctx):
+  return []
+
+sample_rule = rule(
+  implementation = _sample_rule_impl,
+  attrs = {
+    "dep": attr.label(cfg = 'exec'),
+  },
+  execution_platform_constraints_allowed = True,
+)
+
+def _display_platform_impl(ctx):
+  print("%s target platform: %s" % (ctx.label, ctx.fragments.platform.platforms[0]))
+  return []
+
+display_platform = rule(
+  implementation = _display_platform_impl,
+  attrs = {},
+  fragments = ['platform'],
+)
+EOF
+
+  # Use the new rule.
+  cat >> demo/BUILD <<EOF
+load(':rule.bzl', 'sample_rule', 'display_platform')
+
+sample_rule(
+  name = 'use',
+  dep = ":dep",
+  exec_compatible_with = [
+    '//platforms:value2',
+  ],
+)
+
+display_platform(name = 'dep')
+EOF
+
+  # Build the target, using debug messages to verify the correct platform was selected.
+  bazel build \
+    --extra_execution_platforms=//platforms:all \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log "//demo:dep target platform: //platforms:platform2"
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.

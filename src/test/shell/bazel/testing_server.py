@@ -28,12 +28,19 @@ try:
 except ImportError:
   # Python 2.x compatibility hack.
   from SocketServer import TCPServer
+import random
+import socket
 import sys
+import time
 
 
 class Handler(BaseHTTPRequestHandler):
   """Handlers for testing HTTP server."""
   auth = False
+  not_found = False
+  simulate_timeout = False
+  filename = None
+  redirect = None
   valid_header = b'Basic ' + base64.b64encode('foo:bar'.encode('ascii'))
 
   def do_HEAD(self):  # pylint: disable=invalid-name
@@ -48,6 +55,21 @@ class Handler(BaseHTTPRequestHandler):
     self.end_headers()
 
   def do_GET(self):  # pylint: disable=invalid-name
+    if self.simulate_timeout:
+      while True:
+        time.sleep(1)
+
+    if self.not_found:
+      self.send_response(404)
+      self.end_headers()
+      return
+
+    if self.redirect is not None:
+      self.send_response(301)
+      self.send_header('Location', self.redirect)
+      self.end_headers()
+      return
+
     if not self.auth:
       self.do_HEAD()
       self.serve_file()
@@ -62,7 +84,11 @@ class Handler(BaseHTTPRequestHandler):
       self.wfile.write(b'Login required.')
 
   def serve_file(self):
-    with open(os.path.join(os.getcwd(), self.path[1:]), 'rb') as file_to_serve:
+    path_to_serve = self.path[1:]
+    if self.filename is not None:
+      path_to_serve = self.filename
+    to_serve = os.path.join(os.getcwd(), path_to_serve)
+    with open(to_serve, 'rb') as file_to_serve:
       self.wfile.write(file_to_serve.read())
 
 
@@ -70,17 +96,30 @@ def main(argv=None):
   if argv is None:
     argv = sys.argv[1:]
 
-  if not argv:
-    sys.stderr.write('Usage: testing_server.py port [auth]\n')
-    return 1
-
-  port = int(argv[0])
-  if len(argv) > 1:
+  if len(argv) > 1 and argv[0] == 'always':
+    Handler.filename = argv[1]
+  elif len(argv) > 1 and argv[0] == 'redirect':
+    Handler.redirect = argv[1]
+  elif argv and argv[0] == '404':
+    Handler.not_found = True
+  elif argv and argv[0] == 'timeout':
+    Handler.simulate_timeout = True
+  elif argv:
     Handler.auth = True
 
-  httpd = TCPServer(('', port), Handler)
+  httpd = None
+  port = None
+  while port is None:
+    try:
+      port = random.randrange(32760, 59760)
+      httpd = TCPServer(('', port), Handler)
+    except socket.error:
+      port = None
 
   try:
+    sys.stdout.write('%d\nstarted\n' % (port,))
+    sys.stdout.flush()
+    sys.stdout.close()
     sys.stderr.write('Serving forever on %d.\n' % port)
     httpd.serve_forever()
   finally:

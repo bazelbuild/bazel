@@ -94,7 +94,7 @@ public abstract class PackageFactoryTestBase {
     for (String outName : outNames) {
       OutputFile out = (OutputFile) pkg.getTarget(outName);
       assertThat(rule.getOutputFiles()).contains(out);
-      assertThat(out.getGeneratingRule()).isSameAs(rule);
+      assertThat(out.getGeneratingRule()).isSameInstanceAs(rule);
       assertThat(out.getName()).isEqualTo(outName);
       assertThat(out.getTargetKind()).isEqualTo("generated file");
     }
@@ -117,7 +117,8 @@ public abstract class PackageFactoryTestBase {
             null,
             TestUtils.getPool(),
             -1);
-    assertThat(globCache.globUnsorted(include, exclude, false)).containsExactlyElementsIn(expected);
+    assertThat(globCache.globUnsorted(include, exclude, false, true))
+        .containsExactlyElementsIn(expected);
   }
 
   @Before

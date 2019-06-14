@@ -120,9 +120,9 @@ public final class ActionExecutionStatusReporter {
 
   @Subscribe
   @AllowConcurrentEvents
-  public void updateStatus(AnalyzingActionEvent event) {
+  public void updateStatus(ScanningActionEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
-    setStatus(action, "Analyzing");
+    setStatus(action, "Scanning");
   }
 
   @Subscribe

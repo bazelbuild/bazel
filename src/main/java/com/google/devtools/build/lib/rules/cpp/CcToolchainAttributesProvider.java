@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.syntax.Type;
 
 /**
@@ -65,19 +66,20 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final Label libcTopAttribute;
   private final NestedSet<Artifact> libc;
   private final NestedSet<Artifact> libcMiddleman;
+  private final TransitiveInfoCollection libcTop;
+  private final NestedSet<Artifact> targetLibc;
+  private final NestedSet<Artifact> targetLibcMiddleman;
+  private final TransitiveInfoCollection targetLibcTop;
   private final NestedSet<Artifact> fullInputsForCrosstool;
   private final NestedSet<Artifact> fullInputsForLink;
   private final NestedSet<Artifact> coverage;
   private final String compiler;
-  private final String proto;
   private final String cpu;
   private final Artifact ifsoBuilder;
   private final Artifact linkDynamicLibraryTool;
-  private final FdoProfileProvider fdoOptimizeProvider;
   private final TransitiveInfoCollection fdoOptimize;
   private final ImmutableList<Artifact> fdoOptimizeArtifacts;
   private final FdoPrefetchHintsProvider fdoPrefetch;
-  private final TransitiveInfoCollection libcTop;
   private final TransitiveInfoCollection moduleMap;
   private final Artifact moduleMapArtifact;
   private final Artifact zipper;
@@ -85,10 +87,12 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final String runtimeSolibDirBase;
   private final LicensesProvider licensesProvider;
   private final Label toolchainType;
-  private final CcToolchainVariables additionalBuildVariables;
+  private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
   private final CcToolchainConfigInfo ccToolchainConfigInfo;
   private final String toolchainIdentifier;
+  private final FdoProfileProvider fdoOptimizeProvider;
   private final FdoProfileProvider fdoProfileProvider;
+  private final FdoProfileProvider csFdoProfileProvider;
   private final FdoProfileProvider xfdoProfileProvider;
   private final Label ccToolchainLabel;
   private final TransitiveInfoCollection staticRuntimeLib;
@@ -97,7 +101,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
       boolean isAppleToolchain,
-      CcToolchainVariables additionalBuildVariables) {
+      AdditionalBuildVariablesComputer additionalBuildVariablesComputer) {
     super(ImmutableMap.of(), Location.BUILTIN);
     this.ccToolchainLabel = ruleContext.getLabel();
     this.toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
@@ -111,7 +115,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
     this.cpu = ruleContext.attributes().get("cpu", Type.STRING);
     this.compiler = ruleContext.attributes().get("compiler", Type.STRING);
-    this.proto = ruleContext.attributes().get("proto", Type.STRING);
     this.supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
     this.supportsHeaderParsing = ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
     this.allFiles =
@@ -129,9 +132,21 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.arFiles = getOptionalMiddlemanOrFiles(ruleContext, "ar_files");
     this.linkerFiles = getMiddlemanOrFiles(ruleContext, "linker_files");
     this.dwpFiles = getMiddlemanOrFiles(ruleContext, "dwp_files");
+
     this.libcMiddleman =
         getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
     this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
+    this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
+
+    this.targetLibcMiddleman =
+        getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, Mode.TARGET);
+    this.targetLibc =
+        getOptionalFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, Mode.TARGET);
+    this.targetLibcTop =
+        ruleContext.getPrerequisite(CcToolchainRule.TARGET_LIBC_TOP_ATTR, Mode.TARGET);
+
+    this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
+
     this.fullInputsForCrosstool =
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(allFilesMiddleman)
@@ -151,6 +166,9 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.fdoProfileProvider =
         ruleContext.getPrerequisite(
             CcToolchainRule.FDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
+    this.csFdoProfileProvider =
+        ruleContext.getPrerequisite(
+            CcToolchainRule.CSFDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
     this.xfdoProfileProvider =
         ruleContext.getPrerequisite(
             CcToolchainRule.XFDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
@@ -163,8 +181,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.fdoPrefetch =
         ruleContext.getPrerequisite(
             ":fdo_prefetch_hints", Mode.TARGET, FdoPrefetchHintsProvider.PROVIDER);
-    this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
-    this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
     this.moduleMap = ruleContext.getPrerequisite("module_map", Mode.HOST);
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map", Mode.HOST);
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper", Mode.HOST);
@@ -202,7 +218,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     } else {
       this.toolchainType = null;
     }
-    this.additionalBuildVariables = additionalBuildVariables;
+    this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
   }
 
   public String getCpu() {
@@ -257,8 +273,8 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return supportsHeaderParsing;
   }
 
-  public CcToolchainVariables getAdditionalBuildVariables() {
-    return additionalBuildVariables;
+  public AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer() {
+    return additionalBuildVariablesComputer;
   }
 
   public NestedSet<Artifact> getAllFiles() {
@@ -322,16 +338,16 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return moduleMapArtifact;
   }
 
-  public String getProto() {
-    return proto;
-  }
-
   public NestedSet<Artifact> getFullInputsForCrosstool() {
     return fullInputsForCrosstool;
   }
 
   public FdoProfileProvider getFdoProfileProvider() {
     return fdoProfileProvider;
+  }
+
+  public FdoProfileProvider getCSFdoProfileProvider() {
+    return csFdoProfileProvider;
   }
 
   public FdoProfileProvider getXFdoProfileProvider() {
@@ -360,6 +376,22 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public NestedSet<Artifact> getLibc() {
     return libc;
+  }
+
+  public NestedSet<Artifact> getTargetLibc() {
+    return targetLibc;
+  }
+
+  public TransitiveInfoCollection getTargetLibcTop() {
+    return targetLibcTop;
+  }
+
+  public Label getLibcTopLabel() {
+    return getLibcTop() == null ? null : getLibcTop().getLabel();
+  }
+
+  public Label getTargetLibcTopLabel() {
+    return getTargetLibcTop() == null ? null : getTargetLibcTop().getLabel();
   }
 
   public Label getLibcTopAttribute() {

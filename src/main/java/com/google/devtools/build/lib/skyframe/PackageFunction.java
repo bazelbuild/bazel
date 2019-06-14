@@ -357,10 +357,15 @@ public class PackageFunction implements SkyFunction {
     if (!packageLookupValue.packageExists()) {
       switch (packageLookupValue.getErrorReason()) {
         case NO_BUILD_FILE:
+          throw new PackageFunctionException(
+              new BuildFileNotFoundException(
+                  packageId, PackageLookupFunction.explainNoBuildFileValue(packageId, env)),
+              Transience.PERSISTENT);
         case DELETED_PACKAGE:
         case REPOSITORY_NOT_FOUND:
-          throw new PackageFunctionException(new BuildFileNotFoundException(packageId,
-              packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
+          throw new PackageFunctionException(
+              new BuildFileNotFoundException(packageId, packageLookupValue.getErrorMsg()),
+              Transience.PERSISTENT);
         case INVALID_PACKAGE_NAME:
           throw new PackageFunctionException(new InvalidPackageNameException(packageId,
               packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
@@ -803,13 +808,15 @@ public class PackageFunction implements SkyFunction {
     }
 
     @Override
-    public Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
+    public Token runAsync(
+        List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
         throws BadGlobException, InterruptedException {
-      return delegate.runAsync(includes, excludes, excludeDirs);
+      return delegate.runAsync(includes, excludes, excludeDirs, allowEmpty);
     }
 
     @Override
-    public List<String> fetch(Token token) throws IOException, InterruptedException {
+    public List<String> fetch(Token token)
+        throws BadGlobException, IOException, InterruptedException {
       return delegate.fetch(token);
     }
 
@@ -877,7 +884,8 @@ public class PackageFunction implements SkyFunction {
     }
 
     @Override
-    public Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
+    public Token runAsync(
+        List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
         throws BadGlobException, InterruptedException {
       LinkedHashSet<SkyKey> globKeys = Sets.newLinkedHashSetWithExpectedSize(includes.size());
       Map<SkyKey, String> globKeyToPatternMap = Maps.newHashMapWithExpectedSize(includes.size());
@@ -904,7 +912,7 @@ public class PackageFunction implements SkyFunction {
         }
       }
       Token legacyIncludesToken =
-          legacyGlobber.runAsync(globsToDelegate, ImmutableList.of(), excludeDirs);
+          legacyGlobber.runAsync(globsToDelegate, ImmutableList.of(), excludeDirs, allowEmpty);
 
       return new HybridToken(globValueMap, globKeys, legacyIncludesToken, excludes);
     }
@@ -930,7 +938,8 @@ public class PackageFunction implements SkyFunction {
     }
 
     @Override
-    public List<String> fetch(Token token) throws IOException, InterruptedException {
+    public List<String> fetch(Token token)
+        throws BadGlobException, IOException, InterruptedException {
       HybridToken hybridToken = (HybridToken) token;
       return hybridToken.resolve(legacyGlobber);
     }
@@ -974,7 +983,8 @@ public class PackageFunction implements SkyFunction {
         this.excludes = excludes;
       }
 
-      private List<String> resolve(Globber delegate) throws IOException, InterruptedException {
+      private List<String> resolve(Globber delegate)
+          throws BadGlobException, IOException, InterruptedException {
         HashSet<String> matches = new HashSet<>();
         for (SkyKey includeGlobKey : includesGlobKeys) {
           // TODO(bazel-team): NestedSet expansion here is suboptimal.

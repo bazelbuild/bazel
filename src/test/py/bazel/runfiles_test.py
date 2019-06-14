@@ -48,8 +48,14 @@ class RunfilesTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
+    # TODO(brandjon): (Issue #8169) Make this test compatible with Python
+    # toolchains. Blocked on the fact that there's no PY3 environment on our Mac
+    # workers (bazelbuild/continuous-integration#578).
     exit_code, _, stderr = self.RunBazel([
-        "build", "--verbose_failures", "//foo:runfiles-" + family
+        "build",
+        "--verbose_failures",
+        "--incompatible_use_python_toolchains=false",
+        "//foo:runfiles-" + family
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 

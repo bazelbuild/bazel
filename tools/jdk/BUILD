@@ -1,17 +1,17 @@
 load(
     "//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
-    "java_runtime_files",
     "JDK8_JVM_OPTS",
     "bootclasspath",
+    "default_java_toolchain",
+    "java_runtime_files",
 )
 load(
     "//tools/jdk:java_toolchain_alias.bzl",
-    "java_toolchain_alias",
-    "java_runtime_alias",
     "java_host_runtime_alias",
-    "legacy_java_toolchain_alias",
+    "java_runtime_alias",
+    "java_toolchain_alias",
     "legacy_java_runtime_alias",
+    "legacy_java_toolchain_alias",
 )
 load(
     "//tools/jdk:remote_java_tools_aliases.bzl",
@@ -142,15 +142,20 @@ remote_java_tools_filegroup(
 # the native singlejar is used on windows), this file group can be reused since
 # on Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent.
-filegroup(
+remote_java_tools_filegroup(
     name = "singlejar",
-    srcs = select({
-        "//src/conditions:remote": ["//src/tools/singlejar:singlejar"],
-        "//conditions:default": glob(["singlejar/*"]),
-    }),
+    target = ":singlejar",
 )
 
-exports_files(["BUILD.java_tools"])
+exports_files([
+    # The BUILD file embedded into the java tools releases starting with
+    # javac10 3.0 and javac9 1.0.
+    "BUILD.java_tools",
+    # Remove this file after java_tools javac 10 3.0 and java_tools javac 9 1.0 are
+    # released. This file is embedded in bazel and passed as a BUILD file to the
+    # remote java tools http_archives.
+    "BUILD.java_tools.old",
+])
 
 remote_java_tools_filegroup(
     name = "genclass",
@@ -315,15 +320,31 @@ default_java_toolchain(
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
-    name = "toolchain",
+    name = "legacy_toolchain",
     source_version = "8",
     target_version = "8",
 )
 
-default_java_toolchain(
+alias(
+    name = "toolchain",
+    actual = select({
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
+        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
+        "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
+    }),
+)
+
+alias(
     name = "remote_toolchain",
-    source_version = "8",
-    target_version = "8",
+    actual = select({
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
+        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
+        "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
+    }),
 )
 
 # The 'vanilla' toolchain is an unsupported alternative to the default.
@@ -363,6 +384,7 @@ filegroup(
     srcs = [
         "BUILD.java_langtools",
         "BUILD.java_tools",
+        "BUILD.java_tools.old",
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
@@ -405,9 +427,9 @@ alias(
     actual = "//third_party/java/jacoco:blaze-agent",
 )
 
-java_import(
+remote_java_tools_java_import(
     name = "JarJar",
-    jars = [":jarjar_command_deploy.jar"],
+    target = ":JarJar",
 )
 
 test_suite(

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
@@ -122,7 +122,7 @@ public class TestCommand implements BlazeCommand {
         runtime.getStartupOptionsProvider(), targets,
         env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
     request.setRunTests();
-    if (options.getOptions(BuildConfiguration.Options.class).collectCodeCoverage
+    if (options.getOptions(CoreOptions.class).collectCodeCoverage
         && !options.containsExplicitOption(
             InstrumentationFilterSupport.INSTRUMENTATION_FILTER_FLAG)) {
       request.setNeedsInstrumentationFilter(true);

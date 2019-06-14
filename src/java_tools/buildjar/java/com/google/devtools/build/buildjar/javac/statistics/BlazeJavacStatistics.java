@@ -14,17 +14,14 @@
 package com.google.devtools.build.buildjar.javac.statistics;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.MustBeClosed;
 import com.sun.tools.javac.util.Context;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
-import java.util.function.Consumer;
 
 /**
  * A class representing statistics for an invocation of {@link
@@ -68,10 +65,9 @@ public abstract class BlazeJavacStatistics {
 
   public abstract ImmutableMap<AuxiliaryDataSource, byte[]> auxiliaryData();
 
-  @Deprecated // use auxiliaryData() instead.
-  public abstract ImmutableListMultimap<TickKey, Duration> timingTicks();
+  public abstract Optional<Duration> totalErrorProneTime();
 
-  public abstract ImmutableListMultimap<String, Duration> errorProneTicks();
+  public abstract ImmutableMap<String, Duration> bugpatternTiming();
 
   public abstract ImmutableSet<String> processors();
 
@@ -84,16 +80,6 @@ public abstract class BlazeJavacStatistics {
   public abstract boolean transitiveClasspathFallback();
 
   // TODO(glorioso): We really need to think out more about what data to collect/store here.
-
-  /**
-   * Known sources of timing information
-   *
-   * @deprecated Instead, use {@link AuxiliaryDataSource}.
-   */
-  @Deprecated
-  public enum TickKey {
-    DAGGER,
-  }
 
   /**
    * Known sources of additional data to add to the statistics. Each data source can put a single
@@ -116,10 +102,9 @@ public abstract class BlazeJavacStatistics {
   @AutoValue.Builder
   public abstract static class Builder {
 
-    @Deprecated // use auxiliaryDataBuilder() instead
-    abstract ImmutableListMultimap.Builder<TickKey, Duration> timingTicksBuilder();
+    public abstract Builder totalErrorProneTime(Duration totalErrorProneTime);
 
-    abstract ImmutableListMultimap.Builder<String, Duration> errorProneTicksBuilder();
+    abstract ImmutableMap.Builder<String, Duration> bugpatternTimingBuilder();
 
     abstract ImmutableMap.Builder<AuxiliaryDataSource, byte[]> auxiliaryDataBuilder();
 
@@ -133,18 +118,12 @@ public abstract class BlazeJavacStatistics {
 
     public abstract Builder transitiveClasspathFallback(boolean fallback);
 
-    public Builder addErrorProneTiming(String key, Duration value) {
-      errorProneTicksBuilder().put(key, value);
+    public Builder addBugpatternTiming(String key, Duration value) {
+      bugpatternTimingBuilder().put(key, value);
       return this;
     }
 
     public abstract BlazeJavacStatistics build();
-
-    @Deprecated // use addAuxiliaryData(key, byte[]) with a serialized Any proto message.
-    public Builder addTick(TickKey key, Duration elapsed) {
-      timingTicksBuilder().put(key, elapsed);
-      return this;
-    }
 
     /**
      * Add an auxiliary attachment of data to this statistics object. The data should be a proto
@@ -160,28 +139,9 @@ public abstract class BlazeJavacStatistics {
       return this;
     }
 
-    @MustBeClosed
-    public final StopwatchSpan newTimingSpan(Consumer<Duration> consumer) {
-      Stopwatch stopwatch = Stopwatch.createStarted();
-      return () -> {
-        stopwatch.stop();
-        consumer.accept(stopwatch.elapsed());
-      };
-    }
-
     public Builder addProcessor(String processor) {
       processorsBuilder().add(processor);
       return this;
     }
-  }
-
-  /**
-   * A simple AutoClosable interface where the {@link #close} method doesn't throw an exception.
-   *
-   * <p>Returned from {@link Builder#newTimingSpan(Consumer)}
-   */
-  public interface StopwatchSpan extends AutoCloseable {
-    @Override
-    void close();
   }
 }

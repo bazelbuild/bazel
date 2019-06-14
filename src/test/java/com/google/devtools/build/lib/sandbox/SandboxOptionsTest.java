@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -68,33 +68,31 @@ public final class SandboxOptionsTest {
   @Test
   public void testParsingAdditionalMounts_TooManyPaths() throws Exception {
     String input = "a/bc/def/gh:/1/2/3:x/y/z";
-    try {
-      pathPair = new SandboxOptions.MountPairConverter().convert(input);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "Input must be a single path to mount inside the sandbox or "
-                  + "a mounting pair in the form of 'source:target'");
-    }
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> pathPair = new SandboxOptions.MountPairConverter().convert(input));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Input must be a single path to mount inside the sandbox or "
+                + "a mounting pair in the form of 'source:target'");
   }
 
   @Test
   public void testParsingAdditionalMounts_EmptyInput() throws Exception {
     String input = "";
-    try {
-      pathPair = new SandboxOptions.MountPairConverter().convert(input);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(
-              "Input "
-                  + input
-                  + " contains one or more empty paths. "
-                  + "Input must be a single path to mount inside the sandbox or "
-                  + "a mounting pair in the form of 'source:target'")
-          .isEqualTo(e.getMessage());
-    }
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> pathPair = new SandboxOptions.MountPairConverter().convert(input));
+    assertThat(
+            "Input "
+                + input
+                + " contains one or more empty paths. "
+                + "Input must be a single path to mount inside the sandbox or "
+                + "a mounting pair in the form of 'source:target'")
+        .isEqualTo(e.getMessage());
   }
 
   private static void assertMountPair(

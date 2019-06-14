@@ -45,8 +45,9 @@ import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -190,23 +191,25 @@ public class LocalSpawnRunner implements SpawnRunner {
       try {
         return start();
       } catch (Error e) {
-        stepLog(SEVERE, UNHANDLED_EXCEPTION_MSG, e);
+        stepLog(SEVERE, e, UNHANDLED_EXCEPTION_MSG);
         throw e;
       } catch (IOException e) {
-        stepLog(SEVERE, "Local I/O error", e);
+        stepLog(SEVERE, e, "Local I/O error");
         throw e;
       } catch (RuntimeException e) {
-        stepLog(SEVERE, UNHANDLED_EXCEPTION_MSG, e);
+        stepLog(SEVERE, e, UNHANDLED_EXCEPTION_MSG);
         throw new RuntimeException(UNHANDLED_EXCEPTION_MSG, e);
       }
     }
 
-    private void stepLog(Level level, String fmt, Object... args) {
-      stepLog(level, fmt, /*cause=*/ null, args);
+    @FormatMethod
+    private void stepLog(Level level, @FormatString String fmt, Object... args) {
+      stepLog(level, /*cause=*/ null, fmt, args);
     }
 
-    @SuppressWarnings("unused")
-    private void stepLog(Level level, String fmt, @Nullable Throwable cause, Object... args) {
+    @FormatMethod
+    private void stepLog(
+        Level level, @Nullable Throwable cause, @FormatString String fmt, Object... args) {
       String msg = String.format(fmt, args);
       String toLog = String.format("%s (#%d %s)", msg, id, desc());
       logger.log(level, toLog, cause);
@@ -251,11 +254,21 @@ public class LocalSpawnRunner implements SpawnRunner {
       FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();
       if (localExecutionOptions.allowedLocalAction != null
-          && !localExecutionOptions.allowedLocalAction.matcher(actionType).matches()) {
+          && !localExecutionOptions
+              .allowedLocalAction
+              .regexPattern()
+              .matcher(actionType)
+              .matches()) {
         setState(State.PERMANENT_ERROR);
-        outErr.getErrorStream().write(
-            ("Action type " + actionType + " is not allowed to run locally due to regex filter: "
-                + localExecutionOptions.allowedLocalAction + "\n").getBytes(UTF_8));
+        outErr
+            .getErrorStream()
+            .write(
+                ("Action type "
+                        + actionType
+                        + " is not allowed to run locally due to regex filter: "
+                        + localExecutionOptions.allowedLocalAction.regexPattern()
+                        + "\n")
+                    .getBytes(UTF_8));
         return new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(Status.EXECUTION_DENIED)
@@ -398,16 +411,15 @@ public class LocalSpawnRunner implements SpawnRunner {
         // File deletion tends to be slow on Windows, so deleting this tree may take several
         // seconds. Delete it after having measured the wallTime.
         try {
-          FileSystemUtils.deleteTree(tmpDir);
+          tmpDir.deleteTree();
         } catch (IOException ignored) {
           // We can't handle this exception in any meaningful way, nor should we, but let's log it.
           stepLog(
               WARNING,
-              String.format(
-                  "failed to delete temp directory '%s'; this might indicate that the action "
-                      + "created subprocesses that didn't terminate and hold files open in that "
-                      + "directory",
-                  tmpDir));
+              "failed to delete temp directory '%s'; this might indicate that the action "
+                  + "created subprocesses that didn't terminate and hold files open in that "
+                  + "directory",
+              tmpDir);
         }
       }
     }

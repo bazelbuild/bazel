@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -61,15 +61,16 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
 
     // Configurable attribute: trying to directly access from a RawAttributeMapper throws a
     // type mismatch exception.
-    try {
-      rawMapper.get("srcs", BuildType.LABEL_LIST);
-      fail("Expected srcs lookup to fail since the returned type is a SelectorList and not a list");
-    } catch (IllegalArgumentException e) {
-      assertThat(e)
-          .hasCauseThat()
-          .hasMessageThat()
-          .containsMatch(".*SelectorList cannot be cast to .*java\\.util\\.List");
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            "Expected srcs lookup to fail since the returned type is a SelectorList and not a list",
+            IllegalArgumentException.class,
+            () -> rawMapper.get("srcs", BuildType.LABEL_LIST));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "wrong type for attribute \"srcs\" in sh_binary rule //x:myrule: "
+                + "expected list(label), is SelectorList");
   }
 
   @Override
@@ -94,15 +95,16 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
   @Test
   public void testVisitLabels() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
-    try {
-      rawMapper.visitLabels();
-      fail("Expected label visitation to fail since one attribute is configurable");
-    } catch (IllegalArgumentException e) {
-      assertThat(e)
-          .hasCauseThat()
-          .hasMessageThat()
-          .containsMatch(".*SelectorList cannot be cast to .*java\\.util\\.List");
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            "Expected label visitation to fail since one attribute is configurable",
+            IllegalArgumentException.class,
+            () -> rawMapper.visitLabels());
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "wrong type for attribute \"srcs\" in sh_binary rule //x:myrule: "
+                + "expected list(label), is SelectorList");
   }
 
   @Test

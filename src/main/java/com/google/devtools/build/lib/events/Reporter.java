@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
+import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -56,22 +57,21 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
   private EventHandler ansiAllowingHandler;
   private EventHandler ansiStrippingHandler;
   private boolean ansiAllowingHandlerRegistered;
+  private final HashSet<String> eventsShown = new HashSet<>();
+
+  /**
+   * The tag that indicates to the reporter to suppress this event if it's a duplicate of another
+   * event with this tag.
+   */
+  public static final String SHOW_ONCE_TAG = "showOnce";
 
   public Reporter(EventBus eventBus) {
     this.eventBus = eventBus;
   }
 
-  public static OutErr outErrForReporter(EventHandler rep) {
-    return OutErr.create(
-        // We don't use BufferedOutputStream here, because in general the Blaze
-        // code base assumes that the output streams are not buffered.
-        new ReporterStream(rep, EventKind.STDOUT),
-        new ReporterStream(rep, EventKind.STDERR));
-  }
-
   /**
-   * A copy constructor, to make it convenient to replicate a reporter
-   * config for temporary configuration changes.
+   * A copy constructor, to make it convenient to replicate a reporter config for temporary
+   * configuration changes.
    */
   public Reporter(Reporter template) {
     eventHandlers.addAll(template.eventHandlers);
@@ -86,9 +86,16 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
     }
   }
 
+  public static OutErr outErrForReporter(EventHandler rep) {
+    return OutErr.create(
+        // We don't use BufferedOutputStream here, because in general the Blaze
+        // code base assumes that the output streams are not buffered.
+        new ReporterStream(rep, EventKind.STDOUT), new ReporterStream(rep, EventKind.STDERR));
+  }
+
   /**
-   * Returns an OutErr that sends all of its output to this Reporter.
-   * Each write to the OutErr will cause an EventKind.STDOUT or EventKind.STDERR event.
+   * Returns an OutErr that sends all of its output to this Reporter. Each write to the OutErr will
+   * cause an EventKind.STDOUT or EventKind.STDERR event.
    */
   public OutErr getOutErr() {
     return outErrToReporter;
@@ -120,6 +127,13 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
         && e.getTag() != null
         && !showOutput(e.getTag())) {
       return;
+    }
+
+    if (SHOW_ONCE_TAG.equals(e.getTag())) {
+      if (eventsShown.contains(e.toString())) {
+        return;
+      }
+      eventsShown.add(e.toString());
     }
 
     for (EventHandler handler : eventHandlers) {

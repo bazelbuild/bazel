@@ -20,11 +20,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
@@ -945,6 +945,31 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
                 + "https://developer.android.com/studio/command-line/aapt2#aapt2_changes")
     public boolean incompatibleUseAapt2ByDefault;
 
+    @Option(
+        name = "experimental_remove_r_classes_from_instrumentation_test_jar",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.CHANGES_INPUTS,
+        },
+        help =
+            "If enabled and the test instruments an application, all the R classes from the test's "
+                + "deploy jar will be removed.")
+    public boolean removeRClassesFromInstrumentationTestJar;
+
+    @Option(
+        name = "experimental_always_filter_duplicate_classes_from_android_test",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.CHANGES_INPUTS,
+        },
+        help =
+            "If enabled and the android_test defines a binary_under_test, the class filterering "
+                + "applied to the test's deploy jar will always filter duplicate classes based "
+                + "solely on matching class and package name, ignoring hash values.")
+    public boolean alwaysFilterDuplicateClassesFromAndroidTest;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -1033,6 +1058,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean dataBindingUpdatedArgs;
   private final boolean persistentBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
+  private final boolean removeRClassesFromInstrumentationTestJar;
+  private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
 
   // Incompatible changes
   private final boolean incompatibleUseAapt2ByDefault;
@@ -1082,6 +1109,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.incompatibleUseAapt2ByDefault = options.incompatibleUseAapt2ByDefault;
+    this.removeRClassesFromInstrumentationTestJar =
+        options.removeRClassesFromInstrumentationTestJar;
+    this.alwaysFilterDuplicateClassesFromAndroidTest =
+        options.alwaysFilterDuplicateClassesFromAndroidTest;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1318,5 +1349,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   public boolean filterRJarsFromAndroidTest() {
     return filterRJarsFromAndroidTest;
+  }
+
+  public boolean removeRClassesFromInstrumentationTestJar() {
+    return removeRClassesFromInstrumentationTestJar;
+  }
+
+  public boolean alwaysFilterDuplicateClassesFromAndroidTest() {
+    return alwaysFilterDuplicateClassesFromAndroidTest;
   }
 }

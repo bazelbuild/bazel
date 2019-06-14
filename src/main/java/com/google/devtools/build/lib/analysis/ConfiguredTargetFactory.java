@@ -200,7 +200,7 @@ public final class ConfiguredTargetFactory {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext)
+      @Nullable ResolvedToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
     if (target instanceof Rule) {
       try {
@@ -286,7 +286,7 @@ public final class ConfiguredTargetFactory {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext)
+      @Nullable ResolvedToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
 
     // Visibility computation and checking is done for every rule.
@@ -449,12 +449,10 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> map, Target target) {
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
     for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : map.entries()) {
-      Attribute attribute =
-          entry.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY
-              ? ((Rule) target)
-                  .getRuleClassObject()
-                  .getAttributeByName(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR)
-              : entry.getKey().getAttribute();
+      if (entry.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {
+        continue;
+      }
+      Attribute attribute = entry.getKey().getAttribute();
       result.put(attribute, entry.getValue());
     }
 
@@ -473,7 +471,7 @@ public final class ConfiguredTargetFactory {
       Aspect aspect,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext,
+      @Nullable ResolvedToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration,
       ActionLookupValue.ActionLookupKey aspectKey)

@@ -18,6 +18,36 @@
 
 set -o errexit
 
+# Check if all necessary tools are available.
+# List: https://github.com/bazelbuild/bazel/issues/7641#issuecomment-472344261
+for tool in basename cat chmod comm cp dirname find grep ln ls mkdir mktemp \
+            readlink rm sed sort tail touch tr uname unzip which; do
+  if ! hash "$tool" >/dev/null; then
+    echo >&2 "ERROR: cannot find \"$tool\"; check your PATH."
+    echo >&2 "       You may need to run the following command or similar:"
+    echo >&2 "         export PATH=\"/bin:/usr/bin:\$PATH\""
+    exit 1
+  fi
+done
+
+# Ensure Python is on the PATH on Windows, otherwise we would see
+# "LAUNCHER ERROR" messages from py_binary exe launchers.
+case "$(uname -s | tr "[:upper:]" "[:lower:]")" in
+msys*|mingw*|cygwin*)
+  # Ensure Python is on the PATH, otherwise the bootstrapping fails later.
+  if ! hash python.exe >/dev/null; then
+    echo >&2 "ERROR: cannot locate python.exe; check your PATH."
+    echo >&2 "       You may need to run the following command, or something"
+    echo >&2 "       similar, depending on where you installed Python:"
+    echo >&2 "         export PATH=\"/c/Python27:\$PATH\""
+    exit 1
+  fi
+  # Ensure TMPDIR uses the user-specified TMPDIR or TMP or TEMP.
+  # This is necessary to avoid overly longs paths during bootstrapping, see for
+  # example https://github.com/bazelbuild/bazel/issues/4536
+  export TMPDIR="${TMPDIR:-${TMP:-${TEMP:-}}}"
+esac
+
 # If BAZEL_WRKDIR is set, default all variables to point into
 # that directory
 

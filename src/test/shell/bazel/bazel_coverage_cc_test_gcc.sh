@@ -115,54 +115,13 @@ function get_coverage_file_path_from_test_log() {
   echo "$coverage_file_path"
 }
 
-function test_cc_test_coverage_lcov() {
-  local -r lcov_location=$(which lcov)
-  if [[ ! -x "${lcov_location:-/usr/bin/lcov}" ]]; then
-    echo "lcov not installed. Skipping test."
-    return
-  fi
-
-  setup_a_cc_lib_and_t_cc_test
-
-  bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
-      &>"$TEST_log" || fail "Coverage for //:t failed"
-
-  local coverage_output_file="$( get_coverage_file_path_from_test_log )"
-
-  # Check the expected coverage for a.cc in the coverage file.
-  local expected_result_a_cc="SF:a.cc
-FN:3,_Z1ab
-FNDA:1,_Z1ab
-FNF:1
-FNH:1
-DA:3,1
-DA:4,1
-DA:5,1
-DA:7,0
-LH:3
-LF:4
-end_of_record"
-  assert_coverage_result "$expected_result_a_cc" "$coverage_output_file"
-  # t.cc is not included in the coverage report because test targets are not
-  # instrumented by default.
-  assert_not_contains "SF:t\.cc" "$coverage_output_file"
-
-  # Verify that this is also true for cached coverage actions.
-  bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
-      &>"$TEST_log" || fail "Coverage for //:t failed"
-  expect_log '//:t.*cached'
-  # Verify the files are reported correctly in the build event protocol.
-  assert_contains 'name: "test.lcov"' bep.txt
-  assert_contains 'name: "baseline.lcov"' bep.txt
-}
-
 function test_cc_test_coverage_gcov() {
   if is_gcov_missing_or_wrong_version; then
     echo "Skipping test." && return
   fi
   setup_a_cc_lib_and_t_cc_test
 
-  bazel coverage --experimental_cc_coverage --test_output=all \
+  bazel coverage  --test_output=all \
      --build_event_text_file=bep.txt //:t &>"$TEST_log" \
      || fail "Coverage for //:t failed"
 
@@ -187,7 +146,7 @@ end_of_record"
   assert_not_contains "SF:t\.cc" "$coverage_file_path"
 
   # Verify that this is also true for cached coverage actions.
-  bazel coverage --experimental_cc_coverage --test_output=all \
+  bazel coverage  --test_output=all \
       --build_event_text_file=bep.txt //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
   expect_log '//:t.*cached'
@@ -303,7 +262,7 @@ int main(int argc, char** argv) {
 EOF
 
   ########### Run bazel coverage ###########
-  bazel coverage --experimental_cc_coverage --test_output=all //examples/cpp:hello-world_test &>"$TEST_log" \
+  bazel coverage  --test_output=all //examples/cpp:hello-world_test &>"$TEST_log" \
      || fail "Coverage for //examples/cpp:hello-world_test failed"
 
   ########### Assert coverage results. ###########
@@ -417,7 +376,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-  bazel coverage --experimental_cc_coverage --test_output=all //:t \
+  bazel coverage  --test_output=all //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
 
   ##### Putting together the expected coverage results #####
@@ -535,7 +494,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-  bazel coverage --experimental_cc_coverage --instrument_test_targets \
+  bazel coverage  --instrument_test_targets \
       --test_output=all //:t &>"$TEST_log" || fail "Coverage for //:t failed"
 
   ##### Putting together the expected coverage results #####
@@ -683,7 +642,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-  bazel coverage --experimental_cc_coverage --test_output=all //:t \
+  bazel coverage  --test_output=all //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
 
   ##### Putting together the expected coverage results #####
@@ -848,7 +807,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-  bazel coverage --experimental_cc_coverage --test_output=all //:t \
+  bazel coverage  --test_output=all //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
 
   ##### Putting together the expected coverage results #####
@@ -983,7 +942,7 @@ cc_test(
     srcs = ["t.cc"]
 )
 EOF
-     bazel coverage --experimental_cc_coverage --test_output=all \
+     bazel coverage  --test_output=all \
         //empty_cov:empty-cov-test  &>"$TEST_log" \
      || fail "Coverage for //empty_cov:empty-cov-test failed"
      expect_log "WARNING: There was no coverage found."

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -246,7 +246,7 @@ public class BlazeOptionHandlerTest {
             ImmutableSet.of("c0", "c1"));
     assertThat(structuredRc).isEqualTo(structuredArgsFrom2SimpleRcsWithOnlyResidue());
     assertThat(eventHandler.getEvents())
-        .containsAllOf(
+        .containsAtLeast(
             Event.warn("inconsistency in generated command line args. Ignoring bogus argument\n"),
             Event.warn("inconsistency in generated command line args. Ignoring bogus argument\n"));
   }
@@ -298,29 +298,26 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testExpandConfigOptions_withConfigForUnapplicableCommand() throws Exception {
-    try {
-      parser.parse("--config=other");
-      optionHandler.expandConfigOptions(
-          eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue());
-      assertThat(parser.getResidue()).isEmpty();
-      assertThat(optionHandler.getRcfileNotes()).isEmpty();
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().contains("Config value other is not defined in any .rc file");
-    }
+    parser.parse("--config=other");
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () ->
+                optionHandler.expandConfigOptions(
+                    eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue()));
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes()).isEmpty();
+    assertThat(e).hasMessageThat().contains("Config value other is not defined in any .rc file");
   }
 
   @Test
-  public void testUndefinedConfig() {
-    try {
-      parser.parse("--config=invalid");
-      optionHandler.expandConfigOptions(eventHandler, ArrayListMultimap.create());
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Config value invalid is not defined in any .rc file");
-    }
+  public void testUndefinedConfig() throws Exception {
+    parser.parse("--config=invalid");
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> optionHandler.expandConfigOptions(eventHandler, ArrayListMultimap.create()));
+    assertThat(e).hasMessageThat().contains("Config value invalid is not defined in any .rc file");
   }
 
   @Test

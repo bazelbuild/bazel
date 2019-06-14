@@ -15,8 +15,8 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
-import static org.junit.Assert.fail;
 
 import java.util.List;
 import org.junit.Test;
@@ -46,14 +46,11 @@ public class EnumConverterTest {
     CompilationModeConverter converter = new CompilationModeConverter();
     assertThat(converter.convert("dbg")).isEqualTo(CompilationMode.DBG);
     assertThat(converter.convert("opt")).isEqualTo(CompilationMode.OPT);
-    try {
-      converter.convert("none");
-      fail();
-    } catch(OptionsParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("Not a valid compilation mode: 'none' (should be dbg or opt)");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> converter.convert("none"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Not a valid compilation mode: 'none' (should be dbg or opt)");
     assertThat(converter.getTypeDescription()).isEqualTo("dbg or opt");
   }
 
@@ -78,7 +75,7 @@ public class EnumConverterTest {
   @Test
   public void converterIsCaseInsensitive() throws Exception {
     FruitConverter converter = new FruitConverter();
-    assertThat(converter.convert("bAnANa")).isSameAs(Fruit.Banana);
+    assertThat(converter.convert("bAnANa")).isSameInstanceAs(Fruit.Banana);
   }
 
   // Regression test: lists of enum using a subclass of EnumConverter don't work

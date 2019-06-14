@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -90,7 +91,7 @@ public final class AnalysisPhaseRunner {
           // We're modifying the buildOptions in place, which is not ideal, but we also don't want
           // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
           // problem (and the performance loss may not be a big deal).
-          buildOptions.get(BuildConfiguration.Options.class).instrumentationFilter =
+          buildOptions.get(CoreOptions.class).instrumentationFilter =
               new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
         } catch (OptionsParsingException e) {
           throw new InvalidConfigurationException(e);
@@ -110,7 +111,12 @@ public final class AnalysisPhaseRunner {
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
-        module.afterAnalysis(env, request, buildOptions, analysisResult.getTargetsToBuild());
+        module.afterAnalysis(
+            env,
+            request,
+            buildOptions,
+            analysisResult.getTargetsToBuild(),
+            analysisResult.getAspects());
       }
 
       reportTargets(analysisResult);

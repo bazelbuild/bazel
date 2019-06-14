@@ -42,7 +42,7 @@ public class PathGetParentTest {
 
   @After
   public final void deleteTestRoot() throws Exception  {
-    FileSystemUtils.deleteTree(testRoot); // (comment out during debugging)
+    testRoot.deleteTree(); // (comment out during debugging)
   }
 
   private Path getParent(String path) {

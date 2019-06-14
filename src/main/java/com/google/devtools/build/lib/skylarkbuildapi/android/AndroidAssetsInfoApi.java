@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
 /** Provides information about transitive Android assets. */
@@ -44,12 +43,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
   /** The name of the provider for this info object. */
   String NAME = "AndroidAssetsInfo";
 
-  @SkylarkCallable(
-      name = "label",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "label", structField = true, doc = "", documented = false)
   Label getLabel();
 
   @SkylarkCallable(
@@ -63,17 +57,11 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
               + " in native code, this artifact is added to the top-level output group (so"
               + " validation is only done if the target is requested on the command line). The"
               + " contents of this artifact are subject to change and should not be relied upon.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   @Nullable
   FileApi getValidationResult();
 
-  @SkylarkCallable(
-      name = "direct_parsed_assets",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "direct_parsed_assets", structField = true, doc = "", documented = false)
   NestedSet<AssetsT> getDirectParsedAssets();
 
   /** Returns the local assets for the target. */
@@ -82,8 +70,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
       doc = "Returns the local assets for the target.",
       documented = false,
       allowReturnNones = true,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      structField = true)
   ImmutableList<FileT> getLocalAssets();
 
   /** Returns the local asset dir for the target. */
@@ -92,40 +79,23 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
       doc = "Returns the local asset directory for the target.",
       documented = false,
       allowReturnNones = true,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      structField = true)
   String getLocalAssetDir();
 
   @SkylarkCallable(
       name = "transitive_parsed_assets",
       structField = true,
       doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   NestedSet<AssetsT> getTransitiveParsedAssets();
 
-  @SkylarkCallable(
-      name = "assets",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "assets", structField = true, doc = "", documented = false)
   NestedSet<FileT> getAssets();
 
-  @SkylarkCallable(
-      name = "symbols",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "symbols", structField = true, doc = "", documented = false)
   NestedSet<FileT> getSymbols();
 
-  @SkylarkCallable(
-      name = "compiled_symbols",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "compiled_symbols", structField = true, doc = "", documented = false)
   NestedSet<FileT> getCompiledSymbols();
 
   /** The provider implementing this can construct the AndroidAssetsInfo provider. */
@@ -142,7 +112,6 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
         name = NAME,
         doc = "The <code>AndroidAssetsInfo</code> constructor.",
         documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "label",

@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -95,7 +94,7 @@ public class TestRunnerAction extends AbstractAction
   private final Artifact cacheStatus;
   private final PathFragment testWarningsPath;
   private final PathFragment unusedRunfilesLogPath;
-  private final PathFragment shExecutable;
+  @Nullable private final PathFragment shExecutable;
   private final PathFragment splitLogsPath;
   private final PathFragment splitLogsDir;
   private final PathFragment undeclaredOutputsDir;
@@ -166,7 +165,7 @@ public class TestRunnerAction extends AbstractAction
       int runNumber,
       BuildConfiguration configuration,
       String workspaceName,
-      PathFragment shExecutable) {
+      @Nullable PathFragment shExecutable) {
     super(
         owner,
         /*tools=*/ ImmutableList.of(),
@@ -345,6 +344,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addInt(runNumber);
     fp.addInt(testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()));
     fp.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
+    fp.addStringMap(getExecutionInfo());
   }
 
   @Override
@@ -449,8 +449,8 @@ public class TestRunnerAction extends AbstractAction
    * the test log base name with arbitrary prefix and extension.
    */
   @Override
-  protected void deleteOutputs(FileSystem fileSystem, Path execRoot) throws IOException {
-    super.deleteOutputs(fileSystem, execRoot);
+  protected void deleteOutputs(Path execRoot) throws IOException {
+    super.deleteOutputs(execRoot);
 
     // We do not rely on globs, as it causes quadratic behavior in --runs_per_test and test
     // shard count.
@@ -461,9 +461,9 @@ public class TestRunnerAction extends AbstractAction
     execRoot.getRelative(unusedRunfilesLogPath).delete();
     // Note that splitLogsPath points to a file inside the splitLogsDir so
     // it's not necessary to delete it explicitly.
-    FileSystemUtils.deleteTree(execRoot.getRelative(splitLogsDir));
-    FileSystemUtils.deleteTree(execRoot.getRelative(undeclaredOutputsDir));
-    FileSystemUtils.deleteTree(execRoot.getRelative(undeclaredOutputsAnnotationsDir));
+    execRoot.getRelative(splitLogsDir).deleteTree();
+    execRoot.getRelative(undeclaredOutputsDir).deleteTree();
+    execRoot.getRelative(undeclaredOutputsAnnotationsDir).deleteTree();
     execRoot.getRelative(testStderr).delete();
     execRoot.getRelative(testExitSafe).delete();
     if (testShard != null) {
@@ -490,7 +490,7 @@ public class TestRunnerAction extends AbstractAction
       // entries, which prevent removing the directory.  As a workaround, code below will throw
       // IOException if it will fail to remove something inside testAttemptsDir, but will
       // silently suppress any exceptions when deleting testAttemptsDir itself.
-      FileSystemUtils.deleteTreesBelow(testAttemptsDir);
+      testAttemptsDir.deleteTreesBelow();
       try {
         testAttemptsDir.delete();
       } catch (IOException e) {
@@ -558,19 +558,9 @@ public class TestRunnerAction extends AbstractAction
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
       env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
-      // TODO(elenairina): Remove this after it reaches a blaze release.
-      if (configuration.isExperimentalJavaCoverage()) {
-        // This value ("released") tells lcov_merger whether it should use the old or the new
-        // java  coverage implementation. The meaning of "released" is that lcov_merger will receive
-        // this value only after blaze containing this change will be released.
-        env.put("NEW_JAVA_COVERAGE_IMPL", "released");
-      } else {
-        // This value ("True") should have told lcov_merger whether it should use the old or the new
-        // java  coverage implementation. Due to several failed attempts at submitting the new
-        // implementation, this value will be treated still as the old implementation. This
-        // environment variable must be set to a value recognized by lcov_merger.
-        env.put("NEW_JAVA_COVERAGE_IMPL", "True");
-      }
+      // TODO(elenairina): Remove this and its usage in lcov_merger. Note it requires syncing
+      // between the blaze release and the lcov_merger release.
+      env.put("NEW_JAVA_COVERAGE_IMPL", "released");
     }
   }
 
@@ -754,6 +744,13 @@ public class TestRunnerAction extends AbstractAction
       throws InterruptedException, ActionExecutionException {
     TestActionContext testActionContext =
         actionExecutionContext.getContext(TestActionContext.class);
+    return beginExecution(actionExecutionContext, testActionContext);
+  }
+
+  @VisibleForTesting
+  public ActionContinuationOrResult beginExecution(
+      ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
+      throws InterruptedException, ActionExecutionException {
     try {
       TestRunnerSpawn testRunnerSpawn =
           testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
@@ -792,76 +789,14 @@ public class TestRunnerAction extends AbstractAction
       ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      TestRunnerSpawn testRunnerSpawn =
-          testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
-      return ActionResult.create(
-          runAttempts(
-              testRunnerSpawn, actionExecutionContext, testActionContext.isTestKeepGoing()));
-    } catch (ExecException e) {
-      throw e.toActionExecutionException(this);
+      ActionContinuationOrResult continuation =
+          beginExecution(actionExecutionContext, testActionContext);
+      while (!continuation.isDone()) {
+        continuation = continuation.execute();
+      }
+      return continuation.get();
     } finally {
       unconditionalExecution = null;
-    }
-  }
-
-  private List<SpawnResult> runAttempts(
-      TestRunnerSpawn testRunnerSpawn,
-      ActionExecutionContext actionExecutionContext,
-      boolean keepGoing)
-      throws ExecException, InterruptedException {
-    List<SpawnResult> spawnResults = new ArrayList<>();
-    runAttempts(
-        testRunnerSpawn, actionExecutionContext, keepGoing, spawnResults, new ArrayList<>());
-    return spawnResults;
-  }
-
-  private void runAttempts(
-      TestRunnerSpawn testRunnerSpawn,
-      ActionExecutionContext actionExecutionContext,
-      boolean keepGoing,
-      List<SpawnResult> spawnResults,
-      List<FailedAttemptResult> failedAttempts)
-      throws ExecException, InterruptedException {
-    try {
-      TestAttemptResult testProcessResult = testRunnerSpawn.execute();
-      spawnResults.addAll(testProcessResult.spawnResults());
-      int maxAttempts = testRunnerSpawn.getMaxAttempts(testProcessResult);
-      // Failed test retry loop.
-      for (int attempt = 1; attempt < maxAttempts && !testProcessResult.hasPassed(); attempt++) {
-        failedAttempts.add(
-            testRunnerSpawn.finalizeFailedTestAttempt(
-                testProcessResult, failedAttempts.size() + 1));
-
-        testProcessResult = testRunnerSpawn.execute();
-        spawnResults.addAll(testProcessResult.spawnResults());
-      }
-
-      TestRunnerSpawn fallbackRunner;
-      if (!testProcessResult.hasPassed()
-          && (fallbackRunner = testRunnerSpawn.getFallbackRunner()) != null) {
-        // All attempts failed and fallback is enabled.
-        failedAttempts.add(
-            testRunnerSpawn.finalizeFailedTestAttempt(
-                testProcessResult, failedAttempts.size() + 1));
-        runAttempts(
-            fallbackRunner, actionExecutionContext, keepGoing, spawnResults, failedAttempts);
-      } else {
-        testRunnerSpawn.finalizeTest(testProcessResult, failedAttempts);
-
-        if (!keepGoing && !testProcessResult.hasPassed()) {
-          throw new TestExecException("Test failed: aborting");
-        }
-      }
-    } catch (IOException e) {
-      // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-      // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-      StringBuilder sb = new StringBuilder();
-      sb.append("Caught I/O exception: ").append(e.getMessage());
-      for (Object s : e.getStackTrace()) {
-        sb.append("\n\t").append(s);
-      }
-      actionExecutionContext.getEventHandler().handle(Event.error(sb.toString()));
-      throw new EnvironmentalExecException("unexpected I/O exception", e);
     }
   }
 
@@ -892,7 +827,8 @@ public class TestRunnerAction extends AbstractAction
     return collectCoverageScript;
   }
 
-  public PathFragment getShExecutable() {
+  @Nullable
+  public PathFragment getShExecutableMaybe() {
     return shExecutable;
   }
 
@@ -988,6 +924,10 @@ public class TestRunnerAction extends AbstractAction
       return getPath(xmlOutputPath);
     }
 
+    public Path getCoverageDirectory() {
+      return getPath(TestRunnerAction.this.getCoverageDirectory());
+    }
+
     public Path getCoverageDataPath() {
       return getPath(getCoverageData().getExecPath());
     }
@@ -1056,14 +996,7 @@ public class TestRunnerAction extends AbstractAction
       } catch (ExecException e) {
         throw e.toActionExecutionException(TestRunnerAction.this);
       } catch (IOException e) {
-        // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-        // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-        testRunnerSpawn
-            .getActionExecutionContext()
-            .getEventHandler()
-            .handle(Event.error(Throwables.getStackTraceAsString(e)));
-        throw new EnvironmentalExecException("unexpected I/O exception", e)
-            .toActionExecutionException(TestRunnerAction.this);
+        throw new EnvironmentalExecException(e).toActionExecutionException(TestRunnerAction.this);
       }
     }
 
@@ -1119,8 +1052,7 @@ public class TestRunnerAction extends AbstractAction
             .getActionExecutionContext()
             .getEventHandler()
             .handle(Event.error(Throwables.getStackTraceAsString(e)));
-        throw new EnvironmentalExecException("unexpected I/O exception", e)
-            .toActionExecutionException(TestRunnerAction.this);
+        throw new EnvironmentalExecException(e).toActionExecutionException(TestRunnerAction.this);
       }
     }
   }

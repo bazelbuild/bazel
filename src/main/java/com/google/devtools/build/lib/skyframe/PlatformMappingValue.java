@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -36,6 +39,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
 /**
@@ -132,6 +136,7 @@ public final class PlatformMappingValue implements SkyValue {
 
   private final Map<Label, Collection<String>> platformsToFlags;
   private final Map<Collection<String>, Label> flagsToPlatforms;
+  private final transient Cache<Collection<String>, OptionsParsingResult> parserCache;
 
   /**
    * Creates a new mapping value which will match on the given platforms (if a target platform is
@@ -145,8 +150,12 @@ public final class PlatformMappingValue implements SkyValue {
   PlatformMappingValue(
       Map<Label, Collection<String>> platformsToFlags,
       Map<Collection<String>, Label> flagsToPlatforms) {
-    this.platformsToFlags = platformsToFlags;
-    this.flagsToPlatforms = flagsToPlatforms;
+    this.platformsToFlags = Preconditions.checkNotNull(platformsToFlags);
+    this.flagsToPlatforms = Preconditions.checkNotNull(flagsToPlatforms);
+    this.parserCache =
+        CacheBuilder.newBuilder()
+            .initialCapacity(platformsToFlags.size() + flagsToPlatforms.size())
+            .build();
   }
 
   /**
@@ -197,13 +206,14 @@ public final class PlatformMappingValue implements SkyValue {
         return original;
       }
 
-      OptionsParsingResult parsingResult =
-          parse(platformsToFlags.get(targetPlatform), defaultBuildOptions);
-      modifiedOptions = originalOptions.applyParsingResult(parsingResult);
+      modifiedOptions =
+          originalOptions.applyParsingResult(
+              parseWithCache(platformsToFlags.get(targetPlatform), defaultBuildOptions));
     } else {
       boolean mappingFound = false;
       for (Map.Entry<Collection<String>, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
-        if (originalOptions.matches(parse(flagsToPlatform.getKey(), defaultBuildOptions))) {
+        if (originalOptions.matches(
+            parseWithCache(flagsToPlatform.getKey(), defaultBuildOptions))) {
           modifiedOptions = originalOptions.clone();
           modifiedOptions.get(PlatformOptions.class).platforms =
               ImmutableList.of(flagsToPlatform.getValue());
@@ -219,9 +229,18 @@ public final class PlatformMappingValue implements SkyValue {
       }
     }
 
-    return BuildConfigurationValue.key(
+    return BuildConfigurationValue.keyWithoutPlatformMapping(
         original.getFragments(),
         BuildOptions.diffForReconstruction(defaultBuildOptions, modifiedOptions));
+  }
+
+  private OptionsParsingResult parseWithCache(
+      Collection<String> args, BuildOptions defaultBuildOptions) throws OptionsParsingException {
+    try {
+      return parserCache.get(args, () -> parse(args, defaultBuildOptions));
+    } catch (ExecutionException e) {
+      throw (OptionsParsingException) e.getCause();
+    }
   }
 
   private OptionsParsingResult parse(Iterable<String> args, BuildOptions defaultBuildOptions)
@@ -230,5 +249,31 @@ public final class PlatformMappingValue implements SkyValue {
     parser.parse(ImmutableList.copyOf(args));
     // TODO(schmitt): Parse starlark options as well.
     return parser;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof PlatformMappingValue)) {
+      return false;
+    }
+    PlatformMappingValue that = (PlatformMappingValue) obj;
+    return this.flagsToPlatforms.equals(that.flagsToPlatforms)
+        && this.platformsToFlags.equals(that.platformsToFlags);
+  }
+
+  @Override
+  public int hashCode() {
+    return 37 * flagsToPlatforms.hashCode() + platformsToFlags.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("flagsToPlatforms", flagsToPlatforms)
+        .add("platformsToFlags", platformsToFlags)
+        .toString();
   }
 }

@@ -154,7 +154,7 @@ public final class FetchCommand implements BlazeCommand {
     }
 
     if (queryEvalResult.getSuccess()) {
-      env.getReporter().handle(Event.progress("All external dependencies fetched successfully."));
+      env.getReporter().handle(Event.info("All external dependencies fetched successfully."));
     }
     ExitCode exitCode =
         queryEvalResult.getSuccess() ? ExitCode.SUCCESS : ExitCode.COMMAND_LINE_ERROR;

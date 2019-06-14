@@ -12,6 +12,32 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+genrule(
+    name = "jacoco_jars_zip",
+    srcs = glob(['*.jar']) + ["LICENSE"] + [
+        "//third_party:asm",
+        "//third_party:asm-commons",
+        "//third_party:asm-tree",
+    ],
+    outs = ["jacoco_jars.zip"],
+    cmd = "$(location //src:zip_files) third_party/java/jacoco $@ $(SRCS)",
+    output_to_bindir = 1,
+    tools = ["//src:zip_files"],
+)
+
+genrule(
+    name = "jacoco_source_jars_zip",
+    srcs = glob(['*-src.jar']) + ["LICENSE"] + [
+        "//third_party:asm/asm-7.0-sources.jar",
+        "//third_party:asm/asm-analysis-7.0-sources.jar",
+        "//third_party:asm/asm-commons-7.0-sources.jar"
+    ],
+    outs = ["jacoco_src_jars.zip"],
+    cmd = "$(location //src:zip_files) third_party/java/jacoco $@ $(SRCS)",
+    output_to_bindir = 1,
+    tools = ["//src:zip_files"],
+)
+
 java_import(
     name = "agent",
     jars = ["org.jacoco.agent-0.7.5.201505241946.jar"],

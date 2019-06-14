@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -175,7 +175,7 @@ public class AppleSkylarkCommon
   }
 
   @Override
-  public SplitTransitionProvider getMultiArchSplitProvider() {
+  public SplitTransitionProviderApi getMultiArchSplitProvider() {
     return new MultiArchSplitTransitionProvider();
   }
 
@@ -185,8 +185,6 @@ public class AppleSkylarkCommon
       Boolean usesSwift,
       SkylarkDict<?, ?> kwargs,
       Environment environment) {
-    boolean disableObjcResourceKeys =
-        environment.getSemantics().incompatibleDisableObjcProviderResources();
     ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder(environment.getSemantics());
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
@@ -194,9 +192,6 @@ public class AppleSkylarkCommon
     for (Map.Entry<?, ?> entry : kwargs.entrySet()) {
       Key<?> key = ObjcProvider.getSkylarkKeyForString((String) entry.getKey());
       if (key != null) {
-        if (disableObjcResourceKeys && ObjcProvider.isDeprecatedResourceKey(key)) {
-          throw new IllegalArgumentException(String.format(BAD_KEY_ERROR, entry.getKey()));
-        }
         resultBuilder.addElementsFromSkylark(key, entry.getValue());
       } else if (entry.getKey().equals("providers")) {
         resultBuilder.addProvidersFromSkylark(entry.getValue());

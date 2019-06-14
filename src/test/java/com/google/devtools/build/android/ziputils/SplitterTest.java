@@ -14,19 +14,18 @@
 package com.google.devtools.build.android.ziputils;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.Range;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for {@link Splitter}.
@@ -63,9 +62,9 @@ public class SplitterTest {
       for (int j = 0; j < size; j++) {
         String path = "dir" + i + ARCHIVE_FILE_SEPARATOR + "file" + j + CLASS_SUFFIX;
         if (i == j) {
-          assertThat(output.get(path)).named(path).isEqualTo(0);
+          assertWithMessage(path).that(output.get(path)).isEqualTo(0);
         } else {
-          assertThat(output.get(path)).named(path).isEqualTo(i + 1);
+          assertWithMessage(path).that(output.get(path)).isEqualTo(i + 1);
         }
       }
     }
@@ -263,7 +262,7 @@ public class SplitterTest {
    */
   private void assertNoSplit(String name, int packageSize, int[] counts) {
     for (int i = 1; i < counts.length; i++) {
-      assertThat(counts[i]).named(name + " shard " + i).isAtLeast(0);
+      assertWithMessage(name + " shard " + i).that(counts[i]).isAtLeast(0);
     }
   }
 
@@ -275,7 +274,7 @@ public class SplitterTest {
       if (counts[i + 1] <= 1) {
         continue;
       }
-      assertThat(counts[i]).named(name + " shard " + i).isAtMost(packageSize);
+      assertWithMessage(name + " shard " + i).that(counts[i]).isAtMost(packageSize);
     }
   }
 
@@ -291,7 +290,7 @@ public class SplitterTest {
         assertThat(!hasEmpty || counts[i] == 0).isTrue();
       }
     }
-    assertThat(hasEmpty).named(name).isEqualTo(expectEmpty);
+    assertWithMessage(name).that(hasEmpty).isEqualTo(expectEmpty);
   }
 
   /**
@@ -311,22 +310,25 @@ public class SplitterTest {
       if (i < shards && counts[i + 1] > 1) {
         if (shards <= packageCount) {
           // if there are fewer shards than packages, expect shards contain at least 1 full package
-          assertThat(counts[i]).named(name + " dense shard " + i)
+          assertWithMessage(name + " dense shard " + i)
+              .that(counts[i])
               .isIn(Range.closed(packageSize, entries));
         } else {
-          assertThat(counts[i]).named(name + " sparse shard " + i)
+          assertWithMessage(name + " sparse shard " + i)
+              .that(counts[i])
               .isIn(Range.closed(0, packageSize));
         }
         if (noneClass == 0 && counts[0] == 0) {
           // Give some slack in minimal number of entries in a shard because Splitter recomputes
           // boundaries for each shard, so our computed bounds can be off for later shards.
-          assertThat(counts[i]).named(name + " shard " + i)
+          assertWithMessage(name + " shard " + i)
+              .that(counts[i])
               .isIn(Range.closed(lowerBound - i, entries));
         }
       }
       // Give some slack in maximum number of entries in a shard because Splitter recomputes
       // boundaries for each shard, so our computed bounds can be off for later shards.
-      assertThat(adjusted).named(name + " shard " + i).isAtMost(upperBound + i);
+      assertWithMessage(name + " shard " + i).that(adjusted).isAtMost(upperBound + i);
     }
   }
 

@@ -61,7 +61,11 @@ cc_library(
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:logging",
     ] + select({
-        "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
+        "//src/conditions:windows": [
+            "//src/main/native/windows:lib-file",
+            "//src/main/native/windows:lib-process",
+            "//src/main/native/windows:lib-util",
+        ],
         "//conditions:default": [],
     }),
 )
@@ -75,7 +79,7 @@ cc_binary(
         "global_variables.h",
         "main.cc",
     ] + select({
-        "//src/conditions:windows": ["//src/main/native/windows:resources"],
+        "//src/conditions:windows": ["resources.o"],
         "//conditions:default": [],
     }),
     copts = select({

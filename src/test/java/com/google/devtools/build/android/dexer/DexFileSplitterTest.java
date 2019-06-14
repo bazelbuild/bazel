@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.dexer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
@@ -122,20 +123,20 @@ public class DexFileSplitterTest {
     for (Path outputArchive : outputArchives) {
       ImmutableList<ZipEntry> expectedEntries;
       try (ZipFile zip = new ZipFile(outputArchive.toFile())) {
-        expectedEntries = zip.stream().collect(ImmutableList.toImmutableList());
+        expectedEntries = zip.stream().collect(ImmutableList.<ZipEntry>toImmutableList());
       }
       ImmutableList<ZipEntry> actualEntries;
       try (ZipFile zip2 = new ZipFile(outputRoot2.resolve(outputArchive.getFileName()).toFile())) {
-        actualEntries = zip2.stream().collect(ImmutableList.toImmutableList());
+        actualEntries = zip2.stream().collect(ImmutableList.<ZipEntry>toImmutableList());
       }
       int len = expectedEntries.size();
       assertThat(actualEntries).hasSize(len);
       for (int i = 0; i < len; ++i) {
         ZipEntry expected = expectedEntries.get(i);
         ZipEntry actual = actualEntries.get(i);
-        assertThat(actual.getName()).named(actual.getName()).isEqualTo(expected.getName());
-        assertThat(actual.getSize()).named(actual.getName()).isEqualTo(expected.getSize());
-        assertThat(actual.getCrc()).named(actual.getName()).isEqualTo(expected.getCrc());
+        assertWithMessage(actual.getName()).that(actual.getName()).isEqualTo(expected.getName());
+        assertWithMessage(actual.getName()).that(actual.getSize()).isEqualTo(expected.getSize());
+        assertWithMessage(actual.getName()).that(actual.getCrc()).isEqualTo(expected.getCrc());
       }
     }
   }
@@ -155,7 +156,7 @@ public class DexFileSplitterTest {
     ImmutableSet<String> expectedEntries = dexEntries(dexArchive);
     assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
     assertThat(dexEntries(outputArchives.get(0)))
-        .containsAllIn(expectedMainDexEntries());
+        .containsAtLeastElementsIn(expectedMainDexEntries());
     assertExpectedEntries(outputArchives, expectedEntries);
   }
 
@@ -259,11 +260,10 @@ public class DexFileSplitterTest {
   private ImmutableSet<String> dexEntries(Path dexArchive) throws IOException {
     try (ZipFile input = new ZipFile(dexArchive.toFile())) {
       ImmutableSet<String> result =
-          input
-              .stream()
+          input.stream()
               .map(ZipEntryName.INSTANCE)
               .filter(Predicates.containsPattern(".*\\.class.dex$"))
-              .collect(ImmutableSet.toImmutableSet());
+              .collect(ImmutableSet.<String>toImmutableSet());
       assertThat(result).isNotEmpty(); // test sanity
       return result;
     }

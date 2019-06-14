@@ -54,7 +54,7 @@ public final class AqueryCommandUtils {
       throw new QueryException(
           "Error while parsing '"
               + query
-              + "': Specifying a build target(s) "
+              + "': Specifying build target(s) "
               + topLevelTargets
               + " with --skyframe_state is currently not supported.");
     }

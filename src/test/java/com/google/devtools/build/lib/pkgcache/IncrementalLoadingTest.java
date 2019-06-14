@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
@@ -44,10 +45,10 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -59,8 +60,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
@@ -125,7 +124,7 @@ public class IncrementalLoadingTest {
 
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isSameAs(oldTarget);
+    assertThat(newTarget).isSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -137,7 +136,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/BUILD", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -150,7 +149,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/foo.txt", "other");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isSameAs(oldTarget);
+    assertThat(newTarget).isSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -163,7 +162,7 @@ public class IncrementalLoadingTest {
     tester.removeFile("base/foo.txt");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isSameAs(oldTarget);
+    assertThat(newTarget).isSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -175,7 +174,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/mybuild", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -188,7 +187,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("other/BUILD", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -215,7 +214,7 @@ public class IncrementalLoadingTest {
     tester.sync();
 
     Target a3 = tester.getTarget("//a:a");
-    assertThat(a3).isNotSameAs(a1);
+    assertThat(a3).isNotSameInstanceAs(a1);
   }
 
   @Test
@@ -231,7 +230,7 @@ public class IncrementalLoadingTest {
     Target a2 = tester.getTarget("//a:a");
     tester.sync();
 
-    assertThat(a2).isNotSameAs(a1);
+    assertThat(a2).isNotSameInstanceAs(a1);
   }
 
   @Test
@@ -245,7 +244,7 @@ public class IncrementalLoadingTest {
     tester.sync();
 
     Target fg2 = tester.getTarget("//a:fg");
-    assertThat(fg2).isSameAs(fg1);
+    assertThat(fg2).isSameInstanceAs(fg1);
   }
 
   @Test
@@ -258,7 +257,7 @@ public class IncrementalLoadingTest {
     tester.addFile("base/bar.txt", "also nothing");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -272,7 +271,7 @@ public class IncrementalLoadingTest {
     tester.removeFile("base/bar.txt");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -288,7 +287,7 @@ public class IncrementalLoadingTest {
 
     tester.sync();
     Target a2 = tester.getTarget("//a:a");
-    assertThat(a2).isNotSameAs(a1);
+    assertThat(a2).isNotSameInstanceAs(a1);
   }
 
   @Test
@@ -304,19 +303,14 @@ public class IncrementalLoadingTest {
     tester.addFile("c");
     tester.sync();
     Target a3 = tester.getTarget("//a:a");
-    assertThat(a3).isNotSameAs(a1);
+    assertThat(a3).isNotSameInstanceAs(a1);
   }
 
   @Test
   public void testBuildFileWithSyntaxError() throws Exception {
     tester.addFile("a/BUILD", "sh_library(xyz='a')");
     tester.sync();
-    try {
-      tester.getTarget("//a:a");
-      fail();
-    } catch (NoSuchThingException e) {
-      // Expected
-    }
+    assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
 
     tester.modifyFile("a/BUILD", "sh_library(name='a')");
     tester.sync();
@@ -328,12 +322,7 @@ public class IncrementalLoadingTest {
     tester.addFile("a/BUILD.real", "sh_library(xyz='a')");
     tester.addSymlink("a/BUILD", "BUILD.real");
     tester.sync();
-    try {
-      tester.getTarget("//a:a");
-      fail();
-    } catch (NoSuchThingException e) {
-      // Expected
-    }
+    assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
     tester.modifyFile("a/BUILD.real", "sh_library(name='a')");
     tester.sync();
     tester.getTarget("//a:a");
@@ -346,11 +335,7 @@ public class IncrementalLoadingTest {
     tester.addFile("e/data.txt");
     throwOnReaddir = parentDir;
     tester.sync();
-    try {
-      tester.getTarget("//e:e");
-      fail("Expected exception");
-    } catch (NoSuchPackageException expected) {
-    }
+    assertThrows(NoSuchPackageException.class, () -> tester.getTarget("//e:e"));
     throwOnReaddir = null;
     tester.sync();
     Target target = tester.getTarget("//e:e");
@@ -369,19 +354,14 @@ public class IncrementalLoadingTest {
     // Write file in directory to force reload of top-level glob.
     tester.addFile("pkg/irrelevant_file");
     tester.addFile("pkg/bar/irrelevant_file"); // Subglob is also reloaded.
-    assertThat(tester.getTarget("//pkg:pkg").getPackage()).isSameAs(pkg);
+    assertThat(tester.getTarget("//pkg:pkg").getPackage()).isSameInstanceAs(pkg);
   }
 
   @Test
   public void testMissingPackages() throws Exception {
     tester.sync();
 
-    try {
-      tester.getTarget("//a:a");
-      fail();
-    } catch (NoSuchThingException e) {
-      // expected
-    }
+    assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
 
     tester.addFile("a/BUILD", "sh_library(name='a')");
     tester.sync();
@@ -403,12 +383,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("/b.bzl", "ERROR ERROR");
     tester.sync();
 
-    try {
-      tester.getTarget("//a:BUILD");
-      fail();
-    } catch (NoSuchThingException e) {
-      // expected
-    }
+    assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:BUILD"));
   }
 
 
@@ -478,25 +453,19 @@ public class IncrementalLoadingTest {
               /* defaultSystemJavabase= */ null,
               loadingMock.getProductName());
       ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
+      PackageFactory pkgFactory =
+          loadingMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
       skyframeExecutor =
-          SequencedSkyframeExecutor.create(
-              loadingMock
-                  .getPackageFactoryBuilderForTesting(directories)
-                  .build(ruleClassProvider, fs),
-              fs,
-              directories,
-              actionKeyContext,
-              /* workspaceStatusActionFactory= */ null,
-              loadingMock.createRuleClassProvider().getBuildInfoFactories(),
-              ImmutableList.of(new ManualDiffAwarenessFactory()),
-              ImmutableMap.<SkyFunctionName, SkyFunction>of(),
-              ImmutableList.<SkyValueDirtinessChecker>of(),
-              BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
-              BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
-              BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
-              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-              BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
-              DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider));
+          BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+              .setPkgFactory(pkgFactory)
+              .setFileSystem(fs)
+              .setDirectories(directories)
+              .setActionKeyContext(actionKeyContext)
+              .setBuildInfoFactories(loadingMock.createRuleClassProvider().getBuildInfoFactories())
+              .setDefaultBuildOptions(
+                  DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
+              .setDiffAwarenessFactories(ImmutableList.of(new ManualDiffAwarenessFactory()))
+              .build();
       TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
       PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
       packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
@@ -589,7 +558,7 @@ public class IncrementalLoadingTest {
       return builder.build();
     }
 
-    void sync() throws InterruptedException {
+    void sync() throws InterruptedException, AbruptExitException {
       clock.advanceMillis(1);
 
       modifiedFileSet = getModifiedFileSet();

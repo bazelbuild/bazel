@@ -75,8 +75,7 @@ public interface AndroidDataProcessingApi<
           "Creates an AndroidAssetsInfoApi from this target's asset dependencies, ignoring local"
               + " assets. No processing will be done. This method is deprecated and exposed only"
               + " for backwards-compatibility with existing behavior.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidAssetsInfoT assetsFromDeps(
       SkylarkList<AndroidAssetsInfoT> deps, boolean neverlink, Environment env);
 
@@ -127,8 +126,7 @@ public interface AndroidDataProcessingApi<
               + " and exposed only for backwards-compatibility with existing behavior. An empty"
               + " manifest will be generated and included in the provider - this path should  not"
               + " be used when an explicit manifest is specified.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidResourcesInfoT resourcesFromDeps(
       AndroidDataContextT ctx,
       SkylarkList<AndroidResourcesInfoT> deps,
@@ -181,8 +179,7 @@ public interface AndroidDataProcessingApi<
       useLocation = true,
       useEnvironment = true,
       doc = "Stamps a manifest with package information.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidManifestInfoT stampAndroidManifest(
       AndroidDataContextT ctx,
       Object manifest,
@@ -249,14 +246,91 @@ public interface AndroidDataProcessingApi<
               + " by default, actions for validating the merge are created but may not be called."
               + " You may want to force these actions to be called - see the 'validation_result'"
               + " field in AndroidAssetsInfoApi",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidAssetsInfoT mergeAssets(
       AndroidDataContextT ctx,
       Object assets,
       Object assetsDir,
       SkylarkList<AndroidAssetsInfoT> deps,
       boolean neverlink,
+      Location location,
+      Environment env)
+      throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "merge_res",
+      parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
+        @Param(
+            name = "manifest",
+            positional = true,
+            named = false,
+            type = AndroidManifestInfoApi.class,
+            doc =
+                "The provider of this target's manifest. This provider is produced by, "
+                    + "for example, stamp_android_manifest."),
+        @Param(
+            name = "resources",
+            positional = false,
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = FileProviderApi.class,
+            named = true,
+            doc = "Providers of this target's resources."),
+        @Param(
+            name = "deps",
+            positional = false,
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = AndroidResourcesInfoApi.class,
+            named = true,
+            doc =
+                "Targets containing raw resources from dependencies. These resources will be merged"
+                    + " together with each other and this target's resources."),
+        @Param(
+            name = "neverlink",
+            positional = false,
+            defaultValue = "False",
+            type = Boolean.class,
+            named = true,
+            doc =
+                "Defaults to False. If passed as True, these resources will not be inherited by"
+                    + " targets that depend on this one."),
+        @Param(
+            name = "enable_data_binding",
+            positional = false,
+            defaultValue = "False",
+            type = Boolean.class,
+            named = true,
+            doc =
+                "Defaults to False. If True, processes data binding expressions in layout"
+                    + " resources."),
+      },
+      useLocation = true,
+      useEnvironment = true,
+      doc =
+          "Merges this target's resources together with resources inherited from dependencies."
+              + " Returns a dict of provider type to actual info, with elements for"
+              + " AndroidResourcesInfoApi (various resource information) and JavaInfoApi (wrapping"
+              + " the R.class jar, for use in Java compilation). The passed manifest provider is"
+              + " used to get Android package information and to validate that all resources it"
+              + " refers to are available. Note that this method might do additional processing to"
+              + " this manifest, so in the future, you may want to use the manifest contained in"
+              + " this method's output instead of this one.",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  ValidatedAndroidDataT mergeRes(
+      AndroidDataContextT ctx,
+      AndroidManifestInfoT manifest,
+      SkylarkList<TransitiveInfoCollectionT> resources,
+      SkylarkList<AndroidResourcesInfoT> deps,
+      boolean neverlink,
+      boolean enableDataBinding,
       Location location,
       Environment env)
       throws EvalException, InterruptedException;
@@ -326,8 +400,7 @@ public interface AndroidDataProcessingApi<
               + " refers to are available. Note that this method might do additional processing to"
               + " this manifest, so in the future, you may want to use the manifest contained in"
               + " this method's output instead of this one.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> mergeResources(
       AndroidDataContextT ctx,
       AndroidManifestInfoT manifest,
@@ -402,8 +475,7 @@ public interface AndroidDataProcessingApi<
           "Builds an AAR and corresponding provider for this target. The resource and asset"
               + " providers from this same target must both be passed, as must the class JAR output"
               + " of building the Android Java library.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidLibraryAarInfoT makeAar(
       AndroidDataContextT ctx,
       AndroidResourcesInfoT resourcesInfo,
@@ -413,147 +485,6 @@ public interface AndroidDataProcessingApi<
       SkylarkList<AndroidLibraryAarInfoT> deps,
       boolean neverlink)
       throws EvalException, InterruptedException;
-
-  @SkylarkCallable(
-      name = "process_library_data",
-      parameters = {
-        @Param(
-            name = "ctx",
-            positional = true,
-            named = false,
-            type = AndroidDataContextApi.class,
-            doc = "The Android data context object for this target."),
-        @Param(
-            name = "library_class_jar",
-            positional = true,
-            named = false,
-            type = FileApi.class,
-            doc = "The library class jar."),
-        @Param(
-            name = "manifest",
-            positional = false,
-            type = FileApi.class,
-            defaultValue = "None",
-            named = true,
-            noneable = true,
-            doc =
-                "If passed, the manifest to use for this target. Otherwise, a dummy manifest will"
-                    + " be generated."),
-        @Param(
-            name = "resources",
-            positional = false,
-            defaultValue = "None",
-            type = SkylarkList.class,
-            generic1 = FileProviderApi.class,
-            named = true,
-            noneable = true,
-            doc = "Providers of this target's resources."),
-        @Param(
-            name = "assets",
-            positional = false,
-            defaultValue = "None",
-            type = SkylarkList.class,
-            generic1 = TransitiveInfoCollectionApi.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
-                    + " be passed."),
-        @Param(
-            name = "assets_dir",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Directory the assets are contained in. Must be passed if and only if 'assets' is"
-                    + " passed. This path will be split off of the asset paths on the device."),
-        @Param(
-            name = "exports_manifest",
-            positional = false,
-            defaultValue = "None",
-            type = Boolean.class,
-            named = true,
-            noneable = true,
-            doc =
-                "Defaults to False. If passed as True, this manifest will be exported to and"
-                    + " eventually merged into targets that depend on it. Otherwise, it won't be"
-                    + " inherited."),
-        @Param(
-            name = "custom_package",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "The Android application package to stamp the manifest with. If not provided, the"
-                    + " current Java package, derived from the location of this target's BUILD"
-                    + " file, will be used. For example, given a BUILD file in"
-                    + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
-        @Param(
-            name = "neverlink",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Defaults to False. If passed as True, these resources and assets will not be"
-                    + " inherited by targets that depend on this one."),
-        @Param(
-            name = "enable_data_binding",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Defaults to False. If True, processes data binding expressions in layout"
-                    + " resources."),
-        @Param(
-            name = "local_proguard_specs",
-            type = SkylarkList.class,
-            generic1 = FileApi.class,
-            defaultValue = "[]",
-            positional = false,
-            named = true,
-            doc =
-                "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target."),
-        @Param(
-            name = "deps",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = AndroidAssetsInfoApi.class,
-            named = true,
-            doc =
-                "Dependency targets. Providers will be extracted from these dependencies for each"
-                    + " type of data."),
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc =
-          "Performs full processing of data for android_library or similar rules. Returns a dict"
-              + " from provider type to providers for the target.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
-  SkylarkDict<? extends ProviderApi, ? extends StructApi> processLibraryData(
-      AndroidDataContextT cotx,
-      FileT libraryClassJar,
-      Object manifest,
-      Object resources,
-      Object assets,
-      Object assetsDir,
-      Object exportsManifest,
-      Object customPackage,
-      boolean neverlink,
-      boolean enableDataBinding,
-      SkylarkList<FileT> localProguardSpecs,
-      SkylarkList<TransitiveInfoCollectionT> deps,
-      Location location,
-      Environment env)
-      throws InterruptedException, EvalException;
 
   @SkylarkCallable(
       name = "process_aar_import_data",
@@ -592,8 +523,7 @@ public interface AndroidDataProcessingApi<
             doc = "Targets to inherit asset and resource dependencies from.")
       },
       doc = "Processes assets, resources, and manifest for aar_import targets",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> processAarImportData(
       AndroidDataContextT ctx,
       SpecialFileT resources,
@@ -705,8 +635,7 @@ public interface AndroidDataProcessingApi<
       doc =
           "Processes resources, assets, and manifests for android_local_test and returns a dict"
               + " from provider type to the appropriate provider.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> processLocalTestData(
       AndroidDataContextT ctx,
       Object manifest,
@@ -787,8 +716,7 @@ public interface AndroidDataProcessingApi<
       doc =
           "Returns a wrapper object containing various settings shared across multiple methods for"
               + " processing binary data.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidBinaryDataSettingsApi makeBinarySettings(
       AndroidDataContextT ctx,
       Object shrinkResources,
@@ -921,8 +849,7 @@ public interface AndroidDataProcessingApi<
       doc =
           "Processes resources, assets, and manifests for android_binary and returns the"
               + " appropriate providers.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidBinaryDataInfoT processBinaryData(
       AndroidDataContextT ctx,
       SkylarkList<TransitiveInfoCollectionT> resources,
@@ -1013,8 +940,7 @@ public interface AndroidDataProcessingApi<
       doc =
           "Possibly shrinks the data APK by removing resources that were marked as unused during"
               + " proguarding.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidBinaryDataInfoT shrinkDataApk(
       AndroidDataContextT ctx,
       AndroidBinaryDataInfoT binaryDataInfo,
@@ -1033,7 +959,6 @@ public interface AndroidDataProcessingApi<
       allowReturnNones = true,
       doc = "Returns an Artifact containing a zip of merged resources.",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       parameters = {
         @Param(
             name = "validated_res",

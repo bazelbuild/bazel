@@ -125,7 +125,7 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .hasMessageThat()
-        .contains("no such package 'fake': BUILD file not found on package path");
+        .contains("no such package 'fake': BUILD file not found");
   }
 
   // Calls ConstraintValueLookupUtil.getConstraintValueInfo.

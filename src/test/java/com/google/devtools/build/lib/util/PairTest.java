@@ -31,8 +31,8 @@ public class PairTest {
     Object a = new Object();
     Object b = new Object();
     Pair<Object, Object> p = Pair.of(a, b);
-    assertThat(p.first).isSameAs(a);
-    assertThat(p.second).isSameAs(b);
+    assertThat(p.first).isSameInstanceAs(a);
+    assertThat(p.second).isSameInstanceAs(b);
     assertThat(p).isEqualTo(Pair.of(a, b));
     assertThat(p.hashCode()).isEqualTo(31 * a.hashCode() + b.hashCode());
   }

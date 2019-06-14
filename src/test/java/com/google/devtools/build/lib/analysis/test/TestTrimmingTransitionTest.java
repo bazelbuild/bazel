@@ -18,7 +18,7 @@ import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
@@ -83,7 +83,7 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
                       "native_test",
                       attr("deps", LABEL_LIST).allowedFileTypes(),
                       attr("host_deps", LABEL_LIST)
-                          .cfg(HostTransition.INSTANCE)
+                          .cfg(HostTransition.createFactory())
                           .allowedFileTypes());
 
   private static final RuleDefinition NATIVE_LIB_RULE =
@@ -94,7 +94,7 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
                       "native_lib",
                       attr("deps", LABEL_LIST).allowedFileTypes(),
                       attr("host_deps", LABEL_LIST)
-                          .cfg(HostTransition.INSTANCE)
+                          .cfg(HostTransition.createFactory())
                           .allowedFileTypes());
 
   @Before
@@ -649,73 +649,6 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
   }
 
   @Test
-  public void flagOnDynamicConfigsTrimHostDeps_AreNotAnalyzedAnyExtraTimes() throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "load(':test.bzl', 'skylark_test')",
-        "load(':lib.bzl', 'skylark_lib')",
-        "native_test(",
-        "    name = 'native_outer_test',",
-        "    deps = [':native_test', ':skylark_test'],",
-        "    host_deps = [':native_test', ':skylark_test'],",
-        ")",
-        "skylark_test(",
-        "    name = 'skylark_outer_test',",
-        "    deps = [':native_test', ':skylark_test'],",
-        "    host_deps = [':native_test', ':skylark_test'],",
-        ")",
-        "native_test(",
-        "    name = 'native_test',",
-        "    deps = [':native_dep', ':skylark_dep'],",
-        "    host_deps = [':native_dep', ':skylark_dep'],",
-        ")",
-        "skylark_test(",
-        "    name = 'skylark_test',",
-        "    deps = [':native_dep', ':skylark_dep'],",
-        "    host_deps = [':native_dep', ':skylark_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_dep',",
-        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
-        "    host_deps = [':native_shared_dep', 'skylark_shared_dep'],",
-        ")",
-        "skylark_lib(",
-        "    name = 'skylark_dep',",
-        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
-        "    host_deps = [':native_shared_dep', 'skylark_shared_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_shared_dep',",
-        ")",
-        "skylark_lib(",
-        "    name = 'skylark_shared_dep',",
-        ")");
-    useConfiguration("--trim_test_configuration", "--experimental_dynamic_configs=on");
-    update(
-        "//test:native_outer_test",
-        "//test:skylark_outer_test",
-        "//test:native_test",
-        "//test:skylark_test",
-        "//test:native_dep",
-        "//test:skylark_dep",
-        "//test:native_shared_dep",
-        "//test:skylark_shared_dep");
-    LinkedHashSet<SkyKey> visitedTargets = new LinkedHashSet<>(getSkyframeEvaluatedTargetKeys());
-    assertNumberOfConfigurationsOfTargets(
-        visitedTargets,
-        new ImmutableMap.Builder<String, Integer>()
-            // each target should be analyzed in two and only two configurations: target and host
-            // there should not be a "host trimmed" and "host untrimmed" version
-            .put("//test:native_test", 2)
-            .put("//test:skylark_test", 2)
-            .put("//test:native_dep", 2)
-            .put("//test:skylark_dep", 2)
-            .put("//test:native_shared_dep", 2)
-            .put("//test:skylark_shared_dep", 2)
-            .build());
-  }
-
-  @Test
   public void flagOffConfigSetting_CanInspectTestOptions() throws Exception {
     scratch.file(
         "test/BUILD",
@@ -765,12 +698,7 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
         "    name = 'skylark_shared_dep',",
         ")");
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
-    try {
-      // When reached through a non-test target analysis should fail
-      update("//test:skylark_dep");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//test:skylark_dep"));
     assertContainsEvent("unknown option: 'test_arg'");
 
     update("//test:test_mode", "//test:skylark_test");
@@ -813,11 +741,7 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
         "    name = 'skylark_test',",
         ")");
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
-    try {
-      update("//test:skylark_dep");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//test:skylark_dep"));
     assertContainsEvent(
         "all rules of type skylark_test require the presence of all of "
             + "[TestConfiguration], but these were all disabled");

@@ -32,12 +32,6 @@ import javax.annotation.Nullable;
  */
 public class TargetPatternUtil {
 
-  /** Returns {@code true} iff the given label is present as an explicit target pattern. */
-  public static boolean isTargetExplicit(ImmutableList<String> targetPatterns, Label label) {
-
-    return targetPatterns.contains(label.toString());
-  }
-
   /**
    * Expand the given {@code targetPatterns}. This handles the needed underlying Skyframe calls (via
    * {@code env}), and will return {@code null} to signal a Skyframe restart.

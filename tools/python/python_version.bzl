@@ -50,12 +50,19 @@ _python_version_flag = rule(
 def define_python_version_flag(name):
     """Defines the target to expose the Python version to select().
 
-    For use only by @bazel_tools//python:BUILD; see the documentation comment
-    there.
+    For use only by @bazel_tools//tools/python:BUILD; see the documentation
+    comment there.
 
     Args:
-        name: The name of the target to introduce.
+        name: The name of the target to introduce. Must have value
+            "python_version". This param is present only to make the BUILD file
+            more readable.
     """
+    if native.package_name() != "tools/python":
+        fail("define_python_version_flag() is private to " +
+             "@bazel_tools//tools/python")
+    if name != "python_version":
+        fail("Python version flag must be named 'python_version'")
 
     # Config settings for the underlying native flags we depend on:
     # --force_python, --python_version, and --incompatible_py3_is_default.

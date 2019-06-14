@@ -14,11 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests Bazel's license checking semantics.
+# Third-party license checking has been removed from Bazel. See
+# https://github.com/bazelbuild/bazel/issues/7444 for details and
+# alternatives.
 #
-# This is a temporary test supporting the migration away from any license
-# checking at all. When https://github.com/bazelbuild/bazel/issues/7444 is
-# fixed this test can be deleted.
+# This test just checks that --incompatible_disable_third_party_license_checking
+# is a no-op. We can remove it when that flag is removed.
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -64,45 +65,34 @@ exports_files(['file'])
 EOF
 }
 
-function test_default_mode {
+FLAG_MODES="--incompatible_disable_third_party_license_checking=true \
+  --incompatible_disable_third_party_license_checking=false"
+
+function test_license_enforcement_violation {  # Bazel should ignore this.
   create_new_workspace
   write_rules
-  bazel build --nobuild //bad:main >& $TEST_log || fail "build should succeed"
+  for flag_mode in $FLAG_MODES; do
+    bazel build --nobuild //bad:main $flag_mode \
+      >& $TEST_log || fail "build should succeed"
+  done
 }
 
-function test_license_checking {
+function test_check_licenses_flag { # Bazel should ignore this.
   create_new_workspace
   write_rules
-  bazel build --nobuild //bad:main --check_licenses >& $TEST_log && fail "build shouldn't succeed"
-  expect_log "Build target '//bad:main' is not compatible with license '\[restricted\]' from target '//third_party/restrictive:lib'"
+  for flag_mode in $FLAG_MODES; do
+    bazel build --nobuild //bad:main --check_licenses $flag_mode \
+      >& $TEST_log || fail "build should succeed"
+  done
 }
 
-function test_disable_license_checking_override {
+function test_third_party_no_license { # Bazel should ignore this.
   create_new_workspace
   write_rules
-  bazel build --nobuild //bad:main --check_licenses --incompatible_disable_third_party_license_checking \
-    >& $TEST_log || fail "build should succeed"
-}
-
-function test_third_party_no_license_is_checked {
-  create_new_workspace
-  write_rules
-  bazel build --nobuild //third_party/missing_license:lib >& $TEST_log && fail "build shouldn't succeed"
-  expect_log "third-party rule '//third_party/missing_license:lib' lacks a license declaration"
-}
-
-function test_third_party_no_license_no_check {
-  create_new_workspace
-  write_rules
-  bazel build --nobuild //third_party/missing_license:lib --nocheck_third_party_targets_have_licenses \
-    || fail "build should succeed"
-}
-
-function test_third_party_no_license_disable_license_checking_override {
-  create_new_workspace
-  write_rules
-  bazel build --nobuild //third_party/missing_license:lib --incompatible_disable_third_party_license_checking \
-    || fail "build should succeed"
+  for flag_mode in $FLAG_MODES; do
+    bazel build --nobuild  //third_party/missing_license:lib $flag_mode \
+      >& $TEST_log || fail "build should succeed"
+  done
 }
 
 run_suite "license checking tests"

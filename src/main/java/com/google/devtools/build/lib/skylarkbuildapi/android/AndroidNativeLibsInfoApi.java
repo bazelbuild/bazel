@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
@@ -46,8 +45,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
       name = "native_libs",
       doc = "Returns the native libraries produced by the rule.",
       documented = false,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      structField = true)
   NestedSet<FileT> getNativeLibs();
 
   /** Provider for {@link AndroidNativeLibsInfoApi}. */
@@ -63,7 +61,6 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
         name = "AndroidNativeLibsInfo",
         doc = "The <code>AndroidNativeLibsInfo</code> constructor.",
         documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "native_libs",

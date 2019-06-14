@@ -141,35 +141,35 @@ public class WindowsFileSystemTest {
 
     testUtil.createJunctions(junctions);
 
-    assertThat(WindowsFileSystem.isJunction(new File(root, "shrtpath/a"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "shrtpath/b"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "shrtpath/c"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "longlinkpath/a"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "longlinkpath/b"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "longlinkpath/c"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "longli~1/a"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "longli~1/b"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "longli~1/c"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "abbreviated/a"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "abbreviated/b"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "abbreviated/c"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "abbrev~1/a"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "abbrev~1/b"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "abbrev~1/c"))).isTrue();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "control/a"))).isFalse();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "control/b"))).isFalse();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "control/c"))).isFalse();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "shrttrgt/file1.txt")))
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "shrtpath/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "shrtpath/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "shrtpath/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longlinkpath/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longlinkpath/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longlinkpath/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longli~1/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longli~1/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longli~1/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbreviated/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbreviated/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbreviated/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbrev~1/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbrev~1/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbrev~1/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "control/a"))).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "control/b"))).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "control/c"))).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "shrttrgt/file1.txt")))
         .isFalse();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "longtargetpath/file2.txt")))
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longtargetpath/file2.txt")))
         .isFalse();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "longta~1/file2.txt")))
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longta~1/file2.txt")))
         .isFalse();
     try {
-      WindowsFileSystem.isJunction(new File(root, "non-existent"));
+      WindowsFileSystem.isSymlinkOrJunction(new File(root, "non-existent"));
       fail("expected failure");
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("cannot find");
+      assertThat(e.getMessage()).contains("path does not exist");
     }
 
     assertThat(Arrays.asList(new File(root + "/shrtpath/a").list())).containsExactly("file1.txt");
@@ -196,14 +196,14 @@ public class WindowsFileSystemTest {
 
     File linkPath = new File(helloPath.getParent().getParent().toFile(), "link");
     assertThat(Arrays.asList(linkPath.list())).containsExactly("hello.txt");
-    assertThat(WindowsFileSystem.isJunction(linkPath)).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(linkPath)).isTrue();
 
     assertThat(helloPath.toFile().delete()).isTrue();
     assertThat(helloPath.getParent().toFile().delete()).isTrue();
     assertThat(helloPath.getParent().toFile().exists()).isFalse();
     assertThat(Arrays.asList(linkPath.getParentFile().list())).containsExactly("link");
 
-    assertThat(WindowsFileSystem.isJunction(linkPath)).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(linkPath)).isTrue();
     assertThat(
             Files.exists(
                 linkPath.toPath(), WindowsFileSystem.symlinkOpts(/* followSymlinks */ false)))
@@ -219,18 +219,18 @@ public class WindowsFileSystemTest {
     File longPath =
         testUtil.scratchFile("target\\helloworld.txt", "hello").toAbsolutePath().toFile();
     File shortPath = new File(longPath.getParentFile(), "hellow~1.txt");
-    assertThat(WindowsFileSystem.isJunction(longPath)).isFalse();
-    assertThat(WindowsFileSystem.isJunction(shortPath)).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(longPath)).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(shortPath)).isFalse();
 
     assertThat(longPath.delete()).isTrue();
     testUtil.createJunctions(ImmutableMap.of("target\\helloworld.txt", "target"));
-    assertThat(WindowsFileSystem.isJunction(longPath)).isTrue();
-    assertThat(WindowsFileSystem.isJunction(shortPath)).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(longPath)).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(shortPath)).isTrue();
 
     assertThat(longPath.delete()).isTrue();
     assertThat(longPath.mkdir()).isTrue();
-    assertThat(WindowsFileSystem.isJunction(longPath)).isFalse();
-    assertThat(WindowsFileSystem.isJunction(shortPath)).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(longPath)).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(shortPath)).isFalse();
   }
 
   @Test
@@ -311,7 +311,7 @@ public class WindowsFileSystemTest {
     fs.createSymbolicLink(link4, fs.getPath(scratchRoot).getRelative("bar.txt").asFragment());
     // Assert that link1 and link2 are true junctions and have the right contents.
     for (Path p : ImmutableList.of(link1, link2)) {
-      assertThat(WindowsFileSystem.isJunction(new File(p.getPathString()))).isTrue();
+      assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(p.getPathString()))).isTrue();
       assertThat(p.isSymbolicLink()).isTrue();
       assertThat(
               Iterables.transform(
@@ -326,9 +326,47 @@ public class WindowsFileSystemTest {
     }
     // Assert that link3 and link4 are copies of files.
     for (Path p : ImmutableList.of(link3, link4)) {
-      assertThat(WindowsFileSystem.isJunction(new File(p.getPathString()))).isFalse();
+      assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(p.getPathString()))).isFalse();
       assertThat(p.isSymbolicLink()).isFalse();
       assertThat(p.isFile()).isTrue();
     }
+  }
+
+  @Test
+  public void testReadJunction() throws Exception {
+    testUtil.scratchFile("dir\\hello.txt", "hello");
+    testUtil.createJunctions(ImmutableMap.of("junc", "dir"));
+
+    Path dirPath = testUtil.createVfsPath(fs, "dir");
+    Path juncPath = testUtil.createVfsPath(fs, "junc");
+
+    assertThat(dirPath.isDirectory()).isTrue();
+    assertThat(juncPath.isDirectory()).isTrue();
+
+    assertThat(dirPath.isSymbolicLink()).isFalse();
+    assertThat(juncPath.isSymbolicLink()).isTrue();
+
+    try {
+      testUtil.createVfsPath(fs, "does-not-exist").readSymbolicLink();
+      fail("expected exception");
+    } catch (IOException expected) {
+      assertThat(expected).hasMessageThat().matches(".*path does not exist");
+    }
+
+    try {
+      testUtil.createVfsPath(fs, "dir\\hello.txt").readSymbolicLink();
+      fail("expected exception");
+    } catch (IOException expected) {
+      assertThat(expected).hasMessageThat().matches(".*path is not a link");
+    }
+
+    try {
+      dirPath.readSymbolicLink();
+      fail("expected exception");
+    } catch (IOException expected) {
+      assertThat(expected).hasMessageThat().matches(".*path is not a link");
+    }
+
+    assertThat(juncPath.readSymbolicLink()).isEqualTo(dirPath.asFragment());
   }
 }

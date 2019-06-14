@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -70,7 +70,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         "foo/rule.bzl",
         "def _impl(ctx):",
         "  ctx.actions.do_nothing(mnemonic='Mnemonic')",
-        "  return struct()",
+        "  return []",
         "crule_without_srcs = rule(",
         "  _impl,",
         "  attrs = { ",
@@ -168,49 +168,35 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   @Test
   public void testCompileOneDepOnMissingFile() throws Exception {
     writeSimpleExample();
-    try {
-      parseCompileOneDep("//foo:missing.cc");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "no such target '//foo:missing.cc': target 'missing.cc' not declared in package "
-                  + "'foo' defined by /workspace/foo/BUILD");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//foo:missing.cc"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//foo:missing.cc': target 'missing.cc' not declared in package "
+                + "'foo' defined by /workspace/foo/BUILD");
 
     // Also, try a valid input file which has no dependent rules in its package.
-    try {
-      parseCompileOneDep("//foo:baz/bang");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("Couldn't find dependency on target '//foo:baz/bang'");
-    }
+    e = assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//foo:baz/bang"));
+    assertThat(e).hasMessageThat().isEqualTo("Couldn't find dependency on target '//foo:baz/bang'");
 
     // Try a header that is in a package but where no cc_library explicitly lists it.
-    try {
-      parseCompileOneDep("//foo/bar:undeclared.h");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("Couldn't find dependency on target '//foo/bar:undeclared.h'");
-    }
+    e =
+        assertThrows(
+            TargetParsingException.class, () -> parseCompileOneDep("//foo/bar:undeclared.h"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Couldn't find dependency on target '//foo/bar:undeclared.h'");
   }
 
   @Test
   public void testCompileOneDepOnNonSourceTarget() throws Exception {
     writeSimpleExample();
-    try {
-      parseCompileOneDep("//foo:foo1");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("--compile_one_dependency target '//foo:foo1' must be a file");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//foo:foo1"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("--compile_one_dependency target '//foo:foo1' must be a file");
   }
 
   @Test
@@ -246,14 +232,11 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         "filegroup(name = 'y', srcs = [':x'])",
         "exports_files(['foo'])");
 
-    try {
-      parseCompileOneDep("//recursive:foo");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("Couldn't find dependency on target '//recursive:foo'");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//recursive:foo"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Couldn't find dependency on target '//recursive:foo'");
   }
 
   @Test

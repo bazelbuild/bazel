@@ -20,18 +20,16 @@ import java.util.ArrayList;
 import java.util.Objects;
 
 /**
- * Captures the the set of providers rules and aspects can advertise.
- * It is either of:
+ * Captures the set of providers rules and aspects can advertise. It is either of:
+ *
  * <ul>
- *    <li>a set of native and skylark providers</li>
- *    <li>"can have any provider" set that alias rules have.</li>
+ *   <li>a set of native and skylark providers
+ *   <li>"can have any provider" set that alias rules have.
  * </ul>
  *
- * <p>
- * Native providers should in theory only contain subclasses of
- * {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider}, but
- * our current dependency structure does not allow a reference to that class here.
- * </p>
+ * <p>Native providers should in theory only contain subclasses of {@link
+ * com.google.devtools.build.lib.analysis.TransitiveInfoProvider}, but our current dependency
+ * structure does not allow a reference to that class here.
  */
 @Immutable
 public final class AdvertisedProviderSet {

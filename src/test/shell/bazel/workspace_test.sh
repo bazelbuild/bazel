@@ -348,12 +348,12 @@ EOF
   cd tree
 
   # Do initial load of the packages
-  bazel query --noexperimental_ui \
+  bazel query --experimental_ui_debug_all_events \
         //oak:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: oak"
   expect_log "//oak:oak"
 
-  bazel query --noexperimental_ui \
+  bazel query --experimental_ui_debug_all_events \
         @flower//daisy:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: @flower//daisy"
   expect_log "@flower//daisy:daisy"
@@ -369,13 +369,13 @@ local_repository(
 EOF
 
   # Test that packages in the tree workspace are not affected
-  bazel query --noexperimental_ui \
+  bazel query --experimental_ui_debug_all_events \
         //oak:all >& "$TEST_log" || fail "Expected success"
   expect_not_log "Loading package: oak"
   expect_log "//oak:oak"
 
   # Test that packages in the flower workspace are reloaded
-  bazel query --noexperimental_ui \
+  bazel query --experimental_ui_debug_all_events \
         @flower//daisy:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: @flower//daisy"
   expect_log "@flower//daisy:daisy"

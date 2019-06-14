@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.LinkOptions;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Map;
@@ -48,13 +47,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     return new ObjcCommon.Builder(ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-        .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addDefines(ruleContext.getExpander().withDataLocations().tokenized("defines"))
         .setCompilationArtifacts(CompilationSupport.compilationArtifacts(ruleContext))
         .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET))
         .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
-        .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .setHasModuleMap()
@@ -87,21 +83,16 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .validateAttributes();
 
-    new ResourceSupport(ruleContext).validateAttributes();
-
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
             ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
     CcCompilationContext ccCompilationContext =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
                 ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel())
             .addDeclaredIncludeSrcs(
-                CompilationAttributes.Builder.fromRuleContext(ruleContext)
-                    .build()
-                    .hdrs()
-                    .toCollection())
+                CompilationAttributes.Builder.fromRuleContext(ruleContext).build().hdrs().toList())
             .addTextualHdrs(common.getTextualHdrs())
             .addDeclaredIncludeSrcs(common.getTextualHdrs())
             .build();
@@ -177,27 +168,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
   /** Throws errors or warnings for bad attribute state. */
   private static void validateAttributes(RuleContext ruleContext) throws RuleErrorException {
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).disableObjcLibraryResources()) {
-      ImmutableList<String> resourceAttributes =
-          ImmutableList.of(
-              "asset_catalogs",
-              "bundles",
-              "datamodels",
-              "resources",
-              "storyboards",
-              "strings",
-              "structured_resources",
-              "xibs");
-      for (String attribute : resourceAttributes) {
-        if (ruleContext.attributes().isAttributeValueExplicitlySpecified(attribute)) {
-          ruleContext.throwWithAttributeError(
-              attribute,
-              "objc_library resource attributes are not allowed. Please use the 'data' "
-                  + "attribute instead.");
-        }
-      }
-    }
-
     for (String copt : ObjcCommon.getNonCrosstoolCopts(ruleContext)) {
       if (copt.contains("-fmodules-cache-path")) {
         ruleContext.ruleWarning(CompilationSupport.MODULES_CACHE_PATH_WARNING);

@@ -24,6 +24,7 @@ load(
     "feature_set",
     "flag_group",
     "flag_set",
+    "make_variable",
     "tool",
     "tool_path",
     "with_feature_set",
@@ -70,6 +71,7 @@ _FEATURE_NAMES = struct(
     targets_windows = "targets_windows",
     static_link_cpp_runtimes = "static_link_cpp_runtimes",
     simple_compile_feature = "simple_compile_feature",
+    simple_link_feature = "simple_link_feature",
     link_env = "link_env",
     dynamic_linking_mode = "dynamic_linking_mode",
     static_linking_mode = "static_linking_mode",
@@ -85,7 +87,19 @@ _FEATURE_NAMES = struct(
     absolute_path_directories = "absolute_path_directories",
     from_package = "from_package",
     change_tool = "change_tool",
+    module_map_without_extern_module = "module_map_without_extern_module",
+    generate_submodules = "generate_submodules",
+    foo = "foo_feature",
+    library_search_directories = "library_search_directories",
+    runtime_library_search_directories = "runtime_library_search_directories",
+    uses_ifso_variables = "uses_ifso_variables",
+    def_feature = "def",
+    strip_debug_symbols = "strip_debug_symbols",
+    disable_pbh = "disable_pbh",
+    optional_cc_flags_feature = "optional_cc_flags_feature",
 )
+
+_disable_pbh_feature = feature(name = _FEATURE_NAMES.disable_pbh)
 
 _no_legacy_features_feature = feature(name = _FEATURE_NAMES.no_legacy_features)
 
@@ -166,6 +180,16 @@ _simple_layering_check_feature = feature(
     flag_sets = [
         flag_set(
             actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [flag_group(flags = ["<flag>"])],
+        ),
+    ],
+)
+
+_simple_header_modules_feature = feature(
+    name = _FEATURE_NAMES.header_modules,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_module_compile],
             flag_groups = [flag_group(flags = ["<flag>"])],
         ),
     ],
@@ -324,6 +348,28 @@ _module_maps_env_var_feature = feature(
     ],
 )
 
+_simple_module_maps_feature = feature(
+    name = _FEATURE_NAMES.module_maps,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.cpp_compile,
+            ],
+            flag_groups = [
+                flag_group(
+                    flags = ["<flag>"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_extra_implies_module_maps_feature = feature(
+    name = "extra",
+    implies = ["module_maps"],
+)
+
 _env_var_feature_configuration = [
     _env_feature,
     _static_env_feature,
@@ -411,6 +457,20 @@ _thin_lto_feature = feature(
             ],
         ),
         flag_set(
+            actions = [
+                ACTION_NAMES.lto_index_for_executable,
+                ACTION_NAMES.lto_index_for_dynamic_library,
+                ACTION_NAMES.lto_index_for_nodeps_dynamic_library,
+            ],
+            flag_groups = [
+                flag_group(
+                    flags = ["--i_come_from_standalone_lto_index=%{user_link_flags}"],
+                    iterate_over = "user_link_flags",
+                    expand_if_available = "user_link_flags",
+                ),
+            ],
+        ),
+        flag_set(
             actions = [ACTION_NAMES.lto_indexing],
             flag_groups = [
                 flag_group(
@@ -443,6 +503,20 @@ _thin_lto_feature = feature(
         ),
     ],
     requires = [feature_set(features = ["nonhost"])],
+)
+
+_simple_thin_lto_feature = feature(
+    name = _FEATURE_NAMES.thin_lto,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(
+                    flags = ["<thin_lto>"],
+                ),
+            ],
+        ),
+    ],
 )
 
 _thin_lto_linkstatic_tests_use_shared_nonlto_backends_feature = feature(
@@ -627,6 +701,18 @@ _simple_compile_feature = feature(
             actions = [ACTION_NAMES.cpp_compile],
             flag_groups = [
                 flag_group(flags = ["<flag>"]),
+            ],
+        ),
+    ],
+)
+
+_simple_link_feature = feature(
+    name = _FEATURE_NAMES.simple_link_feature,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [
+                flag_group(flags = ["testlinkopt"]),
             ],
         ),
     ],
@@ -846,6 +932,14 @@ _change_tool_feature = feature(
     name = _FEATURE_NAMES.change_tool,
 )
 
+_module_map_without_extern_module_feature = feature(
+    name = _FEATURE_NAMES.module_map_without_extern_module,
+)
+
+_generate_submodules_feature = feature(
+    name = _FEATURE_NAMES.generate_submodules,
+)
+
 _multiple_tools_action_config = action_config(
     action_name = ACTION_NAMES.cpp_compile,
     tools = [
@@ -858,6 +952,163 @@ _multiple_tools_action_config = action_config(
         tool(path = "DEFAULT_TOOL"),
     ],
 )
+
+_foo_feature = feature(
+    name = _FEATURE_NAMES.foo,
+)
+
+_library_search_directories_feature = feature(
+    name = _FEATURE_NAMES.library_search_directories,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "library_search_directories",
+                    iterate_over = "library_search_directories",
+                    flags = ["--library=%{library_search_directories}"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_runtime_library_search_directories_feature = feature(
+    name = _FEATURE_NAMES.runtime_library_search_directories,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "runtime_library_search_directories",
+                    iterate_over = "runtime_library_search_directories",
+                    flags = ["--runtime_library=%{runtime_library_search_directories}"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_uses_ifso_variables_feature = feature(
+    name = _FEATURE_NAMES.uses_ifso_variables,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_dynamic_library],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "generate_interface_library",
+                    flags = ["--generate_interface_library_was_available"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_def_feature = feature(
+    name = _FEATURE_NAMES.def_feature,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "def_file_path",
+                    flags = ["-qux_%{def_file_path}"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_strip_debug_symbols_feature = feature(
+    name = _FEATURE_NAMES.strip_debug_symbols,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "strip_debug_symbols",
+                    flags = ["-strip_stuff"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_portable_overrides_configuration = [
+    feature(name = "proto_force_lite_runtime", implies = ["proto_disable_services"]),
+    feature(name = "proto_disable_services"),
+    feature(name = "proto_one_output_per_message", implies = ["proto_force_lite_runtime"]),
+    feature(
+        name = "proto_enable_portable_overrides",
+        implies = [
+            "proto_force_lite_runtime",
+            "proto_disable_services",
+            "proto_one_output_per_message",
+        ],
+    ),
+]
+
+_disable_whole_archive_for_static_lib_configuration = [
+    feature(name = "disable_whole_archive_for_static_lib"),
+]
+
+_same_symbol_provided_configuration = [
+    feature(name = "a1", provides = ["a"]),
+    feature(name = "a2", provides = ["a"]),
+]
+
+_optional_cc_flags_feature = feature(
+    name = _FEATURE_NAMES.optional_cc_flags_feature,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cc_flags_make_variable],
+            flag_groups = [
+                flag_group(flags = ["optional_feature_flag"]),
+            ],
+        ),
+    ],
+)
+
+_layering_check_module_maps_header_modules_simple_features = [
+    feature(
+        name = _FEATURE_NAMES.module_maps,
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.cpp_compile],
+                flag_groups = [
+                    flag_group(flags = ["<maps>"]),
+                ],
+            ),
+        ],
+    ),
+    feature(
+        name = _FEATURE_NAMES.layering_check,
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.cpp_compile],
+                flag_groups = [
+                    flag_group(flags = ["<layering>"]),
+                ],
+            ),
+        ],
+    ),
+    feature(
+        name = _FEATURE_NAMES.header_modules,
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.cpp_compile],
+                flag_groups = [
+                    flag_group(flags = ["<modules>"]),
+                ],
+            ),
+        ],
+    ),
+]
 
 _feature_name_to_feature = {
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
@@ -892,6 +1143,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.module_maps: _module_maps_feature,
     _FEATURE_NAMES.static_link_cpp_runtimes: _static_link_cpp_runtimes_feature,
     _FEATURE_NAMES.simple_compile_feature: _simple_compile_feature,
+    _FEATURE_NAMES.simple_link_feature: _simple_link_feature,
     _FEATURE_NAMES.link_env: _link_env_feature,
     _FEATURE_NAMES.static_linking_mode: _static_linking_mode_feature,
     _FEATURE_NAMES.dynamic_linking_mode: _dynamic_linking_mode_feature,
@@ -903,12 +1155,62 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.from_package: _from_package_feature,
     _FEATURE_NAMES.absolute_path_directories: _absolute_path_directories_feature,
     _FEATURE_NAMES.change_tool: _change_tool_feature,
+    _FEATURE_NAMES.module_map_without_extern_module: _module_map_without_extern_module_feature,
+    _FEATURE_NAMES.foo: _foo_feature,
+    _FEATURE_NAMES.library_search_directories: _library_search_directories_feature,
+    _FEATURE_NAMES.runtime_library_search_directories: _runtime_library_search_directories_feature,
+    _FEATURE_NAMES.generate_submodules: _generate_submodules_feature,
+    _FEATURE_NAMES.uses_ifso_variables: _uses_ifso_variables_feature,
+    _FEATURE_NAMES.def_feature: _def_feature,
+    _FEATURE_NAMES.strip_debug_symbols: _strip_debug_symbols_feature,
+    _FEATURE_NAMES.disable_pbh: _disable_pbh_feature,
+    _FEATURE_NAMES.optional_cc_flags_feature: _optional_cc_flags_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
     "simple_layering_check": _simple_layering_check_feature,
     "compilation_mode_features": _compilation_mode_features,
     "compile_header_modules": _compile_header_modules_feature_configuration,
+    "simple_module_maps": _simple_module_maps_feature,
+    "simple_header_modules": _simple_header_modules_feature,
+    "portable_overrides_configuration": _portable_overrides_configuration,
+    "disable_whole_archive_for_static_lib_configuration": _disable_whole_archive_for_static_lib_configuration,
+    "same_symbol_provided_configuration": _same_symbol_provided_configuration,
+    "simple_thin_lto": _simple_thin_lto_feature,
+    "extra_implies_module_maps": _extra_implies_module_maps_feature,
+    "layering_check_module_maps_header_modules_simple_features": _layering_check_module_maps_header_modules_simple_features,
+}
+
+_cc_flags_action_config_foo_bar_baz_config = action_config(
+    action_name = "cc-flags-make-variable",
+    flag_sets = [
+        flag_set(
+            flag_groups = [
+                flag_group(
+                    flags = ["foo", "bar", "baz"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_sysroot_in_action_config = action_config(
+    action_name = "cc-flags-make-variable",
+    flag_sets = [
+        flag_set(
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "sysroot",
+                    flags = ["fc-start", "--sysroot=%{sysroot}-from-feature", "fc-end"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_action_name_to_action = {
+    "cc_flags_action_config_foo_bar_baz": _cc_flags_action_config_foo_bar_baz_config,
+    "sysroot_in_action_config": _sysroot_in_action_config,
 }
 
 _tool_for_action_config = {
@@ -1013,13 +1315,20 @@ def _impl(ctx):
     action_configs = []
 
     for name in ctx.attr.action_configs:
-        action_configs.append(
-            _get_action_config(name, _tool_for_action_config.get(name, default = "DUMMY_TOOL")),
-        )
+        custom_config = _action_name_to_action.get(name, default = None)
+        if custom_config != None:
+            action_configs.append(custom_config)
+        else:
+            action_configs.append(
+                _get_action_config(name, _tool_for_action_config.get(name, default = "DUMMY_TOOL")),
+            )
     if should_add_multiple_tools_action_config:
         action_configs.append(_multiple_tools_action_config)
 
-    make_variables = []
+    make_variables = [
+        make_variable(name = name, value = value)
+        for name, value in ctx.attr.make_variables.items()
+    ]
 
     if ctx.attr.tool_paths == {}:
         tool_paths = [
@@ -1090,6 +1399,7 @@ cc_toolchain_config = rule(
         "builtin_sysroot": attr.string(default = "/usr/grte/v1"),
         "tool_paths": attr.string_dict(),
         "cxx_builtin_include_directories": attr.string_list(),
+        "make_variables": attr.string_dict(),
     },
     provides = [CcToolchainConfigInfo],
     executable = True,

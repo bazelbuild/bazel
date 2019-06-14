@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 
 /**
@@ -21,7 +23,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
  *
  * <p>This event should only appear in-between corresponding {@link ActionStartedEvent} and {@link
  * ActionCompletionEvent} events, and should only appear after a corresponding {@link
- * AnalyzingActionEvent}. TODO(jmmv): But this theory is not true today. Investigate.
+ * ScanningActionEvent}. TODO(jmmv): But this theory is not true today. Investigate.
  */
 public class SchedulingActionEvent implements ProgressLike {
 
@@ -31,7 +33,7 @@ public class SchedulingActionEvent implements ProgressLike {
   /** Constructs a new event. */
   public SchedulingActionEvent(ActionExecutionMetadata action, String strategy) {
     this.action = action;
-    this.strategy = strategy;
+    this.strategy = checkNotNull(strategy, "Strategy names are not optional");
   }
 
   /** Gets the metadata associated with the action being scheduled. */

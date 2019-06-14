@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -56,15 +55,6 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
                 .mandatory()
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .nonconfigurable("Used during configuration creation"))
-        /* <!-- #BLAZE_RULE(cc_toolchain_suite).ATTRIBUTE(proto) -->
-        Deprecated, will be removed as part of
-        <a href="https://github.com/bazelbuild/bazel/issues/5380">
-          CROSSTOOL migration to Starlark
-        </a>.
-        Allows passing the content
-        of the CROSSTOOL directly into the BUILD file. Only used for testing.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("proto", Type.STRING).nonconfigurable("Used during configuration creation"))
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(environment)))
@@ -99,8 +89,8 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
 
 <p>
   See also this
-  <a href="https://docs.bazel.build/versions/master/crosstool-reference.html">
+  <a href="https://docs.bazel.build/versions/master/cc-toolchain-config-reference.html">
     page
-  </a> for elaborate CROSSTOOL and toolchain selection documentation.
+  </a> for elaborate C++ toolchain configuration and toolchain selection documentation.
 </p>
 <!-- #END_BLAZE_RULE -->*/

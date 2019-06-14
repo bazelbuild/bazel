@@ -17,27 +17,34 @@ package com.google.devtools.build.lib.bazel.rules;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellExecutableProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDevice;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDeviceScriptFixture;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidHostServiceFixture;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidInstrumentationTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect;
@@ -52,6 +59,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceBrokerInfo;
@@ -78,6 +86,7 @@ import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
+import com.google.devtools.build.lib.rules.proto.BazelProtoModule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
@@ -142,54 +151,60 @@ public class BazelRuleClassProvider {
           options.get(ShellConfiguration.Options.class),
           FALLBACK_SHELL);
 
-  public static final ActionEnvironmentProvider SHELL_ACTION_ENV = (BuildOptions options) -> {
-    boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
-    OS os = OS.getCurrent();
-    PathFragment shellExecutable = SHELL_EXECUTABLE.getShellExecutable(options);
-    TreeMap<String, String> env = new TreeMap<>();
+  public static final ActionEnvironmentProvider SHELL_ACTION_ENV =
+      (BuildOptions options) -> {
+        boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
+        OS os = OS.getCurrent();
+        PathFragment shellExecutable = SHELL_EXECUTABLE.getShellExecutable(options);
+        TreeMap<String, String> env = new TreeMap<>();
 
-    // All entries in the builder that have a value of null inherit the value from the client
-    // environment, which is only known at execution time - we don't want to bake the client env
-    // into the configuration since any change to the configuration requires rerunning the full
-    // analysis phase.
-    if (!strictActionEnv) {
-      env.put("LD_LIBRARY_PATH", null);
-    }
+        // All entries in the builder that have a value of null inherit the value from the client
+        // environment, which is only known at execution time - we don't want to bake the client env
+        // into the configuration since any change to the configuration requires rerunning the full
+        // analysis phase.
+        if (!strictActionEnv) {
+          env.put("LD_LIBRARY_PATH", null);
+        }
 
-    if (strictActionEnv) {
-      env.put("PATH", pathOrDefault(os, null, shellExecutable));
-    } else if (os == OS.WINDOWS) {
-      // TODO(ulfjack): We want to add the MSYS root to the PATH, but that prevents us from
-      // inheriting PATH from the client environment. For now we use System.getenv even though
-      // that is incorrect. We should enable strict_action_env by default and then remove this
-      // code, but that change may break Windows users who are relying on the MSYS root being in
-      // the PATH.
-      env.put("PATH", pathOrDefault(
-          os, System.getenv("PATH"), shellExecutable));
-    } else {
-      // The previous implementation used System.getenv (which uses the server's environment), and
-      // fell back to a hard-coded "/bin:/usr/bin" if PATH was not set.
-      env.put("PATH", null);
-    }
+        if (strictActionEnv) {
+          env.put("PATH", pathOrDefault(os, null, shellExecutable));
+        } else if (os == OS.WINDOWS) {
+          // TODO(ulfjack): We want to add the MSYS root to the PATH, but that prevents us from
+          // inheriting PATH from the client environment. For now we use System.getenv even though
+          // that is incorrect. We should enable strict_action_env by default and then remove this
+          // code, but that change may break Windows users who are relying on the MSYS root being in
+          // the PATH.
+          env.put("PATH", pathOrDefault(os, System.getenv("PATH"), shellExecutable));
+        } else {
+          // The previous implementation used System.getenv (which uses the server's environment),
+          // and fell back to a hard-coded "/bin:/usr/bin" if PATH was not set.
+          env.put("PATH", null);
+        }
 
-    // Shell environment variables specified via options take precedence over the
-    // ones inherited from the fragments. In the long run, these fragments will
-    // be replaced by appropriate default rc files anyway.
-    for (Map.Entry<String, String> entry :
-        options.get(BuildConfiguration.Options.class).actionEnvironment) {
-      env.put(entry.getKey(), entry.getValue());
-    }
+        // Shell environment variables specified via options take precedence over the
+        // ones inherited from the fragments. In the long run, these fragments will
+        // be replaced by appropriate default rc files anyway.
+        for (Map.Entry<String, String> entry : options.get(CoreOptions.class).actionEnvironment) {
+          env.put(entry.getKey(), entry.getValue());
+        }
 
-    return ActionEnvironment.split(env);
-  };
+        if (!BuildConfiguration.runfilesEnabled(options.get(CoreOptions.class))) {
+          // Setting this environment variable is for telling the binary running
+          // in a Bazel action when to use runfiles library or runfiles tree.
+          // The downside is that it will discard cache for all actions once
+          // --enable_runfiles changes, but this also prevents wrong caching result if a binary
+          // behaves differently with and without runfiles tree.
+          env.put("RUNFILES_MANIFEST_ONLY", "1");
+        }
+
+        return ActionEnvironment.split(env);
+      };
 
   /** Used by the build encyclopedia generator. */
   public static ConfiguredRuleClassProvider create() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     builder.setToolsRepository(TOOLS_REPOSITORY);
-    // TODO(gregce): uncomment the below line in the same change that retires
-    // --incompatible_disable_third_party_license_checking. See the flag's comments for details.
-    // builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
+    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
     setup(builder);
     return builder.build();
   }
@@ -198,6 +213,7 @@ public class BazelRuleClassProvider {
     for (RuleSet ruleSet : RULE_SETS) {
       ruleSet.init(builder);
     }
+    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
   }
 
   public static final RuleSet BAZEL_SETUP =
@@ -208,17 +224,17 @@ public class BazelRuleClassProvider {
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setRunfilesPrefix(LabelConstants.DEFAULT_REPOSITORY_DIRECTORY)
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
-              .setActionEnvironmentProvider(SHELL_ACTION_ENV);
-
-          builder.addConfigurationOptions(ShellConfiguration.Options.class);
-          builder.addConfigurationFragment(
-              new ShellConfiguration.Loader(
-                  SHELL_EXECUTABLE,
-                  ShellConfiguration.Options.class,
-                  StrictActionEnvOptions.class));
-          builder.addUniversalConfigurationFragment(ShellConfiguration.class);
-          builder.addConfigurationOptions(StrictActionEnvOptions.class);
-          builder.addConfigurationOptions(BuildConfiguration.Options.class);
+              .setActionEnvironmentProvider(SHELL_ACTION_ENV)
+              .addConfigurationOptions(ShellConfiguration.Options.class)
+              .addConfigurationFragment(
+                  new ShellConfiguration.Loader(
+                      SHELL_EXECUTABLE,
+                      ShellConfiguration.Options.class,
+                      StrictActionEnvOptions.class))
+              .addUniversalConfigurationFragment(ShellConfiguration.class)
+              .addUniversalConfigurationFragment(PlatformConfiguration.class)
+              .addConfigurationOptions(StrictActionEnvOptions.class)
+              .addConfigurationOptions(CoreOptions.class);
         }
 
         @Override
@@ -236,7 +252,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
 
-          ProtoBootstrap bootstrap = new ProtoBootstrap(ProtoInfo.PROVIDER);
+          ProtoBootstrap bootstrap =
+              new ProtoBootstrap(ProtoInfo.PROVIDER, BazelProtoModule.INSTANCE);
           builder.addSkylarkBootstrap(bootstrap);
         }
 
@@ -295,7 +312,8 @@ public class BazelRuleClassProvider {
 
           builder.addRuleDefinition(new AndroidSdkBaseRule());
           builder.addRuleDefinition(new BazelAndroidSdkRule());
-          builder.addRuleDefinition(new AndroidToolsDefaultsJarRule());
+          builder.addRuleDefinition(
+              new AndroidToolsDefaultsJarRule(BazelAndroidToolsDefaultsJar.class));
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidBaseRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidResourceSupportRule());
           builder.addRuleDefinition(
@@ -306,13 +324,15 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelAndroidBinaryRule());
           builder.addRuleDefinition(new AarImportBaseRule());
           builder.addRuleDefinition(new BazelAarImportRule());
-          builder.addRuleDefinition(new AndroidDeviceRule());
+          builder.addRuleDefinition(new AndroidDeviceRule(BazelAndroidDevice.class));
           builder.addRuleDefinition(new AndroidLocalTestBaseRule());
           builder.addRuleDefinition(new BazelAndroidLocalTestRule());
           builder.addRuleDefinition(new AndroidInstrumentationTestBaseRule());
           builder.addRuleDefinition(new BazelAndroidInstrumentationTestRule());
-          builder.addRuleDefinition(new AndroidDeviceScriptFixtureRule());
-          builder.addRuleDefinition(new AndroidHostServiceFixtureRule());
+          builder.addRuleDefinition(
+              new AndroidDeviceScriptFixtureRule(BazelAndroidDeviceScriptFixture.class));
+          builder.addRuleDefinition(
+              new AndroidHostServiceFixtureRule(BazelAndroidHostServiceFixture.class));
 
           AndroidBootstrap bootstrap =
               new AndroidBootstrap(
@@ -327,6 +347,11 @@ public class BazelRuleClassProvider {
           try {
             builder.addWorkspaceFilePrefix(
                 ResourceFileLoader.loadResource(BazelAndroidSemantics.class, "android.WORKSPACE"));
+            builder.addWorkspaceFileSuffix(
+                ResourceFileLoader.loadResource(
+                    BazelAndroidSemantics.class, "android_remote_tools.WORKSPACE"));
+            builder.addWorkspaceFileSuffix(
+                ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }
@@ -428,9 +453,10 @@ public class BazelRuleClassProvider {
       return "/bin:/usr/bin";
     }
 
+    String newPath = "";
     // Attempt to compute the MSYS root (the real Windows path of "/") from `sh`.
     if (sh != null && sh.getParentDirectory() != null) {
-      String newPath = sh.getParentDirectory().getPathString();
+      newPath = sh.getParentDirectory().getPathString();
       if (sh.getParentDirectory().endsWith(PathFragment.create("usr/bin"))) {
         newPath +=
             ";" + sh.getParentDirectory().getParentDirectory().replaceName("bin").getPathString();
@@ -439,13 +465,22 @@ public class BazelRuleClassProvider {
             ";" + sh.getParentDirectory().replaceName("usr").getRelative("bin").getPathString();
       }
       newPath = newPath.replace('/', '\\');
-
-      if (path != null) {
-        newPath += ";" + path;
-      }
-      return newPath;
-    } else {
-      return null;
     }
+    // On Windows, the following dirs should always be available in PATH:
+    //   C:\Windows
+    //   C:\Windows\System32
+    //   C:\Windows\System32\WindowsPowerShell\v1.0
+    // They are similar to /bin:/usr/bin, which makes the basic tools on the platform available.
+    String systemRoot = System.getenv("SYSTEMROOT");
+    if (Strings.isNullOrEmpty(systemRoot)) {
+      systemRoot = "C:\\Windows";
+    }
+    newPath += ";" + systemRoot;
+    newPath += ";" + systemRoot + "\\System32";
+    newPath += ";" + systemRoot + "\\System32\\WindowsPowerShell\\v1.0";
+    if (path != null) {
+      newPath += ";" + path;
+    }
+    return newPath;
   }
 }

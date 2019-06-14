@@ -37,11 +37,12 @@ public class EnvironmentRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .cfg(HostTransition.INSTANCE)
-        .override(attr("tags", Type.STRING_LIST)
-            // No need to show up in ":all", etc. target patterns.
-            .value(ImmutableList.of("manual"))
-            .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
+        .cfg(HostTransition.createFactory())
+        .override(
+            attr("tags", Type.STRING_LIST)
+                // No need to show up in ":all", etc. target patterns.
+                .value(ImmutableList.of("manual"))
+                .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
         /* <!-- #BLAZE_RULE(environment).ATTRIBUTE(fulfills) -->
         The set of environments this one is considered a valid "standin" for.
         <p>
@@ -55,10 +56,12 @@ public class EnvironmentRule implements RuleDefinition {
           Environments may only fulfill other environments in the same environment group.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(FULFILLS_ATTRIBUTE, BuildType.LABEL_LIST)
-            .allowedRuleClasses(EnvironmentRule.RULE_NAME)
-            .allowedFileTypes(FileTypeSet.NO_FILE)
-            .nonconfigurable("used for defining constraint models - this shouldn't be configured"))
+        .add(
+            attr(FULFILLS_ATTRIBUTE, BuildType.LABEL_LIST)
+                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .nonconfigurable(
+                    "used for defining constraint models - this shouldn't be configured"))
         .exemptFromConstraintChecking("this rule *defines* a constraint")
         .setUndocumented()
         .build();

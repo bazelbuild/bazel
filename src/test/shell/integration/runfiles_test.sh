@@ -51,14 +51,18 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
+# We disable Python toolchains in EXTRA_BUILD_FLAGS because it throws off the
+# counts and manifest checks in test_foo_runfiles.
+# TODO(#8169): Update this test and remove the toolchain opt-out.
 if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
   export EXT=".exe"
-  export EXTRA_BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
+  export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false \
+--enable_runfiles --build_python_zip=0"
 else
   export EXT=""
-  export EXTRA_BUILD_FLAGS=""
+  export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false"
 fi
 
 #### SETUP #############################################################
@@ -292,9 +296,8 @@ EOF
 }
 
 function test_workspace_name_change() {
-  cat > WORKSPACE <<EOF
-workspace(name = "foo")
-EOF
+  # Rewrite the workspace name but leave the rest of WORKSPACE alone.
+  sed -ie 's,workspace(.*,workspace(name = "foo"),' WORKSPACE
 
   cat > BUILD <<EOF
 cc_binary(
@@ -309,9 +312,8 @@ EOF
   bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
   [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] || fail "foo not found"
 
-  cat > WORKSPACE <<EOF
-workspace(name = "bar")
-EOF
+  # Change workspace name to bar.
+  sed -ie 's,workspace(.*,workspace(name = "bar"),' WORKSPACE
   bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
   [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/bar ]] || fail "bar not found"
   [[ ! -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] \

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
+import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
 import java.util.Optional;
 
@@ -119,4 +120,26 @@ public interface AndroidSemantics {
   default AndroidDataContext makeContextForNative(RuleContext ruleContext) {
     return AndroidDataContext.forNative(ruleContext);
   }
+
+  /**
+   * Checks if the migration tag has been added to the rules list of tags. If the tag is missing,
+   * the user is accessing the rule directly in a BUILD file or through a macro that is accessing it
+   * directly.
+   */
+  default void checkForMigrationTag(RuleContext ruleContext) throws RuleErrorException {
+    if (!AndroidCommon.getAndroidConfig(ruleContext).checkForMigrationTag()) {
+      return;
+    }
+    boolean hasMigrationTag =
+        ruleContext
+            .attributes()
+            .get("tags", Type.STRING_LIST)
+            .contains("__ANDROID_RULES_MIGRATION__");
+    if (!hasMigrationTag) {
+      registerMigrationRuleError(ruleContext);
+    }
+  }
+
+  /** Executes a ruleContext.attributeError when the check for the migration tag fails. */
+  void registerMigrationRuleError(RuleContext ruleContext) throws RuleErrorException;
 }

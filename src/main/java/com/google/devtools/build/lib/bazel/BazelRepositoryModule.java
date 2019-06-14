@@ -50,10 +50,12 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -67,18 +69,15 @@ import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -87,11 +86,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /** Adds support for fetching external code. */
 public class BazelRepositoryModule extends BlazeModule {
-
   // Default location (relative to output user root) of the repository cache.
   public static final String DEFAULT_CACHE_LOCATION = "cache/repos/v1";
 
@@ -105,14 +102,34 @@ public class BazelRepositoryModule extends BlazeModule {
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
-  private Optional<RootedPath> resolvedFile = Optional.<RootedPath>absent();
-  private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.<RootedPath>absent();
-  private Set<String> outputVerificationRules = ImmutableSet.<String>of();
+  private Optional<RootedPath> resolvedFile = Optional.absent();
+  private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.absent();
+  private Set<String> outputVerificationRules = ImmutableSet.of();
   private FileSystem filesystem;
+  // We hold the precomputed value of the managed directories here, so that the dependency
+  // on WorkspaceFileValue is not registered for each FileStateValue.
+  private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
 
   public BazelRepositoryModule() {
     this.skylarkRepositoryFunction = new SkylarkRepositoryFunction(httpDownloader);
     this.repositoryHandlers = repositoryRules(httpDownloader, mavenDownloader);
+    ManagedDirectoriesListener listener =
+        repositoryNamesWithManagedDirs -> {
+          Set<String> conflicting =
+              overrides.keySet().stream()
+                  .filter(repositoryNamesWithManagedDirs::contains)
+                  .map(RepositoryName::getName)
+                  .collect(Collectors.toSet());
+          if (!conflicting.isEmpty()) {
+            String message =
+                "Overriding repositories is not allowed"
+                    + " for the repositories with managed directories.\n"
+                    + "The following overridden external repositories have managed directories: "
+                    + String.join(", ", conflicting.toArray(new String[0]));
+            throw new AbruptExitException(message, ExitCode.COMMAND_LINE_ERROR);
+          }
+        };
+    managedDirectoriesKnowledge = new ManagedDirectoriesKnowledgeImpl(listener);
   }
 
   public static ImmutableMap<String, RepositoryFunction> repositoryRules(
@@ -127,35 +144,6 @@ public class BazelRepositoryModule extends BlazeModule {
         .put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction())
         .build();
   }
-
-  /**
-   * A dirtiness checker that always dirties {@link RepositoryDirectoryValue}s so that if they were
-   * produced in a {@code --nofetch} build, they are re-created no subsequent {@code --fetch}
-   * builds.
-   *
-   * <p>The alternative solution would be to reify the value of the flag as a Skyframe value.
-   */
-  private static final SkyValueDirtinessChecker REPOSITORY_VALUE_CHECKER =
-      new SkyValueDirtinessChecker() {
-        @Override
-        public boolean applies(SkyKey skyKey) {
-          return skyKey.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY);
-        }
-
-        @Override
-        public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DirtyResult check(
-            SkyKey skyKey, SkyValue skyValue, @Nullable TimestampGranularityMonitor tsgm) {
-          RepositoryDirectoryValue repositoryValue = (RepositoryDirectoryValue) skyValue;
-          return repositoryValue.repositoryExists() && repositoryValue.isFetchingDelayed()
-              ? DirtyResult.dirty(skyValue)
-              : DirtyResult.notDirty(skyValue);
-        }
-      };
 
   private static class RepositoryCacheInfoItem extends InfoItem {
     private final RepositoryCache repositoryCache;
@@ -182,17 +170,22 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    builder.addCustomDirtinessChecker(REPOSITORY_VALUE_CHECKER);
+    builder.setManagedDirectoriesKnowledge(managedDirectoriesKnowledge);
+
+    RepositoryDirectoryDirtinessChecker customDirtinessChecker =
+        new RepositoryDirectoryDirtinessChecker(managedDirectoriesKnowledge);
+    builder.addCustomDirtinessChecker(customDirtinessChecker);
     // Create the repository function everything flows through.
     builder.addSkyFunction(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
-    builder.addSkyFunction(
-        SkyFunctions.REPOSITORY_DIRECTORY,
+    RepositoryDelegatorFunction repositoryDelegatorFunction =
         new RepositoryDelegatorFunction(
             repositoryHandlers,
             skylarkRepositoryFunction,
             isFetch,
             clientEnvironmentSupplier,
-            directories));
+            directories,
+            managedDirectoriesKnowledge);
+    builder.addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction);
     builder.addSkyFunction(MavenServerFunction.NAME, new MavenServerFunction(directories));
     filesystem = runtime.getFileSystem();
   }
@@ -217,7 +210,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    clientEnvironmentSupplier.set(env.getActionClientEnv());
+    clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
     resolvedFile = Optional.<RootedPath>absent();
@@ -227,7 +220,16 @@ public class BazelRepositoryModule extends BlazeModule {
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
       repositoryCache.setHardlink(repoOptions.useHardlinks);
-      skylarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
+      if (repoOptions.experimentalScaleTimeouts > 0.0) {
+        skylarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
+      } else {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Ignoring request to scale timeouts for repositories by a non-positive"
+                        + " factor"));
+        skylarkRepositoryFunction.setTimeoutScaling(1.0);
+      }
       if (repoOptions.experimentalRepositoryCache != null) {
         // A set but empty path indicates a request to disable the repository cache.
         if (!repoOptions.experimentalRepositoryCache.isEmpty()) {
@@ -275,6 +277,14 @@ public class BazelRepositoryModule extends BlazeModule {
                 .collect(Collectors.toList()));
       } else {
         httpDownloader.setDistdir(ImmutableList.<Path>of());
+      }
+
+      if (repoOptions.httpTimeoutScaling > 0) {
+        httpDownloader.setTimeoutScaling((float) repoOptions.httpTimeoutScaling);
+      } else {
+        env.getReporter()
+            .handle(Event.warn("Ingoring request to scale http timeouts by a non-positive factor"));
+        httpDownloader.setTimeoutScaling(1.0f);
       }
 
       if (repoOptions.repositoryOverrides != null) {

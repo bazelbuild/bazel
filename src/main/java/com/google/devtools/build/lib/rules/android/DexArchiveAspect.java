@@ -146,7 +146,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
-                    .cfg(HostTransition.INSTANCE)
+                    .cfg(HostTransition.createFactory())
                     .exec()
                     .value(
                         Label.parseAbsoluteUnchecked(
@@ -167,7 +167,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(
           attr(ASPECT_DEXBUILDER_PREREQ, LABEL)
-              .cfg(HostTransition.INSTANCE)
+              .cfg(HostTransition.createFactory())
               .exec()
               .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
     }

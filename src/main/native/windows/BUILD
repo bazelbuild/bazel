@@ -25,8 +25,20 @@ cc_library(
     hdrs = ["file.h"],
     visibility = [
         "//src/main/cpp:__subpackages__",
+        "//src/main/tools:__pkg__",
         "//src/test/cpp:__subpackages__",
         "//src/test/native:__subpackages__",
+        "//tools/test:__pkg__",
+    ],
+    deps = [":lib-util"],
+)
+
+cc_library(
+    name = "lib-process",
+    srcs = ["process.cc"],
+    hdrs = ["process.h"],
+    visibility = [
+        "//src/main/cpp:__pkg__",
         "//tools/test:__pkg__",
     ],
     deps = [":lib-util"],
@@ -37,6 +49,7 @@ cc_library(
     srcs = ["util.cc"],
     hdrs = ["util.h"],
     visibility = [
+        "//src/main/cpp:__pkg__",
         "//src/tools/launcher/util:__pkg__",
         "//tools/test:__pkg__",
     ],
@@ -60,27 +73,26 @@ cc_binary(
     ],
     deps = [
         ":lib-file",
+        ":lib-process",
         ":lib-util",
     ],
 )
 
-# Directly re-export resources.o so it can be consumed in the client.
-cc_library(
-    name = "resources",
-    srcs = ["resources.o"],
-    linkstatic = 1,
-    visibility = ["//src/main/cpp:__pkg__"],
-)
-
-# A zip containing source files used by ijar.
-genrule(
-    name = "native_windows_zip",
+filegroup(
+    name = "embedded_java_tools",
     srcs = [
         "file.cc",
         "file.h",
         "util.cc",
         "util.h",
     ],
+    visibility = ["//src/main/cpp/util:__pkg__"],
+)
+
+# A zip containing source files used by ijar.
+genrule(
+    name = "native_windows_zip",
+    srcs = [":embedded_java_tools"],
     outs = ["native_windows.zip"],
     cmd = "$(location //src:zip_files) src/main/native/windows $@ $(SRCS)",
     tools = ["//src:zip_files"],

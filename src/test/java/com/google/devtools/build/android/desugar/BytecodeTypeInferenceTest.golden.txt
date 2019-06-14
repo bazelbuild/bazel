@@ -1,3 +1,18 @@
+Class: ClassInDefaultPackageThatStartsWithC.class
+Method <init>
+   L0
+    ALOAD 0
+        |__STACK: [LClassInDefaultPackageThatStartsWithC;]
+        |__LOCAL: [LClassInDefaultPackageThatStartsWithC;]
+    INVOKESPECIAL java/lang/Object.<init> ()V
+        |__STACK: []
+        |__LOCAL: [LClassInDefaultPackageThatStartsWithC;]
+    RETURN
+        |__STACK: []
+        |__LOCAL: [LClassInDefaultPackageThatStartsWithC;]
+
+
+
 Class: testsubjects/TestSubject.class
 Method <init>
    L0

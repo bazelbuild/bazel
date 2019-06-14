@@ -14,7 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.AllowValues;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -81,13 +81,8 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(ALLOWED_VALUE_1);
 
-    try {
-      // Should throw because "foo" is not allowed.
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException e) {
-      // expected
-    }
+    // Should throw because "foo" is not allowed.
+    assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
   }
 
   @Test
@@ -110,12 +105,8 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
         .containsExactly(UNFILTERED_VALUE, ALLOWED_VALUE_2)
         .inOrder();
 
-    try {
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException e) {
-      // expected, since baz is not allowed.
-    }
+    // expected, since baz is not allowed.
+    assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
   }
 
   @Test
@@ -238,12 +229,7 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
 
-    try {
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException e) {
-      // expected.
-    }
+    assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
   }
 
   @Test
@@ -261,16 +247,13 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testListConverters).isEqualTo(Arrays.asList("a", "b", "c"));
 
-    try {
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "Flag value 'b' for option '--test_list_converters' is not allowed by invocation "
-                  + "policy");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Flag value 'b' for option '--test_list_converters' is not allowed by invocation "
+                + "policy");
   }
 
   @Test

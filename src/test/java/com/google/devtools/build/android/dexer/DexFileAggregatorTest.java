@@ -156,7 +156,7 @@ public class DexFileAggregatorTest {
     dexer.add(dex2);  // this should start a new shard
     // Make sure there was one file written and that file is dex
     verify(dest).addFile(any(ZipEntry.class), written.capture());
-    assertThat(written.getValue()).isSameAs(dex);
+    assertThat(written.getValue()).isSameInstanceAs(dex);
     dexer.close();
     verify(dest).addFile(any(ZipEntry.class), eq(dex2));
   }

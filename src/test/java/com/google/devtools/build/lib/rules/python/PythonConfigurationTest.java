@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -103,7 +103,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void getPythonVersion_NewFlagTakesPrecedence() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     // --force_python is superseded by --python_version.
     PythonOptions opts =
         parsePythonOptions(
@@ -115,7 +115,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void getPythonVersion_FallBackOnOldFlag() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     // --force_python is used because --python_version is absent.
     PythonOptions opts =
         parsePythonOptions(
@@ -125,7 +125,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void canTransitionPythonVersion_OldSemantics_Yes() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     PythonOptions opts =
         parsePythonOptions("--incompatible_allow_python_version_transitions=false");
     assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isTrue();
@@ -133,7 +133,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void canTransitionPythonVersion_OldSemantics_NoBecauseAlreadySet() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     PythonOptions optsWithOldFlag =
         parsePythonOptions(
             "--incompatible_allow_python_version_transitions=false",
@@ -149,7 +149,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   @Test
   public void canTransitionPythonVersion_OldSemantics_NoBecauseNewValueSameAsDefault()
       throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     PythonOptions opts =
         parsePythonOptions("--incompatible_allow_python_version_transitions=false");
     assertThat(opts.canTransitionPythonVersion(PythonVersion.PY2)).isFalse();
@@ -190,7 +190,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void setPythonVersion() throws Exception {
+  public void setPythonVersion_OldApiEnabled() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
             "--incompatible_remove_old_python_version_api=false",
@@ -198,6 +198,16 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             "--python_version=PY2");
     opts.setPythonVersion(PythonVersion.PY3);
     assertThat(opts.forcePython).isEqualTo(PythonVersion.PY3);
+    assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
+  }
+
+  @Test
+  public void setPythonVersion_OldApiDisabled() throws Exception {
+    PythonOptions opts =
+        parsePythonOptions(
+            "--incompatible_remove_old_python_version_api=true", "--python_version=PY2");
+    opts.setPythonVersion(PythonVersion.PY3);
+    assertThat(opts.forcePython).isNull();
     assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
 
@@ -211,7 +221,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             "--incompatible_py2_outputs_are_suffixed=true",
             "--build_python_zip=true",
             "--incompatible_disallow_legacy_py_provider=true",
-            "--experimental_use_python_toolchains=true");
+            "--incompatible_use_python_toolchains=true");
     PythonOptions hostOpts = (PythonOptions) opts.getHost();
     assertThat(hostOpts.incompatibleAllowPythonVersionTransitions).isTrue();
     assertThat(hostOpts.incompatibleRemoveOldPythonVersionApi).isTrue();
@@ -224,7 +234,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void getHost_AppliesHostForcePython() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     PythonOptions optsWithForcePythonFlag =
         parsePythonOptions(
             "--incompatible_remove_old_python_version_api=false",
@@ -251,7 +261,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void getHost_Py3IsDefaultFlagChangesHost() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     PythonOptions opts =
         // --incompatible_py3_is_default requires --incompatible_allow_python_version_transitions
         parsePythonOptions(
@@ -259,5 +269,21 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             "--incompatible_py3_is_default=true");
     PythonOptions hostOpts = (PythonOptions) opts.getHost();
     assertThat(hostOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+  }
+
+  @Test
+  public void getNormalized_OldSemantics() throws Exception {
+    PythonOptions opts =
+        parsePythonOptions("--incompatible_allow_python_version_transitions=false");
+    PythonOptions normalizedOpts = (PythonOptions) opts.getNormalized();
+    assertThat(normalizedOpts.pythonVersion).isNull();
+  }
+
+  @Test
+  public void getNormalized_NewSemantics() throws Exception {
+    assumesDefaultIsPY2();
+    PythonOptions opts = parsePythonOptions("--incompatible_allow_python_version_transitions=true");
+    PythonOptions normalizedOpts = (PythonOptions) opts.getNormalized();
+    assertThat(normalizedOpts.pythonVersion).isEqualTo(PythonVersion.PY2);
   }
 }

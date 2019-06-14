@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -80,20 +80,16 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
     mapper.get("srcs", BuildType.LABEL_LIST);
 
     // Bad typing:
-    try {
-      mapper.get("srcs", Type.BOOLEAN);
-      fail("Expected type mismatch to trigger an exception");
-    } catch (IllegalArgumentException e) {
-      // Expected.
-    }
+    assertThrows(
+        "Expected type mismatch to trigger an exception",
+        IllegalArgumentException.class,
+        () -> mapper.get("srcs", Type.BOOLEAN));
 
     // Unknown attribute:
-    try {
-      mapper.get("nonsense", Type.BOOLEAN);
-      fail("Expected non-existent type to trigger an exception");
-    } catch (IllegalArgumentException e) {
-      // Expected.
-    }
+    assertThrows(
+        "Expected type mismatch to trigger an exception",
+        IllegalArgumentException.class,
+        () -> mapper.get("nonsense", Type.BOOLEAN));
   }
 
   @Test

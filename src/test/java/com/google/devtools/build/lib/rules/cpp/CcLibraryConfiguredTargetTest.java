@@ -262,6 +262,16 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testFilesToBuildWithSaveFeatureState() throws Exception {
+    useConfiguration("--experimental_save_feature_state");
+    ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
+    Artifact archive = getBinArtifact("libhello.a", hello);
+    assertThat(getFilesToBuild(hello)).containsExactly(archive);
+    assertThat(ActionsTestUtil.baseArtifactNames(getOutputGroup(hello, OutputGroupInfo.DEFAULT)))
+        .containsAtLeast("enabled_features.txt", "requested_features.txt");
+  }
+
+  @Test
   public void testEmptyLinkopts() throws Exception {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     assertThat(hello.get(CcInfo.PROVIDER).getCcLinkingContext().getUserLinkFlags().isEmpty())
@@ -284,7 +294,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact sharedObject = getOnlyElement(FileType.filter(getFilesToBuild(hello),
         CppFileTypes.SHARED_LIBRARY));
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
-    for (String option : action.getLinkCommandLine().getLinkopts()) {
+    for (String option : MockCcSupport.getLinkopts(action.getLinkCommandLine())) {
       assertThat(option).doesNotContain("-Wl,-soname");
     }
 
@@ -295,7 +305,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     sharedObject =
         FileType.filter(getFilesToBuild(hello), CppFileTypes.SHARED_LIBRARY).iterator().next();
     action = (CppLinkAction) getGeneratingAction(sharedObject);
-    assertThat(action.getLinkCommandLine().getLinkopts())
+    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
         .contains("-Wl,-soname=libhello_Slibhello.so");
   }
 
@@ -321,7 +331,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(info.getMnemonic()).isEqualTo("CppLink");
 
     CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
-    assertThat(cppLinkInfo).isNotNull();
 
     Iterable<String> inputs =
         Artifact.asExecPaths(action.getLinkCommandLine().getLinkerInputArtifacts());
@@ -360,7 +369,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(info.getMnemonic()).isEqualTo("CppLink");
 
     CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
-    assertThat(cppLinkInfo).isNotNull();
 
     Iterable<String> inputs =
         Artifact.asExecPaths(action.getLinkCommandLine().getLinkerInputArtifacts());
@@ -576,9 +584,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "package(features = ['header_modules'])",
             "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'])",
             "cc_library(name = 'y', hdrs = ['y.h'])");
-    assertThat(ActionsTestUtil.baseArtifactNames(
-        getOutputGroup(x, OutputGroupInfo.COMPILATION_PREREQUISITES)))
-        .containsAllOf("y.h", "y.cppmap", "crosstool.cppmap", "x.cppmap", "y.pic.pcm", "x.cc");
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                getOutputGroup(x, OutputGroupInfo.COMPILATION_PREREQUISITES)))
+        .containsAtLeast("y.h", "y.cppmap", "crosstool.cppmap", "x.cppmap", "y.pic.pcm", "x.cc");
   }
 
   @Test
@@ -1118,6 +1127,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testIncludePathOrder() throws Exception {
+    useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file("foo/BUILD",
         "cc_library(",
         "    name = 'bar',",
@@ -1512,5 +1522,28 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers", "-c", "opt");
     // Should not crash
     scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'])");
+  }
+
+  @Test
+  public void testAlwaysLinkAndDisableWholeArchiveError() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures("disable_whole_archive_for_static_lib_configuration"));
+
+    useConfiguration("--features=disable_whole_archive_for_static_lib");
+    // Should be fine.
+    assertThat(
+            scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'], srcs=['a.cc'])"))
+        .isNotNull();
+    // Should error out.
+    reporter.removeHandler(failFastHandler);
+    scratchConfiguredTarget(
+        "b", "b", "cc_library(name='b', hdrs=['b.h'], srcs=['b.cc'], alwayslink=1)");
+    assertContainsEvent(
+        "alwayslink should not be True for a target with the disable_whole_archive_for_static_lib"
+            + " feature enabled");
   }
 }

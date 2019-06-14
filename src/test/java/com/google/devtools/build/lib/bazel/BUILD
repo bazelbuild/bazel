@@ -37,6 +37,8 @@ java_test(
     srcs = glob(["rules/**/*.java"]),
     resources = [
         "//tools/android:android_sdk_repository_template.bzl",
+        "//tools/build_defs/cc:action_names.bzl",
+        "//tools/cpp:cc_toolchain_config_lib.bzl",
     ] + glob(["rules/**/*.txt"]),
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",

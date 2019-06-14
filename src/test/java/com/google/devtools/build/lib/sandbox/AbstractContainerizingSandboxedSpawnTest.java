@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -85,12 +85,9 @@ public class AbstractContainerizingSandboxedSpawnTest {
     assertThat(outputsDir.getRelative("very/output.link").resolveSymbolicLinks())
         .isEqualTo(outputsDir.getRelative("very/output.txt"));
     assertThat(outputsDir.getRelative("very/output.dangling").isSymbolicLink()).isTrue();
-    try {
-      outputsDir.getRelative("very/output.dangling").resolveSymbolicLinks();
-      fail("expected IOException");
-    } catch (IOException e) {
-      // Ignored.
-    }
+    assertThrows(
+        IOException.class,
+        () -> outputsDir.getRelative("very/output.dangling").resolveSymbolicLinks());
     assertThat(outputsDir.getRelative("very/output.dir").isDirectory(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outputsDir.getRelative("very/output.dir/test.txt").isFile(Symlinks.NOFOLLOW))
         .isTrue();

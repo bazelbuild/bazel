@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.devtools.common.options.Options;
 
 /** Helpers for Python tests. */
 public class PythonTestUtils {
@@ -25,19 +23,23 @@ public class PythonTestUtils {
   private PythonTestUtils() {}
 
   /**
-   * Assert that the default Python version (for flagless builds) hasn't changed.
+   * Stub method that is used to annotate that the calling test case assumes the default Python
+   * version is PY2.
    *
-   * <p>Use this to indicate that the PY2 and PY3 values of your test should be flipped if this
-   * default value is changed. In general, it is useful to write tests with expected values that
-   * differ from the default, so that they don't spuriously succeed if the default is erroneously
-   * returned.
+   * <p>Marking test cases that depend on the default Python version helps to diagnose failures. It
+   * also helps guard against accidentally making the test spuriously pass, e.g. if the expected
+   * value becomes the same as the default value..
+   *
+   * <p>Although the hard-coded default in {@link PythonOptions} has been flipped to PY3, we
+   * override this back to PY2 in our analysis-time tests and some of our integration tests. These
+   * tests will need to be ported in the future.
    */
-  public static void ensureDefaultIsPY2() {
-    assertWithMessage(
-            "This test case is written with the assumption that the default is Python 2. When "
-                + "updating the default to Python 3, flip all the PY2/PY3 constants in the test "
-                + "case and this helper function.")
-        .that(Options.getDefaults(PythonOptions.class).getDefaultPythonVersion())
-        .isEqualTo(PythonVersion.PY2);
+  public static void assumesDefaultIsPY2() {
+    // No-op.
+  }
+
+  /** Same as {@link #assumesDefaultIsPY2}, but for PY3. */
+  public static void assumesDefaultIsPY3() {
+    // No-op.
   }
 }

@@ -19,7 +19,6 @@ import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Map;
@@ -77,7 +76,10 @@ public abstract class ExecutionInfoModifier {
             new AutoValue_ExecutionInfoModifier_Expression(
                 // Convert to get a useful exception if it's not a valid pattern, but use the regex
                 // (see comment in Expression)
-                new RegexPatternConverter().convert(specMatcher.group("pattern")).pattern(),
+                new RegexPatternConverter()
+                    .convert(specMatcher.group("pattern"))
+                    .regexPattern()
+                    .pattern(),
                 specMatcher.group("sign").equals("-"),
                 specMatcher.group("key")));
       }

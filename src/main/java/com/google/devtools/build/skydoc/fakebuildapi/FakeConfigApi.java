@@ -41,15 +41,5 @@ public class FakeConfigApi implements StarlarkConfigApi {
   }
 
   @Override
-  public BuildSettingApi labelSetting(Boolean flag) {
-    return new FakeBuildSettingDescriptor();
-  }
-
-  @Override
-  public BuildSettingApi labelListSetting(Boolean flag) {
-    return new FakeBuildSettingDescriptor();
-  }
-
-  @Override
   public void repr(SkylarkPrinter printer) {}
 }

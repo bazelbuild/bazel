@@ -84,7 +84,7 @@ public abstract class AndroidSkylarkData
       Environment env)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
       String pkg = fromNoneable(customPackage, String.class);
       if (pkg == null) {
         pkg =
@@ -113,7 +113,7 @@ public abstract class AndroidSkylarkData
       throws InterruptedException, EvalException {
     String pkg = fromNoneable(customPackage, String.class);
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
       return AndroidManifest.from(
               ctx,
               errorReporter,
@@ -137,7 +137,7 @@ public abstract class AndroidSkylarkData
       Environment env)
       throws EvalException, InterruptedException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
       return AndroidAssets.from(
               errorReporter,
               listFromNoneable(assets, ConfiguredTarget.class),
@@ -147,6 +147,34 @@ public abstract class AndroidSkylarkData
               AssetDependencies.fromProviders(deps, neverlink),
               ctx.getAndroidConfig().getAndroidAaptVersion())
           .toProvider();
+    } catch (RuleErrorException e) {
+      throw new EvalException(Location.BUILTIN, e);
+    }
+  }
+
+  @Override
+  public ValidatedAndroidResources mergeRes(
+      AndroidDataContext ctx,
+      AndroidManifestInfo manifest,
+      SkylarkList<ConfiguredTarget> resources,
+      SkylarkList<AndroidResourcesInfo> deps,
+      boolean neverlink,
+      boolean enableDataBinding,
+      Location location,
+      Environment env)
+      throws EvalException, InterruptedException {
+    try (SkylarkErrorReporter errorReporter =
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
+      AndroidAaptVersion aaptVersion =
+          ctx.getSdk().getAapt2() != null ? AndroidAaptVersion.AAPT2 : AndroidAaptVersion.AAPT;
+      return AndroidResources.from(errorReporter, getFileProviders(resources), "resources")
+          .process(
+              ctx,
+              manifest.asStampedManifest(),
+              ResourceDependencies.fromProviders(deps, neverlink),
+              DataBinding.contextFrom(
+                  enableDataBinding, ctx.getActionConstructionContext(), ctx.getAndroidConfig()),
+              aaptVersion);
     } catch (RuleErrorException e) {
       throw new EvalException(Location.BUILTIN, e);
     }
@@ -163,36 +191,16 @@ public abstract class AndroidSkylarkData
       Location location,
       Environment env)
       throws EvalException, InterruptedException {
-    try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
-      AndroidAaptVersion aaptVersion =
-          ctx.getSdk().getAapt2() != null ? AndroidAaptVersion.AAPT2 : AndroidAaptVersion.AAPT;
-
-      ValidatedAndroidResources validated =
-          AndroidResources.from(errorReporter, getFileProviders(resources), "resources")
-              .process(
-                  ctx,
-                  manifest.asStampedManifest(),
-                  ResourceDependencies.fromProviders(deps, neverlink),
-                  DataBinding.contextFrom(
-                      enableDataBinding,
-                      ctx.getActionConstructionContext(),
-                      ctx.getAndroidConfig()),
-                  aaptVersion);
-
-      JavaInfo javaInfo =
-          getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
-
-      return SkylarkDict.of(
-          /* env = */ null,
-          AndroidResourcesInfo.PROVIDER,
-          validated.toProvider(),
-          JavaInfo.PROVIDER,
-          javaInfo);
-
-    } catch (RuleErrorException e) {
-      throw new EvalException(Location.BUILTIN, e);
-    }
+    ValidatedAndroidResources validated =
+        mergeRes(ctx, manifest, resources, deps, neverlink, enableDataBinding, location, env);
+    JavaInfo javaInfo =
+        getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
+    return SkylarkDict.of(
+        /* env = */ null,
+        AndroidResourcesInfo.PROVIDER,
+        validated.toProvider(),
+        JavaInfo.PROVIDER,
+        javaInfo);
   }
 
   @Override
@@ -263,100 +271,6 @@ public abstract class AndroidSkylarkData
   }
 
   @Override
-  public SkylarkDict<Provider, NativeInfo> processLibraryData(
-      AndroidDataContext ctx,
-      Artifact libraryClassJar,
-      Object manifest,
-      Object resources,
-      Object assets,
-      Object assetsDir,
-      Object exportsManifest,
-      Object customPackage,
-      boolean neverlink,
-      boolean enableDataBinding,
-      SkylarkList<Artifact> localProguardSpecs,
-      SkylarkList<ConfiguredTarget> deps,
-      Location location,
-      Environment env)
-      throws InterruptedException, EvalException {
-
-    SkylarkList<AndroidResourcesInfo> resourceDeps =
-        getProviders(deps, AndroidResourcesInfo.PROVIDER);
-    SkylarkList<AndroidAssetsInfo> assetDeps = getProviders(deps, AndroidAssetsInfo.PROVIDER);
-
-    ImmutableMap.Builder<Provider, NativeInfo> infoBuilder = ImmutableMap.builder();
-
-    AndroidResourcesInfo resourcesInfo;
-    AndroidAssetsInfo assetsInfo;
-    if (isNone(manifest)
-        && isNone(resources)
-        && isNone(assets)
-        && isNone(assetsDir)
-        && isNone(exportsManifest)) {
-
-      // If none of these parameters were specified, for backwards compatibility, do not trigger
-      // data processing.
-      resourcesInfo = resourcesFromDeps(ctx, resourceDeps, neverlink, customPackage, location, env);
-      assetsInfo = assetsFromDeps(assetDeps, neverlink, env);
-
-      infoBuilder.put(AndroidResourcesInfo.PROVIDER, resourcesInfo);
-    } else {
-
-      AndroidManifestInfo baseManifest =
-          stampAndroidManifest(
-              ctx,
-              manifest,
-              customPackage,
-              fromNoneableOrDefault(exportsManifest, Boolean.class, false),
-              location,
-              env);
-
-      SkylarkDict<Provider, NativeInfo> resourceOutput =
-          mergeResources(
-              ctx,
-              baseManifest,
-              listFromNoneableOrEmpty(resources, ConfiguredTarget.class),
-              resourceDeps,
-              neverlink,
-              enableDataBinding,
-              location,
-              env);
-
-      resourcesInfo = (AndroidResourcesInfo) resourceOutput.get(AndroidResourcesInfo.PROVIDER);
-      assetsInfo = mergeAssets(ctx, assets, assetsDir, assetDeps, neverlink, location, env);
-
-      infoBuilder.putAll(resourceOutput);
-    }
-
-    AndroidLibraryAarInfo aarInfo =
-        makeAar(
-            ctx,
-            resourcesInfo,
-            assetsInfo,
-            libraryClassJar,
-            localProguardSpecs,
-            getProviders(deps, AndroidLibraryAarInfo.PROVIDER),
-            neverlink);
-
-    // Only expose the aar provider in non-neverlinked actions
-    if (!neverlink) {
-      infoBuilder.put(AndroidLibraryAarInfo.PROVIDER, aarInfo);
-    }
-
-    // Expose the updated manifest that was changed by resource processing
-    // TODO(b/30817309): Use the base manifest once manifests are no longer changed in resource
-    // processing
-    AndroidManifestInfo manifestInfo = resourcesInfo.getManifest();
-
-    return SkylarkDict.copyOf(
-        /* env = */ null,
-        infoBuilder
-            .put(AndroidAssetsInfo.PROVIDER, assetsInfo)
-            .put(AndroidManifestInfo.PROVIDER, manifestInfo)
-            .build());
-  }
-
-  @Override
   public SkylarkDict<Provider, NativeInfo> processAarImportData(
       AndroidDataContext ctx,
       SpecialArtifact resources,
@@ -406,7 +320,7 @@ public abstract class AndroidSkylarkData
       Environment env)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
 
       AndroidManifest rawManifest =
           AndroidManifest.from(
@@ -468,7 +382,7 @@ public abstract class AndroidSkylarkData
 
     AndroidAaptVersion aaptVersion;
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
       aaptVersion =
           AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString);
     } catch (RuleErrorException e) {
@@ -541,7 +455,7 @@ public abstract class AndroidSkylarkData
       Environment env)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
 
       BinaryDataSettings settings =
           fromNoneableOrDefault(
@@ -805,15 +719,5 @@ public abstract class AndroidSkylarkData
             .map(target -> target.get(provider))
             .filter(Objects::nonNull)
             .collect(ImmutableList.toImmutableList()));
-  }
-
-  private static <T> SkylarkList<T> listFromNoneableOrEmpty(Object object, Class<T> clazz)
-      throws EvalException {
-    List<T> value = listFromNoneable(object, clazz);
-    if (value == null) {
-      return SkylarkList.createImmutable(ImmutableList.of());
-    }
-
-    return SkylarkList.createImmutable(value);
   }
 }

@@ -64,7 +64,7 @@ public final class JavaGenJarsProvider
         genClassJar,
         genSourceJar,
         plugins.plugins().processorClasspath(),
-        ImmutableList.copyOf(plugins.plugins().processorClasses().toList()),
+        plugins.plugins().processorClasses().toList(),
         classJarsBuilder.build(),
         sourceJarsBuilder.build());
   }

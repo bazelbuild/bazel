@@ -12,6 +12,36 @@ java_binary(
     runtime_deps = [":lcov_merger_lib"],
 )
 
+genrule(
+    name = "rename_build_tools",
+    srcs = ["BUILD.remote"],
+    outs = ["coverage/BUILD"],
+    cmd = "cp $< $@",
+)
+
+genrule(
+    name = "create_empty_workspace",
+    outs = ["WORKSPACE"],
+    cmd = "touch $@",
+)
+
+genrule(
+    name = "coverage_output_generator_zip",
+    srcs = [
+        ":all_lcov_merger_tools_deploy.jar",
+        "coverage/BUILD",
+        "WORKSPACE",
+    ],
+    outs = ["coverage_output_generator.zip"],
+    cmd = "zip -q -j $@ $(SRCS)",
+)
+
+sh_binary(
+    name = "build_and_upload",
+    srcs = ["build_and_upload.sh"],
+    data = [":coverage_output_generator.zip"],
+)
+
 java_library(
     name = "lcov_merger_lib",
     srcs = glob(["*.java"]),
@@ -143,7 +173,6 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        ":all_lcov_merger_tools_deploy.jar",
     ],
     visibility = ["//visibility:public"],
 )

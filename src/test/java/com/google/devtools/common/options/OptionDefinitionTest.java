@@ -15,7 +15,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -52,30 +52,32 @@ public class OptionDefinitionTest {
   public void optionConverterCannotParseDefaultValue() throws Exception {
     OptionDefinition optionDef =
         OptionDefinition.extractOptionDefinition(BrokenOptions.class.getField("assignments"));
-    try {
-      optionDef.getDefaultValue();
-      fail("Incorrect default should have caused getDefaultValue to fail.");
-    } catch (ConstructionException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "OptionsParsingException while retrieving the default value for assignments: "
-                  + "Variable definitions must be in the form of a 'name=value' assignment");
-    }
+    ConstructionException e =
+        assertThrows(
+            "Incorrect default should have caused getDefaultValue to fail.",
+            ConstructionException.class,
+            () -> optionDef.getDefaultValue());
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "OptionsParsingException while retrieving the default value for assignments: "
+                + "Variable definitions must be in the form of a 'name=value' assignment");
   }
 
   @Test
   public void optionDefinitionRejectsNonOptions() throws Exception {
-    try {
-      OptionDefinition.extractOptionDefinition(BrokenOptions.class.getField("notAnOption"));
-      fail("notAnOption isn't an Option, and shouldn't be accepted as one.");
-    } catch (NotAnOptionException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "The field notAnOption does not have the right annotation to be considered an "
-                  + "option.");
-    }
+    NotAnOptionException e =
+        assertThrows(
+            "notAnOption isn't an Option, and shouldn't be accepted as one.",
+            NotAnOptionException.class,
+            () ->
+                OptionDefinition.extractOptionDefinition(
+                    BrokenOptions.class.getField("notAnOption")));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "The field notAnOption does not have the right annotation to be considered an "
+                + "option.");
   }
 
   /**
@@ -125,7 +127,7 @@ public class OptionDefinitionTest {
 
     // Expect reference equality, since we didn't recompute the value
     Converter<?> secondConverter = mockOptionDef.getConverter();
-    assertThat(secondConverter).isSameAs(converter);
+    assertThat(secondConverter).isSameInstanceAs(converter);
 
     mockOptionDef.getDefaultValue();
 
@@ -161,7 +163,7 @@ public class OptionDefinitionTest {
 
     // Expect reference equality, since we didn't recompute the value
     Converter<?> secondConverter = mockOptionDef.getConverter();
-    assertThat(secondConverter).isSameAs(converter);
+    assertThat(secondConverter).isSameInstanceAs(converter);
 
     mockOptionDef.getDefaultValue();
 

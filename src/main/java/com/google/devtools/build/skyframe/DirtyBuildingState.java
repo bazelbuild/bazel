@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -271,7 +270,8 @@ public abstract class DirtyBuildingState {
    * true, this method is non-mutating. If {@code preservePosition} is false, the caller must
    * process the returned set, and so subsequent calls to this method will return the empty set.
    */
-  Set<SkyKey> getAllRemainingDirtyDirectDeps(boolean preservePosition) throws InterruptedException {
+  ImmutableSet<SkyKey> getAllRemainingDirtyDirectDeps(boolean preservePosition)
+      throws InterruptedException {
     if (getLastBuildDirectDeps() == null) {
       return ImmutableSet.of();
     }
@@ -285,10 +285,16 @@ public abstract class DirtyBuildingState {
     return result.build();
   }
 
+  /**
+   * Resets counters that track evaluation state. May only be called when its corresponding node has
+   * no outstanding unsignaled deps, because otherwise this resetting and that signalling would
+   * race.
+   */
   final void resetForRestartFromScratch() {
     Preconditions.checkState(
         dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
     signaledDeps = 0;
+    externalDeps = 0;
     dirtyDirectDepIndex = 0;
   }
 

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
@@ -179,7 +179,9 @@ public abstract class GlobFunctionTest {
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper));
+            new AtomicReference<TimestampGranularityMonitor>(),
+            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
@@ -518,12 +520,12 @@ public abstract class GlobFunctionTest {
   }
 
   private void assertIllegalPattern(String pattern) {
-    try {
-      GlobValue.key(PKG_ID, Root.fromPath(root), pattern, false, PathFragment.EMPTY_FRAGMENT);
-      fail("invalid pattern not detected: " + pattern);
-    } catch (InvalidGlobPatternException e) {
-      // Expected.
-    }
+    assertThrows(
+        "invalid pattern not detected: " + pattern,
+        InvalidGlobPatternException.class,
+        () ->
+            GlobValue.key(
+                PKG_ID, Root.fromPath(root), pattern, false, PathFragment.EMPTY_FRAGMENT));
   }
 
   /**

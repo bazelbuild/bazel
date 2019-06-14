@@ -32,24 +32,27 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
-import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -57,14 +60,36 @@ import javax.annotation.Nullable;
  */
 public final class SandboxModule extends BlazeModule {
 
+  /** Tracks whether we are issuing the very first build within this Bazel server instance. */
+  private static boolean firstBuild = true;
+
   /** Environment for the running command. */
-  private @Nullable CommandEnvironment env;
+  @Nullable private CommandEnvironment env;
 
   /** Path to the location of the sandboxes. */
-  private @Nullable Path sandboxBase;
+  @Nullable private Path sandboxBase;
 
   /** Instance of the sandboxfs process in use, if enabled. */
-  private @Nullable SandboxfsProcess sandboxfsProcess;
+  @Nullable private SandboxfsProcess sandboxfsProcess;
+
+  /**
+   * Collection of spawn runner instantiated during the executor setup.
+   *
+   * <p>We need this information to clean up the heavy subdirectories of the sandbox base on build
+   * completion but to avoid wiping the whole sandbox base itself, which could be problematic across
+   * builds.
+   */
+  private final Set<SpawnRunner> spawnRunners = new HashSet<>();
+
+  /**
+   * Handler to process expensive tree deletions outside of the critical path.
+   *
+   * <p>Sandboxing creates one separate tree for each action, and this tree is used to run the
+   * action commands in. These trees are disjoint for all actions and have unique identifiers.
+   * Therefore, there is no need for their deletion (which can be very expensive) to happen in the
+   * critical path -- so if the user so wishes, we process those deletions asynchronously.
+   */
+  @Nullable private TreeDeleter treeDeleter;
 
   /**
    * Whether to remove the sandbox worker directories after a build or not. Useful for debugging
@@ -118,6 +143,38 @@ public final class SandboxModule extends BlazeModule {
     }
   }
 
+  /**
+   * Returns true if sandboxfs should be used for this build.
+   *
+   * <p>If the user set the use of sandboxfs as optional, this only returns true if the configured
+   * sandboxfs binary is present and valid. If the user requested the use of sandboxfs as mandatory,
+   * this throws an error if the binary is not valid.
+   *
+   * @param requested whether sandboxfs use was requested or not
+   * @param binary path of the sandboxfs binary to use
+   * @return true if sandboxfs can and should be used; false otherwise
+   * @throws IOException if there are problems trying to determine the status of sandboxfs
+   */
+  private boolean shouldUseSandboxfs(TriState requested, PathFragment binary) throws IOException {
+    switch (requested) {
+      case AUTO:
+        return RealSandboxfsProcess.isAvailable(binary);
+
+      case NO:
+        return false;
+
+      case YES:
+        if (!RealSandboxfsProcess.isAvailable(binary)) {
+          throw new IOException(
+              "sandboxfs explicitly requested but \""
+                  + binary
+                  + "\" could not be found or is not valid");
+        }
+        return true;
+    }
+    throw new IllegalStateException("Not reachable");
+  }
+
   private void setup(CommandEnvironment cmdEnv, ExecutorBuilder builder)
       throws IOException {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
@@ -127,11 +184,22 @@ public final class SandboxModule extends BlazeModule {
     // out the contents of the generated sandbox directories.
     shouldCleanupSandboxBase = !options.sandboxDebug;
 
+    // If there happens to be any live tree deleter from a previous build and it's different than
+    // the one we want now, leave it alone (i.e. don't attempt to wait for pending deletions). Its
+    // deletions shouldn't overlap any new directories we create during this build (because the
+    // identifiers in the subdirectories will be different).
+    if (options.asyncTreeDeleteIdleThreads == 0) {
+      if (!(treeDeleter instanceof SynchronousTreeDeleter)) {
+        treeDeleter = new SynchronousTreeDeleter();
+      }
+    } else {
+      if (!(treeDeleter instanceof AsynchronousTreeDeleter)) {
+        treeDeleter = new AsynchronousTreeDeleter();
+      }
+    }
+
     Path mountPoint = sandboxBase.getRelative("sandboxfs");
 
-    // Ensure that each build starts with a clean sandbox base directory. Otherwise using the `id`
-    // that is provided by SpawnExecutionPolicy#getId to compute a base directory for a sandbox
-    // might result in an already existing directory.
     if (sandboxfsProcess != null) {
       if (options.sandboxDebug) {
         env.getReporter()
@@ -144,12 +212,23 @@ public final class SandboxModule extends BlazeModule {
       sandboxfsProcess.destroy();
       sandboxfsProcess = null;
     }
-    if (sandboxBase.exists()) {
-      FileSystemUtils.deleteTree(sandboxBase);
+    // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during
+    // the life of a Bazel server instance so we don't need to worry about stale directories from
+    // previous builds. However, on the very first build of an instance of the server, we must
+    // wipe old contents to avoid reusing stale directories.
+    if (firstBuild && sandboxBase.exists()) {
+      cmdEnv.getReporter().handle(Event.info("Deleting stale sandbox base " + sandboxBase));
+      sandboxBase.deleteTree();
     }
+    firstBuild = false;
 
+    PathFragment sandboxfsPath = PathFragment.create(options.sandboxfsPath);
+    boolean useSandboxfs;
+    try (SilentCloseable c = Profiler.instance().profile("shouldUseSandboxfs")) {
+      useSandboxfs = shouldUseSandboxfs(options.useSandboxfs, sandboxfsPath);
+    }
     sandboxBase.createDirectoryAndParents();
-    if (options.useSandboxfs) {
+    if (useSandboxfs) {
       mountPoint.createDirectory();
       Path logFile = sandboxBase.getRelative("sandboxfs.log");
 
@@ -157,9 +236,7 @@ public final class SandboxModule extends BlazeModule {
         if (options.sandboxDebug) {
           env.getReporter().handle(Event.info("Mounting sandboxfs instance on " + mountPoint));
         }
-        sandboxfsProcess =
-            RealSandboxfsProcess.mount(
-                PathFragment.create(options.sandboxfsPath), mountPoint, logFile);
+        sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
       }
     }
 
@@ -177,7 +254,12 @@ public final class SandboxModule extends BlazeModule {
           withFallback(
               cmdEnv,
               new ProcessWrapperSandboxedSpawnRunner(
-                  cmdEnv, sandboxBase, cmdEnv.getRuntime().getProductName(), timeoutKillDelay));
+                  cmdEnv,
+                  sandboxBase,
+                  cmdEnv.getRuntime().getProductName(),
+                  timeoutKillDelay,
+                  treeDeleter));
+      spawnRunners.add(spawnRunner);
       builder.addActionContext(
           new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
@@ -200,7 +282,9 @@ public final class SandboxModule extends BlazeModule {
                     sandboxBase,
                     defaultImage,
                     timeoutKillDelay,
-                    useCustomizedImages));
+                    useCustomizedImages,
+                    treeDeleter));
+        spawnRunners.add(spawnRunner);
         builder.addActionContext(
             new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
       }
@@ -220,7 +304,9 @@ public final class SandboxModule extends BlazeModule {
                   sandboxBase,
                   timeoutKillDelay,
                   sandboxfsProcess,
-                  options.sandboxfsMapSymlinkTargets));
+                  options.sandboxfsMapSymlinkTargets,
+                  treeDeleter));
+      spawnRunners.add(spawnRunner);
       builder.addActionContext(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
@@ -234,7 +320,9 @@ public final class SandboxModule extends BlazeModule {
                   sandboxBase,
                   timeoutKillDelay,
                   sandboxfsProcess,
-                  options.sandboxfsMapSymlinkTargets));
+                  options.sandboxfsMapSymlinkTargets,
+                  treeDeleter));
+      spawnRunners.add(spawnRunner);
       builder.addActionContext(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
@@ -284,17 +372,12 @@ public final class SandboxModule extends BlazeModule {
   private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
-    LocalEnvProvider localEnvProvider =
-        OS.getCurrent() == OS.DARWIN
-            ? new XcodeLocalEnvProvider(env.getClientEnv())
-            : new PosixLocalEnvProvider(env.getClientEnv());
-    return
-        new LocalSpawnRunner(
-            env.getExecRoot(),
-            localExecutionOptions,
-            ResourceManager.instance(),
-            localEnvProvider,
-            env.getBlazeWorkspace().getBinTools());
+    return new LocalSpawnRunner(
+        env.getExecRoot(),
+        localExecutionOptions,
+        ResourceManager.instance(),
+        LocalEnvProvider.forCurrentOs(env.getClientEnv()),
+        env.getBlazeWorkspace().getBinTools());
   }
 
   private static final class SandboxFallbackSpawnRunner implements SpawnRunner {
@@ -324,6 +407,12 @@ public final class SandboxModule extends BlazeModule {
     @Override
     public boolean canExec(Spawn spawn) {
       return sandboxSpawnRunner.canExec(spawn) || fallbackSpawnRunner.canExec(spawn);
+    }
+
+    @Override
+    public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
+      sandboxSpawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
+      fallbackSpawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
     }
   }
 
@@ -366,12 +455,26 @@ public final class SandboxModule extends BlazeModule {
   public void afterCommand() {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
 
+    SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
+    int asyncTreeDeleteThreads = options != null ? options.asyncTreeDeleteIdleThreads : 0;
+    if (asyncTreeDeleteThreads > 0) {
+      // If asynchronous deletions were requested, they may still be ongoing so let them be: trying
+      // to delete the base tree synchronously could fail as we can race with those other deletions,
+      // and scheduling an asynchronous deletion could race with future builds.
+      AsynchronousTreeDeleter treeDeleter =
+          (AsynchronousTreeDeleter) checkNotNull(this.treeDeleter);
+      treeDeleter.setThreads(asyncTreeDeleteThreads);
+    }
+
     if (shouldCleanupSandboxBase) {
       try {
-        FileSystemUtils.deleteTree(sandboxBase);
+        checkNotNull(sandboxBase, "shouldCleanupSandboxBase implies sandboxBase has been set");
+        for (SpawnRunner spawnRunner : spawnRunners) {
+          spawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
+        }
       } catch (IOException e) {
-        env.getReporter().handle(Event.warn("Failed to delete sandbox base " + sandboxBase
-            + ": " + e));
+        env.getReporter()
+            .handle(Event.warn("Failed to delete contents of sandbox " + sandboxBase + ": " + e));
       }
       shouldCleanupSandboxBase = false;
 
@@ -386,13 +489,28 @@ public final class SandboxModule extends BlazeModule {
     env = null;
   }
 
+  private void commonShutdown() {
+    tryUnmountSandboxfsOnShutdown();
+
+    // Try to clean up as much garbage as possible, if there happens to be any. This will delay
+    // server termination but it's the nice thing to do. If the user gets impatient, they can always
+    // kill us again.
+    if (treeDeleter != null) {
+      try {
+        treeDeleter.shutdown();
+      } finally {
+        treeDeleter = null; // Avoid potential reexecution if we crash.
+      }
+    }
+  }
+
   @Override
   public void blazeShutdown() {
-    tryUnmountSandboxfsOnShutdown();
+    commonShutdown();
   }
 
   @Override
   public void blazeShutdownOnCrash() {
-    tryUnmountSandboxfsOnShutdown();
+    commonShutdown();
   }
 }

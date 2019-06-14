@@ -121,7 +121,17 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private BuilderRunner bazel() {
-    return WorkspaceTestUtils.bazel(context()).withFlags("--all_incompatible_changes");
+    // On Mac, set host config to use PY2 because our CI Mac workers don't have a Python 3 runtime.
+    // TODO(https://github.com/bazelbuild/continuous-integration/issues/578): Remove this
+    // workaround.
+    if (System.getProperty("os.name").toLowerCase().startsWith("mac os x")) {
+      System.out.println(
+          "Setting host Python to PY2 to workaround unavailability of Python 3 on Mac CI");
+      return WorkspaceTestUtils.bazel(context())
+          .withFlags("--all_incompatible_changes", "--host_force_python=PY2");
+    } else {
+      return WorkspaceTestUtils.bazel(context()).withFlags("--all_incompatible_changes");
+    }
   }
 
   private Path decompress(Path dataTarPath) throws IOException, RepositoryFunctionException {

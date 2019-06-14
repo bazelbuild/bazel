@@ -34,6 +34,9 @@ tutorial:
 
 *   [Tutorial: Build an iOS Application](tutorial/ios-app.html)
 
+If you find yourself unsure of how Workspace, Packages, Targets and Rules
+relate to each other, jump to the [Bazel Concepts](build-ref.html) page.
+
 Once you are familiar with the basics, you can try the rules for
 [other languages](be/overview.html).
 

@@ -20,9 +20,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.OptionsDiffPredicate;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
@@ -41,7 +41,6 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Test-related options. */
 public class TestConfiguration extends Fragment {
@@ -232,12 +231,6 @@ public class TestConfiguration extends Fragment {
                 + "tools/test/test-setup.sh as on other platforms. On other platforms: no-op.")
     public boolean windowsNativeTestWrapper;
 
-    @Override
-    public Map<String, Set<Label>> getDefaultsLabels() {
-      return ImmutableMap.<String, Set<Label>>of(
-          "coverage_support", ImmutableSet.of(coverageSupport),
-          "coverage_report_generator", ImmutableSet.of(coverageReportGenerator));
-    }
 
     @Override
     public FragmentOptions getHost() {

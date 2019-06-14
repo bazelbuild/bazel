@@ -15,6 +15,7 @@ package com.google.devtools.build.android.ziputils;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
@@ -49,26 +50,23 @@ public class SplitZipTest {
   }
 
   @Test
-  public void testSetOutput() {
+  public void testSetOutput_null() {
     SplitZip instance = new SplitZip();
-    try {
-      instance.addOutput((String) null);
-      fail("should have failed");
-    } catch (Exception ex) {
-      assertWithMessage("NullPointerException expected")
-          .that(ex instanceof NullPointerException)
-          .isTrue();
-    }
-    try {
+    Exception ex = assertThrows(Exception.class, () -> instance.addOutput((String) null));
+    assertWithMessage("NullPointerException expected")
+        .that(ex instanceof NullPointerException)
+        .isTrue();
+  }
+
+  @Test
+  public void testSetOutput() throws IOException {
+    SplitZip instance = new SplitZip();
       SplitZip result = instance
           .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false),
               "out/shard1.jar"))
           .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard2.jar", false),
               "out/shard2.jar"));
-      assertThat(result).isSameAs(instance);
-    } catch (IOException ex) {
-      fail("Unexpected exception: " + ex);
-    }
+      assertThat(result).isSameInstanceAs(instance);
   }
 
   @Test
@@ -76,7 +74,7 @@ public class SplitZipTest {
     SplitZip instance = new SplitZip();
     String res = "res";
     SplitZip result = instance.setResourceFile(res);
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
   }
 
   @Test
@@ -91,9 +89,9 @@ public class SplitZipTest {
   public void testSetMainClassListFile() {
     SplitZip instance = new SplitZip();
     SplitZip result = instance.setMainClassListFile((String) null);
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
     result = instance.setMainClassListFile("no format checks");
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
   }
 
   @Test
@@ -111,7 +109,7 @@ public class SplitZipTest {
   public void testSetEntryDate() {
     SplitZip instance = new SplitZip();
     SplitZip result = instance.setEntryDate(null);
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
   }
 
   @Test
@@ -120,7 +118,7 @@ public class SplitZipTest {
     Date now = new Date();
     instance.setEntryDate(now);
     Date result = instance.getEntryDate();
-    assertThat(now).isSameAs(result);
+    assertThat(now).isSameInstanceAs(result);
     instance.setEntryDate(null);
     assertThat(instance.getEntryDate()).isNull();
   }
@@ -129,37 +127,37 @@ public class SplitZipTest {
   public void testUseDefaultEntryDate() {
     SplitZip instance = new SplitZip();
     SplitZip result = instance.useDefaultEntryDate();
-    assertThat(result).isSameAs(instance);
+    assertThat(result).isSameInstanceAs(instance);
     Date date = instance.getEntryDate();
     assertThat(date).isEqualTo(DosTime.DOS_EPOCH);
   }
 
   @Test
   public void testAddInput() {
-    try {
-      SplitZip instance = new SplitZip();
-      String noexists = "noexists.zip";
-      instance.addInput(noexists);
-      fail("should not be able to add non existing file: " + noexists);
-    } catch (IOException ex) {
-      assertWithMessage("FileNotFoundException expected")
-          .that(ex instanceof FileNotFoundException)
-          .isTrue();
-    }
+    SplitZip instance = new SplitZip();
+    String noexists = "noexists.zip";
+    IOException ex =
+        assertThrows(
+            "should not be able to add non existing file: " + noexists,
+            IOException.class,
+            () -> instance.addInput(noexists));
+    assertWithMessage("FileNotFoundException expected")
+        .that(ex instanceof FileNotFoundException)
+        .isTrue();
   }
 
   @Test
   public void testAddInputs() {
-    try {
-      SplitZip instance = new SplitZip();
-      String noexists = "noexists.zip";
-      instance.addInputs(Arrays.asList(noexists));
-      fail("should not be able to add non existing file: " + noexists);
-    } catch (IOException ex) {
-      assertWithMessage("FileNotFoundException expected")
-          .that(ex instanceof FileNotFoundException)
-          .isTrue();
-    }
+    SplitZip instance = new SplitZip();
+    String noexists = "noexists.zip";
+    IOException ex =
+        assertThrows(
+            "should not be able to add non existing file: " + noexists,
+            IOException.class,
+            () -> instance.addInputs(Arrays.asList(noexists)));
+    assertWithMessage("FileNotFoundException expected")
+        .that(ex instanceof FileNotFoundException)
+        .isTrue();
   }
 
   @Test
@@ -301,10 +299,12 @@ public class SplitZipTest {
         .add("pkg2/test3.class", "bye bye")
         .create("expected/shard2.jar");
 
-    assertThat(fileSystem.toByteArray("out/shard1.jar")).named("shard1")
+    assertWithMessage("shard1")
+        .that(fileSystem.toByteArray("out/shard1.jar"))
         .isEqualTo(fileSystem.toByteArray("expected/shard1.jar"));
 
-    assertThat(fileSystem.toByteArray("out/shard2.jar")).named("shard2")
+    assertWithMessage("shard2")
+        .that(fileSystem.toByteArray("out/shard2.jar"))
         .isEqualTo(fileSystem.toByteArray("expected/shard2.jar"));
   }
 
@@ -336,10 +336,12 @@ public class SplitZipTest {
         .add("d.class", "good night")
         .create("expected/shard2.jar");
 
-    assertThat(fileSystem.toByteArray("out/shard1.jar")).named("shard1")
+    assertWithMessage("shard1")
+        .that(fileSystem.toByteArray("out/shard1.jar"))
         .isEqualTo(fileSystem.toByteArray("expected/shard1.jar"));
 
-    assertThat(fileSystem.toByteArray("out/shard2.jar")).named("shard2")
+    assertWithMessage("shard2")
+        .that(fileSystem.toByteArray("out/shard2.jar"))
         .isEqualTo(fileSystem.toByteArray("expected/shard2.jar"));
   }
 

@@ -15,8 +15,13 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,8 +37,9 @@ public final class BuildConfigurationSkylarkTest extends BuildViewTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/config_test.bzl",
+        "MyInfo = provider()",
         "def _test_rule_impl(ctx):",
-        "   return struct(test_env = ctx.configuration.test_env)",
+        "   return MyInfo(test_env = ctx.configuration.test_env)",
         "test_rule = rule(implementation = _test_rule_impl,",
         "   attrs = {},",
         ")");
@@ -47,7 +53,11 @@ public final class BuildConfigurationSkylarkTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/config_skylark:my_target");
-    assertThat(((SkylarkDict) skylarkTarget.get("test_env")).get("TEST_ENV_VAR"))
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//examples/rule:config_test.bzl", ImmutableMap.of()), "MyInfo");
+    StructImpl myInfo = (StructImpl) skylarkTarget.get(key);
+    assertThat(((SkylarkDict) myInfo.getValue("test_env")).get("TEST_ENV_VAR"))
         .isEqualTo("my_value");
   }
 }

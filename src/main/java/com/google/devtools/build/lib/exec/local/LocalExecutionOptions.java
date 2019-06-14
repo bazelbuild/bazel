@@ -18,8 +18,8 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.RegexPatternOption;
 import java.time.Duration;
-import java.util.regex.Pattern;
 
 /**
  * Local execution options.
@@ -39,16 +39,15 @@ public class LocalExecutionOptions extends OptionsBase {
   public int localSigkillGraceSeconds;
 
   @Option(
-    name = "allowed_local_actions_regex",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    converter = Converters.RegexPatternConverter.class,
-    defaultValue = "null",
-    help =
-        "A regex whitelist for action types which may be run locally. If unset, "
-            + "all actions are allowed to execute locally"
-  )
-  public Pattern allowedLocalAction;
+      name = "allowed_local_actions_regex",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = Converters.RegexPatternConverter.class,
+      defaultValue = "null",
+      help =
+          "A regex whitelist for action types which may be run locally. If unset, "
+              + "all actions are allowed to execute locally")
+  public RegexPatternOption allowedLocalAction;
 
   @Option(
     name = "experimental_collect_local_action_metrics",

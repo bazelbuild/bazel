@@ -54,7 +54,7 @@ abstract class BaseSandboxfsProcessTest {
 
   @After
   public void tearDown() throws IOException {
-    FileSystemUtils.deleteTreesBelow(tmpDir);
+    tmpDir.deleteTreesBelow();
     tmpDir = null;
   }
 

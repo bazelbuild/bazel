@@ -31,11 +31,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * Helper functions that implement often-used complex operations on file
- * systems.
- */
-@ConditionallyThreadSafe // ThreadSafe except for deleteTree.
+/** Helper functions that implement often-used complex operations on file systems. */
+@ConditionallyThreadSafe
 public class FileSystemUtils {
 
   private FileSystemUtils() {}
@@ -348,7 +345,7 @@ public class FileSystemUtils {
       /* fallthru and do the work below */
     }
     if (link.isSymbolicLink()) {
-      link.delete();  // Remove the symlink since it is pointing somewhere else.
+      link.delete(); // Remove the symlink since it is pointing somewhere else.
     } else {
       createDirectoryAndParents(link.getParentDirectory());
     }
@@ -533,36 +530,6 @@ public class FileSystemUtils {
       }
       if (p.isDirectory(Symlinks.NOFOLLOW)) {
         traverseTree(paths, p, predicate);
-      }
-    }
-  }
-
-  /**
-   * Deletes 'p', and everything recursively beneath it if it's a directory.
-   * Does not follow any symbolic links.
-   *
-   * @throws IOException if any file could not be removed.
-   */
-  @ThreadSafe
-  public static void deleteTree(Path p) throws IOException {
-    deleteTreesBelow(p);
-    p.delete();
-  }
-
-  /**
-   * Deletes all dir trees recursively beneath 'dir' if it's a directory,
-   * nothing otherwise. Does not follow any symbolic links.
-   *
-   * @throws IOException if any file could not be removed.
-   */
-  @ThreadSafe
-  public static void deleteTreesBelow(Path dir) throws IOException {
-    if (dir.isDirectory(Symlinks.NOFOLLOW)) {  // real directories (not symlinks)
-      dir.setReadable(true);
-      dir.setWritable(true);
-      dir.setExecutable(true);
-      for (Path child : dir.getDirectoryEntries()) {
-        deleteTree(child);
       }
     }
   }

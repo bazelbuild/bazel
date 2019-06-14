@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.query2.engine.AbstractQueryTest.QueryHelper.ResultAndTargets;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
-import com.google.devtools.build.lib.rules.java.JavaImplicitAttributes;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
@@ -70,7 +69,7 @@ public abstract class AbstractQueryTest<T> {
   protected static final String BAD_PACKAGE_NAME =
       "package names may contain "
           + "A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' "
-          + "(most 127-bit ascii characters except 0-31, 127, ':', or '\\')";
+          + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
 
   protected MockToolsConfig mockToolsConfig;
   protected QueryHelper<T> helper;
@@ -104,25 +103,12 @@ public abstract class AbstractQueryTest<T> {
     return true;
   }
 
-  protected static String getJdkLabel() {
-    return JavaImplicitAttributes.JDK_LABEL;
-  }
-
-  protected static String getHostJdkLabel() {
-    return JavaImplicitAttributes.HOST_JDK_LABEL;
-  }
-
-  /** Partial query to filter out CC and Java implicit dependencies. */
+  /** Partial query to filter out implicit dependencies. */
   protected String getDependencyCorrection() {
-    return TestConstants.CC_DEPENDENCY_CORRECTION
-        + " - deps("
-        + getJdkLabel()
-        + " + "
-        + getHostJdkLabel()
-        + ")";
+    return "";
   }
 
-  /** Partial query to filter out implicit dependencies of GenRule rules. */
+  /** Partial query to filter out implicit dependencies of genrules. */
   protected String getDependencyCorrectionWithGen() {
     return getDependencyCorrection() + " - deps(" + GENRULE_SETUP + ")";
   }
@@ -560,7 +546,7 @@ public abstract class AbstractQueryTest<T> {
         "        cmd = 'echo $(SRCS) >$@')");
 
     List<String> result = evalToListOfStrings("deps(//s:my_rule)");
-    assertThat(result).containsAllOf("//s:dep2", "//s:dep1.txt", "//s:dep2.txt", "//s:my_rule");
+    assertThat(result).containsAtLeast("//s:dep2", "//s:dep1.txt", "//s:dep2.txt", "//s:my_rule");
     assertThat(result)
         .containsNoneOf("//deps:BUILD", "//deps:build_def", "//deps:skylark.bzl", "//s:BUILD");
   }

@@ -43,6 +43,18 @@ public class WorkspaceFactoryHelper {
       FuncallExpression ast)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, LabelSyntaxException,
           InterruptedException {
+    return createAndAddRepositoryRule(pkg, ruleClass, bindRuleClass, kwargs, ast, null);
+  }
+
+  public static Rule createAndAddRepositoryRule(
+      Package.Builder pkg,
+      RuleClass ruleClass,
+      RuleClass bindRuleClass,
+      Map<String, Object> kwargs,
+      FuncallExpression ast,
+      String definitionInfo)
+      throws RuleFactory.InvalidRuleException, Package.NameConflictException, LabelSyntaxException,
+          InterruptedException {
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
@@ -70,6 +82,7 @@ public class WorkspaceFactoryHelper {
           rule.getLocation(),
           new AttributeContainer(bindRuleClass));
     }
+    rule.setDefinitionInformation(definitionInfo);
     return rule;
   }
 

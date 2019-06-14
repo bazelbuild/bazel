@@ -17,18 +17,15 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -40,8 +37,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -150,7 +145,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
                   @Override
                   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
                     // We must add these options so that the defaults package can be created.
-                    builder.addConfigurationOptions(BuildConfiguration.Options.class);
+                    builder.addConfigurationOptions(CoreOptions.class);
                     // The defaults package asserts that it is not empty, so we provide options.
                     builder.addConfigurationOptions(MockFragmentOptions.class);
                     // The tools repository is needed for createGlobals
@@ -326,11 +321,5 @@ public class BlazeCommandDispatcherRcoptionsTest {
       defaultValue = "false"
     )
     public boolean fakeOpt;
-
-    @Override
-    public Map<String, Set<Label>> getDefaultsLabels() {
-      return ImmutableMap.<String, Set<Label>>of(
-          "mock_target", ImmutableSet.of(Label.parseAbsoluteUnchecked("//mock:target")));
-    }
   }
 }

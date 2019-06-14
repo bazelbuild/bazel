@@ -85,8 +85,9 @@ public abstract class FileType implements Predicate<String> {
 
     @Override
     public boolean apply(String path) {
-      for (String ext : extensions) {
-        if (path.endsWith(ext)) {
+      // Do not use an iterator based for loop here as that creates excessive garbage.
+      for (int i = 0; i < extensions.size(); i++) {
+        if (path.endsWith(extensions.get(i))) {
           return true;
         }
       }

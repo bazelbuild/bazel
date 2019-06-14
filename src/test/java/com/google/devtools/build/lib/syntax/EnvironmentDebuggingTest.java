@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -200,12 +200,8 @@ public class EnvironmentDebuggingTest {
     Environment env = newEnvironment();
     env.update("a", 1);
 
-    try {
-      env.evaluate("b");
-      fail();
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().isEqualTo("name 'b' is not defined");
-    }
+    EvalException e = assertThrows(EvalException.class, () -> env.evaluate("b"));
+    assertThat(e).hasMessageThat().isEqualTo("name 'b' is not defined");
   }
 
   @Test

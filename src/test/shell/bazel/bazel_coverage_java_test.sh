@@ -290,7 +290,7 @@ public class TestCollatz {
 }
 EOF
 
-  bazel coverage --test_output=all --experimental_java_coverage //:test &>$TEST_log || fail "Coverage for //:test failed"
+  bazel coverage --test_output=all //:test &>$TEST_log || fail "Coverage for //:test failed"
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
   cat <<EOF > result.dat

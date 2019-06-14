@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -223,16 +223,14 @@ public class AspectCollectionTest {
     Aspect a1 = createAspect("a1");
     Aspect a2 = createAspect("a2", "a1");
     Aspect a3 = createAspect("a3", "a2", "a1");
-    try {
-      AspectCollection
-          .create(
-              ImmutableList.of(a2, a1, a2, a3),
-              ImmutableSet.of(a3.getDescriptor()));
-      fail();
-    } catch (AspectCycleOnPathException e) {
-      assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
-      assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
-    }
+    AspectCycleOnPathException e =
+        assertThrows(
+            AspectCycleOnPathException.class,
+            () ->
+                AspectCollection.create(
+                    ImmutableList.of(a2, a1, a2, a3), ImmutableSet.of(a3.getDescriptor())));
+    assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
+    assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
   }
 
   /**
@@ -245,16 +243,14 @@ public class AspectCollectionTest {
     Aspect a1 = createAspect("a1");
     Aspect a2 = createAspect("a2", "a1");
     Aspect a3 = createAspect("a3", "a2");
-    try {
-      AspectCollection
-          .create(
-              ImmutableList.of(a2, a1, a2, a3),
-              ImmutableSet.of(a3.getDescriptor()));
-      fail();
-    } catch (AspectCycleOnPathException e) {
-      assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
-      assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
-    }
+    AspectCycleOnPathException e =
+        assertThrows(
+            AspectCycleOnPathException.class,
+            () ->
+                AspectCollection.create(
+                    ImmutableList.of(a2, a1, a2, a3), ImmutableSet.of(a3.getDescriptor())));
+    assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
+    assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
   }
 
   /**
@@ -293,16 +289,14 @@ public class AspectCollectionTest {
     Aspect a1 = createAspect("a1", "a2");
     Aspect a2 = createAspect("a2", "a1");
     Aspect a3 = createAspect("a3", "a1", "a2");
-    try {
-      AspectCollection
-          .create(
-              ImmutableList.of(a2, a1, a2, a3),
-              ImmutableSet.of(a3.getDescriptor()));
-      fail();
-    } catch (AspectCycleOnPathException e) {
-      assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
-      assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
-    }
+    AspectCycleOnPathException e =
+        assertThrows(
+            AspectCycleOnPathException.class,
+            () ->
+                AspectCollection.create(
+                    ImmutableList.of(a2, a1, a2, a3), ImmutableSet.of(a3.getDescriptor())));
+    assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
+    assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
   }
 
   /**
@@ -315,16 +309,14 @@ public class AspectCollectionTest {
     Aspect a1 = createAspect("a1", "a2");
     Aspect a2 = createAspect("a2", "a1");
     Aspect a3 = createAspect("a3", "a2");
-    try {
-      AspectCollection
-          .create(
-              ImmutableList.of(a2, a1, a2, a3),
-              ImmutableSet.of(a3.getDescriptor()));
-      fail();
-    } catch (AspectCycleOnPathException e) {
-      assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
-      assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
-    }
+    AspectCycleOnPathException e =
+        assertThrows(
+            AspectCycleOnPathException.class,
+            () ->
+                AspectCollection.create(
+                    ImmutableList.of(a2, a1, a2, a3), ImmutableSet.of(a3.getDescriptor())));
+    assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
+    assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
   }
 
   /**
@@ -403,10 +395,9 @@ public class AspectCollectionTest {
   private static void collectAndValidateAspectDeps(AspectDeps aspectDeps,
       HashMap<AspectDescriptor, AspectDeps> allDeps) {
     if (allDeps.containsKey(aspectDeps.getAspect())) {
-      assertWithMessage(
-          String.format("Two different deps for aspect %s", aspectDeps.getAspect()))
+      assertWithMessage(String.format("Two different deps for aspect %s", aspectDeps.getAspect()))
           .that(allDeps.get(aspectDeps.getAspect()))
-          .isSameAs(aspectDeps);
+          .isSameInstanceAs(aspectDeps);
       return;
     }
     allDeps.put(aspectDeps.getAspect(), aspectDeps);

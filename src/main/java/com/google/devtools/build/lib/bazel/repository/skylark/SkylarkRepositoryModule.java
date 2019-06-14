@@ -24,11 +24,13 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.DebugFrame;
 import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
@@ -87,7 +90,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         funcallEnv.getGlobals().getLabel(), funcallEnv.getTransitiveContentHashCode());
     builder.setWorkspaceOnly();
-    return new RepositoryRuleFunction(builder);
+    return new RepositoryRuleFunction(builder, ast.getLocation());
   }
 
   private static final class RepositoryRuleFunction extends BaseFunction
@@ -95,10 +98,12 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     private final RuleClass.Builder builder;
     private Label extensionLabel;
     private String exportedName;
+    private final Location ruleClassDefinitionLocation;
 
-    public RepositoryRuleFunction(RuleClass.Builder builder) {
+    public RepositoryRuleFunction(RuleClass.Builder builder, Location ruleClassDefinitionLocation) {
       super("repository_rule", FunctionSignature.KWARGS);
       this.builder = builder;
+      this.ruleClassDefinitionLocation = ruleClassDefinitionLocation;
     }
 
     @Override
@@ -152,18 +157,33 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
         Map<String, Object> attributeValues = (Map<String, Object>) args[0];
         String externalRepoName = (String) attributeValues.get("name");
 
+        StringBuilder callStack =
+            new StringBuilder("Call stack for the definition of repository '")
+                .append(externalRepoName)
+                .append("' which is a ")
+                .append(ruleClassName)
+                .append(" (rule definition at ")
+                .append(ruleClassDefinitionLocation.toString())
+                .append("):");
+        for (DebugFrame frame : env.listFrames(ast.getLocation())) {
+          callStack.append("\n - ").append(frame.location().toString());
+        }
+
         WorkspaceFactoryHelper.addMainRepoEntry(
             packageBuilder, externalRepoName, env.getSemantics());
 
         WorkspaceFactoryHelper.addRepoMappings(
             packageBuilder, attributeValues, externalRepoName, ast.getLocation());
 
-        return WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            context.getBuilder(),
-            ruleClass,
-            null,
-            WorkspaceFactoryHelper.getFinalKwargs(attributeValues),
-            ast);
+        Rule rule =
+            WorkspaceFactoryHelper.createAndAddRepositoryRule(
+                context.getBuilder(),
+                ruleClass,
+                null,
+                WorkspaceFactoryHelper.getFinalKwargs(attributeValues),
+                ast,
+                callStack.toString());
+        return rule;
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }

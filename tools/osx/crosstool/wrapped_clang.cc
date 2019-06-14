@@ -57,6 +57,8 @@ extern char **environ;
 
 namespace {
 
+constexpr char kAddASTPathPrefix[] = "-Wl,-add_ast_path,";
+
 // Returns the base name of the given filepath. For example, given
 // /foo/bar/baz.txt, returns 'baz.txt'.
 const char *Basename(const char *filepath) {
@@ -151,6 +153,21 @@ std::string GetMandatoryEnvVar(const std::string &var_name) {
   return env_value;
 }
 
+// Returns true if `str` starts with the specified `prefix`.
+bool StartsWith(const std::string &str, const std::string &prefix) {
+  return str.compare(0, prefix.size(), prefix) == 0;
+}
+
+// If *`str` begins `prefix`, strip it out and return true.
+// Otherwise leave *`str` unchanged and return false.
+bool StripPrefixStringIfPresent(std::string *str, const std::string &prefix) {
+  if (StartsWith(*str, prefix)) {
+    *str = str->substr(prefix.size());
+    return true;
+  }
+  return false;
+}
+
 }  // namespace
 
 int main(int argc, char *argv[]) {
@@ -203,7 +220,29 @@ int main(int argc, char *argv[]) {
     }
     FindAndReplace("__BAZEL_XCODE_DEVELOPER_DIR__", developer_dir, &arg);
     FindAndReplace("__BAZEL_XCODE_SDKROOT__", sdk_root, &arg);
+
+    // Make the `add_ast_path` options used to embed Swift module references
+    // absolute to enable Swift debugging without dSYMs: see
+    // https://forums.swift.org/t/improving-swift-lldb-support-for-path-remappings/22694
+    if (StripPrefixStringIfPresent(&arg, kAddASTPathPrefix)) {
+      // Only modify relative paths.
+      if (!StartsWith(arg, "/")) {
+        arg = std::string(kAddASTPathPrefix) +
+              std::string(cwd.get()) + "/" + arg;
+      } else {
+        arg = std::string(kAddASTPathPrefix) + arg;
+      }
+    }
+
     processed_args.push_back(arg);
+  }
+
+  // Special mode that only prints the command. Used for testing.
+  if (getenv("__WRAPPED_CLANG_LOG_ONLY")) {
+    for (const std::string &arg : processed_args)
+        std::cout << arg << ' ';
+    std::cout << "\n";
+    return 0;
   }
 
   // Check to see if we should postprocess with dsymutil.

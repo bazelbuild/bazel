@@ -1,11 +1,34 @@
 load(":python_version.bzl", "define_python_version_flag")
-load(":toolchain.bzl", "py_runtime_pair")
+load(":toolchain.bzl", "define_autodetecting_toolchain")
+
+# Please do not use write_file.bzl outside of this package.
+# See https://groups.google.com/d/msg/bazel-dev/I8IvJyoyo-s/AttqDcnOCgAJ
+load(":write_file.bzl", "write_file")
 
 package(default_visibility = ["//visibility:public"])
 
-sh_binary(
+write_file(
     name = "2to3",
-    srcs = ["2to3.sh"],
+    out = select({
+        "//src/conditions:host_windows": "2to3.bat",
+        "//conditions:default": "2to3.sh",
+    }),
+    content = select({
+        "//src/conditions:host_windows": [
+            "@echo >&2 ERROR: 2to3 is not implemented.",
+            "@echo >&2 Please either build this target for PY2 or else set srcs_version to PY2ONLY instead of PY2.",
+            "@echo >&2 See https://github.com/bazelbuild/bazel/issues/1393#issuecomment-431110617",
+            "@exit /B 1",
+        ],
+        "//conditions:default": [
+            "#!/bin/bash",
+            "echo >&2 'ERROR: 2to3 is not implemented.'",
+            "echo >&2 'Please either build this target for PY2 or else set srcs_version to PY2ONLY instead of PY2.'",
+            "echo >&2 'See https://github.com/bazelbuild/bazel/issues/1393#issuecomment-431110617'",
+            "exit 1",
+        ],
+    }),
+    is_executable = True,
 )
 
 # This target can be used to inspect the current Python major version. To use,
@@ -65,17 +88,15 @@ constraint_setting(name = "py2_interpreter_path")
 # system Python 3 interpreter on a platform.
 constraint_setting(name = "py3_interpreter_path")
 
-# A Python toolchain that, at execution time, attempts to detect a platform
-# runtime having the appropriate major Python version.
+# Definitions for a Python toolchain that, at execution time, attempts to detect
+# a platform runtime having the appropriate major Python version.
+#
+# This is a toolchain of last resort that gets automatically registered in all
+# workspaces. Ideally you should register your own Python toolchain, which will
+# supersede this one so long as its constraints match the target platform.
 
-py_runtime_pair(
-    name = "autodetecting_py_runtime_pair",
-    # TODO(brandjon): Not yet implemented. Currently this provides no runtimes,
-    # so it will just fail at analysis time if you attempt to use it.
-)
-
-toolchain(
+define_autodetecting_toolchain(
     name = "autodetecting_toolchain",
-    toolchain = ":autodetecting_py_runtime_pair",
-    toolchain_type = ":toolchain_type",
+    pywrapper_template = "pywrapper_template.txt",
+    windows_config_setting = "@bazel_tools//src/conditions:windows",
 )

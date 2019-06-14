@@ -17,14 +17,19 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.syntax.Runtime;
 import java.util.List;
 import java.util.Map;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,11 +38,11 @@ import org.junit.runners.JUnit4;
 public class AndroidSkylarkTest extends BuildViewTestCase {
 
   private void writeAndroidSplitTransitionTestFiles() throws Exception  {
-    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "test/skylark/my_rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def impl(ctx): ",
-        "  return struct(",
+        "  return MyInfo(",
         "    split_attr_deps = ctx.split_attr.deps,",
         "    split_attr_dep = ctx.split_attr.dep,",
         "    k8_deps = ctx.split_attr.deps.get('k8', None),",
@@ -58,6 +63,20 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
         "cc_binary(name = 'main2', srcs = ['main2.c'])");
   }
 
+  @Before
+  public void setupMyInfo() throws Exception {
+    scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
+
+    scratch.file("myinfo/BUILD");
+  }
+
+  private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+    return (StructImpl) configuredTarget.get(key);
+  }
+
   @Test
   public void testAndroidSplitTransition() throws Exception {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
@@ -65,6 +84,7 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
 
     useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
+    StructImpl myInfo = getMyInfoFromTarget(target);
 
     // Check that ctx.split_attr.deps has this structure:
     // {
@@ -73,7 +93,7 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
     // }
     @SuppressWarnings("unchecked")
     Map<String, List<ConfiguredTarget>> splitDeps =
-        (Map<String, List<ConfiguredTarget>>) target.get("split_attr_deps");
+        (Map<String, List<ConfiguredTarget>>) myInfo.getValue("split_attr_deps");
     assertThat(splitDeps).containsKey("k8");
     assertThat(splitDeps).containsKey("armeabi-v7a");
     assertThat(splitDeps.get("k8")).hasSize(2);
@@ -92,7 +112,7 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
     // }
     @SuppressWarnings("unchecked")
     Map<String, ConfiguredTarget> splitDep =
-        (Map<String, ConfiguredTarget>) target.get("split_attr_dep");
+        (Map<String, ConfiguredTarget>) myInfo.getValue("split_attr_dep");
     assertThat(splitDep).containsKey("k8");
     assertThat(splitDep).containsKey("armeabi-v7a");
     assertThat(getConfiguration(splitDep.get("k8")).getCpu()).isEqualTo("k8");
@@ -101,7 +121,7 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
     // The regular ctx.attr.deps should be a single list with all the branches of the split merged
     // together (i.e. for aspects).
     @SuppressWarnings("unchecked")
-    List<ConfiguredTarget> attrDeps = (List<ConfiguredTarget>) target.get("attr_deps");
+    List<ConfiguredTarget> attrDeps = (List<ConfiguredTarget>) myInfo.getValue("attr_deps");
     assertThat(attrDeps).hasSize(4);
     ListMultimap<String, Object> attrDepsMap = ArrayListMultimap.create();
     for (ConfiguredTarget ct : attrDeps) {
@@ -113,7 +133,7 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
     // Check that even though my_rule.dep is defined as a single label, ctx.attr.dep is still a list
     // with multiple ConfiguredTarget objects because of the two different CPUs.
     @SuppressWarnings("unchecked")
-    List<ConfiguredTarget> attrDep = (List<ConfiguredTarget>) target.get("attr_dep");
+    List<ConfiguredTarget> attrDep = (List<ConfiguredTarget>) myInfo.getValue("attr_dep");
     assertThat(attrDep).hasSize(2);
     ListMultimap<String, Object> attrDepMap = ArrayListMultimap.create();
     for (ConfiguredTarget ct : attrDep) {
@@ -124,7 +144,7 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
 
     // Check that the deps were correctly accessed from within Skylark.
     @SuppressWarnings("unchecked")
-    List<ConfiguredTarget> k8Deps = (List<ConfiguredTarget>) target.get("k8_deps");
+    List<ConfiguredTarget> k8Deps = (List<ConfiguredTarget>) myInfo.getValue("k8_deps");
     assertThat(k8Deps).hasSize(2);
     assertThat(getConfiguration(k8Deps.get(0)).getCpu()).isEqualTo("k8");
     assertThat(getConfiguration(k8Deps.get(1)).getCpu()).isEqualTo("k8");
@@ -142,7 +162,8 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
 
     @SuppressWarnings("unchecked")
     Map<Object, List<ConfiguredTarget>> splitDeps =
-        (Map<Object, List<ConfiguredTarget>>) target.get("split_attr_deps");
+        (Map<Object, List<ConfiguredTarget>>)
+            getMyInfoFromTarget(target).getValue("split_attr_deps");
 
     String cpu = "armeabi-v7a";
     assertThat(splitDeps.get(cpu)).hasSize(2);
@@ -159,7 +180,8 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
 
     @SuppressWarnings("unchecked")
     Map<Object, List<ConfiguredTarget>> splitDeps =
-        (Map<Object, List<ConfiguredTarget>>) target.get("split_attr_deps");
+        (Map<Object, List<ConfiguredTarget>>)
+            getMyInfoFromTarget(target).getValue("split_attr_deps");
 
     // Split transition isn't in effect, so the deps are compiled normally (i.e. using --cpu).
     assertThat(splitDeps.get(Runtime.NONE)).hasSize(2);
@@ -169,11 +191,11 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
 
   @Test
   public void testAndroidSdkConfigurationField() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "foo_library.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
-        "  return struct(foo = ctx.attr._android_sdk.label)",
+        "  return MyInfo(foo = ctx.attr._android_sdk.label)",
         "foo_library = rule(implementation = _impl,",
         "    attrs = { '_android_sdk': attr.label(default = configuration_field(",
         "        fragment = 'android', name = 'android_sdk_label'))},",
@@ -185,6 +207,8 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
         "foo_library(name = 'lib')");
     useConfiguration("--android_sdk=//:new_sdk");
     ConfiguredTarget ct = getConfiguredTarget("//:lib");
-    assertThat(ct.get("foo")).isEqualTo(Label.parseAbsoluteUnchecked("//:new_sdk"));
+
+    assertThat(getMyInfoFromTarget(ct).getValue("foo"))
+        .isEqualTo(Label.parseAbsoluteUnchecked("//:new_sdk"));
   }
 }

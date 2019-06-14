@@ -29,10 +29,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
-import com.google.devtools.build.lib.analysis.ToolchainResolver;
-import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -293,6 +291,9 @@ public final class AspectFunction implements SkyFunction {
         throw new IllegalStateException("Unexpected exception from BuildConfigurationFunction when "
             + "computing " + key.getAspectConfigurationKey(), e);
       }
+      if (aspectConfiguration.trimConfigurationsRetroactively()) {
+        throw new AssertionError("Aspects should NEVER be evaluated in retroactive trimming mode.");
+      }
     }
 
     ConfiguredTarget associatedTarget = baseConfiguredTargetValue.getConfiguredTarget();
@@ -322,6 +323,9 @@ public final class AspectFunction implements SkyFunction {
       configuration =
           ((BuildConfigurationValue) result.get(associatedTarget.getConfigurationKey()))
               .getConfiguration();
+      if (configuration.trimConfigurationsRetroactively()) {
+        throw new AssertionError("Aspects should NEVER be evaluated in retroactive trimming mode.");
+      }
     }
     try {
       associatedConfiguredTargetAndData =
@@ -398,7 +402,6 @@ public final class AspectFunction implements SkyFunction {
           ConfiguredTargetFunction.getConfigConditions(
               associatedConfiguredTargetAndData.getTarget(),
               env,
-              resolver,
               originalTargetAndAspectConfiguration,
               transitivePackagesForPackageRootResolution,
               transitiveRootCauses);
@@ -415,14 +418,15 @@ public final class AspectFunction implements SkyFunction {
         try {
           ImmutableSet<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
           unloadedToolchainContext =
-              new ToolchainResolver(env, BuildConfigurationValue.key(configuration))
-                  .setTargetDescription(
-                      String.format(
-                          "aspect %s applied to %s",
-                          aspect.getDescriptor().getDescription(),
-                          associatedConfiguredTargetAndData.getTarget()))
-                  .setRequiredToolchainTypes(requiredToolchains)
-                  .resolve();
+              (UnloadedToolchainContext)
+                  env.getValueOrThrow(
+                      UnloadedToolchainContext.key()
+                          .configurationKey(BuildConfigurationValue.key(configuration))
+                          .requiredToolchainTypeLabels(requiredToolchains)
+                          .shouldSanityCheckConfiguration(
+                              configuration.trimConfigurationsRetroactively())
+                          .build(),
+                      ToolchainException.class);
         } catch (ToolchainException e) {
           // TODO(katre): better error handling
           throw new AspectCreationException(
@@ -442,9 +446,7 @@ public final class AspectFunction implements SkyFunction {
                 originalTargetAndAspectConfiguration,
                 aspectPath,
                 configConditions,
-                unloadedToolchainContext == null
-                    ? ImmutableSet.of()
-                    : unloadedToolchainContext.resolvedToolchainLabels(),
+                unloadedToolchainContext,
                 ruleClassProvider,
                 view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
                 transitivePackagesForPackageRootResolution,
@@ -462,10 +464,18 @@ public final class AspectFunction implements SkyFunction {
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
-      ToolchainContext toolchainContext = null;
+      ResolvedToolchainContext toolchainContext = null;
       if (unloadedToolchainContext != null) {
+        String targetDescription =
+            String.format(
+                "aspect %s applied to %s",
+                aspect.getDescriptor().getDescription(),
+                associatedConfiguredTargetAndData.getTarget());
         toolchainContext =
-            unloadedToolchainContext.load(depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
+            ResolvedToolchainContext.load(
+                unloadedToolchainContext,
+                targetDescription,
+                depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
       }
 
       return createAspect(
@@ -498,6 +508,10 @@ public final class AspectFunction implements SkyFunction {
       }
     } catch (AspectCreationException e) {
       throw new AspectFunctionException(e);
+    } catch (ToolchainException e) {
+      throw new AspectFunctionException(
+          new AspectCreationException(
+              e.getMessage(), new LabelCause(key.getLabel(), e.getMessage())));
     }
   }
 
@@ -602,7 +616,7 @@ public final class AspectFunction implements SkyFunction {
       ConfiguredTargetAndData associatedTarget,
       BuildConfiguration aspectConfiguration,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ToolchainContext toolchainContext,
+      ResolvedToolchainContext toolchainContext,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws AspectFunctionException, InterruptedException {

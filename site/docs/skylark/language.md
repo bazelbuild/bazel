@@ -21,8 +21,6 @@ Starlark is designed to be small, simple, and thread-safe. Although it is
 inspired from Python, it is not a general-purpose language and most Python
 features are not included.
 
-The following constructs have been added to the Core Build Language: `if`
-statements, `for` loops, and function definitions. They behave like in Python.
 Here is an example to show the syntax:
 
 ```python
@@ -45,11 +43,11 @@ The following basic types are supported: [None](lib/globals.html#None),
 types are specific to Bazel: [depset](lib/depset.html) and
 [struct](lib/struct.html).
 
-Starlark is syntactically a subset of both Python 2 and Python 3, and will remain
-so through at least the 1.x release lifecycle. This ensures that Python-based
-tooling can at least parse Starlark code. Although Starlark is not *semantically*
-a subset of Python, behavioral differences are rare (excluding cases where
-Starlark raises an error).
+Starlark is syntactically a subset of Python 3, and will remain so through at
+least the 1.x release lifecycle. This ensures that Python-based tooling can at
+least parse Starlark code. Although Starlark is not *semantically* a subset of
+Python, behavioral differences are rare (excluding cases where Starlark raises
+an error).
 
 
 ## Mutability
@@ -99,6 +97,26 @@ Note that by the time a custom rule's analysis begins, the .bzl file in which
 it is defined has already been loaded, and so the global variables are already
 frozen.
 
+
+## Differences between BUILD and .bzl files
+
+The goal of a BUILD file is to register targets, by making calls to rules. On
+the other hand, loading a .bzl file doesn't have any side effect: .bzl files are
+only providing definitions (constants or functions).
+
+[Some functions](../be/functions.html) and [native rules](
+../be/overview.html#language-specific-native-rules) are exposed to BUILD files
+as global symbols. In bzl files, they are available under the [`native` module](
+https://docs.bazel.build/versions/master/skylark/lib/native.html).
+
+There are two syntactic restrictions in BUILD files:
+
+* Function definitions (`def` statements) are not allowed in BUILD files.
+
+* `*args` and `**kwargs` arguments are not allowed in BUILD files; instead list
+  all the arguments explicitly.
+
+
 ## Differences with Python
 
 In addition to the mutability restrictions, there are also differences with
@@ -107,7 +125,10 @@ Python:
 * Global variables cannot be reassigned.
 
 * `for` statements are not allowed at the top-level; factor them into functions
-  instead.
+  instead. In BUILD files, you may use list comprehensions.
+
+* `if` statements are not allowed at the top-level. However, `if` expressions
+  can be used: `first = data[0] if len(data) > 0 else None`.
 
 * Dictionaries have a deterministic order of iteration.
 
@@ -116,18 +137,10 @@ Python:
 * Int type is limited to 32-bit signed integers (an overflow will throw an
   error).
 
-* Lists and other mutable types may be stored in dictionary
-  keys once they are frozen.
-
 * Modifying a collection during iteration is an error. You can avoid the error
   by iterating over a copy of the collection, e.g.
   `for x in list(my_list): ...`. You can still modify its deep contents
   regardless.
-
-* Global (non-function) variables must be declared before they can be used in
-  a function, even if the function is not called until after the global variable
-  declaration. However, it is fine to define `f()` before `g()`, even if `f()`
-  calls `g()`.
 
 * The comparison operators (`<`, `<=`, `>=`, `>`) are not defined across
   different types of values, e.g., you can't compare `5 < 'foo'` (however you

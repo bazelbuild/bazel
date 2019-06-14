@@ -14,10 +14,11 @@
 
 #include "src/main/native/unix_jni.h"
 
-#include <jni.h>
+#include <assert.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <jni.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,110 +33,18 @@
 #include <string>
 #include <vector>
 
-#include "src/main/native/macros.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/port.h"
+#include "src/main/native/latin1_jni_path.h"
+#include "src/main/native/macros.h"
+
+#if defined(O_DIRECTORY)
+#define PORTABLE_O_DIRECTORY O_DIRECTORY
+#else
+#define PORTABLE_O_DIRECTORY 0
+#endif
 
 using blaze_util::Md5Digest;
-
-////////////////////////////////////////////////////////////////////////
-// Latin1 <--> java.lang.String conversion functions.
-// Derived from similar routines in Sun JDK.  See:
-// j2se/src/solaris/native/java/io/UnixFileSystem_md.c
-// j2se/src/share/native/common/jni_util.c
-//
-// Like the Sun JDK in its usual configuration, we assume all UNIX
-// filenames are Latin1 encoded.
-
-/**
- * Returns a new Java String for the specified Latin1 characters.
- */
-static jstring NewStringLatin1(JNIEnv *env, const char *str) {
-    int len = strlen(str);
-    jchar buf[512];
-    jchar *str1;
-
-    if (len > 512) {
-      str1 = new jchar[len];
-    } else {
-      str1 = buf;
-    }
-
-    for (int i = 0; i < len ; i++) {
-      str1[i] = (unsigned char) str[i];
-    }
-    jstring result = env->NewString(str1, len);
-    if (str1 != buf) {
-      delete[] str1;
-    }
-    return result;
-}
-
-static jfieldID String_coder_field;
-static jfieldID String_value_field;
-
-static bool CompactStringsEnabled(JNIEnv *env) {
-  if (jclass klass = env->FindClass("java/lang/String")) {
-    if (jfieldID csf = env->GetStaticFieldID(klass, "COMPACT_STRINGS", "Z")) {
-      if (env->GetStaticBooleanField(klass, csf)) {
-        if ((String_coder_field = env->GetFieldID(klass, "coder", "B"))) {
-          if ((String_value_field = env->GetFieldID(klass, "value", "[B"))) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  env->ExceptionClear();
-  return false;
-}
-
-/**
- * Returns a nul-terminated Latin1-encoded byte array for the
- * specified Java string, or null on failure.  Unencodable characters
- * are replaced by '?'.  Must be followed by a call to
- * ReleaseStringLatin1Chars.
- */
-static char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
-  jint len = env->GetStringLength(jstr);
-
-  // Fast path for latin1 strings.
-  static bool cs_enabled = CompactStringsEnabled(env);
-  const int LATIN1 = 0;
-  if (cs_enabled && env->GetByteField(jstr, String_coder_field) == LATIN1) {
-    char *result = new char[len + 1];
-    if (jobject jvalue = env->GetObjectField(jstr, String_value_field)) {
-      env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte *)result);
-    }
-    result[len] = 0;
-    return result;
-  }
-
-  const jchar *str = env->GetStringCritical(jstr, NULL);
-  if (str == NULL) {
-    return NULL;
-  }
-
-  char *result = new char[len + 1];
-  for (int i = 0; i < len; i++) {
-    jchar unicode = str[i];  // (unsigned)
-    result[i] = unicode <= 0x00ff ? unicode : '?';
-  }
-
-  result[len] = 0;
-  env->ReleaseStringCritical(jstr, str);
-  return result;
-}
-
-/**
- * Release the Latin1 chars returned by a prior call to
- * GetStringLatin1Chars.
- */
-static void ReleaseStringLatin1Chars(const char *s) {
-  delete[] s;
-}
-
-////////////////////////////////////////////////////////////////////////
 
 // See unix_jni.h.
 void PostException(JNIEnv *env, int error_number, const std::string& message) {
@@ -326,7 +235,8 @@ static jobject NewFileStatus(JNIEnv *env,
                              const portable_stat_struct &stat_ref) {
   static jclass file_status_class = NULL;
   if (file_status_class == NULL) {  // note: harmless race condition
-    jclass local = env->FindClass("com/google/devtools/build/lib/unix/FileStatus");
+    jclass local =
+        env->FindClass("com/google/devtools/build/lib/unix/FileStatus");
     CHECK(local != NULL);
     file_status_class = static_cast<jclass>(env->NewGlobalRef(local));
   }
@@ -351,7 +261,8 @@ static jobject NewErrnoFileStatus(JNIEnv *env,
                                   const portable_stat_struct &stat_ref) {
   static jclass errno_file_status_class = NULL;
   if (errno_file_status_class == NULL) {  // note: harmless race condition
-    jclass local = env->FindClass("com/google/devtools/build/lib/unix/ErrnoFileStatus");
+    jclass local =
+        env->FindClass("com/google/devtools/build/lib/unix/ErrnoFileStatus");
     CHECK(local != NULL);
     errno_file_status_class = static_cast<jclass>(env->NewGlobalRef(local));
   }
@@ -402,9 +313,9 @@ Java_com_google_devtools_build_lib_unix_ErrnoFileStatus_00024ErrnoConstants_init
   SetIntField(env, clazz, errno_constants, "ENAMETOOLONG", ENAMETOOLONG);
 }
 
-static jobject StatCommon(JNIEnv *env,
-                          jstring path,
-                          int (*stat_function)(const char *, portable_stat_struct *),
+static jobject StatCommon(JNIEnv *env, jstring path,
+                          int (*stat_function)(const char *,
+                                               portable_stat_struct *),
                           bool should_throw) {
   portable_stat_struct statbuf;
   const char *path_chars = GetStringLatin1Chars(env, path);
@@ -652,7 +563,8 @@ static jobject NewDirents(JNIEnv *env,
 
   static jmethodID ctor = NULL;
   if (ctor == NULL) {  // note: harmless race condition
-    ctor = env->GetMethodID(dirents_class, "<init>", "([Ljava/lang/String;[B)V");
+    ctor =
+        env->GetMethodID(dirents_class, "<init>", "([Ljava/lang/String;[B)V");
     CHECK(ctor != NULL);
   }
 
@@ -798,40 +710,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_rename(JNIEnv *env,
   ReleaseStringLatin1Chars(newpath_chars);
 }
 
-static bool delete_common(JNIEnv *env,
-                          jstring path,
-                          int (*delete_function)(const char *),
-                          bool (*error_function)(int)) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
-  if (path_chars == NULL) {
-      return false;
-  }
-  bool ok = delete_function(path_chars) != -1;
-  if (!ok) {
-    if (!error_function(errno)) {
-      ::PostFileException(env, errno, path_chars);
-    }
-  }
-  ReleaseStringLatin1Chars(path_chars);
-  return ok;
-}
-
-static bool unlink_err(int err) { return err == ENOENT; }
-static bool remove_err(int err) { return err == ENOENT || err == ENOTDIR; }
-
-/*
- * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    unlink
- * Signature: (Ljava/lang/String;)V
- * Throws:    java.io.IOException
- */
-extern "C" JNIEXPORT bool JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_unlink(JNIEnv *env,
-                                                   jclass clazz,
-                                                   jstring path) {
-  return ::delete_common(env, path, ::unlink, ::unlink_err);
-}
-
 /*
  * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    remove
@@ -842,7 +720,18 @@ extern "C" JNIEXPORT bool JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_remove(JNIEnv *env,
                                                    jclass clazz,
                                                    jstring path) {
-  return ::delete_common(env, path, ::remove, ::remove_err);
+  const char *path_chars = GetStringLatin1Chars(env, path);
+  if (path_chars == NULL) {
+    return false;
+  }
+  bool ok = remove(path_chars) != -1;
+  if (!ok) {
+    if (errno != ENOENT && errno != ENOTDIR) {
+      ::PostFileException(env, errno, path_chars);
+    }
+  }
+  ReleaseStringLatin1Chars(path_chars);
+  return ok;
 }
 
 /*
@@ -860,6 +749,217 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkfifo(JNIEnv *env,
   if (mkfifo(path_chars, mode) == -1) {
     ::PostFileException(env, errno, path_chars);
   }
+  ReleaseStringLatin1Chars(path_chars);
+}
+
+// Posts an exception generated by the DeleteTreesBelow algorithm and its helper
+// functions.
+//
+// This is just a convenience wrapper over PostSystemException to format the
+// path that caused an error only when necessary, as we keep that path tokenized
+// throughout the deletion process.
+//
+// env is the JNI environment in which to post the exception. error and function
+// capture the errno value and the name of the system function that triggered
+// it. The faulty path is specified by all the components of dir_path and the
+// optional entry subcomponent, which may be NULL.
+static void PostDeleteTreesBelowException(
+    JNIEnv* env, int error, const char* function,
+    const std::vector<std::string>& dir_path, const char* entry) {
+  std::vector<std::string>::const_iterator iter = dir_path.begin();
+  assert(iter != dir_path.end());
+  std::string path = *iter;
+  while (++iter != dir_path.end()) {
+    path += "/";
+    path += *iter;
+  }
+  if (entry != NULL) {
+    path += "/";
+    path += entry;
+  }
+  assert(!env->ExceptionOccurred());
+  PostSystemException(env, errno, function, path.c_str());
+}
+
+// Tries to open a directory and, if the first attempt fails, retries after
+// granting extra permissions to the directory.
+//
+// The directory to open is identified by the open descriptor of the parent
+// directory (dir_fd) and the subpath to resolve within that directory (entry).
+// dir_path contains the path components that were used when opening dir_fd and
+// is only used for error reporting purposes.
+//
+// Returns a directory on success. Returns NULL on error and posts an
+// exception.
+static DIR* ForceOpendir(JNIEnv* env, const std::vector<std::string>& dir_path,
+                         const int dir_fd, const char* entry) {
+  static const int flags = O_RDONLY | O_NOFOLLOW | PORTABLE_O_DIRECTORY;
+  int fd = openat(dir_fd, entry, flags);
+  if (fd == -1) {
+    if (fchmodat(dir_fd, entry, 0700, 0) == -1) {
+      PostDeleteTreesBelowException(env, errno, "fchmodat", dir_path, entry);
+      return NULL;
+    }
+    fd = openat(dir_fd, entry, flags);
+    if (fd == -1) {
+      PostDeleteTreesBelowException(env, errno, "opendir", dir_path, entry);
+      return NULL;
+    }
+  }
+  DIR* dir = fdopendir(fd);
+  if (dir == NULL) {
+    PostDeleteTreesBelowException(env, errno, "fdopendir", dir_path, entry);
+    close(fd);
+    return NULL;
+  }
+  return dir;
+}
+
+// Tries to delete a file within a directory and, if the first attempt fails,
+// retries after granting extra write permissions to the directory.
+//
+// The file to delete is identified by the open descriptor of the parent
+// directory (dir_fd) and the subpath to resolve within that directory (entry).
+// dir_path contains the path components that were used when opening dir_fd and
+// is only used for error reporting purposes.
+//
+// is_dir indicates whether the entry to delete is a directory or not.
+//
+// Returns 0 on success. Returns -1 on error and posts an exception.
+static int ForceDelete(JNIEnv* env, const std::vector<std::string>& dir_path,
+                       const int dir_fd, const char* entry,
+                       const bool is_dir) {
+  const int flags = is_dir ? AT_REMOVEDIR : 0;
+  if (unlinkat(dir_fd, entry, flags) == -1) {
+    if (fchmod(dir_fd, 0700) == -1) {
+      PostDeleteTreesBelowException(env, errno, "fchmod", dir_path, NULL);
+      return -1;
+    }
+    if (unlinkat(dir_fd, entry, flags) == -1) {
+      PostDeleteTreesBelowException(env, errno, "unlinkat", dir_path, entry);
+      return -1;
+    }
+  }
+  return 0;
+}
+
+// Returns true if the given directory entry represents a subdirectory of dir.
+//
+// The file to check is identified by the open descriptor of the parent
+// directory (dir_fd) and the directory entry within that directory (de).
+// dir_path contains the path components that were used when opening dir_fd and
+// is only used for error reporting purposes.
+//
+// This function prefers to extract the type information from the directory
+// entry itself if available. If not available, issues a stat starting from
+// dir_fd.
+//
+// Returns 0 on success and updates is_dir accordingly. Returns -1 on error and
+// posts an exception.
+static int IsSubdir(JNIEnv* env, const std::vector<std::string>& dir_path,
+                    const int dir_fd, const struct dirent* de, bool* is_dir) {
+  switch (de->d_type) {
+    case DT_DIR:
+      *is_dir = true;
+      return 0;
+
+    case DT_UNKNOWN: {
+      struct stat st;
+      if (fstatat(dir_fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) == -1) {
+        PostDeleteTreesBelowException(env, errno, "fstatat", dir_path,
+                                      de->d_name);
+        return -1;
+      }
+      *is_dir = st.st_mode & S_IFDIR;
+      return 0;
+    }
+
+    default:
+      *is_dir = false;
+      return 0;
+  }
+}
+
+// Recursively deletes all trees under the given path.
+//
+// The directory to delete is identified by the open descriptor of the parent
+// directory (dir_fd) and the subpath to resolve within that directory (entry).
+// dir_path contains the path components that were used when opening dir_fd and
+// is only used for error reporting purposes.
+//
+// dir_path is an in/out parameter updated with the path to the directory being
+// processed. This avoids the need to construct unnecessary intermediate paths,
+// as this algorithm works purely on file descriptors: the paths are only used
+// for error reporting purposes, and therefore are only formatted at that
+// point.
+//
+// Returns 0 on success. Returns -1 on error and posts an exception.
+static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
+                            const int dir_fd, const char* entry) {
+  DIR *dir = ForceOpendir(env, *dir_path, dir_fd, entry);
+  if (dir == NULL) {
+    assert(env->ExceptionOccurred() != NULL);
+    return -1;
+  }
+
+  dir_path->push_back(entry);
+  for (;;) {
+    errno = 0;
+    struct dirent* de = readdir(dir);
+    if (de == NULL) {
+      if (errno != 0) {
+        PostDeleteTreesBelowException(env, errno, "readdir", *dir_path, NULL);
+      }
+      break;
+    }
+
+    if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) {
+      continue;
+    }
+
+    bool is_dir;
+    if (IsSubdir(env, *dir_path, dirfd(dir), de, &is_dir) == -1) {
+      assert(env->ExceptionOccurred() != NULL);
+      break;
+    }
+    if (is_dir) {
+      if (DeleteTreesBelow(env, dir_path, dirfd(dir), de->d_name) == -1) {
+        assert(env->ExceptionOccurred() != NULL);
+        break;
+      }
+    }
+
+    if (ForceDelete(env, *dir_path, dirfd(dir), de->d_name, is_dir) == -1) {
+      assert(env->ExceptionOccurred() != NULL);
+      break;
+    }
+  }
+  if (closedir(dir) == -1) {
+    // Prefer reporting the error encountered while processing entries,
+    // not the (unlikely) error on close.
+    if (env->ExceptionOccurred() == NULL) {
+      PostDeleteTreesBelowException(env, errno, "closedir", *dir_path, NULL);
+    }
+  }
+  dir_path->pop_back();
+  return env->ExceptionOccurred() == NULL ? 0 : -1;
+}
+
+/*
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
+ * Method:    deleteTreesBelow
+ * Signature: (Ljava/lang/String;)V
+ * Throws:    java.io.IOException
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_deleteTreesBelow(
+    JNIEnv *env, jclass clazz, jstring path) {
+  const char *path_chars = GetStringLatin1Chars(env, path);
+  std::vector<std::string> dir_path;
+  if (DeleteTreesBelow(env, &dir_path, AT_FDCWD, path_chars) == -1) {
+    assert(env->ExceptionOccurred() != NULL);
+  }
+  assert(dir_path.empty());
   ReleaseStringLatin1Chars(path_chars);
 }
 
@@ -911,6 +1011,70 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_lgetxattr(JNIEnv *env,
   return ::getxattr_common(env, path, name, ::portable_lgetxattr);
 }
 
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_openWrite(
+    JNIEnv *env, jclass clazz, jstring path, jboolean append) {
+  const char *path_chars = GetStringLatin1Chars(env, path);
+  int flags = (O_WRONLY | O_CREAT) | (append ? O_APPEND : O_TRUNC);
+  int fd;
+  while ((fd = open(path_chars, flags, 0666)) == -1 && errno == EINTR) {
+  }
+  if (fd == -1) {
+    // The interface only allows FileNotFoundException.
+    ::PostException(env, ENOENT,
+                    std::string(path_chars) + " (" + ErrorMessage(errno) + ")");
+  }
+  ReleaseStringLatin1Chars(path_chars);
+  return fd;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_close(JNIEnv *env,
+                                                               jclass clazz,
+                                                               jint fd,
+                                                               jobject ingore) {
+  if (close(fd) == -1) {
+    ::PostException(env, errno, "error when closing file");
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_write(
+    JNIEnv *env, jclass clazz, jint fd, jbyteArray data, jint off, jint len) {
+  int data_len = env->GetArrayLength(data);
+  if (off < 0 || len < 0 || off > data_len || data_len - off < len) {
+    jclass oob = env->FindClass("java/lang/IndexOutOfBoundsException");
+    if (oob != nullptr) {
+      env->ThrowNew(oob, nullptr);
+    }
+    return;
+  }
+  jbyte *buf = static_cast<jbyte *>(malloc(len));
+  if (buf == nullptr) {
+    ::PostException(env, ENOMEM, "out of memory");
+    return;
+  }
+  env->GetByteArrayRegion(data, off, len, buf);
+  // GetByteArrayRegion may raise ArrayIndexOutOfBoundsException if one of the
+  // indexes in the region is not valid. As we obtain the inidices from the
+  // caller, we have to check.
+  if (!env->ExceptionOccurred()) {
+    jbyte *p = buf;
+    while (len > 0) {
+      ssize_t res = write(fd, p, len);
+      if (res == -1) {
+        if (errno != EINTR) {
+          ::PostException(env, errno, "writing file failed");
+          break;
+        }
+      } else {
+        p += res;
+        len -= res;
+      }
+    }
+  }
+  free(buf);
+}
 
 // Computes MD5 digest of "file", writes result in "result", which
 // must be of length Md5Digest::kDigestLength.  Returns zero on success, or

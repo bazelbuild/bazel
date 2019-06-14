@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,11 +43,8 @@ public class OrderTest {
   }
 
   private void causeError(String invalidName) throws Exception {
-    try {
-      Order.parse(invalidName);
-      fail();
-    } catch (IllegalArgumentException ex) {
-      assertThat(ex).hasMessageThat().startsWith("Invalid order");
-    }
+    IllegalArgumentException ex =
+        assertThrows(IllegalArgumentException.class, () -> Order.parse(invalidName));
+    assertThat(ex).hasMessageThat().startsWith("Invalid order");
   }
 }

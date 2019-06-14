@@ -138,4 +138,19 @@ public final class TestTargetExecutionSettings {
   public Artifact getInstrumentedFileManifest() {
     return instrumentedFileManifest;
   }
+
+  public boolean needsShell(boolean executedOnWindows) {
+    RunUnder r = getRunUnder();
+    if (r == null) {
+      return false;
+    }
+    String command = r.getCommand();
+    if (command == null) {
+      return false;
+    }
+    // --run_under commands that do not contain '/' are either shell built-ins or need to be
+    // located on the PATH env, so we wrap them in a shell invocation. Note that we shell-tokenize
+    // the --run_under parameter and getCommand only returns the first such token.
+    return !command.contains("/") && (!executedOnWindows || !command.contains("\\"));
+  }
 }

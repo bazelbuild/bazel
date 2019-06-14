@@ -20,7 +20,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AndroidDataMerger.ContentComparingChecker;
-import com.google.devtools.build.android.AndroidDataMerger.PathComparingChecker;
 import com.google.devtools.build.android.AndroidDataMerger.SourceChecker;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -46,7 +45,7 @@ public class AndroidResourceMerger {
       throws IOException {
     AndroidDataMerger merger =
         AndroidDataMerger.createWithPathDeduplictor(
-            executorService, deserializer, new PathComparingChecker());
+            executorService, deserializer, ContentComparingChecker.create());
     final UnwrittenMergedAndroidData merged =
         merger.loadAndMerge(
             transitive,
@@ -267,7 +266,7 @@ public class AndroidResourceMerger {
               false,
               deserializer,
               throwOnResourceConflict,
-              PathComparingChecker.create());
+              ContentComparingChecker.create());
       timer.reset().start();
       merged.writeResourceClass(rclassWriter);
       logger.fine(

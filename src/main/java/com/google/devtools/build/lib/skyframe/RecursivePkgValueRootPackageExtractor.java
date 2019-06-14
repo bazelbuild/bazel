@@ -37,6 +37,13 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
+
+    ImmutableSet filteredBlacklistedSubdirectories =
+        ImmutableSet.copyOf(
+            Iterables.filter(
+                blacklistedSubdirectories,
+                path -> !path.equals(directory) && path.startsWith(directory)));
+
     LinkedHashSet<PathFragment> packageNames = new LinkedHashSet<>();
     for (Root root : roots) {
       // Note: no need to check if lookup == null because it will never be null.
@@ -48,7 +55,7 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
                   RecursivePkgValue.key(
                       repository,
                       RootedPath.toRootedPath(root, directory),
-                      blacklistedSubdirectories));
+                      filteredBlacklistedSubdirectories));
       Preconditions.checkState(
           lookup != null,
           "Root %s in repository %s could not be found in the graph.",

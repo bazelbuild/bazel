@@ -2,6 +2,65 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
+java_toolchain(
+    name = "toolchain",
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
+    compatible_javacopts = {
+        # Restrict protos to Java 7 so that they are compatible with Android.
+        "proto": [
+            "-source",
+            "7",
+            "-target",
+            "7",
+        ],
+    },
+    forcibly_disable_header_compilation = 0,
+    genclass = [":Genclass"],
+    header_compiler = [":Turbine"],
+    header_compiler_direct = [":TurbineDirect"],
+    ijar = [":ijar"],
+    javabuilder = [":JavaBuilder"],
+    javac = [":javac_jar"],
+    javac_supports_workers = 1,
+    jvm_opts = [
+        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+        # G1 collector and having compact strings enabled.
+        "-XX:+UseParallelOldGC",
+        "-XX:-CompactStrings",
+        # Allow JavaBuilder to access internal javac APIs.
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+
+        # override the javac in the JDK.
+        "--patch-module=java.compiler=$(location :java_compiler_jar)",
+        "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
+
+        # quiet warnings from com.google.protobuf.UnsafeUtil,
+        # see: https://github.com/google/protobuf/issues/3781
+        # and: https://github.com/bazelbuild/bazel/issues/5599
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    ],
+    misc = [
+        "-XDskipDuplicateBridges=true",
+        "-g",
+        "-parameters",
+    ],
+    singlejar = [":singlejar"],
+    source_version = "8",
+    target_version = "8",
+    tools = [
+        ":java_compiler_jar",
+        ":jdk_compiler_jar",
+    ],
+)
+
 filegroup(
     name = "ExperimentalRunner",
     srcs = ["java_tools/ExperimentalRunner_deploy.jar"],
@@ -67,6 +126,69 @@ filegroup(
     srcs = ["java_tools/java_compiler.jar"],
 )
 
+java_import(
+    name = "jacoco-agent",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946-src.jar",
+)
+
+java_import(
+    name = "jacoco-core",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946-src.jar",
+    exports = [
+        ":asm",
+        ":asm-commons",
+        ":asm-tree",
+    ],
+)
+
+filegroup(
+    name = "jacoco-core-jars",
+    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946.jar"],
+)
+
+java_import(
+    name = "jacoco-report",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946-src.jar",
+    exports = [
+        ":asm",
+        ":jacoco-core",
+    ],
+)
+
+java_import(
+    name = "bazel-jacoco-agent",
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent.jar"],
+)
+
+java_import(
+    name = "bazel-jacoco-agent-neverlink",
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent.jar"],
+    neverlink = 1,
+)
+
+java_import(
+    name = "asm",
+    jars = ["java_tools/third_party/java/jacoco/asm-7.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-7.0-sources.jar",
+)
+
+java_import(
+    name = "asm-commons",
+    jars = ["java_tools/third_party/java/jacoco/asm-commons-7.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-commons-7.0-sources.jar",
+    runtime_deps = [":asm-tree"],
+)
+
+java_import(
+    name = "asm-tree",
+    jars = ["java_tools/third_party/java/jacoco/asm-tree-7.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-tree-7.0-sources.jar",
+    runtime_deps = [":asm"],
+)
+
 config_setting(
     name = "remote",
     values = {"define": "EXECUTOR=remote"},
@@ -92,31 +214,56 @@ config_setting(
     values = {"cpu": "x64_windows"},
 )
 
-alias(
-  name = "ijar",
-  actual = select({
-      ":remote": ":ijar_cc_binary",
-      "//conditions:default": ":prebuilt_binary_or_cc_binary",
-  })
+config_setting(
+    name = "freebsd",
+    values = {"cpu": "freebsd"},
+    visibility = ["//visibility:public"],
 )
 
 alias(
-  name = "prebuilt_binary_or_cc_binary",
-  actual = select({
-      ":linux_x86_64": ":ijar_prebuilt_binary",
-      ":darwin": ":ijar_prebuilt_binary",
-      ":darwin_x86_64": ":ijar_prebuilt_binary",
-      ":windows": ":ijar_prebuilt_binary",
-      "//conditions:default": ":ijar_cc_binary",
-  })
+    name = "singlejar",
+    actual = select({
+        "//:remote": ":singlejar_cc_bin",
+        "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
+    }),
+)
+
+alias(
+    name = "singlejar_prebuilt_or_cc_binary",
+    actual = select({
+        ":linux_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
+        ":darwin": "java_tools/src/tools/singlejar/singlejar_local",
+        ":darwin_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
+        ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
+        "//conditions:default": "singlejar_cc_bin",
+    }),
+)
+
+alias(
+    name = "ijar",
+    actual = select({
+        ":remote": ":ijar_cc_binary",
+        "//conditions:default": ":prebuilt_binary_or_cc_binary",
+    }),
+)
+
+alias(
+    name = "prebuilt_binary_or_cc_binary",
+    actual = select({
+        ":linux_x86_64": ":ijar_prebuilt_binary",
+        ":darwin": ":ijar_prebuilt_binary",
+        ":darwin_x86_64": ":ijar_prebuilt_binary",
+        ":windows": ":ijar_prebuilt_binary",
+        "//conditions:default": ":ijar_cc_binary",
+    }),
 )
 
 filegroup(
     name = "ijar_prebuilt_binary",
     srcs = select({
-       ":windows": ["java_tools/ijar/ijar.exe"],
-       "//conditions:default": ["java_tools/ijar/ijar"],
-   }),
+        ":windows": ["java_tools/ijar/ijar.exe"],
+        "//conditions:default": ["java_tools/ijar/ijar"],
+    }),
 )
 
 cc_binary(
@@ -145,6 +292,8 @@ cc_library(
         "java_tools/ijar/mapped_file.h",
         "java_tools/ijar/zip.h",
     ],
+    include_prefix = "third_party",
+    strip_include_prefix = "java_tools",
     deps = [
         ":platform_utils",
         ":zlib_client",
@@ -158,8 +307,6 @@ cc_library(
         "//conditions:default": [
         ],
     }),
-    strip_include_prefix = "java_tools",
-    include_prefix = "third_party",
 )
 
 cc_library(
@@ -169,14 +316,54 @@ cc_library(
         "java_tools/ijar/common.h",
         "java_tools/ijar/platform_utils.h",
     ],
+    include_prefix = "third_party",
+    strip_include_prefix = "java_tools",
     visibility = ["//visibility:private"],
     deps = [
         ":errors",
         ":filesystem",
         ":logging",
     ],
+)
+
+cc_library(
+    name = "cpp_util",
+    hdrs = [
+        "java_tools/src/main/cpp/util/errors.h",
+        "java_tools/src/main/cpp/util/file.h",
+        "java_tools/src/main/cpp/util/file_platform.h",
+        "java_tools/src/main/cpp/util/md5.h",
+        "java_tools/src/main/cpp/util/numbers.h",
+        "java_tools/src/main/cpp/util/path.h",
+        "java_tools/src/main/cpp/util/path_platform.h",
+        "java_tools/src/main/cpp/util/port.h",
+    ],
     strip_include_prefix = "java_tools",
-    include_prefix = "third_party",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":blaze_exit_code",
+        ":errors",
+        ":filesystem",
+        ":md5",
+        ":numbers",
+        ":port",
+        ":strings",
+    ],
+)
+
+cc_library(
+    name = "md5",
+    srcs = ["java_tools/src/main/cpp/util/md5.cc"],
+    hdrs = ["java_tools/src/main/cpp/util/md5.h"],
+    strip_include_prefix = "java_tools",
+)
+
+cc_library(
+    name = "numbers",
+    srcs = ["java_tools/src/main/cpp/util/numbers.cc"],
+    hdrs = ["java_tools/src/main/cpp/util/numbers.h"],
+    strip_include_prefix = "java_tools",
+    deps = [":strings"],
 )
 
 cc_library(
@@ -200,6 +387,7 @@ cc_library(
         "java_tools/src/main/cpp/util/path.h",
         "java_tools/src/main/cpp/util/path_platform.h",
     ],
+    strip_include_prefix = "java_tools",
     deps = [
         ":blaze_exit_code",
         ":errors",
@@ -209,15 +397,14 @@ cc_library(
         ":windows": [":lib-file"],
         "//conditions:default": [],
     }),
-    strip_include_prefix = "java_tools",
 )
 
 cc_library(
     name = "lib-file",
     srcs = ["java_tools/src/main/native/windows/file.cc"],
     hdrs = ["java_tools/src/main/native/windows/file.h"],
-    deps = [":lib-util"],
     strip_include_prefix = "java_tools",
+    deps = [":lib-util"],
 )
 
 cc_library(
@@ -234,12 +421,12 @@ cc_library(
         "//conditions:default": ["java_tools/src/main/cpp/util/errors_posix.cc"],
     }),
     hdrs = ["java_tools/src/main/cpp/util/errors.h"],
+    strip_include_prefix = "java_tools",
     deps = [
         ":logging",
         ":port",
         ":strings",
     ],
-    strip_include_prefix = "java_tools",
 )
 
 cc_library(
@@ -250,8 +437,8 @@ cc_library(
     defines = [
         "BLAZE_OPENSOURCE",
     ],
-    deps = [":blaze_exit_code"],
     strip_include_prefix = "java_tools",
+    deps = [":blaze_exit_code"],
 )
 
 cc_library(
@@ -259,7 +446,6 @@ cc_library(
     hdrs = ["java_tools/src/main/cpp/util/exit_code.h"],
     strip_include_prefix = "java_tools",
 )
-
 
 cc_library(
     name = "port",
@@ -272,11 +458,11 @@ cc_library(
     name = "logging",
     srcs = ["java_tools/src/main/cpp/util/logging.cc"],
     hdrs = ["java_tools/src/main/cpp/util/logging.h"],
+    strip_include_prefix = "java_tools",
     deps = [
         ":blaze_exit_code",
         ":strings",
     ],
-    strip_include_prefix = "java_tools",
 )
 
 cc_library(
@@ -286,7 +472,202 @@ cc_library(
         "java_tools/ijar/common.h",
         "java_tools/ijar/zlib_client.h",
     ],
-    deps = ["//java_tools/zlib"],
-    strip_include_prefix = "java_tools",
     include_prefix = "third_party",
+    strip_include_prefix = "java_tools",
+    deps = ["//java_tools/zlib"],
+)
+
+##################### singlejar
+
+cc_binary(
+    name = "singlejar_cc_bin",
+    srcs = [
+        "java_tools/src/tools/singlejar/singlejar_main.cc",
+    ],
+    linkopts = select({
+        ":freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":options",
+        ":output_jar",
+        "//java_tools/zlib",
+    ],
+)
+
+cc_binary(
+    name = "singlejar_local",
+    srcs = [
+        "java_tools/src/tools/singlejar/singlejar_local_main.cc",
+    ],
+    linkopts = select({
+        ":freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":combiners",
+        ":desugar_checking",
+        ":options",
+        ":output_jar",
+        "//java_tools/zlib",
+    ],
+)
+
+cc_library(
+    name = "combiners",
+    srcs = [
+        "java_tools/src/tools/singlejar/combiners.cc",
+    ],
+    hdrs = [
+        "java_tools/src/tools/singlejar/combiners.h",
+        ":transient_bytes",
+        ":zip_headers",
+    ],
+    strip_include_prefix = "java_tools",
+    deps = [
+        "//java_tools/zlib",
+    ],
+)
+
+proto_library(
+    name = "desugar_deps_proto",
+    srcs = ["java_tools/src/main/protobuf/desugar_deps.proto"],
+)
+
+cc_proto_library(
+    name = "desugar_deps_cc_proto",
+    deps = [":desugar_deps_proto"],
+)
+
+cc_library(
+    name = "desugar_checking",
+    srcs = ["java_tools/src/tools/singlejar/desugar_checking.cc"],
+    hdrs = ["java_tools/src/tools/singlejar/desugar_checking.h"],
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":combiners",
+        ":desugar_deps_cc_proto",
+    ],
+)
+
+cc_library(
+    name = "diag",
+    hdrs = ["java_tools/src/tools/singlejar/diag.h"],
+    strip_include_prefix = "java_tools",
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "singlejar_port",
+    hdrs = ["java_tools/src/tools/singlejar/port.h"],
+    strip_include_prefix = "java_tools",
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "mapped_file",
+    srcs = ["java_tools/src/tools/singlejar/mapped_file.cc"],
+    hdrs = ["java_tools/src/tools/singlejar/mapped_file.h"] +
+           select({
+               ":windows": ["java_tools/src/tools/singlejar/mapped_file_windows.inc"],
+               "//conditions:default": ["java_tools/src/tools/singlejar/mapped_file_posix.inc"],
+           }),
+    strip_include_prefix = "java_tools",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":cpp_util",
+        ":diag",
+        ":singlejar_port",
+    ],
+)
+
+cc_library(
+    name = "input_jar",
+    srcs = [
+        "java_tools/src/tools/singlejar/input_jar.cc",
+    ],
+    hdrs = [
+        "java_tools/src/tools/singlejar/input_jar.h",
+        "java_tools/src/tools/singlejar/zip_headers.h",
+    ],
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":diag",
+        ":mapped_file",
+    ],
+)
+
+cc_library(
+    name = "options",
+    srcs = [
+        "java_tools/src/tools/singlejar/options.cc",
+        "java_tools/src/tools/singlejar/options.h",
+    ],
+    hdrs = ["java_tools/src/tools/singlejar/options.h"],
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":diag",
+        ":token_stream",
+    ],
+)
+
+cc_library(
+    name = "output_jar",
+    srcs = [
+        "java_tools/src/tools/singlejar/output_jar.cc",
+        "java_tools/src/tools/singlejar/output_jar.h",
+        ":zip_headers",
+    ],
+    hdrs = ["java_tools/src/tools/singlejar/output_jar.h"],
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":combiners",
+        ":cpp_util",
+        ":diag",
+        ":input_jar",
+        ":mapped_file",
+        ":options",
+        ":singlejar_port",
+        "//java_tools/zlib",
+    ],
+)
+
+cc_library(
+    name = "token_stream",
+    hdrs = ["java_tools/src/tools/singlejar/token_stream.h"],
+    strip_include_prefix = "java_tools",
+    deps = [":diag"],
+)
+
+filegroup(
+    name = "transient_bytes",
+    srcs = [
+        "java_tools/src/tools/singlejar/diag.h",
+        "java_tools/src/tools/singlejar/transient_bytes.h",
+        "java_tools/src/tools/singlejar/zlib_interface.h",
+        ":zip_headers",
+    ],
+)
+
+filegroup(
+    name = "zip_headers",
+    srcs = ["java_tools/src/tools/singlejar/zip_headers.h"],
+)
+
+
+################### Proguard ###################
+java_import(
+    name = "proguard_import",
+    jars = ["java_tools/third_party/java/proguard/proguard.jar"],
+)
+
+java_binary(
+    name = "proguard",
+    main_class = "proguard.ProGuard",
+    runtime_deps = [":proguard_import"],
+    visibility = ["//visibility:public"],
 )

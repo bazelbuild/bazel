@@ -21,10 +21,11 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.MutableArtifactFactorySupplier;
+import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import javax.annotation.Nullable;
 
 /**
  * A factory of SkyframeExecutors that returns SequencedSkyframeExecutor.
@@ -47,24 +48,20 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
-    return SequencedSkyframeExecutor.create(
-        pkgFactory,
-        fileSystem,
-        directories,
-        actionKeyContext,
-        workspaceStatusActionFactory,
-        buildInfoFactories,
-        diffAwarenessFactories,
-        extraSkyFunctions,
-        customDirtinessCheckers,
-        BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
-        BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
-        BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
-        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-        BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
-        defaultBuildOptions,
-        new MutableArtifactFactorySupplier(),
-        skyframeExecutor -> {});
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
+      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+    return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        .setPkgFactory(pkgFactory)
+        .setFileSystem(fileSystem)
+        .setDirectories(directories)
+        .setActionKeyContext(actionKeyContext)
+        .setBuildInfoFactories(buildInfoFactories)
+        .setDefaultBuildOptions(defaultBuildOptions)
+        .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
+        .setDiffAwarenessFactories(diffAwarenessFactories)
+        .setExtraSkyFunctions(extraSkyFunctions)
+        .setCustomDirtinessCheckers(customDirtinessCheckers)
+        .setManagedDirectoriesKnowledge(managedDirectoriesKnowledge)
+        .build();
   }
 }

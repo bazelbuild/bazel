@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -144,12 +144,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    try {
-       evaluate(spawnActionTemplate);
-       fail("Expected ActionConflictException");
-    } catch (ActionConflictException e) {
-       // Expected ActionConflictException
-    }
+    assertThrows(ActionConflictException.class, () -> evaluate(spawnActionTemplate));
   }
 
   @Test
@@ -185,12 +180,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    try {
-       evaluate(spawnActionTemplate);
-       fail("Expected ArtifactPrefixConflictException");
-    } catch (ArtifactPrefixConflictException e) {
-       // Expected ArtifactPrefixConflictException
-    }
+    assertThrows(ArtifactPrefixConflictException.class, () -> evaluate(spawnActionTemplate));
   }
 
   private static final ActionLookupValue.ActionLookupKey CTKEY = new InjectedActionLookupKey("key");

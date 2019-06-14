@@ -52,7 +52,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         .setOutputToGenfiles()
         .add(
             attr(":proto_compiler", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(PROTO_COMPILER))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(deps) -->

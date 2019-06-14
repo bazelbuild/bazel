@@ -30,8 +30,8 @@ public class OutErrTest {
 
   @Test
   public void testRetainsOutErr() {
-    assertThat(outErr.getOutputStream()).isSameAs(out);
-    assertThat(outErr.getErrorStream()).isSameAs(err);
+    assertThat(outErr.getOutputStream()).isSameInstanceAs(out);
+    assertThat(outErr.getErrorStream()).isSameInstanceAs(err);
   }
 
   @Test

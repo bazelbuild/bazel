@@ -173,7 +173,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     NestedSet<Artifact> filesToBuild =
         getFilesToBuild(getConfiguredTarget("//package:opl_protobuf"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
+        .containsAtLeast(
             "package/_generated_protos/opl_protobuf/package/FileA.pbobjc.h",
             "package/_generated_protos/opl_protobuf/package/FileA.pbobjc.m",
             "package/_generated_protos/opl_protobuf/package/dir/FileB.pbobjc.h",
@@ -185,7 +185,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   public void testDependingObjcProtoLibrary() throws Exception {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(getConfiguredTarget("//package:nested_opl"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
+        .containsAtLeast(
             "package/_generated_protos/nested_opl/package/FileA.pbobjc.h",
             "package/_generated_protos/nested_opl/package/FileA.pbobjc.m",
             "package/_generated_protos/nested_opl/package/dir/FileB.pbobjc.h",
@@ -199,7 +199,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
         .doesNotContain("package/libopl_protobuf.a");
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
+        .containsAtLeast(
             "package/_generated_protos/opl_protobuf/package/FileA.pbobjc.h",
             "package/_generated_protos/opl_protobuf/package/FileA.pbobjc.m",
             "package/_generated_protos/opl_protobuf/package/dir/FileB.pbobjc.h",
@@ -213,7 +213,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         getFilesToBuild(getConfiguredTarget("//package:opl_protobuf_special_names"));
     String outputPath = "package/_generated_protos/opl_protobuf_special_names/package/";
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
+        .containsAtLeast(
             outputPath + "J2ObjcDescriptor.pbobjc.h",
             outputPath + "J2ObjcDescriptor.pbobjc.m",
             outputPath + "HTTP.pbobjc.h",
@@ -237,7 +237,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     NestedSet<Artifact> filesToBuild =
         getFilesToBuild(getConfiguredTarget("//package:opl_protobuf_well_known_types"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
+        .containsAtLeast(
             "package/_generated_protos/opl_protobuf_well_known_types/package/FileA.pbobjc.h",
             "package/_generated_protos/opl_protobuf_well_known_types/package/FileA.pbobjc.m");
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
@@ -252,7 +252,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   public void testOutputsGenfile() throws Exception {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(getConfiguredTarget("//package:gen_opl"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
+        .containsAtLeast(
             "package/_generated_protos/gen_opl/package/FileAGenfile.pbobjc.h",
             "package/_generated_protos/gen_opl/package/FileAGenfile.pbobjc.m");
   }
@@ -293,11 +293,12 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
             "package/proto_filter3.txt")
         .inOrder();
     assertThat(Artifact.toRootRelativePaths(action.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/protobuf_compiler_wrapper.sh",
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/protobuf_compiler_helper.py",
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/proto_support");
-    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllIn(protoInputs);
+    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
+        .containsAtLeastElementsIn(protoInputs);
     assertThat(action.getInputs()).contains(inputFileList);
 
     FileWriteAction inputListAction = (FileWriteAction) getGeneratingAction(inputFileList);
@@ -320,7 +321,8 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         "package/file_a.proto",
         TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "objcproto/well_known_type.proto");
 
-    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllIn(protoInputs);
+    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
+        .containsAtLeastElementsIn(protoInputs);
     assertThat(action.getInputs()).contains(inputFileList);
 
     FileWriteAction inputListAction = (FileWriteAction) getGeneratingAction(inputFileList);
@@ -528,7 +530,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
 
     assertRequiresDarwin(compiledProtoAction);
     assertThat(Artifact.toRootRelativePaths(compiledProtoAction.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             "package/_generated_protos/opl_binary/package/FileA.pbobjc.m",
             "package/_generated_protos/opl_binary/package/FileA.pbobjc.h",
             "package/_generated_protos/opl_binary/package/dir/FileB.pbobjc.h",
@@ -556,7 +558,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     Artifact objListFile =
         ActionsTestUtil.getFirstArtifactEndingWith(linkedProtosAction.getInputs(), ".objlist");
     assertThat(linkedProtosAction.getArguments())
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             ImmutableList.of(
                 "-static",
                 "-filelist",

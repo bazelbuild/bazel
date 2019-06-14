@@ -52,6 +52,11 @@ java_library(
     srcs = ["LibraryInterface.java"],
 )
 
+java_import(
+    name = "testdata_lib_LibraryModuleInfo",
+    jars = ["LibraryModuleInfo.jar"],
+)
+
 java_library(
     name = "OneAnnotationValue",
     srcs = ["OneAnnotationValue.java"],

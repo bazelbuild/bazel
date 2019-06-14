@@ -124,7 +124,7 @@ public class ProtoSourceFileBlacklist {
   public static Attribute.Builder<List<Label>> blacklistFilegroupAttribute(
       String attributeName, List<Label> blacklistFileGroups) {
     return attr(attributeName, LABEL_LIST)
-        .cfg(HostTransition.INSTANCE)
+        .cfg(HostTransition.createFactory())
         .value(blacklistFileGroups);
   }
 

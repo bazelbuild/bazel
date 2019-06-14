@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
@@ -176,9 +175,8 @@ public final class AnalysisTestUtil {
 
     @Override
     public ImmutableList<Artifact> getBuildInfo(
-        RuleContext ruleContext, BuildInfoKey key, BuildConfiguration config)
-        throws InterruptedException {
-      return original.getBuildInfo(ruleContext, key, config);
+        boolean stamp, BuildInfoKey key, BuildConfiguration config) throws InterruptedException {
+      return original.getBuildInfo(stamp, key, config);
     }
 
     @Override
@@ -372,8 +370,8 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key,
-        BuildConfiguration config) {
+    public ImmutableList<Artifact> getBuildInfo(
+        boolean stamp, BuildInfoKey key, BuildConfiguration config) {
       return ImmutableList.of();
     }
 

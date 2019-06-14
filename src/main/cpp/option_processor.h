@@ -18,6 +18,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/rc_file.h"
@@ -33,19 +34,19 @@ class WorkspaceLayout;
 // breakdown should suffice to access the parts of the command line that the
 // client cares about, notably the binary and startup startup options.
 struct CommandLine {
-  const std::string path_to_binary;
-  const std::vector<std::string> startup_args;
-  const std::string command;
-  const std::vector<std::string> command_args;
+  std::string path_to_binary;
+  std::vector<std::string> startup_args;
+  std::string command;
+  std::vector<std::string> command_args;
 
-  CommandLine(const std::string& path_to_binary_arg,
-              const std::vector<std::string>& startup_args_arg,
-              const std::string& command_arg,
-              const std::vector<std::string>& command_args_arg)
-      : path_to_binary(path_to_binary_arg),
-        startup_args(startup_args_arg),
-        command(command_arg),
-        command_args(command_args_arg) {}
+  CommandLine(std::string path_to_binary_arg,
+              std::vector<std::string> startup_args_arg,
+              std::string command_arg,
+              std::vector<std::string> command_args_arg)
+      : path_to_binary(std::move(path_to_binary_arg)),
+        startup_args(std::move(startup_args_arg)),
+        command(std::move(command_arg)),
+        command_args(std::move(command_args_arg)) {}
 };
 
 // This class is responsible for parsing the command line of the Blaze binary,
@@ -82,8 +83,7 @@ class OptionProcessor {
   // If the method fails then error will contain the cause, otherwise error
   // remains untouched.
   virtual std::unique_ptr<CommandLine> SplitCommandLine(
-      const std::vector<std::string>& args,
-      std::string* error) const;
+      std::vector<std::string> args, std::string* error) const;
 
   // Parse a command line and the appropriate blazerc files and stores the
   // results. This should be invoked only once per OptionProcessor object.

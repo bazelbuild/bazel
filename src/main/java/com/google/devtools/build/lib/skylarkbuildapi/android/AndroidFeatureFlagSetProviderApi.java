@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** */
 @SkylarkModule(
@@ -44,8 +43,7 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
       name = "flags",
       doc = "Returns the flags contained by the provider.",
       documented = false,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      structField = true)
   ImmutableMap<Label, String> getFlagMap();
 
   /** The provider implementing this can construct the AndroidIdeInfo provider. */
@@ -61,7 +59,6 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
         name = NAME,
         doc = "The <code>AndroidFeatureFlagSetProvider</code> constructor.",
         documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "flags",

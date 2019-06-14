@@ -124,7 +124,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .hasMessageThat()
-        .contains("no such package 'fake': BUILD file not found on package path");
+        .contains("no such package 'fake': BUILD file not found");
   }
 
   // Calls PlatformLookupUtil.getPlatformInfo.
@@ -175,7 +175,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
       GetPlatformInfoKey key = (GetPlatformInfoKey) skyKey;
       try {
         Map<ConfiguredTargetKey, PlatformInfo> platforms =
-            PlatformLookupUtil.getPlatformInfo(key.platformKeys(), env);
+            PlatformLookupUtil.getPlatformInfo(key.platformKeys(), env, false);
         if (env.valuesMissing()) {
           return null;
         }

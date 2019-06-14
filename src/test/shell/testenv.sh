@@ -281,6 +281,9 @@ common --show_progress_rate_limit=-1
 # Disable terminal-specific features.
 common --color=no --curses=no
 
+# TODO(#7899): Remove once we flip the flag default.
+build --incompatible_use_python_toolchains=true
+
 ${EXTRA_BAZELRC:-}
 EOF
 
@@ -442,7 +445,7 @@ function cleanup_workspace() {
   if [ -d "${WORKSPACE_DIR:-}" ]; then
     log_info "Cleaning up workspace" >> $TEST_log
     cd ${WORKSPACE_DIR}
-    bazel clean &> "$TEST_log"
+    bazel clean >> "$TEST_log" 2>&1
 
     for i in *; do
       if ! is_tools_directory "$i"; then
@@ -569,11 +572,13 @@ function use_fake_python_runtimes_for_testsuite() {
     PYTHON3_FILENAME="python3.sh"
   fi
 
-  add_to_bazelrc "build --python_top=//tools/python:default_runtime"
+  add_to_bazelrc "build --extra_toolchains=//tools/python:fake_python_toolchain"
 
   mkdir -p tools/python
 
   cat > tools/python/BUILD << EOF
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
 package(default_visibility=["//visibility:public"])
 
 sh_binary(
@@ -582,15 +587,27 @@ sh_binary(
 )
 
 py_runtime(
-    name = "default_runtime",
-    files = select({
-        "@bazel_tools//tools/python:PY3": [":${PYTHON3_FILENAME}"],
-        "//conditions:default": [":${PYTHON2_FILENAME}"],
-    }),
-    interpreter = select({
-        "@bazel_tools//tools/python:PY3": ":${PYTHON3_FILENAME}",
-        "//conditions:default": ":${PYTHON2_FILENAME}",
-    }),
+    name = "fake_py2_interpreter",
+    interpreter = ":${PYTHON2_FILENAME}",
+    python_version = "PY2",
+)
+
+py_runtime(
+    name = "fake_py3_interpreter",
+    interpreter = ":${PYTHON3_FILENAME}",
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "fake_py_runtime_pair",
+    py2_runtime = ":fake_py2_interpreter",
+    py3_runtime = ":fake_py3_interpreter",
+)
+
+toolchain(
+    name = "fake_python_toolchain",
+    toolchain = ":fake_py_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
 EOF
 

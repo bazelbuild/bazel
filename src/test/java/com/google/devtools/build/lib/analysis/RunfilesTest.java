@@ -415,8 +415,8 @@ public class RunfilesTest extends FoundationTestCase {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = new Artifact(PathFragment.create("a/target"), root);
     Runfiles runfilesB = new Runfiles.Builder("TESTING").addArtifact(artifactA).build();
-    assertThat(Runfiles.EMPTY.merge(runfilesB)).isSameAs(runfilesB);
-    assertThat(runfilesB.merge(Runfiles.EMPTY)).isSameAs(runfilesB);
+    assertThat(Runfiles.EMPTY.merge(runfilesB)).isSameInstanceAs(runfilesB);
+    assertThat(runfilesB.merge(Runfiles.EMPTY)).isSameInstanceAs(runfilesB);
   }
 
   @Test

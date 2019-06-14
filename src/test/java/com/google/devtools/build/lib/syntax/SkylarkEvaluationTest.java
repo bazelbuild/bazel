@@ -1496,7 +1496,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testUnionSet() throws Exception {
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_depset_union=false")
         .testStatement("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
         .testStatement("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
         .testIfExactError("unsupported operand type(s) for |: 'int' and 'int'", "2 | 4");
@@ -1998,9 +1998,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPrintBadKwargs() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "unexpected keywords 'end', 'other' in call to print(*args, sep: string = \" \")",
-        "print(end='x', other='y')");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "unexpected keywords 'end', 'other', for call to function print(sep = \" \", *args)",
+            "print(end='x', other='y')");
   }
 
   // Override tests in EvaluationTest incompatible with Skylark
@@ -2215,14 +2216,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testLoadStatementWithAbsolutePath() throws Exception {
     checkEvalErrorContains(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'",
-        "load('/tmp/foo', 'arg')");
+        "load('/tmp/foo.bzl', 'arg')");
   }
 
   @Test
   public void testLoadStatementWithRelativePath() throws Exception {
     checkEvalErrorContains(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'",
-        "load('foo', 'arg')");
+        "load('foo.bzl', 'arg')");
   }
 
   @Test

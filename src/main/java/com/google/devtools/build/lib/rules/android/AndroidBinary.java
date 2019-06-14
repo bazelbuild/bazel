@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryMobileInstall.MobileInstallResourceApks;
@@ -103,16 +104,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   protected abstract CppSemantics createCppSemantics();
 
-  protected abstract AndroidMigrationSemantics createAndroidMigrationSemantics();
-
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CppSemantics cppSemantics = createCppSemantics();
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
+    androidSemantics.checkForMigrationTag(ruleContext);
     androidSemantics.validateAndroidBinaryRuleContext(ruleContext);
-    createAndroidMigrationSemantics().validateRuleContext(ruleContext);
     AndroidSdkProvider.verifyPresence(ruleContext);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
@@ -156,6 +155,34 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // Multidex is required so we can include legacy libs as a separate .dex file.
       ruleContext.throwWithAttributeError(
           "multidex", "Support for Java 8 libraries on legacy devices requires multidex");
+    }
+
+    if (ruleContext.getFragment(JavaConfiguration.class).enforceProguardFileExtension()
+        && ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS)) {
+      List<PathFragment> pathsWithUnexpectedExtension =
+          ruleContext
+              .getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS, Mode.TARGET)
+              .list()
+              .stream()
+              .filter(Artifact::isSourceArtifact)
+              .map(Artifact::getRootRelativePath)
+              .filter(
+                  // This checks the filename directly instead of using FileType because we want to
+                  // exclude third_party/, but FileType is generally only given the basename.
+                  //
+                  // See e.g. RuleContext#validateDirectPrerequisiteType and
+                  // PrerequisiteArtifacts#filter.
+                  path ->
+                      !path.getFileExtension().equals("pgcfg")
+                          && !path.startsWith(RuleClass.THIRD_PARTY_PREFIX)
+                          && !path.startsWith(RuleClass.EXPERIMENTAL_PREFIX))
+              .collect(toImmutableList());
+      if (!pathsWithUnexpectedExtension.isEmpty()) {
+        ruleContext.throwWithAttributeError(
+            ProguardHelper.PROGUARD_SPECS,
+            "Proguard spec files must use the .pgcfg extension. These files do not end in .pgcfg: "
+                + pathsWithUnexpectedExtension);
+      }
     }
   }
 
@@ -625,7 +652,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             new ApkInfo(
                 zipAlignedApk,
                 unsignedApk,
-                getCoverageInstrumentationJarForApk(ruleContext, androidCommon),
+                getCoverageInstrumentationJarForApk(ruleContext),
                 resourceApk.getManifest(),
                 AndroidCommon.getApkDebugSigningKey(ruleContext)))
         .addNativeDeclaredProvider(new AndroidPreDexJarProvider(jarToDex))
@@ -637,20 +664,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   /**
    * For coverage builds, this returns a Jar containing <b>un</b>instrumented bytecode for the
-   * coverage reporter's consumption.  This Jar is often confusingly called <i>instrumented</i>.
-   * This method simply returns the deploy Jar when "new" coverage is used, otherwise the
-   * traditional "instrumented" Jar.  Note the deploy Jar is built anyway for Android binaries.
+   * coverage reporter's consumption. This method simply returns the deploy Jar. Note the deploy Jar
+   * is built anyway for Android binaries.
    *
    * @return A Jar containing uninstrumented bytecode or {@code null} for non-coverage builds
    */
   @Nullable
-  private static Artifact getCoverageInstrumentationJarForApk(
-      RuleContext ruleContext, AndroidCommon androidCommon) throws InterruptedException {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
-        && ruleContext.getConfiguration().isExperimentalJavaCoverage()) {
-      return ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_DEPLOY_JAR);
-    }
-    return androidCommon.getInstrumentedJar();
+  private static Artifact getCoverageInstrumentationJarForApk(RuleContext ruleContext)
+      throws InterruptedException {
+    return ruleContext.getConfiguration().isCodeCoverageEnabled()
+        ? ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_DEPLOY_JAR)
+        : null;
   }
 
   public static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {

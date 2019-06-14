@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
@@ -289,7 +288,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     Artifact artifact = getFileConfiguredTarget("//java/android:libb.jar").getArtifact();
     JavaCompileAction action = (JavaCompileAction) getGeneratingAction(artifact);
     List<String> commandLine = getJavacArguments(action);
-    assertThat(commandLine).containsAllOf("--experimental_fix_deps_tool", "add_dep").inOrder();
+    assertThat(commandLine).containsAtLeast("--experimental_fix_deps_tool", "add_dep").inOrder();
   }
 
   @Test
@@ -299,7 +298,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     Artifact artifact = getFileConfiguredTarget("//java/android:libb.jar").getArtifact();
     JavaCompileAction action = (JavaCompileAction) getGeneratingAction(artifact);
     List<String> commandLine = getJavacArguments(action);
-    assertThat(commandLine).containsAllOf("--experimental_fix_deps_tool", "auto_fixer").inOrder();
+    assertThat(commandLine).containsAtLeast("--experimental_fix_deps_tool", "auto_fixer").inOrder();
   }
 
   @Test
@@ -743,17 +742,18 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     SpawnAction sourceJarAction = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         actionsTestUtil().artifactClosureOf(outputGroup), "libidl-idl.srcjar");
 
-    assertThat(sourceJarAction).isSameAs(classJarAction);
+    assertThat(sourceJarAction).isSameInstanceAs(classJarAction);
 
     PathFragment genfilesPath =
         getTargetConfiguration()
             .getGenfilesDirectory(RepositoryName.MAIN)
             .getExecPath()
             .getRelative("java/android/idl_aidl/java/android");
-    assertThat(classJarAction.getArguments()).containsAllOf(
-        genfilesPath.getRelative("a.java").getPathString(),
-        genfilesPath.getRelative("b.java").getPathString(),
-        genfilesPath.getRelative("c.java").getPathString());
+    assertThat(classJarAction.getArguments())
+        .containsAtLeast(
+            genfilesPath.getRelative("a.java").getPathString(),
+            genfilesPath.getRelative("b.java").getPathString(),
+            genfilesPath.getRelative("c.java").getPathString());
   }
 
   @Test
@@ -777,12 +777,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     for (Artifact artifact : outputGroup) {
       asString.add(artifact.getRootRelativePathString());
     }
-    assertThat(asString).containsAllOf(
-        "java/android/libdep-idl.jar",
-        "java/android/libdep-idl.srcjar",
-        "java/android/liblib-idl.jar",
-        "java/android/liblib-idl.srcjar"
-    );
+    assertThat(asString)
+        .containsAtLeast(
+            "java/android/libdep-idl.jar",
+            "java/android/libdep-idl.srcjar",
+            "java/android/liblib-idl.jar",
+            "java/android/liblib-idl.srcjar");
   }
 
   @Test
@@ -1467,7 +1467,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         actionsTestUtil().artifactClosureOf(getFilesToBuild(target)), "MyInterface.java");
     assertThat(action.getArguments())
-        .containsAllOf("-Ijava", "-I" + genfilesJavaPath.getPathString());
+        .containsAtLeast("-Ijava", "-I" + genfilesJavaPath.getPathString());
   }
 
   @Test
@@ -1894,7 +1894,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(linkAction).isNotNull();
 
     assertThat(linkAction.getInputs())
-        .containsAllOf(
+        .containsAtLeast(
             sdk.getConfiguredTarget().get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
@@ -1905,7 +1905,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
                 a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(linkAction.getOutputs())
-        .containsAllOf(
+        .containsAtLeast(
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
                 a.getConfiguration(),
@@ -2185,11 +2185,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(bClasspath).isEmpty();
     assertThat(cClasspath)
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             JavaInfo.getProvider(JavaCompilationArgsProvider.class, aTarget)
                 .getDirectCompileTimeJars());
     assertThat(cClasspath)
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             JavaInfo.getProvider(JavaCompilationArgsProvider.class, bTarget)
                 .getDirectCompileTimeJars());
     assertNoEvents();
@@ -2235,7 +2235,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         actionsTestUtil().artifactClosureOf(aar), "aartest.aar");
     assertThat(action).isNotNull();
     assertThat(prettyArtifactNames(getNonToolInputs(action)))
-        .containsAllOf(
+        .containsAtLeast(
             "java/android/aartest/aartest_processed_manifest/AndroidManifest.xml",
             "java/android/aartest/aartest_symbols/R.txt",
             "java/android/aartest/res/values/strings.xml",
@@ -2262,7 +2262,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         actionsTestUtil().artifactClosureOf(aar), "aartest.aar");
     assertThat(action).isNotNull();
     assertThat(prettyArtifactNames(getNonToolInputs(action)))
-        .containsAllOf(
+        .containsAtLeast(
             "java/android/aartest/aartest_processed_manifest/AndroidManifest.xml",
             "java/android/aartest/aartest_symbols/R.txt",
             "java/android/aartest/libaartest.jar");
@@ -2414,9 +2414,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
     // Test that all bottom jars are on the runtime classpath of lib_android.
     ConfiguredTarget target = getConfiguredTarget("//foo:lib_foo");
-    Collection<Artifact> transitiveSrcJars =
-        OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP)
-            .toCollection();
+    ImmutableList<Artifact> transitiveSrcJars =
+        OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP).toList();
     assertThat(ActionsTestUtil.baseArtifactNames(transitiveSrcJars)).containsExactly(
         "libjl_bottom_for_exports-src.jar",
         "libal_bottom_for_deps-src.jar",

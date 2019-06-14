@@ -21,7 +21,7 @@ filegroup(
         "//src:srcs",
         "//tools:srcs",
         "//third_party:srcs",
-    ] + glob([".bazelci/*"]),
+    ] + glob([".bazelci/*"]) + [".bazelrc"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -124,18 +124,36 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+constraint_setting(name = "machine_size")
+
+# A machine with "high cpu count".
+constraint_value(
+    name = "highcpu_machine",
+    constraint_setting = ":machine_size",
+    visibility = ["//visibility:public"],
+)
+
 platform(
-    name = "rbe_ubuntu1604_with_network_and_privileged",
-    parents = ["@bazel_toolchains//configs/ubuntu16_04_clang/latest:platform"],
+    name = "default_host_platform",
+    constraint_values = [
+        ":highcpu_machine",
+    ],
+    parents = ["@bazel_tools//platforms:host_platform"],
+)
+
+# The highcpu RBE platform where heavy actions run on. In order to
+# use this platform add the highcpu_machine constraint to your target.
+platform(
+    name = "rbe_highcpu_platform",
+    constraint_values = [
+        "//:highcpu_machine",
+    ],
+    parents = ["@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform"],
     remote_execution_properties = """
         {PARENT_REMOTE_EXECUTION_PROPERTIES}
         properties: {
-          name: "dockerNetwork"
-          value: "standard"
-        }
-        properties: {
-          name: "dockerPrivileged"
-          value: "true"
+          name: "gceMachineType"
+          value: "n1-highcpu-32"
         }
         """,
 )

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.SingleStringArgFormatter.format;
 import static com.google.devtools.build.lib.actions.SingleStringArgFormatter.isValid;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -48,7 +48,7 @@ public class SingleStringArgFormatterTest {
     assertThat(format("hello %s, hello", "world")).isEqualTo("hello world, hello");
     assertThat(format("hello %s, hello", "world")).isEqualTo("hello world, hello");
     assertThat(format("hello %%s %s", "world")).isEqualTo("hello %%s world");
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> format("hello", "hello"));
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> format("hello %s %s", "hello"));
+    assertThrows(IllegalArgumentException.class, () -> format("hello", "hello"));
+    assertThrows(IllegalArgumentException.class, () -> format("hello %s %s", "hello"));
   }
 }

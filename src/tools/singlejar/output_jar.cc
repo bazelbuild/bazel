@@ -294,8 +294,11 @@ bool OutputJar::Open() {
     return false;
   }
 
-  HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
-                             NULL, CREATE_ALWAYS, 0, NULL);
+  HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ | GENERIC_WRITE,
+                             // Must share for reading, otherwise
+                             // symlink-following file existence checks (e.g.
+                             // java.nio.file.Files.exists()) fail.
+                             FILE_SHARE_READ, NULL, CREATE_ALWAYS, 0, NULL);
   if (hFile == INVALID_HANDLE_VALUE) {
     diag_warn("%s:%d: CreateFileW failed for %S", __FILE__, __LINE__,
               wpath.c_str());
@@ -391,7 +394,7 @@ bool OutputJar::AddJar(int jar_path_index) {
         known_members_.emplace(service_path, EntryInfo{service_handler});
       }
     } else {
-      ExtraHandler(jar_entry, &input_jar_aux_label);
+      ExtraHandler(input_jar_path, jar_entry, &input_jar_aux_label);
     }
 
     if (options_->check_desugar_deps &&
@@ -1000,4 +1003,5 @@ bool OutputJar::WriteBytes(const void *buffer, size_t count) {
   return written == count;
 }
 
-void OutputJar::ExtraHandler(const CDH *, const std::string *) {}
+void OutputJar::ExtraHandler(const std::string &input_jar_path, const CDH *,
+                             const std::string *) {}

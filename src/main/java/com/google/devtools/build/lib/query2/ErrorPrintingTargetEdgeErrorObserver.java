@@ -23,16 +23,15 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 
 /**
- * Record errors, such as missing package/target or rules containing errors,
- * encountered during visitation. Emit an error message upon encountering
- * missing edges
+ * Record errors, such as missing package/target or rules containing errors, encountered during
+ * visitation. Emit an error message upon encountering missing edges
  *
- * The accessor {@link #hasErrors}) may not be called until the concurrent phase
- * is over, i.e. all external calls to visit() methods have completed.
+ * <p>The accessor {@link #hasErrors}) may not be called until the concurrent phase is over, i.e.
+ * all external calls to visit() methods have completed.
  */
 @ThreadSafety.ConditionallyThreadSafe // condition: only call hasErrors
-                                      // once the visitation is complete.
-class ErrorPrintingTargetEdgeErrorObserver extends TargetEdgeErrorObserver {
+// once the visitation is complete.
+public class ErrorPrintingTargetEdgeErrorObserver extends TargetEdgeErrorObserver {
 
   private final EventHandler eventHandler;
 

@@ -298,4 +298,22 @@ EOF
   assert_equals "$(cat output1)" "$(cat output2)"
 }
 
+# Regression test for b/130762259.
+function test_modify_execution_info_changes_test_runner_cache_key() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+  echo "sh_test(name = 'test', srcs = ['test.sh'])" > "$pkg/BUILD"
+  touch "$pkg/test.sh"
+
+  bazel aquery "mnemonic(TestRunner,//$pkg:test)" --output=text \
+    --modify_execution_info= \
+    2> "$TEST_log" | grep ActionKey > key1 || fail "Expected success"
+
+  bazel aquery "mnemonic(TestRunner,//$pkg:test)" --output=text \
+    --modify_execution_info=TestRunner=+requires-x \
+    2> "$TEST_log" | grep ActionKey > key2 || fail "Expected success"
+
+  assert_not_equals "$(cat key1)" "$(cat key2)"
+}
+
 run_suite "Integration tests of the --modify_execution_info option."

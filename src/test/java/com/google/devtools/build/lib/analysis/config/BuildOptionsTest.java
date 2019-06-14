@@ -18,8 +18,8 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,9 +44,9 @@ import org.junit.runners.JUnit4;
  * skylark options, the format of this test class will need to accommodate that overlap.
  */
 @RunWith(JUnit4.class)
-public class BuildOptionsTest {
+public final class BuildOptionsTest {
   private static final ImmutableList<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
-      ImmutableList.of(BuildConfiguration.Options.class);
+      ImmutableList.of(CoreOptions.class);
 
   @Test
   public void optionSetCaching() {
@@ -86,9 +86,7 @@ public class BuildOptionsTest {
             BuildOptions.of(BUILD_CONFIG_OPTIONS, options1)
                 .equals(
                     BuildOptions.of(
-                        ImmutableList.<Class<? extends FragmentOptions>>of(
-                            BuildConfiguration.Options.class, CppOptions.class),
-                        options1)))
+                        ImmutableList.of(CoreOptions.class, CppOptions.class), options1)))
         .isFalse();
   }
 
@@ -111,8 +109,7 @@ public class BuildOptionsTest {
 
   @Test
   public void optionsDiff_differentFragments() throws Exception {
-    BuildOptions one =
-        BuildOptions.of(ImmutableList.<Class<? extends FragmentOptions>>of(CppOptions.class));
+    BuildOptions one = BuildOptions.of(ImmutableList.of(CppOptions.class));
     BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS);
 
     OptionsDiff diff = BuildOptions.diff(one, two);
@@ -159,7 +156,7 @@ public class BuildOptionsTest {
         assertThrows(IllegalArgumentException.class, () -> three.applyDiff(diffForReconstruction));
     assertThat(e)
         .hasMessageThat()
-        .contains("Can not reconstruct BuildOptions with a different base");
+        .contains("Cannot reconstruct BuildOptions with a different base");
   }
 
   @Test
@@ -176,11 +173,11 @@ public class BuildOptionsTest {
   public void applyDiff_nativeOptions() throws Exception {
     BuildOptions one = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
     BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
-    BuildOptions reconstructedTwo = one.applyDiff(BuildOptions.diffForReconstruction(one, two));
+    BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
     assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameAs(two);
+    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
     BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
-    assertThat(reconstructedOne).isSameAs(one);
+    assertThat(reconstructedOne).isSameInstanceAs(one);
     BuildOptions otherFragment = BuildOptions.of(ImmutableList.of(CppOptions.class));
     assertThat(one.applyDiff(BuildOptions.diffForReconstruction(one, otherFragment)))
         .isEqualTo(otherFragment);
@@ -189,7 +186,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void optionsDiff_sameStarlarkOptions() throws Exception {
+  public void optionsDiff_sameStarlarkOptions() {
     Label flagName = Label.parseAbsoluteUnchecked("//foo/flag");
     String flagValue = "value";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
@@ -199,7 +196,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void optionsDiff_differentStarlarkOptions() throws Exception {
+  public void optionsDiff_differentStarlarkOptions() {
     Label flagName = Label.parseAbsoluteUnchecked("//bar/flag");
     String flagValueOne = "valueOne";
     String flagValueTwo = "valueTwo";
@@ -217,7 +214,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void optionsDiff_extraStarlarkOptions() throws Exception {
+  public void optionsDiff_extraStarlarkOptions() {
     Label flagNameOne = Label.parseAbsoluteUnchecked("//extra/flag/one");
     Label flagNameTwo = Label.parseAbsoluteUnchecked("//extra/flag/two");
     String flagValue = "foo";
@@ -233,48 +230,81 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void applyDiff_sameStarlarkOptions() throws Exception {
+  public void applyDiff_sameStarlarkOptions() {
     Label flagName = Label.parseAbsoluteUnchecked("//foo/flag");
     String flagValue = "value";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
 
-    BuildOptions reconstructedTwo = one.applyDiff(BuildOptions.diffForReconstruction(one, two));
+    BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
 
     assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameAs(two);
+    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
 
     BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
 
-    assertThat(reconstructedOne).isSameAs(one);
+    assertThat(reconstructedOne).isSameInstanceAs(one);
   }
 
   @Test
-  public void applyDiff_differentStarlarkOptions() throws Exception {
+  public void applyDiff_differentStarlarkOptions() {
     Label flagName = Label.parseAbsoluteUnchecked("//bar/flag");
     String flagValueOne = "valueOne";
     String flagValueTwo = "valueTwo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValueOne));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValueTwo));
 
-    BuildOptions reconstructedTwo = one.applyDiff(BuildOptions.diffForReconstruction(one, two));
+    BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
 
     assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameAs(two);
+    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
   }
 
   @Test
-  public void applyDiff_extraStarlarkOptions() throws Exception {
+  public void applyDiff_extraStarlarkOptions() {
     Label flagNameOne = Label.parseAbsoluteUnchecked("//extra/flag/one");
     Label flagNameTwo = Label.parseAbsoluteUnchecked("//extra/flag/two");
     String flagValue = "foo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagNameOne, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagNameTwo, flagValue));
 
-    BuildOptions reconstructedTwo = one.applyDiff(BuildOptions.diffForReconstruction(one, two));
+    BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
 
     assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameAs(two);
+    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
+  }
+
+  @Test
+  public void applyDiff_returnsOriginalOptionsInstanceIfStillExists() throws Exception {
+    BuildOptions base = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=a");
+    BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=b");
+    BuildOptions reconstructed = base.applyDiff(BuildOptions.diffForReconstruction(base, original));
+    assertThat(reconstructed).isSameInstanceAs(original);
+  }
+
+  @Test
+  public void diffForReconstruction_calledTwiceWithSameArgs_returnsSameInstance() throws Exception {
+    BuildOptions one = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=one");
+    BuildOptions two = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=two");
+
+    OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
+    OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
+
+    assertThat(diff1).isSameInstanceAs(diff2);
+  }
+
+  @Test
+  public void diffForReconstruction_againstDifferentBase() throws Exception {
+    BuildOptions base1 = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=base1");
+    BuildOptions base2 = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=base2");
+    BuildOptions other = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=other");
+
+    OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(base1, other);
+    OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(base2, other);
+
+    assertThat(diff1).isNotEqualTo(diff2);
+    assertThat(base1.applyDiff(diff1)).isEqualTo(other);
+    assertThat(base2.applyDiff(diff2)).isEqualTo(other);
   }
 
   private static ImmutableList.Builder<Class<? extends FragmentOptions>> makeOptionsClassBuilder() {
@@ -333,10 +363,10 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void testMultiValueOptionImmutability() throws Exception {
+  public void testMultiValueOptionImmutability() {
     BuildOptions options =
         BuildOptions.of(BUILD_CONFIG_OPTIONS, OptionsParser.newOptionsParser(BUILD_CONFIG_OPTIONS));
-    BuildConfiguration.Options coreOptions = options.get(Options.class);
+    CoreOptions coreOptions = options.get(CoreOptions.class);
     assertThrows(
         UnsupportedOperationException.class,
         () ->
@@ -353,10 +383,10 @@ public class BuildOptionsTest {
 
     BuildOptions modified = original.applyParsingResult(parser);
 
-    assertThat(original.get(BuildConfiguration.Options.class).cpu)
-        .isNotEqualTo(modified.get(BuildConfiguration.Options.class).cpu);
-    assertThat(modified.get(BuildConfiguration.Options.class).cpu).isEqualTo("bar");
-    assertThat(modified.get(Options.class).stampBinaries).isFalse();
+    assertThat(original.get(CoreOptions.class).cpu)
+        .isNotEqualTo(modified.get(CoreOptions.class).cpu);
+    assertThat(modified.get(CoreOptions.class).cpu).isEqualTo("bar");
+    assertThat(modified.get(CoreOptions.class).stampBinaries).isFalse();
     assertThat(modified.getStarlarkOptions().get(Label.parseAbsoluteUnchecked("//custom:flag")))
         .isEqualTo("hello");
   }
@@ -364,8 +394,7 @@ public class BuildOptionsTest {
   @Test
   public void parsingResultTransformNativeIgnored() throws Exception {
     ImmutableList.Builder<Class<? extends FragmentOptions>> fragmentClassesBuilder =
-        ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(BuildConfiguration.Options.class);
+        ImmutableList.<Class<? extends FragmentOptions>>builder().add(CoreOptions.class);
 
     BuildOptions original = BuildOptions.of(fragmentClassesBuilder.build());
 
@@ -387,6 +416,18 @@ public class BuildOptionsTest {
     parser.setStarlarkOptions(ImmutableMap.of("@@@", "hello"));
 
     assertThrows(IllegalArgumentException.class, () -> original.applyParsingResult(parser));
+  }
+
+  @Test
+  public void parsingResultTransformMultiValueOption() throws Exception {
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
+
+    OptionsParser parser = OptionsParser.newOptionsParser(BUILD_CONFIG_OPTIONS);
+    parser.parse("--features=foo");
+
+    BuildOptions modified = original.applyParsingResult(parser);
+
+    assertThat(modified.get(CoreOptions.class).defaultFeatures).containsExactly("foo");
   }
 
   @Test
@@ -426,7 +467,7 @@ public class BuildOptionsTest {
 
     ImmutableList<Class<? extends FragmentOptions>> fragmentClasses =
         ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(BuildConfiguration.Options.class)
+            .add(CoreOptions.class)
             .add(CppOptions.class)
             .build();
 
@@ -442,7 +483,7 @@ public class BuildOptionsTest {
 
     ImmutableList<Class<? extends FragmentOptions>> fragmentClasses =
         ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(BuildConfiguration.Options.class)
+            .add(CoreOptions.class)
             .add(CppOptions.class)
             .build();
 
@@ -461,7 +502,7 @@ public class BuildOptionsTest {
 
     ImmutableList<Class<? extends FragmentOptions>> fragmentClasses =
         ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(BuildConfiguration.Options.class)
+            .add(CoreOptions.class)
             .add(CppOptions.class)
             .build();
 
@@ -493,5 +534,34 @@ public class BuildOptionsTest {
     parser.parse("--platform_suffix=foo"); // Note: platform_suffix is null by default.
 
     assertThat(original.matches(parser)).isFalse();
+  }
+
+  @Test
+  public void trim() throws Exception {
+    BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class));
+    BuildOptions trimmed = original.trim(ImmutableSet.of(CppOptions.class));
+    assertThat(trimmed.getFragmentClasses()).containsExactly(CppOptions.class);
+  }
+
+  @Test
+  public void trim_retainsBuildConfigurationOptions() throws Exception {
+    BuildOptions original =
+        BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class, CoreOptions.class));
+    BuildOptions trimmed = original.trim(ImmutableSet.of());
+    assertThat(trimmed.getFragmentClasses()).containsExactly(CoreOptions.class);
+  }
+
+  @Test
+  public void trim_nothingTrimmed_returnsSameInstance() throws Exception {
+    BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class));
+    BuildOptions trimmed = original.trim(ImmutableSet.of(CppOptions.class, JavaOptions.class));
+    assertThat(trimmed).isSameInstanceAs(original);
+  }
+
+  private static OptionsDiffForReconstruction uncachedDiffForReconstruction(
+      BuildOptions first, BuildOptions second) {
+    OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(first, second);
+    diff.clearCachedReconstructedForTesting();
+    return diff;
   }
 }

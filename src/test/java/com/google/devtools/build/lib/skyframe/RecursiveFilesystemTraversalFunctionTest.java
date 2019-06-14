@@ -21,8 +21,8 @@ import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversa
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.regularFile;
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.symlinkToDirectory;
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.symlinkToFile;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -130,7 +130,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(
         FileStateValue.FILE_STATE,
-        new FileStateFunction(new AtomicReference<>(), externalFilesHelper));
+        new FileStateFunction(
+            new AtomicReference<>(),
+            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
@@ -350,12 +353,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         // No exception thrown, let's safely compare results.
         assertEquals(expected.getTargetInSymlinkTree(true), actual.getTargetInSymlinkTree(true));
       } catch (DanglingSymlinkException e) {
-        try {
-          actual.getTargetInSymlinkTree(true);
-          fail("Expected exception not thrown while requesting resolved symlink.");
-        } catch (DanglingSymlinkException e1) {
-          // exception thrown by both expected and actual we're all good.
-        }
+        assertThrows(
+            "Expected exception not thrown while requesting resolved symlink.",
+            DanglingSymlinkException.class,
+            () -> actual.getTargetInSymlinkTree(true));
       }
     }
   }

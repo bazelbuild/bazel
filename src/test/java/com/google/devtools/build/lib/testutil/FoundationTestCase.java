@@ -161,7 +161,20 @@ public abstract class FoundationTestCase {
         "    ijar = ['ijar'],",
         "    genclass = ['GenClass_deploy.jar'],",
         "    timezone_data = 'tzdata.jar',",
-        ")"
-    );
+        ")",
+        "constraint_value(",
+        "    name = 'constraint',",
+        "    constraint_setting = '" + TestConstants.PLATFORM_BASE + "/java/constraints:runtime',",
+        ")",
+        "toolchain(",
+        "    name = 'java_toolchain',",
+        "    toolchain = ':toolchain',",
+        "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/jdk:toolchain_type',",
+        "    target_compatible_with = [':constraint'],",
+        ")",
+        "platform(",
+        "    name = 'platform',",
+        "    constraint_values = [':constraint'],",
+        ")");
   }
 }

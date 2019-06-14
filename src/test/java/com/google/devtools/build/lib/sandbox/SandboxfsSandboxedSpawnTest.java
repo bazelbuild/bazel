@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static junit.framework.TestCase.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -73,7 +73,8 @@ public class SandboxfsSandboxedSpawnTest {
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(PathFragment.create("wow/writable")),
-            /* mapSymlinkTargets= */ false);
+            /* mapSymlinkTargets= */ false,
+            new SynchronousTreeDeleter());
 
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
@@ -99,7 +100,8 @@ public class SandboxfsSandboxedSpawnTest {
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(PathFragment.create("wow/writable")),
-            /* mapSymlinkTargets= */ false);
+            /* mapSymlinkTargets= */ false,
+            new SynchronousTreeDeleter());
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
 
@@ -128,7 +130,8 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableMap.of(),
             SandboxOutputs.create(ImmutableSet.of(outputFile), ImmutableSet.of()),
             ImmutableSet.of(),
-            /* mapSymlinkTargets= */ false);
+            /* mapSymlinkTargets= */ false,
+            new SynchronousTreeDeleter());
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
 
@@ -188,7 +191,8 @@ public class SandboxfsSandboxedSpawnTest {
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(),
-            mapSymlinkTargets);
+            mapSymlinkTargets,
+            new SynchronousTreeDeleter());
 
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
@@ -207,11 +211,10 @@ public class SandboxfsSandboxedSpawnTest {
       assertThat(execRoot.getRelative("such/link-to-input-2").resolveSymbolicLinks())
           .isEqualTo(input2);
     } else {
-      try {
-        execRoot.getRelative("such/link-to-link.txt").resolveSymbolicLinks();
-        fail("Symlink resolution worked, which means the target was mapped when not expected");
-      } catch (IOException expected) {
-      }
+      assertThrows(
+          "Symlink resolution worked, which means the target was mapped when not expected",
+          IOException.class,
+          () -> execRoot.getRelative("such/link-to-link.txt").resolveSymbolicLinks());
     }
 
     // Targets of symlinks must have been mapped inside the sandbox only when requested.

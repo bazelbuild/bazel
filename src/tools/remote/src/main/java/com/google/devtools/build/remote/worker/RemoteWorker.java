@@ -31,14 +31,10 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.RemoteOptions;
-import com.google.devtools.build.lib.remote.RemoteRetrier;
-import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
-import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
-import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
@@ -60,6 +56,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import io.grpc.Server;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
+import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -68,6 +65,9 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -160,6 +160,10 @@ public final class RemoteWorker {
             .addService(ServerInterceptors.intercept(casServer, headersInterceptor))
             .addService(ServerInterceptors.intercept(capabilitiesServer, headersInterceptor));
 
+    if (workerOptions.tlsCertificate != null) {
+      b.sslContext(getSslContextBuilder(workerOptions).build());
+    }
+
     if (execServer != null) {
       b.addService(ServerInterceptors.intercept(execServer, headersInterceptor));
     } else {
@@ -171,6 +175,13 @@ public final class RemoteWorker {
     server.start();
 
     return server;
+  }
+
+  private SslContextBuilder getSslContextBuilder(RemoteWorkerOptions workerOptions) {
+    SslContextBuilder sslClientContextBuilder =
+        SslContextBuilder.forServer(
+            new File(workerOptions.tlsCertificate), new File(workerOptions.tlsPrivateKey));
+    return GrpcSslContexts.configure(sslClientContextBuilder, SslProvider.OPENSSL);
   }
 
   private void createPidFile() throws IOException {
@@ -245,33 +256,19 @@ public final class RemoteWorker {
       return;
     }
 
-    // The instance of SimpleBlobStore used is based on these criteria in order:
-    // 1. If remote cache or local disk cache is specified then use it first.
-    // 2. Finally use a ConcurrentMap to back the blob store.
-    final SimpleBlobStore blobStore;
-    if (usingRemoteCache) {
-      blobStore = SimpleBlobStoreFactory.create(remoteOptions, null, null);
-    } else if (remoteWorkerOptions.casPath != null) {
-      blobStore = new OnDiskBlobStore(fs.getPath(remoteWorkerOptions.casPath));
-    } else {
-      blobStore = new ConcurrentMapBlobStore(new ConcurrentHashMap<>());
-    }
+    Path casPath =
+        remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
+    final SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(remoteOptions, casPath);
 
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
-    RemoteRetrier retrier =
-        new RemoteRetrier(
-            remoteOptions,
-            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-            retryService,
-            Retrier.ALLOW_ALL_CALLS);
     DigestUtil digestUtil = new DigestUtil(fs.getDigestFunction());
     RemoteWorker worker =
         new RemoteWorker(
             fs,
             remoteWorkerOptions,
-            new SimpleBlobStoreActionCache(remoteOptions, blobStore, retrier, digestUtil),
+            new SimpleBlobStoreActionCache(remoteOptions, blobStore, digestUtil),
             sandboxPath,
             digestUtil);
 

@@ -20,9 +20,10 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.AnalyzingActionEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -343,7 +344,12 @@ public class ExperimentalEventHandler implements EventHandler {
   public void handle(Event event) {
     if (!debugAllEvents
         && !showTimestamp
-        && (event.getKind() == EventKind.START || event.getKind() == EventKind.FINISH)) {
+        && (event.getKind() == EventKind.START
+            || event.getKind() == EventKind.FINISH
+            || event.getKind() == EventKind.PASS
+            || event.getKind() == EventKind.TIMEOUT
+            || event.getKind() == EventKind.DEPCHECKER)) {
+      // Keep this in sync with the list of no-op event kinds in handleLocked below.
       return;
     }
     handleLocked(event, /* isFollowUp= */ false);
@@ -763,8 +769,8 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   @AllowConcurrentEvents
-  public void analyzingAction(AnalyzingActionEvent event) {
-    stateTracker.analyzingAction(event);
+  public void scanningAction(ScanningActionEvent event) {
+    stateTracker.scanningAction(event);
     refresh();
   }
 
@@ -780,6 +786,13 @@ public class ExperimentalEventHandler implements EventHandler {
   public void runningAction(RunningActionEvent event) {
     stateTracker.runningAction(event);
     refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionCompletion(ActionScanningCompletedEvent event) {
+    stateTracker.actionCompletion(event);
+    refreshSoon();
   }
 
   @Subscribe

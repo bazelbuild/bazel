@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -91,6 +92,9 @@ public class PrecomputedValue implements SkyValue {
   public static final Precomputed<Map<String, String>> ACTION_ENV =
       new Precomputed<>(Key.create("action_env"));
 
+  public static final Precomputed<Map<String, String>> REPO_ENV =
+      new Precomputed<>(Key.create("repo_env"));
+
   static final Precomputed<ImmutableList<ActionAnalysisMetadata>> COVERAGE_REPORT_KEY =
       new Precomputed<>(Key.create("coverage_report_actions"));
 
@@ -102,6 +106,9 @@ public class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
       new Precomputed<>(Key.create("path_package_locator"));
+
+  public static final Precomputed<RemoteOutputsMode> REMOTE_OUTPUTS_MODE =
+      new Precomputed<>(Key.create("remote_outputs_mode"));
 
   private final Object value;
 

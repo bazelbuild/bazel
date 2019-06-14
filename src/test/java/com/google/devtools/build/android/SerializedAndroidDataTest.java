@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.jimfs.Jimfs;
@@ -105,10 +105,8 @@ public class SerializedAndroidDataTest {
 
   @Test
   public void flagNoLabelFails() {
-    try {
-      SerializedAndroidData.valueOf(";;symbols.bin", fileSystem);
-      fail("expected exception for bad flag format");
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> SerializedAndroidData.valueOf(";;symbols.bin", fileSystem));
   }
 }

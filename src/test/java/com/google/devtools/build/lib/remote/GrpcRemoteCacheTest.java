@@ -15,8 +15,12 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
+import static org.mockito.AdditionalAnswers.answerVoid;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Action;
@@ -36,6 +40,8 @@ import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.api.client.json.GenericJson;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
+import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
+import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
@@ -51,7 +57,9 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.StringActionInput;
@@ -86,6 +94,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -178,6 +187,11 @@ public class GrpcRemoteCacheTest {
   }
 
   private GrpcRemoteCache newClient(RemoteOptions remoteOptions) throws IOException {
+    return newClient(remoteOptions, () -> new ExponentialBackoff(remoteOptions));
+  }
+
+  private GrpcRemoteCache newClient(RemoteOptions remoteOptions, Supplier<Backoff> backoffSupplier)
+      throws IOException {
     AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
     authTlsOptions.useGoogleDefaultCredentials = true;
     authTlsOptions.googleCredentials = "/exec/root/creds.json";
@@ -197,9 +211,7 @@ public class GrpcRemoteCacheTest {
     }
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-            retryService);
+            backoffSupplier, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor()
             .intercept(new CallCredentialsInterceptor(creds)).build());
@@ -500,17 +512,16 @@ public class GrpcRemoteCacheTest {
   static class TestChunkedRequestObserver implements StreamObserver<WriteRequest> {
     private final StreamObserver<WriteResponse> responseObserver;
     private final String contents;
-    private Chunker chunker;
+    private final Chunker chunker;
+    private final Digest digest;
 
     public TestChunkedRequestObserver(
         StreamObserver<WriteResponse> responseObserver, String contents, int chunkSizeBytes) {
       this.responseObserver = responseObserver;
       this.contents = contents;
-      chunker =
-          Chunker.builder(DIGEST_UTIL)
-              .setInput(contents.getBytes(UTF_8))
-              .setChunkSize(chunkSizeBytes)
-              .build();
+      byte[] blob = contents.getBytes(UTF_8);
+      chunker = Chunker.builder().setInput(blob).setChunkSize(chunkSizeBytes).build();
+      digest = DIGEST_UTIL.compute(blob);
     }
 
     @Override
@@ -518,7 +529,6 @@ public class GrpcRemoteCacheTest {
       assertThat(chunker.hasNext()).isTrue();
       try {
         Chunker.Chunk chunk = chunker.next();
-        Digest digest = chunk.getDigest();
         long offset = chunk.getOffset();
         ByteString data = chunk.getData();
         if (offset == 0) {
@@ -619,7 +629,8 @@ public class GrpcRemoteCacheTest {
           public void findMissingBlobs(
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
-            assertThat(request.getBlobDigestsList()).containsAllOf(fooDigest, quxDigest, barDigest);
+            assertThat(request.getBlobDigestsList())
+                .containsAtLeast(fooDigest, quxDigest, barDigest);
             // Nothing is missing.
             responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
             responseObserver.onCompleted();
@@ -697,7 +708,7 @@ public class GrpcRemoteCacheTest {
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
             assertThat(request.getBlobDigestsList())
-                .containsAllOf(quxDigest, barDigest, wobbleDigest);
+                .containsAtLeast(quxDigest, barDigest, wobbleDigest);
             // Nothing is missing.
             responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
             responseObserver.onCompleted();
@@ -932,6 +943,19 @@ public class GrpcRemoteCacheTest {
                 };
               }
             });
+    doAnswer(
+            answerVoid(
+                (QueryWriteStatusRequest request,
+                    StreamObserver<QueryWriteStatusResponse> responseObserver) -> {
+                  responseObserver.onNext(
+                      QueryWriteStatusResponse.newBuilder()
+                          .setCommittedSize(0)
+                          .setComplete(false)
+                          .build());
+                  responseObserver.onCompleted();
+                }))
+        .when(mockByteStreamImpl)
+        .queryWriteStatus(any(), any());
     client.upload(
         actionKey,
         Action.getDefaultInstance(),
@@ -960,5 +984,152 @@ public class GrpcRemoteCacheTest {
           }
         });
     assertThat(client.getCachedActionResult(actionKey)).isNull();
+  }
+
+  @Test
+  public void downloadBlobIsRetriedWithProgress() throws IOException, InterruptedException {
+    Backoff mockBackoff = Mockito.mock(Backoff.class);
+    final GrpcRemoteCache client =
+        newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            ByteString data = ByteString.copyFromUtf8("abcdefg");
+            int off = (int) request.getReadOffset();
+            if (off == 0) {
+              data = data.substring(0, 1);
+            } else {
+              data = data.substring(off);
+            }
+            responseObserver.onNext(ReadResponse.newBuilder().setData(data).build());
+            if (off == 0) {
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+            } else {
+              responseObserver.onCompleted();
+            }
+          }
+        });
+    assertThat(new String(getFromFuture(client.downloadBlob(digest)), UTF_8)).isEqualTo("abcdefg");
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis();
+  }
+
+  @Test
+  public void downloadBlobPassesThroughDeadlineExceededWithoutProgress()
+      throws IOException, InterruptedException {
+    Backoff mockBackoff = Mockito.mock(Backoff.class);
+    Mockito.when(mockBackoff.nextDelayMillis()).thenReturn(-1L);
+    final GrpcRemoteCache client =
+        newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            ByteString data = ByteString.copyFromUtf8("abcdefg");
+            if (request.getReadOffset() == 0) {
+              responseObserver.onNext(
+                  ReadResponse.newBuilder().setData(data.substring(0, 2)).build());
+            }
+            responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+          }
+        });
+    IOException e =
+        assertThrows(IOException.class, () -> getFromFuture(client.downloadBlob(digest)));
+    Status st = Status.fromThrowable(e);
+    assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
+    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenGrpcEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "grpc://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenGrpcEnabledUpperCase() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "GRPC://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenDefaultRemoteCacheEnabledForLocalhost() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "localhost:1234";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenDefaultRemoteCacheEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "some-host.com:1234";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenHttpEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "http://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenHttpEnabledWithUpperCase() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "HTTP://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenHttpsEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "https://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenUnknownScheme() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "grp://some-host.com";
+
+    // TODO(ishikhman): add proper vaildation and flip to false
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenUnknownSchemeStartsAsGrpc() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "grpcsss://some-host.com";
+
+    // TODO(ishikhman): add proper vaildation and flip to false
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenEmptyCacheProvided() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenRemoteCacheDisabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
   }
 }

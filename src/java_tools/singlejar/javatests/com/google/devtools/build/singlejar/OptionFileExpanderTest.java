@@ -15,8 +15,8 @@
 package com.google.devtools.build.singlejar;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.fail;
 
 import com.google.devtools.build.singlejar.OptionFileExpander.OptionFileProvider;
 import java.io.ByteArrayInputStream;
@@ -75,11 +75,6 @@ public class OptionFileExpanderTest {
     StoredOptionFileProvider provider = new StoredOptionFileProvider();
     provider.addFile("options", "'missing apostrophe");
     OptionFileExpander expander = new OptionFileExpander(provider);
-    try {
-      expander.expandArguments(Arrays.asList("@options"));
-      fail();
-    } catch (IOException e) {
-      // Expected exception.
-    }
+    assertThrows(IOException.class, () -> expander.expandArguments(Arrays.asList("@options")));
   }
 }

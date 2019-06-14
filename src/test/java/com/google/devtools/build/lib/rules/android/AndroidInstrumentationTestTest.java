@@ -132,19 +132,19 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
             .getDefaultRunfiles()
             .getAllArtifacts();
     assertThat(runfiles)
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             getHostConfiguredTarget("//tools/android/emulated_device:nexus_6")
                 .getProvider(RunfilesProvider.class)
                 .getDefaultRunfiles()
                 .getAllArtifacts());
     assertThat(runfiles)
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             getHostConfiguredTarget("//java/com/server")
                 .getProvider(RunfilesProvider.class)
                 .getDefaultRunfiles()
                 .getAllArtifacts());
     assertThat(runfiles)
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             getHostConfiguredTarget(
                     androidInstrumentationTest
                         .getTarget()
@@ -155,7 +155,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
                 .getDefaultRunfiles()
                 .getAllArtifacts());
     assertThat(runfiles)
-        .containsAllOf(
+        .containsAtLeast(
             getDeviceFixtureScript(getConfiguredTarget("//javatests/com/app:device_fixture")),
             getInstrumentationApk(getConfiguredTarget("//javatests/com/app:instrumentation_app")),
             getTargetApk(getConfiguredTarget("//javatests/com/app:instrumentation_app")),
@@ -231,7 +231,6 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
   @Test
   public void testAndroidInstrumentationTestWithSkylarkDevice()
       throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "javatests/com/app/skylarkdevice/local_adb_device.bzl",
         "def _impl(ctx):",

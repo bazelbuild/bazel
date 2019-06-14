@@ -51,7 +51,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
   }
 
   private void checkTargetRetainsGeneratingRule(OutputFile output) throws Exception {
-    assertThat(output.getGeneratingRule()).isSameAs(rule);
+    assertThat(output.getGeneratingRule()).isSameInstanceAs(rule);
   }
 
   private void checkName(OutputFile output, String expectedName) throws Exception {
@@ -64,7 +64,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
 
   @Test
   public void testGetAssociatedRule() throws Exception {
-    assertThat(pkg.getTarget("x").getAssociatedRule()).isSameAs(rule);
+    assertThat(pkg.getTarget("x").getAssociatedRule()).isSameInstanceAs(rule);
   }
 
   @Test
@@ -90,8 +90,8 @@ public class OutputFileTest extends PackageLoadingTestCase {
     OutputFile outputFileX2 = (OutputFile) pkg.getTarget("x");
     OutputFile outputFileY1 = (OutputFile) pkg.getTarget("subdir/y");
     OutputFile outputFileY2 = (OutputFile) pkg.getTarget("subdir/y");
-    assertThat(outputFileX2).isSameAs(outputFileX1);
-    assertThat(outputFileY2).isSameAs(outputFileY1);
+    assertThat(outputFileX2).isSameInstanceAs(outputFileX1);
+    assertThat(outputFileY2).isSameInstanceAs(outputFileY1);
     new EqualsTester()
         .addEqualityGroup(outputFileX1, outputFileX2)
         .addEqualityGroup(outputFileY1, outputFileY2)

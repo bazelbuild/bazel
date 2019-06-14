@@ -17,14 +17,14 @@ package com.google.devtools.build.lib.bazel.repository;
 import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.maybeDeprefixSymlink;
 
 import com.google.common.base.Optional;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.io.OutputStream;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -81,8 +81,9 @@ public abstract class CompressedTarFunction implements Decompressor {
                   filename, descriptor.repositoryPath().getRelative(linkName));
             }
           } else {
-            Files.copy(
-                tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
+            try (OutputStream out = filename.getOutputStream()) {
+              ByteStreams.copy(tarStream, out);
+            }
             filename.chmod(entry.getMode());
 
             // This can only be done on real files, not links, or it will skip the reader to

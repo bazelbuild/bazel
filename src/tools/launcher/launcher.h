@@ -54,14 +54,13 @@ class BinaryLauncherBase {
 
   // Map a runfile path to its absolute path.
   //
-  // If need_workspace_name is true, then this method prepend workspace name to
-  // path before doing rlocation.
-  // If need_workspace_name is false, then this method uses path directly.
-  // The default value of need_workspace_name is true.
-  std::wstring Rlocation(const std::wstring& path,
-                         bool need_workspace_name = true) const;
-  std::wstring Rlocation(const std::string& path,
-                         bool need_workspace_name = true) const;
+  // 'has_workspace_name' indicates whether 'path' already starts with the
+  // runfile's workspace name. (This is implicitly true when 'path' is under
+  // "external/".) If the path does not have a workspace name (and does not
+  // start with "external/"), this method prepends the main repository's name to
+  // it before looking up the runfile.
+  std::wstring Rlocation(std::wstring path,
+                         bool has_workspace_name = false) const;
 
   // Lauch a process with given executable and command line arguments.
   // If --print_launcher_command exists in arguments, then we print the full

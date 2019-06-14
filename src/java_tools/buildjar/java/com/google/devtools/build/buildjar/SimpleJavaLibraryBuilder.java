@@ -134,7 +134,9 @@ public class SimpleJavaLibraryBuilder implements Closeable {
       build
           .getDependencyModule()
           .emitDependencyInformation(
-              build.getClassPath(), result.isOk(), result.status() == Status.REQUIRES_FALLBACK);
+              build.getClassPath(),
+              result.isOk(),
+              /* requiresFallback= */ result.status() == Status.REQUIRES_FALLBACK);
       build.getProcessingModule().emitManifestProto();
     }
     return result;

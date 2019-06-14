@@ -168,6 +168,11 @@ public final class Runtime {
    * A registry of builtins, including both global builtins and builtins that are under some
    * namespace.
    *
+   * <p>The registry contains Starlark universal builtins (None, len, etc), core build-language
+   * functions (depset, select, glob, etc), members of the native module (FilesetEntry,
+   * local_repository, vardef, ...), but not the native rules (cc_library, etc) nor other built-ins
+   * (CcCompilationInfo, java_common.JavaRuntimeInfo, etc).
+   *
    * <p>Concurrency model: This object is thread-safe. Read accesses are always allowed, while write
    * accesses are only allowed before this object has been frozen ({@link #freeze}). Prior to
    * freezing, all operations are synchronized, while after freezing they are lockless.

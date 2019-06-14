@@ -137,7 +137,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private void registerDummyUserDefinedFunction() throws Exception {
-    eval("def impl():\n" + "  return 0\n");
+    eval("def impl():", "  pass");
   }
 
   @Test
@@ -581,28 +581,20 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrCfg() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
-    assertThat(attr.getConfigurationTransition().isHostTransition()).isTrue();
+    assertThat(attr.getTransitionFactory().isHost()).isTrue();
   }
 
   @Test
   public void testAttrCfgTarget() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'target', allow_files = True)");
-    assertThat(attr.getConfigurationTransition()).isEqualTo(NoTransition.INSTANCE);
+    assertThat(NoTransition.isInstance(attr.getTransitionFactory())).isTrue();
   }
 
   @Test
   public void incompatibleDataTransition() throws Exception {
-    ev =
-        createEvaluationTestCase(
-            StarlarkSemantics.DEFAULT_SEMANTICS
-                .toBuilder()
-                .incompatibleDisallowDataTransition(true)
-                .build());
-    ev.initialize();
     EvalException expected =
         assertThrows(EvalException.class, () -> eval("attr.label(cfg = 'data')"));
-    assertThat(expected).hasMessageThat().contains(
-        "Using cfg = \"data\" on an attribute is a noop and no longer supported");
+    assertThat(expected).hasMessageThat().contains("cfg must be either 'host' or 'target'");
   }
 
   @Test
@@ -632,7 +624,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     buildAttribute("a4", "attr.label(doc='foo')");
     buildAttribute("a5", "attr.label_keyed_string_dict(doc='foo')");
     buildAttribute("a6", "attr.label_list(doc='foo')");
-    buildAttribute("a7", "attr.license(doc='foo')");
     buildAttribute("a8", "attr.output(doc='foo')");
     buildAttribute("a9", "attr.output_list(doc='foo')");
     buildAttribute("a10", "attr.string(doc='foo')");
@@ -643,14 +634,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testNoAttrLicense() throws Exception {
-    ev =
-        createEvaluationTestCase(
-            StarlarkSemantics.DEFAULT_SEMANTICS
-                .toBuilder()
-                .incompatibleNoAttrLicense(true)
-                .build());
-    ev.initialize();
-
     EvalException expected = assertThrows(EvalException.class, () -> eval("attr.license()"));
     assertThat(expected)
         .hasMessageThat()
@@ -822,7 +805,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Object l1 = evalRuleClassCode("Label('//foo/foo:foo')");
     // Implicitly creates a new pkgContext and environment, yet labels should be the same.
     Object l2 = evalRuleClassCode("Label('//foo/foo:foo')");
-    assertThat(l1).isSameAs(l2);
+    assertThat(l1).isSameInstanceAs(l2);
   }
 
   @Test
@@ -877,8 +860,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private void checkTextMessage(String from, String... lines) throws Exception {
+    String[] strings = lines.clone();
     Object result = evalRuleClassCode(from);
-    assertThat(result).isEqualTo(Joiner.on("\n").join(lines) + "\n");
+    String expect = "";
+    if (strings.length > 0) {
+      expect = Joiner.on("\n").join(lines) + "\n";
+    }
+    assertThat(result).isEqualTo(expect);
   }
 
   @Test
@@ -901,6 +889,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testSimpleTextMessages() throws Exception {
     checkTextMessage("struct(name='value').to_proto()", "name: \"value\"");
+    checkTextMessage("struct(name=[]).to_proto()"); // empty lines
     checkTextMessage("struct(name=['a', 'b']).to_proto()", "name: \"a\"", "name: \"b\"");
     checkTextMessage("struct(name=123).to_proto()", "name: 123");
     checkTextMessage("struct(name=[1, 2, 3]).to_proto()", "name: 1", "name: 2", "name: 3");
@@ -915,6 +904,53 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "}");
     checkTextMessage(
         "struct(a=struct(b=struct(c='c'))).to_proto()", "a {", "  b {", "    c: \"c\"", "  }", "}");
+    // dict to_proto tests
+    checkTextMessage("struct(name={}).to_proto()"); // empty lines
+    checkTextMessage(
+        "struct(name={'a': 'b'}).to_proto()", "name {", "  key: \"a\"", "  value: \"b\"", "}");
+    checkTextMessage(
+        "struct(name={'c': 'd', 'a': 'b'}).to_proto()",
+        "name {",
+        "  key: \"c\"",
+        "  value: \"d\"",
+        "}",
+        "name {",
+        "  key: \"a\"",
+        "  value: \"b\"",
+        "}");
+    checkTextMessage(
+        "struct(x=struct(y={'a': 1})).to_proto()",
+        "x {",
+        "  y {",
+        "    key: \"a\"",
+        "    value: 1",
+        "  }",
+        "}");
+    checkTextMessage(
+        "struct(name={'a': struct(b=1, c=2)}).to_proto()",
+        "name {",
+        "  key: \"a\"",
+        "  value {",
+        "    b: 1",
+        "    c: 2",
+        "  }",
+        "}");
+    checkTextMessage(
+        "struct(name={'a': struct(b={4: 'z', 3: 'y'}, c=2)}).to_proto()",
+        "name {",
+        "  key: \"a\"",
+        "  value {",
+        "    b {",
+        "      key: 4",
+        "      value: \"z\"",
+        "    }",
+        "    b {",
+        "      key: 3",
+        "      value: \"y\"",
+        "    }",
+        "    c: 2",
+        "  }",
+        "}");
   }
 
   @Test
@@ -935,7 +971,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testTextMessageInvalidElementInListStructure() throws Exception {
     checkErrorContains(
-        "Invalid text format, expected a struct, a string, a bool, or "
+        "Invalid text format, expected a struct, a dict, a string, a bool, or "
             + "an int but got a list for list element in struct field 'a'",
         "struct(a=[['b']]).to_proto()");
   }
@@ -943,7 +979,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testTextMessageInvalidStructure() throws Exception {
     checkErrorContains(
-        "Invalid text format, expected a struct, a string, a bool, or an int "
+        "Invalid text format, expected a struct, a dict, a string, a bool, or an int "
             + "but got a function for struct field 'a'",
         "struct(a=rule).to_proto()");
   }
@@ -1029,29 +1065,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     checkErrorContains(
         "invalid target name 'bad//syntax': target names may not contain '//' path separators",
         "Label('//foo:bar').relative('bad//syntax')");
-  }
-
-  @Test
-  public void testLicenseAttributesNonconfigurable() throws Exception {
-    scratch.file("test/BUILD");
-    scratch.file("test/rule.bzl",
-        "def _impl(ctx):",
-        "  return",
-        "some_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'licenses': attr.license()",
-        "  }",
-        ")");
-    scratch.file("third_party/foo/BUILD",
-        "load('//test:rule.bzl', 'some_rule')",
-        "some_rule(",
-        "    name='r',",
-        "    licenses = ['unencumbered']",
-        ")");
-    invalidatePackages();
-    // Should succeed without a "licenses attribute is potentially configurable" loading error:
-    createRuleContext("//third_party/foo:r");
   }
 
   @Test
@@ -1254,7 +1267,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testNsetGoodCompositeItem() throws Exception {
     eval("def func():", "  return depset([struct(a='a')])", "s = func()");
-    Collection<Object> result = ((SkylarkNestedSet) lookup("s")).toCollection();
+    Collection<?> result = ((SkylarkNestedSet) lookup("s")).toCollection();
     assertThat(result).hasSize(1);
     assertThat(result.iterator().next()).isInstanceOf(StructImpl.class);
   }
@@ -1726,7 +1739,14 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testTargetsCanAddExecutionPlatformConstraints() throws Exception {
+  public void testTargetsCanAddExecutionPlatformConstraints_enabled() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
+            .build();
+    ev = createEvaluationTestCase(semantics);
+    ev.initialize();
+
     registerDummyUserDefinedFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
@@ -1737,6 +1757,47 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+  }
+
+  @Test
+  public void testTargetsCanAddExecutionPlatformConstraints_notEnabled() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
+            .build();
+    ev = createEvaluationTestCase(semantics);
+    ev.initialize();
+
+    registerDummyUserDefinedFunction();
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "r1 = rule(impl, ",
+        "  toolchains=['//test:my_toolchain_type'],",
+        "  execution_platform_constraints_allowed=False,",
+        ")");
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    assertThat(c.executionPlatformConstraintsAllowed())
+        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_RULE);
+  }
+
+  @Test
+  public void testTargetsCanAddExecutionPlatformConstraints_disallowed() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(true)
+            .build();
+    ev = createEvaluationTestCase(semantics);
+    ev.setFailFast(false);
+    ev.initialize();
+
+    registerDummyUserDefinedFunction();
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "r1 = rule(impl, ",
+        "  toolchains=['//test:my_toolchain_type'],",
+        "  execution_platform_constraints_allowed=True,",
+        ")");
+    ev.assertContainsError("parameter 'execution_platform_constraints_allowed' is deprecated");
   }
 
   @Test

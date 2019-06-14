@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -90,7 +90,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void versionIs2IfUnspecified() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",
@@ -106,7 +106,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     // py_binary, and py_test. Under the new semantics the rule attribute takes precedence, so this
     // would only make sense for py_library; see PyLibraryConfiguredTargetTest for the analogous
     // test.
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     useConfiguration(
         "--incompatible_allow_python_version_transitions=false", "--python_version=PY3");
     scratch.file(

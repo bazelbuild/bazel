@@ -661,7 +661,7 @@ function test_loading_failure() {
          //does/not/exist && fail "build failure expected") || true
   expect_log_once 'aborted'
   expect_log_once 'reason: LOADING_FAILURE'
-  expect_log 'description.*BUILD file not found on package path'
+  expect_log 'description.*BUILD file not found'
   expect_not_log 'expanded'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
@@ -716,7 +716,7 @@ function test_loading_failure_keep_going() {
   expect_log_once 'aborted'
   expect_log_once 'reason: LOADING_FAILURE'
   # We don't expect an expanded message in this case, since all patterns failed.
-  expect_log 'description.*BUILD file not found on package path'
+  expect_log 'description.*BUILD file not found'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
 }
@@ -727,7 +727,7 @@ function test_loading_failure_keep_going_two_targets() {
   expect_log_once 'aborted'
   expect_log_once 'reason: LOADING_FAILURE'
   expect_log_once '^expanded'
-  expect_log 'description.*BUILD file not found on package path'
+  expect_log 'description.*BUILD file not found'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
 }

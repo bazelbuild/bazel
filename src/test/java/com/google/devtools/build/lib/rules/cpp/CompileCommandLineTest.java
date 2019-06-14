@@ -61,7 +61,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
 
   private static FeatureConfiguration getMockFeatureConfiguration(
       RuleContext ruleContext, String... crosstool) throws Exception {
-    return CcToolchainFeaturesTest.buildFeatures(ruleContext, crosstool)
+    return CcToolchainFeaturesTest.buildFeatures(crosstool)
         .getFeatureConfiguration(
             ImmutableSet.of(
                 CppActionNames.ASSEMBLE,

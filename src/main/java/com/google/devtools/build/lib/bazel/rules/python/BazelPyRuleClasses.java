@@ -134,7 +134,7 @@ public final class BazelPyRuleClasses {
           // 2to3 is itself written in Python and depends on many libraries.
           .add(
               attr("$python2to3", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/python:2to3")))
           .setPreferredDependencyPredicate(PyRuleClasses.PYTHON_SOURCE)

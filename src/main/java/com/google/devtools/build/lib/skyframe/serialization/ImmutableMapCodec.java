@@ -66,7 +66,15 @@ class ImmutableMapCodec<V> implements ObjectCodec<ImmutableMap<?, V>> {
           comparator.equals(Ordering.natural()) || comparator.equals(Comparator.naturalOrder());
     }
     codedOut.writeBoolNoTag(serializeAsSortedMap);
-    for (Map.Entry<?, ?> entry : map.entrySet()) {
+    serializeEntries(context, map.entrySet(), codedOut);
+  }
+
+  static <K, V> void serializeEntries(
+      SerializationContext context,
+      Iterable<? extends Map.Entry<K, V>> entrySet,
+      CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    for (Map.Entry<?, ?> entry : entrySet) {
       context.serialize(entry.getKey(), codedOut);
       try {
         context.serialize(entry.getValue(), codedOut);
@@ -87,18 +95,24 @@ class ImmutableMapCodec<V> implements ObjectCodec<ImmutableMap<?, V>> {
     if (length < 0) {
       throw new SerializationException("Expected non-negative length: " + length);
     }
+    ImmutableMap.Builder<?, V> builder;
     if (codedIn.readBool()) {
-      return buildMap(ImmutableSortedMap.naturalOrder(), length, context, codedIn);
+      builder = deserializeEntries(ImmutableSortedMap.naturalOrder(), length, context, codedIn);
     } else {
-      return buildMap(ImmutableMap.builderWithExpectedSize(length), length, context, codedIn);
+      builder =
+          deserializeEntries(
+              ImmutableMap.builderWithExpectedSize(length), length, context, codedIn);
+    }
+    try {
+      return builder.build();
+    } catch (IllegalArgumentException e) {
+      throw new SerializationException(
+          "Duplicate keys during ImmutableMapCodec deserialization", e);
     }
   }
 
-  private static <K, V> ImmutableMap<K, V> buildMap(
-      ImmutableMap.Builder<K, V> builder,
-      int length,
-      DeserializationContext context,
-      CodedInputStream codedIn)
+  static <K, V, M extends ImmutableMap.Builder<K, V>> M deserializeEntries(
+      M builder, int length, DeserializationContext context, CodedInputStream codedIn)
       throws IOException, SerializationException {
     for (int i = 0; i < length; i++) {
       K key = context.deserialize(codedIn);
@@ -111,11 +125,6 @@ class ImmutableMapCodec<V> implements ObjectCodec<ImmutableMap<?, V>> {
       }
       builder.put(key, value);
     }
-    try {
-      return builder.build();
-    } catch (IllegalArgumentException e) {
-      throw new SerializationException(
-          "Duplicate keys during ImmutableMapCodec deserialization", e);
-    }
+    return builder;
   }
 }

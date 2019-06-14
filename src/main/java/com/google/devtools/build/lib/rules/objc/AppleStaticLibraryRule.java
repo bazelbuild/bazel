@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -63,7 +63,9 @@ public class AppleStaticLibraryRule implements RuleDefinition {
 
     return builder
         .requiresConfigurationFragments(
-            ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class,
+            ObjcConfiguration.class,
+            J2ObjcConfiguration.class,
+            AppleConfiguration.class,
             CppConfiguration.class)
         /* <!-- #BLAZE_RULE(apple_static_library).ATTRIBUTE(avoid_deps) -->
         <p>A list of targets which should not be included (nor their transitive dependencies
@@ -73,7 +75,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
         <p>This attribute effectively serves to remove portions of the dependency tree from a static
         library, and is useful most commonly in scenarios where static libraries depend on each
         other.</p>
-        
+
         <p>That is, suppose static libraries X and C are typically distributed to consumers
         separately. C is a very-common base library, and X contains less-common functionality; X
         depends on C, such that applications seeking to import library X must also import library
@@ -105,7 +107,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(LIPO_ARCHIVE))
         .cfg(
-            new ComposingRuleTransitionFactory(
+            ComposingTransitionFactory.of(
                 (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))

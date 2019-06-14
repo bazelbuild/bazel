@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -32,19 +33,22 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.EnumConverter;
 import java.io.Closeable;
 import java.io.IOException;
@@ -64,29 +68,37 @@ public abstract class TestStrategy implements TestActionContext {
    * not result in stale files.
    */
   protected void prepareFileSystem(
-      TestRunnerAction testAction, Path tmpDir, Path coverageDir, Path workingDirectory)
+      TestRunnerAction testAction, Path execRoot, Path tmpDir, Path workingDirectory)
       throws IOException {
-    if (testAction.isCoverageMode()) {
-      recreateDirectory(coverageDir);
+    if (tmpDir != null) {
+      recreateDirectory(tmpDir);
     }
-    recreateDirectory(tmpDir);
-    workingDirectory.createDirectoryAndParents();
+    if (workingDirectory != null) {
+      workingDirectory.createDirectoryAndParents();
+    }
+
+    ResolvedPaths resolvedPaths = testAction.resolve(execRoot);
+    if (testAction.isCoverageMode()) {
+      recreateDirectory(resolvedPaths.getCoverageDirectory());
+    }
+
+    resolvedPaths.getBaseDir().createDirectoryAndParents();
+    resolvedPaths.getUndeclaredOutputsDir().createDirectoryAndParents();
+    resolvedPaths.getUndeclaredOutputsAnnotationsDir().createDirectoryAndParents();
+    resolvedPaths.getSplitLogsDir().createDirectoryAndParents();
   }
 
   /**
    * Ensures that all directories used to run test are in the correct state and their content will
    * not result in stale files. Only use this if no local tmp and working directory are required.
    */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path coverageDir)
-      throws IOException {
-    if (testAction.isCoverageMode()) {
-      recreateDirectory(coverageDir);
-    }
+  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot) throws IOException {
+    prepareFileSystem(testAction, execRoot, null, null);
   }
 
   /** Removes directory if it exists and recreates it. */
   private void recreateDirectory(Path directory) throws IOException {
-    FileSystemUtils.deleteTree(directory);
+    directory.deleteTree();
     directory.createDirectoryAndParents();
   }
 
@@ -157,7 +169,10 @@ public abstract class TestStrategy implements TestActionContext {
     final boolean useTestWrapper = testAction.isUsingTestWrapperInsteadOfTestSetupScript();
 
     if (executedOnWindows && !useTestWrapper) {
-      args.add(testAction.getShExecutable().getPathString());
+      // TestActionBuilder constructs TestRunnerAction with a 'null' shell path only when we use the
+      // native test wrapper. Something clearly went wrong.
+      Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
+      args.add(testAction.getShExecutableMaybe().getPathString());
       args.add("-c");
       args.add("$0 \"$@\"");
     }
@@ -192,20 +207,17 @@ public abstract class TestStrategy implements TestActionContext {
     if (execSettings.getRunUnderExecutable() != null) {
       args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getCallablePathString());
     } else {
-      String command = execSettings.getRunUnder().getCommand();
-      // --run_under commands that do not contain '/' are either shell built-ins or need to be
-      // located on the PATH env, so we wrap them in a shell invocation. Note that we shell tokenize
-      // the --run_under parameter and getCommand only returns the first such token.
-      boolean needsShell =
-          !command.contains("/") && (!executedOnWindows || !command.contains("\\"));
-      if (needsShell) {
-        String shellExecutable = testAction.getShExecutable().getPathString();
+      if (execSettings.needsShell(executedOnWindows)) {
+        // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
+        // required. Something clearly went wrong.
+        Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
+        String shellExecutable = testAction.getShExecutableMaybe().getPathString();
         args.add(shellExecutable);
         args.add("-c");
         args.add("\"$@\"");
         args.add(shellExecutable); // Sets $0.
       }
-      args.add(command);
+      args.add(execSettings.getRunUnder().getCommand());
     }
     args.addAll(testAction.getExecutionSettings().getRunUnder().getOptions());
   }
@@ -313,6 +325,45 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   /**
+   * Outputs test result to the stdout after test has finished (e.g. for --test_output=all or
+   * --test_output=errors). Will also try to group output lines together (up to 10000 lines) so
+   * parallel test outputs will not get interleaved.
+   */
+  protected void processTestOutput(
+      ActionExecutionContext actionExecutionContext,
+      TestResultData testResultData,
+      String testName,
+      Path testLog)
+      throws IOException {
+    boolean isPassed = testResultData.getTestPassed();
+    try {
+      if (TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
+        TestLogHelper.writeTestLog(
+            testLog, testName, actionExecutionContext.getFileOutErr().getOutputStream());
+      }
+    } finally {
+      if (isPassed) {
+        actionExecutionContext.getEventHandler().handle(Event.of(EventKind.PASS, null, testName));
+      } else {
+        if (testResultData.hasStatusDetails()) {
+          actionExecutionContext
+              .getEventHandler()
+              .handle(Event.error(testName + ": " + testResultData.getStatusDetails()));
+        }
+        if (testResultData.getStatus() == BlazeTestStatus.TIMEOUT) {
+          actionExecutionContext
+              .getEventHandler()
+              .handle(Event.of(EventKind.TIMEOUT, null, testName + " (see " + testLog + ")"));
+        } else {
+          actionExecutionContext
+              .getEventHandler()
+              .handle(Event.of(EventKind.FAIL, null, testName + " (see " + testLog + ")"));
+        }
+      }
+    }
+  }
+
+  /**
    * Returns a temporary directory for all tests in a workspace to use. Individual tests should
    * create child directories to actually use.
    *
@@ -358,7 +409,8 @@ public abstract class TestStrategy implements TestActionContext {
       throw new TestExecException("cannot run local tests with --nobuild_runfile_manifests");
     }
 
-    Path runfilesDir = execSettings.getRunfilesDir();
+    Path runfilesDir =
+        actionExecutionContext.getPathResolver().convertPath(execSettings.getRunfilesDir());
 
     // If the symlink farm is already created then return the existing directory. If not we
     // need to explicitly build it. This can happen when --nobuild_runfile_links is supplied
@@ -433,6 +485,17 @@ public abstract class TestStrategy implements TestActionContext {
 
     actionExecutionContext.getEventHandler()
         .handle(Event.progress(testAction.getProgressMessage()));
+  }
+
+  protected static void closeSuppressed(Throwable e, @Nullable Closeable c) {
+    if (c == null) {
+      return;
+    }
+    try {
+      c.close();
+    } catch (IOException e2) {
+      e.addSuppressed(e2);
+    }
   }
 
   /** Implements the --test_output=streamed option. */

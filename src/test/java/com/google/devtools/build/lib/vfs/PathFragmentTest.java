@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
 
 import com.google.common.collect.ImmutableList;
@@ -22,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.File;
@@ -174,12 +174,12 @@ public class PathFragmentTest {
   @Test
   public void testGetChildRejectsInvalidBaseNames() {
     PathFragment pf = create("../some/path");
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild("."));
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild(".."));
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild("x/y"));
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild("/y"));
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild("y/"));
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild(""));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild("."));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild(".."));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild("x/y"));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild("/y"));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild("y/"));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild(""));
   }
 
   @Test
@@ -327,14 +327,10 @@ public class PathFragmentTest {
     assertThat(create("foo/bar/baz").subFragment(2).getPathString()).isEqualTo("baz");
     assertThat(create("foo/bar/baz").subFragment(3).getPathString()).isEqualTo("");
 
-    MoreAsserts.assertThrows(
-        IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(3, 2));
-    MoreAsserts.assertThrows(
-        IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(4, 4));
-    MoreAsserts.assertThrows(
-        IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(3, 2));
-    MoreAsserts.assertThrows(
-        IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(4));
+    assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(3, 2));
+    assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(4, 4));
+    assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(3, 2));
+    assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(4));
   }
 
   @Test
@@ -376,12 +372,12 @@ public class PathFragmentTest {
     PathFragment.checkAllPathsAreUnder(ImmutableList.<PathFragment>of(), create("a"));
 
     // Check fails when some path does not start with startingWithPath:
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () -> PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "b/c"), create("a")));
 
     // Check fails when some path is equal to startingWithPath:
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () -> PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "a"), create("a")));
   }
@@ -427,14 +423,14 @@ public class PathFragmentTest {
   public void testToRelative() {
     assertThat(create("/foo/bar").toRelative()).isEqualTo(create("foo/bar"));
     assertThat(create("/").toRelative()).isEqualTo(create(""));
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("foo").toRelative());
+    assertThrows(IllegalArgumentException.class, () -> create("foo").toRelative());
   }
 
   @Test
   public void testGetDriveStr() {
     assertThat(create("/foo/bar").getDriveStr()).isEqualTo("/");
     assertThat(create("/").getDriveStr()).isEqualTo("/");
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("foo").getDriveStr());
+    assertThrows(IllegalArgumentException.class, () -> create("foo").getDriveStr());
   }
 
   static List<PathFragment> toPaths(List<String> strs) {
@@ -560,8 +556,8 @@ public class PathFragmentTest {
     assertThat(create("/a/b").getSegment(1)).isEqualTo("b");
     assertThat(create("/a/b/c").getSegment(2)).isEqualTo("c");
 
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("").getSegment(0));
-    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("a/b").getSegment(2));
+    assertThrows(IllegalArgumentException.class, () -> create("").getSegment(0));
+    assertThrows(IllegalArgumentException.class, () -> create("a/b").getSegment(2));
   }
 
   @Test

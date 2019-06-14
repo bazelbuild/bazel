@@ -35,6 +35,7 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -123,6 +124,7 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 @AutoCodec
 public class RuleClass {
+
   @AutoCodec
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
       Functions.<Map<String, Label>>constant(ImmutableMap.<String, Label>of());
@@ -132,6 +134,8 @@ public class RuleClass {
       Functions.<Set<String>>constant(ImmutableSet.<String>of());
 
   public static final PathFragment THIRD_PARTY_PREFIX = PathFragment.create("third_party");
+  public static final PathFragment EXPERIMENTAL_PREFIX = PathFragment.create("experimental");
+  public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
 
   /**
    * A constraint for the package name of the Rule instances.
@@ -624,23 +628,6 @@ public class RuleClass {
       }
     }
 
-    /** A RuleTransitionFactory which always returns the same transition. */
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec
-    static final class FixedTransitionFactory implements RuleTransitionFactory {
-      private final PatchTransition transition;
-
-      @AutoCodec.VisibleForSerialization
-      FixedTransitionFactory(PatchTransition transition) {
-        this.transition = transition;
-      }
-
-      @Override
-      public PatchTransition buildTransitionFor(Rule rule) {
-        return transition;
-      }
-    }
-
     /**
      * Name of default attribute implicitly added to all Skylark RuleClasses that are {@code
      * build_setting}s.
@@ -677,9 +664,9 @@ public class RuleClass {
     private boolean hasAnalysisTestTransition = false;
     private boolean hasFunctionTransitionWhitelist = false;
     private boolean hasStarlarkRuleTransition = false;
-    private boolean ignorePackageLicenses = false;
+    private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
-    private RuleTransitionFactory transitionFactory;
+    private TransitionFactory<Rule> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate =
         PredicatesWithMessage.<Rule>alwaysTrue();
@@ -709,17 +696,20 @@ public class RuleClass {
     public enum ThirdPartyLicenseExistencePolicy {
       /**
        * Always do this check, overriding whatever {@link
-       * StarlarkSemanticsOptions#checkThirdPartyTargetsHaveLicenses} says.
+       * StarlarkSemanticsOptions#incompatibleDisableThirdPartyLicenseChecking} says.
        */
       ALWAYS_CHECK,
 
       /**
        * Never do this check, overriding whatever {@link
-       * StarlarkSemanticsOptions#checkThirdPartyTargetsHaveLicenses} says.
+       * StarlarkSemanticsOptions#incompatibleDisableThirdPartyLicenseChecking} says.
        */
       NEVER_CHECK,
 
-      /** Do whatever {@link StarlarkSemanticsOptions#checkThirdPartyTargetsHaveLicenses} says. */
+      /**
+       * Do whatever {@link StarlarkSemanticsOptions#incompatibleDisableThirdPartyLicenseChecking}
+       * says.
+       */
       USER_CONTROLLABLE
     }
 
@@ -773,6 +763,12 @@ public class RuleClass {
 
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
+          // TODO(https://github.com/bazelbuild/bazel/issues/8134): Define the attribute on a
+          // standard base class and remove this check entirely.
+          if (attrName.equals(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)) {
+            // Don't inherit: this will be re-created
+            continue;
+          }
           Preconditions.checkArgument(
               !attributes.containsKey(attrName) || attributes.get(attrName).equals(attribute),
               "Attribute %s is inherited multiple times in %s ruleclass",
@@ -831,9 +827,9 @@ public class RuleClass {
         Preconditions.checkNotNull(ruleDefinitionEnvironmentHashCode, this.name);
       }
       if (executionPlatformConstraintsAllowed == ExecutionPlatformConstraintsAllowed.PER_TARGET
-          && !this.contains("exec_compatible_with")) {
+          && !this.contains(EXEC_COMPATIBLE_WITH_ATTR)) {
         this.add(
-            attr("exec_compatible_with", BuildType.LABEL_LIST)
+            attr(EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes()
                 .nonconfigurable("Used in toolchain resolution")
                 .value(ImmutableList.of()));
@@ -865,7 +861,7 @@ public class RuleClass {
           isAnalysisTest,
           hasAnalysisTestTransition,
           hasFunctionTransitionWhitelist,
-          ignorePackageLicenses,
+          ignoreLicenses,
           implicitOutputsFunction,
           transitionFactory,
           configuredTargetFactory,
@@ -1049,14 +1045,14 @@ public class RuleClass {
      * Applies the given transition to all incoming edges for this rule class.
      *
      * <p>This cannot be a {@link SplitTransition} because that requires coordination with the
-     * rule's parent: use {@link Attribute.Builder#cfg(ConfigurationTransition)} on the parent to
-     * declare splits.
+     * rule's parent: use {@link Attribute.Builder#cfg(TransitionFactory)} on the parent to declare
+     * splits.
      *
-     * <p>If you need the transition to depend on the rule it's being applied to, use
-     * {@link #cfg(RuleTransitionFactory)}.
+     * <p>If you need the transition to depend on the rule it's being applied to, use {@link
+     * #cfg(TransitionFactory)}.
      */
     public Builder cfg(PatchTransition transition) {
-      return cfg(new FixedTransitionFactory(transition));
+      return cfg((TransitionFactory<Rule>) (unused) -> (transition));
     }
 
     /**
@@ -1065,12 +1061,13 @@ public class RuleClass {
      * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
      * transition to use.
      */
-    public Builder cfg(RuleTransitionFactory transitionFactory) {
+    public Builder cfg(TransitionFactory<Rule> transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
       Preconditions.checkState(this.transitionFactory == null,
           "Property cfg has already been set");
       Preconditions.checkNotNull(transitionFactory);
+      Preconditions.checkArgument(!transitionFactory.isSplit());
       this.transitionFactory = transitionFactory;
       return this;
     }
@@ -1272,10 +1269,6 @@ public class RuleClass {
       return this;
     }
 
-    public boolean hasAnalysisTestTransition() {
-      return this.hasAnalysisTestTransition;
-    }
-
     /**
      * This rule class has the _whitelist_function_transition attribute.  Intended only for Skylark
      * rules.
@@ -1285,14 +1278,14 @@ public class RuleClass {
       return this;
     }
 
-    /** This rule class ignores package-level licenses. */
-    public Builder setIgnorePackageLicenses() {
-      this.ignorePackageLicenses = true;
+    /**
+     * This rule class never declares a license regardless of what the rule's or package's <code>
+     * licenses</code> attribute says.
+     */
+    // TODO(b/130286108): remove the licenses attribute completely from such rules.
+    public Builder setIgnoreLicenses() {
+      this.ignoreLicenses = true;
       return this;
-    }
-
-    public boolean ignorePackageLicenses() {
-      return this.ignorePackageLicenses;
     }
 
     public RuleClassType getType() {
@@ -1463,7 +1456,7 @@ public class RuleClass {
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
   private final boolean hasFunctionTransitionWhitelist;
-  private final boolean ignorePackageLicenses;
+  private final boolean ignoreLicenses;
 
   /**
    * A (unordered) mapping from attribute names to small integers indexing into
@@ -1490,7 +1483,7 @@ public class RuleClass {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  private final RuleTransitionFactory transitionFactory;
+  private final TransitionFactory<Rule> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1594,9 +1587,9 @@ public class RuleClass {
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
       boolean hasFunctionTransitionWhitelist,
-      boolean ignorePackageLicenses,
+      boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      RuleTransitionFactory transitionFactory,
+      TransitionFactory<Rule> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
@@ -1644,7 +1637,7 @@ public class RuleClass {
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
     this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
-    this.ignorePackageLicenses = ignorePackageLicenses;
+    this.ignoreLicenses = ignoreLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
@@ -1703,7 +1696,7 @@ public class RuleClass {
     return implicitOutputsFunction;
   }
 
-  public RuleTransitionFactory getTransitionFactory() {
+  public TransitionFactory<Rule> getTransitionFactory() {
     return transitionFactory;
   }
 
@@ -1989,6 +1982,12 @@ public class RuleClass {
       }
       Attribute attr = getAttribute(attrIndex);
 
+      if (attributeName.equals("licenses") && ignoreLicenses) {
+        setRuleAttributeValue(rule, eventHandler, attr, License.NO_LICENSE, /*explicit=*/ false);
+        definedAttrIndices.set(attrIndex);
+        continue;
+      }
+
       // Convert the build-lang value to a native value, if necessary.
       Object nativeAttributeValue;
       if (attributeValues.valuesAreBuildLanguageTyped()) {
@@ -2053,7 +2052,9 @@ public class RuleClass {
             eventHandler);
       }
 
-      if (attr.hasComputedDefault()) {
+      if (attr.getName().equals("licenses") && ignoreLicenses) {
+        rule.setAttributeValue(attr, License.NO_LICENSE, /*explicit=*/ false);
+      } else if (attr.hasComputedDefault()) {
         // Note that it is necessary to set all non-computed default values before calling
         // Attribute#getDefaultValue for computed default attributes. Computed default attributes
         // may have a condition predicate (i.e. the predicate returned by Attribute#getCondition)
@@ -2166,7 +2167,7 @@ public class RuleClass {
    */
   private static void checkThirdPartyRuleHasLicense(Rule rule,
       Package.Builder pkgBuilder, EventHandler eventHandler) {
-    if (rule.getRuleClassObject().ignorePackageLicenses()) {
+    if (rule.getRuleClassObject().ignoreLicenses()) {
       // A package license is sufficient; ignore rules that don't include it.
       return;
     }
@@ -2528,9 +2529,14 @@ public class RuleClass {
     return hasFunctionTransitionWhitelist;
   }
 
-  /** Returns true if this rule class should ignore package-level licenses. */
-  public boolean ignorePackageLicenses() {
-    return ignorePackageLicenses;
+  /**
+   * If true, no rule of this class ever declares a license regardless of what the rule's or
+   * package's <code>licenses</code> attribute says.
+   *
+   * <p>This is useful for rule types that don't make sense for license checking.
+   */
+  public boolean ignoreLicenses() {
+    return ignoreLicenses;
   }
 
   public ImmutableSet<Label> getRequiredToolchains() {

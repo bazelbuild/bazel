@@ -49,6 +49,7 @@ import java.util.Map;
  */
 public class TestRuleClassProvider {
   private static ConfiguredRuleClassProvider ruleProvider = null;
+  private static ConfiguredRuleClassProvider ruleProviderWithClearedSuffix = null;
 
   /**
    * Adds all the rule classes supported internally within the build tool to the given builder.
@@ -67,18 +68,27 @@ public class TestRuleClassProvider {
     }
   }
 
+  private static ConfiguredRuleClassProvider createRuleClassProvider(boolean clearSuffix) {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    addStandardRules(builder);
+    builder.addRuleDefinition(new TestingDummyRule());
+    builder.addRuleDefinition(new MockToolchainRule());
+    if (clearSuffix) {
+      builder.clearWorkspaceFileSuffixForTesting();
+    }
+    return builder.build();
+  }
+
   /** Return a rule class provider. */
   public static ConfiguredRuleClassProvider getRuleClassProvider(boolean clearSuffix) {
-    if (ruleProvider == null) {
-      ConfiguredRuleClassProvider.Builder builder =
-          new ConfiguredRuleClassProvider.Builder();
-      addStandardRules(builder);
-      builder.addRuleDefinition(new TestingDummyRule());
-      builder.addRuleDefinition(new MockToolchainRule());
-      if (clearSuffix) {
-        builder.clearWorkspaceFileSuffixForTesting();
+    if (clearSuffix) {
+      if (ruleProviderWithClearedSuffix == null) {
+        ruleProviderWithClearedSuffix = createRuleClassProvider(true);
       }
-      ruleProvider = builder.build();
+      return ruleProviderWithClearedSuffix;
+    }
+    if (ruleProvider == null) {
+      ruleProvider = createRuleClassProvider(false);
     }
     return ruleProvider;
   }

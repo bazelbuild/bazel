@@ -139,7 +139,7 @@ public class ConfigRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .setIgnorePackageLicenses()
+          .setIgnoreLicenses()
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .add(
               attr(TOOLS_REPOSITORY_ATTRIBUTE, STRING)
@@ -238,7 +238,6 @@ public class ConfigRuleClasses {
               attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
                   .undocumented("the feature flag feature has not yet been launched")
                   .allowedFileTypes()
-                  .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id()))
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(constraint_values) -->
           The minimum set of <code>constraint_values</code> that the target platform must specify

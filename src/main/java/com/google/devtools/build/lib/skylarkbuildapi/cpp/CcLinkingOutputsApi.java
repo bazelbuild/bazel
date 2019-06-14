@@ -26,6 +26,17 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     documented = false,
     doc = "Helper class containing CC compilation outputs.")
 public interface CcLinkingOutputsApi<FileT extends FileApi> {
-  @SkylarkCallable(name = "library_to_link", structField = true, documented = false)
+  @SkylarkCallable(
+      name = "library_to_link",
+      structField = true,
+      allowReturnNones = true,
+      documented = false)
   LibraryToLinkApi<FileT> getLibraryToLink();
+
+  @SkylarkCallable(
+      name = "executable",
+      structField = true,
+      allowReturnNones = true,
+      documented = false)
+  FileT getExecutable();
 }

@@ -2,13 +2,11 @@ package(default_visibility = ["//visibility:public"])
 
 java_import(
     name = "import_deps_checker_deploy_jar",
-    jars = [":ImportDepsChecker_deploy.jar"]
+    jars = ["@android_tools//:ImportDepsChecker_deploy.jar"],
 )
-
 
 java_binary(
     name = "ImportDepsChecker_embedded",
-    main_class = "com.google.devtools.build.importdeps.Main",
     jvm_flags = [
         # quiet warnings from com.google.protobuf.UnsafeUtil,
         # see: https://github.com/google/protobuf/issues/3781
@@ -16,7 +14,8 @@ java_binary(
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
         "--add-opens=java.base/java.lang=ALL-UNNAMED",
     ],
+    main_class = "com.google.devtools.build.importdeps.Main",
     runtime_deps = [
-        ":import_deps_checker_deploy_jar"
+        ":import_deps_checker_deploy_jar",
     ],
 )

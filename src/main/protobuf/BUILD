@@ -114,6 +114,21 @@ java_library_srcs(
     deps = [":command_line_java_proto"],
 )
 
+# Proto needed by singlejar and embedded into the java tools archive.
+genrule(
+    name = "desugar_deps_zip",
+    srcs = ["desugar_deps.proto"],
+    outs = ["desugar_deps.zip"],
+    cmd = "zip -q $@ $<",
+    visibility = ["//src/tools/singlejar:__pkg__"],
+)
+
+filegroup(
+    name = "desugar_deps_filegroup",
+    srcs = ["desugar_deps.proto"],
+    visibility = ["//src/tools/singlejar:__pkg__"],
+)
+
 cc_proto_library(
     name = "desugar_deps_cc_proto",
     deps = [":desugar_deps_proto"],

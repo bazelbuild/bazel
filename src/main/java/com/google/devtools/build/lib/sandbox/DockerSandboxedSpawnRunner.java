@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandCompleteEvent;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
@@ -146,6 +146,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final String commandId;
   private final Reporter reporter;
   private final boolean useCustomizedImages;
+  private final TreeDeleter treeDeleter;
   private final int uid;
   private final int gid;
   private final List<UUID> containersToCleanup;
@@ -160,6 +161,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param defaultImage the Docker image to use if the platform doesn't specify one
    * @param timeoutKillDelay an additional grace period before killing timing out commands
    * @param useCustomizedImages whether to use customized images for execution
+   * @param treeDeleter scheduler for tree deletions
    */
   DockerSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
@@ -167,7 +169,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path sandboxBase,
       String defaultImage,
       Duration timeoutKillDelay,
-      boolean useCustomizedImages) {
+      boolean useCustomizedImages,
+      TreeDeleter treeDeleter) {
     super(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
@@ -175,11 +178,12 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.sandboxBase = sandboxBase;
     this.defaultImage = defaultImage;
-    this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
+    this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.timeoutKillDelay = timeoutKillDelay;
     this.commandId = cmdEnv.getCommandId().toString();
     this.reporter = cmdEnv.getReporter();
     this.useCustomizedImages = useCustomizedImages;
+    this.treeDeleter = treeDeleter;
     this.cmdEnv = cmdEnv;
     if (OS.getCurrent() == OS.LINUX) {
       this.uid = ProcessUtils.getuid();
@@ -270,7 +274,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                 execRoot,
                 getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
             outputs,
-            ImmutableSet.of());
+            ImmutableSet.of(),
+            treeDeleter);
 
     try {
       return runSpawn(spawn, sandbox, context, execRoot, timeout, null);

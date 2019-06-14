@@ -93,7 +93,7 @@ public class PackageIdentifierTest {
     // Make sure package fragments are canonicalized.
     PackageIdentifier p1 = PackageIdentifier.create("@whatever", PathFragment.create("foo/bar"));
     PackageIdentifier p2 = PackageIdentifier.create("@whatever", PathFragment.create("foo/bar"));
-    assertThat(p1.getPackageFragment()).isSameAs(p2.getPackageFragment());
+    assertThat(p1.getPackageFragment()).isSameInstanceAs(p2.getPackageFragment());
   }
 
   @Test

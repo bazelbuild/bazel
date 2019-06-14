@@ -44,47 +44,64 @@ public class WindowsFileOperations {
 
   private static final int MAX_PATH = 260;
 
-  // Keep IS_JUNCTION_* values in sync with src/main/native/windows/file.cc.
-  private static final int IS_JUNCTION_YES = 0;
-  private static final int IS_JUNCTION_NO = 1;
-  private static final int IS_JUNCTION_ERROR = 2;
+  // Keep IS_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.cc.
+  private static final int IS_SYMLINK_OR_JUNCTION_SUCCESS = 0;
+  // IS_SYMLINK_OR_JUNCTION_ERROR = 1;
+  private static final int IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST = 2;
 
-  // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.cc.
+  // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_JUNCTION_SUCCESS = 0;
-  private static final int CREATE_JUNCTION_ERROR = 1;
+  // CREATE_JUNCTION_ERROR = 1;
   private static final int CREATE_JUNCTION_TARGET_NAME_TOO_LONG = 2;
   private static final int CREATE_JUNCTION_ALREADY_EXISTS_WITH_DIFFERENT_TARGET = 3;
   private static final int CREATE_JUNCTION_ALREADY_EXISTS_BUT_NOT_A_JUNCTION = 4;
   private static final int CREATE_JUNCTION_ACCESS_DENIED = 5;
   private static final int CREATE_JUNCTION_DISAPPEARED = 6;
 
-  // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.cc.
+  // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.h.
   private static final int DELETE_PATH_SUCCESS = 0;
-  private static final int DELETE_PATH_ERROR = 1;
+  // DELETE_PATH_ERROR = 1;
   private static final int DELETE_PATH_DOES_NOT_EXIST = 2;
   private static final int DELETE_PATH_DIRECTORY_NOT_EMPTY = 3;
   private static final int DELETE_PATH_ACCESS_DENIED = 4;
 
-  private static native int nativeIsJunction(String path, String[] error);
+  // Keep READ_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.h.
+  private static final int READ_SYMLINK_OR_JUNCTION_SUCCESS = 0;
+  // READ_SYMLINK_OR_JUNCTION_ERROR = 1;
+  private static final int READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED = 2;
+  private static final int READ_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST = 3;
+  private static final int READ_SYMLINK_OR_JUNCTION_NOT_A_LINK = 4;
+  private static final int READ_SYMLINK_OR_JUNCTION_UNKNOWN_LINK_TYPE = 5;
+
+  private static native int nativeIsSymlinkOrJunction(
+      String path, boolean[] result, String[] error);
 
   private static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 
   private static native int nativeCreateJunction(String name, String target, String[] error);
 
+  private static native int nativeReadSymlinkOrJunction(
+      String name, String[] result, String[] error);
+
   private static native int nativeDeletePath(String path, String[] error);
 
   /** Determines whether `path` is a junction point or directory symlink. */
-  public static boolean isJunction(String path) throws IOException {
+  public static boolean isSymlinkOrJunction(String path) throws IOException {
     WindowsJniLoader.loadJni();
+    boolean[] result = new boolean[] {false};
     String[] error = new String[] {null};
-    switch (nativeIsJunction(asLongPath(path), error)) {
-      case IS_JUNCTION_YES:
-        return true;
-      case IS_JUNCTION_NO:
-        return false;
+    switch (nativeIsSymlinkOrJunction(asLongPath(path), result, error)) {
+      case IS_SYMLINK_OR_JUNCTION_SUCCESS:
+        return result[0];
+      case IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
+        error[0] = "path does not exist";
+        break;
       default:
-        throw new IOException(error[0]);
+        // This is IS_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
+        // 'error[0]'.
+        break;
     }
+    throw new IOException(String.format("Cannot tell if '%s' is link: %s", path, error[0]));
   }
 
   /**
@@ -140,36 +157,63 @@ public class WindowsFileOperations {
   public static void createJunction(String name, String target) throws IOException {
     WindowsJniLoader.loadJni();
     String[] error = new String[] {null};
-    int result = nativeCreateJunction(name.replace('/', '\\'), target.replace('/', '\\'), error);
-    if (result != CREATE_JUNCTION_SUCCESS) {
-      switch (result) {
-        case CREATE_JUNCTION_TARGET_NAME_TOO_LONG:
-          error[0] = "target name is too long";
-          break;
-        case CREATE_JUNCTION_ALREADY_EXISTS_WITH_DIFFERENT_TARGET:
-          error[0] = "junction already exists with different target";
-          break;
-        case CREATE_JUNCTION_ALREADY_EXISTS_BUT_NOT_A_JUNCTION:
-          error[0] = "a file or directory already exists at the junction's path";
-          break;
-        case CREATE_JUNCTION_ACCESS_DENIED:
-          error[0] = "access is denied";
-          break;
-        case CREATE_JUNCTION_DISAPPEARED:
-          error[0] = "the junction's path got modified unexpectedly";
-          break;
-        default:
-          break;
-      }
-      throw new IOException(
-          String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
+    switch (nativeCreateJunction(asLongPath(name), asLongPath(target), error)) {
+      case CREATE_JUNCTION_SUCCESS:
+        return;
+      case CREATE_JUNCTION_TARGET_NAME_TOO_LONG:
+        error[0] = "target name is too long";
+        break;
+      case CREATE_JUNCTION_ALREADY_EXISTS_WITH_DIFFERENT_TARGET:
+        error[0] = "junction already exists with different target";
+        break;
+      case CREATE_JUNCTION_ALREADY_EXISTS_BUT_NOT_A_JUNCTION:
+        error[0] = "a file or directory already exists at the junction's path";
+        break;
+      case CREATE_JUNCTION_ACCESS_DENIED:
+        error[0] = "access is denied";
+        break;
+      case CREATE_JUNCTION_DISAPPEARED:
+        error[0] = "the junction's path got modified unexpectedly";
+        break;
+      default:
+        // This is CREATE_JUNCTION_ERROR (1). The JNI code puts a custom message in 'error[0]'.
+        break;
     }
+    throw new IOException(
+        String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
+  }
+
+  public static String readSymlinkOrJunction(String name) throws IOException {
+    WindowsJniLoader.loadJni();
+    String[] target = new String[] {null};
+    String[] error = new String[] {null};
+    switch (nativeReadSymlinkOrJunction(asLongPath(name), target, error)) {
+      case READ_SYMLINK_OR_JUNCTION_SUCCESS:
+        return removeUncPrefixAndUseSlashes(target[0]);
+      case READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED:
+        error[0] = "access is denied";
+        break;
+      case READ_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
+        error[0] = "path does not exist";
+        break;
+      case READ_SYMLINK_OR_JUNCTION_NOT_A_LINK:
+        error[0] = "path is not a link";
+        break;
+      case READ_SYMLINK_OR_JUNCTION_UNKNOWN_LINK_TYPE:
+        error[0] = "unknown link type";
+        break;
+      default:
+        // This is READ_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
+        // 'error[0]'.
+        break;
+    }
+    throw new IOException(String.format("Cannot read link (name=%s): %s", name, error[0]));
   }
 
   public static boolean deletePath(String path) throws IOException {
     WindowsJniLoader.loadJni();
     String[] error = new String[] {null};
-    int result = nativeDeletePath(asLongPath(path.replace('/', '\\')), error);
+    int result = nativeDeletePath(asLongPath(path), error);
     switch (result) {
       case DELETE_PATH_SUCCESS:
         return true;
@@ -180,6 +224,7 @@ public class WindowsFileOperations {
       case DELETE_PATH_ACCESS_DENIED:
         throw new java.nio.file.AccessDeniedException(path);
       default:
+        // This is DELETE_PATH_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         throw new IOException(String.format("Cannot delete path '%s': %s", path, error[0]));
     }
   }

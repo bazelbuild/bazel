@@ -108,6 +108,20 @@ public class DocgenConsts {
       "\\$\\{link (([a-zA-Z_-]+)\\#([a-zA-Z_\\.-]+))\\}");
 
   /**
+   * i.e.
+   * <!-- #FAMILY_SUMMARY -->
+   */
+  public static final Pattern FAMILY_SUMMARY_START =
+      Pattern.compile("([\\s]*/\\*)?[\\s]*\\<!--[\\s]*#FAMILY_SUMMARY[\\s]*--\\>[\\s]*");
+
+  /**
+   * i.e.
+   * <!-- #END_FAMILY_SUMMARY -->
+   */
+  public static final Pattern FAMILY_SUMMARY_END =
+      Pattern.compile("[\\s]*\\<!--[\\s]*#END_FAMILY_SUMMARY[\\s]*--\\>[\\s]*(\\*/[\\s]*)?");
+
+  /**
    * i.e. <!-- #BLAZE_RULE(NAME = RULE_NAME, TYPE = RULE_TYPE, FAMILY = RULE_FAMILY) -->
    * i.e. <!-- #BLAZE_RULE(...)[DEPRECATED] -->
    */

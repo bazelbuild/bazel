@@ -28,16 +28,19 @@ public class FileSystemsTest {
 
   @Test
   public void testFileSystemsCreatesOnlyOneDefaultNative() {
-    assertThat(FileSystems.getNativeFileSystem()).isSameAs(FileSystems.getNativeFileSystem());
+    assertThat(FileSystems.getNativeFileSystem())
+        .isSameInstanceAs(FileSystems.getNativeFileSystem());
   }
 
   @Test
   public void testFileSystemsCreatesOnlyOneDefaultJavaIo() {
-    assertThat(FileSystems.getJavaIoFileSystem()).isSameAs(FileSystems.getJavaIoFileSystem());
+    assertThat(FileSystems.getJavaIoFileSystem())
+        .isSameInstanceAs(FileSystems.getJavaIoFileSystem());
   }
 
   @Test
   public void testFileSystemsCanSwitchDefaults() {
-    assertThat(FileSystems.getJavaIoFileSystem()).isNotSameAs(FileSystems.getNativeFileSystem());
+    assertThat(FileSystems.getJavaIoFileSystem())
+        .isNotSameInstanceAs(FileSystems.getNativeFileSystem());
   }
 }

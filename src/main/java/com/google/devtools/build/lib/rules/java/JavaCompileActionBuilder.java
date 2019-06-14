@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -159,7 +159,6 @@ public final class JavaCompileActionBuilder {
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private ImmutableList<Artifact> extdirInputs = ImmutableList.of();
   private FilesToRunProvider javaBuilder;
-  private Artifact langtoolsJar;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private PathFragment sourceGenDirectory;
   private PathFragment tempDirectory;
@@ -224,7 +223,7 @@ public final class JavaCompileActionBuilder {
           .add("-jar")
           .addPath(javaBuilderJar.getExecPath());
     }
-    toolsBuilder.add(langtoolsJar).addTransitive(toolsJars);
+    toolsBuilder.addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
         ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
@@ -438,7 +437,7 @@ public final class JavaCompileActionBuilder {
 
   /**
    * Sets the strictness of Java dependency checking, see {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode}.
+   * com.google.devtools.build.lib.analysis.config.StrictDepsMode}.
    */
   public JavaCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictDeps) {
     strictJavaDeps = strictDeps;
@@ -532,11 +531,6 @@ public final class JavaCompileActionBuilder {
     checkNotNull(extraData, "extraData must not be null");
     checkState(this.extraData.isEmpty());
     this.extraData = extraData;
-  }
-
-  public JavaCompileActionBuilder setLangtoolsJar(Artifact langtoolsJar) {
-    this.langtoolsJar = langtoolsJar;
-    return this;
   }
 
   /** Sets the tools jars. */

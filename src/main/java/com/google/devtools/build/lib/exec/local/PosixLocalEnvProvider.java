@@ -26,6 +26,9 @@ public final class PosixLocalEnvProvider implements LocalEnvProvider {
   /**
    * Create a new {@link PosixLocalEnvProvider}.
    *
+   * <p>Use {@link LocalEnvProvider#forCurrentOs(Map)} to instantiate this unless the calling code
+   * is platform-specific.
+   *
    * @param clientEnv a map of the current Bazel command's environment
    */
   public PosixLocalEnvProvider(Map<String, String> clientEnv) {

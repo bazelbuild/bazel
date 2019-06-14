@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
@@ -90,10 +90,11 @@ public class ReverseDepsUtilityTest {
     }
     // Should only fail when we call getReverseDeps().
     ReverseDepsUtility.addReverseDeps(example, Collections.singleton(Key.create(0)));
-    try {
+    if (numElements == 0) {
+      // Will not throw.
       ReverseDepsUtility.getReverseDeps(example);
-      assertThat(numElements).isEqualTo(0);
-    } catch (Exception expected) {
+    } else {
+      assertThrows(Exception.class, () -> ReverseDepsUtility.getReverseDeps(example));
     }
   }
 
@@ -105,11 +106,7 @@ public class ReverseDepsUtilityTest {
     // Should only fail when we call getReverseDeps().
     ReverseDepsUtility.addReverseDeps(example, Collections.singleton(key));
     ReverseDepsUtility.removeReverseDep(example, key);
-    try {
-      ReverseDepsUtility.getReverseDeps(example);
-      fail();
-    } catch (IllegalStateException expected) {
-    }
+    assertThrows(IllegalStateException.class, () -> ReverseDepsUtility.getReverseDeps(example));
   }
 
   @Test
@@ -122,11 +119,8 @@ public class ReverseDepsUtilityTest {
     ReverseDepsUtility.addReverseDeps(example, Collections.singleton(key));
     ReverseDepsUtility.removeReverseDep(example, key);
     ReverseDepsUtility.checkReverseDep(example, fixedKey);
-    try {
-      ReverseDepsUtility.checkReverseDep(example, fixedKey);
-      fail();
-    } catch (IllegalStateException expected) {
-    }
+    assertThrows(
+        IllegalStateException.class, () -> ReverseDepsUtility.checkReverseDep(example, fixedKey));
   }
 
   @Test
@@ -148,12 +142,13 @@ public class ReverseDepsUtilityTest {
       // This should always succeed, since the next element is still not present.
       ReverseDepsUtility.maybeCheckReverseDepNotPresent(example, Key.create(i + 1));
     }
-    try {
+    if (numElements == 0 || numElements >= ReverseDepsUtility.MAYBE_CHECK_THRESHOLD) {
+      // This will not throw, because the numElements is 0 or above the threshold.
       ReverseDepsUtility.maybeCheckReverseDepNotPresent(example, Key.create(0));
-      // Should only fail if empty or above the checking threshold.
-      assertThat(numElements == 0 || numElements >= ReverseDepsUtility.MAYBE_CHECK_THRESHOLD)
-          .isTrue();
-    } catch (Exception expected) {
+    } else {
+      assertThrows(
+          IllegalStateException.class,
+          () -> ReverseDepsUtility.maybeCheckReverseDepNotPresent(example, Key.create(0)));
     }
   }
 

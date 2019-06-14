@@ -94,7 +94,8 @@ function execute_bootstrap() {
         || fail "Expected to be able to bootstrap bazel"
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
-      version &> "${TEST_log}" || fail "Generated bazel not working"
+      version --nognu_format &> "${TEST_log}" \
+      || fail "Generated bazel not working"
     expect_log "${SOURCE_DATE_EPOCH}"
 }
 

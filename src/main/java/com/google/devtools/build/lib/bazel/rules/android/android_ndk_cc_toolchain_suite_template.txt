@@ -3,7 +3,5 @@ cc_toolchain_suite(
     toolchains = {
       %toolchainMap%
     },
-    proto = """
-%crosstoolReleaseProto%
-""")
+)
 

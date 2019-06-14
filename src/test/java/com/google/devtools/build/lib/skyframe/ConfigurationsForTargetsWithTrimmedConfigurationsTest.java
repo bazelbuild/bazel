@@ -23,17 +23,21 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
-import com.google.devtools.build.lib.analysis.config.TransitionResolver;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -41,7 +45,6 @@ import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -73,7 +76,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       BuildOptions result = buildOptions.clone();
-      result.get(BuildConfiguration.Options.class).hostCpu = "SET BY SPLIT";
+      result.get(CoreOptions.class).hostCpu = "SET BY SPLIT";
       return ImmutableList.of(result);
     }
   }
@@ -83,7 +86,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       BuildOptions result = buildOptions.clone();
-      result.get(BuildConfiguration.Options.class).cpu = "SET BY SPLIT";
+      result.get(CoreOptions.class).cpu = "SET BY SPLIT";
       return ImmutableList.of(result);
     }
   }
@@ -93,7 +96,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     @Override
     public BuildOptions patch(BuildOptions options) {
       BuildOptions result = options.clone();
-      result.get(BuildConfiguration.Options.class).cpu = "SET BY PATCH";
+      result.get(CoreOptions.class).cpu = "SET BY PATCH";
       return result;
     }
   }
@@ -106,24 +109,30 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
               builder.requiresConfigurationFragments(TestConfiguration.class).build());
 
   /** A rule with an empty split transition on an attribute. */
-  private static final MockRule EMPTY_SPLIT_RULE = () ->
-      MockRule.ancestor(TEST_BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
-          "empty_split",
-          attr("with_empty_transition", LABEL)
-              .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .cfg(new NoopSplitTransition()));
+  private static final MockRule EMPTY_SPLIT_RULE =
+      () ->
+          MockRule.ancestor(TEST_BASE_RULE.getClass())
+              .factory(DummyRuleFactory.class)
+              .define(
+                  "empty_split",
+                  attr("with_empty_transition", LABEL)
+                      .allowedFileTypes(FileTypeSet.ANY_FILE)
+                      .cfg(TransitionFactories.of(new NoopSplitTransition())));
 
   /** Rule with a split transition on an attribute. */
-  private static final MockRule ATTRIBUTE_TRANSITION_RULE = () ->
-      MockRule.ancestor(TEST_BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
-          "attribute_transition",
-          attr("without_transition", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
-          attr("with_cpu_transition", LABEL)
-              .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .cfg(new SetsCpuSplitTransition()),
-          attr("with_host_cpu_transition", LABEL)
-              .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .cfg(new SetsHostCpuSplitTransition()));
+  private static final MockRule ATTRIBUTE_TRANSITION_RULE =
+      () ->
+          MockRule.ancestor(TEST_BASE_RULE.getClass())
+              .factory(DummyRuleFactory.class)
+              .define(
+                  "attribute_transition",
+                  attr("without_transition", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
+                  attr("with_cpu_transition", LABEL)
+                      .allowedFileTypes(FileTypeSet.ANY_FILE)
+                      .cfg(TransitionFactories.of(new SetsCpuSplitTransition())),
+                  attr("with_host_cpu_transition", LABEL)
+                      .allowedFileTypes(FileTypeSet.ANY_FILE)
+                      .cfg(TransitionFactories.of(new SetsHostCpuSplitTransition())));
 
   /** Rule with rule class configuration transition. */
   private static final MockRule RULE_CLASS_TRANSITION_RULE = () ->
@@ -148,9 +157,9 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class SetsTestFilterFromAttributeTransitionFactory implements RuleTransitionFactory {
+  static class SetsTestFilterFromAttributeTransitionFactory implements TransitionFactory<Rule> {
     @Override
-    public PatchTransition buildTransitionFor(Rule rule) {
+    public PatchTransition create(Rule rule) {
       NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
       String value = attributes.get("sets_test_filter_to", STRING);
       if (Strings.isNullOrEmpty(value)) {
@@ -183,11 +192,14 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
 
     @Override
     public BuildOptions patch(BuildOptions options) {
+      if (!options.contains(TestConfiguration.TestOptions.class)) {
+        return options;
+      }
+
       BuildOptions result = options.clone();
       TestConfiguration.TestOptions testOpts = result.get(TestConfiguration.TestOptions.class);
-      ImmutableList<String> testArgs =
+      testOpts.testArguments =
           new ImmutableList.Builder<String>().addAll(testOpts.testArguments).add(argument).build();
-      testOpts.testArguments = testArgs;
       return result;
     }
   }
@@ -201,7 +213,9 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
                   "add_test_arg_for_deps",
                   attr("deps", LABEL_LIST)
                       .allowedFileTypes(FileTypeSet.ANY_FILE)
-                      .cfg(new AddArgumentToTestArgsTransition("deps transition")));
+                      .cfg(
+                          TransitionFactories.of(
+                              new AddArgumentToTestArgsTransition("deps transition"))));
 
   /** Rule which adds an argument to the --test_args flag for itself. */
   private static final MockRule ADD_TEST_ARG_FOR_SELF_RULE =
@@ -217,7 +231,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
 
   @Test
   public void trimmingTransitionActivatesLastOnAllTargets() throws Exception {
-    RuleTransitionFactory trimmingTransitionFactory =
+    TransitionFactory<Rule> trimmingTransitionFactory =
         (rule) ->
             new AddArgumentToTestArgsTransition(
                 "trimming transition for " + rule.getLabel().toString());
@@ -311,11 +325,11 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
 
   @Test
   public void trimmingTransitionsAreComposedInOrderOfAdding() throws Exception {
-    RuleTransitionFactory firstTrimmingTransitionFactory =
+    TransitionFactory<Rule> firstTrimmingTransitionFactory =
         (rule) ->
             new AddArgumentToTestArgsTransition(
                 "first trimming transition for " + rule.getLabel().toString());
-    RuleTransitionFactory secondTrimmingTransitionFactory =
+    TransitionFactory<Rule> secondTrimmingTransitionFactory =
         (rule) ->
             new AddArgumentToTestArgsTransition(
                 "second trimming transition for " + rule.getLabel().toString());
@@ -570,9 +584,11 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private List<String> getTestFilterOptionValue(ConfigurationTransition transition)
       throws Exception {
     ImmutableList.Builder<String> outValues = ImmutableList.builder();
-    for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
-        getTargetConfiguration().getOptions(), transition,
-        ruleClassProvider.getAllFragments(), ruleClassProvider, false)) {
+    for (BuildOptions toOptions :
+        ConfigurationResolver.applyTransition(
+            getTargetConfiguration().getOptions(),
+            transition,
+            ImmutableMap.of())) {
       outValues.add(toOptions.get(TestConfiguration.TestOptions.class).testFilter);
     }
     return outValues.build();
@@ -581,40 +597,36 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   @Test
   public void composedStraightTransitions() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        TransitionResolver.composeTransitions(
-            newPatchTransition("foo"),
-            newPatchTransition("bar"))))
+    assertThat(
+            getTestFilterOptionValue(
+                ComposingTransition.of(newPatchTransition("foo"), newPatchTransition("bar"))))
         .containsExactly("foobar");
   }
 
   @Test
   public void composedStraightTransitionThenSplitTransition() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        TransitionResolver.composeTransitions(
-            newPatchTransition("foo"),
-            newSplitTransition("split"))))
+    assertThat(
+            getTestFilterOptionValue(
+                ComposingTransition.of(newPatchTransition("foo"), newSplitTransition("split"))))
         .containsExactly("foosplit1", "foosplit2");
   }
 
   @Test
   public void composedSplitTransitionThenStraightTransition() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        TransitionResolver.composeTransitions(
-            newSplitTransition("split"),
-            newPatchTransition("foo"))))
+    assertThat(
+            getTestFilterOptionValue(
+                ComposingTransition.of(newSplitTransition("split"), newPatchTransition("foo"))))
         .containsExactly("split1foo", "split2foo");
   }
 
   @Test
   public void composedSplitTransitions() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        TransitionResolver.composeTransitions(
-            newSplitTransition("s"),
-            newSplitTransition("t"))))
+    assertThat(
+            getTestFilterOptionValue(
+                ComposingTransition.of(newSplitTransition("s"), newSplitTransition("t"))))
         .containsExactly("s1t1", "s1t2", "s2t1", "s2t2");
   }
 

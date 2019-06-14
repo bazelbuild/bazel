@@ -517,10 +517,10 @@ public abstract class TargetPattern implements Serializable {
 
     /**
      * There's a potential ambiguity if '//foo/bar:all' refers to an actual target. In this case, we
-     * use the the target but print a warning.
+     * use the target but print a warning.
      *
      * @return the Target corresponding to the given pattern, if the pattern is absolute and there
-     *         is such a target. Otherwise, return null.
+     *     is such a target. Otherwise, return null.
      */
     private <T> ResolvedTargets<T> getWildcardConflict(TargetPatternResolver<T> resolver)
         throws InterruptedException {
@@ -822,14 +822,14 @@ public abstract class TargetPattern implements Serializable {
         String fullLabel = repository.getName() + "//" + pattern;
         try {
           PackageAndTarget packageAndTarget = LabelValidator.validateAbsoluteLabel(fullLabel);
-          packageIdentifier = PackageIdentifier.create(repository,
-              PathFragment.create(packageAndTarget.getPackageName()));
+          packageIdentifier =
+              PackageIdentifier.create(
+                  repository, PathFragment.create(packageAndTarget.getPackageName()));
         } catch (BadLabelException e) {
           String error = "invalid target format '" + originalPattern + "': " + e.getMessage();
           throw new TargetParsingException(error);
         }
-        return new SingleTarget(
-            fullLabel, packageIdentifier, originalPattern, relativeDirectory);
+        return new SingleTarget(fullLabel, packageIdentifier, originalPattern, relativeDirectory);
       }
 
       // This is a stripped-down version of interpretPathAsTarget that does no I/O.  We have a basic

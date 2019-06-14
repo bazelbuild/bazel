@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -49,17 +49,14 @@ public class FailActionTest {
     outputs = ImmutableList.of(anOutput);
     failAction = new FailAction(NULL_ACTION_OWNER, outputs, errorMessage);
     actionGraph.registerAction(failAction);
-    assertThat(actionGraph.getGeneratingAction(anOutput)).isSameAs(failAction);
+    assertThat(actionGraph.getGeneratingAction(anOutput)).isSameInstanceAs(failAction);
   }
 
   @Test
   public void testExecutingItYieldsExceptionWithErrorMessage() {
-    try {
-      failAction.execute(null);
-      fail();
-    } catch (ActionExecutionException e) {
-      assertThat(e).hasMessageThat().isEqualTo(errorMessage);
-    }
+    ActionExecutionException e =
+        assertThrows(ActionExecutionException.class, () -> failAction.execute(null));
+    assertThat(e).hasMessageThat().isEqualTo(errorMessage);
   }
 
   @Test
@@ -74,6 +71,6 @@ public class FailActionTest {
 
   @Test
   public void testPrimaryOutput() {
-    assertThat(failAction.getPrimaryOutput()).isSameAs(anOutput);
+    assertThat(failAction.getPrimaryOutput()).isSameInstanceAs(anOutput);
   }
 }

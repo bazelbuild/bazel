@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -140,13 +140,13 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         getFirstArtifactEndingWith(
             allArtifacts, "databinding/lib_with_databinding/layout-info.zip");
     assertThat(getGeneratingSpawnActionArgs(libResourceInfoOutput))
-        .containsAllOf("--dataBindingInfoOut", libResourceInfoOutput.getExecPathString())
+        .containsAtLeast("--dataBindingInfoOut", libResourceInfoOutput.getExecPathString())
         .inOrder();
 
     Artifact binResourceInfoOutput =
         getFirstArtifactEndingWith(allArtifacts, "databinding/app/layout-info.zip");
     assertThat(getGeneratingSpawnActionArgs(binResourceInfoOutput))
-        .containsAllOf("--dataBindingInfoOut", binResourceInfoOutput.getExecPathString())
+        .containsAtLeast("--dataBindingInfoOut", binResourceInfoOutput.getExecPathString())
         .inOrder();
 
     // Java compilation includes the data binding annotation processor, the resource processor's
@@ -159,7 +159,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     assertThat(getProcessorNames(libCompileAction))
         .contains("android.databinding.annotationprocessor.ProcessDataBinding");
     assertThat(prettyArtifactNames(libCompileAction.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             "java/android/library/databinding/lib_with_databinding/layout-info.zip",
             "java/android/library/databinding/lib_with_databinding/DataBindingInfo.java");
 
@@ -169,7 +169,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     assertThat(getProcessorNames(binCompileAction))
         .contains("android.databinding.annotationprocessor.ProcessDataBinding");
     assertThat(prettyArtifactNames(binCompileAction.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             "java/android/binary/databinding/app/layout-info.zip",
             "java/android/binary/databinding/app/DataBindingInfo.java");
   }
@@ -246,14 +246,14 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "-Aandroid.databinding.enableV2=1",
             // Note that this includes only android.library and not android.library2
             "-Aandroid.databinding.directDependencyPkgs=[android.library]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
 
     // Regression test for b/63134122
     JavaCompileInfo javaCompileInfo =
         binCompileAction
             .getExtraActionInfo(actionKeyContext)
             .getExtension(JavaCompileInfo.javaCompileInfo);
-    assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
+    assertThat(javaCompileInfo.getJavacOptList()).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   @Test
@@ -287,13 +287,13 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "-Aandroid.databinding.enableV2=1",
             // Note that this includes only android.library and not android.library2
             "-Aandroid.databinding.directDependencyPkgs=[android.library]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
 
     JavaCompileInfo javaCompileInfo =
         binCompileAction
             .getExtraActionInfo(actionKeyContext)
             .getExtension(JavaCompileInfo.javaCompileInfo);
-    assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
+    assertThat(javaCompileInfo.getJavacOptList()).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   @Test
@@ -326,7 +326,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             + "lib_with_resource_files/bin-files/android.lib_with_resource_files-";
 
     assertThat(appJarInputs)
-        .containsAllOf(
+        .containsAtLeast(
             "java/android/binary/databinding/app/layout-info.zip",
             libWithResourcesMetadataBaseDir + "android.lib_with_resource_files-br.bin");
 
@@ -357,7 +357,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
                 getFirstArtifactEndingWith(libArtifacts, "lib_no_resource_files.jar"));
     // The annotation processor is attached to the Java compilation:
     assertThat(getJavacArguments(libCompileAction))
-        .containsAllOf(
+        .containsAtLeast(
             "--processors", "android.databinding.annotationprocessor.ProcessDataBinding");
     // The dummy .java file with annotations that trigger the annotation process is present:
     assertThat(prettyArtifactNames(libCompileAction.getInputs()))
@@ -448,9 +448,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     final DataBindingV2Provider dataBindingV2Provider = a.get(DataBindingV2Provider.PROVIDER);
 
-    assertThat(dataBindingV2Provider)
-        .named(DataBindingV2Provider.NAME)
-        .isNotNull();
+    assertWithMessage(DataBindingV2Provider.NAME).that(dataBindingV2Provider).isNotNull();
 
     assertThat(
         dataBindingV2Provider
@@ -469,12 +467,9 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         .containsExactly("java/a/databinding/a/class-info.zip");
 
     assertThat(
-        dataBindingV2Provider
-            .getTransitiveBRFiles()
-            .toCollection()
-            .stream()
-            .map(Artifact::getRootRelativePathString)
-            .collect(Collectors.toList()))
+            dataBindingV2Provider.getTransitiveBRFiles().toList().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toList()))
         .containsExactly("java/a/databinding/a/bin-files/a-a-br.bin");
   }
 
@@ -520,9 +515,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         ")");
 
     ConfiguredTarget b = getConfiguredTarget("//java/b:b");
-    Truth.assertThat(b.get(DataBindingV2Provider.PROVIDER))
-        .named("DataBindingV2Info")
-        .isNotNull();
+    assertWithMessage("DataBindingV2Info").that(b.get(DataBindingV2Provider.PROVIDER)).isNotNull();
   }
 
   @Test
@@ -601,12 +594,9 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "java/b/databinding/b/bin-files/b-b-setter_store.bin");
 
     assertThat(
-        provider
-            .getTransitiveBRFiles()
-            .toCollection()
-            .stream()
-            .map(Artifact::getRootRelativePathString)
-            .collect(Collectors.toList()))
+            provider.getTransitiveBRFiles().toList().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toList()))
         .containsExactly(
             "java/a/databinding/a/bin-files/a-a-br.bin",
             "java/b/databinding/b/bin-files/b-b-br.bin");
@@ -1015,7 +1005,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of(
             "-Aandroid.databinding.directDependencyPkgs=[android.library1,android.library2]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   @Test
@@ -1035,7 +1025,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of("-Aandroid.databinding.directDependencyPkgs="
             + "[android.lib_with_exports,android.library1,android.library2]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   @Test
@@ -1062,7 +1052,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of("-Aandroid.databinding.directDependencyPkgs=[]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
   }
 
 }

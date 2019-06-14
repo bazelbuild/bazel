@@ -21,7 +21,7 @@ java_test(
         "//third_party:api_client",
         "//third_party:auth",
         "//third_party:guava",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party:netty",
         "//third_party:truth",
     ],

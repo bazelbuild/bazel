@@ -94,7 +94,7 @@ class SymlinkForest {
           continue dirloop;
         }
       }
-      FileSystemUtils.deleteTree(p);
+      p.deleteTree();
     }
   }
 
@@ -110,7 +110,7 @@ class SymlinkForest {
     Path realWorkspaceDir = execroot.getParentDirectory().getRelative(workspaceName);
     if (!workspaceName.equals(execroot.getBaseName()) && realWorkspaceDir.exists()
         && !realWorkspaceDir.isSymbolicLink()) {
-      FileSystemUtils.deleteTree(realWorkspaceDir);
+      realWorkspaceDir.deleteTree();
     }
 
     // Packages come from exactly one root, but their shared ancestors may come from more.

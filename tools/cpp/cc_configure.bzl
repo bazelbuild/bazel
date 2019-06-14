@@ -26,13 +26,7 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.static.freebsd",
         "@bazel_tools//tools/cpp:cc_toolchain_config.bzl",
-        "@bazel_tools//tools/cpp:dummy_toolchain.bzl",
     ])
-
-    repository_ctx.symlink(
-        paths["@bazel_tools//tools/cpp:dummy_toolchain.bzl"],
-        "dummy_toolchain.bzl",
-    )
 
     env = repository_ctx.os.environ
     cpu_value = get_cpu_value(repository_ctx)

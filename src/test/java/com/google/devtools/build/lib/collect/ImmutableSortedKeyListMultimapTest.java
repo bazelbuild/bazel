@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.collect;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultiset;
@@ -143,22 +143,10 @@ public class ImmutableSortedKeyListMultimapTest {
     toPut.put("foo", null);
     ImmutableSortedKeyListMultimap.Builder<String, Integer> builder
         = ImmutableSortedKeyListMultimap.builder();
-    try {
-      builder.put(null, 1);
-      fail();
-    } catch (NullPointerException expected) {}
-    try {
-      builder.putAll(null, Arrays.asList(1, 2, 3));
-      fail();
-    } catch (NullPointerException expected) {}
-    try {
-      builder.putAll(null, 1, 2, 3);
-      fail();
-    } catch (NullPointerException expected) {}
-    try {
-      builder.putAll(toPut);
-      fail();
-    } catch (NullPointerException expected) {}
+    assertThrows(NullPointerException.class, () -> builder.put(null, 1));
+    assertThrows(NullPointerException.class, () -> builder.putAll(null, Arrays.asList(1, 2, 3)));
+    assertThrows(NullPointerException.class, () -> builder.putAll(null, 1, 2, 3));
+    assertThrows(NullPointerException.class, () -> builder.putAll(toPut));
   }
 
   @Test
@@ -167,22 +155,11 @@ public class ImmutableSortedKeyListMultimapTest {
     toPut.put(null, 1);
     ImmutableSortedKeyListMultimap.Builder<String, Integer> builder
         = ImmutableSortedKeyListMultimap.builder();
-    try {
-      builder.put("foo", null);
-      fail();
-    } catch (NullPointerException expected) {}
-    try {
-      builder.putAll("foo", Arrays.asList(1, null, 3));
-      fail();
-    } catch (NullPointerException expected) {}
-    try {
-      builder.putAll("foo", 1, null, 3);
-      fail();
-    } catch (NullPointerException expected) {}
-    try {
-      builder.putAll(toPut);
-      fail();
-    } catch (NullPointerException expected) {}
+    assertThrows(NullPointerException.class, () -> builder.put("foo", null));
+    assertThrows(
+        NullPointerException.class, () -> builder.putAll("foo", Arrays.asList(1, null, 3)));
+    assertThrows(NullPointerException.class, () -> builder.putAll("foo", 1, null, 3));
+    assertThrows(NullPointerException.class, () -> builder.putAll(toPut));
   }
 
   @Test
@@ -219,27 +196,21 @@ public class ImmutableSortedKeyListMultimapTest {
   @Test
   public void copyOfImmutableListMultimap() {
     Multimap<String, Integer> multimap = createMultimap();
-    assertThat(ImmutableSortedKeyListMultimap.copyOf(multimap)).isSameAs(multimap);
+    assertThat(ImmutableSortedKeyListMultimap.copyOf(multimap)).isSameInstanceAs(multimap);
   }
 
   @Test
   public void copyOfNullKey() {
     ListMultimap<String, Integer> input = ArrayListMultimap.create();
     input.put(null, 1);
-    try {
-      ImmutableSortedKeyListMultimap.copyOf(input);
-      fail();
-    } catch (NullPointerException expected) {}
+    assertThrows(NullPointerException.class, () -> ImmutableSortedKeyListMultimap.copyOf(input));
   }
 
   @Test
   public void copyOfNullValue() {
     ListMultimap<String, Integer> input = ArrayListMultimap.create();
     input.putAll("foo", Arrays.asList(1, null, 3));
-    try {
-      ImmutableSortedKeyListMultimap.copyOf(input);
-      fail();
-    } catch (NullPointerException expected) {}
+    assertThrows(NullPointerException.class, () -> ImmutableSortedKeyListMultimap.copyOf(input));
   }
 
   @Test

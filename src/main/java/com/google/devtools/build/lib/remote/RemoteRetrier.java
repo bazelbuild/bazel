@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
@@ -67,7 +68,7 @@ public class RemoteRetrier extends Retrier {
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
     this(
-        options.experimentalRemoteRetry
+        options.remoteMaxRetryAttempts > 0
             ? () -> new ExponentialBackoff(options)
             : () -> RETRIES_DISABLED,
         shouldRetry,
@@ -108,7 +109,7 @@ public class RemoteRetrier extends Retrier {
     }
   }
 
-  static class ExponentialBackoff implements Retrier.Backoff {
+  static class ExponentialBackoff implements Backoff {
 
     private final long maxMillis;
     private long nextDelayMillis;
@@ -141,11 +142,12 @@ public class RemoteRetrier extends Retrier {
     }
 
     ExponentialBackoff(RemoteOptions options) {
-      this(Duration.ofMillis(options.experimentalRemoteRetryStartDelayMillis),
-          Duration.ofMillis(options.experimentalRemoteRetryMaxDelayMillis),
-          options.experimentalRemoteRetryMultiplier,
-          options.experimentalRemoteRetryJitter,
-          options.experimentalRemoteRetryMaxAttempts);
+      this(
+          /* initial = */ Duration.ofMillis(100),
+          /* max = */ Duration.ofSeconds(5),
+          /* multiplier= */ 2,
+          /* jitter= */ 0.1,
+          options.remoteMaxRetryAttempts);
     }
 
     @Override
@@ -167,6 +169,51 @@ public class RemoteRetrier extends Retrier {
     @Override
     public int getRetryAttempts() {
       return attempts;
+    }
+  }
+
+  static class ProgressiveBackoff implements Backoff {
+
+    private final Supplier<Backoff> backoffSupplier;
+    private Backoff currentBackoff = null;
+    private int retries = 0;
+
+    /**
+     * Creates a resettable Backoff for progressive reads. After a reset, the nextDelay returned
+     * indicates an immediate retry. Initially and after indicating an immediate retry, a delegate
+     * is generated to provide nextDelay until reset.
+     *
+     * @param backoffSupplier Delegate Backoff generator
+     */
+    ProgressiveBackoff(Supplier<Backoff> backoffSupplier) {
+      this.backoffSupplier = backoffSupplier;
+      currentBackoff = backoffSupplier.get();
+    }
+
+    public void reset() {
+      if (currentBackoff != null) {
+        retries += currentBackoff.getRetryAttempts();
+      }
+      currentBackoff = null;
+    }
+
+    @Override
+    public long nextDelayMillis() {
+      if (currentBackoff == null) {
+        currentBackoff = backoffSupplier.get();
+        retries++;
+        return 0;
+      }
+      return currentBackoff.nextDelayMillis();
+    }
+
+    @Override
+    public int getRetryAttempts() {
+      int retryAttempts = retries;
+      if (currentBackoff != null) {
+        retryAttempts += currentBackoff.getRetryAttempts();
+      }
+      return retryAttempts;
     }
   }
 }

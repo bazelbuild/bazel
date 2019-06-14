@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -222,16 +223,12 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     reporter.removeHandler(failFastHandler);
 
     // test that building 'foo' fails
-    try {
-      buildArtifacts(foo);
-      fail("building 'foo' was supposed to fail!");
-    } catch (BuildFailedException e) {
-      if (!e.getMessage().contains("building 'foo' is supposed to fail")) {
+    BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildArtifacts(foo));
+    if (!e.getMessage().contains("building 'foo' is supposed to fail")) {
         throw e;
       }
-      // Make sure the reporter reported the error message.
-      assertContainsEvent("building 'foo' is supposed to fail");
-    }
+    // Make sure the reporter reported the error message.
+    assertContainsEvent("building 'foo' is supposed to fail");
     // test that a subsequent build of 'bar' succeeds
     buildArtifacts(bar);
   }
@@ -293,12 +290,8 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     Artifact foo = createDerivedArtifact(fs, "foo");
     registerAction(new TestAction(TestAction.NO_EFFECT, emptySet, ImmutableList.of(foo)));
     reporter.removeHandler(failFastHandler);
-    try {
-      buildArtifacts(foo);
-      fail("Expected to fail");
-    } catch (BuildFailedException e) {
-      assertContainsEvent("not all outputs were created or valid");
-    }
+    assertThrows(BuildFailedException.class, () -> buildArtifacts(foo));
+    assertContainsEvent("not all outputs were created or valid");
   }
 
   @Test
@@ -546,15 +539,12 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     // Don't fail fast when we encounter the error
     reporter.removeHandler(failFastHandler);
 
-    try {
-      buildArtifacts(foo, bar);
-      fail();
-    } catch (BuildFailedException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("TestAction failed due to exception: foo action failed");
-      assertContainsEvent("TestAction failed due to exception: foo action failed");
-    }
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildArtifacts(foo, bar));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("TestAction failed due to exception: foo action failed");
+    assertContainsEvent("TestAction failed due to exception: foo action failed");
 
     assertWithMessage("bar action not finished, yet buildArtifacts has completed.")
         .that(finished[0])
@@ -569,28 +559,28 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     Artifact foo = createDerivedArtifact("foo");
     Artifact bar = createDerivedArtifact("bar");
     Artifact baz = createDerivedArtifact("baz");
-    try {
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(foo), asSet(bar)));
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(baz)));
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(baz), asSet(foo)));
-      buildArtifacts(foo);
-      fail("Builder failed to detect cyclic action graph");
-    } catch (BuildFailedException e) {
-      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
-    }
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(foo), asSet(bar)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(baz)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(baz), asSet(foo)));
+    BuildFailedException e =
+        assertThrows(
+            "Builder failed to detect cyclic action graph",
+            BuildFailedException.class,
+            () -> buildArtifacts(foo));
+    assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
   }
 
   @Test
   public void testSelfCyclicActionGraph() throws Exception {
     // foo -> [action] -> foo
     Artifact foo = createDerivedArtifact("foo");
-    try {
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(foo), asSet(foo)));
-      buildArtifacts(foo);
-      fail("Builder failed to detect cyclic action graph");
-    } catch (BuildFailedException e) {
-      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
-    }
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(foo), asSet(foo)));
+    BuildFailedException e =
+        assertThrows(
+            "Builder failed to detect cyclic action graph",
+            BuildFailedException.class,
+            () -> buildArtifacts(foo));
+    assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
   }
 
   @Test
@@ -603,16 +593,16 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     Artifact foo2 = createDerivedArtifact("foo2");
     Artifact bar = createDerivedArtifact("bar");
     Artifact baz = createDerivedArtifact("baz");
-    try {
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(foo1)));
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(foo2)));
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(baz), asSet(bar)));
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(baz)));
-      buildArtifacts(foo1, foo2);
-      fail("Builder failed to detect cyclic action graph");
-    } catch (BuildFailedException e) {
-      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
-    }
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(foo1)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(foo2)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(baz), asSet(bar)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(baz)));
+    BuildFailedException e =
+        assertThrows(
+            "Builder failed to detect cyclic action graph",
+            BuildFailedException.class,
+            () -> buildArtifacts(foo1, foo2));
+    assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
   }
 
 
@@ -625,16 +615,16 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     Artifact bar = createDerivedArtifact("bar");
     Artifact baz = createDerivedArtifact("baz");
     Artifact bat = createDerivedArtifact("bat");
-    try {
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(foo)));
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(baz), asSet(bar)));
-      registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bat, foo), asSet(baz)));
-      registerAction(new TestAction(TestAction.NO_EFFECT, ImmutableSet.<Artifact>of(), asSet(bat)));
-      buildArtifacts(foo);
-      fail("Builder failed to detect cyclic action graph");
-    } catch (BuildFailedException e) {
-      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
-    }
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(foo)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(baz), asSet(bar)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bat, foo), asSet(baz)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, ImmutableSet.<Artifact>of(), asSet(bat)));
+    BuildFailedException e =
+        assertThrows(
+            "Builder failed to detect cyclic action graph",
+            BuildFailedException.class,
+            () -> buildArtifacts(foo));
+    assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
   }
 
   @Test
@@ -710,12 +700,9 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     // Don't fail fast when we encounter the error
     reporter.removeHandler(failFastHandler);
 
-    try {
-      buildArtifacts(createBuilder(3, keepGoing), artifacts);
-      fail();
-    } catch (BuildFailedException e) {
-      assertContainsEvent("task failed");
-    }
+    assertThrows(
+        BuildFailedException.class, () -> buildArtifacts(createBuilder(3, keepGoing), artifacts));
+    assertContainsEvent("task failed");
     if (completedTasks.get() >= numJobs) {
       fail("Expected early termination due to failed task, but all tasks ran to completion.");
     }
@@ -783,7 +770,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         " Test bar FINISH",
         " Test baz START",
         " Test baz FINISH");
-    assertThat(messages).containsAllIn(expectedMessages);
+    assertThat(messages).containsAtLeastElementsIn(expectedMessages);
 
     // Now do an incremental rebuild of bar and baz,
     // and check the incremental progress percentages.
@@ -798,6 +785,6 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         " Test bar FINISH",
         " Test baz START",
         " Test baz FINISH");
-    assertThat(messages).containsAllIn(expectedMessages);
+    assertThat(messages).containsAtLeastElementsIn(expectedMessages);
   }
 }

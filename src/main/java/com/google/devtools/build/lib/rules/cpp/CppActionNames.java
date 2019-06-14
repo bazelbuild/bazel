@@ -69,5 +69,13 @@ public class CppActionNames {
   public static final String OBJCPP_EXECUTABLE = "objc++-executable";
 
   public static final String LTO_INDEXING = "lto-indexing";
+  /** Name of the action producing thinlto index for dynamic library. */
+  public static final String LTO_INDEX_DYNAMIC_LIBRARY = "lto-index-for-dynamic-library";
+  /** Name of the action producing thinlto index for nodeps dynamic library. */
+  public static final String LTO_INDEX_NODEPS_DYNAMIC_LIBRARY =
+      "lto-index-for-nodeps-dynamic-library";
+  /** Name of the action producing thinlto index for executable binary. */
+  public static final String LTO_INDEX_EXECUTABLE = "lto-index-for-executable";
+
   public static final String LTO_BACKEND = "lto-backend";
 }

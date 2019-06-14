@@ -45,10 +45,10 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
+import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
-import com.google.devtools.build.lib.actions.AnalyzingActionEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -82,14 +83,17 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStep;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrResult;
+import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionCallback;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -198,6 +202,8 @@ public final class SkyframeActionExecutor {
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
   private final Function<PathFragment, SourceArtifact> sourceArtifactFactory;
 
+  private boolean bazelRemoteExecutionEnabled;
+
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
@@ -241,8 +247,24 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  ActionCompletedReceiver getActionCompletedReceiver() {
-    return completionReceiver;
+  SharedActionCallback getSharedActionCallback(
+      ExtendedEventHandler eventHandler,
+      boolean hasDiscoveredInputs,
+      Action action,
+      ActionLookupData actionLookupData) {
+    return new SharedActionCallback() {
+      @Override
+      public void actionStarted() {
+        if (hasDiscoveredInputs) {
+          eventHandler.post(new ActionScanningCompletedEvent(action, actionLookupData));
+        }
+      }
+
+      @Override
+      public void actionCompleted() {
+        completionReceiver.actionCompleted(actionLookupData);
+      }
+    };
   }
 
   /**
@@ -391,8 +413,7 @@ public final class SkyframeActionExecutor {
       OutputService outputService) {
     this.reporter = Preconditions.checkNotNull(reporter);
     this.executorEngine = Preconditions.checkNotNull(executor);
-    this.progressSuppressingEventHandler =
-        new ProgressSuppressingEventHandler(this.executorEngine.getEventHandler());
+    this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
 
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = Maps.newConcurrentMap();
@@ -406,6 +427,8 @@ public final class SkyframeActionExecutor {
     this.useAsyncExecution = options.getOptions(BuildRequestOptions.class).useAsyncExecution;
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
     this.outputService = outputService;
+    RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
+    this.bazelRemoteExecutionEnabled = remoteOptions != null && remoteOptions.isRemoteEnabled();
   }
 
   public void setActionLogBufferPathGenerator(
@@ -418,15 +441,17 @@ public final class SkyframeActionExecutor {
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
-  boolean usesActionFileSystem() {
-    return outputService != null && outputService.supportsActionFileSystem();
+  ActionFileSystemType actionFileSystemType() {
+    return outputService != null
+        ? outputService.actionFileSystemType()
+        : ActionFileSystemType.DISABLED;
   }
 
   Path getExecRoot() {
     return executorEngine.getExecRoot();
   }
 
-  /** REQUIRES: {@link #usesActionFileSystem()} is true */
+  /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
   FileSystem createActionFileSystem(
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
@@ -517,7 +542,8 @@ public final class SkyframeActionExecutor {
       long actionStartTime,
       ActionExecutionContext actionExecutionContext,
       ActionLookupData actionLookupData,
-      ActionPostprocessing postprocessing)
+      ActionPostprocessing postprocessing,
+      boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     // ActionExecutionFunction may directly call into ActionExecutionState.getResultOrDependOnFuture
     // if a shared action already passed these checks.
@@ -553,7 +579,16 @@ public final class SkyframeActionExecutor {
                         actionLookupData,
                         postprocessing)));
     return activeAction.getResultOrDependOnFuture(
-        env, actionLookupData, action, completionReceiver);
+        env,
+        actionLookupData,
+        action,
+        getSharedActionCallback(env.getListener(), hasDiscoveredInputs, action, actionLookupData));
+  }
+
+  private ExtendedEventHandler selectEventHandler(ProgressEventBehavior progressEventBehavior) {
+    return progressEventBehavior.equals(ProgressEventBehavior.EMIT)
+        ? reporter
+        : progressSuppressingEventHandler;
   }
 
   /**
@@ -579,9 +614,7 @@ public final class SkyframeActionExecutor {
         actionKeyContext,
         metadataHandler,
         fileOutErr,
-        progressEventBehavior.equals(ProgressEventBehavior.EMIT)
-            ? executorEngine.getEventHandler()
-            : progressSuppressingEventHandler,
+        selectEventHandler(progressEventBehavior),
         clientEnv,
         topLevelFilesets,
         new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
@@ -625,9 +658,10 @@ public final class SkyframeActionExecutor {
       if (action instanceof NotifyOnActionCacheHit) {
         NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
         ExtendedEventHandler contextEventHandler =
-            probeCompletedAndReset(action)
-                ? progressSuppressingEventHandler
-                : executorEngine.getEventHandler();
+            selectEventHandler(
+                probeCompletedAndReset(action)
+                    ? ProgressEventBehavior.SUPPRESS
+                    : ProgressEventBehavior.EMIT);
         ActionCachedContext context =
             new ActionCachedContext() {
               @Override
@@ -703,9 +737,7 @@ public final class SkyframeActionExecutor {
             actionLogBufferPathGenerator.generate(
                 ArtifactPathResolver.createPathResolver(
                     actionFileSystem, executorEngine.getExecRoot())),
-            progressEventBehavior.equals(ProgressEventBehavior.EMIT)
-                ? executorEngine.getEventHandler()
-                : progressSuppressingEventHandler,
+            selectEventHandler(progressEventBehavior),
             clientEnv,
             env,
             actionFileSystem);
@@ -714,7 +746,7 @@ public final class SkyframeActionExecutor {
       // streams is sufficient.
       setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
     }
-    actionExecutionContext.getEventHandler().post(new AnalyzingActionEvent(action));
+    actionExecutionContext.getEventHandler().post(new ScanningActionEvent(action));
     try {
       return action.discoverInputs(actionExecutionContext);
     } catch (ActionExecutionException e) {
@@ -731,6 +763,10 @@ public final class SkyframeActionExecutor {
           actionExecutionContext.getFileOutErr(),
           ErrorTiming.BEFORE_EXECUTION);
     }
+  }
+
+  boolean isBazelRemoteExecutionEnabled() {
+    return bazelRemoteExecutionEnabled;
   }
 
   private MetadataProvider createFileCache(
@@ -767,11 +803,6 @@ public final class SkyframeActionExecutor {
   void configure(MetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
-  }
-
-  /** A local interface to unify immediate and deferred action execution code paths. */
-  private interface ActionClosure {
-    ActionResult execute() throws ActionExecutionException, InterruptedException;
   }
 
   /**
@@ -886,13 +917,12 @@ public final class SkyframeActionExecutor {
               "%s %s",
               actionExecutionContext.getMetadataHandler(),
               metadataHandler);
-          if (!usesActionFileSystem()) {
-            try {
+          if (!actionFileSystemType().inMemoryFileSystem()) {
+            try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
               // keep previous outputs in place.
-              action.prepare(
-                  actionExecutionContext.getFileSystem(), actionExecutionContext.getExecRoot());
+              action.prepare(actionExecutionContext.getExecRoot());
             } catch (IOException e) {
               throw toActionExecutionException(
                   "failed to delete output files before executing action", e, action, null);
@@ -949,7 +979,7 @@ public final class SkyframeActionExecutor {
       // one that returns a new ActionContinuationStep. Unfortunately, that requires some code
       // duplication.
       ActionContinuationOrResult nextActionContinuationOrResult;
-      try {
+      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "ActionContinuation.execute")) {
         nextActionContinuationOrResult = actionContinuation.execute();
       } catch (ActionExecutionException e) {
         boolean isLostInputsException = e instanceof LostInputsActionExecutionException;

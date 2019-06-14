@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
@@ -77,6 +78,7 @@ public final class CommandEnvironment {
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
   private final Map<String, String> actionClientEnv = new TreeMap<>();
+  private final Map<String, String> repoEnv = new TreeMap<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
@@ -187,7 +189,7 @@ public final class CommandEnvironment {
       // Compute the set of environment variables that are whitelisted on the commandline
       // for inheritance.
       for (Map.Entry<String, String> entry :
-          options.getOptions(BuildConfiguration.Options.class).actionEnvironment) {
+          options.getOptions(CoreOptions.class).actionEnvironment) {
         if (entry.getValue() == null) {
           visibleActionEnv.add(entry.getKey());
         } else {
@@ -196,10 +198,18 @@ public final class CommandEnvironment {
         }
       }
       for (Map.Entry<String, String> entry :
-          options.getOptions(BuildConfiguration.Options.class).testEnvironment) {
+          options.getOptions(CoreOptions.class).testEnvironment) {
         if (entry.getValue() == null) {
           visibleTestEnv.add(entry.getKey());
         }
+      }
+    }
+
+    repoEnv.putAll(actionClientEnv);
+    CoreOptions configOpts = options.getOptions(CoreOptions.class);
+    if (configOpts != null) {
+      for (Map.Entry<String, String> entry : configOpts.repositoryEnvironment) {
+        repoEnv.put(entry.getKey(), entry.getValue());
       }
     }
   }
@@ -477,11 +487,15 @@ public final class CommandEnvironment {
     return workingDirectory;
   }
 
-  /**
-   * @return the OutputService in use, or null if none.
-   */
+  /** @return the OutputService in use, or null if none. */
+  @Nullable
   public OutputService getOutputService() {
     return outputService;
+  }
+
+  @VisibleForTesting
+  public void setOutputServiceForTesting(@Nullable OutputService outputService) {
+    this.outputService = outputService;
   }
 
   public ActionCache getPersistentActionCache() throws IOException {
@@ -663,6 +677,10 @@ public final class CommandEnvironment {
     Path workspace = getWorkspace();
     Path workingDirectory;
     if (inWorkspace()) {
+      if (commonOptions.clientCwd.containsUplevelReferences()) {
+        throw new AbruptExitException(
+            "Client cwd contains uplevel references", ExitCode.COMMAND_LINE_ERROR);
+      }
       workingDirectory = workspace.getRelative(commonOptions.clientCwd);
     } else {
       workspace = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
@@ -707,5 +725,10 @@ public final class CommandEnvironment {
    */
   public Map<String, String> getActionClientEnv() {
     return Collections.unmodifiableMap(actionClientEnv);
+  }
+
+  /** Returns the client environment with all settings from --action_env and --repo_env. */
+  public Map<String, String> getRepoEnv() {
+    return Collections.unmodifiableMap(repoEnv);
   }
 }

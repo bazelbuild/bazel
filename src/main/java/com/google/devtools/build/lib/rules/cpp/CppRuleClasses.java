@@ -348,14 +348,23 @@ public class CppRuleClasses {
    */
   public static final String FDO_INSTRUMENT = "fdo_instrument";
 
+  /** A string constant for the cs_fdo_instrument feature. */
+  public static final String CS_FDO_INSTRUMENT = "cs_fdo_instrument";
+
   /** A string constant for the fdo_optimize feature. */
   public static final String FDO_OPTIMIZE = "fdo_optimize";
+
+  /** A string constant for the cs_fdo_optimize feature. */
+  public static final String CS_FDO_OPTIMIZE = "cs_fdo_optimize";
 
   /** A string constant for the cache prefetch hints feature. */
   public static final String FDO_PREFETCH_HINTS = "fdo_prefetch_hints";
 
   /** A string constant for the autofdo feature. */
   public static final String AUTOFDO = "autofdo";
+
+  /** A string constant for the build_interface_libraries feature. */
+  public static final String BUILD_INTERFACE_LIBRARIES = "build_interface_libraries";
 
   /** A string constant for the xbinaryfdo feature. */
   public static final String XBINARYFDO = "xbinaryfdo";
@@ -388,6 +397,13 @@ public class CppRuleClasses {
   public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
 
   /**
+   * A feature marking that the target generates libraries that should not be put in a
+   * --whole-archive block.
+   */
+  public static final String DISABLE_WHOLE_ARCHIVE_FOR_STATIC_LIB =
+      "disable_whole_archive_for_static_lib";
+
+  /**
    * TODO(b/113358321): This feature should be enabled for CROSSTOOLs that work without linking
    * command line splitting. Eventually when every CROSSTOOL works without linking command line
    * splitting, this feature can be deleted. The flag --incompatible_do_not_split_linking_cmdline
@@ -404,7 +420,7 @@ public class CppRuleClasses {
       return builder
           .add(
               attr("$grep_includes", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .value(env.getToolsLabel("//tools/cpp:grep-includes")))
           .build();
     }

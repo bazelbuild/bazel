@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
@@ -27,7 +29,7 @@ import javax.annotation.Nullable;
 /**
  * Introspector for option details, to be used when {@code select()}-ing over the options.
  *
- * <p>This tracks:
+ * <p>For native options, this tracks:
  *
  * <ul>
  *   <li>what {@link FragmentOptions} class the option is defined in
@@ -36,13 +38,24 @@ import javax.annotation.Nullable;
  *   <li>whether it is selectable, i.e., allowed to appear in a {@code config_setting}
  * </ul>
  *
+ * <p>For Starlark options, this tracks their value in built-in Starlark-object form (post-parse,
+ * pre-implementation function form).
+ *
  * <p>This is "transitive" in that it includes *all* options recognizable by a given configuration,
  * including those defined in child fragments.
  */
 public final class TransitiveOptionDetails implements Serializable {
 
-  /** Builds a {@code TransitiveOptionDetails} for the given set of options. */
-  static TransitiveOptionDetails forOptions(Iterable<? extends FragmentOptions> buildOptions) {
+  /** Builds a {@code TransitiveOptionsDetails} for the given set of native options */
+  @VisibleForTesting
+  static TransitiveOptionDetails forOptionsForTesting(
+      Iterable<? extends FragmentOptions> buildOptions) {
+    return forOptions(buildOptions, ImmutableMap.of());
+  }
+
+  /** Builds a {@code TransitiveOptionDetails} for the given set of native and Starlark options. */
+  static TransitiveOptionDetails forOptions(
+      Iterable<? extends FragmentOptions> buildOptions, Map<Label, Object> starlarkOptions) {
     ImmutableMap.Builder<String, OptionDetails> map = ImmutableMap.builder();
     try {
       for (FragmentOptions options : buildOptions) {
@@ -75,7 +88,7 @@ public final class TransitiveOptionDetails implements Serializable {
       throw new IllegalStateException(
           "Unexpected illegal access trying to create this configuration's options map: ", e);
     }
-    return new TransitiveOptionDetails(map.build());
+    return new TransitiveOptionDetails(map.build(), ImmutableMap.copyOf(starlarkOptions));
   }
 
   private static final class OptionDetails implements Serializable {
@@ -108,7 +121,7 @@ public final class TransitiveOptionDetails implements Serializable {
   }
 
   /**
-   * Maps option names to the {@link OptionDetails} the option takes for this configuration.
+   * Maps native option names to the {@link OptionDetails} the option takes for this configuration.
    *
    * <p>This can be used to:
    *
@@ -117,10 +130,16 @@ public final class TransitiveOptionDetails implements Serializable {
    *   <li>Parse alternative values for the option.
    * </ol>
    */
-  private final ImmutableMap<String, OptionDetails> transitiveOptionsMap;
+  private final ImmutableMap<String, OptionDetails> transitiveNativeOptionsMap;
 
-  private TransitiveOptionDetails(ImmutableMap<String, OptionDetails> transitiveOptionsMap) {
-    this.transitiveOptionsMap = transitiveOptionsMap;
+  /** Maps Starlark option labels to values */
+  private final ImmutableMap<Label, Object> starlarkOptionsMap;
+
+  private TransitiveOptionDetails(
+      ImmutableMap<String, OptionDetails> transitiveNativeOptionsMap,
+      ImmutableMap<Label, Object> starlarkOptionsMap) {
+    this.transitiveNativeOptionsMap = transitiveNativeOptionsMap;
+    this.starlarkOptionsMap = starlarkOptionsMap;
   }
 
   /**
@@ -132,22 +151,28 @@ public final class TransitiveOptionDetails implements Serializable {
    */
   @Nullable
   public Class<? extends FragmentOptions> getOptionClass(String optionName) {
-    OptionDetails optionDetails = transitiveOptionsMap.get(optionName);
+    OptionDetails optionDetails = transitiveNativeOptionsMap.get(optionName);
     return optionDetails == null ? null : optionDetails.optionsClass;
   }
 
   /**
-   * Returns the value of the specified option for this configuration or null if the option isn't
-   * recognized. Since an option's legitimate value could be null, use {@link #getOptionClass} to
-   * distinguish between that and an unknown option.
+   * Returns the value of the specified native option for this configuration or null if the option
+   * isn't recognized. Since an option's legitimate value could be null, use {@link #getOptionClass}
+   * to distinguish between that and an unknown option.
    *
    * <p>optionName is the name of the option as it appears on the command line e.g. {@link
    * OptionDefinition#getOptionName()}).
    */
   @Nullable
   public Object getOptionValue(String optionName) {
-    OptionDetails optionDetails = transitiveOptionsMap.get(optionName);
+    OptionDetails optionDetails = transitiveNativeOptionsMap.get(optionName);
     return (optionDetails == null) ? null : optionDetails.value;
+  }
+
+  /** Returns the value of the specified Starlark option or null if it isn't recognized */
+  @Nullable
+  public Object getOptionValue(Label optionName) {
+    return starlarkOptionsMap.get(optionName);
   }
 
   /**
@@ -159,7 +184,7 @@ public final class TransitiveOptionDetails implements Serializable {
    * to be of type {@code List<T>}.
    */
   public boolean allowsMultipleValues(String optionName) {
-    OptionDetails optionDetails = transitiveOptionsMap.get(optionName);
+    OptionDetails optionDetails = transitiveNativeOptionsMap.get(optionName);
     return optionDetails != null && optionDetails.allowsMultiple;
   }
 
@@ -170,7 +195,7 @@ public final class TransitiveOptionDetails implements Serializable {
    */
   @Nullable
   public SelectRestriction getSelectRestriction(String optionName) {
-    OptionDetails optionDetails = transitiveOptionsMap.get(optionName);
+    OptionDetails optionDetails = transitiveNativeOptionsMap.get(optionName);
     return optionDetails == null ? null : optionDetails.selectRestriction;
   }
 }

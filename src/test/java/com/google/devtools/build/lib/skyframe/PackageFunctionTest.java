@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.fail;
 
@@ -199,6 +200,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testPropagatesFilesystemInconsistencies_Globbing() throws Exception {
+    getSkyframeExecutor().turnOffSyscallCacheForTesting();
     reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
     Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
@@ -427,7 +429,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/irrelevant")).build(),
             Root.fromPath(rootDirectory));
-    assertThat(validPackage(skyKey)).isSameAs(value);
+    assertThat(validPackage(skyKey)).isSameInstanceAs(value);
   }
 
   @Test
@@ -445,7 +447,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/irrelevant")).build(),
             Root.fromPath(rootDirectory));
-    assertThat(validPackage(skyKey)).isSameAs(value);
+    assertThat(validPackage(skyKey)).isSameInstanceAs(value);
   }
 
   @Test
@@ -624,11 +626,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     PackageValue value = validPackage(skyKey);
     assertThat(value.getPackage().containsErrors()).isFalse();
     assertThat(value.getPackage().getTarget("existing.txt").getName()).isEqualTo("existing.txt");
-    try {
-      value.getPackage().getTarget("dangling.txt");
-      fail();
-    } catch (NoSuchTargetException expected) {
-    }
+    assertThrows(NoSuchTargetException.class, () -> value.getPackage().getTarget("dangling.txt"));
 
     scratch.overwriteFile(
         "foo/BUILD", "exports_files(glob(['*.txt']))", "#some-irrelevant-comment");
@@ -639,17 +637,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
             ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
             Root.fromPath(rootDirectory));
 
-    value = validPackage(skyKey);
-    assertThat(value.getPackage().containsErrors()).isFalse();
-    assertThat(value.getPackage().getTarget("existing.txt").getName()).isEqualTo("existing.txt");
-    try {
-      value.getPackage().getTarget("dangling.txt");
-      fail();
-    } catch (NoSuchTargetException expected) {
-      // One consequence of the bug was that dangling symlinks were matched by globs evaluated by
-      // Skyframe globbing, meaning there would incorrectly be corresponding targets in packages
-      // that had skyframe cache hits during skyframe hybrid globbing.
-    }
+    PackageValue value2 = validPackage(skyKey);
+    assertThat(value2.getPackage().containsErrors()).isFalse();
+    assertThat(value2.getPackage().getTarget("existing.txt").getName()).isEqualTo("existing.txt");
+    assertThrows(NoSuchTargetException.class, () -> value2.getPackage().getTarget("dangling.txt"));
+    // One consequence of the bug was that dangling symlinks were matched by globs evaluated by
+    // Skyframe globbing, meaning there would incorrectly be corresponding targets in packages
+    // that had skyframe cache hits during skyframe hybrid globbing.
 
     scratch.file("foo/nope");
     getSkyframeExecutor()
@@ -664,7 +658,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     // Another consequence of the bug is that change pruning would incorrectly cut off changes that
     // caused a dangling symlink potentially matched by a glob to come into existence.
     assertThat(newValue.getPackage().getTarget("dangling.txt").getName()).isEqualTo("dangling.txt");
-    assertThat(newValue.getPackage()).isNotSameAs(value.getPackage());
+    assertThat(newValue.getPackage()).isNotSameInstanceAs(value.getPackage());
   }
 
   // Regression test for Skyframe globbing incorrectly matching the package's directory path on
@@ -683,11 +677,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     PackageValue value = validPackage(skyKey);
     assertThat(value.getPackage().containsErrors()).isFalse();
     assertThat(value.getPackage().getTarget("bar-matched").getName()).isEqualTo("bar-matched");
-    try {
-      value.getPackage().getTarget("-matched");
-      fail();
-    } catch (NoSuchTargetException expected) {
-    }
+    assertThrows(NoSuchTargetException.class, () -> value.getPackage().getTarget("-matched"));
 
     scratch.overwriteFile(
         "foo/BUILD",
@@ -699,14 +689,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
             ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
             Root.fromPath(rootDirectory));
 
-    value = validPackage(skyKey);
-    assertThat(value.getPackage().containsErrors()).isFalse();
-    assertThat(value.getPackage().getTarget("bar-matched").getName()).isEqualTo("bar-matched");
-    try {
-      value.getPackage().getTarget("-matched");
-      fail();
-    } catch (NoSuchTargetException expected) {
-    }
+    PackageValue value2 = validPackage(skyKey);
+    assertThat(value2.getPackage().containsErrors()).isFalse();
+    assertThat(value2.getPackage().getTarget("bar-matched").getName()).isEqualTo("bar-matched");
+    assertThrows(NoSuchTargetException.class, () -> value2.getPackage().getTarget("-matched"));
   }
 
   @Test

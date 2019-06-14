@@ -874,7 +874,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
           "    'dep' : attr.label_list(),",
           "    'dep_runtime' : attr.label_list(),",
           "    'dep_exports' : attr.label_list(),",
-          "    'output_jar' : attr.output(default=None, mandatory=True),",
+          "    'output_jar' : attr.output(mandatory=True),",
           "    'source_jars' : attr.label_list(allow_files=['.jar']),",
           "    'sources' : attr.label_list(allow_files=['.java']),",
           "    'jdeps' : attr.label(allow_single_file=True),",

@@ -30,11 +30,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -211,22 +213,19 @@ public final class AndroidRuleClasses {
   /** Android Split configuration transition for properly handling native dependencies */
   public static final class AndroidSplitTransition
       implements SplitTransition, AndroidSplitTransititionApi {
-    private static void setCrosstoolToAndroid(BuildOptions output, BuildOptions input) {
-      AndroidConfiguration.Options inputAndroidOptions =
-          input.get(AndroidConfiguration.Options.class);
-      AndroidConfiguration.Options outputAndroidOptions =
-          output.get(AndroidConfiguration.Options.class);
+    private static void setCrosstoolToAndroid(BuildOptions options) {
+      AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
 
-      CppOptions cppOptions = output.get(CppOptions.class);
-      if (inputAndroidOptions.androidCrosstoolTop != null
-          && !cppOptions.crosstoolTop.equals(inputAndroidOptions.androidCrosstoolTop)) {
+      CppOptions cppOptions = options.get(CppOptions.class);
+      if (androidOptions.androidCrosstoolTop != null
+          && !cppOptions.crosstoolTop.equals(androidOptions.androidCrosstoolTop)) {
         if (cppOptions.hostCrosstoolTop == null) {
           cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
         }
-        cppOptions.crosstoolTop = inputAndroidOptions.androidCrosstoolTop;
+        cppOptions.crosstoolTop = androidOptions.androidCrosstoolTop;
       }
 
-      outputAndroidOptions.configurationDistinguisher = ConfigurationDistinguisher.ANDROID;
+      androidOptions.configurationDistinguisher = ConfigurationDistinguisher.ANDROID;
     }
 
     @Override
@@ -247,11 +246,8 @@ public final class AndroidRuleClasses {
         } else {
 
           BuildOptions splitOptions = buildOptions.clone();
-          splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
-          splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
-          splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
-          splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
-          setCrosstoolToAndroid(splitOptions, buildOptions);
+          splitOptions.get(CoreOptions.class).cpu = androidOptions.cpu;
+          setCommonAndroidOptions(androidOptions, splitOptions);
           return ImmutableList.of(splitOptions);
         }
 
@@ -266,15 +262,23 @@ public final class AndroidRuleClasses {
           // Set the cpu & android_cpu.
           // TODO(bazel-team): --android_cpu doesn't follow --cpu right now; it should.
           splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
-          splitOptions.get(BuildConfiguration.Options.class).cpu = cpu;
-          splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
-          splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
-          splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
-          setCrosstoolToAndroid(splitOptions, buildOptions);
+          splitOptions.get(CoreOptions.class).cpu = cpu;
+          setCommonAndroidOptions(androidOptions, splitOptions);
           result.add(splitOptions);
         }
         return result.build();
       }
+    }
+
+    private void setCommonAndroidOptions(
+        AndroidConfiguration.Options androidOptions, BuildOptions newOptions) {
+      newOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+      newOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
+      newOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
+      setCrosstoolToAndroid(newOptions);
+
+      // Ensure platforms aren't set so that platform mapping can take place.
+      newOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
     }
 
     @Override
@@ -440,11 +444,11 @@ public final class AndroidRuleClasses {
           // processed XML expressions into Java code.
           .add(
               attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .value(env.getToolsLabel("//tools/android:databinding_annotation_processor")))
           .add(
               attr(DataBinding.DATABINDING_EXEC_PROCESSOR_ATTR, LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:databinding_exec")))
           .advertiseSkylarkProvider(
@@ -483,12 +487,12 @@ public final class AndroidRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("plugins", LABEL_LIST)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .allowedRuleClasses("java_plugin")
                   .legacyAllowAnyFileType())
           .add(
               attr(":java_plugins", LABEL_LIST)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .allowedRuleClasses("java_plugin")
                   .silentRuleClassFilter()
                   .value(JavaSemantics.JAVA_PLUGINS))
@@ -502,16 +506,16 @@ public final class AndroidRuleClasses {
           .add(attr("javacopts", STRING_LIST))
           .add(
               attr("$idlclass", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:IdlClass")))
           .add(
               attr("$desugar_java8_extra_bootclasspath", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .value(env.getToolsLabel("//tools/android:desugar_java8_extra_bootclasspath")))
           .add(
               attr("$android_resources_busybox", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel(DEFAULT_RESOURCES_BUSYBOX)))
           .build();
@@ -573,7 +577,7 @@ public final class AndroidRuleClasses {
           .override(
               builder
                   .copy("deps")
-                  .cfg(ANDROID_SPLIT_TRANSITION)
+                  .cfg(TransitionFactories.of(ANDROID_SPLIT_TRANSITION))
                   .allowedRuleClasses(ALLOWED_DEPENDENCIES)
                   .allowedFileTypes()
                   .mandatoryProviders(JavaRuleClasses.CONTAINS_JAVA_PROVIDER)
@@ -590,7 +594,7 @@ public final class AndroidRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("debug_key", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .legacyAllowAnyFileType()
                   .value(env.getToolsLabel("//tools/android:debug_keystore")))
           .add(
@@ -652,57 +656,57 @@ public final class AndroidRuleClasses {
           .add(attr(ResourceFilterFactory.DENSITIES_NAME, STRING_LIST))
           .add(
               attr("$build_incremental_dexmanifest", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel(BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
           .add(
               attr("$stubify_manifest", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel(STUBIFY_MANIFEST_LABEL)))
           .add(
               attr("$shuffle_jars", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:shuffle_jars")))
           .add(
               attr("$dexbuilder", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexbuilder")))
           .add(
               attr("$dexbuilder_after_proguard", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexbuilder_after_proguard")))
           .add(
               attr("$dexsharder", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexsharder")))
           .add(
               attr("$dexmerger", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexmerger")))
           .add(
               attr("$merge_dexzips", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:merge_dexzips")))
           .add(
               attr("$incremental_install", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel(INCREMENTAL_INSTALL_LABEL)))
           .add(
               attr("$build_split_manifest", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel(BUILD_SPLIT_MANIFEST_LABEL)))
           .add(
               attr("$strip_resources", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel(STRIP_RESOURCES_LABEL)))
           .add(
@@ -715,7 +719,7 @@ public final class AndroidRuleClasses {
                   .aspect(dexArchiveAspect, DexArchiveAspect.ONLY_DESUGAR_JAVA8))
           .add(
               attr("$desugar", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:desugar_java8")))
           .add(
@@ -723,7 +727,7 @@ public final class AndroidRuleClasses {
                   .value(env.getToolsLabel("//tools/android:java8_legacy_dex")))
           .add(
               attr("$build_java8_legacy_dex", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:build_java8_legacy_dex")))
           .add(
@@ -831,17 +835,17 @@ public final class AndroidRuleClasses {
           .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
           .add(
               attr("$dex_list_obfuscator", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dex_list_obfuscator")))
           .add(
               attr(":bytecode_optimizers", LABEL_LIST)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .value(JavaSemantics.BYTECODE_OPTIMIZERS))
           // We need the C++ toolchain for every sub-configuration to get the correct linker.
           .add(
               attr("$cc_toolchain_split", LABEL)
-                  .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
+                  .cfg(TransitionFactories.of(ANDROID_SPLIT_TRANSITION))
                   .value(env.getToolsLabel("//tools/cpp:current_cc_toolchain")))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(manifest_values) -->
           A dictionary of values to be overridden in the manifest. Any instance of ${name} in the
@@ -882,7 +886,7 @@ public final class AndroidRuleClasses {
           // deploy jar so that they can be added to the APK.
           .add(
               attr("$resource_extractor", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:resource_extractor")))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(instruments) -->
@@ -898,7 +902,7 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes(NO_FILE))
           .add(
               attr("$instrumentation_test_check", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .value(
                       new Attribute.ComputedDefault() {
                         @Override
@@ -911,7 +915,7 @@ public final class AndroidRuleClasses {
                   .exec())
           .add(
               attr("$zip_filter", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:zip_filter")))
           .removeAttribute("data")
@@ -979,7 +983,12 @@ public final class AndroidRuleClasses {
 
     private final Label[] compatibleWithAndroidEnvironments;
 
-    public AndroidToolsDefaultsJarRule(Label... compatibleWithAndroidEnvironments) {
+    private final Class<? extends AndroidToolsDefaultsJar> factoryClass;
+
+    public AndroidToolsDefaultsJarRule(
+        Class<? extends AndroidToolsDefaultsJar> factoryClass,
+        Label... compatibleWithAndroidEnvironments) {
+      this.factoryClass = factoryClass;
       this.compatibleWithAndroidEnvironments = compatibleWithAndroidEnvironments;
     }
 
@@ -1002,7 +1011,7 @@ public final class AndroidRuleClasses {
       return Metadata.builder()
           .name("android_tools_defaults_jar")
           .ancestors(BaseRuleClasses.BaseRule.class)
-          .factoryClass(AndroidToolsDefaultsJar.class)
+          .factoryClass(factoryClass)
           .build();
     }
   }

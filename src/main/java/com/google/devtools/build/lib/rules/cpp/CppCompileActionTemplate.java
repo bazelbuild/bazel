@@ -20,24 +20,27 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionKeyCacher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time.
- */
-public final class CppCompileActionTemplate implements ActionTemplate<CppCompileAction> {
+/** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
+public final class CppCompileActionTemplate extends ActionKeyCacher
+    implements ActionTemplate<CppCompileAction> {
   private final CppCompileActionBuilder cppCompileActionBuilder;
   private final Artifact sourceTreeArtifact;
   private final Artifact outputTreeArtifact;
@@ -138,6 +141,34 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     return expandedActions.build();
   }
 
+  @Override
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+      throws CommandLineExpansionException {
+    CompileCommandLine commandLine =
+        CppCompileAction.buildCommandLine(
+            sourceTreeArtifact,
+            cppCompileActionBuilder.getCoptsFilter(),
+            CppActionNames.CPP_COMPILE,
+            dotdTreeArtifact,
+            cppCompileActionBuilder.getFeatureConfiguration(),
+            cppCompileActionBuilder.getVariables());
+    CppCompileAction.computeKey(
+        actionKeyContext,
+        fp,
+        cppCompileActionBuilder.getActionClassId(),
+        cppCompileActionBuilder.getActionEnvironment(),
+        commandLine.getEnvironment(),
+        cppCompileActionBuilder.getExecutionInfo(),
+        CppCompileAction.computeCommandLineKey(
+            commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
+        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
+        cppCompileActionBuilder.buildMandatoryInputs(),
+        cppCompileActionBuilder.buildPrunableHeaders(),
+        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
+        cppCompileActionBuilder.getBuiltinIncludeDirectories(),
+        cppCompileActionBuilder.buildInputsForInvalidation());
+  }
+
   private boolean shouldCompileHeaders() {
     return cppCompileActionBuilder.shouldCompileHeaders();
   }
@@ -154,7 +185,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     builder.setOutputs(outputTreeFileArtifact, dotdFileArtifact);
 
     CcToolchainVariables.Builder buildVariables =
-        new CcToolchainVariables.Builder(cppCompileActionBuilder.getVariables());
+        CcToolchainVariables.builder(cppCompileActionBuilder.getVariables());
     buildVariables.overrideStringVariable(
         CompileBuildVariables.SOURCE_FILE.getVariableName(),
         sourceTreeFileArtifact.getExecPathString());
@@ -266,6 +297,13 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   @Override
   public Artifact getPrimaryOutput() {
     return outputTreeArtifact;
+  }
+
+  @Override
+  public boolean hasLooseHeaders() {
+    return CppCompileAction.hasLooseHeaders(
+        cppCompileActionBuilder.getCcCompilationContext(),
+        cppCompileActionBuilder.getFeatureConfiguration());
   }
 
   @Override

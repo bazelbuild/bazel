@@ -44,6 +44,6 @@ public class NoopJunctionCreatorTest {
 
     Path p = tmproot.resolve("foo");
     // Cast Path to Object to disambiguate which assertThat-overload to use.
-    assertThat((Object) jc.create(p)).isSameAs(p);
+    assertThat((Object) jc.create(p)).isSameInstanceAs(p);
   }
 }

@@ -20,22 +20,22 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -112,12 +112,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     Package pkg =
         createScratchPackageForImplicitCycle(
             "cycle", "java_library(name='jcyc',", "      srcs = ['libjcyc.jar', 'foo.java'])");
-    try {
-      pkg.getTarget("jcyc");
-      fail();
-    } catch (NoSuchTargetException e) {
-      /* ok */
-    }
+    assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("jcyc"));
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("rule 'jcyc' has file 'libjcyc.jar' as both an" + " input and an output");
   }
@@ -214,9 +209,10 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "plain(name = 'c')",
         "plain(name = 'aspectdep', aspect_deps = ['a'])");
 
-    scratch.file("x/x.bzl",
+    scratch.file(
+        "x/x.bzl",
         "def _impl(ctx):",
-        "    return struct()",
+        "    return []",
         "",
         "rule_aspect = aspect(",
         "    implementation = _impl,",
@@ -270,23 +266,24 @@ public class CircularDependencyTest extends BuildViewTestCase {
                   .mandatory()
                   .allowedFileTypes()
                   .cfg(
-                      new SplitTransitionProvider() {
+                      new TransitionFactory<AttributeTransitionData>() {
                         @Override
-                        public void repr(SkylarkPrinter printer) {}
-
-                        @Override
-                        public SplitTransition apply(AttributeMap map) {
+                        public SplitTransition create(AttributeTransitionData data) {
                           return (BuildOptions options) -> {
-                            String define = map.get("define", STRING);
+                            String define = data.attributes().get("define", STRING);
                             BuildOptions newOptions = options.clone();
-                            BuildConfiguration.Options optionsFragment =
-                                newOptions.get(BuildConfiguration.Options.class);
+                            CoreOptions optionsFragment = newOptions.get(CoreOptions.class);
                             optionsFragment.commandLineBuildVariables =
                                 optionsFragment.commandLineBuildVariables.stream()
                                     .filter((pair) -> !pair.getKey().equals(define))
                                     .collect(toImmutableList());
                             return ImmutableList.of(newOptions);
                           };
+                        }
+
+                        @Override
+                        public boolean isSplit() {
+                          return true;
                         }
                       }));
 

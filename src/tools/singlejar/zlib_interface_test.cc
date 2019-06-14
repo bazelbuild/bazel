@@ -34,7 +34,7 @@ TEST(ZlibInterfaceTest, DeflateIntoChunks) {
   deflater.next_out = compressed;
   deflater.avail_out = 2;
   EXPECT_EQ(Z_OK, deflater.Deflate(bytes, sizeof(bytes), Z_FINISH));
-  EXPECT_EQ(0, deflater.avail_out);
+  EXPECT_EQ(0UL, deflater.avail_out);
   deflater.next_out = compressed + 2;
   deflater.avail_out = sizeof(compressed) - 2;
   EXPECT_EQ(Z_STREAM_END,

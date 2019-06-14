@@ -14,10 +14,11 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 
@@ -53,7 +54,7 @@ public class PyRuleClasses {
    * PyCommon#validateTargetPythonVersionAttr}) to report an attribute error to the user. This case
    * should be prevented by attribute validation if the rule class is defined correctly.
    */
-  public static RuleTransitionFactory makeVersionTransition(
+  public static TransitionFactory<Rule> makeVersionTransition(
       PythonVersionTransition defaultTransition) {
     return (rule) -> {
       AttributeMap attrs = RawAttributeMapper.of(rule);
@@ -87,6 +88,6 @@ public class PyRuleClasses {
    * A Python version transition that sets the version as specified by the target's attributes, with
    * a default determined by {@link PythonOptions#getDefaultPythonVersion}.
    */
-  public static final RuleTransitionFactory VERSION_TRANSITION =
+  public static final TransitionFactory<Rule> VERSION_TRANSITION =
       makeVersionTransition(PythonVersionTransition.toDefault());
 }

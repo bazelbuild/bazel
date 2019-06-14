@@ -59,7 +59,7 @@ public class FsApparatus {
     Path wd = fs.getPath(TMP_DIR);
 
     try {
-      FileSystemUtils.deleteTree(wd);
+      wd.deleteTree();
     } catch (IOException e) {
       throw new AssertionError(e.getMessage());
     }

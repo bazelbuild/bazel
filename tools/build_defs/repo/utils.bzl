@@ -31,9 +31,11 @@ load(
 def workspace_and_buildfile(ctx):
     """Utility function for writing WORKSPACE and, if requested, a BUILD file.
 
-    It assumes the parameters name, build_file, build_file_contents,
-    workspace_file, and workspace_file_content to be
-    present in ctx.attr, the latter four possibly with value None.
+    This rule is inteded to be used in the implementation function of a
+    repository rule.
+    It assumes the parameters `name`, `build_file`, `build_file_contents`,
+    `workspace_file`, and `workspace_file_content` to be
+    present in `ctx.attr`, the latter four possibly with value None.
 
     Args:
       ctx: The repository context of the repository rule calling this utility
@@ -66,7 +68,16 @@ def workspace_and_buildfile(ctx):
         ctx.file("BUILD.bazel", ctx.attr.build_file_content)
 
 def patch(ctx):
-    """Implementation of patching an already extracted repository"""
+    """Implementation of patching an already extracted repository.
+
+    This rule is inteded to be used in the implementation function of a
+    repository rule. It assuumes that the parameters `patches`, `patchtool`,
+    `patch_args`, and `patch_cmds` are present in `ctx.attr`.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility
+        function.
+    """
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     if len(ctx.attr.patches) > 0 or len(ctx.attr.patch_cmds) > 0:
         ctx.report_progress("Patching repository")

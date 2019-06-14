@@ -18,6 +18,7 @@ filegroup(
 package_group(
     name = "buildjar_package_group",
     packages = [
+        "//src/...",
         "//src/java_tools/buildjar/...",
         "//src/tools/android/...",
     ],

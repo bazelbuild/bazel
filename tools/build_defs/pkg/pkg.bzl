@@ -50,7 +50,7 @@ def _pkg_tar_impl(ctx):
     if ctx.attr.mtime != -1:  # Note: Must match default in rule def.
         if ctx.attr.portable_mtime:
             fail("You may not set both mtime and portable_mtime")
-        args.append("--mtime=" + ctx.attr.mtime)
+        args.append("--mtime=%d" % ctx.attr.mtime)
     if ctx.attr.portable_mtime:
         args.append("--mtime=portable")
 
@@ -184,6 +184,14 @@ def _pkg_deb_impl(ctx):
     elif ctx.attr.built_using:
         args += ["--built_using=" + ctx.attr.built_using]
 
+    if ctx.attr.depends_file:
+        if ctx.file.depends:
+            fail("Both depends and depends_file attributes were specified")
+        args += ["--depends=@" + ctx.attr.depends_file.path]
+        files += [ctx.file.depends_file]
+    elif ctx.attr.depends:
+        args += ["--depends=" + d for d in ctx.attr.depends]
+
     if ctx.attr.priority:
         args += ["--priority=" + ctx.attr.priority]
     if ctx.attr.section:
@@ -193,7 +201,6 @@ def _pkg_deb_impl(ctx):
 
     args += ["--distribution=" + ctx.attr.distribution]
     args += ["--urgency=" + ctx.attr.urgency]
-    args += ["--depends=" + d for d in ctx.attr.depends]
     args += ["--suggests=" + d for d in ctx.attr.suggests]
     args += ["--enhances=" + d for d in ctx.attr.enhances]
     args += ["--conflicts=" + d for d in ctx.attr.conflicts]
@@ -288,6 +295,7 @@ pkg_deb = rule(
         "section": attr.string(),
         "homepage": attr.string(),
         "depends": attr.string_list(default = []),
+        "depends_file": attr.label(allow_single_file = True),
         "suggests": attr.string_list(default = []),
         "enhances": attr.string_list(default = []),
         "conflicts": attr.string_list(default = []),

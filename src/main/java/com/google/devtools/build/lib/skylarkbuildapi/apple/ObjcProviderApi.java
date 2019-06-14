@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
@@ -34,22 +35,6 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 )
 public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue {
 
-  @SkylarkCallable(
-      name = "asset_catalog",
-      structField = true,
-      doc =
-          "Asset catalog resource files.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> assetCatalog();
-
-  @SkylarkCallable(
-      name = "bundle_file",
-      structField = true,
-      doc =
-          "Files that are plopped into the final bundle at some arbitrary bundle path.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public SkylarkNestedSet bundleFile();
-
   @SkylarkCallable(name = "define",
       structField = true,
       doc = "A set of strings from 'defines' attributes. These are to be passed as '-D' flags to "
@@ -57,16 +42,19 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public NestedSet<String> define();
 
-  @SkylarkCallable(name = "dynamic_framework_dir",
+  @SkylarkCallable(
+      name = "dynamic_framework_dir",
       structField = true,
-      doc = "Exec paths of .framework directories corresponding to dynamic frameworks to link."
-  )
+      doc = "Exec paths of .framework directories corresponding to dynamic frameworks to link.",
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
   public SkylarkNestedSet dynamicFrameworkDir();
 
-  @SkylarkCallable(name = "dynamic_framework_file",
+  @SkylarkCallable(
+      name = "dynamic_framework_file",
       structField = true,
-      doc = "Files in .framework directories belonging to a dynamically linked framework."
-  )
+      doc =
+          "The library files in .framework directories belonging to a dynamically linked "
+              + "framework.")
   public NestedSet<FileApiT> dynamicFrameworkFile();
 
   @SkylarkCallable(name = "exported_debug_artifacts",
@@ -93,6 +81,14 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       doc = "All header files. These may be either public or private headers."
   )
   public NestedSet<FileApiT> header();
+
+  @SkylarkCallable(
+      name = "direct_headers",
+      structField = true,
+      doc =
+          "Header files from this target directly (no transitive headers). "
+              + "These may be either public or private headers.")
+  public SkylarkList<FileApiT> directHeaders();
 
   @SkylarkCallable(name = "imported_library",
       structField = true,
@@ -169,10 +165,9 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "merge_zip",
       structField = true,
       doc =
-           "Merge zips to include in the bundle. The entries of these zip files are included "
+          "Merge zips to include in the bundle. The entries of these zip files are included "
               + "in the final bundle with the same path. The entries in the merge zips should not "
-              + "include the bundle root path (e.g. 'Foo.app').",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
+              + "include the bundle root path (e.g. 'Foo.app').")
   public NestedSet<FileApiT> mergeZip();
 
   @SkylarkCallable(name = "module_map",
@@ -180,6 +175,14 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       doc = "Clang module maps, used to enforce proper use of private header files."
   )
   public NestedSet<FileApiT> moduleMap();
+
+  @SkylarkCallable(
+      name = "direct_module_maps",
+      structField = true,
+      doc =
+          "Module map files from this target directly (no transitive module maps). "
+              + "Used to enforce proper use of private header files and for Swift compilation.")
+  public SkylarkList<FileApiT> directModuleMaps();
 
   @SkylarkCallable(name = "multi_arch_dynamic_libraries",
       structField = true,
@@ -199,14 +202,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public NestedSet<FileApiT> multiArchLinkedBinaries();
 
-  @SkylarkCallable(
-      name = "root_merge_zip",
-      structField = true,
-      doc =
-          "Merge zips to include in the ipa and outside the bundle root.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> rootMergeZip();
-
   @SkylarkCallable(name = "sdk_dylib",
       structField = true,
       doc = "Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'."
@@ -225,28 +220,17 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public NestedSet<FileApiT> source();
 
-  @SkylarkCallable(name = "static_framework_file",
+  @SkylarkCallable(
+      name = "direct_sources",
       structField = true,
-      doc = "Files in .framework directories that should be statically included as inputs "
-          + "when compiling and linking."
-  )
+      doc = "All direct source files from this target (no transitive files).")
+  public SkylarkList<FileApiT> directSources();
+
+  @SkylarkCallable(
+      name = "static_framework_file",
+      structField = true,
+      doc = "The library files in .framework directories that should be statically linked.")
   public NestedSet<FileApiT> staticFrameworkFile();
-
-  @SkylarkCallable(
-      name = "storyboard",
-      structField = true,
-      doc =
-          "Files for storyboard sources.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> storyboard();
-
-  @SkylarkCallable(
-      name = "strings",
-      structField = true,
-      doc =
-          "Files for strings source files.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> strings();
 
   @SkylarkCallable(name = "umbrella_header",
       structField = true,
@@ -265,35 +249,39 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   public SkylarkNestedSet weakSdkFramework();
 
   @SkylarkCallable(
-      name = "xcassets_dir",
-      structField = true,
-      doc =
-          "The set of all unique asset catalog directories (*.xcassets) containing files "
-              + "in 'asset_catalogs'.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public SkylarkNestedSet xcassetsDir();
-
-  @SkylarkCallable(
-      name = "xcdatamodel",
-      structField = true,
-      doc =
-          "Files that comprise the data models of the final linked binary.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> xcdatamodel();
-
-  @SkylarkCallable(
-      name = "xib",
-      structField = true,
-      doc =
-          ".xib resource files",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
-  public NestedSet<FileApiT> xib();
-
-  @SkylarkCallable(
       name = "framework_dir",
       structField = true,
-      doc = "Returns all unique static framework directories (directories ending in '.framework') "
-          + "for all static framework files in this provider."
-  )
+      doc =
+          "Returns all unique static framework directories (directories ending in '.framework') "
+              + "for all static framework files in this provider.",
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
   public SkylarkNestedSet getStaticFrameworkDirsForSkylark();
+
+  @SkylarkCallable(
+      name = "dynamic_framework_names",
+      structField = true,
+      doc = "Returns all names of dynamic frameworks in this provider.",
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+  public NestedSet<String> dynamicFrameworkNames();
+
+  @SkylarkCallable(
+      name = "dynamic_framework_paths",
+      structField = true,
+      doc = "Returns all framework paths to dynamic frameworks in this provider.",
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+  public NestedSet<String> dynamicFrameworkPaths();
+
+  @SkylarkCallable(
+      name = "static_framework_names",
+      structField = true,
+      doc = "Returns all names of static frameworks in this provider.",
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+  public NestedSet<String> staticFrameworkNames();
+
+  @SkylarkCallable(
+      name = "static_framework_paths",
+      structField = true,
+      doc = "Returns all framework paths to static frameworks in this provider.",
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+  public NestedSet<String> staticFrameworkPaths();
 }

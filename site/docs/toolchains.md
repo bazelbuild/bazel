@@ -230,7 +230,7 @@ bar_toolchain = rule(
     attrs = {
         "compiler_path": attr.string(),
         "system_lib": attr.string(),
-        "arch_flags": attr.string(),
+        "arch_flags": attr.string_list(),
     },
 )
 ```

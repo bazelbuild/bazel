@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -70,9 +71,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   private final Label objcHeaderScannerTool;
   private final Label appleSdk;
   private final boolean strictObjcModuleMaps;
-  private final boolean disableObjcLibraryResources;
 
-  ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options) {
+  ObjcConfiguration(ObjcCommandLineOptions objcOptions, CoreOptions options) {
     this.iosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
     this.iosSimulatorVersion =
@@ -112,7 +112,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
     this.appleSdk = objcOptions.appleSdk;
     this.strictObjcModuleMaps = objcOptions.strictObjcModuleMaps;
-    this.disableObjcLibraryResources = objcOptions.disableObjcLibraryResources;
   }
 
   /**
@@ -298,10 +297,5 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   /** Returns true if Objective-C module maps should only be propagated to direct dependencies. */
   public boolean useStrictObjcModuleMaps() {
     return strictObjcModuleMaps;
-  }
-
-  /** Returns true if Objective-C library resource attributes are disallowed. */
-  public boolean disableObjcLibraryResources() {
-    return disableObjcLibraryResources;
   }
 }

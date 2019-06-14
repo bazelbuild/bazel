@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License.LicenseType;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -1225,23 +1227,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void forbidsNonConfigFeatureFlagRulesForFlagValues() throws Exception {
-    checkError("test", "invalid_flag",
-        "in flag_values attribute of config_setting rule //test:invalid_flag: "
-        + "'//test:genrule' does not have mandatory providers: 'FeatureFlagInfo'",
-        "config_setting(",
-        "    name = 'invalid_flag',",
-        "    flag_values = {",
-        "        ':genrule': 'lolz',",
-        "    })",
-        "genrule(",
-        "    name = 'genrule',",
-        "    outs = ['output'],",
-        "    cmd = 'echo >$@',",
-        "    )");
-  }
-
-  @Test
   public void requiresValidValueForFlagValues() throws Exception {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     checkError(
@@ -1288,6 +1273,215 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'valid'],",
         "    default_value = 'valid',",
         ")");
+  }
+
+  @Test
+  public void buildsettings_matchesFromDefault() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'parmesan',",
+        "    },",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void buildsettings_matchesFromCommandLine() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'gouda',",
+        "    },",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void buildsettings_doesntMatch() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'parmesan',",
+        "    },",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void buildsettings_badType() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "int_flag = rule(implementation = _impl, build_setting = config.int(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'int_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':wishes': 'gouda',",
+        "    },",
+        ")",
+        "int_flag(name = 'wishes', build_setting_default = 3)");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:match");
+    assertContainsEvent("'gouda' cannot be converted to //test:wishes type int");
+  }
+
+  @Test
+  public void notBuildSettingOrFeatureFlag() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+
+    scratch.file(
+        "test/rules.bzl",
+        "def _impl(ctx):",
+        "  return DefaultInfo()",
+        "default_info_rule = rule(implementation = _impl)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'default_info_rule')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'gouda',",
+        "    },",
+        ")",
+        "default_info_rule(name = 'cheese')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:match");
+    assertContainsEvent(
+        "flag_values keys must be build settings or feature flags and //test:cheese is not");
+  }
+
+  @Test
+  public void buildsettingsMatch_featureFlagsMatch() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'parmesan',",
+        "        ':flag': 'right',",
+        "    },",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void buildsettingsMatch_featureFlagsDontMatch() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'parmesan',",
+        "        ':flag': 'wrong',",
+        "    },",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void buildsettingsDontMatch_featureFlagsMatch() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'gouda',",
+        "        ':flag': 'right',",
+        "    },",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
   }
 
   @Test
@@ -1429,8 +1623,33 @@ public class ConfigSettingTest extends BuildViewTestCase {
         ");");
   }
 
+  @Test
+  public void notAConstraintValue() throws Exception {
+    checkError(
+        "test",
+        "match",
+        "//test:what_am_i is not a constraint_value",
+        "genrule(",
+        "    name = 'what_am_i',",
+        "    srcs = [],",
+        "    outs = ['the_answer'],",
+        "    cmd = 'echo an eternal enigma > $@')",
+        "config_setting(",
+        "    name = 'match',",
+        "    constraint_values = [':what_am_i'],",
+        ")");
+  }
+
   private Set<LicenseType> getLicenses(String label) throws Exception {
-    return getTarget(label).getLicense().getLicenseTypes();
+    Rule rule = (Rule) getTarget(label);
+    // There are two interfaces for retrieving a rule's license: from the Rule object and by
+    // directly reading the "licenses" attribute. For config_setting both of these should always
+    // be NONE. This method checks consistency between them.
+    Set<LicenseType> fromRule = rule.getLicense().getLicenseTypes();
+    Set<LicenseType> fromAttribute =
+        RawAttributeMapper.of(rule).get("licenses", BuildType.LICENSE).getLicenseTypes();
+    assertThat(fromRule).containsExactlyElementsIn(fromAttribute);
+    return fromRule;
   }
 
   /** Tests that default license behavior is unaffected. */
@@ -1479,7 +1698,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
   }
 
-  /** Tests that rule-specific licenses are still used by config_setting. */
+  /** Tests that rule-specific licenses are ignored by config_setting. */
   @Test
   public void ruleLicensesUsed() throws Exception {
     scratch.file(
@@ -1492,6 +1711,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    })");
 
     useConfiguration("--copt", "-Dfoo");
-    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.RESTRICTED);
+    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
   }
 }

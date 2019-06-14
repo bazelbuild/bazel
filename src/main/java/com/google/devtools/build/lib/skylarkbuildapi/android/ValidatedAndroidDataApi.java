@@ -30,7 +30,21 @@ import javax.annotation.Nullable;
             + "Validated Android data which can be merged together with assets from dependencies.",
     documented = false,
     category = SkylarkModuleCategory.PROVIDER)
-public interface ValidatedAndroidDataApi<FileT extends FileApi> {
+public interface ValidatedAndroidDataApi<
+    FileT extends FileApi,
+    AndroidResourcesInfoT extends
+        AndroidResourcesInfoApi<
+                FileT,
+                ? extends ValidatedAndroidDataApi<FileT, AndroidResourcesInfoT>,
+                ? extends AndroidManifestInfoApi<FileT>>> {
+
+  @SkylarkCallable(
+      name = "to_provider",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  AndroidResourcesInfoT toProvider();
 
   @SkylarkCallable(
       name = "r_txt",
@@ -39,6 +53,14 @@ public interface ValidatedAndroidDataApi<FileT extends FileApi> {
       documented = false,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getRTxt();
+
+  @SkylarkCallable(
+      name = "java_class_jar",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  FileT getJavaClassJar();
 
   @SkylarkCallable(
       name = "java_source_jar",

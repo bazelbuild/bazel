@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -67,7 +67,7 @@ public class JavaHeaderCompileActionBuilder {
   @Nullable private Label targetLabel;
   @Nullable private String injectingRuleKind;
   private PathFragment tempDirectory;
-  private BuildConfiguration.StrictDepsMode strictJavaDeps = BuildConfiguration.StrictDepsMode.OFF;
+  private StrictDepsMode strictJavaDeps = StrictDepsMode.OFF;
   private boolean reduceClasspath = true;
   private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private NestedSet<Artifact> compileTimeDependencyArtifacts =
@@ -76,7 +76,6 @@ public class JavaHeaderCompileActionBuilder {
   private JavaPluginInfo plugins = JavaPluginInfo.empty();
 
   private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private Artifact javacJar;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
 
   public JavaHeaderCompileActionBuilder(RuleContext ruleContext) {
@@ -178,8 +177,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the Strict Java Deps mode. */
-  public JavaHeaderCompileActionBuilder setStrictJavaDeps(
-      BuildConfiguration.StrictDepsMode strictJavaDeps) {
+  public JavaHeaderCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictJavaDeps) {
     checkNotNull(strictJavaDeps, "strictJavaDeps must not be null");
     this.strictJavaDeps = strictJavaDeps;
     return this;
@@ -195,13 +193,6 @@ public class JavaHeaderCompileActionBuilder {
   public JavaHeaderCompileActionBuilder setAdditionalInputs(NestedSet<Artifact> additionalInputs) {
     checkNotNull(additionalInputs, "additionalInputs must not be null");
     this.additionalInputs = additionalInputs;
-    return this;
-  }
-
-  /** Sets the javac jar. */
-  public JavaHeaderCompileActionBuilder setJavacJar(Artifact javacJar) {
-    checkNotNull(javacJar, "javacJar must not be null");
-    this.javacJar = javacJar;
     return this;
   }
 
@@ -227,7 +218,7 @@ public class JavaHeaderCompileActionBuilder {
 
     // Invariant: if strictJavaDeps is OFF, then directJars and
     // dependencyArtifacts are ignored
-    if (strictJavaDeps == BuildConfiguration.StrictDepsMode.OFF) {
+    if (strictJavaDeps == StrictDepsMode.OFF) {
       directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
       compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -245,7 +236,6 @@ public class JavaHeaderCompileActionBuilder {
         new ProgressMessage(
             this.outputJar, sourceFiles.size() + sourceJars.size(), plugins.processorClasses()));
 
-    builder.addTool(javacJar);
     builder.addTransitiveTools(toolsJars);
 
     builder.addOutput(outputJar);
@@ -335,13 +325,13 @@ public class JavaHeaderCompileActionBuilder {
     commandLine.addExecPaths("--classpath", classpathEntries);
     commandLine.addAll("--processors", plugins.processorClasses());
     commandLine.addExecPaths("--processorpath", plugins.processorClasspath());
-    if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
+    if (strictJavaDeps != StrictDepsMode.OFF) {
       commandLine.addExecPaths("--direct_dependencies", directJars);
       if (!compileTimeDependencyArtifacts.isEmpty()) {
         commandLine.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
       }
     }
-    if (reduceClasspath && strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
+    if (reduceClasspath && strictJavaDeps != StrictDepsMode.OFF) {
       commandLine.add("--reduce_classpath");
     } else {
       commandLine.add("--noreduce_classpath");
@@ -379,7 +369,7 @@ public class JavaHeaderCompileActionBuilder {
           fileCount,
           processorClasses.isEmpty()
               ? ""
-              : processorClasses.toCollection().stream()
+              : processorClasses.toList().stream()
                   .map(name -> name.substring(name.lastIndexOf('.') + 1))
                   .collect(joining(", ", " and running annotation processors (", ")")));
     }

@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -91,13 +90,6 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
   }
 
   /**
-   * Returns the platform frameworks directory inside of Xcode for a given configuration.
-   */
-  public static String platformDeveloperFrameworkDir(AppleConfiguration configuration) {
-    return platformDeveloperFrameworkDir(configuration.getSingleArchPlatform());
-  }
-
-  /**
    * Returns the platform frameworks directory inside of Xcode for a given {@link ApplePlatform}.
    */
   public static String platformDeveloperFrameworkDir(ApplePlatform platform) {
@@ -107,13 +99,15 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
 
   /** Returns the SDK frameworks directory inside of Xcode for a given configuration. */
   public static String sdkFrameworkDir(
-      ApplePlatform targetPlatform, RuleContext ruleContext) {
+      ApplePlatform targetPlatform, XcodeConfigProvider xcodeConfig) {
     String relativePath;
     switch (targetPlatform) {
       case IOS_DEVICE:
       case IOS_SIMULATOR:
-        if (XcodeConfig.getSdkVersionForPlatform(ruleContext, targetPlatform)
-            .compareTo(DottedVersion.fromString("9.0")) >= 0) {
+        if (xcodeConfig
+                .getSdkVersionForPlatform(targetPlatform)
+                .compareTo(DottedVersion.fromString("9.0"))
+            >= 0) {
           relativePath = SYSTEM_FRAMEWORK_PATH;
         } else {
           relativePath = DEVELOPER_FRAMEWORK_PATH;
@@ -164,7 +158,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
    */
   @Override
   public String platformFrameworkDirFromConfig(AppleConfiguration configuration) {
-    return platformDeveloperFrameworkDir(configuration);
+    return platformDeveloperFrameworkDir(configuration.getSingleArchPlatform());
   }
 
   /**

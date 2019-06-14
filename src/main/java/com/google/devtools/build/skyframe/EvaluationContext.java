@@ -17,6 +17,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -26,28 +27,29 @@ import javax.annotation.Nullable;
  * BuildDriver#evaluate} and {@link WalkableGraphFactory#prepareAndGet}
  */
 public class EvaluationContext {
-  @Nullable private final Integer numThreads;
-  @Nullable private final Supplier<ExecutorService> executorService;
+  private final int numThreads;
+  @Nullable private final Supplier<ExecutorService> executorServiceSupplier;
   private final boolean keepGoing;
   private final ExtendedEventHandler eventHandler;
 
   protected EvaluationContext(
-      @Nullable Integer numThread,
-      @Nullable Supplier<ExecutorService> executorService,
+      int numThreads,
+      @Nullable Supplier<ExecutorService> executorServiceSupplier,
       boolean keepGoing,
       ExtendedEventHandler eventHandler) {
-    this.numThreads = numThread;
-    this.executorService = executorService;
+    Preconditions.checkArgument(0 < numThreads, "numThreads must be positive");
+    this.numThreads = numThreads;
+    this.executorServiceSupplier = executorServiceSupplier;
     this.keepGoing = keepGoing;
-    this.eventHandler = eventHandler;
+    this.eventHandler = Preconditions.checkNotNull(eventHandler);
   }
 
-  public Integer getNumThreads() {
+  public int getParallelism() {
     return numThreads;
   }
 
-  public Supplier<ExecutorService> getExecutorService() {
-    return executorService;
+  public Optional<Supplier<ExecutorService>> getExecutorServiceSupplier() {
+    return Optional.ofNullable(executorServiceSupplier);
   }
 
   public boolean getKeepGoing() {
@@ -63,7 +65,7 @@ public class EvaluationContext {
       return this;
     } else {
       return new EvaluationContext(
-          this.numThreads, this.executorService, keepGoing, this.eventHandler);
+          this.numThreads, this.executorServiceSupplier, keepGoing, this.eventHandler);
     }
   }
 
@@ -73,30 +75,28 @@ public class EvaluationContext {
 
   /** Builder for {@link EvaluationContext}. */
   public static class Builder {
-    private Integer numThread;
-    private Supplier<ExecutorService> executorService;
+    private int numThreads;
+    private Supplier<ExecutorService> executorServiceSupplier;
     private boolean keepGoing;
     private ExtendedEventHandler eventHandler;
 
     private Builder() {}
 
     public Builder copyFrom(EvaluationContext evaluationContext) {
-      this.numThread = evaluationContext.numThreads;
-      this.executorService = evaluationContext.executorService;
+      this.numThreads = evaluationContext.numThreads;
+      this.executorServiceSupplier = evaluationContext.executorServiceSupplier;
       this.keepGoing = evaluationContext.keepGoing;
       this.eventHandler = evaluationContext.eventHandler;
       return this;
     }
 
-    public Builder setNumThreads(int numThread) {
-      this.numThread = numThread;
-      this.executorService = null;
+    public Builder setNumThreads(int numThreads) {
+      this.numThreads = numThreads;
       return this;
     }
 
-    public Builder setExecutorServiceSupplier(Supplier<ExecutorService> executorService) {
-      this.executorService = executorService;
-      this.numThread = null;
+    public Builder setExecutorServiceSupplier(Supplier<ExecutorService> executorServiceSupplier) {
+      this.executorServiceSupplier = executorServiceSupplier;
       return this;
     }
 
@@ -111,13 +111,7 @@ public class EvaluationContext {
     }
 
     public EvaluationContext build() {
-      Preconditions.checkState(
-          (numThread == null && executorService != null)
-              || (numThread != null && executorService == null),
-          "Exactly one of numThread and executorService must be set. %s %s",
-          numThread,
-          executorService);
-      return new EvaluationContext(numThread, executorService, keepGoing, eventHandler);
+      return new EvaluationContext(numThreads, executorServiceSupplier, keepGoing, eventHandler);
     }
   }
 }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.repository.RequestRepositoryInformationEvent;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -44,17 +46,31 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
   private static final Predicate<SkyKey> IS_WORKSPACE_FILE =
       SkyFunctions.isSkyFunction(WorkspaceFileValue.WORKSPACE_FILE);
 
+  private static final Predicate<SkyKey> IS_REPOSITORY =
+      SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY);
+
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
 
-  private static final Predicate<SkyKey> IS_AST_FILE_LOOKUP =
-      SkyFunctions.isSkyFunction(SkyFunctions.AST_FILE_LOOKUP);
+  private static final Predicate<SkyKey> IS_SKYLARK_IMPORTS_LOOKUP =
+      SkyFunctions.isSkyFunction(SkyFunctions.SKYLARK_IMPORTS_LOOKUP);
 
   private static final Predicate<SkyKey> IS_EXTERNAL_PACKAGE =
       SkyFunctions.isSkyFunction(SkyFunctions.EXTERNAL_PACKAGE);
 
   private static final Predicate<SkyKey> IS_LOCAL_REPOSITORY_LOOKUP =
       SkyFunctions.isSkyFunction(SkyFunctions.LOCAL_REPOSITORY_LOOKUP);
+
+  private static void requestRepoDefinitions(
+      ExtendedEventHandler eventHandler, Iterable<SkyKey> repos) {
+    for (SkyKey repo : repos) {
+      if (repo instanceof RepositoryValue.Key) {
+        eventHandler.post(
+            new RequestRepositoryInformationEvent(
+                ((RepositoryValue.Key) repo).argument().strippedName()));
+      }
+    }
+  }
 
   @Override
   public boolean maybeReportCycle(
@@ -71,9 +87,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
     if (alreadyReported) {
       return true;
     } else if (Iterables.all(cycle, IS_SKYLARK_MODULE_SKY_KEY)
-        // The last element before the cycle has to be a PackageFunction or SkylarkModule.
+        // The last element before the cycle has to be a PackageFunction, SkylarkModule, or the
+        // WORKSPACE
         && (IS_PACKAGE_SKY_KEY.apply(lastPathElement)
-            || IS_SKYLARK_MODULE_SKY_KEY.apply(lastPathElement))) {
+            || IS_SKYLARK_MODULE_SKY_KEY.apply(lastPathElement)
+            || IS_WORKSPACE_FILE.apply(lastPathElement))) {
 
       Function printer =
           new Function<SkyKey, String>() {
@@ -84,6 +102,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
                     .importLabel.toString();
               } else if (input.argument() instanceof PackageIdentifier) {
                 return ((PackageIdentifier) input.argument()) + "/BUILD";
+              } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
+                return ((WorkspaceFileValue.WorkspaceFileKey) input.argument())
+                    .getPath()
+                    .getRootRelativePath()
+                    .toString();
               } else {
                 throw new UnsupportedOperationException();
               }
@@ -91,49 +114,102 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
           };
 
       StringBuilder cycleMessage =
-          new StringBuilder()
-              .append("cycle detected in extension files: ")
-              .append("\n    ")
-              .append(printer.apply(lastPathElement));
+          new StringBuilder().append("cycle detected in extension files: ");
 
+      // go back the path that lead to the cycle till we found the BUILD or WORKSPACE
+      // file that lead to the circular load.
+      int startIndex = pathToCycle.size() - 1;
+      while (startIndex > 0
+          && (IS_PACKAGE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
+              || IS_SKYLARK_MODULE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
+              || IS_WORKSPACE_FILE.apply(pathToCycle.get(startIndex - 1)))) {
+        startIndex--;
+      }
+      for (int i = startIndex; i < pathToCycle.size(); i++) {
+        cycleMessage.append("\n    ").append(printer.apply(pathToCycle.get(i)));
+      }
       AbstractLabelCycleReporter.printCycle(cycleInfo.getCycle(), cycleMessage, printer);
       // TODO(bazel-team): it would be nice to pass the Location of the load Statement in the
       // BUILD file.
       eventHandler.handle(Event.error(null, cycleMessage.toString()));
       return true;
-    } else if (Iterables.any(cycle, IS_WORKSPACE_FILE)
-        || IS_REPOSITORY_DIRECTORY.apply(lastPathElement)
-        || IS_PACKAGE_SKY_KEY.apply(lastPathElement)
-        || IS_EXTERNAL_PACKAGE.apply(lastPathElement)
-        || IS_LOCAL_REPOSITORY_LOOKUP.apply(lastPathElement)) {
-      // We have a cycle in the workspace file, report as such.
-      if (Iterables.any(cycle, IS_AST_FILE_LOOKUP)) {
+    } else if (Iterables.all(
+        cycle, Predicates.or(IS_PACKAGE_LOOKUP, IS_REPOSITORY, IS_REPOSITORY_DIRECTORY))) {
+      StringBuilder cycleMessage =
+          new StringBuilder().append("Circular definition of repositories:");
+      Iterable<SkyKey> repos = Iterables.filter(cycle, IS_REPOSITORY);
+      Function printer =
+          new Function<SkyKey, String>() {
+            @Override
+            public String apply(SkyKey input) {
+              if (input instanceof RepositoryValue.Key) {
+                return ((RepositoryValue.Key) input).argument().getName();
+              } else {
+                throw new UnsupportedOperationException();
+              }
+            }
+          };
+      AbstractLabelCycleReporter.printCycle(ImmutableList.copyOf(repos), cycleMessage, printer);
+      eventHandler.handle(Event.error(null, cycleMessage.toString()));
+      // To help debugging, request that the information be printed about where the respective
+      // repositories were defined.
+      requestRepoDefinitions(eventHandler, repos);
+      return true;
+    } else if (Iterables.any(cycle, IS_REPOSITORY) && Iterables.any(cycle, IS_WORKSPACE_FILE)) {
+      Iterable<SkyKey> repos =
+          Iterables.filter(Iterables.concat(pathToCycle, cycle), IS_REPOSITORY);
+
+      StringBuilder message = new StringBuilder();
+
+      if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
         Label fileLabel =
-            (Label) Iterables.getLast(Iterables.filter(cycle, IS_AST_FILE_LOOKUP)).argument();
-        String repositoryName = fileLabel.getPackageIdentifier().getRepository().strippedName();
-        eventHandler.handle(
-            Event.error(
-                null,
-                "Failed to load Starlark extension '"
-                    + fileLabel
-                    + "'.\n"
-                    + "It usually happens when the repository is not defined prior to being used.\n"
-                    + "This could either mean you have to add the '"
-                    + fileLabel.getWorkspaceName()
-                    + "' repository with a statement like `http_archive` in your WORKSPACE file"
-                    + " (note that transitive dependencies are not added automatically), or"
-                    + " the repository '"
-                    + repositoryName
-                    + "' was defined too late in your WORKSPACE file."));
-        return true;
-      } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
-        eventHandler.handle(
-            Event.error(null, "cycle detected loading "
-                + String.join(
-                    " ", lastPathElement.functionName().toString().toLowerCase().split("_"))
-                + " '" + lastPathElement.argument().toString() + "'"));
-        return true;
+            ((SkylarkImportLookupValue.SkylarkImportLookupKey)
+                    Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
+                .getImportLabel();
+        message.append("Failed to load Starlark extension '").append(fileLabel).append("'.\n");
       }
+
+      message
+          .append("Cycle in the workspace file detected. ")
+          .append("This indicates that a repository is used prior to being defined.\n")
+          .append(
+              "The following chain of repository dependencies lead to the missing definition.\n");
+      for (SkyKey repo : repos) {
+        if (repo instanceof RepositoryValue.Key) {
+          message
+              .append(" - ")
+              .append(((RepositoryValue.Key) repo).argument().getName())
+              .append("\n");
+        }
+      }
+      SkyKey missingRepo = Iterables.getLast(repos);
+      if (missingRepo instanceof RepositoryValue.Key) {
+        message
+            .append("This could either mean you have to add the '")
+            .append(((RepositoryValue.Key) missingRepo).argument().getName())
+            .append("' repository with a statement like `http_archive` in your WORKSPACE file")
+            .append(" (note that transitive dependencies are not added automatically), or move")
+            .append(" an existing definition earlier in your WORKSPACE file.");
+      }
+      eventHandler.handle(Event.error(message.toString()));
+      // To help debugging, request that the information be printed about where the respective
+      // repositories were defined.
+      requestRepoDefinitions(eventHandler, repos);
+      return true;
+    } else if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
+        Label fileLabel =
+            ((SkylarkImportLookupValue.SkylarkImportLookupKey)
+                    Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
+                .getImportLabel();
+      eventHandler.handle(
+          Event.error(null, "Failed to load Starlark extension '" + fileLabel + "'.\n"));
+        return true;
+    } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
+      PackageIdentifier pkg =
+          (PackageIdentifier)
+              Iterables.getLast(Iterables.filter(cycle, IS_PACKAGE_LOOKUP)).argument();
+      eventHandler.handle(Event.error(null, "cannot load package '" + pkg + "'"));
+      return true;
     }
     return false;
   }

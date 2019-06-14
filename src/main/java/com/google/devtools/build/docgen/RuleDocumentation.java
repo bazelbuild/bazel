@@ -44,6 +44,7 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
   private final String ruleName;
   private final RuleType ruleType;
   private final String ruleFamily;
+  private final String familySummary;
   private final String htmlDocumentation;
   // Store these information for error messages
   private final int startLineCount;
@@ -66,9 +67,17 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    * Creates a RuleDocumentation from the rule's name, type, family and raw html documentation
    * (meaning without expanding the variables in the doc).
    */
-  RuleDocumentation(String ruleName, String ruleType, String ruleFamily,
-      String htmlDocumentation, int startLineCount, String fileName, ImmutableSet<String> flags,
-      ConfiguredRuleClassProvider ruleClassProvider) throws BuildEncyclopediaDocException {
+  RuleDocumentation(
+      String ruleName,
+      String ruleType,
+      String ruleFamily,
+      String htmlDocumentation,
+      int startLineCount,
+      String fileName,
+      ImmutableSet<String> flags,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      String familySummary)
+      throws BuildEncyclopediaDocException {
     Preconditions.checkNotNull(ruleName);
     this.ruleName = ruleName;
     try {
@@ -83,6 +92,29 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
     this.fileName = fileName;
     this.flags = flags;
     this.ruleClassProvider = ruleClassProvider;
+    this.familySummary = familySummary;
+  }
+
+  RuleDocumentation(
+      String ruleName,
+      String ruleType,
+      String ruleFamily,
+      String htmlDocumentation,
+      int startLineCount,
+      String fileName,
+      ImmutableSet<String> flags,
+      ConfiguredRuleClassProvider ruleClassProvider)
+      throws BuildEncyclopediaDocException {
+    this(
+        ruleName,
+        ruleType,
+        ruleFamily,
+        htmlDocumentation,
+        startLineCount,
+        fileName,
+        flags,
+        ruleClassProvider,
+        "");
   }
 
   /**
@@ -106,6 +138,14 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    */
   String getRuleFamily() {
     return ruleFamily;
+  }
+
+  /**
+   * Return the contribution of this rule to the summary for the rule family. Usually, the "main"
+   * rule in a family provides the summary, but all contributions are accumulated.
+   */
+  String getFamilySummary() {
+    return familySummary;
   }
 
   /**

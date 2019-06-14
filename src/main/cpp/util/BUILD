@@ -189,10 +189,9 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-# TODO(#7696): Remove this target after third_party/ changes are merged.
 filegroup(
-    name = "embed_into_java_tools",
-    srcs = glob(["*.cc"]) + glob(["*.h"]),
+    name = "embedded_java_tools",
+    srcs = glob(["*.cc"]) + glob(["*.h"]) + ["//src/main/native/windows:embedded_java_tools"],
     visibility = ["//visibility:public"],
 )
 
@@ -206,7 +205,10 @@ genrule(
     outs = ["cpp_util_with_deps.zip"],
     cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
     tools = ["//src:merge_zip_files"],
-    visibility = ["//third_party/ijar:__pkg__"],
+    visibility = [
+        "//src/tools/singlejar:__pkg__",
+        "//third_party/ijar:__pkg__",
+    ],
 )
 
 genrule(

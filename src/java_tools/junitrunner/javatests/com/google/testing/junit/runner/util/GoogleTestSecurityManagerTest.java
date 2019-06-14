@@ -16,7 +16,7 @@ package com.google.testing.junit.runner.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import java.security.Permission;
 import org.junit.After;
@@ -66,24 +66,14 @@ public class GoogleTestSecurityManagerTest {
   public void testExit() {
     installTestSecurityManager();
 
-    try {
-      System.exit(1);
-      fail("exit() have thrown exception; how come it didn't exit?!");
-    } catch (SecurityException se) {
-      // passed
-    }
+    assertThrows(SecurityException.class, () -> System.exit(1));
   }
 
   @Test
   public void testSetSecurityManager() {
     installTestSecurityManager();
 
-    try {
-      System.setSecurityManager(new SecurityManager());
-      fail("setSecurityManager() should have thrown exception.");
-    } catch (SecurityException se) {
-      // passed
-    }
+    assertThrows(SecurityException.class, () -> System.setSecurityManager(new SecurityManager()));
   }
 
   /**
@@ -96,12 +86,7 @@ public class GoogleTestSecurityManagerTest {
     GoogleTestSecurityManager sm = new GoogleTestSecurityManager();
 
     assertThat(sm.isEnabled()).isTrue();
-    try {
-      sm.checkExit(0);
-      fail("GoogleTestSecurityManager allowed exit while enabled.");
-    } catch (SecurityException ex) {
-      // passed
-    }
+    assertThrows(SecurityException.class, () -> sm.checkExit(0));
 
     sm.setEnabled(false);
     assertThat(!sm.isEnabled()).isTrue();
@@ -110,12 +95,7 @@ public class GoogleTestSecurityManagerTest {
 
     sm.setEnabled(true);
     assertThat(sm.isEnabled()).isTrue();
-    try {
-      sm.checkExit(0);
-      fail("GoogleTestSecurityManager allowed exit while enabled.");
-    } catch (SecurityException ex) {
-      // passed
-    }
+    assertThrows(SecurityException.class, () -> sm.checkExit(0));
   }
 
   @Test
@@ -146,7 +126,7 @@ public class GoogleTestSecurityManagerTest {
     System.setSecurityManager(otherSecurityManager);
     GoogleTestSecurityManager.uninstallIfInstalled();
 
-    assertThat(System.getSecurityManager()).isSameAs(otherSecurityManager);
+    assertThat(System.getSecurityManager()).isSameInstanceAs(otherSecurityManager);
     System.setSecurityManager(null);
   }
 

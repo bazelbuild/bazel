@@ -255,13 +255,17 @@ $ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
 </p>
 
 <pre>
-  # Without filter
+  # WRONG: Target Included
   $ bazel aquery --output=proto --skyframe_state <b>//target_a</b>
+  ERROR: Error while parsing '//target_a)': Specifying build target(s) [//target_a] with --skyframe_state is currently not supported.
 
-  # With filter
-  $ bazel aquery --output=proto --skyframe_state inputs(".*.java", <b>//target_a</b>)
+  # WRONG: Target Included
+  $ bazel aquery --output=proto --skyframe_state 'inputs(".*.java", <b>//target_a</b>)'
+  ERROR: Error while parsing '//target_a)': Specifying build target(s) [//target_a] with --skyframe_state is currently not supported.
 
-  ERROR: Error while parsing '//target_a)': Specifying a build target(s) [//target_a] with --skyframe_state is currently not supported.
+  # CORRECT: Without Target
+  $ bazel aquery --output=proto --skyframe_state
+  $ bazel aquery --output=proto --skyframe_state 'inputs(".*.java")'
 </pre>
 
 <h3 id="diff-tool">Comparing Aquery Outputs</h3>
@@ -273,7 +277,7 @@ $ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
 </p>
 
 <p>
-  The tool is available in the [bazelbuild/bazel](https://github.com/bazelbuild/bazel/tree/master/tools/aquery_differ) repository.
+  The tool is available in the <a href="https://github.com/bazelbuild/bazel/tree/master/tools/aquery_differ">bazelbuild/bazel</a> repository.
   To use it, clone the repository to your local machine. An example usage:
 </p>
 

@@ -301,7 +301,7 @@ public class NestedSetCodecTest {
             nestedSetStore.getContentsAndDeserialize(fingerprint, deserializationContext);
     asyncThread.join();
     Mockito.verify(nestedSetStorageEndpoint, times(1)).get(Mockito.eq(fingerprint));
-    assertThat(result).isSameAs(asyncResult.get());
+    assertThat(result).isSameInstanceAs(asyncResult.get());
     assertThat(result.isDone()).isFalse();
   }
 

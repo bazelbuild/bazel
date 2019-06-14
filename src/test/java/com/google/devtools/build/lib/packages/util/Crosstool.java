@@ -16,18 +16,15 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -52,11 +49,13 @@ public final class Crosstool {
     private final String abiLibcVersion;
     private final String targetLibc;
     private final String builtinSysroot;
+    private final String ccTargetOs;
     private final ImmutableList<String> features;
     private final ImmutableList<String> actionConfigs;
     private final ImmutableList<ImmutableList<String>> artifactNamePatterns;
     private final ImmutableList<Pair<String, String>> toolPaths;
     private final ImmutableList<String> cxxBuiltinIncludeDirectories;
+    private final ImmutableList<Pair<String, String>> makeVariables;
 
     private CcToolchainConfig(
         String cpu,
@@ -68,11 +67,13 @@ public final class Crosstool {
         String abiLibcVersion,
         String targetLibc,
         String builtinSysroot,
+        String ccTargetOs,
         ImmutableList<String> features,
         ImmutableList<String> actionConfigs,
         ImmutableList<ImmutableList<String>> artifactNamePatterns,
         ImmutableList<Pair<String, String>> toolPaths,
-        ImmutableList<String> cxxBuiltinIncludeDirectories) {
+        ImmutableList<String> cxxBuiltinIncludeDirectories,
+        ImmutableList<Pair<String, String>> makeVariables) {
       this.cpu = cpu;
       this.compiler = compiler;
       this.toolchainIdentifier = toolchainIdentifier;
@@ -87,6 +88,8 @@ public final class Crosstool {
       this.toolPaths = toolPaths;
       this.builtinSysroot = builtinSysroot;
       this.cxxBuiltinIncludeDirectories = cxxBuiltinIncludeDirectories;
+      this.makeVariables = makeVariables;
+      this.ccTargetOs = ccTargetOs;
     }
 
     public static Builder builder() {
@@ -101,6 +104,56 @@ public final class Crosstool {
       private ImmutableList<Pair<String, String>> toolPaths = ImmutableList.of();
       private String builtinSysroot = "/usr/grte/v1";
       private ImmutableList<String> cxxBuiltinIncludeDirectories = ImmutableList.of();
+      private ImmutableList<Pair<String, String>> makeVariables = ImmutableList.of();
+      private String ccTargetOs = "";
+      private String cpu = "k8";
+      private String compiler = "compiler";
+      private String toolchainIdentifier = "mock-llvm-toolchain-k8";
+      private String hostSystemName = "local";
+      private String targetSystemName = "local";
+      private String targetLibc = "local";
+      private String abiVersion = "local";
+      private String abiLibcVersion = "local";
+
+      public Builder withCpu(String cpu) {
+        this.cpu = cpu;
+        return this;
+      }
+
+      public Builder withCompiler(String compiler) {
+        this.compiler = compiler;
+        return this;
+      }
+
+      public Builder withToolchainIdentifier(String toolchainIdentifier) {
+        this.toolchainIdentifier = toolchainIdentifier;
+        return this;
+      }
+
+      public Builder withHostSystemName(String hostSystemName) {
+        this.hostSystemName = hostSystemName;
+        return this;
+      }
+
+      public Builder withTargetSystemName(String targetSystemName) {
+        this.targetSystemName = targetSystemName;
+        return this;
+      }
+
+      public Builder withTargetLibc(String targetLibc) {
+        this.targetLibc = targetLibc;
+        return this;
+      }
+
+      public Builder withAbiVersion(String abiVersion) {
+        this.abiVersion = abiVersion;
+        return this;
+      }
+
+      public Builder withAbiLibcVersion(String abiLibcVersion) {
+        this.abiLibcVersion = abiLibcVersion;
+        return this;
+      }
 
       public Builder withFeatures(String... features) {
         this.features = ImmutableList.copyOf(features);
@@ -133,27 +186,39 @@ public final class Crosstool {
         return this;
       }
 
+      public Builder withCcTargetOs(String ccTargetOs) {
+        this.ccTargetOs = ccTargetOs;
+        return this;
+      }
+
       public Builder withCxxBuiltinIncludeDirectories(String... directories) {
         this.cxxBuiltinIncludeDirectories = ImmutableList.copyOf(directories);
         return this;
       }
 
+      public Builder withMakeVariables(Pair<String, String>... makeVariables) {
+        this.makeVariables = ImmutableList.copyOf(makeVariables);
+        return this;
+      }
+
       public CcToolchainConfig build() {
         return new CcToolchainConfig(
-            /* cpu= */ "k8",
-            /* compiler= */ "compiler",
-            /* toolchainIdentifier= */ "mock-llvm-toolchain-k8",
-            /* hostSystemName= */ "local",
-            /* targetSystemName= */ "local",
-            /* abiVersion= */ "local",
-            /* abiLibcVersion= */ "local",
-            /* targetLibc= */ "local",
-            /* builtinSysroot= */ builtinSysroot,
+            cpu,
+            compiler,
+            toolchainIdentifier,
+            hostSystemName,
+            targetSystemName,
+            abiVersion,
+            abiLibcVersion,
+            targetLibc,
+            builtinSysroot,
+            ccTargetOs,
             features,
             actionConfigs,
             artifactNamePatterns,
             toolPaths,
-            cxxBuiltinIncludeDirectories);
+            cxxBuiltinIncludeDirectories,
+            makeVariables);
       }
     }
 
@@ -184,18 +249,20 @@ public final class Crosstool {
           /* abiLibcVersion= */ "mock-abi-libc-for-" + cpu,
           /* targetLibc= */ "mock-libc-for-" + cpu,
           /* builtinSysroot= */ "",
+          /* ccTargetOs= */ "",
           /* features= */ ImmutableList.of(),
           /* actionConfigs= */ ImmutableList.of(),
           /* artifactNamePatterns= */ ImmutableList.of(),
           /* toolPaths= */ ImmutableList.of(),
-          /* cxxBuiltinIncludeDirectories= */ ImmutableList.of());
+          /* cxxBuiltinIncludeDirectories= */ ImmutableList.of(),
+          /* makeVariables= */ ImmutableList.of());
     }
 
     public static CcToolchainConfig getDefaultCcToolchainConfig() {
       return getCcToolchainConfigForCpu("k8");
     }
 
-    String getCcToolchainConfigRule() {
+    public String getCcToolchainConfigRule() {
       ImmutableList<String> featuresList =
           features.stream()
               .map(feature -> "'" + feature + "'")
@@ -219,12 +286,16 @@ public final class Crosstool {
           cxxBuiltinIncludeDirectories.stream()
               .map(directory -> "'" + directory + "'")
               .collect(ImmutableList.toImmutableList());
+      ImmutableList<String> makeVariablesList =
+          makeVariables.stream()
+              .map(variable -> String.format("'%s': '%s'", variable.first, variable.second))
+              .collect(ImmutableList.toImmutableList());
 
       return Joiner.on("\n")
           .join(
               "cc_toolchain_config(",
-              "  toolchain_identifier = '" + toolchainIdentifier + "',",
               "  name = '" + cpu + "-" + compiler + "_config',",
+              "  toolchain_identifier = '" + toolchainIdentifier + "',",
               "  cpu = '" + cpu + "',",
               "  compiler = '" + compiler + "',",
               "  host_system_name = '" + hostSystemName + "',",
@@ -239,9 +310,12 @@ public final class Crosstool {
                   "  artifact_name_patterns = {%s},", Joiner.on(",\n    ").join(patternsList)),
               String.format("  tool_paths = {%s},", Joiner.on(",\n    ").join(toolPathsList)),
               "  builtin_sysroot = '" + builtinSysroot + "',",
+              "  cc_target_os = '" + ccTargetOs + "',",
               String.format(
-                  "  cxx_builtin_include_directories = [%s]",
+                  "  cxx_builtin_include_directories = [%s],",
                   Joiner.on(",\n    ").join(directoriesList)),
+              String.format(
+                  "  make_variables = {%s},", Joiner.on(",\n    ").join(makeVariablesList)),
               "  )");
     }
   }
@@ -249,22 +323,18 @@ public final class Crosstool {
   private final MockToolsConfig config;
 
   private final String crosstoolTop;
-  private String version;
-  private String crosstoolFileContents;
+  private String ccToolchainConfigFileContents;
   private ImmutableList<String> archs;
   private boolean supportsHeaderParsing;
-  private ImmutableList<CcToolchainConfig> ccToolchainConfigList;
-  private final boolean disableCrosstool;
+  private ImmutableList<CcToolchainConfig> ccToolchainConfigList = ImmutableList.of();
 
-  Crosstool(MockToolsConfig config, String crosstoolTop, boolean disableCrosstool) {
+  Crosstool(MockToolsConfig config, String crosstoolTop) {
     this.config = config;
     this.crosstoolTop = crosstoolTop;
-    this.disableCrosstool = disableCrosstool;
   }
 
-  public Crosstool setCrosstoolFile(String version, String crosstoolFileContents) {
-    this.version = version;
-    this.crosstoolFileContents = crosstoolFileContents;
+  public Crosstool setCcToolchainFile(String ccToolchainConfigFileContents) {
+    this.ccToolchainConfigFileContents = ccToolchainConfigFileContents;
     return this;
   }
 
@@ -302,40 +372,10 @@ public final class Crosstool {
             String.format("filegroup(name = '%s', srcs = [':everything-multilib'])\n", archTarget));
       }
     }
-    ImmutableList<CcToolchainConfig> ccToolchainConfigs;
-    if (disableCrosstool) {
-      ccToolchainConfigs = ccToolchainConfigList;
-    } else {
-      CrosstoolConfig.CrosstoolRelease.Builder configBuilder =
-          CrosstoolConfig.CrosstoolRelease.newBuilder();
-      TextFormat.merge(crosstoolFileContents, configBuilder);
-      List<CToolchain> toolchainList = configBuilder.build().getToolchainList();
-      ImmutableList.Builder<CcToolchainConfig> toolchainConfigInfoBuilder = ImmutableList.builder();
-      for (CToolchain toolchain : toolchainList) {
-        toolchainConfigInfoBuilder.add(
-            new CcToolchainConfig(
-                toolchain.getTargetCpu(),
-                toolchain.getCompiler(),
-                toolchain.getToolchainIdentifier(),
-                toolchain.getHostSystemName(),
-                toolchain.getTargetSystemName(),
-                toolchain.getAbiVersion(),
-                toolchain.getAbiLibcVersion(),
-                toolchain.getTargetLibc(),
-                toolchain.getBuiltinSysroot(),
-                toolchain.getFeatureList().stream()
-                    .map(feature -> feature.getName())
-                    .collect(ImmutableList.toImmutableList()),
-                /* actionConfigs= */ ImmutableList.of(),
-                /* artifactNamePatterns= */ ImmutableList.of(),
-                /* toolPaths= */ ImmutableList.of(),
-                /* cxxBuiltinIncludeDirectories= */ ImmutableList.of()));
-      }
-      ccToolchainConfigs = toolchainConfigInfoBuilder.build();
-    }
+
     Set<String> seenCpus = new LinkedHashSet<>();
     StringBuilder compilerMap = new StringBuilder();
-    for (CcToolchainConfig toolchain : ccToolchainConfigs) {
+    for (CcToolchainConfig toolchain : ccToolchainConfigList) {
       String staticRuntimeLabel =
           toolchain.hasStaticLinkCppRuntimesFeature()
               ? "mock-static-runtimes-target-for-" + toolchain.getToolchainIdentifier()
@@ -390,15 +430,13 @@ public final class Crosstool {
                   "  toolchain_type = ':toolchain_type',",
                   "  toolchain = ':cc-compiler-" + suffix + "',",
                   ")",
-                  disableCrosstool ? toolchain.getCcToolchainConfigRule() : "",
+                  toolchain.getCcToolchainConfigRule(),
                   "cc_toolchain(",
                   "  name = 'cc-compiler-" + suffix + "',",
                   "  toolchain_identifier = '" + toolchain.getToolchainIdentifier() + "',",
-                  disableCrosstool ? "  toolchain_config = ':" + suffix + "_config'," : "",
+                  "  toolchain_config = ':" + suffix + "_config',",
                   "  output_licenses = ['unencumbered'],",
                   "  module_map = 'crosstool.cppmap',",
-                  "  cpu = '" + toolchain.getTargetCpu() + "',",
-                  "  compiler = '" + toolchain.getCompiler() + "',",
                   "  ar_files = 'ar-" + toolchain.getTargetCpu() + "',",
                   "  as_files = 'as-" + toolchain.getTargetCpu() + "',",
                   "  compiler_files = 'compile-" + toolchain.getTargetCpu() + "',",
@@ -425,12 +463,12 @@ public final class Crosstool {
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
-                disableCrosstool ? "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')" : "",
+                "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
                 "toolchain_type(name = 'toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
                 "alias(name = 'toolchain', actual = 'everything')",
                 "filegroup(name = 'everything-multilib',",
-                "          srcs = glob(['" + version + "/**/*'],",
+                "          srcs = glob(['mock_version/**/*'],",
                 "              exclude_directories = 1),",
                 "          output_licenses = ['unencumbered'])",
                 "",
@@ -451,26 +489,119 @@ public final class Crosstool {
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')");
 
-    config.create(crosstoolTop + "/" + version + "/x86/bin/gcc");
-    config.create(crosstoolTop + "/" + version + "/x86/bin/ld");
+    config.create(crosstoolTop + "/mock_version/x86/bin/gcc");
+    config.create(crosstoolTop + "/mock_version/x86/bin/ld");
     config.overwrite(crosstoolTop + "/BUILD", build);
-    if (disableCrosstool) {
-      config.overwrite(
-          crosstoolTop + "/cc_toolchain_config.bzl",
-          ResourceLoader.readFromResources(
-              "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
-      config.overwrite(
-          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
-          ResourceLoader.readFromResources(
-              TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
-      config.overwrite(
-          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
-          ResourceLoader.readFromResources(
-              TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
-      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
-    } else {
-      config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
-    }
+    config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
+    config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
+  }
+
+  public void writeOSX() throws IOException {
+    // Create special lines specifying the compiler map entry for
+    // each toolchain.
+    StringBuilder compilerMap =
+        new StringBuilder()
+            .append("'k8': ':cc-compiler-darwin_x86_64',\n")
+            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n")
+            .append("'darwin': ':cc-compiler-darwin_x86_64',\n");
+    Set<String> seenCpus = new LinkedHashSet<>();
+    for (CcToolchainConfig toolchain : ccToolchainConfigList) {
+      if (seenCpus.add(toolchain.getTargetCpu())) {
+        compilerMap.append(
+            String.format(
+                "'%s': ':cc-compiler-%s',\n", toolchain.getTargetCpu(), toolchain.getTargetCpu()));
+      }
+      compilerMap.append(
+          String.format(
+              "'%s|%s': ':cc-compiler-%s',\n",
+              toolchain.getTargetCpu(), toolchain.getCompiler(), toolchain.getTargetCpu()));
+    }
+
+    // Create the test BUILD file.
+    ImmutableList.Builder<String> crosstoolBuild =
+        ImmutableList.<String>builder()
+            .add(
+                "package(default_visibility=['//visibility:public'])",
+                "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+                "exports_files(glob(['**']))",
+                "cc_toolchain_suite(",
+                "    name = 'crosstool',",
+                "    toolchains = { " + compilerMap + " },",
+                ")",
+                "",
+                "cc_library(",
+                "    name = 'custom_malloc',",
+                ")",
+                "",
+                "filegroup(",
+                "    name = 'empty',",
+                "    srcs = [],",
+                ")",
+                "",
+                "filegroup(",
+                "    name = 'link',",
+                "    srcs = [",
+                "        'ar',",
+                "        'libempty.a',",
+                String.format("        '%s//tools/objc:libtool'", TestConstants.TOOLS_REPOSITORY),
+                "    ],",
+                ")");
+    for (CcToolchainConfig toolchainConfig : ccToolchainConfigList) {
+      crosstoolBuild.add(
+          "apple_cc_toolchain(",
+          "    name = 'cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
+          "    toolchain_identifier = '" + toolchainConfig.getTargetCpu() + "',",
+          "    toolchain_config = ':"
+              + toolchainConfig.getTargetCpu()
+              + "-"
+              + toolchainConfig.getCompiler()
+              + "_config',",
+          "    all_files = ':empty',",
+          "    ar_files = ':empty',",
+          "    as_files = ':empty',",
+          "    compiler_files = ':empty',",
+          "    dwp_files = ':empty',",
+          "    linker_files = ':link',",
+          "    objcopy_files = ':empty',",
+          "    strip_files = ':empty',",
+          "    supports_param_files = 0,",
+          ")",
+          "toolchain(name = 'cc-toolchain-" + toolchainConfig.getTargetCpu() + "',",
+          "    exec_compatible_with = [],",
+          "    target_compatible_with = [],",
+          "    toolchain = ':cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
+          "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type'",
+          ")");
+      crosstoolBuild.add(toolchainConfig.getCcToolchainConfigRule());
+      // Add the newly-created toolchain to the WORKSPACE.
+      config.append(
+          "WORKSPACE",
+          "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
+    }
+
+    config.overwrite(
+        MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + "/BUILD",
+        Joiner.on("\n").join(crosstoolBuild.build()));
+    config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
+    config.overwrite(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
+    config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
   }
 }

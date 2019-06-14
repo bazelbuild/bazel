@@ -13,6 +13,7 @@ java_library(
         "LocalSpawnRunner.java",
         "PosixLocalEnvProvider.java",
         "WindowsLocalEnvProvider.java",
+        "XcodeLocalEnvProvider.java",
     ],
     data = [
         "//src/main/tools:process-wrapper",
@@ -26,8 +27,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

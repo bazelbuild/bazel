@@ -23,7 +23,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party:truth",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",

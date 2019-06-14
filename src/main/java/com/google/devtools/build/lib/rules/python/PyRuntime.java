@@ -33,6 +33,8 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
+    PythonConfiguration pyConfig = ruleContext.getFragment(PythonConfiguration.class);
+
     NestedSet<Artifact> files =
         PrerequisiteArtifacts.nestedSet(ruleContext, "files", Mode.TARGET);
     Artifact interpreter = ruleContext.getPrerequisiteArtifact("interpreter", Mode.TARGET);
@@ -58,15 +60,24 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
     }
 
     if (pythonVersion == PythonVersion._INTERNAL_SENTINEL) {
-      // Use the same default as py_binary/py_test would use for their python_version attribute.
-      // (Of course, in our case there's no configuration transition involved.)
-      pythonVersion = ruleContext.getFragment(PythonConfiguration.class).getDefaultPythonVersion();
+      if (pyConfig.useToolchains()) {
+        ruleContext.attributeError(
+            "python_version",
+            "When using Python toolchains, this attribute must be set explicitly to either 'PY2' "
+                + "or 'PY3'. See https://github.com/bazelbuild/bazel/issues/7899 for more "
+                + "information. You can temporarily avoid this error by reverting to the legacy "
+                + "Python runtime mechanism (`--incompatible_use_python_toolchains=false`).");
+      } else {
+        // Use the same default as py_binary/py_test would use for their python_version attribute.
+        // (Of course, in our case there's no configuration transition involved.)
+        pythonVersion = pyConfig.getDefaultPythonVersion();
+      }
     }
-    Preconditions.checkState(pythonVersion.isTargetValue());
 
     if (ruleContext.hasErrors()) {
       return null;
     }
+    Preconditions.checkState(pythonVersion.isTargetValue());
 
     PyRuntimeInfo provider =
         hermetic

@@ -92,16 +92,16 @@ public class TopLevelConstraintSemantics {
    * the latter, top-level targets must be compatible with the build's target configuration CPU.
    *
    * <p>If any target doesn't support an explicitly expected environment declared through {@link
-   * BuildConfiguration.Options#targetEnvironments}, the entire build fails with an error.
+   * CoreOptions#targetEnvironments}, the entire build fails with an error.
    *
    * <p>If any target doesn't support an implicitly expected environment declared through {@link
-   * BuildConfiguration.Options#autoCpuEnvironmentGroup}, the target is skipped during execution
-   * while remaining targets execute as normal.
+   * CoreOptions#autoCpuEnvironmentGroup}, the target is skipped during execution while remaining
+   * targets execute as normal.
    *
    * @param topLevelTargets the build's top-level targets
    * @return the set of bad top-level targets.
    * @throws ViewCreationFailedException if any target doesn't support an explicitly expected
-   *     environment declared through {@link BuildConfiguration.Options#targetEnvironments}
+   *     environment declared through {@link CoreOptions#targetEnvironments}
    */
   public Set<ConfiguredTarget> checkTargetEnvironmentRestrictions(
       ImmutableList<ConfiguredTarget> topLevelTargets)

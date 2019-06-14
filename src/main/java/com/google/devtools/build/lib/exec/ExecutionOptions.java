@@ -314,6 +314,20 @@ public class ExecutionOptions extends OptionsBase {
   public ResourceSet availableResources;
 
   @Option(
+      name = "incompatible_remove_local_resources",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Deprecate local_resources in favor of --local_ram_resources and "
+              + "--local_cpu_resources.")
+  public boolean removeLocalResources;
+
+  @Option(
       name = "local_cpu_resources",
       defaultValue = "HOST_CPUS",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -422,14 +436,36 @@ public class ExecutionOptions extends OptionsBase {
   public boolean statsSummary;
 
   @Option(
-    name = "experimental_execution_log_file",
-    defaultValue = "",
-    category = "verbosity",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Log the executed spawns into this file as delimited Spawn protos."
-  )
-  public String executionLogFile;
+      name = "experimental_execution_log_file",
+      defaultValue = "null",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help = "Log the executed spawns into this file as delimited Spawn protos.")
+  public PathFragment executionLogFile;
+
+  @Option(
+      name = "execution_log_binary_file",
+      defaultValue = "null",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help = "Log the executed spawns into this file as delimited Spawn protos.")
+  public PathFragment executionLogBinaryFile;
+
+  @Option(
+      name = "execution_log_json_file",
+      defaultValue = "null",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "Log the executed spawns into this file as json representation of the delimited Spawn"
+              + " protos.")
+  public PathFragment executionLogJsonFile;
 
   @Option(
       name = "experimental_split_xml_generation",

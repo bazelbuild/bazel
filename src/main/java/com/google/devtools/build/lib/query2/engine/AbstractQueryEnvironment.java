@@ -139,7 +139,7 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
   }
 
   @Override
-  public <R> QueryTaskFuture<R> executeAsync(QueryTaskCallable<R> callable) {
+  public <R> QueryTaskFuture<R> execute(QueryTaskCallable<R> callable) {
     try {
       return immediateSuccessfulFuture(callable.call());
     } catch (QueryException e) {
@@ -147,6 +147,11 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
     } catch (InterruptedException e) {
       return immediateCancelledFuture();
     }
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> executeAsync(QueryTaskAsyncCallable<R> callable) {
+    return callable.call();
   }
 
   @Override

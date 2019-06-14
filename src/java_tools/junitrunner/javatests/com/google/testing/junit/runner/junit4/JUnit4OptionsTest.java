@@ -15,7 +15,7 @@
 package com.google.testing.junit.runner.junit4;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
@@ -80,12 +80,9 @@ public class JUnit4OptionsTest {
 
   @Test
   public void testParse_testFilterMissingSecondArg() throws Exception {
-    try {
-      JUnit4Options.parse(EMPTY_ENV, ImmutableList.of("--test_filter"));
-      fail();
-    } catch (RuntimeException e) {
-      // expected
-    }
+    assertThrows(
+        RuntimeException.class,
+        () -> JUnit4Options.parse(EMPTY_ENV, ImmutableList.of("--test_filter")));
   }
 
   @Test

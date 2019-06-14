@@ -115,6 +115,7 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContext(
       Executor executor,
+      ExtendedEventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
       Path execRoot,
@@ -122,6 +123,7 @@ public final class ActionsTestUtil {
       @Nullable ActionGraph actionGraph) {
     return createContext(
         executor,
+        eventHandler,
         actionKeyContext,
         fileOutErr,
         execRoot,
@@ -132,6 +134,7 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContext(
       Executor executor,
+      ExtendedEventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
       Path execRoot,
@@ -145,7 +148,7 @@ public final class ActionsTestUtil {
         actionKeyContext,
         metadataHandler,
         fileOutErr,
-        executor != null ? executor.getEventHandler() : null,
+        eventHandler,
         ImmutableMap.copyOf(clientEnv),
         ImmutableMap.of(),
         actionGraph == null
@@ -156,7 +159,7 @@ public final class ActionsTestUtil {
   }
 
   public static ActionExecutionContext createContext(ExtendedEventHandler eventHandler) {
-    DummyExecutor dummyExecutor = new DummyExecutor(eventHandler);
+    DummyExecutor dummyExecutor = new DummyExecutor();
     return new ActionExecutionContext(
         dummyExecutor,
         null,
@@ -174,12 +177,12 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContextForInputDiscovery(
       Executor executor,
+      ExtendedEventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
       Path execRoot,
       MetadataHandler metadataHandler,
       BuildDriver buildDriver) {
-    ExtendedEventHandler eventHandler = executor != null ? executor.getEventHandler() : null;
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),

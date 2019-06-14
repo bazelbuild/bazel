@@ -104,8 +104,8 @@ class NodeEntryVisitor {
    * Registers a listener with all passed futures that causes the node to be re-enqueued when all
    * futures are completed.
    */
-  void registerExternalDeps(
-      SkyKey skyKey, NodeEntry entry, List<ListenableFuture<?>> externalDeps) {
+  void registerExternalDeps(SkyKey skyKey, NodeEntry entry, List<ListenableFuture<?>> externalDeps)
+      throws InterruptedException {
     // Generally speaking, there is no ordering guarantee for listeners registered with a single
     // listenable future. If we used a listener here, there would be a potential race condition
     // between re-enqueuing the key and notifying the quiescing executor, in which case the executor

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -84,7 +84,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     ConfiguredTarget old = getConfiguredTarget("//java/a:A");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertThat(current).isSameAs(old);
+    assertThat(current).isSameInstanceAs(old);
   }
 
   @Test
@@ -99,7 +99,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     ConfiguredTarget old = getConfiguredTarget("//java/a:A");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertThat(current).isSameAs(old);
+    assertThat(current).isSameInstanceAs(old);
   }
 
   @Test
@@ -116,7 +116,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "java/b/BUILD", "java_library(name = 'b',", "             srcs = ['C.java'])");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertThat(current).isNotSameAs(old);
+    assertThat(current).isNotSameInstanceAs(old);
   }
 
   @Test
@@ -132,7 +132,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile("java/a/BUILD", "java_test(name = 'A',", "          srcs = ['A.java'])");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertThat(current).isNotSameAs(old);
+    assertThat(current).isNotSameInstanceAs(old);
   }
 
   // Regression test for:
@@ -343,7 +343,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     reporter.addHandler(failFastHandler);
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertThat(current).isNotSameAs(old);
+    assertThat(current).isNotSameInstanceAs(old);
   }
 
   private void assertNoTargetsVisited() {
@@ -438,13 +438,10 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':extra'])");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//java/a:a");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      assertThat(e).hasMessageThat().contains("Analysis of target '//java/a:a' failed");
-      assertContainsEvent("$(BUG) not defined");
-    }
+    ViewCreationFailedException e =
+        assertThrows(ViewCreationFailedException.class, () -> update("//java/a:a"));
+    assertThat(e).hasMessageThat().contains("Analysis of target '//java/a:a' failed");
+    assertContainsEvent("$(BUG) not defined");
   }
 
   @Test
@@ -468,11 +465,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
     update(aTarget);
     ConfiguredTarget updatedCT = getConfiguredTarget(aTarget);
-    assertThat(updatedCT).isNotSameAs(firstCT);
+    assertThat(updatedCT).isNotSameInstanceAs(firstCT);
 
     update(aTarget);
     ConfiguredTarget updated2CT = getConfiguredTarget(aTarget);
-    assertThat(updated2CT).isSameAs(updatedCT);
+    assertThat(updated2CT).isSameInstanceAs(updatedCT);
   }
 
   @Test
@@ -495,8 +492,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     ConfiguredTarget newAConfTarget = getConfiguredTarget(aTarget);
     ConfiguredTarget newBConfTarget = getConfiguredTarget(bTarget);
 
-    assertThat(newAConfTarget).isSameAs(oldAConfTarget);
-    assertThat(newBConfTarget).isNotSameAs(oldBConfTarget);
+    assertThat(newAConfTarget).isSameInstanceAs(oldAConfTarget);
+    assertThat(newBConfTarget).isNotSameInstanceAs(oldBConfTarget);
   }
 
   private int countObjectsPartiallyMatchingRegex(
@@ -875,6 +872,29 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
             .put("//test:top", 0)
             .put("//test:shared", 0)
             .build());
+  }
+
+  @Test
+  public void cacheClearedWhenRedundantDefinesChange_collapseDuplicateDefinesDisabled()
+      throws Exception {
+    setupDiffResetTesting();
+    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    useConfiguration("--nocollapse_duplicate_defines", "--define=a=1", "--define=a=2");
+    update("//test:top");
+    useConfiguration("--nocollapse_duplicate_defines", "--define=a=2");
+    update("//test:top");
+    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 1));
+  }
+
+  @Test
+  public void cacheNotClearedWhenRedundantDefinesChange() throws Exception {
+    setupDiffResetTesting();
+    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    useConfiguration("--collapse_duplicate_defines", "--define=a=1", "--define=a=2");
+    update("//test:top");
+    useConfiguration("--collapse_duplicate_defines", "--define=a=2");
+    update("//test:top");
+    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 0));
   }
 
   @Test

@@ -37,9 +37,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * This class tests the FilesystemUtils class.
- */
+/** Tests for the {@link NativePosixFiles} class. */
 @RunWith(JUnit4.class)
 public class NativePosixFilesTest {
   private FileSystem testFS;
@@ -86,29 +84,27 @@ public class NativePosixFilesTest {
     FileSystemUtils.createEmptyFile(testFile);
     NativePosixFiles.chmod(testFile.getPathString(), 0200);
 
-    try {
-      NativePosixFiles.md5sum(testFile.getPathString());
-      fail("Expected FileAccessException, but wasn't thrown.");
-    } catch (FileAccessException e) {
-      assertThat(e).hasMessageThat().isEqualTo(testFile + " (Permission denied)");
-    }
+    FileAccessException e =
+        assertThrows(
+            FileAccessException.class, () -> NativePosixFiles.md5sum(testFile.getPathString()));
+    assertThat(e).hasMessageThat().isEqualTo(testFile + " (Permission denied)");
   }
 
   @Test
   public void throwsFileNotFoundException() throws Exception {
-    try {
-      NativePosixFiles.md5sum(testFile.getPathString());
-      fail("Expected FileNotFoundException, but wasn't thrown.");
-    } catch (FileNotFoundException e) {
-      assertThat(e).hasMessageThat().isEqualTo(testFile + " (No such file or directory)");
-    }
+    FileNotFoundException e =
+        assertThrows(
+            FileNotFoundException.class, () -> NativePosixFiles.md5sum(testFile.getPathString()));
+    assertThat(e).hasMessageThat().isEqualTo(testFile + " (No such file or directory)");
   }
 
   @Test
   public void throwsFilePermissionException() throws Exception {
     File foo = new File("/bin");
     try {
-      NativePosixFiles.setWritable(foo);
+      NativePosixFiles.chmod(
+          foo.getPath(),
+          NativePosixFiles.lstat(foo.getPath()).getPermissions() | FileStatus.S_IWUSR);
       fail("Expected FilePermissionException or IOException, but wasn't thrown.");
     } catch (FilePermissionException e) {
       assertThat(e).hasMessageThat().isEqualTo(foo + " (Operation not permitted)");
@@ -155,5 +151,31 @@ public class NativePosixFilesTest {
         FileNotFoundException.class, () -> NativePosixFiles.getxattr(nonexistentFile, "foo"));
     assertThrows(
         FileNotFoundException.class, () -> NativePosixFiles.lgetxattr(nonexistentFile, "foo"));
+  }
+
+  @Test
+  public void writing() throws Exception {
+    java.nio.file.Path myfile = Files.createTempFile("myfile", null);
+    int fd1 = NativePosixFiles.openWrite(myfile.toString(), false);
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 5, 1));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, -1, 1));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, -1));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, 5));
+    NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, 4);
+    NativePosixFiles.close(fd1, null);
+    assertThat(Files.readAllBytes(myfile)).isEqualTo(new byte[] {0, 1, 2, 3});
+    // Try appending.
+    int fd2 = NativePosixFiles.openWrite(myfile.toString(), true);
+    NativePosixFiles.write(fd2, new byte[] {5, 6, 7, 8, 9}, 1, 3);
+    NativePosixFiles.close(fd2, null);
+    assertThat(Files.readAllBytes(myfile)).isEqualTo(new byte[] {0, 1, 2, 3, 6, 7, 8});
   }
 }

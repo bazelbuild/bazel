@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.merkletree;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.TreeMap;
 
 /**
@@ -46,7 +48,7 @@ class InputTree {
     void visitDirectory(PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs);
   }
 
-  abstract static class Node {
+  abstract static class Node implements Comparable<Node> {
     private final String pathSegment;
 
     Node(String pathSegment) {
@@ -55,6 +57,11 @@ class InputTree {
 
     String getPathSegment() {
       return pathSegment;
+    }
+
+    @Override
+    public int compareTo(Node other) {
+      return pathSegment.compareTo(other.pathSegment);
     }
 
     @Override
@@ -108,7 +115,7 @@ class InputTree {
   }
 
   static class DirectoryNode extends Node {
-    private final List<Node> children = new ArrayList<>();
+    private final SortedSet<Node> children = Sets.newTreeSet();
 
     DirectoryNode(String pathSegment) {
       super(pathSegment);

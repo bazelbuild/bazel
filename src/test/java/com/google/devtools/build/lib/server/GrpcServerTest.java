@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
-import static junit.framework.TestCase.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -210,17 +210,14 @@ public class GrpcServerTest {
   public void testInterruptsCommandThreadOnCancellation() throws Exception {
     final CountDownLatch safety = new CountDownLatch(1);
     final AtomicBoolean interrupted = new AtomicBoolean(false);
-    TestThread victim = new TestThread() {
-      @Override
-      public void runTest() throws Exception {
-        try {
-          safety.await();
-          fail("Test thread finished unexpectedly");
-        } catch (InterruptedException e) {
-          interrupted.set(true);
-        }
-      }
-    };
+    TestThread victim =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            assertThrows(InterruptedException.class, () -> safety.await());
+            interrupted.set(true);
+          }
+        };
 
     victim.setDaemon(true);
     victim.start();

@@ -38,6 +38,7 @@ public final class SpawnMetrics {
   private final Duration setupTime;
   private final Duration executionWallTime;
   private final Duration retryTime;
+  private final Duration remoteProcessOutputsTime;
   private final Duration networkTime;
   private final long inputBytes;
   private final long inputFiles;
@@ -53,6 +54,7 @@ public final class SpawnMetrics {
       Duration uploadTime,
       Duration executionWallTime,
       Duration retryTime,
+      Duration remoteProcessOutputsTime,
       long inputBytes,
       long inputFiles,
       long memoryEstimateBytes) {
@@ -65,6 +67,7 @@ public final class SpawnMetrics {
     this.uploadTime = uploadTime;
     this.executionWallTime = executionWallTime;
     this.retryTime = retryTime;
+    this.remoteProcessOutputsTime = remoteProcessOutputsTime;
     this.inputBytes = inputBytes;
     this.inputFiles = inputFiles;
     this.memoryEstimateBytes = memoryEstimateBytes;
@@ -80,6 +83,7 @@ public final class SpawnMetrics {
     this.uploadTime = builder.uploadTime;
     this.executionWallTime = builder.executionWallTime;
     this.retryTime = builder.retryTime;
+    this.remoteProcessOutputsTime = builder.remoteProcessOutputsTime;
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
     this.memoryEstimateBytes = builder.memoryEstimateBytes;
@@ -147,6 +151,11 @@ public final class SpawnMetrics {
     return retryTime;
   }
 
+  /** Time spend by the execution framework on processing outputs. */
+  public Duration remoteProcessOutputsTime() {
+    return remoteProcessOutputsTime;
+  }
+
   /** Any time that is not measured by a more specific component, out of {@code totalTime()}. */
   public Duration otherTime() {
     return totalTime
@@ -157,7 +166,8 @@ public final class SpawnMetrics {
         .minus(setupTime)
         .minus(executionWallTime)
         .minus(fetchTime)
-        .minus(retryTime);
+        .minus(retryTime)
+        .minus(remoteProcessOutputsTime);
   }
 
   /** Total size in bytes of inputs or 0 if unavailable. */
@@ -195,6 +205,7 @@ public final class SpawnMetrics {
     addStatToString(stats, "process", true, executionWallTime, total);
     addStatToString(stats, "fetch", !summary, fetchTime, total);
     addStatToString(stats, "retry", !summary, retryTime, total);
+    addStatToString(stats, "processOutputs", !summary, remoteProcessOutputsTime, total);
     addStatToString(stats, "other", !summary, otherTime(), total);
     if (!summary) {
       stats.add("input files: " + inputFiles);
@@ -247,6 +258,7 @@ public final class SpawnMetrics {
     private Duration uploadTime = Duration.ZERO;
     private Duration executionWallTime = Duration.ZERO;
     private Duration retryTime = Duration.ZERO;
+    private Duration remoteProcessOutputsTime = Duration.ZERO;
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
@@ -298,6 +310,11 @@ public final class SpawnMetrics {
 
     public Builder setRetryTime(Duration retryTime) {
       this.retryTime = retryTime;
+      return this;
+    }
+
+    public Builder setRemoteProcessOutputsTime(Duration remoteProcessOutputsTime) {
+      this.remoteProcessOutputsTime = remoteProcessOutputsTime;
       return this;
     }
 

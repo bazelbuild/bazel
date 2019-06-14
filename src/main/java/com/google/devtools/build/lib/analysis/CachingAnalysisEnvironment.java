@@ -68,6 +68,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    */
   private final boolean isSystemEnv;
   private final boolean extendedSanityChecks;
+  private final boolean allowAnalysisFailures;
 
   private final ActionKeyContext actionKeyContext;
 
@@ -89,6 +90,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       ArtifactOwner owner,
       boolean isSystemEnv,
       boolean extendedSanityChecks,
+      boolean allowAnalysisFailures,
       ExtendedEventHandler errorEventListener,
       SkyFunction.Environment env) {
     this.artifactFactory = artifactFactory;
@@ -96,6 +98,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.owner = Preconditions.checkNotNull(owner);
     this.isSystemEnv = isSystemEnv;
     this.extendedSanityChecks = extendedSanityChecks;
+    this.allowAnalysisFailures = allowAnalysisFailures;
     this.errorEventListener = errorEventListener;
     this.skyframeEnv = env;
     middlemanFactory = new MiddlemanFactory(artifactFactory, this);
@@ -103,7 +106,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   public void disable(Target target) {
-    if (!hasErrors()) {
+    if (!hasErrors() && !allowAnalysisFailures) {
       verifyGeneratedArtifactHaveActions(target);
     }
     artifacts = null;
@@ -337,9 +340,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   @Override
   public ImmutableList<Artifact> getBuildInfo(
-      RuleContext ruleContext, BuildInfoKey key, BuildConfiguration config)
-      throws InterruptedException {
-    boolean stamp = AnalysisUtils.isStampingEnabled(ruleContext, config);
+      boolean stamp, BuildInfoKey key, BuildConfiguration config) throws InterruptedException {
     BuildInfoCollectionValue collectionValue =
         (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(key, config));
     if (collectionValue == null) {

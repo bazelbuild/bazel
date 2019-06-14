@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidBinary;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
@@ -98,5 +99,16 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       ProguardOutput proguardOutput)
       throws InterruptedException {
     return AndroidBinary.DexPostprocessingOutput.create(classesDexZip, proguardOutput.getMapping());
+  }
+
+  @Override
+  public void registerMigrationRuleError(RuleContext ruleContext) throws RuleErrorException {
+    ruleContext.attributeError(
+        "tags",
+        "The native Android rules are deprecated. Please use the Starlark Android rules by adding "
+            + "the following load statement to the BUILD file: "
+            + "load(\"@build_bazel_rules_android//android:rules.bzl\", \""
+            + ruleContext.getRule().getRuleClass()
+            + "\"). See http://github.com/bazelbuild/rules_android.");
   }
 }

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -82,12 +82,12 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   public void testBuildingNonexistentSourcefileFails() throws Exception {
     reporter.removeHandler(failFastHandler);
     Artifact hello = createSourceArtifact("hello");
-    try {
-      buildArtifacts(cachingBuilder(), hello);
-      fail("Expected input file to be missing");
-    } catch (BuildFailedException e) {
-      assertThat(e).hasMessageThat().isEqualTo("missing input file '" + hello.getPath() + "'");
-    }
+    BuildFailedException e =
+        assertThrows(
+            "Expected input file to be missing",
+            BuildFailedException.class,
+            () -> buildArtifacts(cachingBuilder(), hello));
+    assertThat(e).hasMessageThat().isEqualTo("missing input file '" + hello.getPath() + "'");
   }
 
   @Test
@@ -324,11 +324,8 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     registerAction(new TestAction(TestAction.NO_EFFECT, Collections.singleton(in),
         Collections.singleton(out)));
 
-    try {
-      buildArtifacts(amnesiacBuilder(), out); // fails with ActionExecutionException
-      fail();
-    } catch (BuildFailedException e) {
-      assertThat(e).hasMessageThat().contains("1 input file(s) do not exist");
-    }
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildArtifacts(amnesiacBuilder(), out));
+    assertThat(e).hasMessageThat().contains("1 input file(s) do not exist");
   }
 }

@@ -29,16 +29,22 @@ public final class CppFileTypes {
   public static final FileType C_SOURCE = FileType.of(".c");
   public static final FileType OBJC_SOURCE = FileType.of(".m");
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
+  public static final FileTypeSet ALL_C_CLASS_SOURCE =
+      FileTypeSet.of(
+          CppFileTypes.CPP_SOURCE,
+          CppFileTypes.C_SOURCE,
+          CppFileTypes.OBJCPP_SOURCE,
+          CppFileTypes.OBJC_SOURCE);
 
   // Filetypes that generate LLVM bitcode when -flto is specified.
   public static final FileTypeSet LTO_SOURCE =
       FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE);
 
   public static final FileType CPP_HEADER =
-      FileType.of(".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc", ".inl", ".H");
+      FileType.of(".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc", ".inl", ".tlh", ".tli", ".H");
   public static final FileType PCH = FileType.of(".pch");
   public static final FileTypeSet OBJC_HEADER = FileTypeSet.of(CPP_HEADER, PCH);
-  
+
   public static final FileType CPP_TEXTUAL_INCLUDE = FileType.of(".inc");
 
   public static final FileType PIC_PREPROCESSED_C = FileType.of(".pic.i");

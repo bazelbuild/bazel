@@ -43,7 +43,7 @@ public class MetricsModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return ImmutableList.of(Options.class);
+    return "build".equals(command.name()) ? ImmutableList.of(Options.class) : ImmutableList.of();
   }
 
   @Override

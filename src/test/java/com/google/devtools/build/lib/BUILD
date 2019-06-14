@@ -44,6 +44,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/buildeventstream:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
+        "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
@@ -241,7 +242,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -364,7 +365,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party:truth8",
     ],
 )
@@ -385,8 +386,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:out-err",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/protobuf:bazel_flags_java_proto",
-        "//third_party:mockito2",
+        "//third_party:mockito",
     ],
 )
 
@@ -449,6 +452,7 @@ java_library(
         ":vfs_filesystem_test",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 
@@ -574,7 +578,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:action_cache_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito2",
+        "//third_party:mockito",
     ],
 )
 
@@ -614,7 +618,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:action_cache_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party:truth8",
     ],
 )
@@ -635,7 +639,6 @@ java_library(
         "//tools/jdk:srcs",
     ],
     resources = [
-        "analysis/mock/MOCK_CROSSTOOL",
         "analysis/mock/cc_toolchain_config.bzl",
         "//tools/build_defs/cc:action_names.bzl",
         "//tools/cpp:cc_toolchain_config_lib.bzl",
@@ -655,7 +658,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-repository",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib:bazel/LicenseCheckingModule",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:core-rules",
@@ -699,7 +701,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:jsr305",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
         "@bazel_tools//tools/java/runfiles",
     ],
@@ -745,6 +747,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -754,14 +757,14 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito2",
+        "//third_party:mockito",
     ],
 )
 
 java_test(
     name = "analysis_config_test",
     srcs = glob([
-        "analysis/config/*.java",
+        "analysis/config/**/*.java",
     ]),
     tags = ["analysis"],
     test_class = "com.google.devtools.build.lib.AllTests",
@@ -793,7 +796,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/skyframe/trimming:trimmable_test_fragments",
         "//third_party:auto_value",
         "//third_party:jsr305",
-        "//third_party:mockito2",
+        "//third_party:mockito",
     ],
 )
 
@@ -865,7 +868,6 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib:bazel/LicenseCheckingModule",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages",
@@ -892,7 +894,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//third_party:auto_value",
         "//third_party:jsr305",
-        "//third_party:mockito2",
+        "//third_party:mockito",
     ],
 )
 
@@ -922,8 +924,10 @@ java_library(
         "packages/util/*.java",
     ]),
     resources = [
-        "packages/util/MOCK_ANDROID_CROSSTOOL",
-        "packages/util/MOCK_OSX_CROSSTOOL",
+        "//src/test/java/com/google/devtools/build/lib/packages/util/mock:android_cc_toolchain_config.bzl",
+        "//src/test/java/com/google/devtools/build/lib/packages/util/mock:osx_cc_toolchain_config.bzl",
+        "//tools/build_defs/cc:action_names.bzl",
+        "//tools/cpp:cc_toolchain_config_lib.bzl",
         "//tools/python:srcs",
     ],
     deps = [
@@ -955,7 +959,7 @@ java_library(
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -995,7 +999,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:build_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -1054,7 +1058,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:command_server_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
     ],
@@ -1194,6 +1198,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -1275,7 +1280,8 @@ java_test(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//src/test/java/com/google/devtools/common/options:testutils",
-        "//third_party:mockito2",
+        "//third_party:apache_commons_lang",
+        "//third_party:mockito",
     ],
 )
 
@@ -1400,13 +1406,14 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -1434,7 +1441,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/tools:process-wrapper",
         "//src/test/shell/integration:spend_cpu_time",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party:truth8",
     ],
 )
@@ -1445,6 +1452,7 @@ java_test(
     deps = [
         ":actions_testutil",
         ":guava_junit_truth",
+        ":testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
@@ -1455,7 +1463,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//third_party:mockito2",
+        "//third_party:mockito",
     ],
 )
 
@@ -1496,8 +1504,11 @@ java_test(
         ":guava_junit_truth",
         ":packages_testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )
@@ -1542,6 +1553,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",

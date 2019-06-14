@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.stringtemplate;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import java.util.HashMap;
@@ -119,22 +120,25 @@ public class TemplateExpanderTest {
 
   @Test
   public void testFunctionExpansionThrows() throws Exception {
-    try {
-      TemplateExpander.expand("$(foo baz)", new TemplateContext() {
-        @Override
-        public String lookupVariable(String name) throws ExpansionException {
-          throw new ExpansionException(name);
-        }
+    ExpansionException e =
+        assertThrows(
+            ExpansionException.class,
+            () ->
+                TemplateExpander.expand(
+                    "$(foo baz)",
+                    new TemplateContext() {
+                      @Override
+                      public String lookupVariable(String name) throws ExpansionException {
+                        throw new ExpansionException(name);
+                      }
 
-        @Override
-        public String lookupFunction(String name, String param) throws ExpansionException {
-          throw new ExpansionException(name + "(" + param + ")");
-        }
-      });
-      fail();
-    } catch (ExpansionException e) {
-      assertThat(e).hasMessageThat().isEqualTo("foo(baz)");
-    }
+                      @Override
+                      public String lookupFunction(String name, String param)
+                          throws ExpansionException {
+                        throw new ExpansionException(name + "(" + param + ")");
+                      }
+                    }));
+    assertThat(e).hasMessageThat().isEqualTo("foo(baz)");
   }
 
   @Test

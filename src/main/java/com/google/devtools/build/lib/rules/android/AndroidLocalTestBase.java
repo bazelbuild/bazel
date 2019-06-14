@@ -76,15 +76,20 @@ import javax.annotation.Nullable;
 /** A base implementation for the "android_local_test" rule. */
 public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactory {
 
+  private final AndroidSemantics androidSemantics;
+
+  protected AndroidLocalTestBase(AndroidSemantics androidSemantics) {
+    this.androidSemantics = androidSemantics;
+  }
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-
+    androidSemantics.checkForMigrationTag(ruleContext);
     ruleContext.checkSrcsSamePackage(true);
 
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
-    createAndroidMigrationSemantics().validateRuleContext(ruleContext);
     AndroidLocalTestConfiguration androidLocalTestConfiguration =
         ruleContext.getFragment(AndroidLocalTestConfiguration.class);
 
@@ -191,8 +196,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
                 srcJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(srcJar));
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
-    Artifact instrumentationMetadata =
-        helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
     Artifact executable; // the artifact for the rule itself
     if (OS.getCurrent() == OS.WINDOWS) {
       executable =
@@ -215,15 +218,16 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     String mainClass = javaSemantics.getTestRunnerMainClass();
     String originalMainClass = mainClass;
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      mainClass = addCoverageSupport(
-          ruleContext,
-          javaSemantics,
-          helper,
-          executable,
-          instrumentationMetadata,
-          javaArtifactsBuilder,
-          attributesBuilder,
-          mainClass);
+      mainClass =
+          addCoverageSupport(
+              ruleContext,
+              javaSemantics,
+              helper,
+              executable,
+              /* instrumentationMetadata= */ null,
+              javaArtifactsBuilder,
+              attributesBuilder,
+              mainClass);
     }
 
     // JavaCompilationHelper.getAttributes() builds the JavaTargetAttributes, after which the
@@ -246,7 +250,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             classJar,
             manifestProtoOutput,
             genSourceJar,
-            instrumentationMetadata,
             /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
     javaRuleOutputJarsProviderBuilder.setJdeps(javaCompileAction.getOutputDepsProto());
@@ -444,13 +447,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     builder.addTargets(depsForRunfiles, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
 
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      Artifact instrumentedJar = javaCommon.getJavaCompilationArtifacts().getInstrumentedJar();
-      if (instrumentedJar != null) {
-        builder.addArtifact(instrumentedJar);
-      }
-    }
-
     // We assume that the runtime jars will not have conflicting artifacts
     // with the same root relative path
     builder.addTransitiveArtifactsWrappedInStableOrder(javaCommon.getRuntimeClasspath());
@@ -551,9 +547,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   protected abstract JavaSemantics createJavaSemantics();
 
   protected abstract AndroidSemantics createAndroidSemantics();
-
-  /** Get AndroidMigrationSemantics */
-  protected abstract AndroidMigrationSemantics createAndroidMigrationSemantics();
 
   /** Set test and robolectric specific jvm flags */
   protected abstract ImmutableList<String> getJvmFlags(RuleContext ruleContext, String testClass)

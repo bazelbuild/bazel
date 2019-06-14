@@ -54,8 +54,7 @@ java_library(
     name = "Query2Tests_lib",
     srcs = glob(
         [
-            "*.java",
-            "engine/*.java",
+            "**/*.java",
         ],
         exclude = QUERY_TESTUTIL_SRCS,
     ),
@@ -85,7 +84,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:mockito2",
+        "//third_party:mockito",
         "//third_party:truth",
     ],
 )
