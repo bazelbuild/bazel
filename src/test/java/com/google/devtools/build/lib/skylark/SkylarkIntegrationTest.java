@@ -2738,12 +2738,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test");
     // Test print from top level transition
-    assertContainsEventWithFrequency("printing from transition impl [\"meow\"]", 1);
+    assertContainsEvent("printing from transition impl [\"meow\"]");
     // Test print from dep transition
-    assertContainsEventWithFrequency("printing from transition impl [\"meow\", \"meow\"]", 1);
+    assertContainsEvent("printing from transition impl [\"meow\", \"meow\"]");
     // Test print from (non-top level) rule class transition
-    assertContainsEventWithFrequency(
-        "printing from transition impl [\"meow\", \"meow\", \"meow\"]", 1);
+    assertContainsEvent("printing from transition impl [\"meow\", \"meow\", \"meow\"]");
   }
 
   @Test

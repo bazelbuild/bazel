@@ -964,29 +964,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTransitionOnBuildSetting_aliasedBuildSetting() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api=true");
-    writeWhitelistFile();
-    writeBuildSettingsBzl();
-    writeRulesWithAttrTransitionBzl();
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'my_rule')",
-        "load('//test/skylark:build_settings.bzl', 'int_flag')",
-        "my_rule(name = 'test', dep = ':dep')",
-        "my_rule(name = 'dep')",
-        "int_flag(name = 'the-secret-answer', build_setting_default = 0)",
-        "alias(name = 'the-answer', actual = ':the-secret-answer')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
-    assertContainsEvent(
-        "attempting to transition on '//test/skylark:the-answer' which "
-            + "is not a build setting");
-  }
-
-  @Test
   public void testOptionConversionDynamicMode() throws Exception {
     // TODO(waltl): check that dynamic_mode is parsed properly.
   }

@@ -36,6 +36,10 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Implementation of the <code>alias</code> rule.
  */
 public class Alias implements RuleConfiguredTargetFactory {
+
+  public static final String RULE_NAME = "alias";
+  public static final String ACTUAL_ATTRIBUTE_NAME = "actual";
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
@@ -64,7 +68,7 @@ public class Alias implements RuleConfiguredTargetFactory {
           .removeAttribute("licenses")
           .removeAttribute("distribs")
           .add(
-              attr("actual", LABEL)
+              attr(ACTUAL_ATTRIBUTE_NAME, LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
                   .allowedRuleClasses(ANY_RULE)
                   .mandatory())
@@ -79,7 +83,7 @@ public class Alias implements RuleConfiguredTargetFactory {
     @Override
     public Metadata getMetadata() {
       return Metadata.builder()
-          .name("alias")
+          .name(RULE_NAME)
           .factoryClass(Alias.class)
           .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
