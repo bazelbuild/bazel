@@ -44,26 +44,34 @@ public interface CcCompilationContextApi {
   @SkylarkCallable(
       name = "system_includes",
       doc =
-          "Returns the set of search paths for header files referenced by angle brackets, e.g. "
-              + "#include <foo/bar/header.h>. They can be either relative to the exec root "
-              + "or absolute. Usually passed with -isystem.",
+          "Returns the set of search paths (as strings) for header files referenced by angle"
+              + " brackets, e.g. #include <foo/bar/header.h>. They can be either relative to the"
+              + " exec root or absolute. Usually passed with -isystem.",
       structField = true)
   SkylarkNestedSet getSkylarkSystemIncludeDirs();
 
   @SkylarkCallable(
+      name = "framework_includes",
+      doc =
+          "Returns the set of search paths (as strings) for framework header files. Usually passed"
+              + " with -F.",
+      structField = true)
+  SkylarkNestedSet getSkylarkFrameworkIncludeDirs();
+
+  @SkylarkCallable(
       name = "includes",
       doc =
-          "Returns the set of search paths for header files referenced both by angle bracket and "
-              + "quotes Usually passed with -I.",
+          "Returns the set of search paths (as strings) for header files referenced both by angle"
+              + " bracket and quotes. Usually passed with -I.",
       structField = true)
   SkylarkNestedSet getSkylarkIncludeDirs();
 
   @SkylarkCallable(
       name = "quote_includes",
       doc =
-          "Returns the set of search paths for header files referenced by quotes, e.g. "
-              + "#include \"foo/bar/header.h\". They can be either relative to the exec "
-              + "root or absolute. Usually passed with -iquote.",
+          "Returns the set of search paths (as strings) for header files referenced by quotes,"
+              + " e.g. #include \"foo/bar/header.h\". They can be either relative to the exec root"
+              + " or absolute. Usually passed with -iquote.",
       structField = true)
   SkylarkNestedSet getSkylarkQuoteIncludeDirs();
 }

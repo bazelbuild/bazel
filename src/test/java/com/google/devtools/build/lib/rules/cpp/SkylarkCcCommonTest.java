@@ -704,6 +704,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCompileBuildVariablesForFrameworkIncludes() throws Exception {
+    assertThat(
+            commandLineForVariables(
+                CppActionNames.CPP_COMPILE,
+                "cc_common.create_compile_variables(",
+                "feature_configuration = feature_configuration,",
+                "cc_toolchain = toolchain,",
+                "framework_include_directories = depset(['foo/bar'])",
+                ")"))
+        .contains("-Ffoo/bar");
+  }
+
+  @Test
   public void testCompileBuildVariablesForDefines() throws Exception {
     assertThat(
             commandLineForVariables(
@@ -1068,6 +1081,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    system_includes=depset([ctx.attr._system_include]),",
         "    includes=depset([ctx.attr._include]),",
         "    quote_includes=depset([ctx.attr._quote_include]),",
+        "    framework_includes=depset([ctx.attr._framework_include]),",
         "    defines=depset([ctx.attr._define]))",
         "  cc_infos = [CcInfo(compilation_context=compilation_context)]",
         "  for dep in ctx.attr._deps:",
@@ -1080,6 +1094,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "          merged_system_includes=merged_cc_info.compilation_context.system_includes,",
         "          merged_includes=merged_cc_info.compilation_context.includes,",
         "          merged_quote_includes=merged_cc_info.compilation_context.quote_includes,",
+        "         "
+            + " merged_framework_includes=merged_cc_info.compilation_context.framework_includes,",
         "          merged_defines=merged_cc_info.compilation_context.defines",
         "      )]",
         "crule = rule(",
@@ -1090,6 +1106,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    '_system_include': attr.string(default='foo/bar'),",
         "    '_include': attr.string(default='baz/qux'),",
         "    '_quote_include': attr.string(default='quux/abc'),",
+        "    '_framework_include': attr.string(default='fuux/fgh'),",
         "    '_define': attr.string(default='MYDEFINE'),",
         "    '_deps': attr.label_list(default=['//a:dep1', '//a:dep2'])",
         "  },",
@@ -1132,6 +1149,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     List<String> mergedQuoteIncludes =
         ((SkylarkNestedSet) myInfo.getValue("merged_quote_includes")).getSet(String.class).toList();
     assertThat(mergedQuoteIncludes).contains("quux/abc");
+
+    List<String> mergedFrameworkIncludes =
+        ((SkylarkNestedSet) myInfo.getValue("merged_framework_includes"))
+            .getSet(String.class)
+            .toList();
+    assertThat(mergedFrameworkIncludes).contains("fuux/fgh");
   }
 
   @Test
@@ -5162,6 +5185,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(action.getArguments())
         .containsAtLeast("-iquote", "foo/bar", "-iquote", "baz/qux")
         .inOrder();
+  }
+
+  @Test
+  public void testFrameworkIncludeDirs() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "framework_includes=['foo/bar', 'baz/qux']");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(action.getArguments()).containsAtLeast("-Ffoo/bar", "-Fbaz/qux").inOrder();
   }
 
   @Test

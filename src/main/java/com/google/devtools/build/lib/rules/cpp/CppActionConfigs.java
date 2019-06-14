@@ -256,6 +256,10 @@ public class CppActionConfigs {
                         "      flag: '-isystem'",
                         "      flag: '%{system_include_paths}'",
                         "    }",
+                        "    flag_group {",
+                        "      iterate_over: 'framework_include_paths'",
+                        "      flag: '-F%{framework_include_paths}'",
+                        "    }",
                         "  }")));
       }
       if (!existingFeatureNames.contains(CppRuleClasses.FDO_INSTRUMENT)) {

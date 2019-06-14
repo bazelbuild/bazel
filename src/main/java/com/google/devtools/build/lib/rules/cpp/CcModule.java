@@ -218,6 +218,7 @@ public abstract class CcModule
       Object includeDirs,
       Object quoteIncludeDirs,
       Object systemIncludeDirs,
+      Object frameworkIncludeDirs,
       Object defines,
       boolean usePic,
       boolean addLegacyCxxOptions)
@@ -248,6 +249,7 @@ public abstract class CcModule
         asStringNestedSet(includeDirs),
         asStringNestedSet(quoteIncludeDirs),
         asStringNestedSet(systemIncludeDirs),
+        asStringNestedSet(frameworkIncludeDirs),
         asStringNestedSet(defines));
   }
 
@@ -501,7 +503,12 @@ public abstract class CcModule
 
   @Override
   public CcCompilationContext createCcCompilationContext(
-      Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
+      Object headers,
+      Object systemIncludes,
+      Object includes,
+      Object quoteIncludes,
+      Object frameworkIncludes,
+      Object defines)
       throws EvalException {
     CcCompilationContext.Builder ccCompilationContext =
         CcCompilationContext.builder(
@@ -519,6 +526,13 @@ public abstract class CcModule
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addQuoteIncludeDirs(
         toNestedSetOfStrings(quoteIncludes, "quote_includes").getSet(String.class).toList().stream()
+            .map(x -> PathFragment.create(x))
+            .collect(ImmutableList.toImmutableList()));
+    ccCompilationContext.addFrameworkIncludeDirs(
+        toNestedSetOfStrings(frameworkIncludes, "framework_includes")
+            .getSet(String.class)
+            .toList()
+            .stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").getSet(String.class));
@@ -1491,6 +1505,7 @@ public abstract class CcModule
       SkylarkList<String> includes,
       SkylarkList<String> quoteIncludes,
       SkylarkList<String> systemIncludes,
+      SkylarkList<String> frameworkIncludes,
       SkylarkList<String> defines,
       SkylarkList<String> userCompileFlags,
       SkylarkList<CcCompilationContext> ccCompilationContexts,
@@ -1557,6 +1572,10 @@ public abstract class CcModule
                     .collect(ImmutableList.toImmutableList()))
             .addSystemIncludeDirs(
                 systemIncludes.stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .addFrameworkIncludeDirs(
+                frameworkIncludes.stream()
                     .map(PathFragment::create)
                     .collect(ImmutableList.toImmutableList()))
             .addDefines(defines)
