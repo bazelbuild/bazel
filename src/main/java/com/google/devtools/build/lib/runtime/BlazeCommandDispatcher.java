@@ -272,6 +272,25 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     // Record the command's starting time for use by the commands themselves.
     env.recordCommandStartTime(firstContactTime);
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
+    // We cannot flip an incompatible flag that expands to other flags, so we do it manually here.
+    // If an option is specified explicitly, we give that preference.
+    if (commonOptions.enableProfileByDefault
+        && (!options.containsExplicitOption("experimental_generate_json_trace_profile")
+            || commonOptions.enableTracer)) {
+      commonOptions.enableTracer = true;
+      if (!options.containsExplicitOption("experimental_slim_json_profile")) {
+        commonOptions.enableJsonProfileDiet = true;
+      }
+      if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
+        commonOptions.enableCpuUsageProfiling = true;
+      }
+      if (!options.containsExplicitOption("experimental_json_trace_compression")) {
+        commonOptions.enableTracerCompression = true;
+      }
+      if (!options.containsExplicitOption("experimental_post_profile_started_event")) {
+        commonOptions.postProfileStartedEvent = true;
+      }
+    }
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
     // Profiler setup and shutdown must always happen in pairs. Shutdown is currently performed in
     // the afterCommand call in the finally block below.
