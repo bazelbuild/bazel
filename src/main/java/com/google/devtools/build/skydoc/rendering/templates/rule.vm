@@ -10,14 +10,14 @@ ${ruleInfo.docString}
 
 #[[###]]# Attributes
 
-#if (!$ruleInfo.getAttributesList().isEmpty())
+#if (!$ruleInfo.getAttributeList().isEmpty())
 <table class="params-table">
   <colgroup>
     <col class="col-param" />
     <col class="col-description" />
   </colgroup>
   <tbody>
-#foreach ($attribute in $ruleInfo.getAttributesList())
+#foreach ($attribute in $ruleInfo.getAttributeList())
     <tr id="${ruleName}-${attribute.name}">
       <td><code>${attribute.name}</code></td>
       <td>

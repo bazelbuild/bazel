@@ -38,7 +38,7 @@ public final class MarkdownUtil {
   @SuppressWarnings("unused") // Used by markdown template.
   public String ruleSummary(String ruleName, RuleInfo ruleInfo) {
     List<String> attributeNames =
-        ruleInfo.getAttributesList().stream()
+        ruleInfo.getAttributeList().stream()
             .map(attr -> attr.getName())
             .collect(Collectors.toList());
     return summary(ruleName, attributeNames);
@@ -53,7 +53,7 @@ public final class MarkdownUtil {
   @SuppressWarnings("unused") // Used by markdown template.
   public String providerSummary(String providerName, ProviderInfo providerInfo) {
     List<String> fieldNames =
-        providerInfo.getFieldInfosList().stream()
+        providerInfo.getFieldInfoList().stream()
             .map(field -> field.getName())
             .collect(Collectors.toList());
     return summary(providerName, fieldNames);
@@ -68,7 +68,7 @@ public final class MarkdownUtil {
   @SuppressWarnings("unused") // Used by markdown template.
   public String funcSummary(UserDefinedFunctionInfo funcInfo) {
     List<String> paramNames =
-        funcInfo.getParametersList().stream()
+        funcInfo.getParameterList().stream()
             .map(param -> param.getName())
             .collect(Collectors.toList());
     return summary(funcInfo.getFunctionName(), paramNames);

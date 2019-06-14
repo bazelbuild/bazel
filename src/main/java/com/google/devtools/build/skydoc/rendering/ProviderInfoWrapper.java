@@ -39,7 +39,7 @@ public class ProviderInfoWrapper {
       BaseFunction identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
     this.identifier = identifier;
     this.providerInfo =
-        ProviderInfo.newBuilder().setDocString(docString).addAllFieldInfos(fieldInfos).build();
+        ProviderInfo.newBuilder().setDocString(docString).addAllFieldInfo(fieldInfos).build();
   }
 
   public BaseFunction getIdentifier() {

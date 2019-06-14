@@ -141,13 +141,13 @@ public final class SkydocTest extends SkylarkTestCase {
   }
 
   private static Iterable<String> getAttrNames(RuleInfo ruleInfo) {
-    return ruleInfo.getAttributesList().stream()
+    return ruleInfo.getAttributeList().stream()
         .map(attr -> attr.getName())
         .collect(Collectors.toList());
   }
 
   private static Iterable<AttributeType> getAttrTypes(RuleInfo ruleInfo) {
-    return ruleInfo.getAttributesList().stream()
+    return ruleInfo.getAttributeList().stream()
         .map(attr -> attr.getType())
         .collect(Collectors.toList());
   }

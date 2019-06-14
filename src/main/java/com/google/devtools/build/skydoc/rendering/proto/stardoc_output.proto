@@ -62,7 +62,7 @@ message RuleInfo {
   string doc_string = 1;
 
   // The attributes of the rule.
-  repeated AttributeInfo attributes = 2;
+  repeated AttributeInfo attribute = 2;
 }
 
 // Representation of a Starlark rule attribute definition, comprised of an
@@ -91,7 +91,7 @@ message UserDefinedFunctionInfo {
   string function_name = 1;
 
   // The parameters for the function.
-  repeated FunctionParamInfo parameters = 2;
+  repeated FunctionParamInfo parameter = 2;
 
   // The documented description of the function (if specified in the function's
   // docstring).
@@ -133,5 +133,5 @@ message ProviderInfo {
   string doc_string = 1;
 
   // The fields of the provider.
-  repeated ProviderFieldInfo field_infos = 2;
+  repeated ProviderFieldInfo field_info = 2;
 }
