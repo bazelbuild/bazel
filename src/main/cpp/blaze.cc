@@ -191,6 +191,8 @@ static const char* ReasonString(RestartReason reason) {
 
   BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
       << "unknown RestartReason (" << reason << ").";
+  // Cannot actually reach this, but it makes the compiler happy.
+  return "unknown";
 }
 
 // Encapsulates miscellaneous information reported to the server for logging and
