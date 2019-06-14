@@ -406,7 +406,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new LocalConfigPlatformRule());
 
           try {
-            builder.addWorkspaceFilePrefix(
+            builder.addWorkspaceFileSuffix(
                 ResourceFileLoader.loadResource(
                     LocalConfigPlatformRule.class, "local_config_platform.WORKSPACE"));
           } catch (IOException e) {
