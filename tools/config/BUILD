@@ -1,5 +1,5 @@
 # Common config settings and flags.
-# 
+#
 # These definitions are only for local use within Bazel built-in tools.
 # In all other cases, use types from github.com/bazelbuild/bazel-skylib.
 
