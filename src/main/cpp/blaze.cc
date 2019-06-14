@@ -1541,16 +1541,12 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   const string workspace = workspace_layout->GetWorkspace(cwd);
   ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv);
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
+  startup_options->MaybeLogStartupOptionWarnings();
 
   SetDebugLog(startup_options->client_debug);
   // If client_debug was false, this is ignored, so it's accurate.
   BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
                      "statements to stderr";
-  // TODO(b/79206210): Can't log this before SetDebugLog is called, since the
-  // warning might get swallowed. Once the bug is fixed, move this call to
-  // OptionProcessor::ParseOptionsOrDie where the order of operations is more
-  // clear.
-  startup_options->MaybeLogStartupOptionWarnings();
 
   if (startup_options->unlimit_coredumps) {
     UnlimitCoredumps();
