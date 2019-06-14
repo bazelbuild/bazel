@@ -209,6 +209,18 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean removeBinaryProfile;
 
   @Option(
+      name = "incompatible_enable_profile_by_default",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, Bazel will generate a JSON profile by default.")
+  public boolean enableProfileByDefault;
+
+  @Option(
     name = "experimental_generate_json_trace_profile",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.LOGGING,
