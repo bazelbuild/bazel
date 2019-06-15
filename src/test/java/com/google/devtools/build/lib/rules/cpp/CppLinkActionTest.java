@@ -18,19 +18,18 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -96,6 +95,14 @@ public class CppLinkActionTest extends BuildViewTestCase {
               PathFragment rootRelativePath, ArtifactRoot root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
+          }
+
+          @Override
+          public Artifact.DerivedArtifact getDerivedArtifact(
+              PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPaths) {
+            Preconditions.checkArgument(
+                !contentBasedPaths, "C++ tests don't use content-based outputs");
+            return getDerivedArtifact(rootRelativePath, root);
           }
         },
         masterConfig);
@@ -901,7 +908,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     return new SpecialArtifact(
         ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
+        ActionsTestUtil.NULL_ARTIFACT_OWNER,
         SpecialArtifactType.TREE);
   }
 
@@ -919,8 +926,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         new ArtifactExpander() {
@@ -970,8 +981,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         (artifact, output) -> {

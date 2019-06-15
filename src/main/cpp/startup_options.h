@@ -110,12 +110,12 @@ class StartupOptions {
 
   // Returns the path to the JVM. This should be called after parsing
   // the startup options.
-  virtual std::string GetJvm();
+  virtual std::string GetJvm() const;
 
   // Returns the executable used to start the Blaze server, typically the given
   // JVM.
   virtual std::string GetExe(const std::string &jvm,
-                             const std::string &jar_path);
+                             const std::string &jar_path) const;
 
   // Adds JVM prefix flags to be set. These will be added before all other
   // JVM flags.
@@ -221,11 +221,11 @@ class StartupOptions {
   std::map<std::string, std::string> option_sources;
 
   // Returns the embedded JDK, or an empty string.
-  std::string GetEmbeddedJavabase();
+  std::string GetEmbeddedJavabase() const;
 
   // Returns the GetHostJavabase. This should be called after parsing
   // the --server_javabase option.
-  std::string GetServerJavabase();
+  std::string GetServerJavabase() const;
 
   // Returns the explicit value of the --server_javabase startup option or the
   // empty string if it was not specified on the command line.
@@ -331,8 +331,12 @@ class StartupOptions {
                                        bool *is_space_separated,
                                        std::string *error);
 
-  std::string server_javabase_;
-  std::string default_server_javabase_;
+  // The server javabase as provided on the commandline.
+  std::string explicit_server_javabase_;
+
+  // The server javabase to be used (computed lazily).
+  mutable std::string default_server_javabase_;
+
   // Contains the collection of startup flags that Bazel accepts.
   std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
 };

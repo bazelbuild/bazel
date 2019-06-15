@@ -20,20 +20,22 @@ file is less likely to cause bootstrapping issues.
 """
 
 def _expand_pyversion_template_impl(ctx):
-    if ctx.outputs.out2:
-        ctx.actions.expand_template(
-            template = ctx.file.template,
-            output = ctx.outputs.out2,
-            substitutions = {"%VERSION%": "2"},
-            is_executable = True,
-        )
-    if ctx.outputs.out3:
-        ctx.actions.expand_template(
-            template = ctx.file.template,
-            output = ctx.outputs.out3,
-            substitutions = {"%VERSION%": "3"},
-            is_executable = True,
-        )
+    for output, version, strict in [
+        (ctx.outputs.out2, "2", "1"),
+        (ctx.outputs.out3, "3", "1"),
+        (ctx.outputs.out2_nonstrict, "2", "0"),
+        (ctx.outputs.out3_nonstrict, "3", "0"),
+    ]:
+        if output:
+            ctx.actions.expand_template(
+                template = ctx.file.template,
+                output = output,
+                substitutions = {
+                    "%VERSION%": version,
+                    "%STRICT%": strict,
+                },
+                is_executable = True,
+            )
 
 expand_pyversion_template = rule(
     implementation = _expand_pyversion_template_impl,
@@ -42,12 +44,16 @@ expand_pyversion_template = rule(
             allow_single_file = True,
             doc = "The input template file.",
         ),
-        "out2": attr.output(doc = """\
-The output file produced by substituting "%VERSION%" with "2"."""),
-        "out3": attr.output(doc = """\
-The output file produced by substituting "%VERSION%" with "3"."""),
+        "out2": attr.output(doc = "The Python 2 strict wrapper."),
+        "out3": attr.output(doc = "The Python 3 strict wrapper."),
+        "out2_nonstrict": attr.output(
+            doc = "The Python 2 non-strict wrapper.",
+        ),
+        "out3_nonstrict": attr.output(
+            doc = "The Python 3 non-strict wrapper.",
+        ),
     },
     doc = """\
-Given a template file, generates two expansions by replacing the substring
-"%VERSION%" with "2" and "3".""",
+Given the pywrapper template file, generates expansions for both versions of
+Python and both levels of strictness.""",
 )

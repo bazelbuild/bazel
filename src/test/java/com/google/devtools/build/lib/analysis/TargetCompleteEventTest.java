@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -49,17 +49,16 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
             ctAndData,
-            ArtifactPathResolver.IDENTITY,
+            CompletionContext.FAILED_COMPLETION_CTX,
             artifactsToBuild.getAllArtifactsByOutputGroup());
     assertThat(event.referencedLocalFiles())
         .contains(
             new BuildEvent.LocalFile(
-                tac
-                    .getConfiguration()
+                tac.getConfiguration()
                     .getTestLogsDirectory(RepositoryName.DEFAULT)
                     .getRoot()
                     .asPath()
                     .getRelative("java/a/Example/baseline_coverage.dat"),
-                LocalFileType.OUTPUT));
+                LocalFileType.COVERAGE_OUTPUT));
   }
 }

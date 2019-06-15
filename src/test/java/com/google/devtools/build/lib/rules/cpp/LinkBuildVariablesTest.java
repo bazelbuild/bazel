@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;

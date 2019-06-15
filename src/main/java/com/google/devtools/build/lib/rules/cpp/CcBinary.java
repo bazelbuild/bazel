@@ -64,6 +64,8 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
@@ -106,8 +108,21 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    */
   public static final String DYNAMIC_LINK_TEST_SRCS = "dynamic_link_test_srcs";
 
-  /** Provider for native deps launchers. DO NOT USE. */
-  @Deprecated
+  /**
+   * Provider that signals that rules that use launchers can use this target as the launcher.
+   *
+   * @deprecated This is google internal provider and it will be replaced with a more generally
+   *     useful provider in Bazel. Do not use to implement support for launchers in new rules. It's
+   *     only supported to be used in existing rules (PyBinary, JavaBinary, JavaTest).
+   */
+  @Deprecated()
+  @SkylarkModule(
+      name = "CcLauncherInfo",
+      documented = false,
+      doc =
+          "Provider that signals that rules that use launchers can use this target as "
+              + "the launcher.",
+      category = SkylarkModuleCategory.TOP_LEVEL_TYPE)
   public static class CcLauncherInfo extends NativeInfo {
     private static final String RESTRICTION_ERROR_MESSAGE =
         "This provider is restricted to native.java_binary, native.py_binary and native.java_test. "

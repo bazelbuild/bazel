@@ -1,7 +1,11 @@
-# Standard constraint_setting and constraint_values to be used in platforms.
+load(":fail_with_incompatible_use_platforms_repo_for_constraints.bzl", "fail_with_incompatible_use_platforms_repo_for_constraints")
 
 package(
     default_visibility = ["//visibility:public"],
+)
+
+fail_with_incompatible_use_platforms_repo_for_constraints(
+    name = "fail_with_incompatible_use_platforms_repo_for_constraints",
 )
 
 filegroup(
@@ -16,70 +20,121 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-# These match values in //src/main/java/com/google/devtools/build/lib/util:CPU.java
-constraint_setting(name = "cpu")
+config_setting(
+    name = "using_platforms_not_bazel_tools",
+    values = {"incompatible_use_platforms_repo_for_constraints": "true"},
+)
 
-constraint_value(
+alias(
+    name = "cpu",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//cpu:cpu",
+    }),
+)
+
+alias(
     name = "x86_32",
-    constraint_setting = ":cpu",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//cpu:x86_32",
+    }),
 )
 
-constraint_value(
+alias(
     name = "x86_64",
-    constraint_setting = ":cpu",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//cpu:x86_64",
+    }),
 )
 
-constraint_value(
+alias(
     name = "ppc",
-    constraint_setting = ":cpu",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//cpu:ppc",
+    }),
 )
 
-constraint_value(
+alias(
     name = "arm",
-    constraint_setting = ":cpu",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//cpu:arm",
+    }),
 )
 
-constraint_value(
+alias(
     name = "aarch64",
-    constraint_setting = ":cpu",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//cpu:aarch64",
+    }),
 )
 
-constraint_value(
+alias(
     name = "s390x",
-    constraint_setting = ":cpu",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//cpu:s390x",
+    }),
 )
 
-# These match values in //src/main/java/com/google/devtools/build/lib/util:OS.java
-constraint_setting(name = "os")
+alias(
+    name = "os",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//os:os",
+    }),
+)
 
-constraint_value(
+alias(
     name = "osx",
-    constraint_setting = ":os",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//os:osx",
+    }),
 )
 
-constraint_value(
+alias(
     name = "ios",
-    constraint_setting = ":os",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//os:ios",
+    }),
 )
 
-constraint_value(
+alias(
     name = "freebsd",
-    constraint_setting = ":os",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//os:freebsd",
+    }),
 )
 
-constraint_value(
+alias(
     name = "android",
-    constraint_setting = ":os",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//os:android",
+    }),
 )
 
-constraint_value(
+alias(
     name = "linux",
-    constraint_setting = ":os",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//os:linux",
+    }),
 )
 
-constraint_value(
+alias(
     name = "windows",
-    constraint_setting = ":os",
+    actual = select({
+        ":using_platforms_not_bazel_tools": ":fail_with_incompatible_use_platforms_repo_for_constraints",
+        "//conditions:default": "@platforms//os:windows",
+    }),
 )
 
 # A default platform with nothing defined.
@@ -92,19 +147,19 @@ platform(
     constraint_values = [
     ],
     cpu_constraints = [
-        ":x86_32",
-        ":x86_64",
-        ":ppc",
-        ":arm",
-        ":aarch64",
-        ":s390x",
+        "@platforms//cpu:x86_32",
+        "@platforms//cpu:x86_64",
+        "@platforms//cpu:ppc",
+        "@platforms//cpu:arm",
+        "@platforms//cpu:aarch64",
+        "@platforms//cpu:s390x",
     ],
     host_platform = True,
     os_constraints = [
-        ":osx",
-        ":freebsd",
-        ":linux",
-        ":windows",
+        "@platforms//os:osx",
+        "@platforms//os:freebsd",
+        "@platforms//os:linux",
+        "@platforms//os:windows",
     ],
 )
 
@@ -113,18 +168,18 @@ platform(
     constraint_values = [
     ],
     cpu_constraints = [
-        ":x86_32",
-        ":x86_64",
-        ":ppc",
-        ":arm",
-        ":aarch64",
-        ":s390x",
+        "@platforms//cpu:x86_32",
+        "@platforms//cpu:x86_64",
+        "@platforms//cpu:ppc",
+        "@platforms//cpu:arm",
+        "@platforms//cpu:aarch64",
+        "@platforms//cpu:s390x",
     ],
     os_constraints = [
-        ":osx",
-        ":freebsd",
-        ":linux",
-        ":windows",
+        "@platforms//os:osx",
+        "@platforms//os:freebsd",
+        "@platforms//os:linux",
+        "@platforms//os:windows",
     ],
     target_platform = True,
 )

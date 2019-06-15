@@ -143,7 +143,7 @@ EOF
       && fail "expected failure" || :
     expect_not_log 'NO STATUS'
     expect_log 'testsrc'
-    expect_log 'were skipped'
+    expect_log '[1-9] w[a-z]* skipped'
 }
 
 # Regression test for b/67463263: Tests that spawn subprocesses must not block

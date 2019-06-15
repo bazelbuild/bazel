@@ -39,51 +39,160 @@ Every rule repository should have a certain layout so that users can quickly
 understand new rules.
 
 For example, suppose we are writing new rules for the (make-believe)
-mockascript language. We would have the following structure:
+mockascript language. The repository will be named `rules_mockascript`.
+We would have the following structure:
 
 ```
-.travis.yml
-LICENSE
-README.md
-WORKSPACE
-mockascript/
-  BUILD
-  mockascript.bzl
-tests/
-  BUILD
-  some_test.sh
-  another_test.py
-examples/
-  BUILD
-  bin.mocs
-  lib.mocs
-  test.mocs
+/
+  LICENSE
+  README
+  WORKSPACE
+  mockascript/
+    constraints/
+      BUILD
+    BUILD
+    defs.bzl
+  tests/
+    BUILD
+    some_test.sh
+    another_test.py
+  examples/
+    BUILD
+    bin.mocs
+    lib.mocs
+    test.mocs
 ```
 
-### README.md
+### README
 
-At the top level, there should be a `README.md` that contains (at least) what
+At the top level, there should be a `README` that contains (at least) what
 users will need to copy-paste into their WORKSPACE file to use your rule.
-In general, this will be a `git_repository` pointing to your GitHub repo and
+In general, this will be a `http_archive` pointing to your GitHub release and
 a macro call that downloads/configures any tools your rule needs. For example,
 for the [Go
-rules](https://github.com/bazelbuild/rules_go/blob/master/README.md#setup), this
+rules](https://github.com/bazelbuild/rules_go#setup), this
 looks like:
 
 ```
-git_repository(
-    name = "io_bazel_rules_go",
-    remote = "https://github.com/bazelbuild/rules_go.git",
-    tag = "0.0.2",
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "rules_go",
+    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.18.5/rules_go-0.18.5.tar.gz"],
+    sha256 = "a82a352bffae6bee4e95f68a8d80a70e87f42c4741e6a448bec11998fcc82329",
 )
-load("@io_bazel_rules_go//go:def.bzl", "go_repositories")
-
-go_repositories()
+load("@rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
+go_rules_dependencies()
+go_register_toolchains()
 ```
 
-If your rules depend on another repository's rules, specify both in the
-`README.md` (see the [Skydoc rules](https://github.com/bazelbuild/skydoc#setup),
-which depend on the Sass rules, for an example of this).
+If your rules depend on another repository's rules, specify that in the
+rules documentation (for example, see the
+[Skydoc rules](https://skydoc.bazel.build/docs/getting_started_stardoc.html),
+which depend on the Sass rules), and provide a WORKSPACE
+macro that will download all dependencies (see `rules_go` above).
+
+### Rules
+
+Often times there will be multiple rules provided by your repository. Create a
+directory named by the language and provide an entry point - `defs.bzl` file
+exporting all rules (also include a `BUILD` file so the directory is a package).
+For `rules_mockascript` that means there will be a directory named
+`mockascript`, and a `BUILD` file and a `defs.bzl` file inside:
+
+```
+/
+  mockascript/
+    BUILD
+    defs.bzl
+```
+
+### Constraints
+
+If your rule defines
+[toolchain](https://docs.bazel.build/versions/master/toolchains.html) rules,
+it's possible that you'll need to define custom `constraint_setting`s and/or
+`constraint_value`s. Put these into a `//<LANG>/constraints` package. Your
+directory structure will look like this:
+
+```
+/
+  mockascript/
+    constraints/
+      BUILD
+    BUILD
+    defs.bzl
+```
+
+Please read
+[github.com/bazelbuild/platforms](https://github.com/bazelbuild/platforms)
+for best practices, and to see what constraints are already present, and
+consider contributing your constraints there if they are language independent.
+Be mindful of introducing custom constraints, all users of your rules will
+use them to perform platform specific logic in their BUILD files (for example,
+using [selects](https://docs.bazel.build/versions/master/be/functions.html#select)).
+With custom constraints, you define a language that the whole Bazel ecosystem
+will speak.
+
+### Repository Rules
+
+#### Dependencies
+
+Your rules might have external dependencies. To make depending on your rules
+simpler, please provide a WORKSPACE macro that will declare dependencies on
+those external dependencies. Do not declare dependencies of tests there, only
+dependencies that rules require to work. Put development dependencies into the
+WORKSPACE file.
+
+Create a file named `<LANG>/repositories.bzl` and provide a single entry point
+macro named `rules_<LANG>_dependencies`. Our directory will look as follows:
+
+```
+/
+  mockascript/
+    constraints/
+      BUILD
+    BUILD
+    defs.bzl
+    repositories.bzl
+```
+
+
+#### Registering Toolchains
+
+Your rules might also register toolchains. Please provide a separate WORKSPACE
+macro that registers these toolchains. This way users can decide to omit the
+previous macro and control dependencies manually, while still being allowed to
+register toolchains.
+
+Therefore add a WORKSPACE macro named `rules_<LANG>_toolchains` into
+`<LANG>/repositories.bzl` file.
+
+Note that in order to resolve toolchains in the analysis phase Bazel needs to
+analyze all `toolchain` targets that are registered. Bazel will not need to
+analyze all targets referenced by `toolchain.toolchain` attribute. If in order
+to register toolchains you need to perform complex computation in the
+repository, consider splitting the repository with `toolchain` targets from the
+repository with `<LANG>_toolchain` targets. Former will be always fetched, and
+the latter will only be fetched when user actually needs to build `<LANG>` code.
+
+
+#### Release snippet
+
+In your release announcement provide a snippet that your users can copy-paste
+into their WORKSPACE file. This snippet in general will look as follows:
+
+```
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "rules_<LANG>",
+    urls = ["<url_to_the_release.zip"],
+    sha256 = "4242424242",
+)
+load("@rules_<LANG>//<LANG>:repositories.bzl", "rules_<LANG>_dependencies", "rules_<LANG>_toolchains")
+rules_<LANG>_dependencies()
+rules_<LANG>_toolchains()
+```
+
 
 ### Tests
 

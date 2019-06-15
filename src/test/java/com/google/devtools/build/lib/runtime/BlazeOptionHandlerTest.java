@@ -60,8 +60,7 @@ public class BlazeOptionHandlerTest {
   public void initStuff() throws Exception {
     parser =
         OptionsParser.newOptionsParser(
-            ImmutableList.of(TestOptions.class, CommonCommandOptions.class, ClientOptions.class));
-    parser.setAllowResidue(true);
+            true, TestOptions.class, CommonCommandOptions.class, ClientOptions.class);
     String productName = TestConstants.PRODUCT_NAME;
     ServerDirectories serverDirectories =
         new ServerDirectories(

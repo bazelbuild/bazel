@@ -95,9 +95,10 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
       if (listBasedExecutionStrategySelection) {
         throw new UserExecException(
             String.format(
-                "No usable spawn strategy found for spawn with mnemonic %s.  Your --spawn_strategy"
-                    + "or --strategy flags are probably too strict. "
-                    + "Visit https://github.com/bazelbuild/bazel/issues/7480 for migration advises",
+                "No usable spawn strategy found for spawn with mnemonic %s.  Your"
+                    + " --spawn_strategy, --genrule_strategy or --strategy flags are probably too"
+                    + " strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
+                    + " migration advice",
                 spawn.getMnemonic()));
       } else {
         throw new UserExecException(

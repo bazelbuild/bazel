@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -588,7 +589,8 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ConfigurationResolver.applyTransition(
             getTargetConfiguration().getOptions(),
             transition,
-            ImmutableMap.of())) {
+            ImmutableMap.of(),
+            NullEventHandler.INSTANCE)) {
       outValues.add(toOptions.get(TestConfiguration.TestOptions.class).testFilter);
     }
     return outValues.build();

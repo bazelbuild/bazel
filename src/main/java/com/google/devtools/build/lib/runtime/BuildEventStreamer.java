@@ -30,7 +30,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
@@ -371,8 +371,7 @@ public class BuildEventStreamer {
     halfCloseFuturesMap = halfCloseFuturesMapBuilder.build();
   }
 
-  private void maybeReportArtifactSet(
-      ArtifactPathResolver pathResolver, NestedSetView<Artifact> view) {
+  private void maybeReportArtifactSet(CompletionContext ctx, NestedSetView<Artifact> view) {
     String name = artifactGroupNamer.maybeName(view);
     if (name == null) {
       return;
@@ -386,13 +385,13 @@ public class BuildEventStreamer {
       view = view.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
     }
     for (NestedSetView<Artifact> transitive : view.transitives()) {
-      maybeReportArtifactSet(pathResolver, transitive);
+      maybeReportArtifactSet(ctx, transitive);
     }
-    post(new NamedArtifactGroup(name, pathResolver, view));
+    post(new NamedArtifactGroup(name, ctx, view));
   }
 
-  private void maybeReportArtifactSet(ArtifactPathResolver pathResolver, NestedSet<Artifact> set) {
-    maybeReportArtifactSet(pathResolver, new NestedSetView<Artifact>(set));
+  private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<Artifact> set) {
+    maybeReportArtifactSet(ctx, new NestedSetView<Artifact>(set));
   }
 
   private void maybeReportConfiguration(BuildEvent configuration) {
@@ -458,7 +457,7 @@ public class BuildEventStreamer {
     if (event instanceof EventReportingArtifacts) {
       ReportedArtifacts reportedArtifacts = ((EventReportingArtifacts) event).reportedArtifacts();
       for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
-        maybeReportArtifactSet(reportedArtifacts.pathResolver, artifactSet);
+        maybeReportArtifactSet(reportedArtifacts.completionContext, artifactSet);
       }
     }
 

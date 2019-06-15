@@ -168,6 +168,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
   /** Throws errors or warnings for bad attribute state. */
   private static void validateAttributes(RuleContext ruleContext) throws RuleErrorException {
+    // TODO(b/129469095): objc_library cannot handle target names with slashes.  Rather than
+    // crashing bazel, we emit a useful error message.
+    if (ruleContext.getTarget().getName().indexOf('/') != -1) {
+      ruleContext.attributeError("name", "this attribute has unsupported character '/'");
+    }
     for (String copt : ObjcCommon.getNonCrosstoolCopts(ruleContext)) {
       if (copt.contains("-fmodules-cache-path")) {
         ruleContext.ruleWarning(CompilationSupport.MODULES_CACHE_PATH_WARNING);

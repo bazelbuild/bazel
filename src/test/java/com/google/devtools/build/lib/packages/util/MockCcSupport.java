@@ -117,6 +117,7 @@ public abstract class MockCcSupport {
       "major_version: 'foo'\nminor_version:' foo'\n" + emptyToolchainForCpu("k8");
 
   public static final String SIMPLE_COMPILE_FEATURE = "simple_compile_feature";
+  public static final String CPP_COMPILE_ACTION_WITH_REQUIREMENTS = "cpp_compile_with_requirements";
 
   public static String emptyToolchainForCpu(String cpu, String... append) {
     return Joiner.on("\n")

@@ -677,6 +677,41 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void sharedArtifactsInAspect() throws Exception {
+    scratch.file(
+        "foo/shared_aspect.bzl",
+        "def _shared_aspect_impl(target, ctx):",
+        "  shared_file = ctx.actions.declare_file('shared_file')",
+        "  ctx.actions.write(output=shared_file, content='Shared content')",
+        "  lib = ctx.rule.attr.lib",
+        "  if lib:",
+        "    result = depset([shared_file], transitive=[ctx.rule.attr.lib.prov])",
+        "  else:",
+        "    result = depset([shared_file])",
+        "  return struct(prov=result)",
+        "",
+        "shared_aspect = aspect(implementation = _shared_aspect_impl,",
+        "                       attr_aspects = ['lib'])",
+        "",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "",
+        "simple_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = {'lib': attr.label(providers = ['prov'],",
+        "                               aspects=[shared_aspect])})");
+    scratch.file(
+        "foo/BUILD",
+        "load(':shared_aspect.bzl', 'shared_aspect', 'simple_rule')",
+        "",
+        "simple_rule(name = 'top_rule', lib = ':first_dep')",
+        "simple_rule(name = 'first_dep', lib = ':second_dep')",
+        "simple_rule(name = 'second_dep')");
+    // Confirm that load is successful and doesn't crash.
+    update("//foo:top_rule");
+  }
+
+  @Test
   public void aspectPropagatesToAllAttributesImplicit() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE,
         TestAspects.IMPLICIT_DEP_RULE, TestAspects.ALL_ATTRIBUTES_ASPECT_RULE);

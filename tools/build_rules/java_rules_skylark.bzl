@@ -120,14 +120,14 @@ def _java_binary_impl(ctx):
 
     # Cleaning build output directory
     cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
-    for jar in library_result[1].runtime_jars:
+    for jar in library_result[1].runtime_jars.to_list():
         cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
     cmd += (jar_path + " cmf " + manifest.path + " " +
             deploy_jar.path + " -C " + build_output + " .\n" +
             "touch " + build_output + "\n")
 
     ctx.actions.run_shell(
-        inputs = list(library_result[1].runtime_jars) + [manifest] + ctx.files._jdk,
+        inputs = library_result[1].runtime_jars.to_list() + [manifest] + ctx.files._jdk,
         outputs = [deploy_jar],
         mnemonic = "Deployjar",
         command = cmd,

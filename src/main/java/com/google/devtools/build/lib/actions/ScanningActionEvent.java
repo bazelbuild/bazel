@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 
 /**
- * Notifies that an in-flight action has started being analyzed.
+ * Notifies that an in-flight action has started being scanned for discovered inputs.
  *
- * <p>This event is sent before a corresponding {@link ActionScanningCompletedEvent} or {@link
- * ActionStartedEvent}. When such an event is posted, this ends the scanning phase for the current
- * action.
+ * <p>This phase ends when an {@link StoppedScanningActionEvent} is posted for this action.
  */
 public class ScanningActionEvent implements ProgressLike {
 

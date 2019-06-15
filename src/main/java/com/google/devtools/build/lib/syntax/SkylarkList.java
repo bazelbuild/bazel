@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.SkylarkMutable.BaseMutableList;
+import com.google.devtools.build.lib.syntax.StarlarkMutable.BaseMutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -646,7 +646,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     }
 
     // Overridden to recurse over children, since tuples use SHALLOW_IMMUTABLE and other
-    // SkylarkMutable subclasses do not.
+    // StarlarkMutable subclasses do not.
     @Override
     public boolean isImmutable() {
       for (Object item : this) {

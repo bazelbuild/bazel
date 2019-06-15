@@ -27,7 +27,7 @@ def _remap(remap_paths, path):
     return path
 
 def _quote(filename, protect = "="):
-    """Quote the filename, by escaping = by \= and \ by \\"""
+    """Quote the filename, by escaping = by \\= and \\ by \\\\"""
     return filename.replace("\\", "\\\\").replace(protect, "\\" + protect)
 
 def _pkg_tar_impl(ctx):
@@ -191,9 +191,9 @@ def _pkg_deb_impl(ctx):
         args += ["--built_using=" + ctx.attr.built_using]
 
     if ctx.attr.depends_file:
-        if ctx.file.depends:
+        if ctx.attr.depends:
             fail("Both depends and depends_file attributes were specified")
-        args += ["--depends=@" + ctx.attr.depends_file.path]
+        args += ["--depends=@" + ctx.file.depends_file.path]
         files += [ctx.file.depends_file]
     elif ctx.attr.depends:
         args += ["--depends=" + d for d in ctx.attr.depends]
@@ -225,6 +225,12 @@ def _pkg_deb_impl(ctx):
         inputs = [ctx.outputs.deb],
         outputs = [ctx.outputs.out],
     )
+    output_groups = {"out": [ctx.outputs.out]}
+    if hasattr(ctx.outputs, "deb"):
+        output_groups["deb"] = [ctx.outputs.deb]
+    if hasattr(ctx.outputs, "changes"):
+        output_groups["changes"] = [ctx.outputs.changes]
+    return OutputGroupInfo(**output_groups)
 
 # A rule for creating a tar file, see README.md
 _real_pkg_tar = rule(
@@ -239,6 +245,7 @@ _real_pkg_tar = rule(
         "modes": attr.string_dict(),
         "mtime": attr.int(default = -1),
         "portable_mtime": attr.bool(default = True),
+        "out": attr.output(),
         "owner": attr.string(default = "0.0"),
         "ownername": attr.string(default = "."),
         "owners": attr.string_dict(),
@@ -257,9 +264,6 @@ _real_pkg_tar = rule(
             allow_files = True,
         ),
     },
-    outputs = {
-        "out": "%{name}.%{extension}",
-    },
 )
 
 def pkg_tar(**kwargs):
@@ -273,10 +277,14 @@ def pkg_tar(**kwargs):
                       "This attribute was renamed to `srcs`. " +
                       "Consider renaming it in your BUILD file.")
                 kwargs["srcs"] = kwargs.pop("files")
-    _real_pkg_tar(**kwargs)
+    extension = kwargs.get("extension") or "tar"
+    _real_pkg_tar(
+        out = kwargs["name"] + "." + extension,
+        **kwargs
+    )
 
 # A rule for creating a deb file, see README.md
-pkg_deb = rule(
+_pkg_deb = rule(
     implementation = _pkg_deb_impl,
     attrs = {
         "data": attr.label(mandatory = True, allow_single_file = tar_filetype),
@@ -316,10 +324,24 @@ pkg_deb = rule(
             executable = True,
             allow_files = True,
         ),
-    },
-    outputs = {
-        "out": "%{name}.deb",
-        "deb": "%{package}_%{version}_%{architecture}.deb",
-        "changes": "%{package}_%{version}_%{architecture}.changes",
+        # Outputs.
+        "out": attr.output(mandatory = True),
+        "deb": attr.output(mandatory = True),
+        "changes": attr.output(mandatory = True),
     },
 )
+
+def pkg_deb(name, package, **kwargs):
+    """Creates a deb file. See README.md."""
+    version = kwargs.get("version", "")
+    architecture = kwargs.get("architecture", "all")
+    out_deb = "%s_%s_%s.deb" % (package, version, architecture)
+    out_changes = "%s_%s_%s.changes" % (package, version, architecture)
+    _pkg_deb(
+        name = name,
+        package = package,
+        out = name + ".deb",
+        deb = out_deb,
+        changes = out_changes,
+        **kwargs
+    )

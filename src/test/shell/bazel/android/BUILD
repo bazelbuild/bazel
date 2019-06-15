@@ -55,6 +55,7 @@ sh_test(
     srcs = ["aar_integration_test.sh"],
     data = [
         ":android_helper",
+        "//external:android_ndk_for_testing",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],

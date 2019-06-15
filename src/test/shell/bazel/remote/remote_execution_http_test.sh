@@ -260,7 +260,7 @@ function test_directory_artifact_skylark() {
 
   bazel build \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
@@ -268,7 +268,7 @@ function test_directory_artifact_skylark() {
   bazel clean
   bazel build \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
   expect_log "remote cache hit"
@@ -280,14 +280,14 @@ function test_directory_artifact_skylark_grpc_cache() {
   set_directory_artifact_skylark_testfixtures
 
   bazel build \
-      --remote_cache=localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean
   bazel build \
-      --remote_cache=localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
   expect_log "remote cache hit"

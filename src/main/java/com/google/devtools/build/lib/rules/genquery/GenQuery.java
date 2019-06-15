@@ -117,8 +117,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     final String query = ruleContext.attributes().get("expression", Type.STRING);
 
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(QueryOptions.class, KeepGoingOption.class);
-    optionsParser.setAllowResidue(false);
+        OptionsParser.newOptionsParser(false, QueryOptions.class, KeepGoingOption.class);
     try {
       optionsParser.parse(ruleContext.attributes().get("opts", Type.STRING_LIST));
     } catch (OptionsParsingException e) {
@@ -344,7 +343,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   /*extraFunctions=*/ ImmutableList.of(),
                   /*packagePath=*/ null,
                   /*blockUniverseEvaluationErrors=*/ false,
-                  /*useForkJoinPool=*/ false);
+                  /*useForkJoinPool=*/ false,
+                  /*useGraphlessQuery=*/ false);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);

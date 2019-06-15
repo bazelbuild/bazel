@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.clock.Clock;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -361,7 +360,9 @@ public class CriticalPathComputer {
     // shared action that is in the midst of being an action cache hit.
     for (Artifact actionOutput : action.getOutputs()) {
       if (input.equals(actionOutput)
-          && Objects.equals(input.getArtifactOwner(), actionOutput.getArtifactOwner())) {
+          && input
+              .getGeneratingActionKey()
+              .equals(((Artifact.DerivedArtifact) actionOutput).getGeneratingActionKey())) {
         // As far as we can tell, this (currently running) action is the same action that
         // produced input, not another shared action. This should be impossible.
         throw new IllegalStateException(

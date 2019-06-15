@@ -799,17 +799,4 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
     }
   }
-
-  @Override
-  public SkylarkFileType fileType(SkylarkList types, Location loc, Environment env)
-      throws EvalException {
-    if (env.getSemantics().incompatibleDisallowFileType()) {
-      throw new EvalException(
-          loc,
-          "FileType function is not available. You may use a list of strings instead. "
-              + "You can temporarily reenable the function by passing the flag "
-              + "--incompatible_disallow_filetype=false");
-    }
-    return SkylarkFileType.of(types.getContents(String.class, "types"));
-  }
 }

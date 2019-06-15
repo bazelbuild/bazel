@@ -307,29 +307,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       // Determine what toolchains are needed by this target.
-      if (target instanceof Rule) {
-        Rule rule = ((Rule) target);
-        if (rule.getRuleClassObject().supportsPlatforms()) {
-          ImmutableSet<Label> requiredToolchains =
-              rule.getRuleClassObject().getRequiredToolchains();
-
-          // Collect local (target, rule) constraints for filtering out execution platforms.
-          ImmutableSet<Label> execConstraintLabels = getExecutionPlatformConstraints(rule);
-          unloadedToolchainContext =
-              (UnloadedToolchainContext)
-                  env.getValueOrThrow(
-                      UnloadedToolchainContext.key()
-                          .configurationKey(configuredTargetKey.getConfigurationKey())
-                          .requiredToolchainTypeLabels(requiredToolchains)
-                          .execConstraintLabels(execConstraintLabels)
-                          .shouldSanityCheckConfiguration(
-                              configuration.trimConfigurationsRetroactively())
-                          .build(),
-                      ToolchainException.class);
-          if (env.valuesMissing()) {
-            return null;
-          }
-        }
+      unloadedToolchainContext = computeUnloadedToolchainContext(env, ctgValue);
+      if (env.valuesMissing()) {
+        return null;
       }
 
       // Calculate the dependencies of this target.
@@ -451,6 +431,72 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } finally {
       cpuBoundSemaphore.release();
     }
+  }
+
+  /**
+   * Returns the {@link UnloadedToolchainContext} for this target, or {@code null} if the target
+   * doesn't use toolchains.
+   *
+   * <p>This involves Skyframe evaluation: callers should check {@link Environment#valuesMissing()
+   * to check the result is valid.
+   */
+  @Nullable
+  private UnloadedToolchainContext computeUnloadedToolchainContext(
+      Environment env, TargetAndConfiguration targetAndConfig)
+      throws InterruptedException, ToolchainException {
+    if (!(targetAndConfig.getTarget() instanceof Rule)) {
+      return null;
+    }
+    Rule rule = ((Rule) targetAndConfig.getTarget());
+    if (!rule.getRuleClassObject().supportsPlatforms()) {
+      return null;
+    }
+    BuildConfiguration configuration = targetAndConfig.getConfiguration();
+
+    ImmutableSet<Label> requiredToolchains = rule.getRuleClassObject().getRequiredToolchains();
+
+    // The toolchain context's options are the parent rule's options with manual trimming
+    // auto-applied. This means toolchains don't inherit feature flags. This helps build
+    // performance: if the toolchain context had the exact same configuration of its parent and that
+    // included feature flags, all the toolchain's dependencies would apply this transition
+    // individually. That creates a lot more potentially expensive applications of that transition
+    // (especially since manual trimming applies to every configured target in the build).
+    //
+    // In other words: without this modification:
+    // parent rule -> toolchain context -> toolchain
+    //     -> toolchain dep 1 # applies manual trimming to remove feature flags
+    //     -> toolchain dep 2 # applies manual trimming to remove feature flags
+    //     ...
+    //
+    // With this modification:
+    // parent rule -> toolchain context # applies manual trimming to remove feature flags
+    //     -> toolchain
+    //         -> toolchain dep 1
+    //         -> toolchain dep 2
+    //         ...
+    //
+    // None of this has any effect on rules that don't utilize manual trimming.
+    BuildOptions toolchainOptions =
+        ((ConfiguredRuleClassProvider) ruleClassProvider)
+            .getToolchainTaggedTrimmingTransition()
+            .patch(configuration.getOptions());
+
+    BuildConfigurationValue.Key toolchainConfig =
+        BuildConfigurationValue.keyWithoutPlatformMapping(
+            configuration.getFragmentsMap().keySet(),
+            BuildOptions.diffForReconstruction(defaultBuildOptions, toolchainOptions));
+
+    // Collect local (target, rule) constraints for filtering out execution platforms.
+    ImmutableSet<Label> execConstraintLabels = getExecutionPlatformConstraints(rule);
+    return (UnloadedToolchainContext)
+        env.getValueOrThrow(
+            UnloadedToolchainContext.key()
+                .configurationKey(toolchainConfig)
+                .requiredToolchainTypeLabels(requiredToolchains)
+                .execConstraintLabels(execConstraintLabels)
+                .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
+                .build(),
+            ToolchainException.class);
   }
 
   /**
@@ -896,9 +942,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // rule implementation).
       try {
         generatingActions =
-            Actions.filterSharedActionsAndThrowActionConflict(
+            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
                 analysisEnvironment.getActionKeyContext(),
-                analysisEnvironment.getRegisteredActions());
+                analysisEnvironment.getRegisteredActions(),
+                configuredTargetKey,
+                /*outputFiles=*/ null);
       } catch (ActionConflictException e) {
         throw new ConfiguredTargetFunctionException(e);
       }

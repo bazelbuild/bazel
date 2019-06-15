@@ -56,15 +56,15 @@ public class DigestUtil {
   }
 
   /** Returns the currently used digest function. */
-  public DigestFunction getDigestFunction() {
+  public DigestFunction.Value getDigestFunction() {
     for (String name : hashFn.getNames()) {
       try {
-        return DigestFunction.valueOf(name);
+        return DigestFunction.Value.valueOf(name);
       } catch (IllegalArgumentException e) {
         // continue.
       }
     }
-    return DigestFunction.UNKNOWN;
+    return DigestFunction.Value.UNKNOWN;
   }
 
   public Digest compute(byte[] blob) {

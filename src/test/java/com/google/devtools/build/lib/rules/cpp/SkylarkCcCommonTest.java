@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.MakeV
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -230,6 +232,48 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext.getFragment(CppConfiguration.class));
     assertThat(actionToolPath)
         .isEqualTo(featureConfiguration.getToolPathForAction(CppActionNames.CPP_COMPILE));
+  }
+
+  @Test
+  public void testExecutionRequirements() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(MockCcSupport.CPP_COMPILE_ACTION_WITH_REQUIREMENTS));
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = toolchain,",
+        "  )",
+        "  return [MyInfo(",
+        "    requirements = cc_common.get_execution_requirements(",
+        "        feature_configuration = feature_configuration,",
+        "        action_name = 'yolo_action_with_requirements'))]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    SkylarkList<String> requirements =
+        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("requirements");
+    assertThat(requirements).containsExactly("requires-yolo");
   }
 
   @Test
@@ -660,6 +704,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCompileBuildVariablesForFrameworkIncludes() throws Exception {
+    assertThat(
+            commandLineForVariables(
+                CppActionNames.CPP_COMPILE,
+                "cc_common.create_compile_variables(",
+                "feature_configuration = feature_configuration,",
+                "cc_toolchain = toolchain,",
+                "framework_include_directories = depset(['foo/bar'])",
+                ")"))
+        .contains("-Ffoo/bar");
+  }
+
+  @Test
   public void testCompileBuildVariablesForDefines() throws Exception {
     assertThat(
             commandLineForVariables(
@@ -1024,6 +1081,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    system_includes=depset([ctx.attr._system_include]),",
         "    includes=depset([ctx.attr._include]),",
         "    quote_includes=depset([ctx.attr._quote_include]),",
+        "    framework_includes=depset([ctx.attr._framework_include]),",
         "    defines=depset([ctx.attr._define]))",
         "  cc_infos = [CcInfo(compilation_context=compilation_context)]",
         "  for dep in ctx.attr._deps:",
@@ -1036,6 +1094,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "          merged_system_includes=merged_cc_info.compilation_context.system_includes,",
         "          merged_includes=merged_cc_info.compilation_context.includes,",
         "          merged_quote_includes=merged_cc_info.compilation_context.quote_includes,",
+        "         "
+            + " merged_framework_includes=merged_cc_info.compilation_context.framework_includes,",
         "          merged_defines=merged_cc_info.compilation_context.defines",
         "      )]",
         "crule = rule(",
@@ -1046,6 +1106,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    '_system_include': attr.string(default='foo/bar'),",
         "    '_include': attr.string(default='baz/qux'),",
         "    '_quote_include': attr.string(default='quux/abc'),",
+        "    '_framework_include': attr.string(default='fuux/fgh'),",
         "    '_define': attr.string(default='MYDEFINE'),",
         "    '_deps': attr.label_list(default=['//a:dep1', '//a:dep2'])",
         "  },",
@@ -1088,6 +1149,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     List<String> mergedQuoteIncludes =
         ((SkylarkNestedSet) myInfo.getValue("merged_quote_includes")).getSet(String.class).toList();
     assertThat(mergedQuoteIncludes).contains("quux/abc");
+
+    List<String> mergedFrameworkIncludes =
+        ((SkylarkNestedSet) myInfo.getValue("merged_framework_includes"))
+            .getSet(String.class)
+            .toList();
+    assertThat(mergedFrameworkIncludes).contains("fuux/fgh");
   }
 
   @Test
@@ -1212,6 +1279,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       List<String> dynamicLibraryList)
       throws Exception {
     useConfiguration("--features=-supports_interface_shared_libraries");
+    setSkylarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
     setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 
@@ -1229,8 +1297,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("b.lds", "d.lds");
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLink> librariesToLink =
-        (SkylarkList<LibraryToLink>) info.getValue("libraries_to_link", SkylarkList.class);
+    Collection<LibraryToLink> librariesToLink =
+        info.getValue("libraries_to_link", SkylarkNestedSet.class)
+            .toCollection(LibraryToLink.class);
     assertThat(
             librariesToLink.stream()
                 .filter(x -> x.getStaticLibrary() != null)
@@ -4743,6 +4812,87 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testWrongElementTypeInListParameter_features() throws Exception {
+    getBasicCcToolchainConfigInfoWithAdditionalParameter(
+        "features = ['string_instead_of_feature']");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:r");
+    assertContainsEvent(
+        "'features' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
+            + " of type 'string' instead of a 'FeatureInfo' provider.");
+  }
+
+  @Test
+  public void testWrongElementTypeInListParameter_actionConfigs() throws Exception {
+    getBasicCcToolchainConfigInfoWithAdditionalParameter("action_configs = [None]");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:r");
+    assertContainsEvent(
+        "'action_configs' parameter of cc_common.create_cc_toolchain_config_info() contains an"
+            + " element of type 'NoneType' instead of a 'ActionConfigInfo' provider.");
+  }
+
+  @Test
+  public void testWrongElementTypeInListParameter_artifactNamePatterns() throws Exception {
+    getBasicCcToolchainConfigInfoWithAdditionalParameter("artifact_name_patterns = [1]");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:r");
+    assertContainsEvent(
+        "'artifact_name_patterns' parameter of cc_common.create_cc_toolchain_config_info()"
+            + " contains an element of type 'int' instead of a 'ArtifactNamePatternInfo'"
+            + " provider.");
+  }
+
+  @Test
+  public void testWrongElementTypeInListParameter_makeVariables() throws Exception {
+    getBasicCcToolchainConfigInfoWithAdditionalParameter("make_variables = [True]");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:r");
+    assertContainsEvent(
+        "'make_variables' parameter of cc_common.create_cc_toolchain_config_info() contains an"
+            + " element of type 'bool' instead of a 'MakeVariableInfo' provider.");
+  }
+
+  @Test
+  public void testWrongElementTypeInListParameter_toolPaths() throws Exception {
+    getBasicCcToolchainConfigInfoWithAdditionalParameter("tool_paths = [{}]");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:r");
+    assertContainsEvent(
+        "'tool_paths' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
+            + " of type 'dict' instead of a 'ToolPathInfo' provider.");
+  }
+
+  private void getBasicCcToolchainConfigInfoWithAdditionalParameter(String s) throws Exception {
+    scratch.file(
+        "foo/crosstool.bzl",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "                ctx = ctx,",
+        "                toolchain_identifier = 'toolchain',",
+        "                host_system_name = 'host',",
+        "                target_system_name = 'target',",
+        "                target_cpu = 'cpu',",
+        "                target_libc = 'libc',",
+        "                compiler = 'compiler',",
+        "                abi_libc_version = 'abi_libc',",
+        "                abi_version = 'abi',",
+        "                " + s + ",",
+        "        )",
+        "cc_toolchain_config_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo], ",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "cc_toolchain_config_rule(name='r')");
+  }
+
+  @Test
   public void testGetLegacyCcFlagsMakeVariable() throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -5038,6 +5188,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testFrameworkIncludeDirs() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "framework_includes=['foo/bar', 'baz/qux']");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(action.getArguments()).containsAtLeast("-Ffoo/bar", "-Fbaz/qux").inOrder();
+  }
+
+  @Test
   public void testDefines() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", "defines=['DEFINE1', 'DEFINE2']");
@@ -5231,7 +5392,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
     assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
-        .containsAllOf("bin foo/libdep1.a", "bin foo/libdep2.a");
+        .containsAtLeast("bin foo/libdep1.a", "bin foo/libdep2.a");
   }
 
   @Test

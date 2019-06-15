@@ -97,6 +97,11 @@ public abstract class AnalysisMock extends LoadingMock {
    */
   public abstract void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException;
 
+  /** Creates a mock tools repository. */
+  public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
+    // Do nothing by default.
+  }
+
   /** Returns the default factories for configuration fragments used in tests. */
   public abstract List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories();
 
@@ -164,6 +169,11 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException {
       delegate.setupMockWorkspaceFiles(embeddedBinariesRoot);
+    }
+
+    @Override
+    public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
+      delegate.setupMockToolsRepository(config);
     }
 
     @Override

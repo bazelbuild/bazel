@@ -80,25 +80,19 @@ public abstract class AndroidSkylarkData
       SkylarkList<AndroidResourcesInfo> deps,
       SkylarkList<AndroidAssetsInfo> assets,
       boolean neverlink,
-      Object customPackage,
+      String customPackage,
       Location location,
       Environment env)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
-      String pkg =
-          fromNoneableOrDefault(
-              customPackage,
-              String.class,
-              AndroidManifest.getDefaultPackage(
-                  env.getCallerLabel(), ctx.getActionConstructionContext(), errorReporter));
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
               DataBinding.getDisabledDataBindingContext(ctx),
               ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
               AssetDependencies.fromProviders(assets, /* neverlink = */ neverlink),
               StampedAndroidManifest.createEmpty(
-                  ctx.getActionConstructionContext(), pkg, /* exported = */ false))
+                  ctx.getActionConstructionContext(), customPackage, /* exported = */ false))
           .toResourceInfo(ctx.getLabel());
     }
   }

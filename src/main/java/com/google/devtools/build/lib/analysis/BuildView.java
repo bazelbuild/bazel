@@ -29,10 +29,11 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -77,7 +78,6 @@ import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -489,10 +489,11 @@ public class BuildView {
               allTargetsToTest,
               baselineCoverageArtifacts,
               getArtifactFactory(),
+              skyframeExecutor.getActionKeyContext(),
               CoverageReportValue.COVERAGE_REPORT_KEY,
               loadingResult.getWorkspaceName());
       if (actionsWrapper != null) {
-        ImmutableList<ActionAnalysisMetadata> actions = actionsWrapper.getActions();
+        Actions.GeneratingActions actions = actionsWrapper.getActions();
         skyframeExecutor.injectCoverageReportData(actions);
         actionsWrapper.getCoverageOutputs().forEach(artifactsToOwnerLabelsBuilder::addArtifact);
       }
@@ -516,19 +517,25 @@ public class BuildView {
           @Nullable
           @Override
           public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
-            ArtifactOwner artifactOwner = artifact.getArtifactOwner();
-            if (artifactOwner instanceof ActionLookupValue.ActionLookupKey) {
-              SkyKey key = (ActionLookupValue.ActionLookupKey) artifactOwner;
-              ActionLookupValue val;
-              try {
-                val = (ActionLookupValue) graph.getValue(key);
-              } catch (InterruptedException e) {
-                throw new IllegalStateException(
-                    "Interruption not expected from this graph: " + key, e);
-              }
-              return val == null ? null : val.getGeneratingActionDangerousReadJavadoc(artifact);
+            if (artifact.isSourceArtifact()) {
+              return null;
             }
-            return null;
+            ActionLookupData generatingActionKey =
+                ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
+            ActionLookupValue val;
+            try {
+              val = (ActionLookupValue) graph.getValue(generatingActionKey.getActionLookupKey());
+            } catch (InterruptedException e) {
+              throw new IllegalStateException(
+                  "Interruption not expected from this graph: " + generatingActionKey, e);
+            }
+            if (val == null) {
+              return null;
+            }
+            int actionIndex = generatingActionKey.getActionIndex();
+            return val.isActionTemplate(actionIndex)
+                ? val.getActionTemplate(actionIndex)
+                : val.getAction(actionIndex);
           }
         };
     return new AnalysisResult(
@@ -666,8 +673,8 @@ public class BuildView {
     ImmutableList.Builder<Artifact> artifacts = ImmutableList.builder();
     // Add to 'artifacts' all extra-actions which were registered by aspects which 'topLevel'
     // might have injected.
-    for (Artifact artifact : provider.getTransitiveExtraActionArtifacts()) {
-      ArtifactOwner owner = artifact.getArtifactOwner();
+    for (Artifact.DerivedArtifact artifact : provider.getTransitiveExtraActionArtifacts()) {
+      ActionLookupValue.ActionLookupKey owner = artifact.getArtifactOwner();
       if (owner instanceof AspectKey) {
         if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
           artifacts.add(artifact);

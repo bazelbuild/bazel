@@ -273,6 +273,9 @@ EOF
   # Set up @bazel_tools//platforms properly
   mkdir -p ${BAZEL_TOOLS_REPO}/platforms
   cp tools/platforms/BUILD.tools ${BAZEL_TOOLS_REPO}/platforms/BUILD
+  link_file \
+    "${PWD}/tools/platforms/fail_with_incompatible_use_platforms_repo_for_constraints.bzl" \
+    "${BAZEL_TOOLS_REPO}/platforms/fail_with_incompatible_use_platforms_repo_for_constraints.bzl"
 
   # Overwrite tools.WORKSPACE, this is only for the bootstrap binary
   chmod u+w "${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE"
@@ -288,6 +291,9 @@ fi
 log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
+
+# Prepare @platforms local repository
+link_dir ${PWD}/platforms ${ARCHIVE_DIR}/_embedded_binaries/platforms
 
 # Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
 if [ "${PLATFORM}" = "windows" ]; then

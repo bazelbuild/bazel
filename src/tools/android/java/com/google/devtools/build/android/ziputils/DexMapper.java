@@ -39,9 +39,11 @@ public class DexMapper {
    */
   public static void main(String[] args) {
 
-    OptionsParser parser = OptionsParser.newOptionsParser(DexMapperOptions.class);
-    parser.setAllowResidue(true);
-    parser.enableParamsFileSupport(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    OptionsParser parser =
+        OptionsParser.newOptionsParser(
+            true,
+            new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()),
+            DexMapperOptions.class);
     parser.parseAndExitUponError(args);
     DexMapperOptions options = parser.getOptions(DexMapperOptions.class);
 

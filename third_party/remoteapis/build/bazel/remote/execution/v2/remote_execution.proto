@@ -128,10 +128,7 @@ service Execution {
 //
 // The lifetime of entries in the action cache is implementation-specific, but
 // the server SHOULD assume that more recently used entries are more likely to
-// be used again. Additionally, action cache implementations SHOULD ensure that
-// any blobs referenced in the
-// [ContentAddressableStorage][build.bazel.remote.execution.v2.ContentAddressableStorage]
-// are still valid when returning a result.
+// be used again.
 //
 // As with other services in the Remote Execution API, any call may return an
 // error with a [RetryInfo][google.rpc.RetryInfo] error detail providing
@@ -139,6 +136,13 @@ service Execution {
 // respect the information provided.
 service ActionCache {
   // Retrieve a cached execution result.
+  //
+  // Implementations SHOULD ensure that any blobs referenced from the
+  // [ContentAddressableStorage][build.bazel.remote.execution.v2.ContentAddressableStorage]
+  // are available at the time of returning the
+  // [ActionResult][build.bazel.remote.execution.v2.ActionResult] and will be
+  // for some period of time afterwards. The TTLs of the referenced blobs SHOULD be increased
+  // if necessary and applicable.
   //
   // Errors:
   //
@@ -332,7 +336,14 @@ service ContentAddressableStorage {
 // The query may include a particular `instance_name`, in which case the values
 // returned will pertain to that instance.
 service Capabilities {
-  // GetCapabilities returns the server capabilities configuration.
+  // GetCapabilities returns the server capabilities configuration of the
+  // remote endpoint.
+  // Only the capabilities of the services supported by the endpoint will
+  // be returned:
+  // * Execution + CAS + Action Cache endpoints should return both
+  //   CacheCapabilities and ExecutionCapabilities.
+  // * Execution only endpoints should return ExecutionCapabilities.
+  // * CAS + Action Cache only endpoints should return CacheCapabilities.
   rpc GetCapabilities(GetCapabilitiesRequest) returns (ServerCapabilities) {
     option (google.api.http) = {
       get: "/v2/{instance_name=**}/capabilities"
@@ -396,7 +407,8 @@ message Action {
   // immediately, rather than whenever the cache entry gets evicted.
   google.protobuf.Duration timeout = 6;
 
-  // If true, then the `Action`'s result cannot be cached.
+  // If true, then the `Action`'s result cannot be cached, and in-flight
+  // requests for the same `Action` may not be merged.
   bool do_not_cache = 7;
 }
 
@@ -477,7 +489,8 @@ message Command {
   // bytes).
   //
   // An output directory cannot be duplicated or have the same path as any of
-  // the listed output files.
+  // the listed output files. An output directory is allowed to be a parent of
+  // another output directory.
   //
   // Directories leading up to the output directories (but not the output
   // directories themselves) are created by the worker prior to execution, even
@@ -488,6 +501,7 @@ message Command {
   // choose to execute the action on any worker satisfying the requirements, so
   // the client SHOULD ensure that running the action on any such worker will
   // have the same result.
+  // A detailed lexicon for this can be found in the accompanying platform.md.
   Platform platform = 5;
 
   // The working directory, relative to the input root, for the command to run
@@ -736,11 +750,12 @@ message ActionResult {
   // The output files of the action. For each output file requested in the
   // `output_files` field of the Action, if the corresponding file existed after
   // the action completed, a single entry will be present either in this field,
-  // or in the output_file_symlinks field, if the file was a symbolic link to
+  // or the `output_file_symlinks` field if the file was a symbolic link to
   // another file.
   //
-  // If the action does not produce the requested output, or produces a
-  // directory where a regular file is expected or vice versa, then that output
+  // If an output of the same name was found, but was a directory rather
+  // than a regular file, the server will return a FAILED_PRECONDITION.
+  // If the action does not produce the requested output, then that output
   // will be omitted from the list. The server is free to arrange the output
   // list as desired; clients MUST NOT assume that the output list is sorted.
   repeated OutputFile output_files = 2;
@@ -754,8 +769,9 @@ message ActionResult {
   // the action completed, a single entry will be present either in this field,
   // or in the `output_files` field, if the file was not a symbolic link.
   //
-  // If the action does not produce the requested output, or produces a
-  // directory where a regular file is expected or vice versa, then that output
+  // If an output symbolic link of the same name was found, but its target
+  // type was not a regular file, the server will return a FAILED_PRECONDITION.
+  // If the action does not produce the requested output, then that output
   // will be omitted from the list. The server is free to arrange the output
   // list as desired; clients MUST NOT assume that the output list is sorted.
   repeated OutputSymlink output_file_symlinks = 10;
@@ -819,6 +835,8 @@ message ActionResult {
   //   }
   // }
   // ```
+  // If an output of the same name was found, but was not a directory, the
+  // server will return a FAILED_PRECONDITION.
   repeated OutputDirectory output_directories = 3;
 
   // The output directories of the action that are symbolic links to other
@@ -827,12 +845,13 @@ message ActionResult {
   // if the server supports
   // [SymlinkAbsolutePathStrategy.ALLOWED][build.bazel.remote.execution.v2.CacheCapabilities.SymlinkAbsolutePathStrategy].
   // For each output directory requested in the `output_directories` field of
-  // the Action, if the directory file existed after
-  // the action completed, a single entry will be present either in this field,
-  // or in the `output_directories` field, if the directory was not a symbolic link.
+  // the Action, if the directory existed after the action completed, a
+  // single entry will be present either in this field, or in the
+  // `output_directories` field, if the directory was not a symbolic link.
   //
-  // If the action does not produce the requested output, or produces a
-  // file where a directory is expected or vice versa, then that output
+  // If an output of the same name was found, but was a symbolic link to a file
+  // instead of a directory, the server will return a FAILED_PRECONDITION.
+  // If the action does not produce the requested output, then that output
   // will be omitted from the list. The server is free to arrange the output
   // list as desired; clients MUST NOT assume that the output list is sorted.
   repeated OutputSymlink output_directory_symlinks = 11;
@@ -840,32 +859,28 @@ message ActionResult {
   // The exit code of the command.
   int32 exit_code = 4;
 
-  // The standard output buffer of the action. The server will determine, based
-  // on the size of the buffer, whether to return it in raw form or to return
-  // a digest in `stdout_digest` that points to the buffer. If neither is set,
-  // then the buffer is empty. The client SHOULD NOT assume it will get one of
-  // the raw buffer or a digest on any given request and should be prepared to
-  // handle either.
+  // The standard output buffer of the action. The server SHOULD NOT inline
+  // stdout unless requested by the client in the
+  // [GetActionResultRequest][build.bazel.remote.execution.v2.GetActionResultRequest]
+  // message. The server MAY omit inlining, even if requested, and MUST do so if inlining
+  // would cause the response to exceed message size limits.
   bytes stdout_raw = 5;
 
   // The digest for a blob containing the standard output of the action, which
   // can be retrieved from the
   // [ContentAddressableStorage][build.bazel.remote.execution.v2.ContentAddressableStorage].
-  // See `stdout_raw` for when this will be set.
   Digest stdout_digest = 6;
 
-  // The standard error buffer of the action. The server will determine, based
-  // on the size of the buffer, whether to return it in raw form or to return
-  // a digest in `stderr_digest` that points to the buffer. If neither is set,
-  // then the buffer is empty. The client SHOULD NOT assume it will get one of
-  // the raw buffer or a digest on any given request and should be prepared to
-  // handle either.
+  // The standard error buffer of the action. The server SHOULD NOT inline
+  // stderr unless requested by the client in the
+  // [GetActionResultRequest][build.bazel.remote.execution.v2.GetActionResultRequest]
+  // message. The server MAY omit inlining, even if requested, and MUST do so if inlining
+  // would cause the response to exceed message size limits.
   bytes stderr_raw = 7;
 
   // The digest for a blob containing the standard error of the action, which
   // can be retrieved from the
   // [ContentAddressableStorage][build.bazel.remote.execution.v2.ContentAddressableStorage].
-  // See `stderr_raw` for when this will be set.
   Digest stderr_digest = 8;
 
   // The details of the execution that originally produced this result.
@@ -876,8 +891,6 @@ message ActionResult {
 // [FileNode][build.bazel.remote.execution.v2.FileNode], but it is used as an
 // output in an `ActionResult`. It allows a full file path rather than
 // only a name.
-//
-// `OutputFile` is binary-compatible with `FileNode`.
 message OutputFile {
   // The full path of the file relative to the working directory, including the
   // filename. The path separator is a forward slash `/`. Since this is a
@@ -891,6 +904,13 @@ message OutputFile {
 
   // True if file is executable, false otherwise.
   bool is_executable = 4;
+
+  // The contents of the file if inlining was requested. The server SHOULD NOT inline
+  // file contents unless requested by the client in the
+  // [GetActionResultRequest][build.bazel.remote.execution.v2.GetActionResultRequest]
+  // message. The server MAY omit inlining, even if requested, and MUST do so if inlining
+  // would cause the response to exceed message size limits.
+  bytes contents = 5;
 }
 
 // A `Tree` contains all the
@@ -982,9 +1002,19 @@ message ExecuteRequest {
   // omitted.
   string instance_name = 1;
 
-  // If true, the action will be executed anew even if its result was already
-  // present in the cache. If false, the result may be served from the
-  // [ActionCache][build.bazel.remote.execution.v2.ActionCache].
+  // If true, the action will be executed even if its result is already
+  // present in the [ActionCache][build.bazel.remote.execution.v2.ActionCache].
+  // The execution is still allowed to be merged with other in-flight executions
+  // of the same action, however - semantically, the service MUST only guarantee
+  // that the results of an execution with this field set were not visible
+  // before the corresponding execution request was sent.
+  // Note that actions from execution requests setting this field set are still
+  // eligible to be entered into the action cache upon completion, and services
+  // SHOULD overwrite any existing entries that may exist. This allows
+  // skip_cache_lookup requests to be used as a mechanism for replacing action
+  // cache entries that reference outputs no longer available or that are
+  // poisoned in any way.
+  // If false, the result may be served from the action cache.
   bool skip_cache_lookup = 3;
 
   reserved 2, 4, 5; // Used for removed fields in an earlier version of the API.
@@ -1054,14 +1084,10 @@ message ExecuteResponse {
   string message = 5;
 }
 
-// Metadata about an ongoing
-// [execution][build.bazel.remote.execution.v2.Execution.Execute], which
-// will be contained in the [metadata
-// field][google.longrunning.Operation.response] of the
-// [Operation][google.longrunning.Operation].
-message ExecuteOperationMetadata {
-  // The current stage of execution.
-  enum Stage {
+// The current stage of action execution.
+message ExecutionStage {
+  enum Value {
+    // Invalid value.
     UNKNOWN = 0;
 
     // Checking the result against the cache.
@@ -1076,8 +1102,16 @@ message ExecuteOperationMetadata {
     // Finished execution.
     COMPLETED = 4;
   }
+}
 
-  Stage stage = 1;
+// Metadata about an ongoing
+// [execution][build.bazel.remote.execution.v2.Execution.Execute], which
+// will be contained in the [metadata
+// field][google.longrunning.Operation.response] of the
+// [Operation][google.longrunning.Operation].
+message ExecuteOperationMetadata {
+  // The current stage of execution.
+  ExecutionStage.Value stage = 1;
 
   // The digest of the [Action][build.bazel.remote.execution.v2.Action]
   // being executed.
@@ -1115,6 +1149,19 @@ message GetActionResultRequest {
   // The digest of the [Action][build.bazel.remote.execution.v2.Action]
   // whose result is requested.
   Digest action_digest = 2;
+
+  // A hint to the server to request inlining stdout in the
+  // [ActionResult][build.bazel.remote.execution.v2.ActionResult] message.
+  bool inline_stdout = 3;
+
+  // A hint to the server to request inlining stderr in the
+  // [ActionResult][build.bazel.remote.execution.v2.ActionResult] message.
+  bool inline_stderr = 4;
+
+  // A hint to the server to inline the contents of the listed output files.
+  // Each path needs to exactly match one path in `output_files` in the
+  // [Command][build.bazel.remote.execution.v2.Command] message.
+  repeated string inline_output_files = 5;
 }
 
 // A request message for
@@ -1218,7 +1265,7 @@ message BatchReadBlobsRequest {
 // A response message for
 // [ContentAddressableStorage.BatchReadBlobs][build.bazel.remote.execution.v2.ContentAddressableStorage.BatchReadBlobs].
 message BatchReadBlobsResponse {
-  // A response corresponding to a single blob that the client tried to upload.
+  // A response corresponding to a single blob that the client tried to download.
   message Response {
     // The digest to which this response corresponds.
     Digest digest = 1;
@@ -1307,18 +1354,24 @@ message ServerCapabilities {
 
 // The digest function used for converting values into keys for CAS and Action
 // Cache.
-enum DigestFunction {
-  // It is an error for the server to return this value.
-  UNKNOWN = 0;
+message DigestFunction {
+  enum Value {
+    // It is an error for the server to return this value.
+    UNKNOWN = 0;
 
-  // The Sha-256 digest function.
-  SHA256 = 1;
+    // The Sha-256 digest function.
+    SHA256 = 1;
 
-  // The Sha-1 digest function.
-  SHA1 = 2;
+    // The Sha-1 digest function.
+    SHA1 = 2;
 
-  // The MD5 digest function.
-  MD5 = 3;
+    // The MD5 digest function.
+    MD5 = 3;
+
+    // The Microsoft "VSO-Hash" paged SHA256 digest function.
+    // See https://github.com/microsoft/BuildXL/blob/master/Documentation/Specs/PagedHash.md .
+    VSO = 4;
+  }
 }
 
 // Describes the server/instance capabilities for updating the action cache.
@@ -1338,10 +1391,10 @@ message PriorityCapabilities {
   repeated PriorityRange priorities = 1;
 }
 
-// Capabilities of the remote cache system.
-message CacheCapabilities {
-  // Describes how the server treats absolute symlink targets.
-  enum SymlinkAbsolutePathStrategy {
+// Describes how the server treats absolute symlink targets.
+message SymlinkAbsolutePathStrategy {
+  enum Value {
+    // Invalid value.
     UNKNOWN = 0;
 
     // Server will return an `INVALID_ARGUMENT` on input symlinks with absolute
@@ -1354,10 +1407,13 @@ message CacheCapabilities {
     // resulting in non-hermetic builds.
     ALLOWED = 2;
   }
+}
 
+// Capabilities of the remote cache system.
+message CacheCapabilities {
   // All the digest functions supported by the remote cache.
   // Remote cache may support multiple digest functions simultaneously.
-  repeated DigestFunction digest_function = 1;
+  repeated DigestFunction.Value digest_function = 1;
 
   // Capabilities for updating the action cache.
   ActionCacheUpdateCapabilities action_cache_update_capabilities = 2;
@@ -1372,13 +1428,13 @@ message CacheCapabilities {
   int64 max_batch_total_size_bytes = 4;
 
   // Whether absolute symlink targets are supported.
-  SymlinkAbsolutePathStrategy symlink_absolute_path_strategy = 5;
+  SymlinkAbsolutePathStrategy.Value symlink_absolute_path_strategy = 5;
 }
 
 // Capabilities of the remote execution system.
 message ExecutionCapabilities {
   // Remote execution may only support a single digest function.
-  DigestFunction digest_function = 1;
+  DigestFunction.Value digest_function = 1;
 
   // Whether remote execution is enabled for the particular server/instance.
   bool exec_enabled = 2;
@@ -1403,6 +1459,11 @@ message ToolDetails {
 //
 // * name: `build.bazel.remote.execution.v2.requestmetadata-bin`
 // * contents: the base64 encoded binary `RequestMetadata` message.
+// Note: the gRPC library serializes binary headers encoded in base 64 by
+// default (https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests).
+// Therefore, if the gRPC library is used to pass/retrieve this
+// metadata, the user may ignore the base64 encoding and assume it is simply
+// serialized as a binary message.
 message RequestMetadata {
   // The details for the tool invoking the requests.
   ToolDetails tool_details = 1;

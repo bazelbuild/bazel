@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -41,7 +42,7 @@ public class FdoHelper {
       CcToolchainAttributesProvider attributes,
       BuildConfiguration configuration,
       CppConfiguration cppConfiguration,
-      CppToolchainInfo toolchainInfo)
+      ImmutableMap<String, PathFragment> toolPaths)
       throws InterruptedException, RuleErrorException {
     FdoInputFile fdoInputFile = null;
     FdoInputFile csFdoInputFile = null;
@@ -90,7 +91,10 @@ public class FdoHelper {
       }
 
       Pair<FdoInputFile, Artifact> csFdoInputs = null;
-      if (cppConfiguration.getCSFdoProfileLabel() != null) {
+      PathFragment csFdoZip = cppConfiguration.getCSFdoAbsolutePath();
+      if (csFdoZip != null) {
+        csFdoInputFile = FdoInputFile.fromAbsolutePath(csFdoZip);
+      } else if (cppConfiguration.getCSFdoProfileLabel() != null) {
         csFdoInputs = getFdoInputs(ruleContext, attributes.getCSFdoProfileProvider());
       }
       if (csFdoInputs != null) {
@@ -154,7 +158,7 @@ public class FdoHelper {
       if (branchFdoMode == BranchFdoMode.LLVM_FDO) {
         profileArtifact =
             convertLLVMRawProfileToIndexed(
-                attributes, fdoInputFile, toolchainInfo, ruleContext, cppConfiguration, "fdo");
+                attributes, fdoInputFile, toolPaths, ruleContext, cppConfiguration, "fdo");
         if (ruleContext.hasErrors()) {
           return null;
         }
@@ -171,13 +175,13 @@ public class FdoHelper {
       } else if (branchFdoMode == BranchFdoMode.LLVM_CS_FDO) {
         Artifact nonCSProfileArtifact =
             convertLLVMRawProfileToIndexed(
-                attributes, fdoInputFile, toolchainInfo, ruleContext, cppConfiguration, "fdo");
+                attributes, fdoInputFile, toolPaths, ruleContext, cppConfiguration, "fdo");
         if (ruleContext.hasErrors()) {
           return null;
         }
         Artifact csProfileArtifact =
             convertLLVMRawProfileToIndexed(
-                attributes, csFdoInputFile, toolchainInfo, ruleContext, cppConfiguration, "csfdo");
+                attributes, csFdoInputFile, toolPaths, ruleContext, cppConfiguration, "csfdo");
         if (ruleContext.hasErrors()) {
           return null;
         }
@@ -185,7 +189,7 @@ public class FdoHelper {
           profileArtifact =
               mergeLLVMProfiles(
                   attributes,
-                  toolchainInfo,
+                  toolPaths,
                   ruleContext,
                   nonCSProfileArtifact,
                   csProfileArtifact,
@@ -263,7 +267,7 @@ public class FdoHelper {
   /** This function merges profile1 and profile2 and generates mergedOutput. */
   private static Artifact mergeLLVMProfiles(
       CcToolchainAttributesProvider attributes,
-      CppToolchainInfo toolchainInfo,
+      ImmutableMap<String, PathFragment> toolPaths,
       RuleContext ruleContext,
       Artifact profile1,
       Artifact profile2,
@@ -281,7 +285,8 @@ public class FdoHelper {
             .addTransitiveInputs(attributes.getAllFilesMiddleman())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
-            .setExecutable(toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA))
+            .setExecutable(
+                CcToolchainProviderHelper.getToolPathFragment(toolPaths, Tool.LLVM_PROFDATA))
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataMergeAction")
             .addCommandLine(
@@ -304,7 +309,7 @@ public class FdoHelper {
   private static Artifact convertLLVMRawProfileToIndexed(
       CcToolchainAttributesProvider attributes,
       FdoInputFile fdoProfile,
-      CppToolchainInfo toolchainInfo,
+      ImmutableMap<String, PathFragment> toolPaths,
       RuleContext ruleContext,
       CppConfiguration cppConfiguration,
       String fdoUniqueArtifactName) {
@@ -346,7 +351,7 @@ public class FdoHelper {
 
       // TODO(zhayu): find a way to avoid hard-coding cpu architecture here (b/65582760)
       String rawProfileFileName = "fdocontrolz_profile.profraw";
-      String cpu = toolchainInfo.getTargetCpu();
+      String cpu = attributes.getCcToolchainConfigInfo().getTargetCpu();
       if (!"k8".equals(cpu)) {
         rawProfileFileName = "fdocontrolz_profile-" + cpu + ".profraw";
       }
@@ -398,7 +403,7 @@ public class FdoHelper {
           "Symlinking LLVM Raw Profile " + fdoProfile.getBasename());
     }
 
-    if (toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA) == null) {
+    if (CcToolchainProviderHelper.getToolPathFragment(toolPaths, Tool.LLVM_PROFDATA) == null) {
       ruleContext.ruleError(
           "llvm-profdata not available with this crosstool, needed for profile conversion");
       return null;
@@ -411,7 +416,8 @@ public class FdoHelper {
             .addTransitiveInputs(attributes.getAllFilesMiddleman())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
-            .setExecutable(toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA))
+            .setExecutable(
+                CcToolchainProviderHelper.getToolPathFragment(toolPaths, Tool.LLVM_PROFDATA))
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataAction")
             .addCommandLine(

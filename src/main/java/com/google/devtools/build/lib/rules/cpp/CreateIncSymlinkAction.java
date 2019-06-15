@@ -70,7 +70,7 @@ public final class CreateIncSymlinkAction extends AbstractAction {
         symlink.createSymbolicLink(actionExecutionContext.getInputPath(entry.getValue()));
       }
     } catch (IOException e) {
-      String message = "IO Error while creating symlink";
+      String message = "IO Error while creating symlink: " + e.getMessage();
       throw new ActionExecutionException(message, e, this, false);
     }
     return ActionResult.EMPTY;

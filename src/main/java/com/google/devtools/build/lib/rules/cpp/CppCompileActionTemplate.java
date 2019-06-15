@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyCacher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -89,7 +89,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
 
   @Override
   public Iterable<CppCompileAction> generateActionForInputArtifacts(
-      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner)
+      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
       throws ActionTemplateExpansionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 
@@ -125,10 +125,10 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       try {
         String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
         TreeFileArtifact outputTreeFileArtifact =
-            ActionInputHelper.treeFileArtifact(
+            ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
                 outputTreeArtifact, PathFragment.create(outputName), artifactOwner);
         TreeFileArtifact dotdFileArtifact =
-            ActionInputHelper.treeFileArtifact(
+            ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
                 dotdTreeArtifact, PathFragment.create(outputName + ".d"), artifactOwner);
         expandedActions.add(
             createAction(
@@ -191,9 +191,6 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         sourceTreeFileArtifact.getExecPathString());
     buildVariables.overrideStringVariable(
         CompileBuildVariables.OUTPUT_FILE.getVariableName(),
-        outputTreeFileArtifact.getExecPathString());
-    buildVariables.overrideStringVariable(
-        CompileBuildVariables.OUTPUT_OBJECT_FILE.getVariableName(),
         outputTreeFileArtifact.getExecPathString());
     buildVariables.overrideStringVariable(
         CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),

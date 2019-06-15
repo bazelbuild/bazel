@@ -166,7 +166,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         name = "struct_field_with_extra",
         documented = false,
         structField = true,
-        useSkylarkSemantics = true)
+        useStarlarkSemantics = true)
     public String structFieldWithExtra(StarlarkSemantics sem) {
       return "struct_field_with_extra("
         + (sem != null)
@@ -316,7 +316,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         useLocation = true,
         useAst = true,
         useEnvironment = true,
-        useSkylarkSemantics = true,
+        useStarlarkSemantics = true,
         useContext = true)
     public String withExtraInterpreterParams(
         Location location,
@@ -384,7 +384,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         useAst = true,
         useLocation = true,
         useEnvironment = true,
-        useSkylarkSemantics = true)
+        useStarlarkSemantics = true)
     public String withParamsAndExtraInterpreterParams(
         Integer pos1,
         boolean pos2,
@@ -509,6 +509,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
                   .collect(joining(", "))
               + ")";
       return "with_args_and_kwargs(" + foo + ", " + argsString + ", " + kwargsString + ")";
+    }
+
+    @SkylarkCallable(name = "raise_unchecked_exception", documented = false)
+    public void raiseUncheckedException() {
+      throw new InternalError("buggy code");
     }
 
     @Override
@@ -1309,6 +1314,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testCallingMethodThatRaisesUncheckedException() throws Exception {
+    update("mock", new Mock());
+    assertThrows(InternalError.class, () -> eval("mock.raise_unchecked_exception()"));
+  }
+
+  @Test
   public void testJavaFunctionWithExtraInterpreterParams() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1470,12 +1481,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaFunctionReturnsNullFails() throws Exception {
-    new SkylarkTest()
-        .update("mock", new Mock())
-        .testIfErrorContains(
-            "method invocation returned None,"
-                + " please file a bug report: nullfunc_failing(\"abc\", 1)",
-            "mock.nullfunc_failing('abc', 1)");
+    update("mock", new Mock());
+    IllegalStateException e =
+        assertThrows(IllegalStateException.class, () -> eval("mock.nullfunc_failing('abc', 1)"));
+    assertThat(e).hasMessageThat().contains("method invocation returned None");
   }
 
   @Test
@@ -1947,6 +1956,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "nullfunc_failing",
             "nullfunc_working",
             "proxy_methods_object",
+            "raise_unchecked_exception",
             "return_bad",
             "string",
             "string_list",

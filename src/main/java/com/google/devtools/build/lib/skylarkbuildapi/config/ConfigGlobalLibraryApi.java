@@ -123,7 +123,7 @@ public interface ConfigGlobalLibraryApi {
                     + "an analysis test requires to be set in order to pass."),
       },
       useLocation = true,
-      useSkylarkSemantics = true)
+      useStarlarkSemantics = true)
   public ConfigurationTransitionApi analysisTestTransition(
       SkylarkDict<String, String> changedSettings, Location location, StarlarkSemantics semantics)
       throws EvalException;

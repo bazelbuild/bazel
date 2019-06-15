@@ -223,7 +223,196 @@ EOF
   expect_log "type=cowabunga"
 }
 
-# Test that label-typed build setting has access to providers of the target it points to.
+# Regression tests for b/134580627
+# Make sure package incrementality works during options parsing
+function test_incremental_delete_build_setting() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > $pkg/rules.bzl <<EOF
+def _impl(ctx):
+  return []
+
+my_flag = rule(
+  implementation = _impl,
+  build_setting = config.string(flag = True)
+)
+simple_rule = rule(implementation = _impl)
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "my_flag", "simple_rule")
+
+my_flag(name = "my_flag", build_setting_default = "default")
+simple_rule(name = "simple_rule")
+EOF
+
+  bazel build //$pkg:simple_rule --//$pkg:my_flag=cowabunga \
+    --experimental_build_setting_api > output 2>"$TEST_log" \
+    || fail "Expected success"
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "simple_rule")
+
+simple_rule(name = "simple_rule")
+EOF
+
+  bazel build //$pkg:simple_rule --//$pkg:my_flag=cowabunga \
+    --experimental_build_setting_api > output 2>"$TEST_log" \
+    && fail "Expected failure" || true
+
+  expect_log "no such target '//$pkg:my_flag'"
+}
+
+#############################
+
+function test_incremental_delete_build_setting_in_different_package() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > $pkg/rules.bzl <<EOF
+def _impl(ctx):
+  return []
+
+my_flag = rule(
+  implementation = _impl,
+  build_setting = config.string(flag = True)
+)
+simple_rule = rule(implementation = _impl)
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "my_flag")
+my_flag(name = "my_flag", build_setting_default = "default")
+EOF
+
+  mkdir -p pkg2
+
+  cat > pkg2/BUILD <<EOF
+load("//$pkg:rules.bzl", "simple_rule")
+simple_rule(name = "simple_rule")
+EOF
+
+  bazel build //pkg2:simple_rule --//$pkg:my_flag=cowabunga \
+    --experimental_build_setting_api > output 2>"$TEST_log" \
+    || fail "Expected success"
+
+  cat > $pkg/BUILD <<EOF
+EOF
+
+  bazel build //pkg2:simple_rule --//$pkg:my_flag=cowabunga \
+    --experimental_build_setting_api > output 2>"$TEST_log" \
+    && fail "Expected failure" || true
+
+  expect_log "no such target '//$pkg:my_flag'"
+}
+
+#############################
+
+
+function test_incremental_add_build_setting() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > $pkg/rules.bzl <<EOF
+def _impl(ctx):
+  return []
+
+my_flag = rule(
+  implementation = _impl,
+  build_setting = config.string(flag = True)
+)
+simple_rule = rule(implementation = _impl)
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "simple_rule")
+
+simple_rule(name = "simple_rule")
+EOF
+
+  bazel build //$pkg:simple_rule --experimental_build_setting_api \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "my_flag", "simple_rule")
+
+my_flag(name = "my_flag", build_setting_default = "default")
+simple_rule(name = "simple_rule")
+EOF
+
+  bazel build //$pkg:simple_rule --//$pkg:my_flag=cowabunga \
+    --experimental_build_setting_api > output 2>"$TEST_log" \
+    || fail "Expected success"
+}
+
+function test_incremental_change_build_setting() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > $pkg/rules.bzl <<EOF
+MyProvider = provider(fields = ["value"])
+
+def _flag_impl(ctx):
+  return MyProvider(value = ctx.build_setting_value)
+
+my_flag = rule(
+  implementation = _flag_impl,
+  build_setting = config.string(flag = True)
+)
+
+def _rule_impl(ctx):
+  print("flag = " + ctx.attr.flag[MyProvider].value)
+
+simple_rule = rule(
+  implementation = _rule_impl,
+  attrs = {"flag" : attr.label()}
+)
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "my_flag", "simple_rule")
+
+my_flag(name = "my_flag", build_setting_default = "default")
+simple_rule(name = "simple_rule", flag = ":my_flag")
+EOF
+
+  bazel build //$pkg:simple_rule --//$pkg:my_flag=yabadabadoo \
+    --experimental_build_setting_api > output 2>"$TEST_log" \
+    || fail "Expected success"
+
+  expect_log "flag = yabadabadoo"
+
+# update the flag to return a different value
+  cat > $pkg/rules.bzl <<EOF
+MyProvider = provider(fields = ["value"])
+
+def _flag_impl(ctx):
+  return MyProvider(value = "scoobydoobydoo")
+
+my_flag = rule(
+  implementation = _flag_impl,
+  build_setting = config.string(flag = True)
+)
+
+def _rule_impl(ctx):
+  print("flag = " + ctx.attr.flag[MyProvider].value)
+
+simple_rule = rule(
+  implementation = _rule_impl,
+  attrs = {"flag" : attr.label()}
+)
+EOF
+
+  bazel build //$pkg:simple_rule --//$pkg:my_flag=yabadabadoo \
+    --experimental_build_setting_api > output 2>"$TEST_log" \
+    || fail "Expected success"
+
+  expect_log "flag = scoobydoobydoo"
+}
+
+# Test that label-typed build setting has access to providers of the
+# target it points to.
 function test_label_flag() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg

@@ -121,11 +121,36 @@ public interface CcModuleApi<
             name = "action_name",
             doc =
                 "Name of the action. Has to be one of the names in "
-                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl.",
+                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl "
+                    + "(https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/"
+                    + "action_names.bzl)",
             named = true,
             positional = false),
       })
   String getToolForAction(FeatureConfigurationT featureConfiguration, String actionName);
+
+  @SkylarkCallable(
+      name = "get_execution_requirements",
+      doc = "Returns execution requirements for given action.",
+      parameters = {
+        @Param(
+            name = "feature_configuration",
+            doc = "Feature configuration to be queried.",
+            positional = false,
+            named = true,
+            type = FeatureConfigurationApi.class),
+        @Param(
+            name = "action_name",
+            doc =
+                "Name of the action. Has to be one of the names in "
+                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl "
+                    + "(https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/"
+                    + "action_names.bzl)",
+            named = true,
+            positional = false),
+      })
+  SkylarkList<String> getExecutionRequirements(
+      FeatureConfigurationT featureConfiguration, String actionName);
 
   @SkylarkCallable(
       name = "is_enabled",
@@ -181,7 +206,9 @@ public interface CcModuleApi<
             name = "action_name",
             doc =
                 "Name of the action. Has to be one of the names in "
-                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl.",
+                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl "
+                    + "(https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/"
+                    + "action_names.bzl)",
             named = true,
             positional = false),
         @Param(
@@ -211,7 +238,9 @@ public interface CcModuleApi<
             name = "action_name",
             doc =
                 "Name of the action. Has to be one of the names in "
-                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl.",
+                    + "@bazel_tools//tools/build_defs/cc:action_names.bzl "
+                    + "(https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/"
+                    + "action_names.bzl)",
             named = true,
             positional = false),
         @Param(
@@ -310,6 +339,17 @@ public interface CcModuleApi<
               @ParamType(type = SkylarkNestedSet.class)
             }),
         @Param(
+            name = "framework_include_directories",
+            doc = "Depset of framework include directories.",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            noneable = true,
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = SkylarkNestedSet.class)
+            }),
+        @Param(
             name = "preprocessor_defines",
             doc = "Depset of preprocessor defines.",
             positional = false,
@@ -343,6 +383,7 @@ public interface CcModuleApi<
       Object includeDirs,
       Object quoteIncludeDirs,
       Object systemIncludeDirs,
+      Object frameworkIncludeDirs,
       Object defines,
       boolean usePic,
       boolean addLegacyCxxOptions)
@@ -652,6 +693,13 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             type = Object.class),
         @Param(
+            name = "framework_includes",
+            doc = "Set of framework search paths for header files (Apple platform only)",
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            type = Object.class),
+        @Param(
             name = "defines",
             doc = "Set of defines needed to compile this target. Each define is a string",
             positional = false,
@@ -660,7 +708,12 @@ public interface CcModuleApi<
             type = Object.class)
       })
   CompilationContextT createCcCompilationContext(
-      Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
+      Object headers,
+      Object systemIncludes,
+      Object includes,
+      Object quoteIncludes,
+      Object frameworkIncludes,
+      Object defines)
       throws EvalException;
 
   // TODO(b/65151735): Remove when cc_flags is entirely set from features.

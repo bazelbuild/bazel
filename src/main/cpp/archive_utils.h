@@ -40,6 +40,10 @@ void ExtractArchiveOrDie(const std::string &archive_path,
 void ExtractBuildLabel(const std::string &archive_path,
                        const std::string &product_name,
                        std::string *build_label);
+
+// Returns the server jar path from the archive contents.
+std::string GetServerJarPath(const std::vector<std::string> &archive_contents);
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_ARCHIVE_UTILS_H_

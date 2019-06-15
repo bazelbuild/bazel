@@ -138,6 +138,11 @@ public abstract class RepositoryFunction {
     RepositoryMissingDependencyException() {
       super(Location.BUILTIN, "Internal exception");
     }
+
+    @Override
+    public boolean canBeAddedToStackTrace() {
+      return false;
+    }
   }
   /**
    * repository functions can throw the result of this function to notify the RepositoryFunction

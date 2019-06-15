@@ -16,12 +16,14 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -151,5 +153,37 @@ public class FakeJavaCommon
   @Override
   public boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextApi ruleContext) {
     return false;
+  }
+
+  @Override
+  public ProviderApi getMessageBundleInfo() {
+    return new FakeProviderApi();
+  }
+
+  @Override
+  public FakeJavaInfo addConstraints(FakeJavaInfo javaInfo, SkylarkList<String> constraints) {
+    return new FakeJavaInfo();
+  }
+
+  @Override
+  public FakeJavaInfo removeAnnotationProcessors(FakeJavaInfo javaInfo) {
+    return new FakeJavaInfo();
+  }
+
+  @Override
+  public NestedSet<FileApi> getCompileTimeJavaDependencyArtifacts(FakeJavaInfo javaInfo) {
+    return null;
+  }
+
+  @Override
+  public FakeJavaInfo addCompileTimeJavaDependencyArtifacts(
+      FakeJavaInfo javaInfo, SkylarkList<FileApi> compileTimeJavaDependencyArtifacts) {
+    return new FakeJavaInfo();
+  }
+
+  @Override
+  public Label getJavaToolchainLabel(
+      JavaToolchainSkylarkApiProviderApi toolchain, Location location) throws EvalException {
+    return null;
   }
 }

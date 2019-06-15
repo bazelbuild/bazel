@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Enum covering all build variables we create for all various {@link CppCompileAction}. */
@@ -39,8 +38,6 @@ public enum CompileBuildVariables {
   USER_COMPILE_FLAGS("user_compile_flags"),
   /** Variable for flags coming from unfiltered_cxx_flag CROSSTOOL fields. */
   UNFILTERED_COMPILE_FLAGS("unfiltered_compile_flags"),
-  /** Variable for the path to the output file when output is an object file. */
-  OUTPUT_OBJECT_FILE("output_object_file"),
   /** Variable for the path to the compilation output file. */
   OUTPUT_FILE("output_file"),
   /** Variable for the dependency file path */
@@ -56,15 +53,21 @@ public enum CompileBuildVariables {
   /**
    * Variable for the collection of quote include paths.
    *
-   * @see CcCompilationContext#getIncludeDirs().
+   * @see CcCompilationContext#getQuoteIncludeDirs().
    */
   QUOTE_INCLUDE_PATHS("quote_include_paths"),
   /**
    * Variable for the collection of system include paths.
    *
-   * @see CcCompilationContext#getIncludeDirs().
+   * @see CcCompilationContext#getSystemIncludeDirs().
    */
   SYSTEM_INCLUDE_PATHS("system_include_paths"),
+  /**
+   * Variable for the collection of framework include paths.
+   *
+   * @see CcCompilationContext#getFrameworkIncludeDirs().
+   */
+  FRAMEWORK_PATHS("framework_include_paths"),
   /** Variable for the module map file name. */
   MODULE_MAP_FILE("module_map_file"),
   /** Variable for the dependent module map file name. */
@@ -129,6 +132,7 @@ public enum CompileBuildVariables {
       Iterable<PathFragment> includeDirs,
       Iterable<PathFragment> quoteIncludeDirs,
       Iterable<PathFragment> systemIncludeDirs,
+      Iterable<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines) {
     try {
       return setupVariablesOrThrowEvalException(
@@ -155,6 +159,7 @@ public enum CompileBuildVariables {
           getSafePathStrings(includeDirs),
           getSafePathStrings(quoteIncludeDirs),
           getSafePathStrings(systemIncludeDirs),
+          getSafePathStrings(frameworkIncludeDirs),
           defines);
     } catch (EvalException e) {
       ruleErrorConsumer.ruleError(e.getMessage());
@@ -168,8 +173,6 @@ public enum CompileBuildVariables {
       BuildOptions buildOptions,
       CppConfiguration cppConfiguration,
       String sourceFile,
-      // TODO(b/76195763): Remove once blaze with cl/189769259 is released and crosstools are
-      // updated.
       String outputFile,
       String gcnoFile,
       boolean isUsingFission,
@@ -188,12 +191,14 @@ public enum CompileBuildVariables {
       Iterable<String> includeDirs,
       Iterable<String> quoteIncludeDirs,
       Iterable<String> systemIncludeDirs,
+      Iterable<String> frameworkIncludeDirs,
       Iterable<String> defines)
       throws EvalException {
     Preconditions.checkNotNull(directModuleMaps);
     Preconditions.checkNotNull(includeDirs);
     Preconditions.checkNotNull(quoteIncludeDirs);
     Preconditions.checkNotNull(systemIncludeDirs);
+    Preconditions.checkNotNull(frameworkIncludeDirs);
     Preconditions.checkNotNull(defines);
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(
@@ -209,20 +214,6 @@ public enum CompileBuildVariables {
     String fakeOutputFileOrRealOutputFile = fakeOutputFile != null ? fakeOutputFile : outputFile;
 
     if (outputFile != null) {
-      // TODO(b/76195763): Remove once blaze with cl/189769259 is released and crosstools are
-      // updated.
-      if (!FileType.contains(
-          PathFragment.create(outputFile),
-          CppFileTypes.ASSEMBLER,
-          CppFileTypes.PIC_ASSEMBLER,
-          CppFileTypes.PREPROCESSED_C,
-          CppFileTypes.PREPROCESSED_CPP,
-          CppFileTypes.PIC_PREPROCESSED_C,
-          CppFileTypes.PIC_PREPROCESSED_CPP)) {
-        buildVariables.addStringVariable(
-            OUTPUT_OBJECT_FILE.getVariableName(), fakeOutputFileOrRealOutputFile);
-      }
-
       buildVariables.addStringVariable(
           OUTPUT_FILE.getVariableName(), fakeOutputFileOrRealOutputFile);
     }
@@ -257,6 +248,9 @@ public enum CompileBuildVariables {
     if (!includes.isEmpty()) {
       buildVariables.addStringSequenceVariable(INCLUDES.getVariableName(), includes);
     }
+
+    buildVariables.addStringSequenceVariable(
+        FRAMEWORK_PATHS.getVariableName(), frameworkIncludeDirs);
 
     Iterable<String> allDefines;
     if (fdoStamp != null) {

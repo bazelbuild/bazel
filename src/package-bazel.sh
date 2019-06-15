@@ -16,16 +16,15 @@
 
 set -euo pipefail
 
-# This script bootstraps building a Bazel binary without Bazel then
-# use this compiled Bazel to bootstrap Bazel itself. It can also
-# be provided with a previous version of Bazel to bootstrap Bazel
-# itself.
+# This script creates the Bazel archive that Bazel client unpacks and then
+# starts the server from.
 
 WORKDIR=$(pwd)
 OUT=$1
 EMBEDDED_TOOLS=$2
 DEPLOY_JAR=$3
 INSTALL_BASE_KEY=$4
+PLATFORMS_ARCHIVE=$5
 shift 4
 
 TMP_DIR=${TMPDIR:-/tmp}
@@ -65,5 +64,17 @@ if [ -n "${EMBEDDED_TOOLS}" ]; then
   mkdir ${PACKAGE_DIR}/embedded_tools
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
+
+# Unzip platforms.zip into platforms/, move files up from external/platforms
+# subdirectory, and cleanup after itself.
+( \
+  cd ${PACKAGE_DIR} && \
+    unzip -q -d platforms platforms.zip && \
+    rm platforms.zip && \
+    cd platforms && \
+    mv external/platforms/* . && \
+    rmdir -p external/platforms \
+)
+touch -t 198001010000.00 ${PACKAGE_DIR}/platforms/WORKSPACE
 
 (cd ${PACKAGE_DIR} && find . -type f | sort | zip -q9DX@ "${WORKDIR}/${OUT}")

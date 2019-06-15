@@ -25,9 +25,10 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi.AttributeNameComparator;
-import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -39,9 +40,9 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(AttributeType.NAME, "A unique name for this repository.", true);
 
-  private final List<RuleInfo> ruleInfoList;
+  private final List<RuleInfoWrapper> ruleInfoList;
 
-  public FakeRepositoryModule(List<RuleInfo> ruleInfoList) {
+  public FakeRepositoryModule(List<RuleInfoWrapper> ruleInfoList) {
     this.ruleInfoList = ruleInfoList;
   }
 
@@ -73,7 +74,9 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     RepositoryRuleDefinitionIdentifier functionIdentifier =
         new RepositoryRuleDefinitionIdentifier();
 
-    ruleInfoList.add(new RuleInfo(functionIdentifier, ast.getLocation(), doc, attrInfos));
+    RuleInfo ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos).build();
+
+    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, ast.getLocation(), ruleInfo));
     return functionIdentifier;
   }
 

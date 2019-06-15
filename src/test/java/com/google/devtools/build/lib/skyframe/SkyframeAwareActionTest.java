@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
@@ -436,7 +437,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null);
 
     // Sanity check that our invalidation receiver is working correctly. We'll rely on it again.
-    SkyKey actionKey = ActionExecutionValue.key(ACTION_LOOKUP_KEY, 0);
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     TrackingEvaluationProgressReceiver.EvaluatedEntry evaluatedAction =
         progressReceiver.getEvalutedEntry(actionKey);
     assertThat(evaluatedAction).isNotNull();
