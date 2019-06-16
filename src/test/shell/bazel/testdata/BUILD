@@ -1,4 +1,10 @@
 filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
+filegroup(
     name = "git-repos",
     testonly = 1,
     srcs = [
