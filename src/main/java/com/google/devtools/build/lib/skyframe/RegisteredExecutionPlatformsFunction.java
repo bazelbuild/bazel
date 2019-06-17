@@ -235,13 +235,9 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
         return true;
       }
 
-      // If the rule requires platforms, it can't be used as a platform.
+      // If the rule requires platforms or toolchain resolution, it can't be used as a platform.
       RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
-      if (ruleClass == null) {
-        return false;
-      }
-
-      if (ruleClass.supportsPlatforms()) {
+      if (ruleClass == null || ruleClass.useToolchainResolution()) {
         return false;
       }
 

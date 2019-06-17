@@ -216,7 +216,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
     }
 
     Rule rule = ((Rule) target);
-    if (!rule.getRuleClassObject().supportsPlatforms()) {
+    if (!rule.getRuleClassObject().useToolchainResolution()) {
       return null;
     }
 
