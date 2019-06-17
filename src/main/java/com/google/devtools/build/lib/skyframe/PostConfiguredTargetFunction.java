@@ -112,7 +112,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     try {
       if (configuredTargetAndData.getTarget() instanceof Rule) {
         Rule rule = ((Rule) configuredTargetAndData.getTarget());
-        if (rule.getRuleClassObject().supportsPlatforms()) {
+        if (rule.getRuleClassObject().useToolchainResolution()) {
           ImmutableSet<Label> requiredToolchains =
               rule.getRuleClassObject().getRequiredToolchains();
 

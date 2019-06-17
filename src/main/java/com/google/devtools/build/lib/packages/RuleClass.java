@@ -725,7 +725,7 @@ public class RuleClass {
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
-    private boolean supportsPlatforms = true;
+    private boolean useToolchainResolution = true;
     private ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed =
         ExecutionPlatformConstraintsAllowed.PER_RULE;
     private Set<Label> executionPlatformConstraints = new HashSet<>();
@@ -761,7 +761,7 @@ public class RuleClass {
         supportsConstraintChecking = parent.supportsConstraintChecking;
 
         addRequiredToolchains(parent.getRequiredToolchains());
-        supportsPlatforms = parent.supportsPlatforms;
+        useToolchainResolution = parent.useToolchainResolution;
 
         // Make sure we use the highest priority value from all parents.
         executionPlatformConstraintsAllowed(
@@ -885,7 +885,7 @@ public class RuleClass {
           supportsConstraintChecking,
           thirdPartyLicenseExistencePolicy,
           requiredToolchains,
-          supportsPlatforms,
+          useToolchainResolution,
           executionPlatformConstraintsAllowed,
           executionPlatformConstraints,
           outputFileKind,
@@ -1387,11 +1387,11 @@ public class RuleClass {
     }
 
     /**
-     * Rules that support platforms can use toolchains and execution platforms. Rules that are part
-     * of configuring toolchains and platforms should set this to {@code false}.
+     * Causes rules to use toolchain resolution to determine the execution platform and toolchains.
+     * Rules that are part of configuring toolchains and platforms should set this to {@code false}.
      */
-    public Builder supportsPlatforms(boolean flag) {
-      this.supportsPlatforms = flag;
+    public Builder useToolchainResolution(boolean flag) {
+      this.useToolchainResolution = flag;
       return this;
     }
 
@@ -1556,7 +1556,7 @@ public class RuleClass {
   private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
 
   private final ImmutableSet<Label> requiredToolchains;
-  private final boolean supportsPlatforms;
+  private final boolean useToolchainResolution;
   private final ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed;
   private final ImmutableSet<Label> executionPlatformConstraints;
 
@@ -1611,7 +1611,7 @@ public class RuleClass {
       boolean supportsConstraintChecking,
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       Set<Label> requiredToolchains,
-      boolean supportsPlatforms,
+      boolean useToolchainResolution,
       ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed,
       Set<Label> executionPlatformConstraints,
       OutputFile.Kind outputFileKind,
@@ -1650,7 +1650,7 @@ public class RuleClass {
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
-    this.supportsPlatforms = supportsPlatforms;
+    this.useToolchainResolution = useToolchainResolution;
     this.executionPlatformConstraintsAllowed = executionPlatformConstraintsAllowed;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.buildSetting = buildSetting;
@@ -2559,8 +2559,8 @@ public class RuleClass {
     return requiredToolchains;
   }
 
-  public boolean supportsPlatforms() {
-    return supportsPlatforms;
+  public boolean useToolchainResolution() {
+    return useToolchainResolution;
   }
 
   public ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed() {
