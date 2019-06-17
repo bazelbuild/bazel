@@ -113,8 +113,9 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     Rule tag1 = (Rule) getTarget("//tests:tag1");
     Rule tag2 = (Rule) getTarget("//tests:tag2");
     Rule tag3 = (Rule) getTarget("//tests:tag3");
-    Rule tag4 = (Rule) getTarget("//tests:tag4");
-    Rule tag5 = (Rule) getTarget("//tests:tag5");
+    // TODO(ishikhman): uncomment after #7932
+    // Rule tag4 = (Rule) getTarget("//tests:tag4");
+    // Rule tag5 = (Rule) getTarget("//tests:tag5");
 
     Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(null, tag1);
     assertThat(execInfo).containsExactly("no-cache", "");
@@ -125,11 +126,13 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     execInfo = TargetUtils.getFilteredExecutionInfo(null, tag3);
     assertThat(execInfo).containsExactly("no-sandbox", "");
 
-    execInfo = TargetUtils.getFilteredExecutionInfo(null, tag4);
-    assertThat(execInfo).containsExactly("no-remote-cache", "");
+    // TODO(ishikhman): uncomment after #7932
+    // execInfo = TargetUtils.getFilteredExecutionInfo(null, tag4);
+    // assertThat(execInfo).containsExactly("no-remote-cache", "");
 
-    execInfo = TargetUtils.getFilteredExecutionInfo(Runtime.NONE, tag5);
-    assertThat(execInfo).containsExactly("no-remote-exec", "", "no-sandbox", "");
+    // TODO(ishikhman): uncomment after #7932
+    // execInfo = TargetUtils.getFilteredExecutionInfo(Runtime.NONE, tag5);
+    // assertThat(execInfo).containsExactly("no-remote-exec", "", "no-sandbox", "");
   }
 
   @Test

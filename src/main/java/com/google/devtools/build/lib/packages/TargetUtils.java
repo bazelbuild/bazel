@@ -68,9 +68,8 @@ public final class TargetUtils {
   private static final Predicate<String> TAGS_PROPAGATED_TO_EXEC_INFO =
       tag -> tag.equals("no-remote")
           || tag.equals("no-cache")
-          || tag.equals("no-sandbox")
-          || tag.equals("no-remote-exec")
-          || tag.equals("no-remote-cache");
+          || tag.equals("no-sandbox");
+          // TODO(ishikhman): #7932 add new tags here as well (no-remote-exec and no-remote-cache)
 
   private TargetUtils() {} // Uninstantiable.
 
