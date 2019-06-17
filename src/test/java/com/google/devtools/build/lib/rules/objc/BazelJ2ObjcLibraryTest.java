@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -1212,8 +1211,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     String genfilesFragment =
         getConfiguration(j2objcLibraryTarget).getGenfilesFragment().toString();
     String binFragment = getConfiguration(j2objcLibraryTarget).getBinFragment().toString();
-    AppleConfiguration appleConfiguration =
-        getConfiguration(j2objcLibraryTarget).getFragment(AppleConfiguration.class);
 
     String commandLine = Joiner.on(" ").join(compileAction.getArguments());
     ImmutableList<String> expectedArgs =
@@ -1228,12 +1225,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("-arch", "i386")
             .add("-isysroot")
             .add(AppleToolchain.sdkDir())
-            .add("-F")
-            .add(AppleToolchain.sdkDir() + "/Developer/Library/Frameworks")
-            .add("-F")
-            .add(
-                AppleToolchain.platformDeveloperFrameworkDir(
-                    appleConfiguration.getSingleArchPlatform()))
             .add("-O0")
             .add("-DDEBUG=1")
             .add("-iquote")

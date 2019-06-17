@@ -87,9 +87,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -673,28 +670,11 @@ public class CompilationSupport {
         .build();
   }
 
-  /** Add framework search paths common to both headers and libraries. */
-  private static void addCommonFrameworkSearchPaths(
-      ImmutableList.Builder<String> paths,
-      RuleContext ruleContext,
-      BuildConfiguration buildConfiguration) {
-
-    ApplePlatform platform =
-        buildConfiguration.getFragment(AppleConfiguration.class).getSingleArchPlatform();
-    paths.add(
-        AppleToolchain.sdkFrameworkDir(platform, XcodeConfig.getXcodeConfigProvider(ruleContext)));
-    // As of sdk8.1, XCTest is in a base Framework dir.
-    if (platform.getType() != PlatformType.WATCHOS) { // WatchOS does not have this directory.
-      paths.add(AppleToolchain.platformDeveloperFrameworkDir(platform));
-    }
-  }
-
   /** Returns a list of framework search paths for clang actions for pre-cleanup mode. */
   static ImmutableList<String> preCleanupFrameworkSearchPaths(
       ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration) {
 
-    ImmutableList.Builder<String> frameworkNames = new ImmutableList.Builder<String>();
-    addCommonFrameworkSearchPaths(frameworkNames, ruleContext, buildConfiguration);
+    ImmutableList.Builder<String> frameworkNames = new ImmutableList.Builder<>();
     return frameworkNames
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
@@ -723,7 +703,6 @@ public class CompilationSupport {
       return preCleanupFrameworkSearchPaths(provider, ruleContext, buildConfiguration);
     }
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<String>();
-    addCommonFrameworkSearchPaths(searchPaths, ruleContext, buildConfiguration);
     return searchPaths
         // Add header search paths corresponding to custom (non-SDK) frameworks. For each framework
         // foo/bar.framework, include "foo" as a search path.
@@ -744,7 +723,6 @@ public class CompilationSupport {
       return preCleanupFrameworkSearchPaths(provider, ruleContext, buildConfiguration);
     }
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<String>();
-    addCommonFrameworkSearchPaths(searchPaths, ruleContext, buildConfiguration);
     return searchPaths
         // Add library search paths corresponding to custom (non-SDK) frameworks. For each framework
         // foo/bar.framework, include "foo" as a search path.
