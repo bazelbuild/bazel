@@ -1147,7 +1147,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         BlazeCommandUtils.getStartupOptions(modules);
 
     // First parse the command line so that we get the option_sources argument
-    OptionsParser parser = OptionsParser.newOptionsParser(false, optionClasses);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
     parser.parse(PriorityCategory.COMMAND_LINE, null, args);
     Map<String, String> optionSources =
         parser.getOptions(BlazeServerStartupOptions.class).optionSources;
@@ -1160,7 +1161,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     : optionSources.get(option.getOptionName());
 
     // Then parse the command line again, this time with the correct option sources
-    parser = OptionsParser.newOptionsParser(false, optionClasses);
+    parser = OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
     parser.parseWithSourceFunction(PriorityCategory.COMMAND_LINE, sourceFunction, args);
     return parser;
   }

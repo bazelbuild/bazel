@@ -54,8 +54,9 @@ public class CommandLineEventTest {
   @Test
   public void testMostlyEmpty_OriginalCommandLine() {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
 
     CommandLine line =
         new OriginalCommandLineEvent(
@@ -80,8 +81,9 @@ public class CommandLineEventTest {
   @Test
   public void testMostlyEmpty_CanonicalCommandLine() {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
 
     CommandLine line =
         new CanonicalCommandLineEvent(
@@ -105,10 +107,13 @@ public class CommandLineEventTest {
   @Test
   public void testActiveBazelrcs_OriginalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class, Options.class);
+        OptionsParser.builder()
+            .optionsClasses(BlazeServerStartupOptions.class, Options.class)
+            .build();
     fakeStartupOptions.parse(
         "--bazelrc=/some/path", "--master_bazelrc", "--bazelrc", "/some/other/path");
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
 
     CommandLine line =
         new OriginalCommandLineEvent(
@@ -141,8 +146,11 @@ public class CommandLineEventTest {
   @Test
   public void testPassedInBazelrcs_OriginalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class, Options.class);
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+        OptionsParser.builder()
+            .optionsClasses(BlazeServerStartupOptions.class, Options.class)
+            .build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
 
     CommandLine line =
         new OriginalCommandLineEvent(
@@ -182,10 +190,13 @@ public class CommandLineEventTest {
   @Test
   public void testBazelrcs_CanonicalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class, Options.class);
+        OptionsParser.builder()
+            .optionsClasses(BlazeServerStartupOptions.class, Options.class)
+            .build();
     fakeStartupOptions.parse(
         "--bazelrc=/some/path", "--master_bazelrc", "--bazelrc", "/some/other/path");
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
 
     CommandLine line =
         new CanonicalCommandLineEvent(
@@ -211,8 +222,9 @@ public class CommandLineEventTest {
   @Test
   public void testOptionsAtVariousPriorities_OriginalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
     fakeCommandOptions.parse(
         PriorityCategory.COMMAND_LINE,
         "command line",
@@ -254,8 +266,9 @@ public class CommandLineEventTest {
   @Test
   public void testOptionsAtVariousPriorities_CanonicalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
     fakeCommandOptions.parse(
         PriorityCategory.COMMAND_LINE,
         "command line",
@@ -296,8 +309,9 @@ public class CommandLineEventTest {
   @Test
   public void testExpansionOption_OriginalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
     fakeCommandOptions.parse(
         PriorityCategory.COMMAND_LINE, "command line", ImmutableList.of("--test_expansion"));
 
@@ -328,8 +342,9 @@ public class CommandLineEventTest {
   @Test
   public void testExpansionOption_CanonicalCommandLine() throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
     fakeCommandOptions.parse(
         PriorityCategory.COMMAND_LINE, "command line", ImmutableList.of("--test_expansion"));
 
@@ -363,8 +378,9 @@ public class CommandLineEventTest {
   public void testOptionWithImplicitRequirement_OriginalCommandLine()
       throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
     fakeCommandOptions.parse(
         PriorityCategory.COMMAND_LINE,
         "command line",
@@ -397,8 +413,9 @@ public class CommandLineEventTest {
   public void testOptionWithImplicitRequirement_CanonicalCommandLine()
       throws OptionsParsingException {
     OptionsParser fakeStartupOptions =
-        OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
-    OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
     fakeCommandOptions.parse(
         PriorityCategory.COMMAND_LINE,
         "command line",
@@ -426,7 +443,8 @@ public class CommandLineEventTest {
 
   @Test
   public void testDefaultToolCommandLine() throws OptionsParsingException {
-    OptionsParser parser = OptionsParser.newOptionsParser(CommonCommandOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(CommonCommandOptions.class).build();
     ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
     // Test that the actual default value is an empty command line.
     assertThat(event.asStreamProto(null).getStructuredCommandLine())
@@ -435,7 +453,8 @@ public class CommandLineEventTest {
 
   @Test
   public void testLabelessParsingOfCompiledToolCommandLine() throws OptionsParsingException {
-    OptionsParser parser = OptionsParser.newOptionsParser(CommonCommandOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(CommonCommandOptions.class).build();
     CommandLine original =
         CommandLine.newBuilder().addSections(CommandLineSection.getDefaultInstance()).build();
     parser.parse(
@@ -451,7 +470,8 @@ public class CommandLineEventTest {
 
   @Test
   public void testParsingOfCompiledToolCommandLine() throws OptionsParsingException {
-    OptionsParser parser = OptionsParser.newOptionsParser(CommonCommandOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(CommonCommandOptions.class).build();
     CommandLine original =
         CommandLine.newBuilder()
             .setCommandLineLabel("something meaningful")
@@ -491,7 +511,8 @@ public class CommandLineEventTest {
 
   @Test
   public void testSimpleStringToolCommandLine() throws OptionsParsingException {
-    OptionsParser parser = OptionsParser.newOptionsParser(CommonCommandOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(CommonCommandOptions.class).build();
     parser.parse("--experimental_tool_command_line=The quick brown fox jumps over the lazy dog");
 
     ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;

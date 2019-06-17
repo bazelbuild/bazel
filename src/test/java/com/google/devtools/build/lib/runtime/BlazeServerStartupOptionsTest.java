@@ -28,7 +28,8 @@ public class BlazeServerStartupOptionsTest {
   // value is provided.
   @Test
   public void testOutputBaseIsNullByDefault() throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     parser.parse();
     BlazeServerStartupOptions result = parser.getOptions(BlazeServerStartupOptions.class);
     assertThat(result.outputBase).isNull();
