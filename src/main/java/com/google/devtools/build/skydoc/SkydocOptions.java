@@ -63,7 +63,11 @@ public class SkydocOptions extends OptionsBase {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
-      help = "The path of the file to output documentation into")
+      help =
+          "A list of symbol names to generate documentation for. These should correspond to the"
+              + " names of rule, provider, or function definitions in the input file. If this list"
+              + " is empty, then documentation for all exported rule definitions will be"
+              + " generated.")
   public List<String> symbolNames;
 
   @Option(
