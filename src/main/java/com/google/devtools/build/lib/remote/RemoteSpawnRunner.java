@@ -304,6 +304,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
       SpawnExecutionContext context,
       RemoteOutputsMode remoteOutputsMode)
       throws ExecException, IOException, InterruptedException {
+    // Ensure that when using dynamic spawn strategy that we are the only ones writing to the
+    // output files. See https://github.com/bazelbuild/bazel/issues/8646 for more details.
+    context.lockOutputFiles();
+
     boolean downloadOutputs =
         shouldDownloadAllSpawnOutputs(
             remoteOutputsMode,

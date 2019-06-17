@@ -521,7 +521,7 @@ public class RemoteSpawnRunnerTest {
                 .build());
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+    FakeSpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
@@ -529,6 +529,7 @@ public class RemoteSpawnRunnerTest {
     verify(executor).executeRemotely(any(ExecuteRequest.class));
     verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
     verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
+    assertThat(policy.lockOutputFilesCalled).isTrue();
   }
 
   @Test
@@ -547,7 +548,7 @@ public class RemoteSpawnRunnerTest {
                 .build());
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+    FakeSpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
@@ -555,6 +556,7 @@ public class RemoteSpawnRunnerTest {
     verify(executor).executeRemotely(any(ExecuteRequest.class));
     verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
     verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
+    assertThat(policy.lockOutputFilesCalled).isTrue();
   }
 
   @Test
@@ -866,7 +868,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+    FakeSpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     // act
     SpawnResult result = runner.exec(spawn, policy);
@@ -877,6 +879,7 @@ public class RemoteSpawnRunnerTest {
     verify(executor).executeRemotely(any());
     verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr));
+    assertThat(policy.lockOutputFilesCalled).isTrue();
   }
 
   @Test
@@ -893,7 +896,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+    FakeSpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     // act
     SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
@@ -902,6 +905,7 @@ public class RemoteSpawnRunnerTest {
     // assert
     verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr));
+    assertThat(policy.lockOutputFilesCalled).isTrue();
   }
 
   @Test
@@ -920,7 +924,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner(ImmutableSet.of(topLevelOutput));
 
     Spawn spawn = newSimpleSpawn(topLevelOutput);
-    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+    FakeSpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     // act
     SpawnResult result = runner.exec(spawn, policy);
@@ -931,6 +935,7 @@ public class RemoteSpawnRunnerTest {
     verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr));
     verify(cache, never())
         .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());
+    assertThat(policy.lockOutputFilesCalled).isTrue();
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {
@@ -998,6 +1003,8 @@ public class RemoteSpawnRunnerTest {
   // TODO(buchgr): Extract a common class to be used for testing.
   class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
+    private boolean lockOutputFilesCalled;
+
     private final ArtifactExpander artifactExpander = (artifact, output) -> output.add(artifact);
 
     private final Spawn spawn;
@@ -1018,7 +1025,7 @@ public class RemoteSpawnRunnerTest {
 
     @Override
     public void lockOutputFiles() {
-      throw new UnsupportedOperationException();
+      lockOutputFilesCalled = true;
     }
 
     @Override
