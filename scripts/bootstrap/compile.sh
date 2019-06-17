@@ -273,9 +273,6 @@ EOF
   # Set up @bazel_tools//platforms properly
   mkdir -p ${BAZEL_TOOLS_REPO}/platforms
   cp tools/platforms/BUILD.tools ${BAZEL_TOOLS_REPO}/platforms/BUILD
-  link_file \
-    "${PWD}/tools/platforms/fail_with_incompatible_use_platforms_repo_for_constraints.bzl" \
-    "${BAZEL_TOOLS_REPO}/platforms/fail_with_incompatible_use_platforms_repo_for_constraints.bzl"
 
   # Overwrite tools.WORKSPACE, this is only for the bootstrap binary
   chmod u+w "${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE"

@@ -69,18 +69,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean mergeGenfilesDirectory;
 
   @Option(
-      name = "incompatible_use_platforms_repo_for_constraints",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If true, constraint settings from @bazel_tools are removed.")
-  public boolean usePlatformsRepoForConstraints;
-
-  @Option(
       name = "define",
       converter = Converters.AssignmentConverter.class,
       defaultValue = "",

@@ -327,7 +327,7 @@ public class ConfigRuleClasses {
   config_setting(
       name = "64bit_glibc_2_25",
       constraint_values = [
-          "@platforms//cpu:x86_64",
+          "@bazel_tools//platforms:x86_64",
           "//example:glibc_2_25",
       ]
   )

@@ -104,14 +104,14 @@ We can improve on this solution by using `select` to choose the `compiler`
 config_setting(
     name = "on_linux",
     constraint_values = [
-        "@platforms//os:linux",
+        "@bazel_tools//platforms:linux",
     ],
 )
 
 config_setting(
     name = "on_windows",
     constraint_values = [
-        "@platforms//os:windows",
+        "@bazel_tools//platforms:windows",
     ],
 )
 
@@ -276,12 +276,12 @@ appropriate for a given platform.
 toolchain(
     name = "barc_linux_toolchain",
     exec_compatible_with = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
+        "@bazel_tools//platforms:linux",
+        "@bazel_tools//platforms:x86_64",
     ],
     target_compatible_with = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
+        "@bazel_tools//platforms:linux",
+        "@bazel_tools//platforms:x86_64",
     ],
     toolchain = ":barc_linux",
     toolchain_type = ":toolchain_type",
@@ -290,12 +290,12 @@ toolchain(
 toolchain(
     name = "barc_windows_toolchain",
     exec_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:x86_64",
+        "@bazel_tools//platforms:windows",
+        "@bazel_tools//platforms:x86_64",
     ],
     target_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:x86_64",
+        "@bazel_tools//platforms:windows",
+        "@bazel_tools//platforms:x86_64",
     ],
     toolchain = ":barc_windows",
     toolchain_type = ":toolchain_type",
@@ -336,7 +336,7 @@ toolchain will be selected based on the target and execution platforms.
 platform(
     name = "my_target_platform",
     constraint_values = [
-        "@platforms//os:linux",
+        "@bazel_tools//platforms:linux",
     ],
 )
 
@@ -351,7 +351,7 @@ bazel build //my_pkg:my_bar_binary --platforms=//my_pkg:my_target_platform
 ```
 
 Bazel will see that `//my_pkg:my_bar_binary` is being built with a platform that
-has `@platforms//os:linux` and therefore resolve the
+has `@bazel_tools//platforms:linux` and therefore resolve the
 `//bar_tools:toolchain_type` reference to `//bar_tools:barc_linux_toolchain`.
 This will end up building `//bar_tools:barc_linux` but not
 `//barc_tools:barc_windows`.
