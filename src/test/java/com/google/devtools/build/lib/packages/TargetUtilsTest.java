@@ -100,43 +100,100 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFilteredExecutionInfoFromTags() throws Exception {
+  public void testExecutionInfo_withPrefixSupports() throws Exception {
     scratch.file(
         "tests/BUILD",
-        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache', 'my-tag'])",
-        "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['disable-local-prefetch', 'no-remote', 'another-tag'])",
-        "sh_binary(name = 'tag3', srcs=['sh.sh'], tags=['local', 'no-sandbox', 'unknown'])",
-        "sh_binary(name = 'tag4', srcs=['sh.sh'], tags=['no-remote-cache', 'no-remote-cache-custom-tag', 'test-only'])",
-        "sh_binary(name = 'tag5', srcs=['sh.sh'], tags=['no-remote-exec', 'no-sandbox', 'requires-network'])"
+        "sh_binary(name = 'with-prefix-supports', srcs=['sh.sh'], tags=['supports-workers', 'supports-whatever', 'my-tag'])"
         );
 
-    Rule tag1 = (Rule) getTarget("//tests:tag1");
-    Rule tag2 = (Rule) getTarget("//tests:tag2");
-    Rule tag3 = (Rule) getTarget("//tests:tag3");
-    // TODO(ishikhman): uncomment after #7932
-    // Rule tag4 = (Rule) getTarget("//tests:tag4");
-    // Rule tag5 = (Rule) getTarget("//tests:tag5");
+    Rule withSupportsPrefix = (Rule) getTarget("//tests:with-prefix-supports");
 
-    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(null, tag1);
-    assertThat(execInfo).containsExactly("no-cache", "");
-
-    execInfo = TargetUtils.getFilteredExecutionInfo(null, tag2);
-    assertThat(execInfo).containsExactly("no-remote", "");
-
-    execInfo = TargetUtils.getFilteredExecutionInfo(null, tag3);
-    assertThat(execInfo).containsExactly("no-sandbox", "");
-
-    // TODO(ishikhman): uncomment after #7932
-    // execInfo = TargetUtils.getFilteredExecutionInfo(null, tag4);
-    // assertThat(execInfo).containsExactly("no-remote-cache", "");
-
-    // TODO(ishikhman): uncomment after #7932
-    // execInfo = TargetUtils.getFilteredExecutionInfo(Runtime.NONE, tag5);
-    // assertThat(execInfo).containsExactly("no-remote-exec", "", "no-sandbox", "");
+    Map<String, String> execInfo = TargetUtils.getExecutionInfo(withSupportsPrefix);
+    assertThat(execInfo).containsExactly("supports-whatever", "", "supports-workers", "");
   }
 
   @Test
-  public void testFilteredExecutionInfoFromUncheckedExecRequirements() throws Exception {
+  public void testExecutionInfo_withPrefixDisable() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'with-prefix-disable', srcs=['sh.sh'], tags=['disable-local-prefetch', 'disable-something-else', 'another-tag'])"
+    );
+
+    Rule withDisablePrefix = (Rule) getTarget("//tests:with-prefix-disable");
+
+    Map<String, String> execInfo = TargetUtils.getExecutionInfo(withDisablePrefix);
+    assertThat(execInfo).containsExactly("disable-local-prefetch", "", "disable-something-else", "");
+  }
+
+  @Test
+  public void testExecutionInfo_withPrefixNo() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'with-prefix-no', srcs=['sh.sh'], tags=['no-remote-imaginary-flag', 'no-sandbox', 'unknown'])"
+    );
+
+    Rule withNoPrefix = (Rule) getTarget("//tests:with-prefix-no");
+
+    Map<String, String> execInfo = TargetUtils.getExecutionInfo(withNoPrefix);
+    assertThat(execInfo).containsExactly("no-remote-imaginary-flag","", "no-sandbox", "");
+  }
+
+  @Test
+  public void testExecutionInfo_withPrefixRequires() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'with-prefix-requires', srcs=['sh.sh'], tags=['requires-network', 'requires-sunlight', 'test-only'])"
+    );
+
+    Rule withRequiresPrefix = (Rule) getTarget("//tests:with-prefix-requires");
+
+    Map<String, String> execInfo = TargetUtils.getExecutionInfo(withRequiresPrefix);
+    assertThat(execInfo).containsExactly("requires-network", "", "requires-sunlight", "");
+  }
+
+  @Test
+  public void testExecutionInfo_withPrefixBlock() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'with-prefix-block', srcs=['sh.sh'], tags=['block-some-feature', 'block-network', 'wrong-tag'])",
+        "sh_binary(name = 'with-prefix-cpu', srcs=['sh.sh'], tags=['cpu:123', 'wrong-tag'])",
+        "sh_binary(name = 'with-local-tag', srcs=['sh.sh'], tags=['local', 'some-tag'])"
+    );
+
+    Rule withBlockPrefix = (Rule) getTarget("//tests:with-prefix-block");
+
+    Map<String, String> execInfo = TargetUtils.getExecutionInfo(withBlockPrefix);
+    assertThat(execInfo).containsExactly("block-network", "", "block-some-feature", "");
+  }
+
+  @Test
+  public void testExecutionInfo_withPrefixCpu() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'with-prefix-cpu', srcs=['sh.sh'], tags=['cpu:123', 'wrong-tag'])"
+    );
+
+    Rule withCpuPrefix = (Rule) getTarget("//tests:with-prefix-cpu");
+
+    Map<String, String> execInfo = TargetUtils.getExecutionInfo(withCpuPrefix);
+    assertThat(execInfo).containsExactly("cpu:123", "");
+  }
+
+  @Test
+  public void testExecutionInfo_withLocalTag() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'with-local-tag', srcs=['sh.sh'], tags=['local', 'some-tag'])"
+    );
+
+    Rule withLocal = (Rule) getTarget("//tests:with-local-tag");
+
+    Map<String, String>execInfo = TargetUtils.getExecutionInfo(withLocal);
+    assertThat(execInfo).containsExactly("local", "");
+  }
+
+  @Test
+  public void testFilteredExecutionInfo_FromUncheckedExecRequirements() throws Exception {
     scratch.file(
         "tests/BUILD",
         "sh_binary(name = 'no-tag', srcs=['sh.sh'])");
@@ -156,10 +213,27 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "tests/BUILD",
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])"
     );
+    Rule tag1 = (Rule) getTarget("//tests:tag1");
+    SkylarkDict<String, String> executionRequirementsUnchecked = SkylarkDict.of(null, "no-remote", "1");
 
+    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, tag1);
+
+    assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "", "no-remote", "1");
+  }
+
+  @Test
+  public void testFilteredExecutionInfo_WithNullUncheckedExecRequirements() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])"
+    );
     Rule tag1 = (Rule) getTarget("//tests:tag1");
 
-    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(SkylarkDict.of(null, "no-remote","1"), tag1);
-    assertThat(execInfo).containsExactly("no-cache", "", "no-remote", "1");
+    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(null, tag1);
+    assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "");
+
+    execInfo = TargetUtils.getFilteredExecutionInfo(Runtime.NONE, tag1);
+    assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "");
+
   }
 }

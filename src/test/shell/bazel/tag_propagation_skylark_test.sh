@@ -55,7 +55,7 @@ EOF
   bazel aquery '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
-  assert_contains "ExecutionInfo: {no-cache: '', no-remote: ''}" output1
+  assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
 }
 
 # Test a basic skylark ctx.actions.run rule which has tags, that should be propagated
@@ -92,7 +92,7 @@ EOF
   bazel aquery '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
-  assert_contains "ExecutionInfo: {no-cache: '', no-remote: '', no-sandbox: ''}" output1
+  assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: '', no-sandbox: '', requires-network: ''}" output1
 }
 
 # Test a basic skylark ctx.actions.run rule which has tags, that should be propagated,
@@ -105,7 +105,7 @@ load(":skylark.bzl", "test_rule")
 test_rule(
     name = "test",
     out = "output.txt",
-    tags = ["no-cache", "no-remote", "no-sandbox", "requires-network", "local"]
+    tags = ["no-cache", "no-remote", "custom-tag-1", "requires-network", "local"]
 )
 EOF
 
@@ -131,7 +131,7 @@ EOF
   bazel aquery '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
-  assert_contains "ExecutionInfo: {no-cache: '', no-remote: '', no-sandbox: '', requires-x: ''}" output1
+  assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: '', requires-network: '', requires-x: ''}" output1
 }
 
 run_suite "tags propagation: skylark rule tests"
