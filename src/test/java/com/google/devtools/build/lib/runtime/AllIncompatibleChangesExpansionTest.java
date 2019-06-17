@@ -153,7 +153,7 @@ public class AllIncompatibleChangesExpansionTest {
 
   @Test
   public void noChangesSelected() throws OptionsParsingException {
-    OptionsParser parser = OptionsParser.newOptionsParser(ExampleOptions.class);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleOptions.class).build();
     parser.parse("");
     ExampleOptions opts = parser.getOptions(ExampleOptions.class);
     assertThat(opts.x).isFalse();
@@ -165,7 +165,7 @@ public class AllIncompatibleChangesExpansionTest {
 
   @Test
   public void allChangesSelected() throws OptionsParsingException {
-    OptionsParser parser = OptionsParser.newOptionsParser(ExampleOptions.class);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleOptions.class).build();
     parser.parse("--all");
     ExampleOptions opts = parser.getOptions(ExampleOptions.class);
     assertThat(opts.x).isFalse();
@@ -179,7 +179,7 @@ public class AllIncompatibleChangesExpansionTest {
   public void rightmostOverrides() throws OptionsParsingException {
     // Check that all-expansion behaves just like any other expansion flag:
     // the rightmost setting of any individual option wins.
-    OptionsParser parser = OptionsParser.newOptionsParser(ExampleOptions.class);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleOptions.class).build();
     parser.parse("--noincompatible_A", "--all", "--noincompatible_B");
     ExampleOptions opts = parser.getOptions(ExampleOptions.class);
     assertThat(opts.incompatibleA).isTrue();
@@ -191,7 +191,9 @@ public class AllIncompatibleChangesExpansionTest {
     // Check that all-expansion behaves just like any other expansion flag:
     // the rightmost setting of any individual option wins.
     OptionsParser parser =
-        OptionsParser.newOptionsParser(ExampleOptions.class, ExampleExpansionOptions.class);
+        OptionsParser.builder()
+            .optionsClasses(ExampleOptions.class, ExampleExpansionOptions.class)
+            .build();
     parser.parse("--all");
     ExampleOptions opts = parser.getOptions(ExampleOptions.class);
     assertThat(opts.x).isTrue();
@@ -212,8 +214,7 @@ public class AllIncompatibleChangesExpansionTest {
     InvocationPolicy policy = invocationPolicyBuilder.build();
     InvocationPolicyEnforcer enforcer = new InvocationPolicyEnforcer(policy);
 
-    OptionsParser parser =
-        OptionsParser.newOptionsParser(ExampleOptions.class);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleOptions.class).build();
     parser.parse("--all");
     enforcer.enforce(parser);
 
@@ -240,7 +241,9 @@ public class AllIncompatibleChangesExpansionTest {
   @Test
   public void incompatibleChangeTagDoesNotTriggerAllIncompatibleChangesCheck() {
     try {
-      OptionsParser.newOptionsParser(ExampleOptions.class, IncompatibleChangeTagOption.class);
+      OptionsParser.builder()
+          .optionsClasses(ExampleOptions.class, IncompatibleChangeTagOption.class)
+          .build();
     } catch (OptionsParser.ConstructionException e) {
       fail(
           "some_option_with_a_tag should not trigger the expansion, so there should be no checks "
@@ -265,7 +268,10 @@ public class AllIncompatibleChangesExpansionTest {
         assertThrows(
             "Should have failed with message \"" + message + "\"",
             OptionsParser.ConstructionException.class,
-            () -> OptionsParser.newOptionsParser(ExampleOptions.class, optionsBaseClass));
+            () ->
+                OptionsParser.builder()
+                    .optionsClasses(ExampleOptions.class, optionsBaseClass)
+                    .build());
     assertThat(e).hasMessageThat().contains(message);
   }
 
