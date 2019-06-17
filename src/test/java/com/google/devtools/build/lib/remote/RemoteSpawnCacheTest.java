@@ -304,7 +304,7 @@ public class RemoteSpawnCacheTest {
             new Answer<ActionResult>() {
               @Override
               public ActionResult answer(InvocationOnMock invocation) {
-                return new ActionResult.Builder().build();
+                return ActionResult.newBuilder().build();
               }
             });
 
@@ -319,7 +319,7 @@ public class RemoteSpawnCacheTest {
               }
             })
         .when(remoteCache)
-        .download(actionResult, execRoot, outErr);
+        .download(ActionResult.newBuilder().build(), execRoot, outErr);
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
