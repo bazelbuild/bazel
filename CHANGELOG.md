@@ -197,6 +197,27 @@ Important changes:
 
 This release contains contributions from many people at Google, as well as Alex Thompson, Andy Scott, Benjamin Peterson, David McNett, Drew Gassaway, Ira Shikhman, James deBoer, Jay Vercellone, Jingwen Chen, Josh Rosen, Keith Smiley, Laurent Le Brun, Lee Mracek, Marwan Tammam, Matt Passell, Michael Hackner, Michal Majcherski, Patrick Niklaus, Peter Mounce, Ricky Pai, Steeve Morin, szakmary, Takuto Ikuta, Vladimir Chebotarev, Yen-Chi Chen.
 
+## Release 0.26.1 (2019-06-06)
+
+```
+Baseline: cb82ed84d44db0169a8fbf15f9cee434b77002bb
+
+Cherry picks:
+
+   + d1c0d205945f5a765efb0a48593b1cd82699ce32:
+     Allow WORKSPACE file to be a symlink if no managed directories
+     is used.
+   + c3d2aa74ccd23dfb8a8173c2b3e2955f0c5892cb:
+     Fix ios, tvos and watchos arm64 constraints
+   + 55e42052a22a60b68d88a89932b2a068311b1a95:
+     Bump java_tools_javac10 from 3.1 to 3.2
+```
+
+Patch release on top of 0.26.0, fixing
+- https://github.com/bazelbuild/bazel/issues/8475
+- https://github.com/bazelbuild/bazel/issues/8520
+- https://github.com/bazelbuild/intellij/issues/845
+
 ## Release 0.26.0 (2019-05-28)
 
 ```
