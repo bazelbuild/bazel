@@ -97,9 +97,7 @@ public class SpawnInputExpander {
       PathFragment targetLocation,
       ActionInput input) {
     Preconditions.checkArgument(!targetLocation.isAbsolute(), targetLocation);
-    if (!inputMappings.containsKey(targetLocation)) {
-      inputMappings.put(targetLocation, input);
-    }
+    inputMappings.put(targetLocation, input);
   }
 
   /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
