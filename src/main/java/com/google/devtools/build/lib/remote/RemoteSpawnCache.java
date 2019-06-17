@@ -159,10 +159,7 @@ final class RemoteSpawnCache implements SpawnCache {
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
           result = remoteCache.getCachedActionResult(actionKey);
         }
-        // In case the remote cache returned a failed action (exit code != 0) we treat it as a
-        // cache miss
-        if (result != null && result.getExitCode() == 0
-            && actionResultHasRequiredFiles(result, context.getMetadataProvider(), spawn)) {
+        if (isValidCacheHit(result, context.getMetadataProvider(), spawn)) {
           InMemoryOutput inMemoryOutput = null;
           boolean downloadOutputs =
               shouldDownloadAllSpawnOutputs(
@@ -296,10 +293,14 @@ final class RemoteSpawnCache implements SpawnCache {
     }
   }
 
-  private static boolean actionResultHasRequiredFiles(
+  private static boolean isValidCacheHit(
         ActionResult result,
         MetadataProvider metadataProvider,
         Spawn spawn) {
+    // In case the remote cache returned a failed action (exit code != 0) we treat it as a
+    // cache miss
+    if (result == null || result.getExitCode() == 0)
+      return false;
     Set<String> actualFiles = result.getOutputFilesList().stream()
       .map(OutputFile::getPath)
       .collect(Collectors.toSet());
