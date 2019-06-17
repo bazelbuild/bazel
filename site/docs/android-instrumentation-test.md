@@ -67,7 +67,7 @@ emulator state also speeds up test runs.
 
 Ensure your environment satisfies the following prerequisites:
 
-- **Linux**. Tested on Ubuntu 14.04, 16.04, and 18.04.
+- **Linux**. Tested on Ubuntu 16.04, and 18.04.
 
 - **Bazel 0.12.0** or later. Verify the version by running `bazel info release`.
 
