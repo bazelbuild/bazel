@@ -115,7 +115,7 @@ EOF
 function test_build_fail_terse_summary() {
     local -r pkg=$FUNCNAME
     mkdir -p $pkg || fail "mkdir -p $pkg failed"
-    cat > $pkg/BUILD <<'EOF'
+    cat > $pkg/BUILD <<EOF
 genrule(
   name = "testsrc",
   outs = ["test.sh"],
@@ -132,7 +132,7 @@ sh_test(
 genrule(
   name = "slowtestsrc",
   outs = ["slowtest.sh"],
-  cmd = "sleep 20 && echo '#!/bin/sh' > $@ && echo 'true' >> $@ && chmod 755 $@",
+  cmd = "sleep 200 && echo '#!/bin/sh' > \$@ && echo '#${RANDOM} and ${RANDOM} to prevent caching' >> \$@ && echo 'true' >> \$@ && chmod 755 \$@",
 )
 sh_test(
   name = "willbeskipped",
@@ -143,7 +143,7 @@ EOF
       && fail "expected failure" || :
     expect_not_log 'NO STATUS'
     expect_log 'testsrc'
-    expect_log '[1-9] w[a-z]* skipped'
+    expect_log 'were skipped'
 }
 
 # Regression test for b/67463263: Tests that spawn subprocesses must not block
