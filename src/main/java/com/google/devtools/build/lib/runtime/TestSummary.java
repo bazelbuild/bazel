@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ComparisonChain;
@@ -477,6 +478,18 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
             that.getTarget().getConfigurationChecksum())
         .compare(this.getTotalTestCases(), that.getTotalTestCases())
         .result();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("target", this.getTarget())
+        .add("status", status)
+        .add("numCached", numCached)
+        .add("numLocalActionCached", numLocalActionCached)
+        .add("actionRan", actionRan)
+        .add("ranRemotely", ranRemotely)
+        .toString();
   }
 
   public List<Long> getTestTimes() {
