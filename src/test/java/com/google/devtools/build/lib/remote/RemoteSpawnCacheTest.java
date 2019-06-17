@@ -298,6 +298,34 @@ public class RemoteSpawnCacheTest {
   }
 
   @Test
+  public void emptyActionResultIsMiss() throws Exception {
+    when(remoteCache.getCachedActionResult(any(ActionKey.class)))
+        .thenAnswer(
+            new Answer<ActionResult>() {
+              @Override
+              public ActionResult answer(InvocationOnMock invocation) {
+                return new ActionResult.Builder().build();
+              }
+            });
+
+    Mockito.doAnswer(
+            new Answer<Void>() {
+              @Override
+              public Void answer(InvocationOnMock invocation) {
+                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
+                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                return null;
+              }
+            })
+        .when(remoteCache)
+        .download(actionResult, execRoot, outErr);
+
+    CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
+    assertThat(entry.hasResult()).isFalse();
+  }
+
+  @Test
   public void cacheMiss() throws Exception {
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
