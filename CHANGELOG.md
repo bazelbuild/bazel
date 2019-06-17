@@ -1,23 +1,201 @@
-## Release 0.26.1 (2019-06-06)
+## Release 0.27.0 (2019-06-17)
 
 ```
-Baseline: cb82ed84d44db0169a8fbf15f9cee434b77002bb
+Baseline: 5935259724bebd1c4bdebc90e159d0f655c8c219
 
 Cherry picks:
 
-   + d1c0d205945f5a765efb0a48593b1cd82699ce32:
-     Allow WORKSPACE file to be a symlink if no managed directories
-     is used.
-   + c3d2aa74ccd23dfb8a8173c2b3e2955f0c5892cb:
-     Fix ios, tvos and watchos arm64 constraints
-   + 55e42052a22a60b68d88a89932b2a068311b1a95:
-     Bump java_tools_javac10 from 3.1 to 3.2
+   + fe81b49e727efdcc90a270520af193af75f4e31d:
+     Support of using the absolute path profile for LLVM's Context
+     Sensitive FDO
+   + ce5e7180d98e1244fdfba0349952727826cbd173:
+     Demote OptionProcessor from globals
+   + 3ed9d3681c3e130aafcf3c405ff1795c601bdf95:
+     Properly wire up BES half-close. The lack thereof was a simple
+     oversight.
+   + 4ca768e9f87701fb92598d0a8325a5fc8881a852:
+     standardize graph output indentation with 2 spaces
+   + aff189a7c514a0171a53a2dcdd37c93ecaa672ad:
+     Make sure default Linux artifacts have an associated action,
+     even when artifact names are altered.
+   + 8c3b3fba3f68833bd97d3df2db9c48f0539efc3b:
+     Failures early in package loading will now fail all --keep_going
+     builds.
+   + 123c68daed17b19927372e4df7f7a2256db6b80e:
+     Warn in more cases of possible Python version mismatch in host
+     config
+   + 052167e907373ac7ea43238c3049739f6e94a9d1:
+     Add a non-strict autodetecting Python toolchain
+   + 6ef6d879ab69225d54ecab3db847fb4eff33bbeb:
+     Default java toolchain target
+   + 50fa3ec27efdd95771c70faa38a4543d4fed44f2:
+     Fix problems with the non-strict Python toolchain
+   + e2a626c4f61fe4ceb79a5675d09a6f25ca7b5b22:
+     Automated rollback of commit
+     bc6f7cb330bb531f062bb301f3703876051191f5.
+   + 6efc5b787ad3164cc2fb779c73377695032b4524:
+     Treat existence of managed directories as a part of repository
+     dirtiness.
+   + 3a4be3c93813987a27a97dade3f9ebbc5770e349:
+     Add /usr/local/bin to default PATH under strict action env
+   + 5c1005c0947b010ee36ca851b8ba07c9479cf682:
+     Automated rollback of commit
+     536a166270590a8dbc701718550383f3a07cc763.
 ```
 
-Patch release on top of 0.26.0, fixing
-- https://github.com/bazelbuild/bazel/issues/8475
-- https://github.com/bazelbuild/bazel/issues/8520
-- https://github.com/bazelbuild/intellij/issues/845
+Incompatible changes:
+
+  - --incompatible_disable_objc_provider_resources no longer has
+    effect. Use of deprecated resource fields on the Objc provider is
+    now disallowed regardless of this flag.
+  - deleted deprecated --experimental-remote-retry* flags, please use
+    --remote_retries instead
+  - flipped --incompatible_list_based_execution_strategy_selection
+    flag to be true by default. See
+    https://github.com/bazelbuild/bazel/issues/7480 for details.
+  - Octal integer literals in Starlark are required to start with
+    "Oo".
+  - The "native" module is no longer available in BUILD files, all
+    its members can be accessed directly as global symbols. This can
+    be temporarily reverted by providing
+    --incompatible_disallow_native_in_build_file=false as a flag to
+    Blaze.
+  - The "native" module is no longer available in BUILD files, all
+    its members can be accessed directly as global symbols. This can
+    be temporarily reverted by providing
+    --incompatible_disallow_native_in_build_file=false as a flag to
+    Blaze.
+  - Turn off binary style profile format.
+  - The "native" module is no longer available in BUILD files, all
+    its members can be accessed directly as global symbols. This can
+    be temporarily reverted by providing
+    --incompatible_disallow_native_in_build_f...
+  - cleanup that affects user provided apple frameworks is
+    now enabled by default.  See
+    https://github.com/bazelbuild/bazel/issues/7944 for more info.
+  - Python rules now determine the Python runtime using toolchains
+    rather than `--python_top` and `--python_path`, which are
+    deprecated. See
+    [#7899](https://github.com/bazelbuild/bazel/issues/7899) for
+    information on declaring Python toolchains and migrating your
+    code. As a side-benefit, this addresses
+    [#4815](https://github.com/bazelbuild/bazel/issues/4815)
+    (incorrect interpreter version used) on non-Windows platforms.
+    Note however that some builds break due to getting the version
+    they asked for -- consider setting `python_version = "PY2"` on
+    Python 2 targets and `--host_force_python=PY2` if any Python 2
+    targets are used in the host configuration. You can temporarily
+    opt out of this change with
+    `--incompatible_use_python_toolchains=false`.
+  - Depsets can't be iterated over unless they're converted to lists
+    using the .to_list() method. Use
+    --incompatible_depset_is_not_iterable=false to
+    temporarily restore the previous behaviour.
+
+New features:
+
+  - Bash, runfiles: the copy-pasted init code of the Bash runfiles
+    library is now shorter, see `tools/bash/runfiles/runfiles.bash`.
+    The rlocation() implementation is the same.
+  - Bash, runfiles: the copy-pasted init code of the Bash runfiles
+    library is now shorter, see `tools/bash/runfiles/runfiles.bash`.
+    The rlocation() implementation is the same.
+  - Bash, runfiles: the copy-pasted init code of the Bash runfiles
+    library is now shorter, see `tools/bash/runfiles/runfiles.bash`.
+    To use the new init code, you need Bazel 0.27 or newer. The old
+    (longer) init code still works.
+
+Important changes:
+
+  - The `outputs` parameter of the `rule()` function is deprecated
+    and attached to flag `--incompatible_no_rule_outputs_param`.
+    Migrate rules to use `OutputGroupInfo` or `attr.output` instead.
+    See https://github.com/bazelbuild/bazel/issues/7977 for more info.
+  - The --incompatible_disable_objc_library_resources flag is being
+    removed. Please remove it from your configs as it otherwise will
+    fail the build.
+  - Add a generic additional_linker_inputs attribute on cc_binary
+    rules.
+  - Windows, C++ autoconfigure: BAZEL_VC and BAZEL_VS may now have
+    quotes, so if you set these envvars' values in cmd.exe via
+    TAB-completion then you no longer need to remove the surrounding
+    quotes.
+  - pkg_deb has new attributes: `config` and `templates` that can be
+    used for integration with debconf
+  - Allow cc_import() of a DLL with no interface library on Windows,
+    used to document runtime dependencies.
+  - All host-configured Python tools that are built for the wrong
+    Python version will now emit a warning message when they exit
+    with non-zero status. See #7899.
+  - deprecated --remote_local_fallback_strategy. Use
+    `--strategy=remote,local` instead. See
+    https://github.com/bazelbuild/bazel/issues/7480.
+  - Introduce --incompatible_disable_native_android_rules flag
+  - The Android desugaring actions now support a persistent worker
+    mode for faster local build performance. Enable it with
+    `--strategy=Desugar=worker`.
+  - --incompatible_static_name_resolution_in_build_files is now
+    enabled by default
+  - --incompatible_disable_deprecated_attr_params is now enabled by
+    default (#5818)
+  - Repository containing autoconfigured C++ toolchain
+    `@local_config_cc` has been split in 2 - see
+    `local_config_cc_toolchains`.
+  - --incompatible_string_join_requires_strings is now enabled by
+    default
+  - Flag --incompatible_new_actions_api is enabled by dewfault (#5825)
+  - New flag `--incompatible_disallow_empty_glob`. See
+    https://github.com/bazelbuild/bazel/issues/8195
+  - --incompatible_no_kwargs_in_build_files is enabled by default
+  - Incompatible flag
+    `--incompatible_require_ctx_in_configure_features` has been
+    flipped. See https://github.com/bazelbuild/bazel/issues/7793 for
+    more information.
+  - `BAZEL_USE_XCODE_TOOLCHAIN=1` tells Bazel not to look for Xcode to
+    decide whether to enable toolchains for Apple rules, but to
+    assume Xcode is
+    available. Can be also used when building on Darwin and no C++ or
+    ObjC is being
+    built, so there is no need to detect Xcode.
+  - Android desugaring actions now use persistent workers by default.
+    This has been measured to provide up to 20% reduction in build
+    times. To disable it, use the `--strategy=Desugar=sandboxed`
+    flag. See https://github.com/bazelbuild/bazel/issues/8342 and
+    https://github.com/bazelbuild/bazel/issues/8427 for more details
+    on local build speed optimization for Android apps.
+  - Fixed an issue with Android builds where `--fat_apk_cpu` doesn't
+    pack all selected shared libraries from `aar_import` targets into
+    the APK. See
+    [#8283](https://github.com/bazelbuild/bazel/issues/8283).
+  - Turn on --experimental_starlark_config_transitions by default for
+    starlark transitions (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-transitions for more info)
+  - Turn on --experimental_build_setting_api by default for starlark
+    build settings (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-build-settings for more info)
+  - Incompatible flag
+    `--incompatible_dont_enable_host_nonhost_crosstool_features` has
+    been flipped. See https://github.com/bazelbuild/bazel/issues/7407
+    for more information.
+  - Added support for Android NDK 19 and 20.
+  - Flip --incompatible_no_support_tools_in_action_inputs
+  - --remote_executor, --remote_cache or --bes_backend=someurl.com
+    would be treated as grpcs://someurl.com, if the
+    --incompatible_tls_enabled_removed flag enabled. See
+    https://github.com/bazelbuild/bazel/issues/8061 for details.
+  - Add new options --cs_fdo_absolute_path= to support the absolute
+    path
+    profile for LLVM's context-sensitive FDO.
+  - When `--incompatible_strict_action_env` is enabled, the default
+    `PATH` now includes `/usr/local/bin`.
+  - Turn on --experimental_build_setting_api by default for starlark
+    build settings (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-build-settings for more info)
+
+This release contains contributions from many people at Google, as well as Alex Thompson, Andy Scott, Benjamin Peterson, David McNett, Drew Gassaway, Ira Shikhman, James deBoer, Jay Vercellone, Jingwen Chen, Josh Rosen, Keith Smiley, Laurent Le Brun, Lee Mracek, Marwan Tammam, Matt Passell, Michael Hackner, Michal Majcherski, Patrick Niklaus, Peter Mounce, Ricky Pai, Steeve Morin, szakmary, Takuto Ikuta, Vladimir Chebotarev, Yen-Chi Chen.
 
 ## Release 0.26.0 (2019-05-28)
 
