@@ -91,9 +91,7 @@ public class SingleBuildFileCache implements MetadataProvider {
 
   @Override
   public boolean artifactOmitted(Artifact artifact) {
-    // This class does not implement markOmitted() method so call to `artifactOmitted()`
-    // means logic error.
-    throw new UnsupportedOperationException();
+    return false;
   }
 
   /** Container class for caching I/O around ActionInputs. */
