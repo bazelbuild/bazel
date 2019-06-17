@@ -67,14 +67,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public List<String> getWorkspaceContents(MockToolsConfig config) {
     String bazelToolWorkspace = config.getPath("/bazel_tools_workspace").getPathString();
-    String bazelPlatformsWorkspace = config.getPath("/platforms").getPathString();
     String localConfigPlatformWorkspace =
         config.getPath("/local_config_platform_workspace").getPathString();
 
     return new ArrayList<>(
         ImmutableList.of(
             "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
-            "local_repository(name = 'platforms', path = '" + bazelPlatformsWorkspace + "')",
             "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
@@ -101,25 +99,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/local_config_xcode/WORKSPACE");
     config.create("/protobuf/WORKSPACE");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
-    config.create("/platforms/WORKSPACE", "workspace(name = 'platforms')");
-    config.create("/platforms/BUILD");
-    config.create(
-        "/platforms/cpu/BUILD",
-        "constraint_setting(name = 'cpu')",
-        "constraint_value(name = 'x86_32', constraint_setting = ':cpu')",
-        "constraint_value(name = 'x86_64', constraint_setting = ':cpu')",
-        "constraint_value(name = 'ppc', constraint_setting = ':cpu')",
-        "constraint_value(name = 'arm', constraint_setting = ':cpu')",
-        "constraint_value(name = 'aarch64', constraint_setting = ':cpu')",
-        "constraint_value(name = 's390x', constraint_setting = ':cpu')");
-
-    config.create(
-        "/platforms/os/BUILD",
-        "constraint_setting(name = 'os')",
-        "constraint_value(name = 'linux', constraint_setting = ':os')",
-        "constraint_value(name = 'osx', constraint_setting = ':os')",
-        "constraint_value(name = 'freebsd', constraint_setting = ':os')",
-        "constraint_value(name = 'windows', constraint_setting = ':os')");
     config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
     for (String filename :

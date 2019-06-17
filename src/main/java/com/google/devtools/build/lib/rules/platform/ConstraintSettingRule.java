@@ -67,7 +67,7 @@ details.
 <p>Each <code>constraint_setting</code> has an extensible set of associated
 <code>constraint_value</code>s. Usually these are defined in the same package, but sometimes a
 different package will introduce new values for an existing setting. For instance, the predefined
-setting <code>@platforms//cpu:cpu</code> can be extended with a custom value in order to
+setting <code>@bazel_tools//platforms:cpu</code> can be extended with a custom value in order to
 define a platform targeting an obscure cpu architecture.
 
 <!-- #END_BLAZE_RULE -->*/

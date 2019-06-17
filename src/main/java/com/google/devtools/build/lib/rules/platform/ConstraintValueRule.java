@@ -67,7 +67,7 @@ representing cpu architecture.
 <pre class="code">
 constraint_value(
     name = "mips",
-    constraint_setting = "@platforms//cpu:cpu",
+    constraint_setting = "@bazel_tools//platforms:cpu",
 )
 </pre>
 

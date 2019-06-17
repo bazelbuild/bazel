@@ -169,10 +169,10 @@ cc_toolchain(
 toolchain(
     name = "cc-toolchain-ppc",
     exec_compatible_with = [
-        "@platforms//cpu:ppc",
+        "@bazel_tools//platforms:ppc",
     ],
     target_compatible_with = [
-        "@platforms//cpu:ppc",
+        "@bazel_tools//platforms:ppc",
     ],
     toolchain = ":cc-compiler-ppc",
     toolchain_type = ":toolchain_type",
@@ -196,10 +196,10 @@ cc_toolchain(
 toolchain(
     name = "cc-toolchain-s390x",
     exec_compatible_with = [
-        "@platforms//cpu:s390x",
+        "@bazel_tools//platforms:s390x",
     ],
     target_compatible_with = [
-        "@platforms//cpu:s390x",
+        "@bazel_tools//platforms:s390x",
     ],
     toolchain = ":cc-compiler-s390x",
     toolchain_type = ":toolchain_type",
@@ -225,8 +225,8 @@ toolchain(
     exec_compatible_with = [
     ],
     target_compatible_with = [
-        "@platforms//cpu:arm",
-        "@platforms//os:android",
+        "@bazel_tools//platforms:arm",
+        "@bazel_tools//platforms:android",
     ],
     toolchain = ":cc-compiler-armeabi-v7a",
     toolchain_type = ":toolchain_type",
@@ -250,12 +250,12 @@ cc_toolchain(
 toolchain(
     name = "cc-toolchain-k8",
     exec_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:linux",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:linux",
     ],
     target_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:linux",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:linux",
     ],
     toolchain = ":cc-compiler-k8",
     toolchain_type = ":toolchain_type",
@@ -289,12 +289,12 @@ cc_toolchain_config(
 toolchain(
     name = "cc-toolchain-darwin",
     exec_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:osx",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:osx",
     ],
     target_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:osx",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:osx",
     ],
     toolchain = ":cc-compiler-darwin",
     toolchain_type = ":toolchain_type",
@@ -328,12 +328,12 @@ cc_toolchain_config(
 toolchain(
     name = "cc-toolchain-freebsd",
     exec_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:freebsd",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:freebsd",
     ],
     target_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:freebsd",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:freebsd",
     ],
     toolchain = ":cc-compiler-freebsd",
     toolchain_type = ":toolchain_type",
@@ -367,12 +367,12 @@ cc_toolchain_config(
 toolchain(
     name = "cc-toolchain-x64_windows",
     exec_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:windows",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
     ],
     target_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:windows",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
     ],
     toolchain = ":cc-compiler-x64_windows",
     toolchain_type = ":toolchain_type",
@@ -406,13 +406,13 @@ cc_toolchain_config(
 toolchain(
     name = "cc-toolchain-x64_windows_msvc",
     exec_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:windows",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
         ":msvc",
     ],
     target_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:windows",
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
     ],
     toolchain = ":cc-compiler-x64_windows_msvc",
     toolchain_type = ":toolchain_type",

@@ -45,12 +45,12 @@ public class LocalConfigPlatformFunctionTest {
     public static Collection createInputValues() {
       return ImmutableList.of(
           // CPU value tests.
-          new Object[] {CPU.X86_64, "@platforms//cpu:x86_64"},
-          new Object[] {CPU.X86_32, "@platforms//cpu:x86_32"},
-          new Object[] {CPU.PPC, "@platforms//cpu:ppc"},
-          new Object[] {CPU.ARM, "@platforms//cpu:arm"},
-          new Object[] {CPU.AARCH64, "@platforms//cpu:aarch64"},
-          new Object[] {CPU.S390X, "@platforms//cpu:s390x"});
+          new Object[] {CPU.X86_64, "@bazel_tools//platforms:x86_64"},
+          new Object[] {CPU.X86_32, "@bazel_tools//platforms:x86_32"},
+          new Object[] {CPU.PPC, "@bazel_tools//platforms:ppc"},
+          new Object[] {CPU.ARM, "@bazel_tools//platforms:arm"},
+          new Object[] {CPU.AARCH64, "@bazel_tools//platforms:aarch64"},
+          new Object[] {CPU.S390X, "@bazel_tools//platforms:s390x"});
     }
 
     private final CPU testCpu;
@@ -81,10 +81,10 @@ public class LocalConfigPlatformFunctionTest {
     public static Collection createInputValues() {
       return ImmutableList.of(
           // OS value tests.
-          new Object[] {OS.LINUX, "@platforms//os:linux"},
-          new Object[] {OS.DARWIN, "@platforms//os:osx"},
-          new Object[] {OS.FREEBSD, "@platforms//os:freebsd"},
-          new Object[] {OS.WINDOWS, "@platforms//os:windows"});
+          new Object[] {OS.LINUX, "@bazel_tools//platforms:linux"},
+          new Object[] {OS.DARWIN, "@bazel_tools//platforms:osx"},
+          new Object[] {OS.FREEBSD, "@bazel_tools//platforms:freebsd"},
+          new Object[] {OS.WINDOWS, "@bazel_tools//platforms:windows"});
     }
 
     private final OS testOs;
@@ -112,9 +112,9 @@ public class LocalConfigPlatformFunctionTest {
   @RunWith(JUnit4.class)
   public static class FunctionTest extends BuildViewTestCase {
     private static final ConstraintSettingInfo CPU_CONSTRAINT =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@platforms//cpu:cpu"));
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@bazel_tools//platforms:cpu"));
     private static final ConstraintSettingInfo OS_CONSTRAINT =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@platforms//os:os"));
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@bazel_tools//platforms:os"));
 
     @Test
     public void generateConfigRepository() throws Exception {

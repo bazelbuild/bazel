@@ -71,12 +71,5 @@ EOF
     fail "Bazel failed to build @platforms"
 }
 
-function test_incompatible_use_platforms_repo_for_constraints() {
-  # We test that a built-in @platforms repository is buildable.
-  bazel build --incompatible_use_platforms_repo_for_constraints @bazel_tools//platforms:all &> \
-    $TEST_log && fail "Build passed when we expected an error."
-  expect_log "Constraints from @bazel_tools//platforms have been removed."
-}
-
 run_suite "platform mapping test"
 
