@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.util;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import java.util.Map;
@@ -39,5 +40,10 @@ public final class StaticMetadataProvider implements MetadataProvider {
   @Override
   public ActionInput getInput(String execPath) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean artifactOmitted(Artifact artifact) {
+    return false;
   }
 }

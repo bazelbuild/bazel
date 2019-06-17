@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import java.lang.UnsupportedOperationException;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 

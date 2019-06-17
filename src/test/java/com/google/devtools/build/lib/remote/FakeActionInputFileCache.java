@@ -20,6 +20,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -56,6 +57,11 @@ final class FakeActionInputFileCache implements MetadataProvider {
   @Override
   public ActionInput getInput(String execPath) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean artifactOmitted(Artifact artifact) {
+    return false;
   }
 
   void setDigest(ActionInput input, String digest) {
