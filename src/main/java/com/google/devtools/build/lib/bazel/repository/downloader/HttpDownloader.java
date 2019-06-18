@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Locale;
@@ -89,6 +90,7 @@ public class HttpDownloader {
    */
   public Path download(
       List<URL> urls,
+      Map<URI, Map<String, String>> authHeaders,
       String sha256,
       String canonicalId,
       Optional<String> type,
@@ -199,7 +201,7 @@ public class HttpDownloader {
     // Connect to the best mirror and download the file, while reporting progress to the CLI.
     semaphore.acquire();
     boolean success = false;
-    try (HttpStream payload = multiplexer.connect(urls, sha256);
+    try (HttpStream payload = multiplexer.connect(urls, sha256, authHeaders);
         OutputStream out = destination.getOutputStream()) {
       ByteStreams.copy(payload, out);
       success = true;

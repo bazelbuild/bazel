@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.util.Sleeper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -92,6 +95,10 @@ final class HttpConnectorMultiplexer {
     this.sleeper = sleeper;
   }
 
+  public HttpStream connect(List<URL> urls, String sha256) throws IOException {
+    return connect(urls, sha256, ImmutableMap.<URI, Map<String, String>>of());
+  }
+
   /**
    * Establishes reliable HTTP connection to a good mirror URL.
    *
@@ -115,7 +122,8 @@ final class HttpConnectorMultiplexer {
    * @throws InterruptedIOException if current thread is being cast into oblivion
    * @throws IllegalArgumentException if {@code urls} is empty or has an unsupported protocol
    */
-  public HttpStream connect(List<URL> urls, String sha256) throws IOException {
+  public HttpStream connect(
+      List<URL> urls, String sha256, Map<URI, Map<String, String>> authHeaders) throws IOException {
     Preconditions.checkNotNull(sha256);
     HttpUtils.checkUrlsArgument(urls);
     if (Thread.interrupted()) {
@@ -123,7 +131,7 @@ final class HttpConnectorMultiplexer {
     }
     // If there's only one URL then there's no need for us to run all our fancy thread stuff.
     if (urls.size() == 1) {
-      return establishConnection(urls.get(0), sha256);
+      return establishConnection(urls.get(0), sha256, authHeaders);
     }
     MutexConditionSharedMemory context = new MutexConditionSharedMemory();
     // The parent thread always holds the lock except when released by wait().
@@ -132,7 +140,7 @@ final class HttpConnectorMultiplexer {
       long now = clock.currentTimeMillis();
       long startAtTime = now;
       for (URL url : urls) {
-        context.jobs.add(new WorkItem(url, sha256, startAtTime));
+        context.jobs.add(new WorkItem(url, sha256, startAtTime, authHeaders));
         startAtTime += FAILOVER_DELAY_MS;
       }
       // Create the worker thread pool.
@@ -204,11 +212,13 @@ final class HttpConnectorMultiplexer {
     final URL url;
     final String sha256;
     final long startAtTime;
+    final Map<URI, Map<String, String>> authHeaders;
 
-    WorkItem(URL url, String sha256, long startAtTime) {
+    WorkItem(URL url, String sha256, long startAtTime, Map<URI, Map<String, String>> authHeaders) {
       this.url = url;
       this.sha256 = sha256;
       this.startAtTime = startAtTime;
+      this.authHeaders = authHeaders;
     }
   }
 
@@ -253,7 +263,7 @@ final class HttpConnectorMultiplexer {
         // Now we're actually going to attempt to connect to the remote server.
         HttpStream result;
         try {
-          result = establishConnection(work.url, work.sha256);
+          result = establishConnection(work.url, work.sha256, work.authHeaders);
         } catch (InterruptedIOException e) {
           // The parent thread got its result from another thread and killed this one.
           synchronized (context) {
@@ -296,21 +306,38 @@ final class HttpConnectorMultiplexer {
     }
   }
 
-  private HttpStream establishConnection(final URL url, String sha256) throws IOException {
-    final URLConnection connection = connector.connect(url, REQUEST_HEADERS);
+  private HttpStream establishConnection(
+      final URL url, String sha256, Map<URI, Map<String, String>> additionalHeaders)
+      throws IOException {
+    ImmutableMap<String, String> headers = REQUEST_HEADERS;
+    try {
+      if (additionalHeaders.containsKey(url.toURI())) {
+        headers =
+            ImmutableMap.<String, String>builder()
+                .putAll(headers)
+                .putAll(additionalHeaders.get(url.toURI()))
+                .build();
+      }
+    } catch (URISyntaxException e) {
+      // If we can't convert the URL to a URI (because it is syntactically malformed), still try to
+      // do the connection, not adding authentication information as we cannot look it up.
+    }
+    final URLConnection connection = connector.connect(url, headers);
+    final Map<String, String> allHeaders = headers;
     return httpStreamFactory.create(
-        connection, url, sha256,
+        connection,
+        url,
+        sha256,
         new Reconnector() {
           @Override
-          public URLConnection connect(
-              Throwable cause, ImmutableMap<String, String> extraHeaders)
-                  throws IOException {
+          public URLConnection connect(Throwable cause, ImmutableMap<String, String> extraHeaders)
+              throws IOException {
             eventHandler.handle(
                 Event.progress(String.format("Lost connection for %s due to %s", url, cause)));
             return connector.connect(
                 connection.getURL(),
                 new ImmutableMap.Builder<String, String>()
-                    .putAll(REQUEST_HEADERS)
+                    .putAll(allHeaders)
                     .putAll(extraHeaders)
                     .build());
           }

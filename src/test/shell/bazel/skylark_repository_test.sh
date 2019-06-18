@@ -1436,6 +1436,47 @@ EOF
   expect_log "//:b.bzl"
 }
 
+function test_auth_provided() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  serve_file_auth x.tar
+  cat > WORKSPACE <<EOF
+load("//:auth.bzl", "with_auth")
+with_auth(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+)
+EOF
+  cat > auth.bzl <<'EOF'
+def _impl(ctx):
+  ctx.download_and_extract(
+    url = ctx.attr.url,
+    # Use the username/password pair hard-coded
+    # in the testing server.
+    auth = {ctx.attr.url : { "type": "basic",
+                            "login" : "foo",
+                            "password" : "bar"}}
+  )
+
+with_auth = repository_rule(
+  implementation = _impl,
+  attrs = { "url" : attr.string() }
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it \
+      || fail "Expected success despite needing a file behind basic auth"
+}
+
 
 function tear_down() {
   shutdown_server

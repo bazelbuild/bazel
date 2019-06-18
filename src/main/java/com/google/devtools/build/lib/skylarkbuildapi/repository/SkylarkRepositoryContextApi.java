@@ -368,6 +368,12 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             doc =
                 "If set, restrict cache hits to those cases where the file was added to the cache"
                     + " with the same canonical id"),
+        @Param(
+            name = "auth",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            doc = "An optional dict specifying authentication information for some of the URLs."),
       })
   public StructApi download(
       Object url,
@@ -376,6 +382,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
+      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
@@ -503,6 +510,12 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             doc =
                 "If set, restrict cache hits to those cases where the file was added to the cache"
                     + " with the same canonical id"),
+        @Param(
+            name = "auth",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            doc = "An optional dict specifying authentication information for some of the URLs."),
       })
   public StructApi downloadAndExtract(
       Object url,
@@ -512,6 +525,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
+      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
       Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 }

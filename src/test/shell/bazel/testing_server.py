@@ -104,8 +104,10 @@ def main(argv=None):
     Handler.not_found = True
   elif argv and argv[0] == 'timeout':
     Handler.simulate_timeout = True
-  elif argv:
+  elif argv and argv[0] == 'auth':
     Handler.auth = True
+    if len(argv) > 1:
+      Handler.filename = argv[1]
 
   httpd = None
   port = None
