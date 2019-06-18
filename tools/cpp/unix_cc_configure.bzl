@@ -484,7 +484,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-pass-exit-codes",
                 )
             ) + link_opts),
-            "%{link_libs}": link_libs,
+            "%{link_libs}": get_starlark_list(link_libs),
             "%{opt_compile_flags}": get_starlark_list(
                 [
                     # No debug symbols.
