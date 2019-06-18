@@ -854,9 +854,7 @@ def _impl(ctx):
                         iterate_over = "user_link_flags",
                         expand_if_available = "user_link_flags",
                     ),
-                    flag_group(
-                        flags = ctx.attr.link_libs,
-                    ),
+                    ] + ([flag_group(flags = ctx.attr.link_libs)] if ctx.attr.link_libs else []),
                 ],
             ),
         ],
