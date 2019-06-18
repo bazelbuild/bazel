@@ -79,6 +79,9 @@ def split_escaped(string, delimiter):
     length = len(string)
     delimiter_length = len(delimiter)
 
+    if not string:
+        return []
+
     # Iterate over the length of string since Skylark doesn't have while loops
     for _ in range(length):
         if i >= length:
@@ -206,6 +209,8 @@ def build_flags(flags):
     return "\n".join(["        flag: '" + flag + "'" for flag in flags])
 
 def get_starlark_list(values):
+    if not values:
+        return ""
     return "\"" + "\",\n    \"".join(values) + "\""
 
 def auto_configure_warning_maybe(repository_ctx, msg):
