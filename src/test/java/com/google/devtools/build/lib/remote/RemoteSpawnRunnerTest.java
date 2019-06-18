@@ -318,7 +318,7 @@ public class RemoteSpawnRunnerTest {
             any(),
             /* uploadLocalResults= */ eq(true));
     verify(cache).upload(any(), any(), any(), any(), any(), any());
-    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr));
+    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
   @Test
@@ -539,9 +539,8 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class), any());
     verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
-    assertThat(policy.isLockOutputFilesCalled()).isTrue();
   }
 
   @Test
@@ -567,9 +566,8 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class), any());
     verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
-    assertThat(policy.isLockOutputFilesCalled()).isTrue();
   }
 
   @Test
@@ -583,11 +581,11 @@ public class RemoteSpawnRunnerTest {
     Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil);
     doThrow(downloadFailure)
         .when(cache)
-        .download(eq(cachedResult), any(Path.class), any(FileOutErr.class));
+        .download(eq(cachedResult), any(Path.class), any(FileOutErr.class), any());
     ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(execResult).build();
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
-    doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class));
+    doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class), any());
 
     Spawn spawn = newSimpleSpawn();
 
@@ -620,8 +618,8 @@ public class RemoteSpawnRunnerTest {
     Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil);
     doThrow(downloadFailure)
         .when(cache)
-        .download(eq(cachedResult), any(Path.class), any(FileOutErr.class));
-    doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class));
+        .download(eq(cachedResult), any(Path.class), any(FileOutErr.class), any());
+    doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class), any());
 
     Spawn spawn = newSimpleSpawn();
 
@@ -671,7 +669,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class), any());
   }
 
   @Test
@@ -705,7 +703,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class), any());
     verify(localRunner, never()).exec(eq(spawn), eq(policy));
   }
 
@@ -733,7 +731,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.exitCode()).isEqualTo(33);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class), any());
     verify(localRunner, never()).exec(eq(spawn), eq(policy));
   }
 
@@ -874,8 +872,9 @@ public class RemoteSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(Status.SUCCESS);
 
     // assert
-    verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());
-    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr));
+    verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(),
+        any());
+    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
   @Test
@@ -900,9 +899,9 @@ public class RemoteSpawnRunnerTest {
 
     // assert
     verify(executor).executeRemotely(any());
-    verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());
-    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr));
-    assertThat(policy.isLockOutputFilesCalled()).isTrue();
+    verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(),
+        any());
+    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
   @Test
@@ -913,7 +912,7 @@ public class RemoteSpawnRunnerTest {
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(succeededAction);
     IOException downloadFailure = new IOException("downloadMinimal failed");
-    when(cache.downloadMinimal(any(), anyCollection(), any(), any(), any(), any()))
+    when(cache.downloadMinimal(any(), anyCollection(), any(), any(), any(), any(), any()))
         .thenThrow(downloadFailure);
 
     RemoteSpawnRunner runner = newSpawnRunner();
@@ -927,9 +926,9 @@ public class RemoteSpawnRunnerTest {
     assertThat(e.getMessage()).isEqualTo(downloadFailure.getMessage());
 
     // assert
-    verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());
-    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr));
-    assertThat(policy.isLockOutputFilesCalled()).isTrue();
+    verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(),
+        any());
+    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
   @Test
@@ -957,10 +956,9 @@ public class RemoteSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(Status.SUCCESS);
 
     // assert
-    verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr));
+    verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr), any());
     verify(cache, never())
-        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());
-    assertThat(policy.isLockOutputFilesCalled()).isTrue();
+        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {

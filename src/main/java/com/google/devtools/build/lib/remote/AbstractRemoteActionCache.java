@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResultMetadata.DirectoryMetadata;
@@ -82,6 +83,12 @@ import javax.annotation.Nullable;
 /** A cache for storing artifacts (input and output) as well as the output of running an action. */
 @ThreadSafety.ThreadSafe
 public abstract class AbstractRemoteActionCache implements AutoCloseable {
+
+  /** See {@link SpawnExecutionContext#lockOutputFiles()}. */
+  @FunctionalInterface
+  interface OutputFilesLocker {
+    void lock() throws InterruptedException;
+  }
 
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = SettableFuture.create();
   private static final ListenableFuture<byte[]> EMPTY_BYTES = SettableFuture.create();
@@ -161,16 +168,24 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     return outerF;
   }
 
+  private static Path toTmpDownloadPath(Path actualPath) {
+    return actualPath.getParentDirectory().getRelative(actualPath.getBaseName() + ".tmp");
+  }
+
   /**
    * Download the output files and directory trees of a remotely executed action to the local
    * machine, as well stdin / stdout to the given files.
    *
    * <p>In case of failure, this method deletes any output files it might have already created.
    *
+   * @param outputFilesLocker ensures that we are the only ones writing to the output files when
+   *     using the dynamic spawn strategy.
+   *
    * @throws IOException in case of a cache miss or if the remote cache is unavailable.
    * @throws ExecException in case clean up after a failed download failed.
    */
-  public void download(ActionResult result, Path execRoot, FileOutErr origOutErr)
+  public void download(ActionResult result, Path execRoot, FileOutErr origOutErr,
+      OutputFilesLocker outputFilesLocker)
       throws ExecException, IOException, InterruptedException {
     ActionResultMetadata metadata = parseActionResultMetadata(result, execRoot);
 
@@ -182,7 +197,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
             .map(
                 (file) -> {
                   try {
-                    ListenableFuture<Void> download = downloadFile(file.path(), file.digest());
+                    ListenableFuture<Void> download =
+                        downloadFile(toTmpDownloadPath(file.path()), file.digest());
                     return Futures.transform(download, (d) -> file, directExecutor());
                   } catch (IOException e) {
                     return Futures.<FileMetadata>immediateFailedFuture(e);
@@ -209,10 +225,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
     for (ListenableFuture<FileMetadata> download : downloads) {
       try {
-        FileMetadata outputFile = getFromFuture(download);
-        if (outputFile != null) {
-          outputFile.path().setExecutable(outputFile.isExecutable());
-        }
+        // Wait for all downloads to finish.
+        getFromFuture(download);
       } catch (IOException e) {
         downloadException = downloadException == null ? e : downloadException;
       } catch (InterruptedException e) {
@@ -222,10 +236,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
     if (downloadException != null || interruptedException != null) {
       try {
-        // Delete any (partially) downloaded output files, since any subsequent local execution
-        // of this action may expect none of the output files to exist.
+        // Delete any (partially) downloaded output files.
         for (OutputFile file : result.getOutputFilesList()) {
-          execRoot.getRelative(file.getPath()).delete();
+          toTmpDownloadPath(execRoot.getRelative(file.getPath())).delete();
         }
         for (OutputDirectory directory : result.getOutputDirectoriesList()) {
           // Only delete the directories below the output directories because the output
@@ -259,6 +272,19 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       FileOutErr.dump(tmpOutErr, origOutErr);
       tmpOutErr.clearOut();
       tmpOutErr.clearErr();
+    }
+
+    // Ensure that we are the only ones writing to the output files when using the dynamic spawn
+    // strategy.
+    outputFilesLocker.lock();
+
+    // Move the output files from their temporary name to the actual output file name.
+    for (ListenableFuture<FileMetadata> finishedDownload : downloads) {
+      FileMetadata outputFile = getFromFuture(finishedDownload);
+      if (outputFile != null) {
+        FileSystemUtils.moveFile(toTmpDownloadPath(outputFile.path()), outputFile.path());
+        outputFile.path().setExecutable(outputFile.isExecutable());
+      }
     }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
@@ -376,6 +402,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @param execRoot the execution root
    * @param metadataInjector the action's metadata injector that allows this method to inject
    *     metadata about an action output instead of downloading the output
+   * @param outputFilesLocker ensures that we are the only ones writing to the output files when
+   *     using the dynamic spawn strategy.
    * @throws IOException in case of failure
    * @throws InterruptedException in case of receiving an interrupt
    */
@@ -386,8 +414,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       @Nullable PathFragment inMemoryOutputPath,
       OutErr outErr,
       Path execRoot,
-      MetadataInjector metadataInjector)
-      throws IOException, InterruptedException {
+      MetadataInjector metadataInjector,
+      OutputFilesLocker outputFilesLocker) throws IOException, InterruptedException {
     Preconditions.checkState(
         result.getExitCode() == 0,
         "injecting remote metadata is only supported for successful actions (exit code 0).");
@@ -402,6 +430,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           "Symlinks in action outputs are not yet supported by "
               + "--experimental_remote_download_outputs=minimal");
     }
+
+    // Ensure that when using dynamic spawn strategy that we are the only ones writing to the
+    // output files.
+    outputFilesLocker.lock();
 
     ActionInput inMemoryOutput = null;
     Digest inMemoryOutputDigest = null;
