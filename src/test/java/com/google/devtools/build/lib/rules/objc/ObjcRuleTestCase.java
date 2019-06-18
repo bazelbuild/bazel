@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -216,6 +217,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     MockProtoSupport.setup(mockToolsConfig);
   }
 
+  protected static String frameworkDir(ApplePlatform platform) {
+    return AppleToolchain.platformDir(
+        platform.getNameInPlist()) + AppleToolchain.DEVELOPER_FRAMEWORK_PATH;
+  }
+
   /**
    * Creates an {@code objc_library} target writer for the label indicated by the given String.
    */
@@ -358,6 +364,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .add("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION)
             .add("-arch " + arch)
             .add("-isysroot " + AppleToolchain.sdkDir())
+            .add(AppleToolchain.sdkDir() + AppleToolchain.DEVELOPER_FRAMEWORK_PATH)
+            .add(frameworkDir(ApplePlatform.forTarget(PlatformType.IOS, arch)))
             .addAll(frameworkPathFragmentParents.build())
             .add("-Xlinker -objc_abi_version -Xlinker 2")
             .add("-fobjc-link-runtime")

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -463,6 +464,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationAction() throws Exception {
     useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
 
     // Because protos are linked/compiled within the apple_binary context, we need to traverse the
     // action graph to find the linked protos (.a) and compiled protos (.o).
@@ -504,6 +506,8 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
             .add("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION)
             .add("-arch", "i386")
             .add("-isysroot", AppleToolchain.sdkDir())
+            .add("-F", AppleToolchain.sdkDir() + AppleToolchain.DEVELOPER_FRAMEWORK_PATH)
+            .add("-F", frameworkDir(platform))
             .addAll(FASTBUILD_COPTS)
             .addAll(
                 ObjcLibraryTest.iquoteArgs(

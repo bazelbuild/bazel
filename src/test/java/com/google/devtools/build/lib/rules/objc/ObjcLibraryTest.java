@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.junit.Ignore;
@@ -432,6 +434,12 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments())
         .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
         .inOrder();
+    assertThat(Collections.frequency(compileActionA.getArguments(),
+        "-F" + AppleToolchain.sdkDir() + "/Developer/Library/Frameworks")).isEqualTo(1);
+    assertThat(
+            Collections.frequency(
+                compileActionA.getArguments(), "-F" + frameworkDir(ApplePlatform.IOS_SIMULATOR)))
+        .isEqualTo(1);
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
     assertThat(compileActionA.getArguments())
@@ -476,6 +484,12 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments())
         .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
         .inOrder();
+    assertThat(Collections.frequency(compileActionA.getArguments(),
+        "-F" + AppleToolchain.sdkDir() + "/Developer/Library/Frameworks")).isEqualTo(1);
+    assertThat(
+            Collections.frequency(
+                compileActionA.getArguments(), "-F" + frameworkDir(ApplePlatform.IOS_DEVICE)))
+        .isEqualTo(1);
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
     assertThat(compileActionA.getArguments())
@@ -1294,9 +1308,29 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 
+  // Test with ios device SDK version 9.0. Framework path differs from previous versions.
+  @Test
+  public void testCompilationActions_deviceSdk9() throws Exception {
+    useConfiguration("--cpu=ios_armv7", "--ios_minimum_os=1.0", "--ios_sdk_version=9.0");
+
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileAction = compileAction("//objc:lib", "a.o");
+
+    // We remove spaces, since the crosstool rules do not use spaces in command line args.
+
+    String compileArgs = Joiner.on("").join(compileAction.getArguments()).replace(" ", "");
+    assertThat(compileArgs)
+        .contains("-F" + AppleToolchain.sdkDir() + AppleToolchain.SYSTEM_FRAMEWORK_PATH);
+  }
+
   @Test
   public void testCompilationActionsWithPch() throws Exception {
     useConfiguration("--apple_platform_type=ios");
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1318,6 +1352,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .add("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION)
                 .add("-arch x86_64")
                 .add("-isysroot", AppleToolchain.sdkDir())
+                .add("-F" + AppleToolchain.sdkDir() + "/Developer/Library/Frameworks")
+                .add("-F" + frameworkDir(platform))
                 .addAll(FASTBUILD_COPTS)
                 .addAll(
                     iquoteArgs(
