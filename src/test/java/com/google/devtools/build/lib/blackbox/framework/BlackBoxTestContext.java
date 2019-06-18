@@ -228,12 +228,17 @@ public final class BlackBoxTestContext {
   /**
    * Runs external binary in the specified working directory. See {@link BuilderRunner}
    *
-   * @param workingDirectory - working directory for running the binary
-   * @param processToRun - path to the binary to run
-   * @param arguments - arguments to pass to the binary
-   * @return ProcessResult - execution result
+   * @param workingDirectory working directory for running the binary
+   * @param processToRun path to the binary to run
+   * @param expectEmptyError if <code>true</code>, no text is expected in the error stream,
+   * otherwise, ProcessRunnerException is thrown.
+   * @param arguments arguments to pass to the binary
+   * @return ProcessResult execution result
    */
-  public ProcessResult runBinary(Path workingDirectory, String processToRun, String... arguments)
+  public ProcessResult runBinary(Path workingDirectory,
+      String processToRun,
+      boolean expectEmptyError,
+      String... arguments)
       throws Exception {
     ProcessParameters parameters =
         ProcessParameters.builder()
@@ -241,6 +246,7 @@ public final class BlackBoxTestContext {
             .setName(processToRun)
             .setTimeoutMillis(getProcessTimeoutMillis(-1))
             .setArguments(arguments)
+            .setExpectedEmptyError(expectEmptyError)
             .build();
     return new ProcessRunner(parameters, executorService).runSynchronously();
   }

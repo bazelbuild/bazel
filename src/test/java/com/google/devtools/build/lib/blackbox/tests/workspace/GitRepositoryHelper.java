@@ -84,6 +84,28 @@ class GitRepositoryHelper {
   }
 
   /**
+   * Creates the new branch with the specified name at HEAD.
+   * @param branchName branch name
+   * @throws Exception related to the invocation of the external git process
+   * (like IOException or TimeoutException) or
+   * ProcessRunnerException if the process returned not expected return code.
+   */
+  void createNewBranch(String branchName) throws Exception {
+    runGit("checkout", "-b", branchName);
+  }
+
+  /**
+   * Checks out specified revision or reference.
+   * @param ref reference to check out
+   * @throws Exception related to the invocation of the external git process
+   * (like IOException or TimeoutException) or
+   * ProcessRunnerException if the process returned not expected return code.
+   */
+  void checkout(String ref) throws Exception {
+    runGit("checkout", ref);
+  }
+
+  /**
    * Returns the HEAD's commit hash.
    * @throws Exception related to the invocation of the external git process
    * (like IOException or TimeoutException) or
@@ -94,7 +116,7 @@ class GitRepositoryHelper {
   }
 
   private String runGit(String... arguments) throws Exception {
-    ProcessResult result = context.runBinary(root, "git", arguments);
+    ProcessResult result = context.runBinary(root, "git", false, arguments);
     return result.outString();
   }
 }

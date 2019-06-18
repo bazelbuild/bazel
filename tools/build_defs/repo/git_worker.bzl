@@ -118,7 +118,12 @@ def add_origin(ctx, git_repo, remote):
     _git(ctx, git_repo, "remote", "add", "origin", remote)
 
 def fetch(ctx, git_repo):
-    _git_maybe_shallow(ctx, git_repo, "fetch", "origin", git_repo.fetch_ref)
+    if not git_repo.fetch_ref:
+        # We need to explicitly specify to fetch all branches, otherwise only HEAD-reachable
+        # is fetched.
+        _git_maybe_shallow(ctx, git_repo, "fetch", "--all")
+    else:
+        _git_maybe_shallow(ctx, git_repo, "fetch", "origin", git_repo.fetch_ref)
 
 def reset(ctx, git_repo):
     _git(ctx, git_repo, "reset", "--hard", git_repo.reset_ref)

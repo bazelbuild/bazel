@@ -15,6 +15,9 @@
 
 package com.google.devtools.build.lib.blackbox.tests.workspace;
 
+import static com.google.devtools.build.lib.blackbox.tests.workspace.RepoWithRuleWritingTextGenerator.callRule;
+import static com.google.devtools.build.lib.blackbox.tests.workspace.RepoWithRuleWritingTextGenerator.loadRule;
+
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
@@ -50,6 +53,7 @@ import org.junit.Test;
 public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
 
   private static final String HELLO_FROM_EXTERNAL_REPOSITORY = "Hello from GIT repository!";
+  private static final String HELLO_FROM_BRANCH = "Hello from branch!";
 
   /**
    * Tests usage of new_git_repository workspace rule with the "tag" attribute.
@@ -60,9 +64,9 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     Path repo = context().getTmpDir().resolve("ext_repo");
     setupGitRepository(context(), repo);
 
-    String buildFileContent = String.format("%s\n%s", RepoWithRuleWritingTextGenerator.loadRule(""),
-        RepoWithRuleWritingTextGenerator.callRule("call_write_text", "out.txt",
-            HELLO_FROM_EXTERNAL_REPOSITORY));
+    String buildFileContent = String.format("%s\n%s",
+        loadRule(""),
+        callRule("call_write_text", "out.txt", HELLO_FROM_EXTERNAL_REPOSITORY));
     context().write("WORKSPACE",
         "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
         "new_git_repository(",
@@ -88,9 +92,9 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     Path repo = context().getTmpDir().resolve("ext_repo");
     String commit = setupGitRepository(context(), repo);
 
-    String buildFileContent = String.format("%s\n%s", RepoWithRuleWritingTextGenerator.loadRule(""),
-        RepoWithRuleWritingTextGenerator.callRule("call_write_text", "out.txt",
-            HELLO_FROM_EXTERNAL_REPOSITORY));
+    String buildFileContent = String.format("%s\n%s",
+        loadRule(""),
+        callRule("call_write_text", "out.txt", HELLO_FROM_EXTERNAL_REPOSITORY));
     context().write("WORKSPACE",
         "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
         "new_git_repository(",
@@ -116,9 +120,9 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     Path repo = context().getTmpDir().resolve("ext_repo");
     setupGitRepository(context(), repo);
 
-    String buildFileContent = String.format("%s\n%s", RepoWithRuleWritingTextGenerator.loadRule(""),
-        RepoWithRuleWritingTextGenerator.callRule("call_write_text", "out.txt",
-            HELLO_FROM_EXTERNAL_REPOSITORY));
+    String buildFileContent = String.format("%s\n%s",
+        loadRule(""),
+        callRule("call_write_text", "out.txt", HELLO_FROM_EXTERNAL_REPOSITORY));
     context().write("WORKSPACE",
         "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
         "new_git_repository(",
@@ -135,20 +139,62 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
-  private static String setupGitRepository(BlackBoxTestContext context, Path repo) throws Exception {
-    PathUtils.deleteTree(repo);
-    Files.createDirectories(repo);
-    GitRepositoryHelper gitRepository = new GitRepositoryHelper(context, repo);
-    gitRepository.init();
+  @Test
+  public void testCheckoutOfCommitFromBranch() throws Exception {
+    Path repo = context().getTmpDir().resolve("branch_repo");
+    GitRepositoryHelper gitRepository = initGitRepository(context(), repo);
+
+    context().write(repo.resolve("master.marker").toString());
+    gitRepository.addAll();
+    gitRepository.commit("Initial commit");
+
+    gitRepository.createNewBranch("demonstrate_branch");
 
     RepoWithRuleWritingTextGenerator generator = new RepoWithRuleWritingTextGenerator(repo);
-    generator.withOutputText(HELLO_FROM_EXTERNAL_REPOSITORY)
-        .skipBuildFile()
-        .setupRepository();
+    generator.withOutputText(HELLO_FROM_BRANCH).setupRepository();
+
+    gitRepository.addAll();
+    gitRepository.commit("Commit in branch");
+    String branchCommitHash = gitRepository.getHead();
+
+    gitRepository.checkout("master");
+    generator.withOutputText(HELLO_FROM_EXTERNAL_REPOSITORY).setupRepository();
+    gitRepository.addAll();
+    gitRepository.commit("Commit in master");
+
+    context().write("WORKSPACE",
+        "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
+        "git_repository(",
+        "  name='ext',",
+        String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
+        String.format("  commit='%s',", branchCommitHash),
+        ")");
+
+    // This creates Bazel without MSYS, see implementation for details.
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    bazel.build("@ext//:write_text");
+    Path outPath = context().resolveBinPath(bazel, "external/ext/out");
+    WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
+  }
+
+  private static String setupGitRepository(BlackBoxTestContext context, Path repo) throws Exception {
+    GitRepositoryHelper gitRepository = initGitRepository(context, repo);
+
+    RepoWithRuleWritingTextGenerator generator = new RepoWithRuleWritingTextGenerator(repo);
+    generator.skipBuildFile().setupRepository();
 
     gitRepository.addAll();
     gitRepository.commit("Initial commit");
     gitRepository.tag("first");
     return gitRepository.getHead();
+  }
+
+  private static GitRepositoryHelper initGitRepository(BlackBoxTestContext context, Path repo)
+      throws Exception {
+    PathUtils.deleteTree(repo);
+    Files.createDirectories(repo);
+    GitRepositoryHelper gitRepository = new GitRepositoryHelper(context, repo);
+    gitRepository.init();
+    return gitRepository;
   }
 }
