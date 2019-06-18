@@ -229,7 +229,7 @@ public final class CcToolchainRule implements RuleDefinition {
         <p>Collection of all cc_toolchain artifacts required for assembly actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("as_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
-        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(as_files) -->
+        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(ar_files) -->
         Currently unused (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).
 
         <p>Collection of all cc_toolchain artifacts required for archiving actions.</p>
