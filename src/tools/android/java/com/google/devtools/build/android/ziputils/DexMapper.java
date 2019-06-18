@@ -40,10 +40,11 @@ public class DexMapper {
   public static void main(String[] args) {
 
     OptionsParser parser =
-        OptionsParser.newOptionsParser(
-            true,
-            new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()),
-            DexMapperOptions.class);
+        OptionsParser.builder()
+            .optionsClasses(DexMapperOptions.class)
+            .allowResidue(true)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     parser.parseAndExitUponError(args);
     DexMapperOptions options = parser.getOptions(DexMapperOptions.class);
 

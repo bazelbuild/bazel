@@ -213,7 +213,9 @@ public final class RemoteWorker {
   @SuppressWarnings("FutureReturnValueIgnored")
   public static void main(String[] args) throws Exception {
     OptionsParser parser =
-        OptionsParser.newOptionsParser(RemoteOptions.class, RemoteWorkerOptions.class);
+        OptionsParser.builder()
+            .optionsClasses(RemoteOptions.class, RemoteWorkerOptions.class)
+            .build();
     parser.parseAndExitUponError(args);
     RemoteOptions remoteOptions = parser.getOptions(RemoteOptions.class);
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);

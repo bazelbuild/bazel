@@ -63,7 +63,8 @@ public class BlazeExecutorTest {
   @Test
   public void testDebugPrintActionContexts() throws Exception {
     TestExecutorBuilder builder = new TestExecutorBuilder(fileSystem, directories, binTools);
-    OptionsParser parser = OptionsParser.newOptionsParser(TestExecutorBuilder.DEFAULT_OPTIONS);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(TestExecutorBuilder.DEFAULT_OPTIONS).build();
     parser.parse("--debug_print_action_contexts");
 
     Reporter reporter = new Reporter(new EventBus());

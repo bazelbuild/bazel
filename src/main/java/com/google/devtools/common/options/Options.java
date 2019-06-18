@@ -50,7 +50,7 @@ public class Options<O extends OptionsBase> {
    */
   public static <O extends OptionsBase> Options<O> parse(Class<O> optionsClass, String... args)
       throws OptionsParsingException {
-    OptionsParser parser = OptionsParser.newOptionsParser(optionsClass);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(optionsClass).build();
     parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, Arrays.asList(args));
     List<String> remainingArgs = parser.getResidue();
     return new Options<>(parser.getOptions(optionsClass), remainingArgs.toArray(new String[0]));
@@ -65,7 +65,8 @@ public class Options<O extends OptionsBase> {
       Class<O> optionsClass, boolean allowResidue, String... args) {
     OptionsParser parser = null;
     try {
-      parser = OptionsParser.newOptionsParser(allowResidue, optionsClass);
+      parser =
+          OptionsParser.builder().optionsClasses(optionsClass).allowResidue(allowResidue).build();
     } catch (ConstructionException e) {
       System.err.println("Error constructing the options parser: " + e.getMessage());
       System.exit(2);
