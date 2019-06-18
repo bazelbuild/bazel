@@ -213,6 +213,13 @@ skydoc_test(
     whitelisted_symbols = ["py_related_rule"],
 )
 
+skydoc_test(
+    name = "struct_default_value_test",
+    golden_file = "testdata/struct_default_value_test/golden.txt",
+    input_file = "testdata/struct_default_value_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
 genrule(
     name = "generate_bzl_test_dep",
     srcs = ["testdata/generated_bzl_test/dep.bzl.tpl"],
