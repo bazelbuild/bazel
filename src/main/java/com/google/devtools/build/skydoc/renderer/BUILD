@@ -31,4 +31,9 @@ java_library(
     name = "renderer_lib",
     srcs = glob(["*.java"]),
     visibility = ["//src/test:__subpackages__"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )
