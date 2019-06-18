@@ -12,6 +12,7 @@ com/google/devtools/build/android/desugar/testdata/ClassCallingLongCompare$LongC
 com/google/devtools/build/android/desugar/testdata/ClassCallingLongCompare.class
 com/google/devtools/build/android/desugar/testdata/ClassCallingRequireNonNull.class
 com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources$InheritanceResource.class
+com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources$SimpleCloseable.class
 com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources$SimpleResource.class
 com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources.class
 com/google/devtools/build/android/desugar/testdata/ConcreteFunction$Parser.class
