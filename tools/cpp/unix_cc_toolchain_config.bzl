@@ -854,6 +854,9 @@ def _impl(ctx):
                         iterate_over = "user_link_flags",
                         expand_if_available = "user_link_flags",
                     ),
+                    flag_group(
+                        flags = ctx.attr.link_libs,
+                    ),
                 ],
             ),
         ],
@@ -1191,6 +1194,7 @@ cc_toolchain_config = rule(
         "opt_compile_flags": attr.string_list(),
         "cxx_flags": attr.string_list(),
         "link_flags": attr.string_list(),
+        "link_libs": attr.string_list(),
         "opt_link_flags": attr.string_list(),
         "unfiltered_compile_flags": attr.string_list(),
         "coverage_compile_flags": attr.string_list(),

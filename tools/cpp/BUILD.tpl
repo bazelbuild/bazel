@@ -85,6 +85,7 @@ cc_toolchain_config(
     dbg_compile_flags = [%{dbg_compile_flags}],
     cxx_flags = [%{cxx_flags}],
     link_flags = [%{link_flags}],
+    link_libs = [%{link_libs}],
     opt_link_flags = [%{opt_link_flags}],
     unfiltered_compile_flags = [%{unfiltered_compile_flags}],
     coverage_compile_flags = [%{coverage_compile_flags}],
