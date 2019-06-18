@@ -183,5 +183,6 @@ public class ShellUtilsTest {
     assertWindowsEscapeArg("\"C:\\r x\\s\\\"", "\"\\\"C:\\r x\\s\\\\\\\"\"");
     assertWindowsEscapeArg("C:\\T U\\W\\", "\"C:\\T U\\W\\\\\"");
     assertWindowsEscapeArg("\"C:\\t u\\w\\\"", "\"\\\"C:\\t u\\w\\\\\\\"\"");
+    assertWindowsEscapeArg("\"a", "\"\\\"a\"");
   }
 }
