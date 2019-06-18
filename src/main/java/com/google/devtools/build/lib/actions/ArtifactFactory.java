@@ -41,7 +41,6 @@ public class ArtifactFactory implements ArtifactResolver {
   private static final int CONCURRENCY_LEVEL = Runtime.getRuntime().availableProcessors();
   private static final Striped<Lock> STRIPED_LOCK = Striped.lock(CONCURRENCY_LEVEL);
 
-  private final Path execRoot;
   private final Path execRootParent;
   private final PathFragment derivedPathPrefix;
   private ImmutableMap<Root, ArtifactRoot> sourceArtifactRoots;
@@ -133,12 +132,10 @@ public class ArtifactFactory implements ArtifactResolver {
   /**
    * Constructs a new artifact factory that will use a given execution root when creating artifacts.
    *
-   * @param execRoot the execution root Path to use. This will be
-   *     [output_base]/execroot/[workspace].
+   * @param execRootParent the execution root's parent path. This will be [output_base]/execroot.
    */
-  public ArtifactFactory(Path execRoot, String derivedPathPrefix) {
-    this.execRoot = execRoot;
-    this.execRootParent = execRoot.getParentDirectory();
+  public ArtifactFactory(Path execRootParent, String derivedPathPrefix) {
+    this.execRootParent = execRootParent;
     this.derivedPathPrefix = PathFragment.create(derivedPathPrefix);
   }
 
@@ -474,7 +471,7 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
-  public Path getPathFromSourceExecPath(PathFragment execPath) {
+  public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
     Preconditions.checkState(
         !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
     Root sourceRoot =

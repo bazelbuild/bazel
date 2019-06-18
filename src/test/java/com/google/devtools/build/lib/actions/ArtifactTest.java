@@ -353,7 +353,8 @@ public class ArtifactTest {
   public void testCodecRecyclesSourceArtifactInstances() throws Exception {
     Root root = Root.fromPath(scratch.dir("/"));
     ArtifactRoot artifactRoot = ArtifactRoot.asSourceRoot(root);
-    ArtifactFactory artifactFactory = new ArtifactFactory(execDir, "blaze-out");
+    ArtifactFactory artifactFactory =
+        new ArtifactFactory(execDir.getParentDirectory(), "blaze-out");
     artifactFactory.setSourceArtifactRoots(ImmutableMap.of(root, artifactRoot));
     ArtifactResolverSupplier artifactResolverSupplierForTest = () -> artifactFactory;
 

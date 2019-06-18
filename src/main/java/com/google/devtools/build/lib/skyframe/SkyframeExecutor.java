@@ -364,10 +364,11 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     public ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
         Map<Artifact, Collection<Artifact>> expandedArtifacts,
-        Iterable<Artifact> filesets) {
+        Iterable<Artifact> filesets,
+        String workspaceName) {
       Preconditions.checkState(shouldCreatePathResolverForArtifactValues());
       return outputService.createPathResolverForArtifactValues(
-          directories.getExecRoot().asFragment(),
+          directories.getExecRoot(workspaceName).asFragment(),
           directories.getRelativeOutputPath(),
           fileSystem,
           getPathEntries(),
@@ -601,9 +602,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     this.actionExecutionFunction = actionExecutionFunction;
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, new RecursiveFilesystemTraversalFunction());
-    map.put(
-        SkyFunctions.FILESET_ENTRY,
-        new FilesetEntryFunction(directories.getExecRoot().asFragment()));
+    map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction(directories::getExecRoot));
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
         new ActionTemplateExpansionFunction(actionKeyContext));

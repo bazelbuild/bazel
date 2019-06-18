@@ -343,6 +343,12 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws CompletionFunctionException, InterruptedException {
+    WorkspaceNameValue workspaceNameValue =
+        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    if (workspaceNameValue == null) {
+      return null;
+    }
+
     TValue value = completor.getValueFromSkyKey(skyKey, env);
     TopLevelArtifactContext topLevelContext = completor.getTopLevelArtifactContext(skyKey);
     if (env.valuesMissing()) {
@@ -430,7 +436,11 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
     CompletionContext ctx =
         CompletionContext.create(
-            expandedArtifacts, expandedFilesets, inputMap, pathResolverFactory);
+            expandedArtifacts,
+            expandedFilesets,
+            inputMap,
+            pathResolverFactory,
+            workspaceNameValue.getName());
 
     ExtendedEventHandler.Postable postable =
         completor.createSucceeded(skyKey, value, ctx, topLevelContext, env);
