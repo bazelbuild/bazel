@@ -155,9 +155,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   public void testExecutionInfo_withPrefixBlock() throws Exception {
     scratch.file(
         "tests/BUILD",
-        "sh_binary(name = 'with-prefix-block', srcs=['sh.sh'], tags=['block-some-feature', 'block-network', 'wrong-tag'])",
-        "sh_binary(name = 'with-prefix-cpu', srcs=['sh.sh'], tags=['cpu:123', 'wrong-tag'])",
-        "sh_binary(name = 'with-local-tag', srcs=['sh.sh'], tags=['local', 'some-tag'])"
+        "sh_binary(name = 'with-prefix-block', srcs=['sh.sh'], tags=['block-some-feature', 'block-network', 'wrong-tag'])"
     );
 
     Rule withBlockPrefix = (Rule) getTarget("//tests:with-prefix-block");
