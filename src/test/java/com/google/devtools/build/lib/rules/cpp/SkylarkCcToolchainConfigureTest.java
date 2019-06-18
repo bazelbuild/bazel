@@ -39,7 +39,7 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         .testStatement("split_escaped('a:', ':')", MutableList.of(env, "a", ""))
         .testStatement("split_escaped('::a::', ':')", MutableList.of(env, "", "", "a", "", ""))
         .testStatement("split_escaped('%%%:a%%%%:b', ':')", MutableList.of(env, "%:a%%", "b"))
-        .testStatement("split_escaped('', ':')", MutableList.of(env, ""))
+        .testStatement("split_escaped('', ':')", MutableList.of(env))
         .testStatement("split_escaped('%', ':')", MutableList.of(env, "%"))
         .testStatement("split_escaped('%%', ':')", MutableList.of(env, "%"))
         .testStatement("split_escaped('%:', ':')", MutableList.of(env, ":"))
