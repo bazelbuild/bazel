@@ -35,7 +35,10 @@ public class DynamicExecutionOptions extends OptionsBase {
               + "worker mode. To enable dynamic execution for an individual action mnemonic, use "
               + "the `--internal_spawn_scheduler` and `--strategy=<mnemonic>=dynamic` flags "
               + "instead.",
-      expansion = {"--internal_spawn_scheduler", "--spawn_strategy=dynamic"})
+      expansion = {
+        "--internal_spawn_scheduler",
+        "--spawn_strategy=dynamic",
+      })
   public Void experimentalSpawnScheduler;
 
   @Option(

@@ -38,6 +38,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/exec/local:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
+        "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:srcs",
