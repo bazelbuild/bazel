@@ -623,38 +623,4 @@ EOF
   expect_log "shallow_since not allowed if a tag is specified; --depth=1 will be used for tags"
 }
 
-# This test does not test what it is intended to test,
-#
-# because 'git fetch --shallow-since=... ref:ref' returns error
-# (fatal: no commits selected for shallow requests), and the fallback case is used,
-# without the shallow option.
-# What should be better tested is actual use of shallow option, but the code is going to be
-# refactored anyway, so keep it as it is for now.
-# TODO(ichern) see above
-#
-# Verifies that rule fails if you target a commit that is before
-# the shallow point
-#
-function test_git_repository_shallow_since_with_earlier_commit_error() {
-  setup_error_test
-  local pluto_repo_dir=$(get_pluto_repo)
-
-  cd $WORKSPACE_DIR
-  # This commit was made in July so should not be available if we
-  # shallow since December.
-  cat > WORKSPACE <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(
-    name = "pluto",
-    remote = "$pluto_repo_dir",
-    commit = "52f9a3f87a2dd17ae0e5847bbae9734f09354afd",
-    shallow_since = "2017-12-27"
-)
-EOF
-
-  bazel fetch //planets:planet-info >& $TEST_log \
-    || fail "Build failed"
-  expect_log "INFO: All external dependencies fetched successfully."
-}
-
 run_suite "skylark git_repository tests"
