@@ -192,7 +192,7 @@ function test_new_git_repository_with_build_file_content_strip_prefix() {
 }
 
 function test_new_git_repository_with_single_branch() {
-  do_new_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "" "master"
+  do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "" "master"
 }
 
 # Test cloning a Git repository using the new_git_repository rule.
