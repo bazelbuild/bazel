@@ -194,6 +194,9 @@ public class BuildDocCollector {
           Class<? extends RuleDefinition> ruleDefinition =
               ruleClassProvider.getRuleClassDefinition(ruleDoc.getRuleName()).getClass();
           for (Attribute attribute : ruleClass.getAttributes()) {
+            if (!attribute.isDocumented()) {
+              continue;
+            }
             String attrName = attribute.getName();
             List<RuleDocumentationAttribute> attributeDocList =
                 attributeDocEntries.get(attrName);
