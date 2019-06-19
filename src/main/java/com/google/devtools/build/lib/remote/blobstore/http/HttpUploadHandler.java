@@ -32,6 +32,8 @@ import io.netty.handler.stream.ChunkedStream;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.internal.StringUtil;
 import java.io.IOException;
+import java.util.List;
+import java.util.Map.Entry;
 
 /** ChannelHandler for uploads. */
 final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
@@ -41,8 +43,8 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
   /** the size of the data being uploaded in bytes */
   private long contentLength;
 
-  public HttpUploadHandler(Credentials credentials) {
-    super(credentials);
+  public HttpUploadHandler(Credentials credentials, List<Entry<String,String>> remoteHeaders) {
+    super(credentials, remoteHeaders);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -92,6 +94,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
     contentLength = cmd.contentLength();
     HttpRequest request = buildRequest(path, constructHost(cmd.uri()), contentLength);
     addCredentialHeaders(request, cmd.uri());
+    addExtraRemoteHeaders(request);
     addUserAgentHeader(request);
     HttpChunkedInput body = buildBody(cmd);
     ctx.writeAndFlush(request)

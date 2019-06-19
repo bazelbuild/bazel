@@ -88,13 +88,14 @@ public final class SimpleBlobStoreFactory {
               uri,
               options.remoteTimeout,
               options.remoteMaxConnections,
+              options.remoteHeaders,
               creds);
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteProxy);
         }
       } else {
         return HttpBlobStore.create(
-            uri, options.remoteTimeout, options.remoteMaxConnections, creds);
+            uri, options.remoteTimeout, options.remoteMaxConnections, options.remoteHeaders, creds);
       }
     } catch (Exception e) {
       throw new RuntimeException(e);

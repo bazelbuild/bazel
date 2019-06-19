@@ -37,6 +37,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -54,7 +60,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
    */
   @Test
   public void downloadShouldWork() throws IOException {
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, Collections.emptyList()));
     downloadShouldWork(true, ch);
     downloadShouldWork(false, ch);
   }
@@ -93,7 +99,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
   /** Test that the handler correctly supports http error codes i.e. 404 (NOT FOUND). */
   @Test
   public void httpErrorsAreSupported() throws IOException {
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, Collections.emptyList()));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
     DownloadCommand cmd = new DownloadCommand(CACHE_URI, true, "abcdef", out);
     ChannelPromise writePromise = ch.newPromise();
@@ -123,7 +129,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
    */
   @Test
   public void httpErrorsWithContentAreSupported() throws IOException {
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, Collections.emptyList()));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
     DownloadCommand cmd = new DownloadCommand(CACHE_URI, true, "abcdef", out);
     ChannelPromise writePromise = ch.newPromise();

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.blobstore.http;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -73,6 +74,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -241,15 +243,16 @@ public class HttpBlobStoreTest {
       ServerChannel serverChannel, int timeoutSeconds, @Nullable final Credentials creds)
       throws Exception {
     SocketAddress socketAddress = serverChannel.localAddress();
+    List<Entry<String,String>> remoteHeaders = emptyList();
     if (socketAddress instanceof DomainSocketAddress) {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
       URI uri = new URI("http://localhost");
       return HttpBlobStore.create(
-          domainSocketAddress, uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds);
+          domainSocketAddress, uri, timeoutSeconds, /* remoteMaxConnections= */ 0, remoteHeaders, creds);
     } else if (socketAddress instanceof InetSocketAddress) {
       InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
       URI uri = new URI("http://localhost:" + inetSocketAddress.getPort());
-      return HttpBlobStore.create(uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds);
+      return HttpBlobStore.create(uri, timeoutSeconds, /* remoteMaxConnections= */ 0, remoteHeaders, creds);
     } else {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());
