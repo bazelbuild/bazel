@@ -232,10 +232,10 @@ public class ResourceShrinkerAction {
     final Stopwatch timer = Stopwatch.createStarted();
     // Parse arguments.
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(
-            new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()),
-            Options.class,
-            AaptConfigOptions.class);
+        OptionsParser.builder()
+            .optionsClasses(Options.class, AaptConfigOptions.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     options = optionsParser.getOptions(Options.class);

@@ -70,8 +70,10 @@ public class AndroidResourceParsingAction {
 
   public static void main(String[] args) throws Exception {
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(
-            new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()), Options.class);
+        OptionsParser.builder()
+            .optionsClasses(Options.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parseAndExitUponError(args);
     Options options = optionsParser.getOptions(Options.class);
 

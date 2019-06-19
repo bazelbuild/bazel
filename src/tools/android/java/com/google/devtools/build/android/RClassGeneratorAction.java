@@ -149,8 +149,10 @@ public class RClassGeneratorAction {
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(
-            new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()), Options.class);
+        OptionsParser.builder()
+            .optionsClasses(Options.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parseAndExitUponError(args);
     Options options = optionsParser.getOptions(Options.class);
     Preconditions.checkNotNull(options.classJarOutput);
