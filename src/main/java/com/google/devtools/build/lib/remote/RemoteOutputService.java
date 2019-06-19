@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -29,6 +30,8 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -113,7 +116,29 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
-  public boolean isRemoteFile(Artifact file) {
-    return false;
+  public boolean isRemoteFile(Artifact artifact) {
+    Path path = artifact.getPath();
+    return path.getFileSystem() instanceof RemoteActionFileSystem
+        && ((RemoteActionFileSystem) path.getFileSystem()).isRemote(path);
+  }
+
+  @Override
+  public boolean supportsPathResolverForArtifactValues() {
+    return actionFileSystemType() != ActionFileSystemType.DISABLED;
+  }
+
+  @Override
+  public ArtifactPathResolver createPathResolverForArtifactValues(
+      PathFragment execRoot,
+      String relativeOutputPath,
+      FileSystem fileSystem,
+      ImmutableList<Root> pathEntries,
+      ActionInputMap actionInputMap,
+      Map<Artifact, Collection<Artifact>> expandedArtifacts,
+      Iterable<Artifact> filesets) {
+    FileSystem remoteFileSystem =
+        new RemoteActionFileSystem(
+            fileSystem, execRoot, relativeOutputPath, actionInputMap, actionInputFetcher);
+    return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
   }
 }

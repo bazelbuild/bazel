@@ -16,14 +16,22 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -46,6 +54,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -59,6 +68,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 /** Test for {@link ByteStreamBuildEventArtifactUploader}. */
@@ -75,6 +85,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   private Context withEmptyMetadata;
   private Context prevContext;
   private final FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
+
+  private final Path execRoot = fs.getPath("/execroot");
+  private ArtifactRoot outputRoot;
 
   @BeforeClass
   public static void beforeEverything() {
@@ -98,6 +111,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // Needs to be repeated in every test that uses the timeout setting, since the tests run
     // on different threads than the setUp.
     prevContext = withEmptyMetadata.attach();
+
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out"));
+    outputRoot.getRoot().asPath().createDirectoryAndParents();
   }
 
   @After
@@ -246,5 +262,64 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     assertThat(uploader.refCnt()).isEqualTo(0);
     assertThat(refCntChannel.isShutdown()).isTrue();
+  }
+
+  @Test
+  public void remoteFileShouldNotBeUploaded() throws Exception {
+    // Test that we don't attempt to upload remotely stored file but convert the remote path
+    // to a bytestream:// URI.
+
+    // arrange
+
+    ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
+    RemoteActionInputFetcher actionInputFetcher = Mockito.mock(RemoteActionInputFetcher.class);
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        new ByteStreamBuildEventArtifactUploader(
+            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+
+    ActionInputMap outputs = new ActionInputMap(2);
+    Artifact artifact = createRemoteArtifact("file1.txt", "foo", outputs);
+
+    RemoteActionFileSystem remoteFs =
+        new RemoteActionFileSystem(
+            fs,
+            execRoot.asFragment(),
+            outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
+            outputs,
+            actionInputFetcher);
+    Path remotePath = remoteFs.getPath(artifact.getPath().getPathString());
+    assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);
+    LocalFile file = new LocalFile(remotePath, LocalFileType.OUTPUT);
+
+    // act
+
+    PathConverter pathConverter = artifactUploader.upload(ImmutableMap.of(remotePath, file)).get();
+
+    FileArtifactValue metadata = outputs.getMetadata(artifact);
+    Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+
+    // assert
+
+    String conversion = pathConverter.apply(remotePath);
+    assertThat(conversion)
+        .isEqualTo(
+            "bytestream://localhost/instance/blobs/"
+                + digest.getHash()
+                + "/"
+                + digest.getSizeBytes());
+    verifyNoMoreInteractions(uploader);
+  }
+
+  /** Returns a remote artifact and puts its metadata into the action input map. */
+  private Artifact createRemoteArtifact(
+      String pathFragment, String contents, ActionInputMap inputs) {
+    Path p = outputRoot.getRoot().asPath().getRelative(pathFragment);
+    Artifact a = ActionsTestUtil.createArtifact(outputRoot, p);
+    byte[] b = contents.getBytes(StandardCharsets.UTF_8);
+    HashCode h = HashCode.fromString(DIGEST_UTIL.compute(b).getHash());
+    FileArtifactValue f =
+        new RemoteFileArtifactValue(h.asBytes(), b.length, /* locationIndex= */ 1);
+    inputs.putWithNoDepOwner(a, f);
+    return a;
   }
 }
