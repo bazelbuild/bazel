@@ -1477,6 +1477,90 @@ EOF
       || fail "Expected success despite needing a file behind basic auth"
 }
 
+function test_netrc_reading() {
+  # Write a badly formated, but correct, .netrc file
+  cat > .netrc <<'EOF'
+machine ftp.example.com
+macdef init
+cd pub
+mget *
+quit
+
+machine example.com login
+myusername password mysecret default
+login anonymous password myusername@example.com
+EOF
+  # We expect that `read_netrc` can parse this file...
+  cat > def.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc")
+def _impl(ctx):
+  rc = read_netrc(ctx, ctx.attr.path)
+  ctx.file("data.bzl", "netrc = %s" % (rc,))
+  ctx.file("BUILD", "")
+  ctx.file("WORKSPACE", "")
+
+netrcrepo = repository_rule(
+  implementation = _impl,
+  attrs = {"path": attr.string()},
+)
+EOF
+  cat > WORKSPACE <<EOF
+load("//:def.bzl", "netrcrepo")
+
+netrcrepo(name = "netrc", path="$(pwd)/.netrc")
+EOF
+  # ...and that from the parse result, we can read off the
+  # credentials for example.com.
+  cat > BUILD <<'EOF'
+load("@netrc//:data.bzl", "netrc")
+
+[genrule(
+  name = name,
+  outs = [ "%s.txt" % (name,)],
+  cmd = "echo %s > $@" % (netrc["example.com"][name],),
+) for name in ["login", "password"]]
+EOF
+  bazel build //:login //:password
+  grep 'myusername' `bazel info bazel-genfiles`/login.txt \
+       || fail "Username not parsed correctly"
+  grep 'mysecret' `bazel info bazel-genfiles`/password.txt \
+       || fail "Password not parsed correctly"
+
+  # Also check the precise value of parsed file
+  cat > expected.bzl <<'EOF'
+expected = {
+  "ftp.example.com" : { "macdef init" : "cd pub\nmget *\nquit\n" },
+  "example.com" : { "login" : "myusername",
+                    "password" : "mysecret",
+                  },
+  "" : { "login": "anonymous",
+          "password" : "myusername@example.com" },
+}
+EOF
+  cat > verify.bzl <<'EOF'
+load("@netrc//:data.bzl", "netrc")
+load("//:expected.bzl", "expected")
+
+def check_equal_expected():
+  print("Parsed value:   %s" % (netrc,))
+  print("Expected value: %s" % (expected,))
+  if netrc == expected:
+    return "OK"
+  else:
+    return "BAD"
+EOF
+  cat > BUILD <<'EOF'
+load ("//:verify.bzl", "check_equal_expected")
+genrule(
+  name = "check_expected",
+  outs = ["check_expected.txt"],
+  cmd = "echo %s > $@" % (check_equal_expected(),)
+)
+EOF
+  bazel build //:check_expected
+  grep 'OK' `bazel info bazel-genfiles`/check_expected.txt \
+       || fail "Parsed dict not equal to expected value"
+}
 
 function tear_down() {
   shutdown_server
