@@ -14,6 +14,7 @@
 package com.google.devtools.build.skydoc.renderer;
 
 import com.google.devtools.common.options.OptionsParser;
+import java.io.IOException;
 
 /**
  * Main entry point for Renderer binary.
@@ -21,9 +22,7 @@ import com.google.devtools.common.options.OptionsParser;
  * <p>This Renderer will take in raw stardoc_proto protos as input and produce rich markdown output.
  */
 public class RendererMain {
-  // TODO(kendalllane, blossomsm): Implement.
-
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     OptionsParser parser = OptionsParser.newOptionsParser(RendererOptions.class);
     parser.parseAndExitUponError(args);
     RendererOptions rendererOptions = parser.getOptions(RendererOptions.class);
@@ -32,6 +31,23 @@ public class RendererMain {
       throw new IllegalArgumentException(
           "Both --input and --output must be specified. Usage: "
               + "{renderer_bin} --input=\"{input_proto_file}\" --output=\"{output_file}\"");
+    }
+
+    RendererMain rendererMain = new RendererMain();
+    String inputPath = rendererOptions.inputPath;
+    String outputPath = rendererOptions.outputFilePath;
+    rendererMain.copyProtoFile(inputPath, outputPath);
+  }
+
+  // TODO(kendalllane, blossomsm): Implement proto to markdown conversion.
+  /** Copies the input proto file to the output location */
+  public void copyProtoFile(String inputPath, String outputPath) throws IOException {
+    ProtoFileAccessor fileAccessor = new FileSystemAccessor();
+    if (fileAccessor.fileExists(inputPath)) {
+      byte[] inputContent = fileAccessor.getProtoContent(inputPath);
+      fileAccessor.writeToOutputLocation(outputPath, inputContent);
+    } else {
+      throw new IOException(inputPath + " does not exist.");
     }
   }
 }
