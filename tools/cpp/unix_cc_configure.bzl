@@ -342,6 +342,12 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         "-lstdc++:-lm",
         False,
     ), ":")
+    link_libs = split_escaped(get_env_var(
+        repository_ctx,
+        "BAZEL_LINKLIBS",
+        "",
+        False,
+    ), ":")
     supports_gold_linker = _is_gold_supported(repository_ctx, cc)
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
@@ -478,6 +484,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-pass-exit-codes",
                 )
             ) + link_opts),
+            "%{link_libs}": get_starlark_list(link_libs),
             "%{opt_compile_flags}": get_starlark_list(
                 [
                     # No debug symbols.
