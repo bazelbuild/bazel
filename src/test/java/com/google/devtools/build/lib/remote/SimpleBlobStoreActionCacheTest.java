@@ -145,7 +145,7 @@ public class SimpleBlobStoreActionCacheTest {
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
     result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
@@ -177,7 +177,7 @@ public class SimpleBlobStoreActionCacheTest {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
@@ -195,7 +195,7 @@ public class SimpleBlobStoreActionCacheTest {
 
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     assertThat(execRoot.getRelative("a/bar").isDirectory()).isTrue();
   }
@@ -233,7 +233,7 @@ public class SimpleBlobStoreActionCacheTest {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);
@@ -277,7 +277,7 @@ public class SimpleBlobStoreActionCacheTest {
     SimpleBlobStoreActionCache client = newClient(map);
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("a/").setTreeDigest(treeDigest);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/foo/file"))).isEqualTo(fileDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo/file"))).isEqualTo(fileDigest);
