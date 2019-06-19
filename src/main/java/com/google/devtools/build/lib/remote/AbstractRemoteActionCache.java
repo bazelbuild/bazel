@@ -71,6 +71,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -278,14 +279,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     // strategy.
     outputFilesLocker.lock();
 
-    // Move the output files from their temporary name to the actual output file name.
-    for (ListenableFuture<FileMetadata> finishedDownload : downloads) {
-      FileMetadata outputFile = getFromFuture(finishedDownload);
-      if (outputFile != null) {
-        FileSystemUtils.moveFile(toTmpDownloadPath(outputFile.path()), outputFile.path());
-        outputFile.path().setExecutable(outputFile.isExecutable());
-      }
-    }
+    moveOutputsToFinalLocation(downloads);
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
     for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
@@ -299,6 +293,36 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     // Create the symbolic links after all downloads are finished, because dangling symlinks
     // might not be supported on all platforms
     createSymlinks(symlinks);
+  }
+
+  /**
+   * Copies moves the downloaded outputs from their download location to their declared location.
+   */
+  private void moveOutputsToFinalLocation(List<ListenableFuture<FileMetadata>> downloads)
+      throws IOException, InterruptedException {
+    List<FileMetadata> finishedDownloads = new ArrayList<>(downloads.size());
+    for (ListenableFuture<FileMetadata> finishedDownload : downloads) {
+      FileMetadata outputFile = getFromFuture(finishedDownload);
+      if (outputFile != null) {
+        finishedDownloads.add(outputFile);
+      }
+    }
+    /*
+     * Sort the list lexicographically based on its temporary download path in order to avoid
+     * filename clashes when moving the files:
+     *
+     * Consider an action that produces two outputs foo and foo.tmp. These outputs would initially
+     * be downloaded to foo.tmp and foo.tmp.tmp. When renaming them to foo and foo.tmp we need to
+     * ensure that rename(foo.tmp, foo) happens before rename(foo.tmp.tmp, foo.tmp). We ensure this
+     * by doing the renames in lexicographical order of the download names.
+     */
+    Collections.sort(finishedDownloads, Comparator.comparing(f -> toTmpDownloadPath(f.path())));
+
+    // Move the output files from their temporary name to the actual output file name.
+    for (FileMetadata outputFile : finishedDownloads) {
+      FileSystemUtils.moveFile(toTmpDownloadPath(outputFile.path()), outputFile.path());
+      outputFile.path().setExecutable(outputFile.isExecutable());
+    }
   }
 
   private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {

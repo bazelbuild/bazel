@@ -35,6 +35,7 @@ import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
+import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -757,6 +758,36 @@ public class AbstractRemoteActionCacheTests {
     }
 
     verify(outputFilesLocker, never()).lock();
+  }
+
+
+  @Test
+  public void testDownloadClashes() throws Exception {
+    // Test that injecting the metadata for a remote output file works
+
+    // arrange
+    DefaultRemoteActionCache remoteCache = newTestCache();
+    Digest d1 = remoteCache.addContents("content1");
+    Digest d2 = remoteCache.addContents("content2");
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/foo.tmp").setDigest(d1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/foo").setDigest(d2))
+            .build();
+
+    Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "foo.tmp");
+    Artifact a2 = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+
+    // act
+
+    remoteCache.download(r, execRoot, new FileOutErr(), outputFilesLocker);
+
+    // assert
+
+    assertThat(FileSystemUtils.readContent(a1.getPath(), Charsets.UTF_8)).isEqualTo("content1");
+    assertThat(FileSystemUtils.readContent(a2.getPath(), Charsets.UTF_8)).isEqualTo("content2");
+    verify(outputFilesLocker).lock();
   }
 
   @Test
