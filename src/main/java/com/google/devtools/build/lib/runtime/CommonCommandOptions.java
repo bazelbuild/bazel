@@ -221,14 +221,13 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableProfileByDefault;
 
   @Option(
-    name = "experimental_generate_json_trace_profile",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    help =
-        "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in the "
-            + "output base."
-  )
+      name = "experimental_generate_json_trace_profile",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in"
+              + " the output base. View profile by loading into chrome://tracing.")
   public boolean enableTracer;
 
   @Option(
