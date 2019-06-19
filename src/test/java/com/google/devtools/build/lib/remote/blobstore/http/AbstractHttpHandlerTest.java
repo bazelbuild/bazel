@@ -22,6 +22,12 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpRequest;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,7 +40,7 @@ public abstract class AbstractHttpHandlerTest {
   @Test
   public void basicAuthShouldWork() throws Exception {
     URI uri = new URI("http://user:password@does.not.exist/foo");
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, Collections.emptyList()));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
     DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
@@ -48,7 +54,7 @@ public abstract class AbstractHttpHandlerTest {
   @Test
   public void basicAuthShouldNotEnabled() throws Exception {
     URI uri = new URI("http://does.not.exist/foo");
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, Collections.emptyList()));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
     DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
@@ -61,7 +67,7 @@ public abstract class AbstractHttpHandlerTest {
   @Test
   public void hostDoesntIncludePortHttp() throws Exception {
     URI uri = new URI("http://does.not.exist/foo");
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, Collections.emptyList()));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
     DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
@@ -74,7 +80,7 @@ public abstract class AbstractHttpHandlerTest {
   @Test
   public void hostDoesntIncludePortHttps() throws Exception {
     URI uri = new URI("https://does.not.exist/foo");
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, Collections.emptyList()));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
     DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
@@ -87,7 +93,7 @@ public abstract class AbstractHttpHandlerTest {
   @Test
   public void hostDoesIncludePort() throws Exception {
     URI uri = new URI("http://does.not.exist:8080/foo");
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, Collections.emptyList()));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
     DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
@@ -100,7 +106,7 @@ public abstract class AbstractHttpHandlerTest {
   @Test
   public void headersDoIncludeUserAgent() throws Exception {
     URI uri = new URI("http://does.not.exist:8080/foo");
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(/* credentials= */ null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(/* credentials= */ null, Collections.emptyList()));
     DownloadCommand cmd =
         new DownloadCommand(
             uri, /* casDownload= */ true, /* hash= */ "abcdef", new ByteArrayOutputStream());
@@ -110,4 +116,24 @@ public abstract class AbstractHttpHandlerTest {
     HttpRequest request = ch.readOutbound();
     assertThat(request.headers().get(HttpHeaderNames.USER_AGENT)).isEqualTo("bazel/");
   }
+
+  @Test
+  public void extraHeadersAreIncluded() throws Exception {
+    URI uri = new URI("http://does.not.exist:8080/foo");
+    Map<String, String> headers = new HashMap<String, String>() {{
+      put("foo", "bar");
+    }};
+    List<Entry<String,String>> remoteHeaders = new ArrayList<Entry<String,String>>(headers.entrySet());
+
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(/* credentials= */ null, remoteHeaders));
+    DownloadCommand cmd =
+        new DownloadCommand(
+            uri, /* casDownload= */ true, /* hash= */ "abcdef", new ByteArrayOutputStream());
+    ChannelPromise writePromise = ch.newPromise();
+    ch.writeOneOutbound(cmd, writePromise);
+
+    HttpRequest request = ch.readOutbound();
+    assertThat(request.headers().get("foo")).isEqualTo("bar");
+  }
+
 }

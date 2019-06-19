@@ -33,6 +33,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
+import java.util.Collections;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -49,7 +50,7 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
    */
   @Test
   public void uploadsShouldWork() throws Exception {
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null, Collections.emptyList()));
     HttpResponseStatus[] statuses = new HttpResponseStatus[] {HttpResponseStatus.OK,
         HttpResponseStatus.CREATED, HttpResponseStatus.ACCEPTED, HttpResponseStatus.NO_CONTENT};
 
@@ -86,7 +87,7 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
   /** Test that the handler correctly supports http error codes i.e. 404 (NOT FOUND). */
   @Test
   public void httpErrorsAreSupported() {
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null, Collections.emptyList()));
     ByteArrayInputStream data = new ByteArrayInputStream(new byte[] {1, 2, 3, 4, 5});
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(new UploadCommand(CACHE_URI, true, "abcdef", data, 5), writePromise);
@@ -115,7 +116,7 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
    */
   @Test
   public void httpErrorsWithContentAreSupported() {
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null, Collections.emptyList()));
     ByteArrayInputStream data = new ByteArrayInputStream(new byte[] {1, 2, 3, 4, 5});
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(new UploadCommand(CACHE_URI, true, "abcdef", data, 5), writePromise);

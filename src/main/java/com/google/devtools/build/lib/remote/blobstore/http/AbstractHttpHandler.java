@@ -30,6 +30,7 @@ import java.net.URI;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /** Common functionality shared by concrete classes. */
 abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelInboundHandler<T>
@@ -39,9 +40,11 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
       "bazel/" + BlazeVersionInfo.instance().getVersion();
 
   private final Credentials credentials;
+  private final List<Entry<String,String>> remoteHeaders;
 
-  public AbstractHttpHandler(Credentials credentials) {
+  public AbstractHttpHandler(Credentials credentials, List<Entry<String,String>> remoteHeaders) {
     this.credentials = credentials;
+    this.remoteHeaders = remoteHeaders;
   }
 
   protected ChannelPromise userPromise;
@@ -54,8 +57,8 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     userPromise = null;
   }
 
-  @SuppressWarnings("FutureReturnValueIgnored") 
-  protected void succeedAndResetUserPromise() {  
+  @SuppressWarnings("FutureReturnValueIgnored")
+  protected void succeedAndResetUserPromise() {
     userPromise.setSuccess();
     userPromise = null;
   }
@@ -79,6 +82,14 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
       for (String value : entry.getValue()) {
         request.headers().add(name, value);
       }
+    }
+  }
+
+  protected void addExtraRemoteHeaders(HttpRequest request) {
+    for (Map.Entry<String,String> entry: this.remoteHeaders) {
+      String name  = entry.getKey();
+      String value = entry.getValue();
+      request.headers().add(name, value);
     }
   }
 
