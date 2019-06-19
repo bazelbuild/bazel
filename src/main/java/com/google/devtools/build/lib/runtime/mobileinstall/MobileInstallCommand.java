@@ -337,7 +337,6 @@ public class MobileInstallCommand implements BlazeCommand {
             "Options required by the skylark implementation of mobile-install command",
             ImmutableList.of(
                 "--aspects=" + options.mobileInstallAspect + "%MIASPECT",
-                "--output_groups=android_incremental_deploy_info",
                 "--output_groups=mobile_install" + INTERNAL_SUFFIX,
                 "--output_groups=mobile_install_launcher" + INTERNAL_SUFFIX));
       }
