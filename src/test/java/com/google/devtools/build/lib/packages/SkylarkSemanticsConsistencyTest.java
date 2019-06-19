@@ -221,7 +221,11 @@ public class SkylarkSemanticsConsistencyTest {
   }
 
   private static StarlarkSemanticsOptions parseOptions(String... args) throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(false, StarlarkSemanticsOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(StarlarkSemanticsOptions.class)
+            .allowResidue(false)
+            .build();
     parser.parse(Arrays.asList(args));
     return parser.getOptions(StarlarkSemanticsOptions.class);
   }

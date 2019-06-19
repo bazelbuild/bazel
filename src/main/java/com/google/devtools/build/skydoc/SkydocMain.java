@@ -178,7 +178,9 @@ public class SkydocMain {
       throws IOException, InterruptedException, LabelSyntaxException, EvalException,
           DocstringParseException {
     OptionsParser parser =
-        OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class, SkydocOptions.class);
+        OptionsParser.builder()
+            .optionsClasses(StarlarkSemanticsOptions.class, SkydocOptions.class)
+            .build();
     parser.parseAndExitUponError(args);
     StarlarkSemanticsOptions semanticsOptions = parser.getOptions(StarlarkSemanticsOptions.class);
     semanticsOptions.incompatibleDepsetUnion = false;

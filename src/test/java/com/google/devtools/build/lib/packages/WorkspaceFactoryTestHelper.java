@@ -120,7 +120,8 @@ class WorkspaceFactoryTestHelper {
 
   private static StarlarkSemantics parseSkylarkSemanticsOptions(String... options)
       throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
     parser.parse(options);
     return parser.getOptions(StarlarkSemanticsOptions.class).toSkylarkSemantics();
   }

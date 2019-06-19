@@ -65,8 +65,11 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
   @Before
   public void setUp() throws Exception {
     optionsParser =
-        OptionsParser.newOptionsParser(
-            Iterables.concat(requiredOptionsClasses, ruleClassProvider.getConfigurationOptions()));
+        OptionsParser.builder()
+            .optionsClasses(
+                Iterables.concat(
+                    requiredOptionsClasses, ruleClassProvider.getConfigurationOptions()))
+            .build();
     starlarkOptionsParser =
         StarlarkOptionsParser.newStarlarkOptionsParserForTesting(
             skyframeExecutor, reporter, PathFragment.EMPTY_FRAGMENT, optionsParser);

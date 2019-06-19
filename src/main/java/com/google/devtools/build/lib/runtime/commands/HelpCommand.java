@@ -289,13 +289,14 @@ public final class HelpCommand implements BlazeCommand {
 
     Iterable<Class<? extends OptionsBase>> options =
         BlazeCommandUtils.getStartupOptions(blazeModules);
-    startupOptionVisitor.accept(OptionsParser.newOptionsParser(options));
+    startupOptionVisitor.accept(OptionsParser.builder().optionsClasses(options).build());
 
     for (Map.Entry<String, BlazeCommand> e : commandsByName.entrySet()) {
       BlazeCommand command = e.getValue();
       Command annotation = command.getClass().getAnnotation(Command.class);
       options = BlazeCommandUtils.getOptions(command.getClass(), blazeModules, ruleClassProvider);
-      commandOptionVisitor.visit(e.getKey(), annotation, OptionsParser.newOptionsParser(options));
+      commandOptionVisitor.visit(
+          e.getKey(), annotation, OptionsParser.builder().optionsClasses(options).build());
     }
   }
 
@@ -315,9 +316,8 @@ public final class HelpCommand implements BlazeCommand {
   }
 
   private void emitInfoKeysHelp(CommandEnvironment env, OutErr outErr) {
-    for (InfoItem item : InfoCommand.getInfoItemMap(env,
-        OptionsParser.newOptionsParser(
-            ImmutableList.<Class<? extends OptionsBase>>of())).values()) {
+    for (InfoItem item :
+        InfoCommand.getInfoItemMap(env, OptionsParser.builder().build()).values()) {
       outErr.printOut(String.format("%-23s %s\n", item.getName(), item.getDescription()));
     }
   }
@@ -480,7 +480,7 @@ public final class HelpCommand implements BlazeCommand {
 
     private void appendOptionsHtml(
         StringBuilder result, Iterable<Class<? extends OptionsBase>> optionsClasses) {
-      OptionsParser parser = OptionsParser.newOptionsParser(optionsClasses);
+      OptionsParser parser = OptionsParser.builder().optionsClasses(optionsClasses).build();
       String productName = runtime.getProductName();
         result.append(
             parser
