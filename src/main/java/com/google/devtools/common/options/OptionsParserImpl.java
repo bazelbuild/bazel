@@ -48,6 +48,7 @@ class OptionsParserImpl {
     private OptionsData optionsData;
     private ArgsPreProcessor argsPreProcessor = args -> args;
     @Nullable private String skippedPrefix;
+    private boolean ignoreInternalOptions = true;
 
     /** Set the {@link OptionsData} to be used in this instance. */
     public Builder optionsData(OptionsData optionsData) {
@@ -67,9 +68,16 @@ class OptionsParserImpl {
       return this;
     }
 
+    /** Sets whether the parser should ignore internal-only options. */
+    public Builder ignoreInternalOptions(boolean ignoreInternalOptions) {
+      this.ignoreInternalOptions = ignoreInternalOptions;
+      return this;
+    }
+
     /** Returns a newly-initialized {@link OptionsParserImpl}. */
     public OptionsParserImpl build() {
-      return new OptionsParserImpl(this.optionsData, this.argsPreProcessor, this.skippedPrefix);
+      return new OptionsParserImpl(
+          this.optionsData, this.argsPreProcessor, this.skippedPrefix, this.ignoreInternalOptions);
     }
   }
 
@@ -117,12 +125,17 @@ class OptionsParserImpl {
   private final List<String> warnings = new ArrayList<>();
   private final ArgsPreProcessor argsPreProcessor;
   @Nullable private final String skippedPrefix;
+  private final boolean ignoreInternalOptions;
 
   OptionsParserImpl(
-      OptionsData optionsData, ArgsPreProcessor argsPreProcessor, @Nullable String skippedPrefix) {
+      OptionsData optionsData,
+      ArgsPreProcessor argsPreProcessor,
+      @Nullable String skippedPrefix,
+      boolean ignoreInternalOptions) {
     this.optionsData = optionsData;
     this.argsPreProcessor = argsPreProcessor;
     this.skippedPrefix = skippedPrefix;
+    this.ignoreInternalOptions = ignoreInternalOptions;
   }
 
   /** Returns the {@link OptionsData} used in this instance. */
@@ -545,9 +558,7 @@ class OptionsParserImpl {
       throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
 
-    if (optionDefinition == null
-        || ImmutableList.copyOf(optionDefinition.getOptionMetadataTags())
-            .contains(OptionMetadataTag.INTERNAL)) {
+    if (optionDefinition == null || shouldIgnoreOption(optionDefinition)) {
       // Do not recognize internal options, which are treated as if they did not exist.
       throw new OptionsParsingException("Unrecognized option: " + arg, arg);
     }
@@ -573,6 +584,12 @@ class OptionsParserImpl {
         unconvertedValue,
         new OptionInstanceOrigin(
             priority, sourceFunction.apply(optionDefinition), implicitDependent, expandedFrom));
+  }
+
+  private boolean shouldIgnoreOption(OptionDefinition optionDefinition) {
+    return ignoreInternalOptions
+        && ImmutableList.copyOf(optionDefinition.getOptionMetadataTags())
+            .contains(OptionMetadataTag.INTERNAL);
   }
 
   /**

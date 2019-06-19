@@ -290,6 +290,12 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
+    /** Sets whether the parser should ignore internal-only options. */
+    public Builder ignoreInternalOptions(boolean ignoreInternalOptions) {
+      this.implBuilder.ignoreInternalOptions(ignoreInternalOptions);
+      return this;
+    }
+
     /** Returns a new {@link OptionsParser}. */
     public OptionsParser build() {
       return new OptionsParser(implBuilder.build(), allowResidue);
