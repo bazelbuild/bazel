@@ -131,8 +131,11 @@ class DexFileSplitter implements Closeable {
 
   public static void main(String[] args) throws Exception {
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(
-            false, new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()), Options.class);
+        OptionsParser.builder()
+            .optionsClasses(Options.class)
+            .allowResidue(false)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parseAndExitUponError(args);
 
     splitIntoShards(optionsParser.getOptions(Options.class));

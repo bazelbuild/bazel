@@ -192,11 +192,14 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   }
 
   protected BuildConfigurationCollection createCollection(String... args) throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(
-        ImmutableList.<Class<? extends OptionsBase>>builder()
-        .addAll(buildOptionClasses)
-        .add(TestOptions.class)
-        .build());
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(
+                ImmutableList.<Class<? extends OptionsBase>>builder()
+                    .addAll(buildOptionClasses)
+                    .add(TestOptions.class)
+                    .build())
+            .build();
     parser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     parser.parse(args);
 

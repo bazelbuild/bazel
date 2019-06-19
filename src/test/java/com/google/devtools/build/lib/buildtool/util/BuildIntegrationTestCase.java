@@ -341,7 +341,8 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    OptionsParser startupOptionsParser = OptionsParser.newOptionsParser(getStartupOptionClasses());
+    OptionsParser startupOptionsParser =
+        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
     startupOptionsParser.parse(getStartupOptions());
     BlazeModule connectivityModule = getConnectivityModule();
     checkState(

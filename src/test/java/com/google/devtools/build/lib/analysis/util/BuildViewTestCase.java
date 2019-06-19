@@ -356,10 +356,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final BuildConfigurationCollection createConfigurations(
       ImmutableMap<String, Object> skylarkOptions, String... args) throws Exception {
     optionsParser =
-        OptionsParser.newOptionsParser(
-            Iterables.concat(
-                Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
-                ruleClassProvider.getConfigurationOptions()));
+        OptionsParser.builder()
+            .optionsClasses(
+                Iterables.concat(
+                    Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
+                    ruleClassProvider.getConfigurationOptions()))
+            .build();
     List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
     allArgs.add("--stamp");  // Stamp is now defaulted to false.
@@ -455,7 +457,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   private static PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(PackageCacheOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(PackageCacheOptions.class).build();
     parser.parse("--default_visibility=public");
     parser.parse(options);
     return parser.getOptions(PackageCacheOptions.class);
@@ -463,7 +466,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private static StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
       throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
     parser.parse(options);
     return parser.getOptions(StarlarkSemanticsOptions.class);
   }

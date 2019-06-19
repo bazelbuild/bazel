@@ -157,7 +157,7 @@ public class BlazeRuntimeWrapper {
           options, module.getCommandOptions(DummyBuildCommand.class.getAnnotation(Command.class)));
     }
     options.addAll(runtime.getRuleClassProvider().getConfigurationOptions());
-    return OptionsParser.newOptionsParser(options);
+    return OptionsParser.builder().optionsClasses(options).build();
   }
 
   private void enforceTestInvocationPolicy(OptionsParser parser) {
