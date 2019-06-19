@@ -453,8 +453,7 @@ public class ExecutionTool {
 
     // Plant the symlink forest.
     try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
-      new SymlinkForest(
-              packageRootMap.get(), getExecRoot(), runtime.getProductName(), env.getWorkspaceName())
+      new SymlinkForest(packageRootMap.get(), getExecRoot(), runtime.getProductName())
           .plantSymlinkForest();
     } catch (IOException e) {
       throw new ExecutorInitException("Source forest creation failed", e);
