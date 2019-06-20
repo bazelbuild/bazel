@@ -140,7 +140,7 @@ public abstract class AndroidSkylarkData
           .process(
               ctx,
               AssetDependencies.fromProviders(deps, neverlink),
-              ctx.getAndroidConfig().getAndroidAaptVersion())
+              getAndroidAaptVersionForLibrary(ctx))
           .toProvider();
     } catch (RuleErrorException e) {
       throw new EvalException(Location.BUILTIN, e);
@@ -160,8 +160,6 @@ public abstract class AndroidSkylarkData
       throws EvalException, InterruptedException {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
-      AndroidAaptVersion aaptVersion =
-          ctx.getSdk().getAapt2() != null ? AndroidAaptVersion.AAPT2 : AndroidAaptVersion.AAPT;
       return AndroidResources.from(errorReporter, getFileProviders(resources), "resources")
           .process(
               ctx,
@@ -169,7 +167,7 @@ public abstract class AndroidSkylarkData
               ResourceDependencies.fromProviders(deps, neverlink),
               DataBinding.contextFrom(
                   enableDataBinding, ctx.getActionConstructionContext(), ctx.getAndroidConfig()),
-              aaptVersion);
+              getAndroidAaptVersionForLibrary(ctx));
     } catch (RuleErrorException e) {
       throw new EvalException(Location.BUILTIN, e);
     }
@@ -274,7 +272,7 @@ public abstract class AndroidSkylarkData
       SkylarkList<ConfiguredTarget> deps)
       throws InterruptedException {
 
-    AndroidAaptVersion aaptVersion = ctx.getAndroidConfig().getAndroidAaptVersion();
+    AndroidAaptVersion aaptVersion = getAndroidAaptVersionForLibrary(ctx);
 
     ValidatedAndroidResources validatedResources =
         AndroidResources.forAarImport(resources)
@@ -595,6 +593,23 @@ public abstract class AndroidSkylarkData
             resourceApk.getResourceJavaClassJar(), resourceApk.getResourceJavaSrcJar()));
 
     return SkylarkDict.copyOf(/* env = */ null, builder.build());
+  }
+
+  /**
+   * An algorithm to select the aapt version.
+   *
+   * <p>The calling rule doesn't have the aapt_version attribute (e.g. android_library), so fall
+   * back to a simpler algorithm instead of {@code AndroidAaptVersion.chooseTargetAaptVersion}.
+   * <li>1. If value of --android_aapt is either aapt or aapt2, use it.
+   * <li>2. Else, use aapt2 if the sdk contains it. If it doesn't, use aapt.
+   */
+  private static AndroidAaptVersion getAndroidAaptVersionForLibrary(AndroidDataContext ctx) {
+    AndroidAaptVersion aaptVersion = ctx.getAndroidConfig().getAndroidAaptVersion();
+    if (aaptVersion == AndroidAaptVersion.AUTO) {
+      aaptVersion =
+          ctx.getSdk().getAapt2() == null ? AndroidAaptVersion.AAPT : AndroidAaptVersion.AAPT2;
+    }
+    return aaptVersion;
   }
 
   private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar) {
