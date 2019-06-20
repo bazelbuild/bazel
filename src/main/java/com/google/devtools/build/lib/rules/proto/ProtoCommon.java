@@ -261,7 +261,7 @@ public class ProtoCommon {
     }
 
     if (stripImportPrefix == null) {
-      stripImportPrefix = PathFragment.EMPTY_FRAGMENT;
+      stripImportPrefix = PathFragment.create(ruleContext.getLabel().getWorkspaceRoot());
     } else if (stripImportPrefix.isAbsolute()) {
       stripImportPrefix =
           ruleContext
