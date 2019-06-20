@@ -825,6 +825,7 @@ public final class PyCommon {
   public void addCommonTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
 
+    // Add PyInfo and/or legacy "py" struct provider.
     boolean createLegacyPyProvider =
         !ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider();
     PyProviderUtils.builder(createLegacyPyProvider)
@@ -834,6 +835,11 @@ public final class PyCommon {
         .setHasPy2OnlySources(hasPy2OnlySources)
         .setHasPy3OnlySources(hasPy3OnlySources)
         .buildAndAddToTarget(builder);
+
+    // Add PyRuntimeInfo if this is an executable rule.
+    if (runtimeFromToolchain != null) {
+      builder.addNativeDeclaredProvider(runtimeFromToolchain);
+    }
 
     builder
         .addNativeDeclaredProvider(
