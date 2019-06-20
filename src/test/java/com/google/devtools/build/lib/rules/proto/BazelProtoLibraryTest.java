@@ -545,13 +545,55 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "main.proto",
         "syntax = 'proto3'';",
-        "import 'bazel.build/yolo/yolo_pkg/yolo.proto';");
+        "import 'yolo_pkg/yolo.proto';");
     scratch.file(
         "BUILD",
         "proto_library(",
         "  name = 'main_proto',",
         "  srcs = ['main.proto'],",
         "  deps = ['@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto'],",
+        ")");
+
+    ConfiguredTarget main = getConfiguredTarget("//:main_proto");
+    ProtoInfo protoInfo = main.get(ProtoInfo.PROVIDER);
+    ImmutableList<Pair<Artifact, String>> importPaths = protoInfo
+        .getStrictImportableProtoSourcesImportPaths().toList();
+    assertThat(importPaths).isNotEmpty();
+    assertThat(importPaths.get(0).second).isEqualTo("yolo_pkg/yolo.proto");
+  }
+
+  @Test
+  public void testProtoSourceRootWithRelativeStripImportPrefixInExternalRepo() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
+    invalidatePackages();
+
+    scratch.file("/yolo_repo/WORKSPACE");
+    scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
+    scratch.file(
+        "/yolo_repo/BUILD",
+        "proto_library(",
+        "  name = 'yolo_proto',",
+        "  srcs = ['yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto'],",
+        "  strip_import_prefix = 'yolo_pkg_to_be_stripped',",
+        "  visibility = ['//visibility:public'],",
+        ")");
+
+    scratch.file(
+        "main.proto",
+        "syntax = 'proto3'';",
+        "import 'yolo_pkg/yolo.proto';");
+    scratch.file(
+        "BUILD",
+        "proto_library(",
+        "  name = 'main_proto',",
+        "  srcs = ['main.proto'],",
+        "  deps = ['@yolo_repo//:yolo_proto'],",
         ")");
 
     ConfiguredTarget main = getConfiguredTarget("//:main_proto");
