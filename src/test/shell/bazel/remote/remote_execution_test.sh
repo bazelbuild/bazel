@@ -850,6 +850,7 @@ EOF
 
   bazel build \
     --spawn_strategy=remote \
+    --verbose_failures \
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
