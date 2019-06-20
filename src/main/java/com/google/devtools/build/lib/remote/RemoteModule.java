@@ -195,6 +195,19 @@ public final class RemoteModule extends BlazeModule {
       }
       RemoteRetrier executeRetrier = null;
       AbstractRemoteActionCache cache = null;
+
+      SimpleBlobStoreActionCache simpleBlobActionCache = new SimpleBlobStoreActionCache(
+          remoteOptions,
+          SimpleBlobStoreFactory.create(
+              remoteOptions,
+              GoogleAuthUtils.newCredentials(authAndTlsOptions),
+              Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory")),
+          digestUtil);
+
+      if (enableBlobStoreCache) {
+        cache = simpleBlobActionCache;
+      }
+
       if (enableGrpcCache || !Strings.isNullOrEmpty(remoteOptions.remoteExecutor)) {
         rpcRetrier =
               new RemoteRetrier(
@@ -246,7 +259,7 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions.remoteTimeout,
                 rpcRetrier);
         cacheChannel.release();
-        cache =
+        GrpcRemoteCache grpcCache =
             new GrpcRemoteCache(
                 cacheChannel.retain(),
                 credentials,
@@ -254,6 +267,13 @@ public final class RemoteModule extends BlazeModule {
                 rpcRetrier,
                 digestUtil,
                 uploader.retain());
+
+        if (enableBlobStoreCache) {
+          cache = new CombinedGrpcAndSimpleBlobStoreCache(grpcCache, simpleBlobActionCache);
+        } else {
+          cache = grpcCache;
+        }
+
         uploader.release();
         if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
           Context requestContext =
@@ -273,18 +293,6 @@ public final class RemoteModule extends BlazeModule {
                       "BES artifact upload is disabled when using "
                           + "--experimental_remote_download_outputs=minimal"));
         }
-      }
-
-      if (enableBlobStoreCache) {
-        executeRetrier = null;
-        cache =
-            new SimpleBlobStoreActionCache(
-                remoteOptions,
-                SimpleBlobStoreFactory.create(
-                    remoteOptions,
-                    GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                    Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory")),
-                digestUtil);
       }
 
       GrpcRemoteExecutor executor = null;
