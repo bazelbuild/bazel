@@ -14,7 +14,9 @@ public interface InterfaceMethodWithParam {
   @Documented
   @Retention(RetentionPolicy.RUNTIME)
   @Target({ElementType.PARAMETER, ElementType.METHOD})
-  @interface Foo {}
+  @interface Foo {
+    String value() default "default-attr";
+  }
 
   /** For testing the annotations on the parameters of interface static and default methods */
   @Documented
@@ -35,7 +37,7 @@ public interface InterfaceMethodWithParam {
    *     the name is available at run-time. The name is from $ echo "desugar-static" | sha1sum
    * @return The reflection representation of the method itself.
    */
-  @Foo
+  @Foo("custom-attr-value-1")
   @TyFoo
   static Method inspectCompanionMethodOfStaticMethod(
       @Foo @TyFoo String v4897b02fddeda3bb31bc15b3cad0f6febc61508) throws Exception {
@@ -48,7 +50,7 @@ public interface InterfaceMethodWithParam {
    *     the name is available at run-time. The name is from $ echo "desugar-default" | sha1sum
    * @return The reflection representation of the method itself.
    */
-  @Foo
+  @Foo("custom-attr-value-2")
   @TyFoo
   default Method inspectCompanionMethodOfDefaultMethod(
       @Foo @TyFoo String v12525d61e4b10b3e27bc280dd61e56728e3e8c27) throws Exception {

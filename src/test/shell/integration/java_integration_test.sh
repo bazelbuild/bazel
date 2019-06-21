@@ -285,7 +285,7 @@ EOF
   cat >> "$pkg/jvm/BUILD" <<EOF
 constraint_value(
     name = 'constraint',
-    constraint_setting = '//buildenv/platforms/java/constraints:runtime',
+    constraint_setting = '//third_party/bazel_rules/rules_java/java/constraints:runtime',
 )
 toolchain(
     name = 'java_runtime_toolchain',
@@ -298,7 +298,7 @@ platform(
     parents = ['//buildenv/platforms:host_platform'],
     constraint_values = [
         ':constraint',
-        '//buildenv/platforms/java/constraints:java8',
+        '//third_party/bazel_rules/rules_java/java/constraints:java8',
     ],
 )
 EOF

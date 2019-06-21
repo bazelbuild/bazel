@@ -77,7 +77,8 @@ public class OptionsUtilsTest {
 
   @Test
   public void asStringOfExplicitOptions() throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(IntrospectionExample.class).build();
     parser.parse("--alpha=no", "--gamma=no", "--echo=no");
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--alpha=no --gamma=no");
     assertThat(OptionsUtils.asArgumentList(parser))
@@ -87,7 +88,8 @@ public class OptionsUtilsTest {
 
   @Test
   public void asStringOfExplicitOptionsCorrectSortingByPriority() throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(IntrospectionExample.class).build();
     parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--alpha=no"));
     parser.parse(PriorityCategory.COMPUTED_DEFAULT, null, Arrays.asList("--beta=no"));
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--beta=no --alpha=no");
@@ -114,14 +116,14 @@ public class OptionsUtilsTest {
 
   @Test
   public void asStringOfExplicitOptionsWithBooleans() throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(BooleanOpts.class);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(BooleanOpts.class).build();
     parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--b_one", "--nob_two"));
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--b_one --nob_two");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--b_one", "--nob_two")
         .inOrder();
 
-    parser = OptionsParser.newOptionsParser(BooleanOpts.class);
+    parser = OptionsParser.builder().optionsClasses(BooleanOpts.class).build();
     parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--b_one=true", "--b_two=0"));
     assertThat(parser.getOptions(BooleanOpts.class).bOne).isTrue();
     assertThat(parser.getOptions(BooleanOpts.class).bTwo).isFalse();
@@ -133,7 +135,8 @@ public class OptionsUtilsTest {
 
   @Test
   public void asStringOfExplicitOptionsMultipleOptionsAreMultipleTimes() throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(IntrospectionExample.class).build();
     parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--alpha=one"));
     parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--alpha=two"));
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--alpha=one --alpha=two");

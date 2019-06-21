@@ -197,6 +197,17 @@ public class QueryOptions extends CommonQueryOptions {
       help = "If true, uses a ForkJoinPool instead of a PriorityBlockingQueue for Skyframe.")
   public boolean useForkJoinPool;
 
+  @Option(
+      name = "experimental_graphless_query",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If true, uses a Query implementation that does not make a copy of the graph. The new"
+              + " implementation only supports --order_output=no, as well as only a subset of"
+              + " output formatters.")
+  public boolean useGraphlessQuery;
+
   /** Ugly workaround since line terminator option default has to be constant expression. */
   public String getLineTerminator() {
     if (lineTerminatorNull) {

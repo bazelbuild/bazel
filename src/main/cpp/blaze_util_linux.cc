@@ -205,7 +205,7 @@ static bool GetStartTime(const string& pid, string* start_time) {
 }
 
 int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
-                           const StartupOptions* options) {
+                           const StartupOptions &options) {
   // No interesting platform-specific details to configure on this platform.
   return 0;
 }

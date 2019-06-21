@@ -144,7 +144,9 @@ public class PackageCacheTest extends FoundationTestCase {
 
   private OptionsParser parse(String... options) throws Exception {
     OptionsParser parser =
-        OptionsParser.newOptionsParser(PackageCacheOptions.class, StarlarkSemanticsOptions.class);
+        OptionsParser.builder()
+            .optionsClasses(PackageCacheOptions.class, StarlarkSemanticsOptions.class)
+            .build();
     parser.parse("--default_visibility=public");
     parser.parse(options);
 

@@ -178,16 +178,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
-    mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
-    mockToolsConfig.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
-    mockToolsConfig.create(
-        "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
-        "def http_archive(**kwargs):",
-        "  pass",
-        "",
-        "def http_file(**kwargs):",
-        "  pass");
-
+    analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
@@ -273,18 +264,20 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    */
   public final void useConfiguration(String... args) throws Exception {
     optionsParser =
-        OptionsParser.newOptionsParser(
-            Iterables.concat(
-                Arrays.asList(
-                    ExecutionOptions.class,
-                    PackageCacheOptions.class,
-                    StarlarkSemanticsOptions.class,
-                    BuildRequestOptions.class,
-                    AnalysisOptions.class,
-                    KeepGoingOption.class,
-                    LoadingPhaseThreadsOption.class,
-                    LoadingOptions.class),
-                ruleClassProvider.getConfigurationOptions()));
+        OptionsParser.builder()
+            .optionsClasses(
+                Iterables.concat(
+                    Arrays.asList(
+                        ExecutionOptions.class,
+                        PackageCacheOptions.class,
+                        StarlarkSemanticsOptions.class,
+                        BuildRequestOptions.class,
+                        AnalysisOptions.class,
+                        KeepGoingOption.class,
+                        LoadingPhaseThreadsOption.class,
+                        LoadingOptions.class),
+                    ruleClassProvider.getConfigurationOptions()))
+            .build();
     if (defaultFlags().contains(Flag.PUBLIC_VISIBILITY)) {
       optionsParser.parse("--default_visibility=public");
     }

@@ -33,9 +33,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -56,9 +53,9 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -253,7 +250,7 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact grepIncludes) {
     super(
         owner,
-        createInputsBuilder(mandatoryInputs, inputsForInvalidation).build(),
+        IterablesChain.concat(mandatoryInputs, inputsForInvalidation),
         CollectionUtils.asSetWithoutNulls(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile),
         env);
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
@@ -412,7 +409,7 @@ public class CppCompileAction extends AbstractAction
               .addTransitive(additionalPrunableHeaders)
               .build();
         }
-        return future.get();
+        return CollectionUtils.makeImmutable(future.get());
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
@@ -490,7 +487,7 @@ public class CppCompileAction extends AbstractAction
       return headers;
     }
 
-    return Iterables.filter(headers, header -> !missing.contains(header));
+    return ImmutableList.copyOf(Iterables.filter(headers, header -> !missing.contains(header)));
   }
 
   @Nullable
@@ -582,7 +579,7 @@ public class CppCompileAction extends AbstractAction
     discoveredModulesBuilder.addTransitive(topLevelModules);
     NestedSet<Artifact> discoveredModules = discoveredModulesBuilder.build();
 
-    additionalInputs = Iterables.concat(additionalInputs, discoveredModules);
+    additionalInputs = IterablesChain.concat(additionalInputs, discoveredModules);
     if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
       this.discoveredModules = discoveredModules;
     }
@@ -1016,14 +1013,13 @@ public class CppCompileAction extends AbstractAction
    */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   @ThreadCompatible
-  final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
+  final void updateActionInputs(Iterable<Artifact> discoveredInputs) {
     Preconditions.checkState(
         discoversInputs(), "Can't call if not discovering inputs: %s %s", discoveredInputs, this);
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, describe())) {
+      Iterable<Artifact> fixed = IterablesChain.concat(mandatoryInputs, inputsForInvalidation);
       super.updateInputs(
-          createInputsBuilder(mandatoryInputs, inputsForInvalidation)
-              .addTransitive(discoveredInputs)
-              .build());
+          discoveredInputs == null ? fixed : IterablesChain.concat(fixed, discoveredInputs));
     }
   }
 
@@ -1237,7 +1233,7 @@ public class CppCompileAction extends AbstractAction
     }
 
     if (!shouldScanDotdFiles()) {
-      updateActionInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs));
+      updateActionInputs(additionalInputs);
     }
 
     ActionExecutionContext spawnContext;
@@ -1407,7 +1403,8 @@ public class CppCompileAction extends AbstractAction
       return depSet.read(actionExecutionContext.getInputPath(getDotdFile()));
     } catch (IOException e) {
       // Some kind of IO or parse exception--wrap & rethrow it to stop the build.
-      throw new ActionExecutionException("error while parsing .d file", e, this, false);
+      throw new ActionExecutionException(
+          "error while parsing .d file: " + e.getMessage(), e, this, false);
     }
   }
 
@@ -1570,67 +1567,24 @@ public class CppCompileAction extends AbstractAction
   private static Map<Artifact, NestedSet<? extends Artifact>> computeTransitivelyUsedModules(
       SkyFunction.Environment env, Collection<Artifact.DerivedArtifact> usedModules)
       throws InterruptedException {
-    // ActionLookupKey → ActionLookupValue
-    Map<SkyKey, SkyValue> actionLookupValues =
+    Map<SkyKey, SkyValue> actionExecutionValues =
         env.getValues(
-            Iterables.transform(
-                usedModules, module -> (ActionLookupKey) module.getArtifactOwner()));
-    if (env.valuesMissing()) {
-      ImmutableList<SkyKey> missingKeys =
-          actionLookupValues.entrySet().stream()
-              .filter(e -> e.getValue() == null)
-              .map(Map.Entry::getKey)
-              .collect(ImmutableList.toImmutableList());
-      BugReport.sendBugReport(
-          new IllegalStateException("Missing keys: " + missingKeys + ". Modules " + usedModules));
-      return null;
-    }
-    ArrayList<ActionLookupData> executionValueLookups = new ArrayList<>(usedModules.size());
-    for (Artifact module : usedModules) {
-      ActionLookupData lookupData = lookupDataFromModule(actionLookupValues, module);
-      executionValueLookups.add(Preconditions.checkNotNull(lookupData, module));
-    }
-
-    // ActionLookupData → ActionExecutionValue
-    Map<SkyKey, SkyValue> actionExecutionValues = env.getValues(executionValueLookups);
+            Iterables.transform(usedModules, Artifact.DerivedArtifact::getGeneratingActionKey));
     if (env.valuesMissing()) {
       return null;
     }
     ImmutableMap.Builder<Artifact, NestedSet<? extends Artifact>> transitivelyUsedModules =
         ImmutableMap.builderWithExpectedSize(usedModules.size());
-    int pos = 0;
-    for (Artifact module : usedModules) {
-      ActionLookupData lookup = executionValueLookups.get(pos++);
-      ActionExecutionValue value = (ActionExecutionValue) actionExecutionValues.get(lookup);
+    for (Artifact.DerivedArtifact module : usedModules) {
+      Preconditions.checkState(
+          module.isFileType(CppFileTypes.CPP_MODULE), "Non-module? %s", module);
+      ActionExecutionValue value =
+          Preconditions.checkNotNull(
+              (ActionExecutionValue) actionExecutionValues.get(module.getGeneratingActionKey()),
+              module);
       transitivelyUsedModules.put(module, value.getDiscoveredModules());
     }
     return transitivelyUsedModules.build();
-  }
-
-  @Nullable
-  private static ActionLookupData lookupDataFromModule(
-      Map<SkyKey, SkyValue> actionLookupValues, Artifact module) {
-    ActionLookupKey lookupKey = (ActionLookupKey) module.getArtifactOwner();
-    ActionLookupValue lookupValue = (ActionLookupValue) actionLookupValues.get(lookupKey);
-    if (lookupValue == null) {
-      return null;
-    }
-    Preconditions.checkState(
-        module.isFileType(CppFileTypes.CPP_MODULE), "Non-module? %s (%s)", module, lookupValue);
-    return ActionLookupData.create(
-        lookupKey,
-        Preconditions.checkNotNull(
-            lookupValue.getGeneratingActionIndex(module),
-            "%s missing action index for module %s",
-            lookupValue,
-            module));
-  }
-
-  private static NestedSetBuilder<Artifact> createInputsBuilder(
-      NestedSet<Artifact> mandatoryInputs, Iterable<Artifact> inputsForInvalidation) {
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(mandatoryInputs)
-        .addAll(inputsForInvalidation);
   }
 
   private ActionExecutionException printIOExceptionAndConvertToActionExecutionException(

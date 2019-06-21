@@ -39,19 +39,26 @@ import java.util.concurrent.TimeUnit;
  * <p>The visitor uses an AbstractQueueVisitor backed by a ThreadPoolExecutor with a thread pool NOT
  * part of the global query evaluation pool to avoid starvation.
  *
- * @param <T> the type of objects to visit
- * @param <V> the type of visitation results to process
+ * <p>The visitation starts with {@link SkyKey}s via {@link #visitAndWaitForCompletion} which is
+ * then converted to {@link VisitationKeyT} through {@link #preprocessInitialVisit}.
+ *
+ * @param <VisitationKeyT> the type of objects to visit
+ * @param <OutputKeyT> the type of the key used to reference a result value
+ * @param <OutputResultT> the type of visitation results to process
  */
 @ThreadSafe
-public abstract class ParallelVisitor<T, V> {
-  private final Callback<V> callback;
+public abstract class ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT> {
+  protected final Callback<OutputResultT> callback;
   private final int visitBatchSize;
   private final int processResultsBatchSize;
 
   private final VisitingTaskExecutor executor;
 
-  /** A queue to store pending visits. These should be unique wrt {@link #getUniqueValues}. */
-  private final LinkedBlockingQueue<T> processingQueue = new LinkedBlockingQueue<>();
+  /**
+   * A queue to store pending visits. These should be unique wrt {@link
+   * #noteAndReturnUniqueVisitationKeys}.
+   */
+  private final LinkedBlockingQueue<VisitationKeyT> visitQueue = new LinkedBlockingQueue<>();
 
   /**
    * The max time interval between two scheduling passes in milliseconds. A scheduling pass is
@@ -116,9 +123,7 @@ public abstract class ParallelVisitor<T, V> {
           new ThreadFactoryBuilder().setNameFormat("parallel-visitor %d").build());
 
   protected ParallelVisitor(
-      Callback<V> callback,
-      int visitBatchSize,
-      int processResultsBatchSize) {
+      Callback<OutputResultT> callback, int visitBatchSize, int processResultsBatchSize) {
     this.callback = callback;
     this.visitBatchSize = visitBatchSize;
     this.processResultsBatchSize = processResultsBatchSize;
@@ -127,24 +132,28 @@ public abstract class ParallelVisitor<T, V> {
   }
 
   /** Factory for {@link ParallelVisitor} instances. */
-  public interface Factory {
-    ParallelVisitor<?, ?> create();
+  public interface Factory<VisitationKeyT, OutputKeyT, OutputResultT> {
+    ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT> create();
   }
+
+  protected abstract Iterable<OutputResultT> outputKeysToOutputValues(
+      Iterable<OutputKeyT> targetKeys) throws QueryException, InterruptedException;
 
   /**
    * Returns a {@link Callback} which kicks off a parallel visitation when {@link Callback#process}
    * is invoked.
    */
-  public static Callback<Target> createParallelVisitorCallback(Factory visitorFactory) {
+  public static Callback<Target> createParallelVisitorCallback(
+      Factory<?, ?, Target> visitorFactory) {
     return new ParallelVisitorCallback(visitorFactory);
   }
 
   /** An object to hold keys to visit and keys ready for processing. */
   protected final class Visit {
-    private final Iterable<SkyKey> keysToUseForResult;
-    private final Iterable<T> keysToVisit;
+    private final Iterable<OutputKeyT> keysToUseForResult;
+    private final Iterable<VisitationKeyT> keysToVisit;
 
-    public Visit(Iterable<SkyKey> keysToUseForResult, Iterable<T> keysToVisit) {
+    public Visit(Iterable<OutputKeyT> keysToUseForResult, Iterable<VisitationKeyT> keysToVisit) {
       this.keysToUseForResult = keysToUseForResult;
       this.keysToVisit = keysToVisit;
     }
@@ -152,36 +161,33 @@ public abstract class ParallelVisitor<T, V> {
 
   public void visitAndWaitForCompletion(Iterable<SkyKey> keys)
       throws QueryException, InterruptedException {
-    getUniqueValues(preprocessInitialVisit(keys)).forEach(processingQueue::add);
+    noteAndReturnUniqueVisitationKeys(preprocessInitialVisit(keys)).forEach(visitQueue::add);
     executor.visitAndWaitForCompletion();
   }
 
-  /**
-   * Forwards the given {@code keysToUseForResult}'s contribution to the set of results in the full
-   * visitation to the given {@link Callback}.
-   */
-  protected abstract void processPartialResults(
-      Iterable<SkyKey> keysToUseForResult, Callback<V> callback)
-      throws QueryException, InterruptedException;
-
   /** Gets the {@link Visit} representing the local visitation of the given {@code values}. */
-  protected abstract Visit getVisitResult(Iterable<T> values)
+  protected abstract Visit getVisitResult(Iterable<VisitationKeyT> values)
       throws QueryException, InterruptedException;
 
-  /** Gets the equivalent of {@link Visit#keysToVisit} for the entry-level SkyKeys. */
-  protected abstract Iterable<T> preprocessInitialVisit(Iterable<SkyKey> keys);
+  /**
+   * Transforms the initial input {@link SkyKey}s to {@link VisitationKeyT} to start the visitation.
+   */
+  protected abstract Iterable<VisitationKeyT> preprocessInitialVisit(Iterable<SkyKey> skyKeys);
 
   /**
    * Returns the values that have never been visited before in {@link #getVisitResult}.
    *
-   * <p>Used to dedupe visitations before adding them to {@link #processingQueue}.
+   * <p>Used to dedupe visitations before adding them to {@link #visitQueue}.
    */
-  protected abstract ImmutableList<T> getUniqueValues(Iterable<T> values) throws QueryException;
+  protected abstract Iterable<VisitationKeyT> noteAndReturnUniqueVisitationKeys(
+      Iterable<VisitationKeyT> prospectiveVisitationKeys) throws QueryException;
 
   /** Gets tasks to visit pending keys. */
-  protected Iterable<Task> getVisitTasks(Collection<T> pendingKeysToVisit) {
+  protected Iterable<Task> getVisitTasks(Collection<VisitationKeyT> pendingKeysToVisit)
+      throws InterruptedException, QueryException {
     ImmutableList.Builder<Task> builder = ImmutableList.builder();
-    for (Iterable<T> keysToVisitBatch : Iterables.partition(pendingKeysToVisit, visitBatchSize)) {
+    for (Iterable<VisitationKeyT> keysToVisitBatch :
+        Iterables.partition(pendingKeysToVisit, visitBatchSize)) {
       builder.add(new VisitTask(keysToVisitBatch));
     }
 
@@ -206,34 +212,33 @@ public abstract class ParallelVisitor<T, V> {
   }
 
   class VisitTask extends Task {
-    private final Iterable<T> keysToVisit;
+    private final Iterable<VisitationKeyT> keysToVisit;
 
-    VisitTask(Iterable<T> keysToVisit) {
+    VisitTask(Iterable<VisitationKeyT> keysToVisit) {
       this.keysToVisit = keysToVisit;
     }
 
     @Override
     void process() throws QueryException, InterruptedException {
       Visit visit = getVisitResult(keysToVisit);
-      for (Iterable<SkyKey> keysToUseForResultBatch :
+      for (Iterable<OutputKeyT> keysToUseForResultBatch :
           Iterables.partition(visit.keysToUseForResult, processResultsBatchSize)) {
-        executor.execute(new GetAndProcessResultsTask(keysToUseForResultBatch));
+        executor.execute(new GetAndProcessUniqueResultsTask(keysToUseForResultBatch));
       }
-
-      getUniqueValues(visit.keysToVisit).forEach(processingQueue::add);
+      noteAndReturnUniqueVisitationKeys(visit.keysToVisit).forEach(visitQueue::add);
     }
   }
 
-  private class GetAndProcessResultsTask extends Task {
-    private final Iterable<SkyKey> keysToUseForResult;
+  private class GetAndProcessUniqueResultsTask extends Task {
+    private final Iterable<OutputKeyT> uniqueKeysToUseForResult;
 
-    private GetAndProcessResultsTask(Iterable<SkyKey> keysToUseForResult) {
-      this.keysToUseForResult = keysToUseForResult;
+    private GetAndProcessUniqueResultsTask(Iterable<OutputKeyT> uniqueKeysToUseForResult) {
+      this.uniqueKeysToUseForResult = uniqueKeysToUseForResult;
     }
 
     @Override
     protected void process() throws QueryException, InterruptedException {
-      processPartialResults(keysToUseForResult, callback);
+      callback.process(outputKeysToOutputValues(uniqueKeysToUseForResult));
     }
   }
 
@@ -264,10 +269,10 @@ public abstract class ParallelVisitor<T, V> {
         // 1. The number of pending tasks is low. We schedule new tasks to avoid wasting CPU.
         // 2. The process queue size is large.
         if (getTaskCount() < MIN_PENDING_TASKS
-            || processingQueue.size() >= SkyQueryEnvironment.BATCH_CALLBACK_SIZE) {
+            || visitQueue.size() >= SkyQueryEnvironment.BATCH_CALLBACK_SIZE) {
 
-          Collection<T> pendingKeysToVisit = new ArrayList<>(processingQueue.size());
-          processingQueue.drainTo(pendingKeysToVisit);
+          Collection<VisitationKeyT> pendingKeysToVisit = new ArrayList<>(visitQueue.size());
+          visitQueue.drainTo(pendingKeysToVisit);
           for (Task task : getVisitTasks(pendingKeysToVisit)) {
             execute(task);
           }
@@ -298,7 +303,7 @@ public abstract class ParallelVisitor<T, V> {
       // (1) Check processing queue and observe that it is empty
       // (2) A remaining task adds to the processing queue and shuts down
       // (3) We check the task count and observe it is empty
-      return getTaskCount() > 0 || !processingQueue.isEmpty();
+      return getTaskCount() > 0 || !visitQueue.isEmpty();
     }
 
     private void awaitTerminationAndPropagateErrorsIfAny()
@@ -318,16 +323,16 @@ public abstract class ParallelVisitor<T, V> {
    * {@link ParallelVisitor} instance.
    */
   private static class ParallelVisitorCallback implements Callback<Target> {
-    private final ParallelVisitor.Factory visitorFactory;
+    private final ParallelVisitor.Factory<?, ?, Target> visitorFactory;
 
-    private ParallelVisitorCallback(ParallelVisitor.Factory visitorFactory) {
+    private ParallelVisitorCallback(ParallelVisitor.Factory<?, ?, Target> visitorFactory) {
       this.visitorFactory = visitorFactory;
     }
 
     @Override
     public void process(Iterable<Target> partialResult)
         throws QueryException, InterruptedException {
-      ParallelVisitor<?, ?> visitor = visitorFactory.create();
+      ParallelVisitor<?, ?, Target> visitor = visitorFactory.create();
       // TODO(b/131109214): It's not ideal to have an operation like this in #process that blocks on
       // another, potentially expensive computation. Refactor to something like "processAsync".
       visitor.visitAndWaitForCompletion(

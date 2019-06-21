@@ -94,6 +94,7 @@ public final class LtoBackendAction extends SpawnAction {
         runfilesSupplier,
         mnemonic,
         false,
+        null,
         null);
     mandatoryInputs = inputs;
     Preconditions.checkState(
@@ -144,7 +145,10 @@ public final class LtoBackendAction extends SpawnAction {
       }
     } catch (IOException e) {
       throw new ActionExecutionException(
-          "error iterating imports file " + actionExecutionContext.getInputPath(imports),
+          "error iterating imports file "
+              + actionExecutionContext.getInputPath(imports)
+              + ": "
+              + e.getMessage(),
           e,
           this,
           false);

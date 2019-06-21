@@ -70,7 +70,7 @@ public class LabelBuildSettings {
         .add(attr(":alias", LABEL).value(ACTUAL))
         .setBuildSetting(new BuildSetting(flag, LABEL))
         .canHaveAnyProvider()
-        .supportsPlatforms(false)
+        .useToolchainResolution(false)
         .build();
   }
 

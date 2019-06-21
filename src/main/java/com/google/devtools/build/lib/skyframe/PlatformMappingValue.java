@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -50,6 +52,7 @@ import javax.annotation.Nullable;
  * the design</a> for more details on how the mapping can be defined and the desired logic on how it
  * is applied to configuration keys.
  */
+@AutoCodec
 public final class PlatformMappingValue implements SkyValue {
 
   public static final PlatformMappingValue EMPTY =
@@ -136,7 +139,8 @@ public final class PlatformMappingValue implements SkyValue {
 
   private final Map<Label, Collection<String>> platformsToFlags;
   private final Map<Collection<String>, Label> flagsToPlatforms;
-  private final transient Cache<Collection<String>, OptionsParsingResult> parserCache;
+  private final Cache<Collection<String>, OptionsParsingResult> parserCache;
+  private final Cache<BuildConfigurationValue.Key, BuildConfigurationValue.Key> mappingCache;
 
   /**
    * Creates a new mapping value which will match on the given platforms (if a target platform is
@@ -156,6 +160,7 @@ public final class PlatformMappingValue implements SkyValue {
         CacheBuilder.newBuilder()
             .initialCapacity(platformsToFlags.size() + flagsToPlatforms.size())
             .build();
+    this.mappingCache = CacheBuilder.newBuilder().weakKeys().build();
   }
 
   /**
@@ -180,6 +185,17 @@ public final class PlatformMappingValue implements SkyValue {
    *     fragment
    */
   public BuildConfigurationValue.Key map(
+      BuildConfigurationValue.Key original, BuildOptions defaultBuildOptions)
+      throws OptionsParsingException {
+    try {
+      return mappingCache.get(original, () -> computeMapping(original, defaultBuildOptions));
+    } catch (ExecutionException | UncheckedExecutionException e) {
+      Throwables.propagateIfPossible(e.getCause(), OptionsParsingException.class);
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private BuildConfigurationValue.Key computeMapping(
       BuildConfigurationValue.Key original, BuildOptions defaultBuildOptions)
       throws OptionsParsingException {
     BuildOptions.OptionsDiffForReconstruction originalDiff = original.getOptionsDiff();
@@ -245,7 +261,12 @@ public final class PlatformMappingValue implements SkyValue {
 
   private OptionsParsingResult parse(Iterable<String> args, BuildOptions defaultBuildOptions)
       throws OptionsParsingException {
-    OptionsParser parser = OptionsParser.newOptionsParser(defaultBuildOptions.getFragmentClasses());
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(defaultBuildOptions.getFragmentClasses())
+            // We need the ability to re-map internal options in the mappings file.
+            .ignoreInternalOptions(false)
+            .build();
     parser.parse(ImmutableList.copyOf(args));
     // TODO(schmitt): Parse starlark options as well.
     return parser;

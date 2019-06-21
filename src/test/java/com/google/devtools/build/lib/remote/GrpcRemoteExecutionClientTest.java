@@ -50,28 +50,21 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnExecException;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
-import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -101,11 +94,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
-import java.io.IOException;
-import java.time.Duration;
-import java.util.Collection;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -126,14 +115,6 @@ import org.mockito.stubbing.Answer;
 public class GrpcRemoteExecutionClientTest {
 
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
-
-  private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER =
-      new ArtifactExpander() {
-        @Override
-        public void expand(Artifact artifact, Collection<? super Artifact> output) {
-          output.add(artifact);
-        }
-      };
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private FileSystem fs;
@@ -158,70 +139,6 @@ public class GrpcRemoteExecutionClientTest {
                   .setSizeBytes(0)
                   .build())
           .build();
-
-  private final SpawnExecutionContext simplePolicy =
-      new SpawnExecutionContext() {
-        @Override
-        public int getId() {
-          return 0;
-        }
-
-        @Override
-        public void prefetchInputs() {
-        }
-
-        @Override
-        public void lockOutputFiles() throws InterruptedException {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean speculating() {
-          return false;
-        }
-
-        @Override
-        public MetadataProvider getMetadataProvider() {
-          return fakeFileCache;
-        }
-
-        @Override
-        public ArtifactExpander getArtifactExpander() {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Duration getTimeout() {
-          return Duration.ZERO;
-        }
-
-        @Override
-        public FileOutErr getFileOutErr() {
-          return outErr;
-        }
-
-        @Override
-        public SortedMap<PathFragment, ActionInput> getInputMapping(
-            boolean expandTreeArtifactsInRunfiles) throws IOException {
-          return new SpawnInputExpander(execRoot, /*strict*/ false)
-              .getInputMapping(
-                  simpleSpawn,
-                  SIMPLE_ARTIFACT_EXPANDER,
-                  ArtifactPathResolver.IDENTITY,
-                  fakeFileCache,
-                  true);
-        }
-
-        @Override
-        public void report(ProgressStatus state, String name) {
-          // TODO(ulfjack): Test that the right calls are made.
-        }
-
-        @Override
-        public MetadataInjector getMetadataInjector() {
-          throw new UnsupportedOperationException();
-        }
-      };
 
   @BeforeClass
   public static void beforeEverything() {
@@ -354,7 +271,10 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+
+    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.isCacheHit()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
@@ -397,7 +317,9 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.exitCode()).isEqualTo(1);
   }
 
@@ -436,7 +358,10 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+
+    client.exec(simpleSpawn, policy);
   }
 
   @Test
@@ -460,12 +385,15 @@ public class GrpcRemoteExecutionClientTest {
     serviceRegistry.addService(
         new FakeImmutableCacheByteStreamImpl(stdOutDigest, "stdout", stdErrDigest, "stderr"));
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
+
   }
 
   @Test
@@ -485,7 +413,9 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();
@@ -622,7 +552,9 @@ public class GrpcRemoteExecutionClientTest {
     serviceRegistry.addService(
         ServerInterceptors.intercept(mockByteStreamImpl, new RequestHeadersValidator()));
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -777,7 +709,9 @@ public class GrpcRemoteExecutionClientTest {
             ArgumentMatchers.<StreamObserver<ReadResponse>>any());
     serviceRegistry.addService(mockByteStreamImpl);
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -885,7 +819,9 @@ public class GrpcRemoteExecutionClientTest {
             ArgumentMatchers.<StreamObserver<ReadResponse>>any());
     serviceRegistry.addService(mockByteStreamImpl);
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -918,8 +854,11 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+
     SpawnExecException expected =
-        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, simplePolicy));
+        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, policy));
     assertThat(expected.getSpawnResult().status())
         .isEqualTo(SpawnResult.Status.EXECUTION_FAILED_CATASTROPHICALLY);
     // Ensure we also got back the stack trace.
@@ -939,8 +878,10 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
     ExecException expected =
-        assertThrows(ExecException.class, () -> client.exec(simpleSpawn, simplePolicy));
+        assertThrows(ExecException.class, () -> client.exec(simpleSpawn, policy));
     assertThat(expected).hasMessageThat().contains("whoa"); // Error details.
     // Ensure we also got back the stack trace.
     assertThat(expected)
@@ -997,8 +938,11 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+
     SpawnExecException expected =
-        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, simplePolicy));
+        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, policy));
     assertThat(expected.getSpawnResult().status())
         .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
       assertThat(expected).hasMessageThat().contains(DIGEST_UTIL.toString(stdOutDigest));
@@ -1058,8 +1002,10 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
     SpawnExecException expected =
-        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, simplePolicy));
+        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, policy));
     assertThat(expected.getSpawnResult().status())
         .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
       assertThat(expected).hasMessageThat().contains(DIGEST_UTIL.toString(stdOutDigest));
@@ -1150,7 +1096,10 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+
+    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -1246,7 +1195,10 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+
+    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();

@@ -104,7 +104,7 @@ EOF
 
   bazel clean >& $TEST_log
   bazel build \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
   expect_log "2 processes: 2 remote"
@@ -134,7 +134,7 @@ int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
       --noexperimental_split_xml_generation \
       //a:test >& $TEST_log \
@@ -163,7 +163,7 @@ int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
       --experimental_split_xml_generation \
       //a:test >& $TEST_log \
@@ -189,7 +189,7 @@ EOF
 
   bazel clean >& $TEST_log
   bazel build \
-      --remote_cache=localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
@@ -210,12 +210,12 @@ EOF
 int main() { std::cout << "Hello world!" << std::endl; return 0; }
 EOF
   bazel build \
-      --remote_cache=localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache service"
   bazel clean >& $TEST_log
   bazel build \
-      --remote_cache=localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       //a:test 2>&1 | tee $TEST_log | grep "remote cache hit" \
       || fail "Output does not contain remote cache hits"
 }
@@ -235,7 +235,7 @@ int main() { std::cout << "Fail me!" << std::endl; return 1; }
 EOF
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       && fail "Expected test failure" || true
@@ -256,7 +256,7 @@ EOF
 
   bazel build \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --remote_local_fallback_strategy=local \
       --build_event_text_file=gen1.log \
       //gen1 >& $TEST_log \
@@ -277,7 +277,7 @@ EOF
 
   bazel build \
       --spawn_strategy=remote,local \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --build_event_text_file=gen1.log \
       //gen1 >& $TEST_log \
       || fail "Expected success"
@@ -300,7 +300,7 @@ EOF
 
   bazel build \
       --spawn_strategy=remote,sandboxed,local \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --build_event_text_file=gen1.log \
       //gen1 >& $TEST_log \
       || fail "Expected success"
@@ -322,7 +322,7 @@ tags = ["no-remote"],
 EOF
 
   bazel build \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --build_event_text_file=gen1.log \
       //gen1 >& $TEST_log \
       || fail "Expected success"
@@ -345,7 +345,7 @@ EOF
 
   bazel build \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --remote_local_fallback_strategy=sandboxed \
       --build_event_text_file=gen2.log \
       //gen2 >& $TEST_log \
@@ -373,7 +373,7 @@ EOF
 int main() { std::cout << "Fail me!" << std::endl; return 1; }
 EOF
   bazel test \
-      --remote_cache=localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       && fail "Expected test failure" || true
@@ -407,7 +407,7 @@ EOF
   bazel clean >& $TEST_log
   bazel build \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       //a:large_output >& $TEST_log \
       || fail "Failed to build //a:large_output with remote execution"
   diff bazel-genfiles/a/large_blob.txt ${TEST_TMPDIR}/large_blob_expected.txt \
@@ -430,7 +430,7 @@ if __name__ == "__main__":
 EOF
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
@@ -464,7 +464,7 @@ if __name__ == "__main__":
 EOF
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
@@ -502,7 +502,7 @@ if __name__ == "__main__":
 EOF
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       && fail "Expected test failure" || true
@@ -532,7 +532,7 @@ package(default_visibility = ["//visibility:public"])
 empty(name = 'test')
 EOF
   bazel build \
-      --remote_cache=localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
@@ -559,7 +559,7 @@ EOF
   chmod +x a/sleep.sh
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
       --test_timeout=1,1,1,1 \
       //a:sleep >& $TEST_log \
@@ -588,7 +588,7 @@ EOF
   chmod +x a/user_test.sh
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --test_output=all \
       --test_env=USER=boo \
       //a:user_test >& $TEST_log \
@@ -599,7 +599,7 @@ EOF
   export USER=
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
+      --remote_executor=grpc://localhost:${worker_port} \
       --test_output=all \
       //a:user_test >& $TEST_log \
       || fail "Failed to run //a:user_test with remote execution"
@@ -644,7 +644,7 @@ EOF
   chmod +x a/test.sh
   bazel test \
       --spawn_strategy=remote \
-      --remote_executor=bazel.does.not.exist:1234 \
+      --remote_executor=grpc://bazel.does.not.exist:1234 \
       --remote_retries=0 \
       --test_output=all \
       --test_env=USER=boo \
@@ -690,7 +690,7 @@ function test_symlinks_in_directory() {
     set_symlinks_in_directory_testfixtures
     bazel build \
           --incompatible_remote_symlinks \
-          --remote_executor=localhost:${worker_port} \
+          --remote_executor=grpc://localhost:${worker_port} \
           --spawn_strategy=remote \
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote execution"
@@ -710,7 +710,7 @@ function test_symlinks_in_directory_cache_only() {
     set_symlinks_in_directory_testfixtures
     bazel build \
           --incompatible_remote_symlinks \
-          --remote_cache=localhost:${worker_port} \
+          --remote_cache=grpc://localhost:${worker_port} \
           --spawn_strategy=local \
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote cache service"
@@ -718,7 +718,7 @@ function test_symlinks_in_directory_cache_only() {
     bazel clean # Get rid of local results, rely on remote cache.
     bazel build \
           --incompatible_remote_symlinks \
-          --remote_cache=localhost:${worker_port} \
+          --remote_cache=grpc://localhost:${worker_port} \
           --spawn_strategy=local \
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote cache service"
@@ -798,7 +798,7 @@ EOF
 
      bazel test \
            --spawn_strategy=remote \
-           --remote_executor=localhost:${worker_port} \
+           --remote_executor=grpc://localhost:${worker_port} \
            //a:skylark_output_dir_test \
            || fail "Failed to run //a:skylark_output_dir_test with remote execution"
 }
@@ -825,7 +825,7 @@ EOF
 
   bazel build \
     --genrule_strategy=remote \
-    --remote_executor=localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=minimal \
@@ -850,7 +850,7 @@ EOF
 
   bazel build \
     --spawn_strategy=remote \
-    --remote_executor=localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=minimal \
@@ -883,7 +883,7 @@ EOF
 
   bazel build \
     --genrule_strategy=remote \
-    --remote_executor=localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=minimal \
@@ -894,7 +894,7 @@ EOF
 
   bazel build \
     --genrule_strategy=remote,local \
-    --remote_executor=localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=minimal \
@@ -923,7 +923,7 @@ EOF
 
   bazel build \
     --genrule_strategy=remote \
-    --remote_executor=localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=minimal \
@@ -933,7 +933,7 @@ EOF
 
   bazel build \
     --genrule_strategy=remote \
-    --remote_executor=localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=all \
@@ -990,7 +990,7 @@ EOF
 
   bazel build \
     --genrule_strategy=remote \
-    --remote_executor=localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=minimal \
@@ -1030,7 +1030,7 @@ EOF
 
   bazel build \
     --genrule_strategy=remote \
-    --remote_executor=localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=toplevel \
@@ -1048,7 +1048,7 @@ EOF
 
   bazel build \
     --genrule_strategy=remote \
-    --remote_executor=localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_inmemory_jdeps_files \
     --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=toplevel \
@@ -1061,6 +1061,42 @@ EOF
 
 
 }
+
+function test_downloads_minimal_bep() {
+  # Test that when using --experimental_remote_download_outputs=minimal all URI's in the BEP
+  # are rewritten as bytestream://..
+  mkdir -p a
+  cat > a/success.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/success.sh
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "success_test",
+  srcs = ["success.sh"],
+)
+
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=minimal \
+    --build_event_text_file=$TEST_log \
+    //a:foo //a:success_test || fail "Failed to test //a:foo //a:success_test"
+
+  expect_not_log 'uri:.*file://'
+  expect_log "uri:.*bytestream://localhost"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

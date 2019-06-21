@@ -407,7 +407,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
 
     if (!featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_CODEGEN)) {
-      warnAboutEmptyLibraries(ruleContext, compilationInfo.getCcCompilationOutputs(), linkStatic);
+      warnAboutEmptyLibraries(ruleContext, ccCompilationOutputs, linkStatic);
     }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 

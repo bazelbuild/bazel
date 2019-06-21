@@ -601,10 +601,9 @@ class InterfaceDesugaring extends ClassVisitor {
 
     @Override
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-      // Copies method annotation attributes into the companion class of a default method.
-      // TODO(b/132700453): Looking into whether to propagate method annotations.
-      super.visitAnnotation(desc, visible);
-      return annotationOnlyDest.visitAnnotation(desc, visible);
+      AnnotationVisitor dest = super.visitAnnotation(desc, visible);
+      AnnotationVisitor annoDest = annotationOnlyDest.visitAnnotation(desc, visible);
+      return new MultiplexAnnotationVisitor(dest, annoDest);
     }
 
     @Override
@@ -622,6 +621,65 @@ class InterfaceDesugaring extends ClassVisitor {
       // contains one more parameter than the method in the desugared class, a direct propagation
       // would cause position mistach. see b/129719629.
       return annotationOnlyDest.visitParameterAnnotation(parameter, desc, visible);
+    }
+  }
+
+  /**
+   * Annotation visitor that recursively passes the visited annotations to any number of given
+   * {@link AnnotationVisitor}s.
+   */
+  private static class MultiplexAnnotationVisitor extends AnnotationVisitor {
+
+    private final AnnotationVisitor[] moreDestinations;
+
+    public MultiplexAnnotationVisitor(
+        @Nullable AnnotationVisitor dest, AnnotationVisitor... moreDestinations) {
+      super(Opcodes.ASM7, dest);
+      this.moreDestinations = moreDestinations;
+    }
+
+    @Override
+    public void visit(String name, Object value) {
+      super.visit(name, value);
+      for (AnnotationVisitor dest : moreDestinations) {
+        dest.visit(name, value);
+      }
+    }
+
+    @Override
+    public void visitEnum(String name, String desc, String value) {
+      super.visitEnum(name, desc, value);
+      for (AnnotationVisitor dest : moreDestinations) {
+        dest.visitEnum(name, desc, value);
+      }
+    }
+
+    @Override
+    public AnnotationVisitor visitAnnotation(String name, String desc) {
+      AnnotationVisitor[] subVisitors = new AnnotationVisitor[moreDestinations.length];
+      AnnotationVisitor dest = super.visitAnnotation(name, desc);
+      for (int i = 0; i < subVisitors.length; ++i) {
+        subVisitors[i] = moreDestinations[i].visitAnnotation(name, desc);
+      }
+      return new MultiplexAnnotationVisitor(dest, subVisitors);
+    }
+
+    @Override
+    public AnnotationVisitor visitArray(String name) {
+      AnnotationVisitor[] subVisitors = new AnnotationVisitor[moreDestinations.length];
+      AnnotationVisitor dest = super.visitArray(name);
+      for (int i = 0; i < subVisitors.length; ++i) {
+        subVisitors[i] = moreDestinations[i].visitArray(name);
+      }
+      return new MultiplexAnnotationVisitor(dest, subVisitors);
+    }
+
+    @Override
+    public void visitEnd() {
+      super.visitEnd();
+      for (AnnotationVisitor dest : moreDestinations) {
+        dest.visitEnd();
+      }
     }
   }
 }

@@ -38,6 +38,21 @@ java_test(
 )
 
 skydoc_test(
+    name = "proto_format_test",
+    format = "proto",
+    golden_file = "testdata/proto_format_test/golden.raw",
+    input_file = "testdata/proto_format_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
+    name = "cc_api_test",
+    golden_file = "testdata/cc_api_test/golden.txt",
+    input_file = "testdata/cc_api_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
     name = "simple_test",
     golden_file = "testdata/simple_test/golden.txt",
     input_file = "testdata/simple_test/input.bzl",
@@ -70,6 +85,9 @@ skydoc_test(
     name = "android_basic_test",
     golden_file = "testdata/android_basic_test/golden.txt",
     input_file = "testdata/android_basic_test/input.bzl",
+    semantic_flags = [
+        "--experimental_google_legacy_api",
+    ],
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
     whitelisted_symbols = ["android_related_rule"],
 )
@@ -193,6 +211,13 @@ skydoc_test(
     input_file = "testdata/py_rule_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
     whitelisted_symbols = ["py_related_rule"],
+)
+
+skydoc_test(
+    name = "struct_default_value_test",
+    golden_file = "testdata/struct_default_value_test/golden.txt",
+    input_file = "testdata/struct_default_value_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
 
 genrule(

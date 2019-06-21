@@ -218,6 +218,7 @@ public abstract class CcModule
       Object includeDirs,
       Object quoteIncludeDirs,
       Object systemIncludeDirs,
+      Object frameworkIncludeDirs,
       Object defines,
       boolean usePic,
       boolean addLegacyCxxOptions)
@@ -248,6 +249,7 @@ public abstract class CcModule
         asStringNestedSet(includeDirs),
         asStringNestedSet(quoteIncludeDirs),
         asStringNestedSet(systemIncludeDirs),
+        asStringNestedSet(frameworkIncludeDirs),
         asStringNestedSet(defines));
   }
 
@@ -501,7 +503,12 @@ public abstract class CcModule
 
   @Override
   public CcCompilationContext createCcCompilationContext(
-      Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
+      Object headers,
+      Object systemIncludes,
+      Object includes,
+      Object quoteIncludes,
+      Object frameworkIncludes,
+      Object defines)
       throws EvalException {
     CcCompilationContext.Builder ccCompilationContext =
         CcCompilationContext.builder(
@@ -519,6 +526,13 @@ public abstract class CcModule
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addQuoteIncludeDirs(
         toNestedSetOfStrings(quoteIncludes, "quote_includes").getSet(String.class).toList().stream()
+            .map(x -> PathFragment.create(x))
+            .collect(ImmutableList.toImmutableList()));
+    ccCompilationContext.addFrameworkIncludeDirs(
+        toNestedSetOfStrings(frameworkIncludes, "framework_includes")
+            .getSet(String.class)
+            .toList()
+            .stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").getSet(String.class));
@@ -653,6 +667,7 @@ public abstract class CcModule
 
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
     for (Object feature : features) {
+      checkRightSkylarkInfoProvider(feature, "features", "FeatureInfo");
       featureBuilder.add(featureFromSkylark((SkylarkInfo) feature));
     }
     ImmutableList<Feature> featureList = featureBuilder.build();
@@ -668,6 +683,7 @@ public abstract class CcModule
 
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (Object actionConfig : actionConfigs) {
+      checkRightSkylarkInfoProvider(actionConfig, "action_configs", "ActionConfigInfo");
       actionConfigBuilder.add(actionConfigFromSkylark((SkylarkInfo) actionConfig));
     }
     ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
@@ -678,6 +694,8 @@ public abstract class CcModule
 
     ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
     for (Object artifactNamePattern : artifactNamePatterns) {
+      checkRightSkylarkInfoProvider(
+          artifactNamePattern, "artifact_name_patterns", "ArtifactNamePatternInfo");
       artifactNamePatternBuilder.add(
           artifactNamePatternFromSkylark((SkylarkInfo) artifactNamePattern));
     }
@@ -697,6 +715,7 @@ public abstract class CcModule
     // Pairs (toolName, toolPath)
     ImmutableList.Builder<Pair<String, String>> toolPathPairs = ImmutableList.builder();
     for (Object toolPath : toolPaths) {
+      checkRightSkylarkInfoProvider(toolPath, "tool_paths", "ToolPathInfo");
       Pair<String, String> toolPathPair = toolPathFromSkylark((SkylarkInfo) toolPath);
       toolPathPairs.add(toolPathPair);
       cToolchain.addToolPath(
@@ -803,6 +822,7 @@ public abstract class CcModule
 
     ImmutableList.Builder<Pair<String, String>> makeVariablePairs = ImmutableList.builder();
     for (Object makeVariable : makeVariables) {
+      checkRightSkylarkInfoProvider(makeVariable, "make_variables", "MakeVariableInfo");
       Pair<String, String> makeVariablePair = makeVariableFromSkylark((SkylarkInfo) makeVariable);
       makeVariablePairs.add(makeVariablePair);
       cToolchain.addMakeVariable(
@@ -848,6 +868,20 @@ public abstract class CcModule
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
         convertFromNoneable(ccTargetOs, /* defaultValue= */ ""),
         cToolchain.build().toString());
+  }
+
+  private static void checkRightSkylarkInfoProvider(
+      Object o, String parameterName, String expectedProvider) throws EvalException {
+    if (!(o instanceof SkylarkInfo)) {
+      throw new EvalException(
+          Location.BUILTIN,
+          String.format(
+              "'%s' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
+                  + " of type '%s' instead of a '%s' provider. Use the methods provided in"
+                  + " https://source.bazel.build/bazel/+/master:tools/cpp/cc_toolchain_config_lib.bzl"
+                  + " for obtaining the right providers.",
+              parameterName, EvalUtils.getDataTypeName(o), expectedProvider));
+    }
   }
 
   /** Checks whether the {@link SkylarkInfo} is of the required type. */
@@ -1471,6 +1505,7 @@ public abstract class CcModule
       SkylarkList<String> includes,
       SkylarkList<String> quoteIncludes,
       SkylarkList<String> systemIncludes,
+      SkylarkList<String> frameworkIncludes,
       SkylarkList<String> defines,
       SkylarkList<String> userCompileFlags,
       SkylarkList<CcCompilationContext> ccCompilationContexts,
@@ -1537,6 +1572,10 @@ public abstract class CcModule
                     .collect(ImmutableList.toImmutableList()))
             .addSystemIncludeDirs(
                 systemIncludes.stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .addFrameworkIncludeDirs(
+                frameworkIncludes.stream()
                     .map(PathFragment::create)
                     .collect(ImmutableList.toImmutableList()))
             .addDefines(defines)

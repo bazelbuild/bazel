@@ -389,14 +389,14 @@ public final class EvalUtils {
   }
 
   public static void lock(Object object, Location loc) {
-    if (object instanceof SkylarkMutable) {
-      ((SkylarkMutable) object).lock(loc);
+    if (object instanceof StarlarkMutable) {
+      ((StarlarkMutable) object).lock(loc);
     }
   }
 
   public static void unlock(Object object, Location loc) {
-    if (object instanceof SkylarkMutable) {
-      ((SkylarkMutable) object).unlock(loc);
+    if (object instanceof StarlarkMutable) {
+      ((StarlarkMutable) object).unlock(loc);
     }
   }
 

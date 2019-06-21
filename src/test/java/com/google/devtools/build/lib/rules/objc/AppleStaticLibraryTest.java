@@ -702,4 +702,15 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         .hasMessageThat()
         .contains("unexpected keyword 'foo', for call to function AppleStaticLibrary");
   }
+
+  @Test
+  public void testProtoBundlingWithTargetsWithNoDeps() throws Exception {
+    checkProtoBundlingWithTargetsWithNoDeps(RULE_TYPE);
+  }
+
+  @Test
+  public void testProtoBundlingDoesNotHappen() throws Exception {
+    useConfiguration("--noenable_apple_binary_native_protos");
+    checkProtoBundlingDoesNotHappen(RULE_TYPE);
+  }
 }

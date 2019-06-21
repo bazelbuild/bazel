@@ -104,7 +104,9 @@ public class BuildFileModificationTest extends FoundationTestCase {
                 Optional.<RootedPath>absent())));
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     OptionsParser parser =
-        OptionsParser.newOptionsParser(PackageCacheOptions.class, StarlarkSemanticsOptions.class);
+        OptionsParser.builder()
+            .optionsClasses(PackageCacheOptions.class, StarlarkSemanticsOptions.class)
+            .build();
     setUpSkyframe(
         parser.getOptions(PackageCacheOptions.class),
         parser.getOptions(StarlarkSemanticsOptions.class));

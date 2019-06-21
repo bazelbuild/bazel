@@ -259,6 +259,11 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           fsVal = value;
         } else if (value instanceof TreeArtifactValue) {
           fsVal = value;
+        } else if (value instanceof ActionExecutionValue) {
+          fsVal =
+              Preconditions.checkNotNull(
+                  ArtifactFunction.createSimpleFileArtifactValue(
+                      (Artifact.DerivedArtifact) artifact, (ActionExecutionValue) value));
         } else {
           return NON_EXISTENT_FILE_INFO;
         }

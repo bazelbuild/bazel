@@ -166,17 +166,6 @@ public class SkyframeBuilder implements Builder {
               options.getOptions(KeepGoingOption.class).keepGoing,
               skyframeExecutor);
 
-      Preconditions.checkState(
-          exitCode != null
-              || result.keyNames().size()
-                  == (artifacts.size()
-                      + targetsToBuild.size()
-                      + aspects.size()
-                      + parallelTests.size()),
-          "Build reported as successful but not all artifacts and targets built: %s, %s",
-          result,
-          artifacts);
-
       if (exitCode != null) {
         exitCodes.add(exitCode.orNull());
       }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.python;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -132,8 +133,13 @@ public class BazelPythonSemantics implements PythonSemantics {
     return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".temp");
   }
 
-  private static String booleanToPythonLiteral(boolean value) {
+  private static String boolToLiteral(boolean value) {
     return value ? "True" : "False";
+  }
+
+  private static String versionToLiteral(PythonVersion version) {
+    Preconditions.checkArgument(version.isTargetValue());
+    return version == PythonVersion.PY3 ? "\"3\"" : "\"2\"";
   }
 
   @Override
@@ -177,6 +183,12 @@ public class BazelPythonSemantics implements PythonSemantics {
     // first-stage.
     String pythonBinary = getPythonBinary(ruleContext, common, bazelConfig);
 
+    // Version information for host config diagnostic warning.
+    PythonVersion attrVersion = PyCommon.readPythonVersionFromAttributes(ruleContext.attributes());
+    boolean attrVersionSpecifiedExplicitly = attrVersion != null;
+    if (!attrVersionSpecifiedExplicitly) {
+      attrVersion = config.getDefaultPythonVersion();
+    }
     // Create the stub file.
     ruleContext.registerAction(
         new TemplateExpansionAction(
@@ -189,14 +201,20 @@ public class BazelPythonSemantics implements PythonSemantics {
                 Substitution.of("%python_binary%", pythonBinary),
                 Substitution.of("%imports%", Joiner.on(":").join(common.getImports())),
                 Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
-                Substitution.of("%is_zipfile%", booleanToPythonLiteral(buildPythonZip)),
+                Substitution.of("%is_zipfile%", boolToLiteral(buildPythonZip)),
                 Substitution.of(
-                    "%import_all%", booleanToPythonLiteral(bazelConfig.getImportAllRepositories())),
+                    "%import_all%", boolToLiteral(bazelConfig.getImportAllRepositories())),
                 Substitution.of(
                     "%enable_host_version_warning%",
-                    booleanToPythonLiteral(common.shouldWarnAboutHostVersionUponFailure())),
+                    boolToLiteral(common.shouldWarnAboutHostVersionUponFailure())),
                 Substitution.of(
-                    "%python_version%", common.getVersion() == PythonVersion.PY3 ? "'3'" : "'2'")),
+                    "%target%", ruleContext.getRule().getLabel().getDefaultCanonicalForm()),
+                Substitution.of(
+                    "%python_version_from_config%", versionToLiteral(common.getVersion())),
+                Substitution.of("%python_version_from_attr%", versionToLiteral(attrVersion)),
+                Substitution.of(
+                    "%python_version_specified_explicitly%",
+                    boolToLiteral(attrVersionSpecifiedExplicitly))),
             true));
 
     // Create the zip file if requested. On unix, copy it from the intermediate artifact to the

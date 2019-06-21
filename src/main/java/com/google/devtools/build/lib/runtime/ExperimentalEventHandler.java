@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
+import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -67,6 +68,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -114,6 +117,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private boolean progressBarNeedsRefresh;
   private volatile boolean shutdown;
   private final AtomicReference<Thread> updateThread;
+  private final Lock updateLock;
   private byte[] stdoutBuffer;
   private byte[] stderrBuffer;
   private final Set<String> messagesSeen;
@@ -281,6 +285,7 @@ public class ExperimentalEventHandler implements EventHandler {
     this.stderrBuffer = new byte[] {};
     this.dateShown = false;
     this.updateThread = new AtomicReference<>();
+    this.updateLock = new ReentrantLock();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -777,6 +782,13 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   @AllowConcurrentEvents
+  public void stopScanningAction(StoppedScanningActionEvent event) {
+    stateTracker.stopScanningAction(event);
+    refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
   public void schedulingAction(SchedulingActionEvent event) {
     stateTracker.schedulingAction(event);
     refresh();
@@ -903,35 +915,39 @@ public class ExperimentalEventHandler implements EventHandler {
     }
     long nowMillis = clock.currentTimeMillis();
     if (lastRefreshMillis + minimalDelayMillis < nowMillis) {
-      synchronized (this) {
+      if (updateLock.tryLock()) {
         try {
-          if (showProgress && (progressBarNeedsRefresh || timeBasedRefresh())) {
-            progressBarNeedsRefresh = false;
-            clearProgressBar();
-            addProgressBar();
-            terminal.flush();
-            double remaining = remainingCapacity();
-            if (remaining < CAPACITY_INCREASE_UPDATE_DELAY) {
-              // Increase the update interval if the start producing too much output
-              minimalDelayMillis = Math.max(minimalDelayMillis, 1000);
-              if (remaining < CAPACITY_UPDATE_DELAY_5_SECONDS) {
-                minimalDelayMillis = Math.max(minimalDelayMillis, 5000);
+          synchronized (this) {
+            if (showProgress && (progressBarNeedsRefresh || timeBasedRefresh())) {
+              progressBarNeedsRefresh = false;
+              clearProgressBar();
+              addProgressBar();
+              terminal.flush();
+              double remaining = remainingCapacity();
+              if (remaining < CAPACITY_INCREASE_UPDATE_DELAY) {
+                // Increase the update interval if the start producing too much output
+                minimalDelayMillis = Math.max(minimalDelayMillis, 1000);
+                if (remaining < CAPACITY_UPDATE_DELAY_5_SECONDS) {
+                  minimalDelayMillis = Math.max(minimalDelayMillis, 5000);
+                }
               }
-            }
-            if (!cursorControl || remaining < CAPACITY_UPDATE_DELAY_AS_NO_CURSES) {
-              // If we can't update the progress bar in place, make sure we increase the update
-              // interval as time progresses, to avoid too many progress messages in place.
-              minimalDelayMillis =
-                  Math.max(
-                      minimalDelayMillis,
-                      Math.round(
-                          NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT
-                              * (clock.currentTimeMillis() - uiStartTimeMillis)));
-              minimalUpdateInterval = Math.max(minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
+              if (!cursorControl || remaining < CAPACITY_UPDATE_DELAY_AS_NO_CURSES) {
+                // If we can't update the progress bar in place, make sure we increase the update
+                // interval as time progresses, to avoid too many progress messages in place.
+                minimalDelayMillis =
+                    Math.max(
+                        minimalDelayMillis,
+                        Math.round(
+                            NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT
+                                * (clock.currentTimeMillis() - uiStartTimeMillis)));
+                minimalUpdateInterval = Math.max(minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
+              }
             }
           }
         } catch (IOException e) {
           logger.warning("IO Error writing to output stream: " + e);
+        } finally {
+          updateLock.unlock();
         }
       }
     } else {

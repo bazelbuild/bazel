@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
+
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -26,6 +29,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -119,6 +123,33 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
           continue;
         }
       } catch (NoSuchPackageException e) {
+        if (e instanceof RepositoryFetchException) {
+          Label repositoryLabel;
+          try {
+            repositoryLabel =
+                Label.create(
+                    EXTERNAL_PACKAGE_IDENTIFIER,
+                    label.getPackageIdentifier().getRepository().strippedName());
+          } catch (LabelSyntaxException lse) {
+            // We're taking the repository name from something that was already
+            // part of a label, so it should be valid. If we really get into this
+            // strange we situation, better not try to be smart and report the original
+            // label.
+            repositoryLabel = label;
+          }
+          rootCauses.add(new LoadingFailedCause(repositoryLabel, e.getMessage()));
+          env.getListener()
+              .handle(
+                  Event.error(
+                      TargetUtils.getLocationMaybe(fromTarget),
+                      String.format(
+                          "%s depends on %s in repository %s which failed to fetch. "
+                              + e.getMessage(),
+                          fromTarget.getLabel(),
+                          label,
+                          label.getPackageIdentifier().getRepository())));
+          continue;
+        }
         rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
         missingEdgeHook(fromTarget, entry.getKey(), label, e);
         continue;

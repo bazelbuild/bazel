@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBinaryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 
@@ -47,7 +46,6 @@ public final class BazelPyBinaryRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/zip:zipper")))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .add(
             attr("$launcher", LABEL)
                 .cfg(HostTransition.createFactory())

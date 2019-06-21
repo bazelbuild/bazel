@@ -312,7 +312,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     InMemoryOutput inMemoryOutput = null;
     if (downloadOutputs) {
       try (SilentCloseable c = Profiler.instance().profile(REMOTE_DOWNLOAD, "download outputs")) {
-        remoteCache.download(actionResult, execRoot, context.getFileOutErr());
+        remoteCache.download(
+            actionResult, execRoot, context.getFileOutErr(), context::lockOutputFiles);
       }
     } else {
       PathFragment inMemoryOutputPath = getInMemoryOutputPath(spawn);
@@ -325,7 +326,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 inMemoryOutputPath,
                 context.getFileOutErr(),
                 execRoot,
-                context.getMetadataInjector());
+                context.getMetadataInjector(),
+                context::lockOutputFiles);
       }
     }
     return createSpawnResult(actionResult.getExitCode(), cacheHit, getName(), inMemoryOutput);
@@ -405,10 +407,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
       return execLocallyAndUpload(
           spawn, context, inputMap, remoteCache, actionKey, action, command, uploadLocalResults);
     }
-    return handleError(cause, context.getFileOutErr(), actionKey);
+    return handleError(cause, context.getFileOutErr(), actionKey, context);
   }
 
-  private SpawnResult handleError(IOException exception, FileOutErr outErr, ActionKey actionKey)
+  private SpawnResult handleError(
+      IOException exception, FileOutErr outErr, ActionKey actionKey, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
@@ -417,7 +420,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         maybeDownloadServerLogs(resp, actionKey);
         if (resp.hasResult()) {
           // We try to download all (partial) results even on server error, for debuggability.
-          remoteCache.download(resp.getResult(), execRoot, outErr);
+          remoteCache.download(resp.getResult(), execRoot, outErr, context::lockOutputFiles);
         }
       }
       if (e.isExecutionTimeout()) {

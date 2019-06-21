@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -71,6 +72,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CompileTimeConstant;
@@ -81,6 +83,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
@@ -108,6 +111,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   private final ExtraActionInfoSupplier extraActionInfoSupplier;
   private final Artifact primaryOutput;
+  private final Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer;
 
   /**
    * Constructs a SpawnAction using direct initialization arguments.
@@ -160,6 +164,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         EmptyRunfilesSupplier.INSTANCE,
         mnemonic,
         false,
+        null,
         null);
   }
 
@@ -203,7 +208,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean executeUnconditionally,
-      ExtraActionInfoSupplier extraActionInfoSupplier) {
+      ExtraActionInfoSupplier extraActionInfoSupplier,
+      Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer) {
     super(owner, tools, inputs, runfilesSupplier, outputs, env);
     this.primaryOutput = primaryOutput;
     this.resourceSet = resourceSet;
@@ -215,6 +221,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     this.mnemonic = mnemonic;
     this.executeUnconditionally = executeUnconditionally;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
+    this.resultConsumer = resultConsumer;
   }
 
   @Override
@@ -589,6 +596,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     protected ExtraActionInfoSupplier extraActionInfoSupplier = null;
     private boolean disableSandboxing = false;
 
+    private Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer = null;
+
     /**
      * Creates a SpawnAction builder.
      */
@@ -752,7 +761,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           runfilesSupplier,
           mnemonic,
           executeUnconditionally,
-          extraActionInfoSupplier);
+          extraActionInfoSupplier,
+          resultConsumer);
     }
 
     /**
@@ -1255,6 +1265,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       this.disableSandboxing = true;
       return this;
     }
+
+    public Builder addResultConsumer(
+        Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer) {
+      this.resultConsumer = resultConsumer;
+      return this;
+    }
   }
 
   /**
@@ -1327,6 +1343,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       try {
         SpawnContinuation nextContinuation = spawnContinuation.execute();
         if (nextContinuation.isDone()) {
+          if (resultConsumer != null) {
+            resultConsumer.accept(Pair.of(actionExecutionContext, nextContinuation.get()));
+          }
           afterExecute(actionExecutionContext);
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }

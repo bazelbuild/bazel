@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
+import com.google.devtools.build.lib.runtime.CommandDispatcher;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
@@ -29,7 +29,7 @@ public interface RPCServer {
    */
   interface Factory {
     RPCServer create(
-        BlazeCommandDispatcher dispatcher,
+        CommandDispatcher dispatcher,
         Clock clock,
         int port,
         Path serverDirectory,

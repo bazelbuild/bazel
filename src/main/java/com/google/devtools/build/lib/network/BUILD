@@ -8,14 +8,11 @@ filegroup(
 )
 
 java_library(
-    name = "connectivity",
-    srcs = ["ConnectivityModule.java"],
+    name = "noop_connectivity",
+    srcs = ["NoOpConnectivityModule.java"],
     deps = [
         ":connectivity_status",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
     ],
 )
 

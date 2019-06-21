@@ -21,10 +21,9 @@ import com.google.common.truth.Subject;
 import com.google.common.truth.ThrowableSubject;
 
 /**
- * {@link Subject} for {@link ErrorInfo}. Please add to this class if you need more
- * functionality!
+ * {@link Subject} for {@link ErrorInfo}. Please add to this class if you need more functionality!
  */
-public class ErrorInfoSubject extends Subject<ErrorInfoSubject, ErrorInfo> {
+public class ErrorInfoSubject extends Subject {
   private final ErrorInfo actual;
 
   public ErrorInfoSubject(FailureMetadata failureMetadata, ErrorInfo errorInfo) {
@@ -33,16 +32,12 @@ public class ErrorInfoSubject extends Subject<ErrorInfoSubject, ErrorInfo> {
   }
 
   public ThrowableSubject hasExceptionThat() {
-    return check("getException()")
-        .withMessage("Exception in " + actualAsString())
-        .that(actual.getException());
+    return check("getException()").that(actual.getException());
   }
 
   public IterableSubject hasCycleInfoThat() {
     isNotNull();
-    return check("getCycleInfo()")
-        .withMessage("CycleInfo in " + actualAsString())
-        .that(actual.getCycleInfo());
+    return check("getCycleInfo()").that(actual.getCycleInfo());
   }
 
   public void rootCauseOfExceptionIs(SkyKey key) {

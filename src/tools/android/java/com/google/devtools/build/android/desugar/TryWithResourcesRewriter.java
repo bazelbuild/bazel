@@ -223,6 +223,10 @@ public class TryWithResourcesRewriter extends ClassVisitor {
   }
 
   private boolean isInterface(String className) {
+    // A generated class from desugaring a lambda expression or member reference isn't an interface.
+    if (isDesugaredLambdaClass(className)) {
+      return false;
+    }
     try {
       Class<?> klass = classLoader.loadClass(className);
       return klass.isInterface();
@@ -320,7 +324,9 @@ public class TryWithResourcesRewriter extends ClassVisitor {
               methodSignature);
           String resourceClassName = resourceClassInternalName.get().replace('/', '.');
           checkState(
-              hasCloseMethod(resourceClassName),
+              // For a resource class initialized from a lambda expression or an member reference,
+              // it can implicitly be resolved with a close method.
+              isDesugaredLambdaClass(resourceClassName) || hasCloseMethod(resourceClassName),
               "The resource class %s should have a close() method.",
               resourceClassName);
         }
@@ -449,5 +455,9 @@ public class TryWithResourcesRewriter extends ClassVisitor {
         }
       };
     }
+  }
+
+  private static boolean isDesugaredLambdaClass(String qualifiedClassName) {
+    return qualifiedClassName.contains("$$Lambda$");
   }
 }

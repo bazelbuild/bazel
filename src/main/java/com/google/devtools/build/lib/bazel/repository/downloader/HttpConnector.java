@@ -90,6 +90,7 @@ class HttpConnector {
   URLConnection connect(
       URL originalUrl, ImmutableMap<String, String> requestHeaders)
           throws IOException {
+
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
@@ -116,7 +117,7 @@ class HttpConnector {
             // appears to be compressed.
             continue;
           }
-          connection.setRequestProperty(entry.getKey(), entry.getValue());
+          connection.addRequestProperty(entry.getKey(), entry.getValue());
         }
         connection.setConnectTimeout(connectTimeout);
         // The read timeout is always large because it stays in effect after this method.

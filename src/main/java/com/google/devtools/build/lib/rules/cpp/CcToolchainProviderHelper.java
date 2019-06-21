@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -31,13 +32,18 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Helper responsible for creating CcToolchainProvider */
 public class CcToolchainProviderHelper {
@@ -62,17 +68,20 @@ public class CcToolchainProviderHelper {
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
 
-    CppToolchainInfo toolchainInfo;
+    CcToolchainConfigInfo toolchainConfigInfo = attributes.getCcToolchainConfigInfo();
+    ImmutableMap<String, PathFragment> toolPaths;
+    CcToolchainFeatures toolchainFeatures;
+    PathFragment toolsDirectory = getToolsDirectory(ruleContext.getLabel());
     try {
-      toolchainInfo =
-          CppToolchainInfo.create(ruleContext.getLabel(), attributes.getCcToolchainConfigInfo());
+      toolPaths = computeToolPaths(toolchainConfigInfo, toolsDirectory);
+      toolchainFeatures = new CcToolchainFeatures(toolchainConfigInfo, toolsDirectory);
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());
     }
 
     FdoContext fdoContext =
         FdoHelper.getFdoContext(
-            ruleContext, attributes, configuration, cppConfiguration, toolchainInfo);
+            ruleContext, attributes, configuration, cppConfiguration, toolPaths);
     if (fdoContext == null) {
       return null;
     }
@@ -81,6 +90,12 @@ public class CcToolchainProviderHelper {
     String runtimeSolibDirBase = attributes.getRuntimeSolibDirBase();
     final PathFragment runtimeSolibDir =
         configuration.getBinFragment().getRelative(runtimeSolibDirBase);
+    String solibDirectory = "_solib_" + toolchainConfigInfo.getTargetCpu();
+    PathFragment defaultSysroot =
+        CppConfiguration.computeDefaultSysroot(toolchainConfigInfo.getBuiltinSysroot());
+    PathFragment sysroot = calculateSysroot(attributes.getLibcTopLabel(), defaultSysroot);
+    PathFragment targetSysroot =
+        calculateSysroot(attributes.getTargetLibcTopLabel(), defaultSysroot);
 
     // Static runtime inputs.
     TransitiveInfoCollection staticRuntimeLib = attributes.getStaticRuntimeLib();
@@ -120,7 +135,7 @@ public class CcToolchainProviderHelper {
           dynamicRuntimeLinkInputs.add(artifact);
           dynamicRuntimeLinkSymlinksBuilder.add(
               SolibSymlinkAction.getCppRuntimeSymlink(
-                  ruleContext, artifact, toolchainInfo.getSolibDirectory(), runtimeSolibDirBase));
+                  ruleContext, artifact, solibDirectory, runtimeSolibDirBase));
         }
       }
       if (dynamicRuntimeLinkInputs.isEmpty()) {
@@ -139,7 +154,7 @@ public class CcToolchainProviderHelper {
               ruleContext,
               purposePrefix + "dynamic_runtime_link",
               dynamicRuntimeLinkInputs,
-              toolchainInfo.getSolibDirectory(),
+              solibDirectory,
               runtimeSolibDirBase,
               configuration);
       dynamicRuntimeLinkMiddleman =
@@ -163,16 +178,10 @@ public class CcToolchainProviderHelper {
     }
     final CcCompilationContext ccCompilationContext = ccCompilationContextBuilder.build();
 
-    PathFragment sysroot =
-        calculateSysroot(attributes.getLibcTopLabel(), toolchainInfo.getDefaultSysroot());
-    PathFragment targetSysroot =
-        calculateSysroot(attributes.getTargetLibcTopLabel(), toolchainInfo.getDefaultSysroot());
-
     ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
-    for (String s : toolchainInfo.getRawBuiltInIncludeDirectories()) {
+    for (String s : toolchainConfigInfo.getCxxBuiltinIncludeDirectories()) {
       try {
-        builtInIncludeDirectoriesBuilder.add(
-            resolveIncludeDir(s, sysroot, toolchainInfo.getToolsDirectory()));
+        builtInIncludeDirectoriesBuilder.add(resolveIncludeDir(s, sysroot, toolsDirectory));
       } catch (InvalidConfigurationException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -181,10 +190,10 @@ public class CcToolchainProviderHelper {
         builtInIncludeDirectoriesBuilder.build();
 
     return new CcToolchainProvider(
-        getToolchainForSkylark(toolchainInfo),
+        getToolchainForSkylark(toolPaths),
         cppConfiguration,
-        toolchainInfo,
-        toolchainInfo.getToolsDirectory(),
+        toolchainFeatures,
+        toolsDirectory,
         attributes.getAllFiles(),
         attributes.getFullInputsForCrosstool(),
         attributes.getCompilerFiles(),
@@ -221,7 +230,27 @@ public class CcToolchainProviderHelper {
         targetSysroot,
         fdoContext,
         configuration.isHostConfiguration(),
-        attributes.getLicensesProvider());
+        attributes.getLicensesProvider(),
+        toolPaths,
+        toolchainConfigInfo.getToolchainIdentifier(),
+        toolchainConfigInfo.getCompiler(),
+        toolchainConfigInfo.getAbiLibcVersion(),
+        toolchainConfigInfo.getTargetCpu(),
+        toolchainConfigInfo.getCcTargetOs(),
+        defaultSysroot,
+        // The runtime sysroot should really be set from --grte_top. However, currently libc has
+        // no way to set the sysroot. The CROSSTOOL file does set the runtime sysroot, in the
+        // builtin_sysroot field. This implies that you can not arbitrarily mix and match
+        // Crosstool and libc versions, you must always choose compatible ones.
+        defaultSysroot,
+        toolchainConfigInfo.getTargetLibc(),
+        toolchainConfigInfo.getHostSystemName(),
+        ruleContext.getLabel(),
+        solibDirectory,
+        toolchainConfigInfo.getAbiVersion(),
+        toolchainConfigInfo.getTargetSystemName(),
+        computeAdditionalMakeVariables(toolchainConfigInfo),
+        computeLegacyCcFlagsMakeVariable(toolchainConfigInfo));
   }
 
   /**
@@ -297,22 +326,23 @@ public class CcToolchainProviderHelper {
     return pathPrefix.getRelative(path);
   }
 
-  private static String getSkylarkValueForTool(Tool tool, CppToolchainInfo cppToolchainInfo) {
-    PathFragment toolPath = cppToolchainInfo.getToolPathFragment(tool);
+  private static String getSkylarkValueForTool(
+      Tool tool, ImmutableMap<String, PathFragment> toolPaths) {
+    PathFragment toolPath = getToolPathFragment(toolPaths, tool);
     return toolPath != null ? toolPath.getPathString() : "";
   }
 
   private static ImmutableMap<String, Object> getToolchainForSkylark(
-      CppToolchainInfo cppToolchainInfo) {
+      ImmutableMap<String, PathFragment> toolPaths) {
     return ImmutableMap.<String, Object>builder()
-        .put("objcopy_executable", getSkylarkValueForTool(Tool.OBJCOPY, cppToolchainInfo))
-        .put("compiler_executable", getSkylarkValueForTool(Tool.GCC, cppToolchainInfo))
-        .put("preprocessor_executable", getSkylarkValueForTool(Tool.CPP, cppToolchainInfo))
-        .put("nm_executable", getSkylarkValueForTool(Tool.NM, cppToolchainInfo))
-        .put("objdump_executable", getSkylarkValueForTool(Tool.OBJDUMP, cppToolchainInfo))
-        .put("ar_executable", getSkylarkValueForTool(Tool.AR, cppToolchainInfo))
-        .put("strip_executable", getSkylarkValueForTool(Tool.STRIP, cppToolchainInfo))
-        .put("ld_executable", getSkylarkValueForTool(Tool.LD, cppToolchainInfo))
+        .put("objcopy_executable", getSkylarkValueForTool(Tool.OBJCOPY, toolPaths))
+        .put("compiler_executable", getSkylarkValueForTool(Tool.GCC, toolPaths))
+        .put("preprocessor_executable", getSkylarkValueForTool(Tool.CPP, toolPaths))
+        .put("nm_executable", getSkylarkValueForTool(Tool.NM, toolPaths))
+        .put("objdump_executable", getSkylarkValueForTool(Tool.OBJDUMP, toolPaths))
+        .put("ar_executable", getSkylarkValueForTool(Tool.AR, toolPaths))
+        .put("strip_executable", getSkylarkValueForTool(Tool.STRIP, toolPaths))
+        .put("ld_executable", getSkylarkValueForTool(Tool.LD, toolPaths))
         .build();
   }
 
@@ -375,5 +405,97 @@ public class CcToolchainProviderHelper {
     variables.addAllNonTransitive(additionalBuildVariablesComputer.apply(buildOptions));
 
     return variables.build();
+  }
+
+  private static ImmutableMap<String, PathFragment> computeToolPaths(
+      CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment crosstoolTopPathFragment)
+      throws EvalException {
+    Map<String, PathFragment> toolPathsCollector = Maps.newHashMap();
+    for (Pair<String, String> tool : ccToolchainConfigInfo.getToolPaths()) {
+      String pathStr = tool.getSecond();
+      if (!PathFragment.isNormalized(pathStr)) {
+        throw new IllegalArgumentException("The include path '" + pathStr + "' is not normalized.");
+      }
+      PathFragment path = PathFragment.create(pathStr);
+      toolPathsCollector.put(tool.getFirst(), crosstoolTopPathFragment.getRelative(path));
+    }
+
+    if (toolPathsCollector.isEmpty()) {
+      // If no paths are specified, we just use the names of the tools as the path.
+      for (CppConfiguration.Tool tool : CppConfiguration.Tool.values()) {
+        toolPathsCollector.put(
+            tool.getNamePart(), crosstoolTopPathFragment.getRelative(tool.getNamePart()));
+      }
+    } else {
+      Iterable<CppConfiguration.Tool> neededTools =
+          Iterables.filter(
+              EnumSet.allOf(CppConfiguration.Tool.class),
+              tool -> {
+                if (tool == CppConfiguration.Tool.DWP) {
+                  // TODO(hlopko): check dwp tool in analysis when per_object_debug_info is enabled.
+                  return false;
+                } else if (tool == CppConfiguration.Tool.LLVM_PROFDATA) {
+                  // TODO(tmsriram): Fix this to check if this is a llvm crosstool
+                  // and return true.  This needs changes to crosstool_config.proto.
+                  return false;
+                } else if (tool == CppConfiguration.Tool.GCOVTOOL
+                    || tool == CppConfiguration.Tool.OBJCOPY) {
+                  // gcov-tool and objcopy are optional, don't check whether they're present
+                  return false;
+                } else {
+                  return true;
+                }
+              });
+      for (CppConfiguration.Tool tool : neededTools) {
+        if (!toolPathsCollector.containsKey(tool.getNamePart())) {
+          throw new EvalException(
+              Location.BUILTIN, "Tool path for '" + tool.getNamePart() + "' is missing");
+        }
+      }
+    }
+    return ImmutableMap.copyOf(toolPathsCollector);
+  }
+
+  /**
+   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * used to execute the given tool.
+   */
+  static PathFragment getToolPathFragment(ImmutableMap<String, PathFragment> toolPaths, Tool tool) {
+    return toolPaths.get(tool.getNamePart());
+  }
+
+  static PathFragment getToolsDirectory(Label ccToolchainLabel) {
+    return ccToolchainLabel.getPackageIdentifier().getPathUnderExecRoot();
+  }
+
+  private static ImmutableMap<String, String> computeAdditionalMakeVariables(
+      CcToolchainConfigInfo ccToolchainConfigInfo) {
+    Map<String, String> makeVariablesBuilder = new HashMap<>();
+    // The following are to be used to allow some build rules to avoid the limits on stack frame
+    // sizes and variable-length arrays.
+    // These variables are initialized here, but may be overridden by the getMakeVariables() checks.
+    makeVariablesBuilder.put("STACK_FRAME_UNLIMITED", "");
+    makeVariablesBuilder.put(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, "");
+    for (Pair<String, String> variable : ccToolchainConfigInfo.getMakeVariables()) {
+      makeVariablesBuilder.put(variable.getFirst(), variable.getSecond());
+    }
+    makeVariablesBuilder.remove(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME);
+
+    return ImmutableMap.copyOf(makeVariablesBuilder);
+  }
+
+  // TODO(b/65151735): Remove when cc_flags is entirely from features.
+  private static String computeLegacyCcFlagsMakeVariable(
+      CcToolchainConfigInfo ccToolchainConfigInfo) {
+    String legacyCcFlags = "";
+    // Needs to ensure the last value with the name is used, to match the previous logic in
+    // computeAdditionalMakeVariables.
+    for (Pair<String, String> variable : ccToolchainConfigInfo.getMakeVariables()) {
+      if (variable.getFirst().equals(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME)) {
+        legacyCcFlags = variable.getSecond();
+      }
+    }
+
+    return legacyCcFlags;
   }
 }

@@ -130,6 +130,18 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
+  public void pyRuntimeInfoIsPresent() throws Exception {
+    useConfiguration("--incompatible_use_python_toolchains=true");
+    scratch.file(
+        "pkg/BUILD", //
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = [':foo.py'],",
+        ")");
+    assertThat(getConfiguredTarget("//pkg:foo").get(PyRuntimeInfo.PROVIDER)).isNotNull();
+  }
+
+  @Test
   public void oldVersionAttr_UnknownValue() throws Exception {
     useConfiguration("--incompatible_remove_old_python_version_api=false");
     checkError(

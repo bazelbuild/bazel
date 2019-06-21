@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -253,7 +253,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     @Override
     public ReportedArtifacts reportedArtifacts() {
-      return new ReportedArtifacts(artifacts, ArtifactPathResolver.IDENTITY);
+      return new ReportedArtifacts(artifacts, CompletionContext.FAILED_COMPLETION_CTX);
     }
 
     @Override

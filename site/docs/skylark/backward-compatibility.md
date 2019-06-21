@@ -15,6 +15,7 @@ Full, authorative list of incompatible changes is [GitHub issues with
 General Starlark
 
 *   [Dictionary concatenation](#dictionary-concatenation)
+*   [String escapes](#string-escapes)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
@@ -74,6 +75,16 @@ with Python. A possible workaround is to use the `.update` method instead.
 *   Default: `true`
 *   Tracking issue: [#6461](https://github.com/bazelbuild/bazel/issues/6461)
 
+### String escapes
+
+We are restricting unrecognized escape sequences. Trying to include escape
+sequences like `\a`, `\b` or any other escape sequence that is unknown to
+Starlark will result in a syntax error.
+
+*   Flag: `--incompatible_restrict_escape_sequences`
+*   Default: `false`
+*   Tracking issue: [#8380](https://github.com/bazelbuild/bazel/issues/8380)
+
 ### Load must appear at top of file
 
 Previously, the `load` statement could appear anywhere in a `.bzl` file so long
@@ -108,7 +119,7 @@ sorted(deps.to_list())  # recommended
 ```
 
 *   Flag: `--incompatible_depset_is_not_iterable`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5816](https://github.com/bazelbuild/bazel/issues/5816)
 
 

@@ -21,6 +21,7 @@ import static java.util.Map.Entry.comparingByKey;
 import com.google.common.base.Functions;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -43,6 +44,7 @@ import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Handles the 'config' command on the Blaze command line. */
@@ -63,15 +65,16 @@ public class ConfigCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    if (options.getResidue().isEmpty()) {
-      env.getReporter().handle(Event.error("Missing config id."));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
-    }
     ImmutableMap<String, BuildConfiguration> configurations = findConfigurations(env);
 
     try (PrintWriter writer =
         new PrintWriter(
             new OutputStreamWriter(env.getReporter().getOutErr().getOutputStream(), UTF_8))) {
+
+      if (options.getResidue().isEmpty()) {
+        return reportOnConfigurations(writer, configurations.keySet());
+      }
+
       if (options.getResidue().size() == 1) {
         String configHash = options.getResidue().get(0);
         env.getReporter()
@@ -127,6 +130,14 @@ public class ConfigCommand implements BlazeCommand {
     }
   }
 
+  private BlazeCommandResult reportOnConfigurations(
+      PrintWriter writer, ImmutableSet<String> configurationIds) {
+    writer.println("Available configurations:");
+    writer.println(configurationIds.stream().collect(Collectors.joining("\n")));
+
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+  }
+
   private ImmutableMap<String, BuildConfiguration> findConfigurations(CommandEnvironment env) {
     InMemoryMemoizingEvaluator evaluator =
         (InMemoryMemoizingEvaluator)
@@ -136,8 +147,9 @@ public class ConfigCommand implements BlazeCommand {
         .map(Map.Entry::getValue)
         .map(v -> (BuildConfigurationValue) v)
         .map(BuildConfigurationValue::getConfiguration)
-        .distinct()
-        .collect(toImmutableMap(BuildConfiguration::checksum, Functions.identity()));
+        .collect(
+            toImmutableMap(
+                BuildConfiguration::checksum, Functions.identity(), (config1, config2) -> config1));
   }
 
   private Table<Class<? extends FragmentOptions>, String, Pair<Object, Object>> diffConfigurations(

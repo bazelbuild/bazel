@@ -126,6 +126,12 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public Artifact.DerivedArtifact getDerivedArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
+      return original.getDerivedArtifact(rootRelativePath, root, contentBasedPath);
+    }
+
+    @Override
     public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getConstantMetadataArtifact(rootRelativePath, root);
     }
@@ -367,6 +373,12 @@ public final class AnalysisTestUtil {
     @Override
     public Artifact.DerivedArtifact getDerivedArtifact(
         PathFragment rootRelativePath, ArtifactRoot root) {
+      return null;
+    }
+
+    @Override
+    public Artifact.DerivedArtifact getDerivedArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
       return null;
     }
 

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
@@ -252,7 +253,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         new Digraph<>();
     private List<Class<? extends BuildConfiguration.Fragment>> universalFragments =
         new ArrayList<>();
-    @Nullable private TransitionFactory<Rule> trimmingTransitionFactory;
+    @Nullable private TransitionFactory<Rule> trimmingTransitionFactory = null;
+    @Nullable private PatchTransition toolchainTaggedTrimmingTransition = null;
     private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
@@ -422,6 +424,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    /** Sets the transition manual feature flag trimming should apply to toolchain deps. */
+    public Builder setToolchainTaggedTrimmingTransition(PatchTransition transition) {
+      Preconditions.checkNotNull(transition);
+      Preconditions.checkState(toolchainTaggedTrimmingTransition == null);
+      this.toolchainTaggedTrimmingTransition = transition;
+      return this;
+    }
+
     /**
      * Overrides the transition factory run over all targets.
      *
@@ -533,6 +543,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(configurationFragmentFactories),
           ImmutableList.copyOf(universalFragments),
           trimmingTransitionFactory,
+          toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
@@ -613,6 +624,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /** The transition factory used to produce the transition that will trim targets. */
   @Nullable private final TransitionFactory<Rule> trimmingTransitionFactory;
 
+  /** The transition to apply to toolchain deps for manual trimming. */
+  @Nullable private final PatchTransition toolchainTaggedTrimmingTransition;
+
   /** The predicate used to determine whether a diff requires the cache to be invalidated. */
   private final OptionsDiffPredicate shouldInvalidateCacheForOptionDiff;
 
@@ -652,6 +666,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
       ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
+      PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
@@ -674,6 +689,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.optionsToFragmentMap = computeOptionsToFragmentMap(configurationFragments);
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
+    this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps);
@@ -778,6 +794,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Nullable
   public TransitionFactory<Rule> getTrimmingTransitionFactory() {
     return trimmingTransitionFactory;
+  }
+
+  /**
+   * Returns the transition manual feature flag trimming should apply to toolchain deps.
+   *
+   * <p>See extra notes on {@link #getTrimmingTransitionFactory()}.
+   */
+  @Nullable
+  public PatchTransition getToolchainTaggedTrimmingTransition() {
+    return toolchainTaggedTrimmingTransition;
   }
 
   /** Returns whether the analysis cache should be invalidated for the given option diff. */

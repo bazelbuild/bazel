@@ -88,35 +88,36 @@ glibc version of 2.25. (See below for more on Bazel's built-in constraints.)
 platform(
     name = "linux_x86",
     constraint_values = [
-        "@bazel_tools//platforms:linux",
-        "@bazel_tools//platforms:x86_64",
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
         ":glibc_2_25",
     ],
 )
 ```
 
 Note that it is an error for a platform to specify more than one value of the
-same constraint setting, such as `@bazel_tools//platforms:x86_64` and
-`@bazel_tools//platforms:arm` for `@bazel_tools//platforms:cpu`.
+same constraint setting, such as `@platforms//cpu:x86_64` and
+`@platforms//cpu:arm` for `@platforms//cpu:cpu`.
 
 ## Built-in constraints and platforms
 
 Bazel ships with constraint definitions for the most popular CPU architectures
-and operating systems. These are all located in the package
-`@bazel_tools//platforms`:
+and operating systems. These are all located in the repository
+`@platforms`. This repository is developed at
+[github.com/bazelbuild/platforms](https://github.com/bazelbuild/platforms):
 
-*  `:cpu` for the CPU architecture, with values `:x86_32`, `:x86_64`, `:ppc`,
-   `:arm`, `:s390x`
-*  `:os` for the operating system, with values `:android`, `:freebsd`, `:ios`,
-   `:linux`, `:osx`, `:windows`
+*  `//cpu:cpu` for the CPU architecture, with values `//cpu:x86_32`,
+   `//cpu:x86_64`, `//cpu:ppc`, `//cpu:arm`, `//cpu:s390x`
+*  `//os:os` for the operating system, with values `//os:android`,
+   `//os:freebsd`, `//os:ios`, `//os:linux`, `//os:osx`, `//os:windows`
 
 There are also the following special platform definitions:
 
-*  `:host_platform` - represents the CPU and operating system for the host
-   environment
+*  `@bazel_tools//platforms:host_platform` - represents the CPU and operating
+   system for the host environment
 
-*  `:target_platform` - represents the CPU and operating system for the target
-   environment
+*  `@bazel_tools//platforms:target_platform` - represents the CPU and operating
+   system for the target environment
 
 The CPU values used by these two platforms can be specified with the
 `--host_cpu` and `--cpu` flags.

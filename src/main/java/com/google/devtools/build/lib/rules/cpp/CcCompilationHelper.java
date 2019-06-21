@@ -249,6 +249,7 @@ public final class CcCompilationHelper {
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> quoteIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
+  private final List<PathFragment> frameworkIncludeDirs = new ArrayList<>();
 
   private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.LOOSE;
   private boolean fake;
@@ -605,6 +606,15 @@ public final class CcCompilationHelper {
     return this;
   }
 
+  /**
+   * Adds the given directories to the framework include directories (they are passed with {@code
+   * "-F"} to the compiler); these are also passed to dependent rules.
+   */
+  public CcCompilationHelper addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
+    Iterables.addAll(this.frameworkIncludeDirs, frameworkIncludeDirs);
+    return this;
+  }
+
   /** Adds a variableExtension to template the crosstool. */
   public CcCompilationHelper addVariableExtension(VariablesExtension variableExtension) {
     Preconditions.checkNotNull(variableExtension);
@@ -928,6 +938,7 @@ public final class CcCompilationHelper {
         configuration.getBinFragment().getRelative(repositoryPath));
 
     ccCompilationContextBuilder.addSystemIncludeDirs(systemIncludeDirs);
+    ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkIncludeDirs);
 
     for (PathFragment includeDir : includeDirs) {
       ccCompilationContextBuilder.addIncludeDir(includeDir);
@@ -1499,6 +1510,7 @@ public final class CcCompilationHelper {
         ccCompileActionCompilationContext.getIncludeDirs(),
         ccCompileActionCompilationContext.getQuoteIncludeDirs(),
         ccCompileActionCompilationContext.getSystemIncludeDirs(),
+        ccCompileActionCompilationContext.getFrameworkIncludeDirs(),
         ccCompileActionCompilationContext.getDefines());
   }
 

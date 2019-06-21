@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
 /** Utilities for Java compilation support in Skylark. */
@@ -372,7 +374,7 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       },
-      useSkylarkSemantics = true,
+      useStarlarkSemantics = true,
       useLocation = true)
   public FileApi runIjar(
       SkylarkActionFactoryT actions,
@@ -422,7 +424,7 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       },
-      useSkylarkSemantics = true,
+      useStarlarkSemantics = true,
       useLocation = true)
   public FileApi stampJar(
       SkylarkActionFactoryT actions,
@@ -484,7 +486,7 @@ public interface JavaCommonApi<
             doc = "A JavaRuntimeInfo to be used for packing sources."),
       },
       allowReturnNones = true,
-      useSkylarkSemantics = true,
+      useStarlarkSemantics = true,
       useLocation = true)
   public FileApi packSources(
       SkylarkActionFactoryT actions,
@@ -576,4 +578,104 @@ public interface JavaCommonApi<
       },
       doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
   boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextT ruleContext) throws EvalException;
+
+  @SkylarkCallable(
+      name = "MessageBundleInfo",
+      doc = "The provider used to supply message bundles for translation",
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  public ProviderApi getMessageBundleInfo();
+
+  @SkylarkCallable(
+      name = "add_constraints",
+      doc = "Returns a copy of the given JavaInfo with the given constraints added.",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            type = JavaInfoApi.class,
+            doc = "The JavaInfo to enhance."),
+        @Param(
+            name = "constraints",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "Constraints to add")
+      },
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  public JavaInfoT addConstraints(JavaInfoT javaInfo, SkylarkList<String> constraints);
+
+  @SkylarkCallable(
+      name = "experimental_disable_annotation_processing",
+      doc =
+          "Returns a copy of the given JavaInfo with any provided annotation processors disabled."
+              + " Annotation processor classpaths are preserved in case they contain Error Prone"
+              + " plugins, but processor names and data are excluded. For example, it can be"
+              + " used to process the inputs to java_common.compile's deps and plugins parameters.",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            type = JavaInfoApi.class,
+            doc = "The JavaInfo to process.")
+      },
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  public JavaInfoT removeAnnotationProcessors(JavaInfoT javaInfo);
+
+  @SkylarkCallable(
+      name = "compile_time_jdeps",
+      doc = "Returns a depset of the given JavaInfo's compile-time jdeps files.",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            type = JavaInfoApi.class,
+            doc = "The JavaInfo to query."),
+      },
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  public NestedSet<FileT> getCompileTimeJavaDependencyArtifacts(JavaInfoT javaInfo);
+
+  @SkylarkCallable(
+      name = "add_compile_time_jdeps",
+      doc = "Returns a copy of the given JavaInfo with the given compile-time jdeps files added.",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            type = JavaInfoApi.class,
+            doc = "The JavaInfo to clone."),
+        @Param(
+            name = "compile_time_jdeps",
+            type = SkylarkList.class,
+            generic1 = FileApi.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "Compile-time jdeps files to add.")
+      },
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  public JavaInfoT addCompileTimeJavaDependencyArtifacts(
+      JavaInfoT javaInfo, SkylarkList<FileT> compileTimeJavaDependencyArtifacts);
+
+  @SkylarkCallable(
+      name = "java_toolchain_label",
+      doc = "Returns the toolchain's label.",
+      parameters = {
+        @Param(
+            name = "java_toolchain",
+            positional = true,
+            named = false,
+            type = JavaToolchainSkylarkApiProviderApi.class,
+            doc = "The toolchain."),
+      },
+      useLocation = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  public Label getJavaToolchainLabel(
+      JavaToolchainSkylarkApiProviderApi toolchain, Location location) throws EvalException;
 }

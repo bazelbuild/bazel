@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -35,4 +36,8 @@ public interface CcToolchainConfigInfoApi extends StructApi {
       doc = "Returns CToolchain text proto from the CcToolchainConfigInfo data.",
       structField = true)
   String getProto();
+
+  /** Provider class for {@link CcToolchainConfigInfoApi} objects. */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  public interface Provider extends ProviderApi {}
 }

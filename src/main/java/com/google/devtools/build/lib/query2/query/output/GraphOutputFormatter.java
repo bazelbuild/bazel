@@ -103,7 +103,7 @@ class GraphOutputFormatter extends OutputFormatter {
                 getConditionsGraphLabel(
                     ImmutableSet.of(lhs), ImmutableSet.of(rhs), conditionalEdges);
             if (!outputLabel.isEmpty()) {
-              out.printf(" [label=\"%s\"];\n", outputLabel);
+              out.printf("  [label=\"%s\"];\n", outputLabel);
             }
           }
         },
@@ -195,7 +195,7 @@ class GraphOutputFormatter extends OutputFormatter {
             String outputLabel =
                 getConditionsGraphLabel(lhs.getLabel(), rhs.getLabel(), conditionalEdges);
             if (!outputLabel.isEmpty()) {
-              out.printf(" [label=\"%s\"];\n", outputLabel);
+              out.printf("  [label=\"%s\"];\n", outputLabel);
             }
           }
         },

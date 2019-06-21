@@ -139,6 +139,16 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
 
     Set<Setting> settings = queryOptions.toSettings();
     boolean streamResults = QueryOutputUtils.shouldStreamResults(queryOptions, formatter);
+    if (queryOptions.useGraphlessQuery && !streamResults) {
+      env.getReporter()
+          .handle(
+              Event.error(
+                  String.format(
+                      "--experimental_graphless_query requires --order_output=no and an --output"
+                          + " option that supports streaming; valid values are: %s",
+                      OutputFormatter.streamingFormatterNames(formatters))));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+    }
 
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
@@ -151,7 +161,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               queryOptions.universeScope,
               options.getOptions(LoadingPhaseThreadsOption.class).threads,
               settings,
-              queryOptions.useForkJoinPool)) {
+              queryOptions.useForkJoinPool,
+              queryOptions.useGraphlessQuery)) {
         result =
             doQuery(
                 query, env, queryOptions, streamResults, formatter, queryEnv, queryRuntimeHelper);
@@ -200,7 +211,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       List<String> universeScope,
       int loadingPhaseThreads,
       Set<Setting> settings,
-      boolean useForkJoinPool) {
+      boolean useForkJoinPool,
+      boolean useGraphlessQuery) {
 
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
@@ -235,6 +247,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             env.getRuntime().getQueryFunctions(),
             env.getPackageManager().getPackagePath(),
             /*blockUniverseEvaluationErrors=*/ false,
-            useForkJoinPool);
+            useForkJoinPool,
+            useGraphlessQuery);
   }
 }

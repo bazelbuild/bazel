@@ -197,8 +197,8 @@ string GetSystemJavabase() {
 }
 
 int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
-                           const StartupOptions *options) {
-  return posix_spawnattr_set_qos_class_np(attrp, options->macos_qos_class);
+                           const StartupOptions &options) {
+  return posix_spawnattr_set_qos_class_np(attrp, options.macos_qos_class);
 }
 
 void WriteSystemSpecificProcessIdentifier(

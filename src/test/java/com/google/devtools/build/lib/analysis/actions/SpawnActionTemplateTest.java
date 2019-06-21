@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
@@ -201,7 +200,7 @@ public class SpawnActionTemplateTest {
     List<SpawnAction> expandedActions =
         ImmutableList.copyOf(
             actionTemplate.generateActionForInputArtifacts(
-                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
+                inputTreeFileArtifacts, ActionsTestUtil.NULL_ARTIFACT_OWNER));
 
     assertThat(expandedActions).hasSize(3);
 
@@ -240,7 +239,7 @@ public class SpawnActionTemplateTest {
     List<SpawnAction> expandedActions =
         ImmutableList.copyOf(
             actionTemplate.generateActionForInputArtifacts(
-                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
+                inputTreeFileArtifacts, ActionsTestUtil.NULL_ARTIFACT_OWNER));
 
     for (int i = 0; i < expandedActions.size(); ++i) {
       assertThat(expandedActions.get(i).getInputs())
@@ -261,7 +260,7 @@ public class SpawnActionTemplateTest {
     List<SpawnAction> expandedActions =
         ImmutableList.copyOf(
             actionTemplate.generateActionForInputArtifacts(
-                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
+                inputTreeFileArtifacts, ActionsTestUtil.NULL_ARTIFACT_OWNER));
 
     assertThat(expandedActions).hasSize(3);
 
@@ -286,7 +285,7 @@ public class SpawnActionTemplateTest {
     List<SpawnAction> expandedActions =
         ImmutableList.copyOf(
             actionTemplate.generateActionForInputArtifacts(
-                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
+                inputTreeFileArtifacts, ActionsTestUtil.NULL_ARTIFACT_OWNER));
 
     assertThat(expandedActions).hasSize(3);
 
@@ -323,7 +322,7 @@ public class SpawnActionTemplateTest {
         IllegalArgumentException.class,
         () ->
             actionTemplate.generateActionForInputArtifacts(
-                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
+                inputTreeFileArtifacts, ActionsTestUtil.NULL_ARTIFACT_OWNER));
 
     mapper = new OutputPathMapper() {
       @Override
@@ -340,7 +339,7 @@ public class SpawnActionTemplateTest {
         IllegalArgumentException.class,
         () ->
             actionTemplate2.generateActionForInputArtifacts(
-                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
+                inputTreeFileArtifacts, ActionsTestUtil.NULL_ARTIFACT_OWNER));
   }
 
   private SpawnActionTemplate.Builder builder(
@@ -373,11 +372,14 @@ public class SpawnActionTemplateTest {
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
-    return new SpecialArtifact(
-        root,
-        root.getExecPath().getRelative(relpath),
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
-        SpecialArtifactType.TREE);
+    SpecialArtifact result =
+        new SpecialArtifact(
+            root,
+            root.getExecPath().getRelative(relpath),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER,
+            SpecialArtifactType.TREE);
+    result.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    return result;
   }
 
   private Artifact createDerivedArtifact(String rootRelativePath) {

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -357,18 +356,14 @@ public final class CcLinkingHelper {
     Preconditions.checkNotNull(ccOutputs);
 
     // Create link actions (only if there are object files or if explicitly requested).
-    CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
+    //
     // On some systems, the linker gives an error message if there are no input files. Even with
     // the check above, this can still happen if there is a .nopic.o or .o files in srcs, but no
     // other files. To fix that, we'd have to check for each link action individually.
     //
     // An additional pre-existing issue is that the header check tokens are dropped if we don't
     // generate any link actions, effectively disabling header checking in some cases.
-    if (staticLinkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
-      // TODO(bazel-team): This can't create the link action for a cc_binary yet.
-      ccLinkingOutputs = createCcLinkActions(ccOutputs);
-    }
-    return ccLinkingOutputs;
+    return createCcLinkActions(ccOutputs);
   }
 
   public CcLinkingContext buildCcLinkingContextFromLibrariesToLink(
@@ -879,32 +874,13 @@ public final class CcLinkingHelper {
       PathFragment artifactFragment =
           PathFragment.create(label.getName()).getParentDirectory().getRelative(linkedName);
 
-    Artifact result =
-        actionConstructionContext.getPackageRelativeArtifact(
-            artifactFragment,
-            configuration.getBinDirectory(label.getPackageIdentifier().getRepository()));
-
-    // If the linked artifact is not the linux default, then a FailAction is generated for the
-    // linux default to satisfy the requirement of the implicit output.
-    // TODO(b/30132703): Remove the implicit outputs of cc_library.
-    Artifact linuxDefault =
-        CppHelper.getLinuxLinkedArtifact(
-            label,
-            actionConstructionContext,
-            configuration,
-            linkTargetType,
-            linkedArtifactNameSuffix);
-    if (!result.equals(linuxDefault)) {
-      actionConstructionContext.registerAction(
-          new FailAction(
-              actionConstructionContext.getActionOwner(),
-              ImmutableList.of(linuxDefault),
-              String.format(
-                  "the given toolchain supports creation of %s instead of %s",
-                  linuxDefault.getExecPathString(), result.getExecPathString())));
-    }
-
-    return result;
+    return CppHelper.getLinkedArtifact(
+        label,
+        actionConstructionContext,
+        configuration,
+        linkTargetType,
+        linkedArtifactNameSuffix,
+        artifactFragment);
   }
 
   private static List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLinkerInputList(

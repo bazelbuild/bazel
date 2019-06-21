@@ -307,7 +307,7 @@ public class ResourceLinker {
             .resolve("filtered")
             // make absolute paths relative so that resolve will make a new path.
             .resolve(path.isAbsolute() ? path.subpath(1, path.getNameCount()) : path);
-    // TODO(74258184): How can this path already exist?
+    // TODO(b/74258184): How can this path already exist?
     if (Files.exists(outPath)) {
       return outPath;
     }

@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,8 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.rules.repository;
+
+import static com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker.managedDirectoriesExist;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
@@ -178,11 +181,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     // generally fast and they do not depend on non-local data, so it does not make much sense to
     // try to cache them from across server instances.
     boolean fetchLocalRepositoryAlways = isFetch.get() && handler.isLocal(rule);
-    if (!fetchLocalRepositoryAlways) {
+    if (!fetchLocalRepositoryAlways
+        && managedDirectoriesExist(directories.getWorkspace(), managedDirectories)) {
       // For the non-local repositories, check if they are already up-to-date:
       // 1) unconditional fetching is not enabled, AND
       // 2) repository directory exists, AND
-      // 3) marker file correctly describes the current repository state
+      // 3) marker file correctly describes the current repository state, AND
+      // 4) managed directories, mapped to the repository, exist
       if (doNotFetchUnconditionally && repoRoot.exists()) {
         byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
         if (env.valuesMissing()) {
@@ -284,7 +289,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     } catch (SkyFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(new RepositoryFetching(repositoryName, true));
-      env.getListener().post(new RepositoryFailedEvent(repositoryName));
+      env.getListener().post(new RepositoryFailedEvent(repositoryName, e.getMessage()));
       throw e;
     }
 

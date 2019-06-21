@@ -143,4 +143,29 @@ EOF
   fi
 }
 
+function test_no_output() {
+  create_new_workspace
+  cat > skylark.bzl <<'EOF'
+def _impl(ctx):
+  ctx.actions.write(ctx.outputs.executable, content="echo hello world", is_executable=True)
+  return DefaultInfo()
+
+my_test = rule(
+  implementation = _impl,
+  test = True,
+)
+EOF
+
+  cat > BUILD <<'EOF'
+load(":skylark.bzl", "my_test")
+
+my_test(
+  name = "little_test",
+)
+EOF
+
+  bazel test //:little_test --execution_log_json_file output.json 2>&1 >> $TEST_log || fail "could not test"
+  grep "listedOutputs" output.json || fail "log does not contain listed outputs"
+}
+
 run_suite "execlog_tests"

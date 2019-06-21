@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -85,8 +84,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
 
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
-      DottedVersion.fromString(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
-
+      DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
   /**
    * Returns the configuration obtained by applying the apple crosstool configuration transtion to
@@ -216,11 +214,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     super.initializeMockClient();
     MockObjcSupport.setup(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
-  }
-
-  protected static String frameworkDir(ApplePlatform platform) {
-    return AppleToolchain.platformDir(
-        platform.getNameInPlist()) + AppleToolchain.DEVELOPER_FRAMEWORK_PATH;
   }
 
   /**
@@ -365,8 +358,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .add("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION)
             .add("-arch " + arch)
             .add("-isysroot " + AppleToolchain.sdkDir())
-            .add(AppleToolchain.sdkDir() + AppleToolchain.DEVELOPER_FRAMEWORK_PATH)
-            .add(frameworkDir(ApplePlatform.forTarget(PlatformType.IOS, arch)))
             .addAll(frameworkPathFragmentParents.build())
             .add("-Xlinker -objc_abi_version -Xlinker 2")
             .add("-fobjc-link-runtime")

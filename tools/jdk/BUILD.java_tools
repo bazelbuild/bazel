@@ -62,6 +62,67 @@ java_toolchain(
     jacocorunner = ":jacoco_coverage_runner_filegroup"
 )
 
+# A toolchain that targets java JAVA_LANGUAGE_LEVEL.
+java_toolchain(
+    name = "toolchain_jdk_JAVA_LANGUAGE_LEVEL",
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
+    compatible_javacopts = {
+        # Restrict protos to Java 7 so that they are compatible with Android.
+        "proto": [
+            "-source",
+            "7",
+            "-target",
+            "7",
+        ],
+    },
+    forcibly_disable_header_compilation = 0,
+    genclass = [":GenClass"],
+    header_compiler = [":Turbine"],
+    header_compiler_direct = [":TurbineDirect"],
+    ijar = [":ijar"],
+    javabuilder = [":JavaBuilder"],
+    javac = [":javac_jar"],
+    javac_supports_workers = 1,
+    jvm_opts = [
+        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance
+        # when using G1 collector and having compact strings enabled.
+        "-XX:+UseParallelOldGC",
+        "-XX:-CompactStrings",
+        # Allow JavaBuilder to access internal javac APIs.
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+
+        # override the javac in the JDK.
+        "--patch-module=java.compiler=$(location :java_compiler_jar)",
+        "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
+
+        # quiet warnings from com.google.protobuf.UnsafeUtil,
+        # see: https://github.com/google/protobuf/issues/3781
+        # and: https://github.com/bazelbuild/bazel/issues/5599
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    ],
+    misc = [
+        "-XDskipDuplicateBridges=true",
+        "-g",
+        "-parameters",
+    ],
+    singlejar = [":singlejar"],
+    source_version = "JAVA_LANGUAGE_LEVEL",
+    target_version = "JAVA_LANGUAGE_LEVEL",
+    tools = [
+        ":java_compiler_jar",
+        ":jdk_compiler_jar",
+    ],
+    jacocorunner = ":jacoco_coverage_runner_filegroup"
+)
+
 filegroup(
     name = "ExperimentalRunner",
     srcs = ["java_tools/ExperimentalRunner_deploy.jar"],

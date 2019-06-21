@@ -128,6 +128,11 @@ alias(
     actual = "@local_jdk//:javac",
 )
 
+alias(
+    name = "javadoc",
+    actual = "@local_jdk//:javadoc",
+)
+
 # On Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent. Thus, we create a little filegroup that
 # contains the appropriate platform-dependent file.
@@ -147,15 +152,7 @@ remote_java_tools_filegroup(
     target = ":singlejar",
 )
 
-exports_files([
-    # The BUILD file embedded into the java tools releases starting with
-    # javac10 3.0 and javac9 1.0.
-    "BUILD.java_tools",
-    # Remove this file after java_tools javac 10 3.0 and java_tools javac 9 1.0 are
-    # released. This file is embedded in bazel and passed as a BUILD file to the
-    # remote java tools http_archives.
-    "BUILD.java_tools.old",
-])
+exports_files(["BUILD.java_tools"])
 
 remote_java_tools_filegroup(
     name = "genclass",
@@ -381,7 +378,7 @@ default_java_toolchain(
     jvm_opts = [],
 )
 
-RELEASES = (8, 9)
+RELEASES = (8, 9, 10, 11)
 
 [
     default_java_toolchain(
@@ -397,7 +394,6 @@ filegroup(
     srcs = [
         "BUILD.java_langtools",
         "BUILD.java_tools",
-        "BUILD.java_tools.old",
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",

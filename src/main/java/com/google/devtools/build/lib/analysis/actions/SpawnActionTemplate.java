@@ -21,12 +21,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyCacher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -98,16 +98,15 @@ public final class SpawnActionTemplate extends ActionKeyCacher
 
   @Override
   public Iterable<SpawnAction> generateActionForInputArtifacts(
-      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner) {
+      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
     ImmutableList.Builder<SpawnAction> expandedActions = new ImmutableList.Builder<>();
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
       PathFragment parentRelativeOutputPath =
           outputPathMapper.parentRelativeOutputPath(inputTreeFileArtifact);
 
-      TreeFileArtifact outputTreeFileArtifact = ActionInputHelper.treeFileArtifact(
-          outputTreeArtifact,
-          parentRelativeOutputPath,
-          artifactOwner);
+      TreeFileArtifact outputTreeFileArtifact =
+          ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+              outputTreeArtifact, parentRelativeOutputPath, artifactOwner);
 
       expandedActions.add(createAction(inputTreeFileArtifact, outputTreeFileArtifact));
     }
@@ -121,8 +120,10 @@ public final class SpawnActionTemplate extends ActionKeyCacher
     TreeFileArtifact inputTreeFileArtifact =
         ActionInputHelper.treeFileArtifact(inputTreeArtifact, "dummy_for_key");
     TreeFileArtifact outputTreeFileArtifact =
-        ActionInputHelper.treeFileArtifact(
-            outputTreeArtifact, outputPathMapper.parentRelativeOutputPath(inputTreeFileArtifact));
+        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+            outputTreeArtifact,
+            outputPathMapper.parentRelativeOutputPath(inputTreeFileArtifact),
+            outputTreeArtifact.getArtifactOwner());
     SpawnAction dummyAction = createAction(inputTreeFileArtifact, outputTreeFileArtifact);
     dummyAction.computeKey(actionKeyContext, fp);
   }

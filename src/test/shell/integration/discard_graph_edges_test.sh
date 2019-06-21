@@ -130,7 +130,7 @@ function test_top_level_aspect() {
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
 def _simple_aspect_impl(target, ctx):
   result=[]
-  for orig_out in target.files:
+  for orig_out in target.files.to_list():
     aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
     ctx.actions.write(
         output=aspect_out,
@@ -271,7 +271,7 @@ function test_packages_cleared() {
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
   # A few packages aren't cleared.
-  [[ "$package_count" -le 16 ]] \
+  [[ "$package_count" -le 18 ]] \
       || fail "package count $package_count too high"
   glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -le 1 ]] \
@@ -303,11 +303,11 @@ def _create(ctx):
   files_to_build = depset(ctx.outputs.outs)
   intemediate_outputs = [ctx.actions.declare_file("bar")]
   intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
-  action_cmd = "touch " + list(files_to_build)[0].path
+  action_cmd = "touch " + files_to_build.to_list()[0].path
   ctx.actions.run_shell(outputs=list(intemediate_outputs),
                         command=intermediate_cmd)
   ctx.actions.run_shell(inputs=list(intemediate_outputs),
-                        outputs=list(files_to_build),
+                        outputs=files_to_build.to_list(),
                         command=action_cmd)
   struct(files=files_to_build,
          data_runfiles=ctx.runfiles(transitive_files=files_to_build))
@@ -403,9 +403,10 @@ function test_actions_not_deleted_after_execution() {
 genrule(name = "foo", cmd = "touch $@", outs = ["foo.out"])
 EOF
 
+  readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
   bazel build $BUILD_FLAGS //foo:foo \
       >& "$TEST_log" || fail "Expected success"
-  "$jmaptool" -histo:live "$(bazel info server_pid)" > histo.txt
+  "$jmaptool" -histo:live $server_pid > histo.txt
   genrule_action_count="$(extract_histogram_count histo.txt \
         'GenRuleAction$')"
   if [[ "$genrule_action_count" -lt 1 ]]; then

@@ -24,7 +24,7 @@ import com.google.common.truth.Subject;
  * {@link Subject} for {@link EvaluationResult}. Please add to this class if you need more
  * functionality!
  */
-public class EvaluationResultSubject extends Subject<EvaluationResultSubject, EvaluationResult<?>> {
+public class EvaluationResultSubject extends Subject {
   private final EvaluationResult<?> actual;
 
   public EvaluationResultSubject(
@@ -45,7 +45,7 @@ public class EvaluationResultSubject extends Subject<EvaluationResultSubject, Ev
     }
   }
 
-  public Subject<?, ?> hasEntryThat(SkyKey key) {
+  public Subject hasEntryThat(SkyKey key) {
     return check("get(%s)", key).that(actual.get(key));
   }
 

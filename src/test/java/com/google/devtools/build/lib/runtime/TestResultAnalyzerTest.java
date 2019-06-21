@@ -45,8 +45,10 @@ public class TestResultAnalyzerTest {
   
   @Before
   public final void createMocks() throws Exception  {
-    OptionsParser testSpecificOptions = OptionsParser.newOptionsParser(
-        TestSummaryOptions.class, ExecutionOptions.class);
+    OptionsParser testSpecificOptions =
+        OptionsParser.builder()
+            .optionsClasses(TestSummaryOptions.class, ExecutionOptions.class)
+            .build();
     EventBus mockBus = mock(EventBus.class);
     underTest = new TestResultAnalyzer(
         testSpecificOptions.getOptions(TestSummaryOptions.class),

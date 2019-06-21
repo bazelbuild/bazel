@@ -50,7 +50,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .supportsPlatforms(false)
+          .useToolchainResolution(false)
           .removeAttribute("licenses")
           .removeAttribute("distribs")
           .build();

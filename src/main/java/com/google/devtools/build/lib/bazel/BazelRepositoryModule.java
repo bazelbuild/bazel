@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.bazel;
 
@@ -173,7 +174,8 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.setManagedDirectoriesKnowledge(managedDirectoriesKnowledge);
 
     RepositoryDirectoryDirtinessChecker customDirtinessChecker =
-        new RepositoryDirectoryDirtinessChecker(managedDirectoriesKnowledge);
+        new RepositoryDirectoryDirtinessChecker(
+            directories.getWorkspace(), managedDirectoriesKnowledge);
     builder.addCustomDirtinessChecker(customDirtinessChecker);
     // Create the repository function everything flows through.
     builder.addSkyFunction(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());

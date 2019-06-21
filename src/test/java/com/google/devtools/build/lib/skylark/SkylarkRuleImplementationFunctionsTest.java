@@ -1803,6 +1803,28 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testReturnNonExportedProvider() throws Exception {
+    scratch.file(
+        "test/my_rule.bzl",
+        "def _rule_impl(ctx):",
+        "    foo_provider = provider()",
+        "    foo = foo_provider()",
+        "    return [foo]",
+        "",
+        "my_rule = rule(",
+        "    implementation = _rule_impl,",
+        ")");
+    scratch.file("test/BUILD", "load(':my_rule.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
+
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "cannot return a non-exported provider instance from a rule implementation function.");
+  }
+
+  @Test
   public void testFilesForFileConfiguredTarget() throws Exception {
     Object result =
         evalRuleContextCode(createRuleContext("//foo:bar"), "ruleContext.attr.srcs[0].files");
@@ -2728,6 +2750,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    '_attr': attr.label(",
         "        cfg = android_common.multi_cpu_configuration,",
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
 

@@ -925,6 +925,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         actualFuture = future;
         future.setFuture(
             parser.extractInclusionsAsync(
+                includePool,
                 source,
                 actionExecutionMetadata,
                 actionExecutionContext,
@@ -960,7 +961,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
             actualFuture,
             (inclusions) ->
                 processInclusions(inclusions, source, contextPathPos, contextKind, visited),
-            includePool);
+            MoreExecutors.directExecutor());
       }
     }
 

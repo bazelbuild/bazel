@@ -41,7 +41,7 @@ public class PlatformBaseRule implements RuleDefinition{
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
-        .supportsPlatforms(false)
+        .useToolchainResolution(false)
         .removeAttribute("deps")
         .removeAttribute("data")
         .build();

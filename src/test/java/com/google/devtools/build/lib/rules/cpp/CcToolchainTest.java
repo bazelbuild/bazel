@@ -455,6 +455,24 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCSFdoRejectRelativePath() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file("a/profile.profdata", "");
+    scratch.file("a/csprofile.profdata", "");
+    Exception e =
+        assertThrows(
+            Exception.class,
+            () ->
+                useConfiguration(
+                    "-c",
+                    "opt",
+                    "--fdo_optimize=a/profile.profdata",
+                    "--cs_fdo_absolute_path=a/csprofile.profdata"));
+    assertThat(e).hasMessageThat().contains("in --cs_fdo_absolute_path is not an absolute path");
+  }
+
+  @Test
   public void testXFdoOptimizeNotProvider() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(

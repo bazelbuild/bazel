@@ -36,6 +36,7 @@ public class UserExecException extends ExecException {
   public ActionExecutionException toActionExecutionException(String messagePrefix,
         boolean verboseFailures, Action action) {
     String message = messagePrefix + " failed";
-    return new ActionExecutionException(message, this, action, isCatastrophic());
+    return new ActionExecutionException(
+        message + ": " + getMessage(), this, action, isCatastrophic());
   }
 }

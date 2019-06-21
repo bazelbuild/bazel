@@ -154,6 +154,17 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   @Override
+  public SkylarkNestedSet getSkylarkFrameworkIncludeDirs() {
+    return SkylarkNestedSet.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            getFrameworkIncludeDirs().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @Override
   public SkylarkNestedSet getSkylarkIncludeDirs() {
     return SkylarkNestedSet.of(
         String.class,
@@ -198,36 +209,46 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   /**
-   * Returns the immutable list of include directories to be added with "-I"
-   * (possibly empty but never null). This includes the include dirs from the
-   * transitive deps closure of the target. This list does not contain
-   * duplicates. All fragments are either absolute or relative to the exec root
-   * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
+   * Returns the immutable list of include directories to be added with "-I" (possibly empty but
+   * never null). This includes the include dirs from the transitive deps closure of the target.
+   * This list does not contain duplicates. All fragments are either absolute or relative to the
+   * exec root (see {@link
+   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
    */
   public ImmutableList<PathFragment> getIncludeDirs() {
     return commandLineCcCompilationContext.includeDirs;
   }
 
   /**
-   * Returns the immutable list of include directories to be added with
-   * "-iquote" (possibly empty but never null). This includes the include dirs
-   * from the transitive deps closure of the target. This list does not contain
-   * duplicates. All fragments are either absolute or relative to the exec root
-   * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
+   * Returns the immutable list of include directories to be added with "-iquote" (possibly empty
+   * but never null). This includes the include dirs from the transitive deps closure of the target.
+   * This list does not contain duplicates. All fragments are either absolute or relative to the
+   * exec root (see {@link
+   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
    */
   public ImmutableList<PathFragment> getQuoteIncludeDirs() {
     return commandLineCcCompilationContext.quoteIncludeDirs;
   }
 
   /**
-   * Returns the immutable list of include directories to be added with
-   * "-isystem" (possibly empty but never null). This includes the include dirs
-   * from the transitive deps closure of the target. This list does not contain
-   * duplicates. All fragments are either absolute or relative to the exec root
-   * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
+   * Returns the immutable list of include directories to be added with "-isystem" (possibly empty
+   * but never null). This includes the include dirs from the transitive deps closure of the target.
+   * This list does not contain duplicates. All fragments are either absolute or relative to the
+   * exec root (see {@link
+   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
    */
   public ImmutableList<PathFragment> getSystemIncludeDirs() {
     return commandLineCcCompilationContext.systemIncludeDirs;
+  }
+
+  /**
+   * Returns the immutable list of include directories to be added with "-F" (possibly empty but
+   * never null). This includes the include dirs from the transitive deps closure of the target.
+   * This list does not contain duplicates. All fragments are either absolute or relative to the
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
+   */
+  public ImmutableList<PathFragment> getFrameworkIncludeDirs() {
+    return commandLineCcCompilationContext.frameworkIncludeDirs;
   }
 
   /**
@@ -458,16 +479,19 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final ImmutableList<PathFragment> includeDirs;
     private final ImmutableList<PathFragment> quoteIncludeDirs;
     private final ImmutableList<PathFragment> systemIncludeDirs;
+    private final ImmutableList<PathFragment> frameworkIncludeDirs;
     private final ImmutableList<String> defines;
 
     CommandLineCcCompilationContext(
         ImmutableList<PathFragment> includeDirs,
         ImmutableList<PathFragment> quoteIncludeDirs,
         ImmutableList<PathFragment> systemIncludeDirs,
+        ImmutableList<PathFragment> frameworkIncludeDirs,
         ImmutableList<String> defines) {
       this.includeDirs = includeDirs;
       this.quoteIncludeDirs = quoteIncludeDirs;
       this.systemIncludeDirs = systemIncludeDirs;
+      this.frameworkIncludeDirs = frameworkIncludeDirs;
       this.defines = defines;
     }
   }
@@ -487,6 +511,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Set<PathFragment> includeDirs = new LinkedHashSet<>();
     private final Set<PathFragment> quoteIncludeDirs = new LinkedHashSet<>();
     private final Set<PathFragment> systemIncludeDirs = new LinkedHashSet<>();
+    private final Set<PathFragment> frameworkIncludeDirs = new LinkedHashSet<>();
     private final NestedSetBuilder<PathFragment> declaredIncludeDirs =
         NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs =
@@ -554,6 +579,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       includeDirs.addAll(otherCcCompilationContext.getIncludeDirs());
       quoteIncludeDirs.addAll(otherCcCompilationContext.getQuoteIncludeDirs());
       systemIncludeDirs.addAll(otherCcCompilationContext.getSystemIncludeDirs());
+      frameworkIncludeDirs.addAll(otherCcCompilationContext.getFrameworkIncludeDirs());
       declaredIncludeDirs.addTransitive(otherCcCompilationContext.getDeclaredIncludeDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       transitiveHeaderInfo.addTransitive(otherCcCompilationContext.transitiveHeaderInfos);
@@ -593,10 +619,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
 
     /**
-     * Add a single include directory to be added with "-I". It can be either
-     * relative to the exec root (see
-     * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or
-     * absolute. Before it is stored, the include directory is normalized.
+     * Add a single include directory to be added with "-I". It can be either relative to the exec
+     * root (see {@link
+     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
+     * Before it is stored, the include directory is normalized.
      */
     public Builder addIncludeDir(PathFragment includeDir) {
       includeDirs.add(includeDir);
@@ -610,10 +636,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
 
     /**
-     * Add a single include directory to be added with "-iquote". It can be
-     * either relative to the exec root (see {@link
-     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. Before it
-     * is stored, the include directory is normalized.
+     * Add a single include directory to be added with "-iquote". It can be either relative to the
+     * exec root (see {@link
+     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
+     * Before it is stored, the include directory is normalized.
      */
     public Builder addQuoteIncludeDir(PathFragment quoteIncludeDir) {
       quoteIncludeDirs.add(quoteIncludeDir);
@@ -628,11 +654,18 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
     /**
      * Add include directories to be added with "-isystem". It can be either relative to the exec
-     * root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or
-     * absolute. Before it is stored, the include directory is normalized.
+     * root (see {@link
+     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
+     * Before it is stored, the include directory is normalized.
      */
     public Builder addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
       Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);
+      return this;
+    }
+
+    /** Add framewrok include directories to be added with "-F". */
+    public Builder addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
+      Iterables.addAll(this.frameworkIncludeDirs, frameworkIncludeDirs);
       return this;
     }
 
@@ -773,6 +806,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
               ImmutableList.copyOf(includeDirs),
               ImmutableList.copyOf(quoteIncludeDirs),
               ImmutableList.copyOf(systemIncludeDirs),
+              ImmutableList.copyOf(frameworkIncludeDirs),
               ImmutableList.copyOf(defines)),
           // TODO(b/110873917): We don't have the middle man compilation prerequisite, therefore, we
           // use the compilation prerequisites as they were passed to the builder, i.e. we use every

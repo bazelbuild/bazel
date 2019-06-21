@@ -18,6 +18,7 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "auto_configure_fail",
     "auto_configure_warning",
+    "auto_configure_warning_maybe",
     "escape_string",
     "get_env_var",
     "get_starlark_list",
@@ -308,7 +309,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     if darwin:
         overriden_tools["gcc"] = "cc_wrapper.sh"
         overriden_tools["ar"] = "/usr/bin/libtool"
-
+    auto_configure_warning_maybe(repository_ctx, "CC used: " + str(cc))
     tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
     cc_toolchain_identifier = escape_string(get_env_var(
         repository_ctx,
@@ -339,6 +340,12 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         repository_ctx,
         "BAZEL_LINKOPTS",
         "-lstdc++:-lm",
+        False,
+    ), ":")
+    link_libs = split_escaped(get_env_var(
+        repository_ctx,
+        "BAZEL_LINKLIBS",
+        "",
         False,
     ), ":")
     supports_gold_linker = _is_gold_supported(repository_ctx, cc)
@@ -477,6 +484,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-pass-exit-codes",
                 )
             ) + link_opts),
+            "%{link_libs}": get_starlark_list(link_libs),
             "%{opt_compile_flags}": get_starlark_list(
                 [
                     # No debug symbols.

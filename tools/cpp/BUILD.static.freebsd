@@ -62,12 +62,12 @@ cc_toolchain_config(
 toolchain(
     name = "cc-toolchain-freebsd",
     exec_compatible_with = [
-        "@bazel_tools//platforms:x86_64",
-        "@bazel_tools//platforms:freebsd",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:freebsd",
     ],
     target_compatible_with = [
-        "@bazel_tools//platforms:x86_64",
-        "@bazel_tools//platforms:freebsd",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:freebsd",
     ],
     toolchain = ":cc-compiler-freebsd",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
@@ -97,11 +97,11 @@ cc_toolchain_config(
 toolchain(
     name = "cc-toolchain-armeabi-v7a",
     exec_compatible_with = [
-        "@bazel_tools//platforms:arm",
+        "@platforms//cpu:arm",
     ],
     target_compatible_with = [
-        "@bazel_tools//platforms:arm",
-        "@bazel_tools//platforms:android",
+        "@platforms//cpu:arm",
+        "@platforms//os:android",
     ],
     toolchain = ":cc-compiler-armeabi-v7a",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",

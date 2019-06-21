@@ -317,7 +317,8 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     private CommandLineSection getCanonicalStartupOptions() {
       List<Option> unfilteredOptions = getActiveStartupOptions().getOptionList().getOptionList();
       // Create the fake ones to prevent reapplication of the original rc file contents.
-      OptionsParser fakeOptions = OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
+      OptionsParser fakeOptions =
+          OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
       try {
         fakeOptions.parse("--ignore_all_rc_files");
       } catch (OptionsParsingException e) {

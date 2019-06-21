@@ -220,6 +220,30 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
     assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
+  // Internal flags, such as "output directory name", cannot be set from the command-line, but
+  // platform mapping needs to access them.
+  @Test
+  public void ableToChangeInternalOption() throws Exception {
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --output directory name=updated_output_dir");
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+
+    BuildConfigurationValue.Key mapped =
+        platformMappingValue.map(
+            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+
+    assertThat(toMappedOptions(mapped).get(CoreOptions.class).outputDirectoryName)
+        .isEqualTo("updated_output_dir");
+  }
+
   private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.injectExtraPrecomputedValues(

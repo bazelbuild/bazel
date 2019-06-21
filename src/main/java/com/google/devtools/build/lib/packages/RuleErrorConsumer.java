@@ -55,7 +55,7 @@ public interface RuleErrorConsumer {
    */
   default RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
     ruleError(message);
-    throw new RuleErrorException();
+    throw new RuleErrorException(message);
   }
 
   /**
@@ -70,7 +70,7 @@ public interface RuleErrorConsumer {
   default RuleErrorException throwWithAttributeError(String attrName, String message)
       throws RuleErrorException {
     attributeError(attrName, message);
-    throw new RuleErrorException();
+    throw new RuleErrorException(message);
   }
 
   /**

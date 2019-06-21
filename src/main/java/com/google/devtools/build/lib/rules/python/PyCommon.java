@@ -655,20 +655,33 @@ public final class PyCommon {
    *
    * <p>This method should only be called for executable Python rules.
    *
-   * <p>Background: Executable Python rules have a rule transition that sets the version to the one
-   * declared by the target's attributes ({@code python_version} / {@code default_python_version}).
-   * If there's any discrepancy, that means the rule transition didn't actually have any effect.
-   * This can only happen in the host configuration, when the target's version is the opposite of
-   * the value of {@code --host_force_python}. Running a program under the wrong Python interpreter
-   * version can lead to confusing tracebacks, therefore we try to be helpful by appending a
-   * diagnostic message to stderr. See #7899 for context.
+   * <p>Background: Historically, Bazel did not necessarily launch a Python interpreter whose
+   * version corresponded to the one determined by the analysis phase (#4815). Enabling Python
+   * toolchains fixed this bug. However, this caused some builds to break due to targets that
+   * contained Python-2-only code yet got analyzed for (and now run with) Python 3. This is
+   * particularly problematic for the host configuration, where the value of {@code
+   * --host_force_python} overrides the declared or implicit Python version of the target.
    *
-   * <p>This method only returns true when 1) a version mismatch is detected, and 2) Python
-   * toolchains are enabled. Toolchains make it more likely that the Python runtime invoked at
-   * execution time matches the version decided at analysis time (fixing #4815). Therefore, when
-   * toolchains are enabled the warning is 1) more important, because many builds start failing due
-   * to getting the "correct" interpreter for the first time (see #7899), and 2) more accurate,
-   * because it correctly describes which interpreter version was actually used.
+   * <p>Our mitigation for this is to warn users when a Python target has a non-zero exit code and
+   * the failure could be due to a bad Python version in the host configuration. In this case,
+   * instead of just giving the user a confusing traceback of a PY2 vs PY3 error, we append a
+   * diagnostic message to stderr. See #7899 and especially #8549 for context.
+   *
+   * <p>This method returns true when all of the following hold:
+   *
+   * <ol>
+   *   <li>Python toolchains are enabled. (The warning is needed the most when toolchains are
+   *       enabled, since that's an incompatible change likely to cause breakages. At the same time,
+   *       warning when toolchains are disabled could be misleading, since we don't actually know
+   *       whether the interpreter invoked at runtime is correct.)
+   *   <li>The target is built in the host configuration. This avoids polluting stderr with spurious
+   *       warnings for non-host-configured targets, while covering the most problematic case.
+   *   <li>Either the value of {@code --host_force_python} overrode the target's normal Python
+   *       version to a different value (in which case we know a mismatch occurred), or else {@code
+   *       --host_force_python} is in agreement with the target's version but the target's version
+   *       was set by default instead of explicitly (in which case we suspect the target may have
+   *       been defined incorrectly).
+   * </ol>
    *
    * @throws IllegalArgumentException if there is a problem parsing the Python version from the
    *     attributes; see {@link #readPythonVersionFromAttributes}.
@@ -676,16 +689,25 @@ public final class PyCommon {
   // TODO(#6443): Remove this logic and the corresponding stub script logic once we no longer have
   // the possibility of Python binaries appearing in the host configuration.
   public boolean shouldWarnAboutHostVersionUponFailure() {
+    // Only warn when toolchains are used.
     PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
     if (!config.useToolchains()) {
       return false;
     }
+    // Only warn in the host config.
+    if (!ruleContext.getConfiguration().isHostConfiguration()) {
+      return false;
+    }
+
     PythonVersion configVersion = config.getPythonVersion();
     PythonVersion attrVersion = readPythonVersionFromAttributes(ruleContext.attributes());
     if (attrVersion == null) {
-      attrVersion = config.getDefaultPythonVersion();
+      // Warn if the version wasn't set explicitly.
+      return true;
+    } else {
+      // Warn if the explicit version is different from the host config's version.
+      return configVersion != attrVersion;
     }
-    return configVersion != attrVersion;
   }
 
   /**
@@ -803,6 +825,7 @@ public final class PyCommon {
   public void addCommonTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
 
+    // Add PyInfo and/or legacy "py" struct provider.
     boolean createLegacyPyProvider =
         !ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider();
     PyProviderUtils.builder(createLegacyPyProvider)
@@ -812,6 +835,11 @@ public final class PyCommon {
         .setHasPy2OnlySources(hasPy2OnlySources)
         .setHasPy3OnlySources(hasPy3OnlySources)
         .buildAndAddToTarget(builder);
+
+    // Add PyRuntimeInfo if this is an executable rule.
+    if (runtimeFromToolchain != null) {
+      builder.addNativeDeclaredProvider(runtimeFromToolchain);
+    }
 
     builder
         .addNativeDeclaredProvider(

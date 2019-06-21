@@ -80,7 +80,7 @@ public interface ArtifactResolver {
   Map<PathFragment, Artifact> resolveSourceArtifacts(
       Iterable<PathFragment> execPaths, PackageRootResolver resolver) throws InterruptedException;
 
-  Path getPathFromSourceExecPath(PathFragment execPath);
+  Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath);
 
   /**
    * Supplies an {@link ArtifactFactory}. We define a custom interface because parameterized types

@@ -333,7 +333,7 @@ In this example, ``ctx.rule.attr.deps`` are Target objects that are the
 results of applying the aspect to the 'deps' of the original target to which
 the aspect has been applied.
 
-In the example, the aspect to accesses the ``FileCountInfo`` provider from the
+In the example, the aspect accesses the ``FileCountInfo`` provider from the
 target's dependencies to accumulate the total transitive number of files.
 
 ### Invoking the aspect from a rule

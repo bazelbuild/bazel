@@ -65,6 +65,7 @@ import java.util.TreeMap;
          inherits = { BuildCommand.class })
 public class InfoCommand implements BlazeCommand {
 
+  /** Options for the info command. */
   public static class Options extends OptionsBase {
     @Option(
       name = "show_make_env",
@@ -203,8 +204,8 @@ public class InfoCommand implements BlazeCommand {
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
-  static Map<String, InfoItem> getHardwiredInfoItemMap(OptionsParsingResult commandOptions,
-      String productName) {
+  private static Map<String, InfoItem> getHardwiredInfoItemMap(
+      OptionsParsingResult commandOptions, String productName) {
     List<InfoItem> hardwiredInfoItems =
         ImmutableList.<InfoItem>of(
             new InfoItem.WorkspaceInfoItem(),
@@ -232,7 +233,8 @@ public class InfoCommand implements BlazeCommand {
             new InfoItem.CharacterEncodingInfoItem(),
             new InfoItem.DefaultsPackageInfoItem(),
             new InfoItem.BuildLanguageInfoItem(),
-            new InfoItem.DefaultPackagePathInfoItem(commandOptions));
+            new InfoItem.DefaultPackagePathInfoItem(commandOptions),
+            new InfoItem.StarlarkSemanticsInfoItem(commandOptions));
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);

@@ -129,14 +129,37 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   private static final String NO_ALPHA_SEQUENCE = null;
   private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0, "0");
 
+  /** Exception thrown when parsing an invalid dotted version. */
+  public static class InvalidDottedVersionException extends Exception {
+    InvalidDottedVersionException(String msg) {
+      super(msg);
+    }
+
+    InvalidDottedVersionException(String msg, Throwable cause) {
+      super(msg, cause);
+    }
+  }
+
+  /**
+   * Create a dotted version by parsing the given version string. Throws an unchecked exception if
+   * the argument is malformed.
+   */
+  public static DottedVersion fromStringUnchecked(String version) {
+    try {
+      return fromString(version);
+    } catch (InvalidDottedVersionException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
   /**
    * Generates a new dotted version from the given version string.
    *
-   * @throws IllegalArgumentException if the passed string is not a valid dotted version
+   * @throws InvalidDottedVersionException if the passed string is not a valid dotted version
    */
-  public static DottedVersion fromString(String version) {
+  public static DottedVersion fromString(String version) throws InvalidDottedVersionException {
     if (Strings.isNullOrEmpty(version)) {
-      throw new IllegalArgumentException(String.format(ILLEGAL_VERSION, version));
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version));
     }
     ArrayList<Component> components = new ArrayList<>();
     for (String component : DOT_SPLITTER.split(version)) {
@@ -158,10 +181,11 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     return new DottedVersion(ImmutableList.copyOf(components), version, numOriginalComponents);
   }
 
-  private static Component toComponent(String component, String version) {
+  private static Component toComponent(String component, String version)
+      throws InvalidDottedVersionException {
     Matcher parsedComponent = COMPONENT_PATTERN.matcher(component);
     if (!parsedComponent.matches()) {
-      throw new IllegalArgumentException(String.format(ILLEGAL_VERSION, version));
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version));
     }
 
     int firstNumber;
@@ -180,12 +204,13 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     return new Component(firstNumber, alphaSequence, secondNumber, component);
   }
 
-  private static int parseNumber(Matcher parsedComponent, int group, String version) {
+  private static int parseNumber(Matcher parsedComponent, int group, String version)
+      throws InvalidDottedVersionException {
     int firstNumber;
     try {
       firstNumber = Integer.parseInt(parsedComponent.group(group));
     } catch (NumberFormatException e) {
-      throw new IllegalArgumentException(String.format(ILLEGAL_VERSION, version), e);
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version), e);
     }
     return firstNumber;
   }

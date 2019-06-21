@@ -18,12 +18,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -32,27 +36,37 @@ import javax.annotation.Nullable;
  */
 public interface CoverageReportActionFactory {
   /**
-   * Wraps the necessary actions to get a coverage report as well as the final output artifacts.
-   * The lcovWriteAction creates a file containing a set of lcov files. This file is used as an
-   * input artifact for coverageReportAction. We are only interested about the output artifacts from
+   * Wraps the necessary actions to get a coverage report as well as the final output artifacts. The
+   * lcovWriteAction creates a file containing a set of lcov files. This file is used as an input
+   * artifact for coverageReportAction. We are only interested about the output artifacts from
    * coverageReportAction.
    */
-  public static final class CoverageReportActionsWrapper {
-    private final ActionAnalysisMetadata lcovWriteAction;
+  final class CoverageReportActionsWrapper {
     private final ActionAnalysisMetadata coverageReportAction;
+    private final Actions.GeneratingActions processedActions;
 
-    public CoverageReportActionsWrapper (
-        ActionAnalysisMetadata lcovWriteAction, ActionAnalysisMetadata coverageReportAction) {
-      this.lcovWriteAction = lcovWriteAction;
+    public CoverageReportActionsWrapper(
+        ActionAnalysisMetadata lcovWriteAction,
+        ActionAnalysisMetadata coverageReportAction,
+        ActionKeyContext actionKeyContext) {
       this.coverageReportAction = coverageReportAction;
+      try {
+        this.processedActions =
+            Actions.assignOwnersAndFindAndThrowActionConflict(
+                actionKeyContext,
+                ImmutableList.of(lcovWriteAction, coverageReportAction),
+                CoverageReportValue.COVERAGE_REPORT_KEY);
+      } catch (MutableActionGraph.ActionConflictException e) {
+        throw new IllegalStateException(e);
+      }
     }
 
     public ActionAnalysisMetadata getCoverageReportAction() {
       return coverageReportAction;
     }
 
-    public ImmutableList<ActionAnalysisMetadata> getActions() {
-      return ImmutableList.of(lcovWriteAction, coverageReportAction);
+    public Actions.GeneratingActions getActions() {
+      return processedActions;
     }
 
     public ImmutableSet<Artifact> getCoverageOutputs() {
@@ -73,6 +87,7 @@ public interface CoverageReportActionFactory {
       Collection<ConfiguredTarget> targetsToTest,
       Iterable<Artifact> baselineCoverageArtifacts,
       ArtifactFactory artifactFactory,
-      ArtifactOwner artifactOwner,
+      ActionKeyContext actionKeyContext,
+      ActionLookupValue.ActionLookupKey actionLookupKey,
       String workspaceName);
 }
