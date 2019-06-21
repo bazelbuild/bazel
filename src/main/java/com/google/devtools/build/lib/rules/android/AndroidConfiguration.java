@@ -705,7 +705,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
     @Option(
       name = "android_aapt",
-      defaultValue = "auto",
+      defaultValue = "aapt2",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
