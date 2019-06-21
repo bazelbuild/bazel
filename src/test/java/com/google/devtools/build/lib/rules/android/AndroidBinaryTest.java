@@ -3580,6 +3580,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testAapt2WithoutAndroidSdk() throws Exception {
+    useConfiguration("--android_aapt=aapt2");
     checkError(
         "java/a",
         "a",
