@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -44,6 +45,22 @@ public class Alias implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual", Mode.TARGET);
+
+    // TODO(b/129045294): Remove once the flag is flipped.
+    if (ruleContext.getLabel().getCanonicalForm().startsWith("@bazel_tools//platforms")
+        && ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .usePlatformsRepoForConstraints) {
+      throw ruleContext.throwWithRuleError(
+          "Constraints from @bazel_tools//platforms have been "
+              + "removed. Please use constraints from @platforms repository embedded in "
+              + "Bazel, or preferably declare dependency on "
+              + "https://github.com/bazelbuild/platforms. See "
+              + "https://github.com/bazelbuild/bazel/issues/8622 for details.");
+    }
+
     return new AliasConfiguredTarget(
         ruleContext,
         actual,

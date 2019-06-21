@@ -81,17 +81,17 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
   static String cpuToConstraint(CPU cpu) {
     switch (cpu) {
       case X86_32:
-        return "@bazel_tools//platforms:x86_32";
+        return "@platforms//cpu:x86_32";
       case X86_64:
-        return "@bazel_tools//platforms:x86_64";
+        return "@platforms//cpu:x86_64";
       case PPC:
-        return "@bazel_tools//platforms:ppc";
+        return "@platforms//cpu:ppc";
       case ARM:
-        return "@bazel_tools//platforms:arm";
+        return "@platforms//cpu:arm";
       case AARCH64:
-        return "@bazel_tools//platforms:aarch64";
+        return "@platforms//cpu:aarch64";
       case S390X:
-        return "@bazel_tools//platforms:s390x";
+        return "@platforms//cpu:s390x";
       default:
         // Unknown, so skip it.
         return null;
@@ -102,13 +102,13 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
   static String osToConstraint(OS os) {
     switch (os) {
       case DARWIN:
-        return "@bazel_tools//platforms:osx";
+        return "@platforms//os:osx";
       case FREEBSD:
-        return "@bazel_tools//platforms:freebsd";
+        return "@platforms//os:freebsd";
       case LINUX:
-        return "@bazel_tools//platforms:linux";
+        return "@platforms//os:linux";
       case WINDOWS:
-        return "@bazel_tools//platforms:windows";
+        return "@platforms//os:windows";
       default:
         // Unknown, so skip it.
         return null;
