@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -202,6 +203,10 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleDepsetForLibrariesToLinkGetter();
 
   public abstract boolean incompatibleRestrictStringEscapes();
+
+  @Memoized
+  @Override
+  public abstract int hashCode();
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
