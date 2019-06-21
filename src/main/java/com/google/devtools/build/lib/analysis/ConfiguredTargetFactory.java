@@ -477,7 +477,12 @@ public final class ConfiguredTargetFactory {
             .setToolchainContext(toolchainContext)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .build();
-    if (ruleContext.hasErrors()) {
+
+    // If allowing analysis failures, targets should be created as normal as possible, and errors
+    // will be propagated via a hook elsewhere as AnalysisFailureInfo.
+    boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
+
+    if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return null;
     }
 

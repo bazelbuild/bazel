@@ -101,7 +101,7 @@ public final class RuleConfiguredTargetBuilder {
     if (ruleContext.getConfiguration().enforceConstraints()) {
       checkConstraints();
     }
-    if (ruleContext.hasErrors()) {
+    if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return null;
     }
 
