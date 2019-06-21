@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -208,10 +209,19 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public void describe(StringBuilder sb) {
     sb.append("BuildConfiguration ").append(checksum()).append(":\n");
+    // Fragments.
+    sb.append("  fragments: ")
+        .append(
+            getFragmentsMap().keySet().stream()
+                .sorted(comparing(Class::getName))
+                .map(Class::getName)
+                .collect(joining(",")))
+        .append("\n");
+    // Options.
     getOptions().getFragmentClasses().stream()
         .sorted(comparing(Class::getName))
-        .map(fragmentClass -> getOptions().get(fragmentClass))
-        .forEach(fragment -> fragment.describe(sb));
+        .map(optionsClass -> getOptions().get(optionsClass))
+        .forEach(options -> options.describe(sb));
   }
 
   @Override

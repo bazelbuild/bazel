@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -97,5 +99,11 @@ public class FragmentClassSet {
   public int hashCode() {
     maybeInitializeFingerprintAndHashCode();
     return hashCode;
+  }
+
+  @Override
+  public String toString() {
+    return String.format(
+        "FragmentClassSet[%s]", fragments.stream().map(Class::getName).collect(joining(",")));
   }
 }
