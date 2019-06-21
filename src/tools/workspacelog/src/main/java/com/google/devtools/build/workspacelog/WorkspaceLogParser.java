@@ -75,7 +75,8 @@ final class WorkspaceLogParser {
   }
 
   public static void main(String[] args) throws Exception {
-    OptionsParser op = OptionsParser.newOptionsParser(WorkspaceLogParserOptions.class);
+    OptionsParser op =
+        OptionsParser.builder().optionsClasses(WorkspaceLogParserOptions.class).build();
     op.parseAndExitUponError(args);
 
     WorkspaceLogParserOptions options = op.getOptions(WorkspaceLogParserOptions.class);
