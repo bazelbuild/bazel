@@ -433,8 +433,10 @@ java_library(
     ],
     deps = [
         ":skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 

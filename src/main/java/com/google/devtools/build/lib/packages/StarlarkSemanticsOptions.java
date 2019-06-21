@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -594,55 +596,66 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       help = "If set to true, unknown string escapes like `\\a` become rejected.")
   public boolean incompatibleRestrictStringEscapes;
 
+  /**
+   * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
+   * never accumulate a large number of these and being able to shortcut on object identity makes a
+   * comparison later much faster. In particular, the semantics become part of the
+   * MethodDescriptorKey in FuncallExpression and are thus compared for every function call.
+   */
+  private static final Interner<StarlarkSemantics> INTERNER = BlazeInterners.newWeakInterner();
+
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
   public StarlarkSemantics toSkylarkSemantics() {
-    return StarlarkSemantics.builder()
-        // <== Add new options here in alphabetic order ==>
-        .experimentalAllowIncrementalRepositoryUpdates(
-            experimentalAllowIncrementalRepositoryUpdates)
-        .experimentalBuildSettingApi(experimentalBuildSettingApi)
-        .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
-        .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
-        .experimentalGoogleLegacyApi(experimentalGoogleLegacyApi)
-        .experimentalJavaCommonCreateProviderEnabledPackages(
-            experimentalJavaCommonCreateProviderEnabledPackages)
-        .experimentalPlatformsApi(experimentalPlatformsApi)
-        .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
-        .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
-        .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
-        .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
-        .incompatibleDepsetUnion(incompatibleDepsetUnion)
-        .incompatibleDisableThirdPartyLicenseChecking(incompatibleDisableThirdPartyLicenseChecking)
-        .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
-        .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
-        .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
-        .incompatibleDisallowEmptyGlob(incompatibleDisallowEmptyGlob)
-        .incompatibleDisallowLegacyJavaInfo(incompatibleDisallowLegacyJavaInfo)
-        .incompatibleDisallowLegacyJavaProvider(incompatibleDisallowLegacyJavaProvider)
-        .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(
-            incompatibleDisallowLoadLabelsToCrossPackageBoundaries)
-        .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
-        .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)
-        .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
-            incompatibleDisallowRuleExecutionPlatformConstraintsAllowed)
-        .incompatibleExpandDirectories(incompatibleExpandDirectories)
-        .incompatibleNewActionsApi(incompatibleNewActionsApi)
-        .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
-        .incompatibleNoOutputAttrDefault(incompatibleNoOutputAttrDefault)
-        .incompatibleNoRuleOutputsParam(incompatibleNoRuleOutputsParam)
-        .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
-        .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
-        .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
-        .incompatibleObjcFrameworkCleanup(incompatibleObjcFrameworkCleanup)
-        .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
-        .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
-        .incompatibleRestrictNamedParams(incompatibleRestrictNamedParams)
-        .incompatibleRunShellCommandString(incompatibleRunShellCommandString)
-        .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
-        .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
-        .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
-        .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
-        .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
-        .build();
+    StarlarkSemantics semantics =
+        StarlarkSemantics.builder()
+            // <== Add new options here in alphabetic order ==>
+            .experimentalAllowIncrementalRepositoryUpdates(
+                experimentalAllowIncrementalRepositoryUpdates)
+            .experimentalBuildSettingApi(experimentalBuildSettingApi)
+            .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
+            .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
+            .experimentalGoogleLegacyApi(experimentalGoogleLegacyApi)
+            .experimentalJavaCommonCreateProviderEnabledPackages(
+                experimentalJavaCommonCreateProviderEnabledPackages)
+            .experimentalPlatformsApi(experimentalPlatformsApi)
+            .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
+            .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
+            .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
+            .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
+            .incompatibleDepsetUnion(incompatibleDepsetUnion)
+            .incompatibleDisableThirdPartyLicenseChecking(
+                incompatibleDisableThirdPartyLicenseChecking)
+            .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
+            .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
+            .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
+            .incompatibleDisallowEmptyGlob(incompatibleDisallowEmptyGlob)
+            .incompatibleDisallowLegacyJavaInfo(incompatibleDisallowLegacyJavaInfo)
+            .incompatibleDisallowLegacyJavaProvider(incompatibleDisallowLegacyJavaProvider)
+            .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(
+                incompatibleDisallowLoadLabelsToCrossPackageBoundaries)
+            .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
+            .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
+                incompatibleDisallowRuleExecutionPlatformConstraintsAllowed)
+            .incompatibleExpandDirectories(incompatibleExpandDirectories)
+            .incompatibleNewActionsApi(incompatibleNewActionsApi)
+            .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
+            .incompatibleNoOutputAttrDefault(incompatibleNoOutputAttrDefault)
+            .incompatibleNoRuleOutputsParam(incompatibleNoRuleOutputsParam)
+            .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
+            .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
+            .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
+            .incompatibleObjcFrameworkCleanup(incompatibleObjcFrameworkCleanup)
+            .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
+            .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
+            .incompatibleRestrictNamedParams(incompatibleRestrictNamedParams)
+            .incompatibleRunShellCommandString(incompatibleRunShellCommandString)
+            .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
+            .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
+            .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
+            .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
+            .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
+            .build();
+    return INTERNER.intern(semantics);
   }
 }
