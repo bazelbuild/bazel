@@ -14,12 +14,12 @@
 """Rules for cloning external git repositories."""
 
 load(
-    "@bazel_tools//tools/build_defs/repo:utils.bzl",
+    ":utils.bzl",
     "patch",
     "update_attrs",
     "workspace_and_buildfile",
 )
-load("@bazel_tools//tools/build_defs/repo:git_worker.bzl", "git_repo")
+load(":git_worker.bzl", "git_repo")
 
 def _clone_or_update(ctx):
     if ((not ctx.attr.tag and not ctx.attr.commit and not ctx.attr.branch) or
