@@ -897,14 +897,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
     @Option(
-        name = "persistent_android_resource_processor",
+        name = "android_persistent_workers",
         defaultValue = "null",
+        oldName = "persistent_android_resource_processor",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {
           OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
           OptionEffectTag.EXECUTION,
         },
-        help = "Enable the persistent Android resource processor by using workers.",
+        help = "Enable persistent workers for Android build actions.",
         expansion = {
           "--internal_persistent_busybox_tools",
           // This implementation uses unique workers for each tool in the busybox.
@@ -918,13 +919,32 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           "--strategy=AndroidAssetMerger=worker",
           "--strategy=AndroidResourceMerger=worker",
           "--strategy=AndroidCompiledResourceMerger=worker",
+          "--worker_max_instances=AaptPackage=2",
+          "--worker_max_instances=AndroidResourceParser=2",
+          "--worker_max_instances=AndroidResourceValidator=2",
+          "--worker_max_instances=AndroidResourceCompiler=2",
+          "--worker_max_instances=RClassGenerator=2",
+          "--worker_max_instances=AndroidResourceLink=2",
+          "--worker_max_instances=AndroidAapt2=2",
+          "--worker_max_instances=AndroidAssetMerger=2",
+          "--worker_max_instances=AndroidResourceMerger=2",
+          "--worker_max_instances=AndroidCompiledResourceMerger=2",
           // TODO(jingwen): ManifestMerger prints to stdout when there's a manifest merge
           // conflict. The worker protocol does not like this because it uses std i/o to
           // for communication. To get around this, re-configure manifest merger to *not*
           // use stdout for merge conflict warnings.
           // "--strategy=ManifestMerger=worker",
+          // Javac
+          "--strategy=Javac=worker",
+          "--worker_max_instances=Javac=2",
+          // DexBuilder
+          "--strategy=DexBuilder=worker",
+          "--worker_max_instances=DexBuilder=2",
+          // Desugar
+          "--strategy=Desugar=worker",
+          "--worker_max_instances=Desugar=2",
         })
-    public Void persistentResourceProcessor;
+    public Void androidPersistentWorkers;
 
     /**
      * We use this option to decide when to enable workers for busybox tools. This flag is also a

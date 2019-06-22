@@ -93,22 +93,22 @@ function test_font_support() {
   assert_build //java/bazel:bin
 }
 
-function test_persistent_resource_processor_aapt() {
+function test_persistent_workers_aapt() {
   create_new_workspace
   setup_android_sdk_support
   create_android_binary
   setup_font_resources
 
-  assert_build //java/bazel:bin --persistent_android_resource_processor
+  assert_build //java/bazel:bin --android_persistent_workers
 }
 
-function test_persistent_resource_processor_aapt2() {
+function test_persistent_workers_aapt2() {
   create_new_workspace
   setup_android_sdk_support
   create_android_binary
   setup_font_resources
 
-  assert_build //java/bazel:bin --persistent_android_resource_processor --android_aapt=aapt2
+  assert_build //java/bazel:bin --android_persistent_workers --android_aapt=aapt2
 }
 
 run_suite "Resource processing integration tests"
