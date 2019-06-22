@@ -349,7 +349,10 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "java/a/BUILD",
         "cc_library(name = 'lib', srcs = ['lib.cc'])",
         "android_binary(name='a', manifest = 'AndroidManifest.xml', deps = [':lib'])");
-    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
+    // Force tests to use aapt to unblock global aapt2 migration, until these
+    // tests are migrated to use aapt2.
+    // TODO(jingwen): https://github.com/bazelbuild/bazel/issues/6907
+    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a", "--android_aapt=aapt");
     List<ConfiguredTarget> deps = getConfiguredDeps("//java/a:a", "deps");
     assertThat(deps).hasSize(2);
     ConfiguredTarget dep1 = deps.get(0);
