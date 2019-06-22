@@ -226,11 +226,6 @@ script:
   - bazel test //...
 ```
 
-Right now Bazel has to be compiled from source, as Travis does not support a
-version of GCC that works with the precompiled Bazel binaries. Thus, the
-`before_install` steps download the Bazel source, compile it, and "install" the
-Bazel binary in `/usr/bin`.
-
 If your repository is under the [bazelbuild organization](https://github.com/bazelbuild),
 contact the [bazel-dev](https://groups.google.com/forum/#!forum/bazel-dev) list
 to have it added to [ci.bazel.build](http://ci.bazel.build).
