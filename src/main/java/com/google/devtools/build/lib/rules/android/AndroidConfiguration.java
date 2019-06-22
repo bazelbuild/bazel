@@ -919,16 +919,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           "--strategy=AndroidAssetMerger=worker",
           "--strategy=AndroidResourceMerger=worker",
           "--strategy=AndroidCompiledResourceMerger=worker",
-          "--worker_max_instances=AaptPackage=2",
-          "--worker_max_instances=AndroidResourceParser=2",
-          "--worker_max_instances=AndroidResourceValidator=2",
-          "--worker_max_instances=AndroidResourceCompiler=2",
-          "--worker_max_instances=RClassGenerator=2",
-          "--worker_max_instances=AndroidResourceLink=2",
-          "--worker_max_instances=AndroidAapt2=2",
-          "--worker_max_instances=AndroidAssetMerger=2",
-          "--worker_max_instances=AndroidResourceMerger=2",
-          "--worker_max_instances=AndroidCompiledResourceMerger=2",
+          // Use 1 worker for optimal performance. See benchmarks in
+          // https://github.com/bazelbuild/bazel/issues/8586#issuecomment-504638339
+          "--worker_max_instances=AaptPackage=1",
+          "--worker_max_instances=AndroidResourceParser=1",
+          "--worker_max_instances=AndroidResourceValidator=1",
+          "--worker_max_instances=AndroidResourceCompiler=1",
+          "--worker_max_instances=RClassGenerator=1",
+          "--worker_max_instances=AndroidResourceLink=1",
+          "--worker_max_instances=AndroidAapt2=1",
+          "--worker_max_instances=AndroidAssetMerger=1",
+          "--worker_max_instances=AndroidResourceMerger=1",
+          "--worker_max_instances=AndroidCompiledResourceMerger=1",
           // TODO(jingwen): ManifestMerger prints to stdout when there's a manifest merge
           // conflict. The worker protocol does not like this because it uses std i/o to
           // for communication. To get around this, re-configure manifest merger to *not*
@@ -936,13 +938,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           // "--strategy=ManifestMerger=worker",
           // Javac
           "--strategy=Javac=worker",
-          "--worker_max_instances=Javac=2",
+          "--worker_max_instances=Javac=1",
           // DexBuilder
           "--strategy=DexBuilder=worker",
-          "--worker_max_instances=DexBuilder=2",
+          "--worker_max_instances=DexBuilder=1",
           // Desugar
           "--strategy=Desugar=worker",
-          "--worker_max_instances=Desugar=2",
+          "--worker_max_instances=Desugar=1",
         })
     public Void androidPersistentWorkers;
 
