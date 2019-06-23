@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -66,6 +65,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -439,16 +439,23 @@ public class RemoteSpawnRunner implements SpawnRunner {
     } else {
       status = Status.EXECUTION_FAILED;
     }
-    throw new SpawnExecException(
-        verboseFailures ? Throwables.getStackTraceAsString(exception) : exception.getMessage(),
-        new SpawnResult.Builder()
-            .setRunnerName(getName())
-            .setStatus(status)
-            .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
-            .setFailureMessage(exception.getMessage())
-            .build(),
-        /* forciblyRunRemotely= */ false);
+
+    final String errorMessage;
+    if (!verboseFailures) {
+      errorMessage = Utils.grpcAwareErrorMessage(exception);
+    } else {
+      // On --verbose_failures print the whole stack trace
+      errorMessage = Throwables.getStackTraceAsString(exception);
+    }
+
+    return new SpawnResult.Builder()
+        .setRunnerName(getName())
+        .setStatus(status)
+        .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
+        .setFailureMessage(errorMessage)
+        .build();
   }
+
 
   static Action buildAction(Digest command, Digest inputRoot, Duration timeout, boolean cacheable) {
 

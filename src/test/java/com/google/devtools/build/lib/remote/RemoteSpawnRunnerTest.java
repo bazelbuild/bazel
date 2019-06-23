@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
@@ -739,9 +738,9 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy =
         new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
 
-    SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
-    assertThat(e.getSpawnResult().exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-    assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
+    SpawnResult result = runner.exec(spawn, policy);
+    assertThat(result.exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    assertThat(result.getDetailMessage("", "", false, false)).contains("reasons");
   }
 
   @Test
@@ -759,9 +758,9 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy =
         new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
 
-    SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
-    assertThat(e.getSpawnResult().exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-    assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
+    SpawnResult result = runner.exec(spawn, policy);
+    assertThat(result.exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    assertThat(result.getDetailMessage("", "", false, false)).contains("reasons");
   }
 
   @Test
@@ -910,8 +909,8 @@ public class RemoteSpawnRunnerTest {
         new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
 
     // act
-    SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
-    assertThat(e.getMessage()).isEqualTo(downloadFailure.getMessage());
+    SpawnResult result = runner.exec(spawn, policy);
+    assertThat(result.getFailureMessage()).isEqualTo(downloadFailure.getMessage());
 
     // assert
     verify(cache)

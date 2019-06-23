@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -194,7 +195,7 @@ final class RemoteSpawnCache implements SpawnCache {
       } catch (CacheNotFoundException e) {
         // Intentionally left blank
       } catch (IOException e) {
-        String errorMsg = e.getMessage();
+        String errorMsg = Utils.grpcAwareErrorMessage(e);
         if (isNullOrEmpty(errorMsg)) {
           errorMsg = e.getClass().getSimpleName();
         }
@@ -247,7 +248,7 @@ final class RemoteSpawnCache implements SpawnCache {
             remoteCache.upload(
                 actionKey, action, command, execRoot, files, context.getFileOutErr());
           } catch (IOException e) {
-            String errorMsg = e.getMessage();
+            String errorMsg = Utils.grpcAwareErrorMessage(e);
             if (isNullOrEmpty(errorMsg)) {
               errorMsg = e.getClass().getSimpleName();
             }

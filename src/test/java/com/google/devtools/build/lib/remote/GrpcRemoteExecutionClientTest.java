@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
@@ -50,7 +49,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -59,7 +57,6 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -222,7 +219,7 @@ public class GrpcRemoteExecutionClientTest {
             remoteOptions,
             Options.getDefaults(ExecutionOptions.class),
             null,
-            true,
+            /* verboseFailures= */ true,
             /*cmdlineReporter=*/ null,
             "build-req-id",
             "command-id",
@@ -857,13 +854,10 @@ public class GrpcRemoteExecutionClientTest {
     FakeSpawnExecutionContext policy =
         new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
 
-    SpawnExecException expected =
-        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, policy));
-    assertThat(expected.getSpawnResult().status())
-        .isEqualTo(SpawnResult.Status.EXECUTION_FAILED_CATASTROPHICALLY);
-    // Ensure we also got back the stack trace.
-    assertThat(expected)
-        .hasMessageThat()
+    SpawnResult result = client.exec(simpleSpawn, policy);
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED_CATASTROPHICALLY);
+    // Ensure we also got back the stack trace due to verboseFailures=true
+    assertThat(result.getFailureMessage())
         .contains("GrpcRemoteExecutionClientTest.passUnavailableErrorWithStackTrace");
   }
 
@@ -880,12 +874,10 @@ public class GrpcRemoteExecutionClientTest {
 
     FakeSpawnExecutionContext policy =
         new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    ExecException expected =
-        assertThrows(ExecException.class, () -> client.exec(simpleSpawn, policy));
-    assertThat(expected).hasMessageThat().contains("whoa"); // Error details.
+    SpawnResult result = client.exec(simpleSpawn, policy);
+    assertThat(result.getFailureMessage()).contains("whoa"); // Error details.
     // Ensure we also got back the stack trace.
-    assertThat(expected)
-        .hasMessageThat()
+    assertThat(result.getFailureMessage())
         .contains("GrpcRemoteExecutionClientTest.passInternalErrorWithStackTrace");
   }
 
@@ -941,14 +933,11 @@ public class GrpcRemoteExecutionClientTest {
     FakeSpawnExecutionContext policy =
         new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
 
-    SpawnExecException expected =
-        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, policy));
-    assertThat(expected.getSpawnResult().status())
-        .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
-      assertThat(expected).hasMessageThat().contains(DIGEST_UTIL.toString(stdOutDigest));
+    SpawnResult result = client.exec(simpleSpawn, policy);
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
+    assertThat(result.getFailureMessage()).contains(DIGEST_UTIL.toString(stdOutDigest));
     // Ensure we also got back the stack trace.
-    assertThat(expected)
-        .hasMessageThat()
+    assertThat(result.getFailureMessage())
         .contains("GrpcRemoteExecutionClientTest.passCacheMissErrorWithStackTrace");
   }
 
@@ -1004,14 +993,11 @@ public class GrpcRemoteExecutionClientTest {
 
     FakeSpawnExecutionContext policy =
         new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    SpawnExecException expected =
-        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, policy));
-    assertThat(expected.getSpawnResult().status())
-        .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
-      assertThat(expected).hasMessageThat().contains(DIGEST_UTIL.toString(stdOutDigest));
-    // Ensure we also got back the stack trace.
-    assertThat(expected)
-        .hasMessageThat()
+    SpawnResult result = client.exec(simpleSpawn, policy);
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
+    assertThat(result.getFailureMessage()).contains(DIGEST_UTIL.toString(stdOutDigest));
+    // Ensure we also got back the stack trace because verboseFailures=true
+    assertThat(result.getFailureMessage())
         .contains("passRepeatedOrphanedCacheMissErrorWithStackTrace");
   }
 
