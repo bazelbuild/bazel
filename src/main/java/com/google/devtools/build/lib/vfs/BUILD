@@ -34,7 +34,6 @@ java_library(
     ],
 )
 
-# Virtual file system; do not use externally!
 java_library(
     name = "vfs",
     srcs = glob(

@@ -80,25 +80,19 @@ public abstract class AndroidSkylarkData
       SkylarkList<AndroidResourcesInfo> deps,
       SkylarkList<AndroidAssetsInfo> assets,
       boolean neverlink,
-      Object customPackage,
+      String customPackage,
       Location location,
       Environment env)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
-      String pkg =
-          fromNoneableOrDefault(
-              customPackage,
-              String.class,
-              AndroidManifest.getDefaultPackage(
-                  env.getCallerLabel(), ctx.getActionConstructionContext(), errorReporter));
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
               DataBinding.getDisabledDataBindingContext(ctx),
               ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
               AssetDependencies.fromProviders(assets, /* neverlink = */ neverlink),
               StampedAndroidManifest.createEmpty(
-                  ctx.getActionConstructionContext(), pkg, /* exported = */ false))
+                  ctx.getActionConstructionContext(), customPackage, /* exported = */ false))
           .toResourceInfo(ctx.getLabel());
     }
   }
@@ -137,8 +131,9 @@ public abstract class AndroidSkylarkData
       Location location,
       Environment env)
       throws EvalException, InterruptedException {
-    try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
+    SkylarkErrorReporter errorReporter =
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
+    try {
       return AndroidAssets.from(
               errorReporter,
               listFromNoneable(assets, ConfiguredTarget.class),
@@ -146,10 +141,10 @@ public abstract class AndroidSkylarkData
           .process(
               ctx,
               AssetDependencies.fromProviders(deps, neverlink),
-              ctx.getAndroidConfig().getAndroidAaptVersion())
+              getAndroidAaptVersionForLibrary(ctx))
           .toProvider();
     } catch (RuleErrorException e) {
-      throw new EvalException(Location.BUILTIN, e);
+      throw handleRuleException(errorReporter, e);
     }
   }
 
@@ -164,10 +159,9 @@ public abstract class AndroidSkylarkData
       Location location,
       Environment env)
       throws EvalException, InterruptedException {
-    try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
-      AndroidAaptVersion aaptVersion =
-          ctx.getSdk().getAapt2() != null ? AndroidAaptVersion.AAPT2 : AndroidAaptVersion.AAPT;
+    SkylarkErrorReporter errorReporter =
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
+    try {
       return AndroidResources.from(errorReporter, getFileProviders(resources), "resources")
           .process(
               ctx,
@@ -175,9 +169,9 @@ public abstract class AndroidSkylarkData
               ResourceDependencies.fromProviders(deps, neverlink),
               DataBinding.contextFrom(
                   enableDataBinding, ctx.getActionConstructionContext(), ctx.getAndroidConfig()),
-              aaptVersion);
+              getAndroidAaptVersionForLibrary(ctx));
     } catch (RuleErrorException e) {
-      throw new EvalException(Location.BUILTIN, e);
+      throw handleRuleException(errorReporter, e);
     }
   }
 
@@ -280,7 +274,7 @@ public abstract class AndroidSkylarkData
       SkylarkList<ConfiguredTarget> deps)
       throws InterruptedException {
 
-    AndroidAaptVersion aaptVersion = ctx.getAndroidConfig().getAndroidAaptVersion();
+    AndroidAaptVersion aaptVersion = getAndroidAaptVersionForLibrary(ctx);
 
     ValidatedAndroidResources validatedResources =
         AndroidResources.forAarImport(resources)
@@ -320,9 +314,10 @@ public abstract class AndroidSkylarkData
       Location location,
       Environment env)
       throws InterruptedException, EvalException {
-    try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
+    SkylarkErrorReporter errorReporter =
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
 
+    try {
       AndroidManifest rawManifest =
           AndroidManifest.from(
               ctx,
@@ -365,8 +360,17 @@ public abstract class AndroidSkylarkData
               resourceApk.toManifestInfo().get()));
       return SkylarkDict.copyOf(/* env = */ null, builder.build());
     } catch (RuleErrorException e) {
-      throw new EvalException(Location.BUILTIN, e);
+      throw handleRuleException(errorReporter, e);
     }
+  }
+
+  private static IllegalStateException handleRuleException(
+      SkylarkErrorReporter errorReporter, RuleErrorException exception) throws EvalException {
+    // The error reporter should have been notified of the rule error, and thus closing it will
+    // throw an EvalException.
+    errorReporter.close();
+    // It's a catastrophic state error if the errorReporter did not pick up the error.
+    throw new IllegalStateException("Unhandled RuleErrorException", exception);
   }
 
   @Override
@@ -381,21 +385,23 @@ public abstract class AndroidSkylarkData
       Environment env)
       throws EvalException {
 
+    SkylarkErrorReporter errorReporter =
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
     AndroidAaptVersion aaptVersion;
-    try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
+
+    try {
       aaptVersion =
           AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString);
-    } catch (RuleErrorException e) {
-      throw new EvalException(Location.BUILTIN, e);
-    }
 
-    return new BinaryDataSettings(
-        aaptVersion,
-        fromNoneableOrDefault(
-            shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
-        ResourceFilterFactory.from(aaptVersion, resourceConfigurationFilters, densities),
-        noCompressExtensions.getImmutableList());
+      return new BinaryDataSettings(
+          aaptVersion,
+          fromNoneableOrDefault(
+              shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
+          ResourceFilterFactory.from(aaptVersion, resourceConfigurationFilters, densities),
+          noCompressExtensions.getImmutableList());
+    } catch (RuleErrorException e) {
+      throw handleRuleException(errorReporter, e);
+    }
   }
 
   @Override
@@ -455,9 +461,10 @@ public abstract class AndroidSkylarkData
       Location location,
       Environment env)
       throws InterruptedException, EvalException {
-    try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
+    SkylarkErrorReporter errorReporter =
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
 
+    try {
       BinaryDataSettings settings =
           fromNoneableOrDefault(
               maybeSettings,
@@ -525,7 +532,7 @@ public abstract class AndroidSkylarkData
           resourceApk.toManifestInfo().get());
 
     } catch (RuleErrorException e) {
-      throw new EvalException(location, e);
+      throw handleRuleException(errorReporter, e);
     }
   }
 
@@ -601,6 +608,23 @@ public abstract class AndroidSkylarkData
             resourceApk.getResourceJavaClassJar(), resourceApk.getResourceJavaSrcJar()));
 
     return SkylarkDict.copyOf(/* env = */ null, builder.build());
+  }
+
+  /**
+   * An algorithm to select the aapt version.
+   *
+   * <p>The calling rule doesn't have the aapt_version attribute (e.g. android_library), so fall
+   * back to a simpler algorithm instead of {@code AndroidAaptVersion.chooseTargetAaptVersion}.
+   * <li>1. If value of --android_aapt is either aapt or aapt2, use it.
+   * <li>2. Else, use aapt2 if the sdk contains it. If it doesn't, use aapt.
+   */
+  private static AndroidAaptVersion getAndroidAaptVersionForLibrary(AndroidDataContext ctx) {
+    AndroidAaptVersion aaptVersion = ctx.getAndroidConfig().getAndroidAaptVersion();
+    if (aaptVersion == AndroidAaptVersion.AUTO) {
+      aaptVersion =
+          ctx.getSdk().getAapt2() == null ? AndroidAaptVersion.AAPT : AndroidAaptVersion.AAPT2;
+    }
+    return aaptVersion;
   }
 
   private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar) {

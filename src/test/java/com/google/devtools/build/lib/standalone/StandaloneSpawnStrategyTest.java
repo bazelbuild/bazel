@@ -114,7 +114,8 @@ public class StandaloneSpawnStrategyTest {
             "mock-product-name");
     // This call implicitly symlinks the integration bin tools into the exec root.
     IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);
+    OptionsParser optionsParser =
+        OptionsParser.builder().optionsClasses(ExecutionOptions.class).build();
     optionsParser.parse("--verbose_failures");
     LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
 

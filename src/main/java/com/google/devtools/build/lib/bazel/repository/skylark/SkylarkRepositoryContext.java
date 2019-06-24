@@ -61,9 +61,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -460,8 +463,11 @@ public class SkylarkRepositoryContext
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
+      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
+    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+
     List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
@@ -480,6 +486,7 @@ public class SkylarkRepositoryContext
       downloadedPath =
           httpDownloader.download(
               urls,
+              authHeaders,
               sha256,
               canonicalId,
               Optional.<String>absent(),
@@ -561,8 +568,11 @@ public class SkylarkRepositoryContext
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
+      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
       Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
+    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+
     List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
@@ -590,6 +600,7 @@ public class SkylarkRepositoryContext
       downloadedPath =
           httpDownloader.download(
               urls,
+              authHeaders,
               sha256,
               canonicalId,
               Optional.of(type),
@@ -791,5 +802,50 @@ public class SkylarkRepositoryContext
         }
       }
     }
+  }
+
+  /**
+   * From an authentication dict extract a map of headers.
+   *
+   * <p>Given a dict as provided as "auth" argument, compute a map specifying for each URI provided
+   * which additional headers (as usual, represented as a map from Strings to Strings) should
+   * additionally be added to the request. For some form of authentication, in particular basic
+   * authentication, adding those headers is enough; for other forms of authentication other
+   * measures might be necessary.
+   */
+  private static Map<URI, Map<String, String>> getAuthHeaders(
+      SkylarkDict<String, SkylarkDict<Object, Object>> auth)
+      throws RepositoryFunctionException, EvalException {
+    ImmutableMap.Builder<URI, Map<String, String>> headers = new ImmutableMap.Builder<>();
+    for (Map.Entry<String, SkylarkDict<Object, Object>> entry : auth.entrySet()) {
+      try {
+        URL url = new URL(entry.getKey());
+        SkylarkDict<Object, Object> authMap = entry.getValue();
+        if (authMap.containsKey("type")) {
+          if ("basic".equals(authMap.get("type"))) {
+            if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
+              throw new EvalException(
+                  null,
+                  "Found request to do basic auth for "
+                      + entry.getKey()
+                      + " without 'login' and 'password' being provided.");
+            }
+            String credentials = authMap.get("login") + ":" + authMap.get("password");
+            headers.put(
+                url.toURI(),
+                ImmutableMap.<String, String>of(
+                    "Authorization",
+                    "Basic "
+                        + Base64.getEncoder()
+                            .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
+          }
+        }
+      } catch (MalformedURLException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      } catch (URISyntaxException e) {
+        throw new EvalException(null, e.getMessage());
+      }
+    }
+    return headers.build();
   }
 }

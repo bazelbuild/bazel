@@ -271,7 +271,8 @@ public class ApiExporter {
   }
 
   public static void main(String[] args) {
-    OptionsParser parser = OptionsParser.newOptionsParser(BuildEncyclopediaOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildEncyclopediaOptions.class).build();
     parser.parseAndExitUponError(args);
     BuildEncyclopediaOptions options = parser.getOptions(BuildEncyclopediaOptions.class);
 

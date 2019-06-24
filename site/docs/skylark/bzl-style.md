@@ -54,8 +54,8 @@ Python convention).
 
 ### Docstring
 
-Document files and functions using [docstrings](skylint.md#docstrings). Use a
-docstring at the top of each `.bzl` file, and a docstring for each public
+Document files and functions using [docstrings](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#function-docstring).
+Use a docstring at the top of each `.bzl` file, and a docstring for each public
 function.
 
 ### Document rules and aspects

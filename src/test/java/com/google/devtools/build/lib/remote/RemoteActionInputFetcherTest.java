@@ -197,6 +197,7 @@ public class RemoteActionInputFetcherTest {
         .isEqualTo("hello world");
     assertThat(a1.getPath().isExecutable()).isTrue();
     assertThat(a1.getPath().isReadable()).isTrue();
+    assertThat(a1.getPath().isWritable()).isTrue();
   }
 
   private Artifact createRemoteArtifact(

@@ -123,7 +123,7 @@ public class BlazeCommandUtils {
       Collection<Class<? extends OptionsBase>> options,
       OptionsParser.HelpVerbosity helpVerbosity,
       String productName) {
-    OptionsParser parser = OptionsParser.newOptionsParser(options);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(options).build();
 
     String template;
     if (help.startsWith("resource:")) {

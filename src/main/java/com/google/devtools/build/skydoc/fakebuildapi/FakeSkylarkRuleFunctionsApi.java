@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.FileTypeApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
@@ -33,11 +32,14 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.skydoc.rendering.ProviderInfo;
-import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
+import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -54,19 +56,20 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(AttributeType.NAME, "A unique name for this target.", true);
-  private final List<RuleInfo> ruleInfoList;
-  private final List<ProviderInfo> providerInfoList;
+  private final List<RuleInfoWrapper> ruleInfoList;
+
+  private final List<ProviderInfoWrapper> providerInfoList;
 
   /**
    * Constructor.
    *
    * @param ruleInfoList the list of {@link RuleInfo} objects to which rule() invocation information
    *     will be added
-   * @param providerInfoList the list of {@link ProviderInfo} objects to which provider()
-   *     invocation information will be added
+   * @param providerInfoList the list of {@link ProviderInfo} objects to which provider() invocation
+   *     information will be added
    */
-  public FakeSkylarkRuleFunctionsApi(List<RuleInfo> ruleInfoList,
-      List<ProviderInfo> providerInfoList) {
+  public FakeSkylarkRuleFunctionsApi(
+      List<RuleInfoWrapper> ruleInfoList, List<ProviderInfoWrapper> providerInfoList) {
     this.ruleInfoList = ruleInfoList;
     this.providerInfoList = providerInfoList;
   }
@@ -97,13 +100,19 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     } else {
       // fields is NONE, so there is no field information to add.
     }
-    providerInfoList.add(new ProviderInfo(fakeProvider, doc, providerFieldInfos.build()));
+    providerInfoList.add(forProviderInfo(fakeProvider, doc, providerFieldInfos.build()));
     return fakeProvider;
   }
 
   /** Constructor for ProviderFieldInfo. */
   public ProviderFieldInfo asProviderFieldInfo(String name, String docString) {
     return ProviderFieldInfo.newBuilder().setName(name).setDocString(docString).build();
+  }
+
+  /** Constructor for ProviderInfoWrapper. */
+  public ProviderInfoWrapper forProviderInfo(
+      BaseFunction identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
+    return new ProviderInfoWrapper(identifier, docString, fieldInfos);
   }
 
   @Override
@@ -146,7 +155,10 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
 
-    ruleInfoList.add(new RuleInfo(functionIdentifier, ast.getLocation(), doc, attrInfos));
+    RuleInfo ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos).build();
+
+    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, ast.getLocation(), ruleInfo));
+
     return functionIdentifier;
   }
 
@@ -166,12 +178,6 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     } catch (LabelSyntaxException e) {
       throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
     }
-  }
-
-  @Override
-  public FileTypeApi<FileApi> fileType(SkylarkList<?> types, Location loc, Environment env)
-      throws EvalException {
-    return null;
   }
 
   @Override

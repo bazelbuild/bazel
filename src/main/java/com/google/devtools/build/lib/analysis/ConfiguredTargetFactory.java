@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -69,12 +68,12 @@ import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionExcep
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -302,7 +301,9 @@ public final class ConfiguredTargetFactory {
           && !configuration.hasAllFragments(
               configurationFragmentPolicy.getRequiredConfigurationFragments())) {
         if (missingFragmentPolicy == MissingFragmentPolicy.FAIL_ANALYSIS) {
-          ruleContext.ruleError(missingFragmentError(ruleContext, configurationFragmentPolicy));
+          ruleContext.ruleError(
+              missingFragmentError(
+                  ruleContext, configurationFragmentPolicy, configuration.checksum()));
           return null;
         }
         // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
@@ -397,7 +398,9 @@ public final class ConfiguredTargetFactory {
   }
 
   private String missingFragmentError(
-      RuleContext ruleContext, ConfigurationFragmentPolicy configurationFragmentPolicy) {
+      RuleContext ruleContext,
+      ConfigurationFragmentPolicy configurationFragmentPolicy,
+      String configurationId) {
     RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
     Set<Class<?>> missingFragments = new LinkedHashSet<>();
     for (Class<?> fragment : configurationFragmentPolicy.getRequiredConfigurationFragments()) {
@@ -408,15 +411,10 @@ public final class ConfiguredTargetFactory {
     Preconditions.checkState(!missingFragments.isEmpty());
     StringBuilder result = new StringBuilder();
     result.append("all rules of type " + ruleClass.getName() + " require the presence of ");
-    List<String> names = new ArrayList<>();
-    for (Class<?> fragment : missingFragments) {
-      // TODO(bazel-team): Using getSimpleName here is sub-optimal, but we don't have anything
-      // better right now.
-      names.add(fragment.getSimpleName());
-    }
     result.append("all of [");
-    Joiner.on(",").appendTo(result, names);
-    result.append("], but these were all disabled");
+    result.append(
+        missingFragments.stream().map(Class::getSimpleName).collect(Collectors.joining(",")));
+    result.append("], but these were all disabled in configuration ").append(configurationId);
     return result.toString();
   }
 
@@ -479,7 +477,12 @@ public final class ConfiguredTargetFactory {
             .setToolchainContext(toolchainContext)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .build();
-    if (ruleContext.hasErrors()) {
+
+    // If allowing analysis failures, targets should be created as normal as possible, and errors
+    // will be propagated via a hook elsewhere as AnalysisFailureInfo.
+    boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
+
+    if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return null;
     }
 

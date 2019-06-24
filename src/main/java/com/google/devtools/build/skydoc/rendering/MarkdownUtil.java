@@ -18,6 +18,9 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,9 +37,10 @@ public final class MarkdownUtil {
    */
   @SuppressWarnings("unused") // Used by markdown template.
   public String ruleSummary(String ruleName, RuleInfo ruleInfo) {
-    List<String> attributeNames = ruleInfo.getAttributes().stream()
-        .map(attr -> attr.getName())
-        .collect(Collectors.toList());
+    List<String> attributeNames =
+        ruleInfo.getAttributeList().stream()
+            .map(attr -> attr.getName())
+            .collect(Collectors.toList());
     return summary(ruleName, attributeNames);
   }
 
@@ -48,9 +52,10 @@ public final class MarkdownUtil {
    */
   @SuppressWarnings("unused") // Used by markdown template.
   public String providerSummary(String providerName, ProviderInfo providerInfo) {
-    List<String> fieldNames = providerInfo.getFields().stream()
-        .map(field -> field.getName())
-        .collect(Collectors.toList());
+    List<String> fieldNames =
+        providerInfo.getFieldInfoList().stream()
+            .map(field -> field.getName())
+            .collect(Collectors.toList());
     return summary(providerName, fieldNames);
   }
 
@@ -62,10 +67,11 @@ public final class MarkdownUtil {
    */
   @SuppressWarnings("unused") // Used by markdown template.
   public String funcSummary(UserDefinedFunctionInfo funcInfo) {
-    List<String> paramNames = funcInfo.getParameters().stream()
-        .map(param -> param.getName())
-        .collect(Collectors.toList());
-    return summary(funcInfo.getName(), paramNames);
+    List<String> paramNames =
+        funcInfo.getParameterList().stream()
+            .map(param -> param.getName())
+            .collect(Collectors.toList());
+    return summary(funcInfo.getFunctionName(), paramNames);
   }
 
   private String summary(String functionName, List<String> paramNames) {

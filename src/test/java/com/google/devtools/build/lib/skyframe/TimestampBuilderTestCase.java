@@ -144,7 +144,10 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   @Before
   public final void initialize() throws Exception  {
-    options = OptionsParser.newOptionsParser(KeepGoingOption.class, BuildRequestOptions.class);
+    options =
+        OptionsParser.builder()
+            .optionsClasses(KeepGoingOption.class, BuildRequestOptions.class)
+            .build();
     options.parse();
     inMemoryCache = new InMemoryActionCache();
     tsgm = new TimestampGranularityMonitor(clock);
@@ -159,6 +162,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   protected <T extends ActionAnalysisMetadata> T registerAction(T action) {
     actions.add(action);
+    ActionLookupData actionLookupData =
+        ActionLookupData.create(ACTION_LOOKUP_KEY, actions.size() - 1);
+    for (Artifact output : action.getOutputs()) {
+      ((Artifact.DerivedArtifact) output).setGeneratingActionKey(actionLookupData);
+    }
     return action;
   }
 

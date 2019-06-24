@@ -40,12 +40,13 @@ public abstract class CompletionContext {
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       ActionInputMap inputMap,
-      PathResolverFactory pathResolverFactory) {
+      PathResolverFactory pathResolverFactory,
+      String workspaceName) {
     ArtifactExpander expander = new ArtifactExpanderImpl(expandedArtifacts, expandedFilesets);
     ArtifactPathResolver pathResolver =
         pathResolverFactory.shouldCreatePathResolverForArtifactValues()
             ? pathResolverFactory.createPathResolverForArtifactValues(
-                inputMap, expandedArtifacts, expandedFilesets.keySet())
+                inputMap, expandedArtifacts, expandedFilesets.keySet(), workspaceName)
             : ArtifactPathResolver.IDENTITY;
     return new AutoValue_CompletionContext(expander, pathResolver);
   }
@@ -55,15 +56,11 @@ public abstract class CompletionContext {
   }
 
   public void visitArtifacts(Iterable<Artifact> artifacts, ArtifactReceiver receiver) {
-    // If artifact.isSource(), then note that in LocalFile to avoid stat later?
-    // Better yet, get ArtifactValue to determine the output metadata? If we can pass that
-    // in via local-file, can totally avoid xattr() call on the output files too.
-
     for (Artifact artifact : artifacts) {
       if (artifact.isMiddlemanArtifact() || artifact.isFileset()) {
         // We never want to report middleman artifacts. They are for internal use only.
         // Filesets are not currently supported, but should be in the future.
-        return;
+        continue;
       } else if (artifact.isTreeArtifact()) {
         List<Artifact> expandedArtifacts = new ArrayList<>();
         expander().expand(artifact, expandedArtifacts);
@@ -87,7 +84,8 @@ public abstract class CompletionContext {
     ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
         Map<Artifact, Collection<Artifact>> expandedArtifacts,
-        Iterable<Artifact> filesets);
+        Iterable<Artifact> filesets,
+        String workspaceName);
 
     boolean shouldCreatePathResolverForArtifactValues();
   }

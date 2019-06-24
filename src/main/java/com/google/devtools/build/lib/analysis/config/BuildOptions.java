@@ -146,8 +146,9 @@ public final class BuildOptions implements Cloneable, Serializable {
       throws OptionsParsingException {
     Builder builder = builder();
     OptionsParser parser =
-        OptionsParser.newOptionsParser(
-            ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsList));
+        OptionsParser.builder()
+            .optionsClasses(ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsList))
+            .build();
     parser.parse(args);
     for (Class<? extends FragmentOptions> optionsClass : optionsList) {
       builder.addFragmentOptions(parser.getOptions(optionsClass));

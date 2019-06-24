@@ -259,14 +259,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     }
 
     /**
-     * Select the aapt version for resource processing actions, based on the combination of
-     * --android_aapt flag, aapt_version target attribute, and --incompatible_use_aapt2_by_default
-     * flag.
+     * Select the aapt version for resource processing actions.
      *
      * <p>Order of precedence:
      * <li>1. --android_aapt flag
      * <li>2. 'aapt_version' attribute on target
-     * <li>3. --incompatible_use_aapt2_by_default flag
      *
      * @param dataContext the Android data context for detecting aapt2 and fetching Android configs
      * @param errorConsumer the rule context for reporting errors during version selection
@@ -286,27 +283,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       AndroidAaptVersion flag = dataContext.getAndroidConfig().getAndroidAaptVersion();
       AndroidAaptVersion attribute = AndroidAaptVersion.fromString(attributeString);
 
-      AndroidAaptVersion version = flag == AndroidAaptVersion.AUTO ? attribute : flag;
+      AndroidAaptVersion version = flag == AUTO ? attribute : flag;
 
       if (version == AAPT2 && !hasAapt2) {
         throw errorConsumer.throwWithRuleError(
             "aapt2 processing requested but not available on the android_sdk");
       }
 
-      if (version != AndroidAaptVersion.AUTO) {
-        return version;
+      if (version == AUTO) {
+        return AAPT;
       }
 
-      // At this point, the version is still auto. If the user passes
-      // --incompatible_use_aapt2_by_default explicitly or implicitly via
-      // --all_incompatible_changes, use aapt2 by default.
-      //
-      // We use the --incompatible_use_aapt2_by_default flag to signal a breaking change in Bazel.
-      // This is required by the Bazel Incompatible Changes policy.
-      //
-      // TODO(jingwen): We can remove the incompatible change flag only when the depot migration is
-      // complete and the default value of --android_aapt is switched from `auto` to `aapt2`.
-      return dataContext.getAndroidConfig().incompatibleChangeUseAapt2ByDefault() ? AAPT2 : AAPT;
+      return version;
     }
   }
 
@@ -1127,7 +1115,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
-    this.androidAaptVersion = options.androidAaptVersion;
     this.useAapt2ForRobolectric = options.useAapt2ForRobolectric;
     this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
@@ -1150,6 +1137,21 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.removeRClassesFromInstrumentationTestJar;
     this.alwaysFilterDuplicateClassesFromAndroidTest =
         options.alwaysFilterDuplicateClassesFromAndroidTest;
+
+    // Make the value of --android_aapt aapt2 if --incompatible_use_aapt2_by_default is enabled
+    // and --android_aapt = AUTO
+    //
+    // We use the --incompatible_use_aapt2_by_default flag to signal a breaking change in Bazel.
+    // This is required by the Bazel Incompatible Changes policy.
+    //
+    // TODO(jingwen): We can remove the incompatible change flag only when the depot migration is
+    // complete and the default value of --android_aapt is switched from `auto` to `aapt2`.
+    if (options.incompatibleUseAapt2ByDefault
+        && options.androidAaptVersion == AndroidAaptVersion.AUTO) {
+      this.androidAaptVersion = AndroidAaptVersion.AAPT2;
+    } else {
+      this.androidAaptVersion = options.androidAaptVersion;
+    }
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(

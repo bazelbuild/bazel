@@ -50,7 +50,7 @@ class PathExistenceCache {
               k -> {
                 Path path =
                     isSource
-                        ? artifactFactory.getPathFromSourceExecPath(execPath)
+                        ? artifactFactory.getPathFromSourceExecPath(execRoot, execPath)
                         : execRoot.getRelative(execPath);
                 return path.isFile();
               });
@@ -68,7 +68,7 @@ class PathExistenceCache {
           directoryExistenceCache.computeIfAbsent(
               execPath,
               k -> {
-                Path path = artifactFactory.getPathFromSourceExecPath(execPath);
+                Path path = artifactFactory.getPathFromSourceExecPath(execRoot, execPath);
                 return path.isDirectory();
               });
     }

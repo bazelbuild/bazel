@@ -34,6 +34,18 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
   }
 
   @Test
+  public void pyRuntimeInfoIsNotPresent() throws Exception {
+    useConfiguration("--incompatible_use_python_toolchains=true");
+    scratch.file(
+        "pkg/BUILD", //
+        "py_library(",
+        "    name = 'foo',",
+        "    srcs = [':foo.py'],",
+        ")");
+    assertThat(getConfiguredTarget("//pkg:foo").get(PyRuntimeInfo.PROVIDER)).isNull();
+  }
+
+  @Test
   public void canBuildWithIncompatibleSrcsVersionUnderNewSemantics() throws Exception {
     // See PyBaseConfiguredTargetTestBase for the analogous test under the old semantics, which
     // applies not just to py_library but also to py_binary and py_test.

@@ -336,7 +336,7 @@ public class BazelCppRuleClasses {
            <li> STATIC with fully_static_link feature, in which everything is linked statically;
              e.g. "<code>gcc -static foo.o libbar.a libbaz.a -lm</code>".<br/>
              This mode is enabled by specifying <code>fully_static_link</code> in the
-             <a href="#cc_binary.features"><code>features</code></a> attribute.</li>
+             <a href="${link common-definitions#features}"><code>features</code></a> attribute.</li>
            <li> STATIC, in which all user libraries are linked statically (if a static
              version is available), but where system libraries (excluding C/C++ runtime libraries)
              are linked dynamically, e.g. "<code>gcc foo.o libfoo.a libbaz.a -lm</code>".<br/>

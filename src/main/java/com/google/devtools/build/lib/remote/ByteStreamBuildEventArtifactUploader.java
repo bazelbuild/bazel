@@ -68,6 +68,11 @@ class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader
             Executors.newFixedThreadPool(Math.min(maxUploadThreads, 1000)));
   }
 
+  private static boolean isRemoteFile(Path file) {
+    return file.getFileSystem() instanceof RemoteActionFileSystem
+        && ((RemoteActionFileSystem) file.getFileSystem()).isRemote(file);
+  }
+
   @Override
   public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
     if (files.isEmpty()) {
@@ -86,6 +91,9 @@ class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader
                 }
                 DigestUtil digestUtil = new DigestUtil(file.getFileSystem().getDigestFunction());
                 Digest digest = digestUtil.compute(file);
+                if (isRemoteFile(file)) {
+                  return Futures.immediateFuture(new PathDigestPair(file, digest));
+                }
                 Chunker chunker = Chunker.builder().setInput(digest.getSizeBytes(), file).build();
                 final ListenableFuture<Void> upload;
                 Context prevCtx = ctx.attach();

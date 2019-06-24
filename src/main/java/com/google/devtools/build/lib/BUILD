@@ -38,6 +38,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/exec/local:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
+        "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:srcs",
@@ -432,8 +433,10 @@ java_library(
     ],
     deps = [
         ":skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
@@ -841,7 +844,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/metrics:metrics_module",
-        "//src/main/java/com/google/devtools/build/lib/network:connectivity",
+        "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
         "//src/main/java/com/google/devtools/build/lib/outputfilter",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:callcounts_module",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
@@ -1158,6 +1161,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",

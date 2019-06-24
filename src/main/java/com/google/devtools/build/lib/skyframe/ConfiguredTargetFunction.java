@@ -448,7 +448,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     }
     Rule rule = ((Rule) targetAndConfig.getTarget());
-    if (!rule.getRuleClassObject().supportsPlatforms()) {
+    if (!rule.getRuleClassObject().useToolchainResolution()) {
       return null;
     }
     BuildConfiguration configuration = targetAndConfig.getConfiguration();

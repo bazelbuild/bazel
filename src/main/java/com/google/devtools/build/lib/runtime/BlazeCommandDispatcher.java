@@ -272,6 +272,25 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     // Record the command's starting time for use by the commands themselves.
     env.recordCommandStartTime(firstContactTime);
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
+    // We cannot flip an incompatible flag that expands to other flags, so we do it manually here.
+    // If an option is specified explicitly, we give that preference.
+    if (commonOptions.enableProfileByDefault
+        && (!options.containsExplicitOption("experimental_generate_json_trace_profile")
+            || commonOptions.enableTracer)) {
+      commonOptions.enableTracer = true;
+      if (!options.containsExplicitOption("experimental_slim_json_profile")) {
+        commonOptions.enableJsonProfileDiet = true;
+      }
+      if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
+        commonOptions.enableCpuUsageProfiling = true;
+      }
+      if (!options.containsExplicitOption("experimental_json_trace_compression")) {
+        commonOptions.enableTracerCompression = true;
+      }
+      if (!options.containsExplicitOption("experimental_post_profile_started_event")) {
+        commonOptions.postProfileStartedEvent = true;
+      }
+    }
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
     // Profiler setup and shutdown must always happen in pairs. Shutdown is currently performed in
     // the afterCommand call in the finally block below.
@@ -464,6 +483,36 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
+      // {@link CleanCommand} is annotated with {@code builds = true}
+      // to have access to relevant build options but don't actually do building.
+      // {@link InfoCommand} is annotated with {@code builds = true} but only conditionally
+      // does this step based on some complicated logic.
+      if (commandAnnotation.builds()
+          && !commandAnnotation.name().equals("clean")
+          && !commandAnnotation.name().equals("info")) {
+        try {
+          env.setupPackageCache(options);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          env.getReporter()
+              .handle(Event.error("command interrupted while setting up package cache"));
+          earlyExitCode = ExitCode.INTERRUPTED;
+        } catch (AbruptExitException e) {
+          env.getReporter().handle(Event.error(e.getMessage()));
+          earlyExitCode = e.getExitCode();
+        }
+        if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
+          return replayEarlyExitEvents(
+              outErr,
+              optionHandler,
+              storedEventHandler,
+              env,
+              earlyExitCode,
+              new NoBuildEvent(
+                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+        }
+      }
+
       // Parse starlark options.
       earlyExitCode = optionHandler.parseStarlarkOptions(env, storedEventHandler);
       if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
@@ -492,7 +541,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           "Internal error thrown during build. Printing stack trace: "
               + Throwables.getStackTraceAsString(e));
       e.printStackTrace();
-      BugReport.printBug(outErr, e);
+      BugReport.printBug(outErr, e, commonOptions.oomMessage);
       BugReport.sendBugReport(e, args, env.getCrashData());
       logger.log(Level.SEVERE, "Shutting down due to exception", e);
       return BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
@@ -601,8 +650,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       throw new IllegalStateException(e);
     }
     Command annotation = command.getClass().getAnnotation(Command.class);
-    OptionsParser parser = OptionsParser.newOptionsParser(optionsData, "--//");
-    parser.setAllowResidue(annotation.allowResidue());
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsData(optionsData)
+            .skippedPrefix("--//")
+            .allowResidue(annotation.allowResidue())
+            .build();
     return parser;
   }
 

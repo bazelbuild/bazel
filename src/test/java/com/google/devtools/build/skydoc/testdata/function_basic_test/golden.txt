@@ -79,7 +79,7 @@ Use `bazel build` to run the check.
     <tr id="check_sources-struct_param">
       <td><code>struct_param</code></td>
       <td>
-        optional. default is <code>{unknown object}</code>
+        optional. default is <code>struct(foo = "bar")</code>
       </td>
     </tr>
   </tbody>

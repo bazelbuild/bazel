@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.buildtool.util;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -62,6 +62,8 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
+import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
+import com.google.devtools.build.lib.network.NoOpConnectivityModule;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -131,7 +133,14 @@ public abstract class BuildIntegrationTestCase {
     @Override
     public ActionExecutionException toActionExecutionException(
         String messagePrefix, boolean verboseFailures, Action action) {
-      return new ActionExecutionException(messagePrefix + getMessage(), getCause(), action, true);
+      String message = messagePrefix + getMessage();
+      // Append cause.getMessage() if it's different from getMessage(). It typically
+      // isn't but if it is we'd like to surface cause.getMessage() as part of the
+      // exception message.
+      if (getCause() != null && !getMessage().equals(getCause().getMessage())) {
+        message += ": " + getCause().getMessage();
+      }
+      return new ActionExecutionException(message, getCause(), action, true);
     }
   }
 
@@ -322,13 +331,28 @@ public abstract class BuildIntegrationTestCase {
     };
   }
 
+  /**
+   * Gets a module that returns a connectivity status.
+   *
+   * @return a Blaze module that implements {@link ConnectivityStatusProvider}
+   */
+  protected BlazeModule getConnectivityModule() {
+    return new NoOpConnectivityModule();
+  }
+
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    OptionsParser startupOptionsParser = OptionsParser.newOptionsParser(getStartupOptionClasses());
+    OptionsParser startupOptionsParser =
+        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
     startupOptionsParser.parse(getStartupOptions());
+    BlazeModule connectivityModule = getConnectivityModule();
+    checkState(
+        connectivityModule instanceof ConnectivityStatusProvider,
+        "Module returned by getConnectivityModule() does not implement ConnectivityStatusProvider");
     return new BlazeRuntime.Builder()
         .setFileSystem(fileSystem)
         .setProductName(TestConstants.PRODUCT_NAME)
         .setStartupOptionsProvider(startupOptionsParser)
+        .addBlazeModule(connectivityModule)
         .addBlazeModule(getNoResolvedFileModule())
         .addBlazeModule(getSpawnModule())
         .addBlazeModule(new IncludeScanningModule())
@@ -378,10 +402,8 @@ public abstract class BuildIntegrationTestCase {
     ActionAnalysisMetadata action = getActionGraph().getGeneratingAction(artifact);
 
     if (action != null) {
-      Preconditions.checkState(
-          action instanceof Action,
-          "%s is not a proper Action object",
-          action.prettyPrint());
+      checkState(
+          action instanceof Action, "%s is not a proper Action object", action.prettyPrint());
       return (Action) action;
     } else {
       return null;

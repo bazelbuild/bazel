@@ -113,9 +113,12 @@ class KeepScanner {
   }
 
   public static void main(String... args) throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(KeepScannerOptions.class);
-    parser.setAllowResidue(false);
-    parser.enableParamsFileSupport(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(KeepScannerOptions.class)
+            .allowResidue(false)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     parser.parseAndExitUponError(args);
     KeepScannerOptions options = parser.getOptions(KeepScannerOptions.class);
 

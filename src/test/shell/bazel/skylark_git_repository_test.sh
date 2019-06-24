@@ -90,6 +90,10 @@ function set_up() {
   export XDG_CONFIG_HOME=
 }
 
+function get_pluto_repo() {
+  echo "$TEST_TMPDIR/repos/pluto"
+}
+
 # Test cloning a Git repository using the git_repository rule.
 #
 # This test uses the pluto Git repository at tag 1-build, which contains the
@@ -119,7 +123,7 @@ function set_up() {
 #
 # //planets has a dependency on a target in the pluto Git repository.
 function do_git_repository_test() {
-  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+  local pluto_repo_dir=$(get_pluto_repo)
   # Commit corresponds to tag 1-build. See testdata/pluto.git_log.
   local commit_hash="$1"
   local strip_prefix=""
@@ -169,8 +173,9 @@ function test_git_repository_strip_prefix() {
 }
 
 function test_git_repository_shallow_since() {
-    # This date is the day the commit was made.
-    do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "2016-07-16"
+    # This date is the previous day before the commit was made.
+    # We need the revious day, because git adds current time to the specified date.
+    do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "2015-07-15"
 }
 function test_new_git_repository_with_build_file() {
   do_new_git_repository_test "0-initial" "build_file"
@@ -214,7 +219,7 @@ function test_new_git_repository_with_build_file_content_strip_prefix() {
 # //planets has a dependency on a target in the $TEST_TMPDIR/pluto Git
 # repository.
 function do_new_git_repository_test() {
-  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+  local pluto_repo_dir=$(get_pluto_repo)
   local strip_prefix=""
   [ $# -eq 3 ] && strip_prefix="strip_prefix=\"$3\","
 
@@ -526,7 +531,7 @@ EOF
 #   info
 function test_git_repository_both_commit_tag_error() {
   setup_error_test
-  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+  local pluto_repo_dir=$(get_pluto_repo)
   # Commit corresponds to tag 1-build. See testdata/pluto.git_log.
   local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 
@@ -557,7 +562,7 @@ EOF
 #   info
 function test_git_repository_no_commit_tag_error() {
   setup_error_test
-  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+  local pluto_repo_dir=$(get_pluto_repo)
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
@@ -577,7 +582,7 @@ EOF
 # throws an error.
 function test_invalid_strip_prefix_error() {
   setup_error_test
-  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+  local pluto_repo_dir=$(get_pluto_repo)
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
@@ -600,7 +605,7 @@ EOF
 #
 function test_git_repository_shallow_since_with_tag_error() {
   setup_error_test
-  local pluto_repo_dir=$TEST_TMPDIR/pluto
+  local pluto_repo_dir=$(get_pluto_repo)
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
@@ -616,31 +621,6 @@ EOF
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "shallow_since not allowed if a tag is specified; --depth=1 will be used for tags"
-}
-
-# Verifies that rule fails if you target a commit that is before
-# the shallow point
-#
-function test_git_repository_shallow_since_with_earlier_commit_error() {
-  setup_error_test
-  local pluto_repo_dir=$TEST_TMPDIR/pluto
-
-  cd $WORKSPACE_DIR
-  # This commit was made in July so should not be available if we
-  # shallow since December.
-  cat > WORKSPACE <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(
-    name = "pluto",
-    remote = "$pluto_repo_dir",
-    commit = "52f9a3f87a2dd17ae0e5847bbae9734f09354afd",
-    shallow_since = "2017-12-27"
-)
-EOF
-
-  bazel fetch //planets:planet-info >& $TEST_log \
-    || echo "Expect run to fail."
-  expect_log "error cloning"
 }
 
 run_suite "skylark git_repository tests"

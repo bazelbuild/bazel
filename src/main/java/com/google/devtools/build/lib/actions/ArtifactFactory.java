@@ -41,7 +41,6 @@ public class ArtifactFactory implements ArtifactResolver {
   private static final int CONCURRENCY_LEVEL = Runtime.getRuntime().availableProcessors();
   private static final Striped<Lock> STRIPED_LOCK = Striped.lock(CONCURRENCY_LEVEL);
 
-  private final Path execRoot;
   private final Path execRootParent;
   private final PathFragment derivedPathPrefix;
   private ImmutableMap<Root, ArtifactRoot> sourceArtifactRoots;
@@ -133,12 +132,10 @@ public class ArtifactFactory implements ArtifactResolver {
   /**
    * Constructs a new artifact factory that will use a given execution root when creating artifacts.
    *
-   * @param execRoot the execution root Path to use. This will be
-   *     [output_base]/execroot/[workspace].
+   * @param execRootParent the execution root's parent path. This will be [output_base]/execroot.
    */
-  public ArtifactFactory(Path execRoot, String derivedPathPrefix) {
-    this.execRoot = execRoot;
-    this.execRootParent = execRoot.getParentDirectory();
+  public ArtifactFactory(Path execRootParent, String derivedPathPrefix) {
+    this.execRootParent = execRootParent;
     this.derivedPathPrefix = PathFragment.create(derivedPathPrefix);
   }
 
@@ -186,7 +183,8 @@ public class ArtifactFactory implements ArtifactResolver {
                 sourceArtifactRoots),
             execPath,
             owner,
-            null);
+            null,
+            /*contentBasedPath=*/ false);
   }
 
   @Override
@@ -227,9 +225,23 @@ public class ArtifactFactory implements ArtifactResolver {
   // TODO(bazel-team): Don't allow root == execRootParent.
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
+    return getDerivedArtifact(rootRelativePath, root, owner, /*contentBasedPath=*/ false);
+  }
+
+  /**
+   * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot, ArtifactOwner)} but includes the
+   * option to use a content-based path for this artifact (see {@link
+   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}).
+   */
+  public Artifact.DerivedArtifact getDerivedArtifact(
+      PathFragment rootRelativePath,
+      ArtifactRoot root,
+      ArtifactOwner owner,
+      boolean contentBasedPath) {
     validatePath(rootRelativePath, root);
     return (Artifact.DerivedArtifact)
-        getArtifact(root, root.getExecPath().getRelative(rootRelativePath), owner, null);
+        getArtifact(
+            root, root.getExecPath().getRelative(rootRelativePath), owner, null, contentBasedPath);
   }
 
   /**
@@ -248,7 +260,8 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.FILESET);
+            SpecialArtifactType.FILESET,
+            /*contentBasedPath=*/ false);
   }
 
   /**
@@ -266,7 +279,8 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.TREE);
+            SpecialArtifactType.TREE,
+            /*contentBasedPath=*/ false);
   }
 
   public Artifact.DerivedArtifact getConstantMetadataArtifact(
@@ -277,7 +291,8 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.CONSTANT_METADATA);
+            SpecialArtifactType.CONSTANT_METADATA,
+            /*contentBasedPath=*/ false);
   }
 
   /**
@@ -288,12 +303,13 @@ public class ArtifactFactory implements ArtifactResolver {
       ArtifactRoot root,
       PathFragment execPath,
       ArtifactOwner owner,
-      @Nullable SpecialArtifactType type) {
+      @Nullable SpecialArtifactType type,
+      boolean contentBasedPath) {
     Preconditions.checkNotNull(root);
     Preconditions.checkNotNull(execPath);
 
     if (!root.isSourceRoot()) {
-      return createArtifact(root, execPath, owner, type);
+      return createArtifact(root, execPath, owner, type, contentBasedPath);
     }
 
     // Double-checked locking to avoid locking cost when possible.
@@ -307,7 +323,9 @@ public class ArtifactFactory implements ArtifactResolver {
           // There really should be a safety net that makes it impossible to create two Artifacts
           // with the same exec path but a different Owner, but we also need to reuse Artifacts from
           // previous builds.
-          artifact = (SourceArtifact) createArtifact(root, execPath, owner, type);
+          artifact =
+              (SourceArtifact)
+                  createArtifact(root, execPath, owner, type, /*contentBasedPath=*/ false);
           sourceArtifactCache.putArtifact(execPath, artifact);
         }
       } finally {
@@ -321,12 +339,13 @@ public class ArtifactFactory implements ArtifactResolver {
       ArtifactRoot root,
       PathFragment execPath,
       ArtifactOwner owner,
-      @Nullable SpecialArtifactType type) {
+      @Nullable SpecialArtifactType type,
+      boolean contentBasedPath) {
     Preconditions.checkNotNull(owner);
     if (type == null) {
       return root.isSourceRoot()
           ? new Artifact.SourceArtifact(root, execPath, owner)
-          : new Artifact.DerivedArtifact(root, execPath, (ActionLookupKey) owner);
+          : new Artifact.DerivedArtifact(root, execPath, (ActionLookupKey) owner, contentBasedPath);
     } else {
       return new Artifact.SpecialArtifact(root, execPath, (ActionLookupKey) owner, type);
     }
@@ -452,7 +471,7 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
-  public Path getPathFromSourceExecPath(PathFragment execPath) {
+  public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
     Preconditions.checkState(
         !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
     Root sourceRoot =

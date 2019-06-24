@@ -100,9 +100,10 @@ public class AndroidDataBindingProcessingAction {
   public static void main(String[] args) throws IOException {
 
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, AaptConfigOptions.class);
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+        OptionsParser.builder()
+            .optionsClasses(Options.class, AaptConfigOptions.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parseAndExitUponError(args);
     Options options = optionsParser.getOptions(Options.class);
 

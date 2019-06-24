@@ -117,3 +117,147 @@ def update_attrs(orig, keys, override):
     result["name"] = orig.name
     result.update(override)
     return result
+
+def maybe(repo_rule, name, **kwargs):
+    """Utility function for only adding a repository if it's not already present.
+
+    This is to implement safe repositories.bzl macro documented in
+    https://docs.bazel.build/versions/master/skylark/deploying.html#dependencies.
+
+    Args:
+        repo_rule: repository rule function.
+        name: name of the repository to create.
+        **kwargs: remaining arguments that are passed to the repo_rule function.
+
+    Returns:
+        Nothing, defines the repository when needed as a side-effect.
+    """
+    if name not in native.existing_rules():
+        repo_rule(name = name, **kwargs)
+
+def read_netrc(ctx, filename):
+    """Utility function to parse at least a basic .netrc file.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility
+        function.
+      filename: the name of the .netrc file to read
+
+    Returns:
+      dict mapping a machine names to a dict with the information provided
+      about them
+    """
+
+    # We have to first symlink into the current repository, as ctx.read only
+    # allows read from the output directory. Alternatively, we could use
+    # ctx.execute() to call cat(1).
+    ctx.symlink(filename, ".netrc")
+    contents = ctx.read(".netrc")
+    ctx.delete(".netrc")
+
+    # Parse the file. This is mainly a token-based update of a simple state
+    # machine, but we need to keep the line structure to correctly determine
+    # the end of a `macdef` command.
+    netrc = {}
+    currentmachinename = None
+    currentmachine = {}
+    macdef = None
+    currentmacro = ""
+    cmd = None
+    for line in contents.splitlines():
+        if macdef:
+            # as we're in a macro, just determine if we reached the end.
+            if line:
+                currentmacro += line + "\n"
+            else:
+                # reached end of macro, add it
+                currentmachine[macdef] = currentmacro
+                macdef = None
+                currentmacro = ""
+        else:
+            # Essentially line.split(None) which starlark does not support.
+            tokens = [
+                w.strip()
+                for w in line.split(" ")
+                if len(w.strip()) > 0
+            ]
+            for token in tokens:
+                if cmd:
+                    # we have a command that expects another argument
+                    if cmd == "machine":
+                        # a new machine definition was provided, so save the
+                        # old one, if present
+                        if not currentmachinename == None:
+                            netrc[currentmachinename] = currentmachine
+                        currentmachine = {}
+                        currentmachinename = token
+                    elif cmd == "macdef":
+                        macdef = "macdef %s" % (token,)
+                        # a new macro definition; the documentation says
+                        # "its contents begin with the next .netrc line [...]",
+                        # so should there really be tokens left in the current
+                        # line, they're not part of the macro.
+
+                    else:
+                        currentmachine[cmd] = token
+                    cmd = None
+                elif token in [
+                    "machine",
+                    "login",
+                    "password",
+                    "account",
+                    "macdef",
+                ]:
+                    # command takes one argument
+                    cmd = token
+                elif token == "default":
+                    # defines the default machine; again, store old machine
+                    if not currentmachinename == None:
+                        netrc[currentmachinename] = currentmachine
+
+                    # We use the empty string for the default machine, as that
+                    # can never be a valid hostname ("default" could be, in the
+                    # default search domain).
+                    currentmachinename = ""
+                    currentmachine = {}
+                else:
+                    fail("Unexpected token '%s' while reading %s" %
+                         (token, filename))
+    if not currentmachinename == None:
+        netrc[currentmachinename] = currentmachine
+    return netrc
+
+def use_netrc(netrc, urls):
+    """compute an auth dict from a parsed netrc file and a list of URLs
+
+    Args:
+      netrc: a netrc file already parsed to a dict, e.g., as obtained from
+        read_netrc
+      urls: a list of URLs.
+
+    Returns:
+      dict suitable as auth argument for ctx.download; more precisely, the dict
+      will map all URLs where the netrc file provides login and password to a
+      dict containing the corresponding login and passwored, as well as the
+      mapping of "type" to "basic"
+    """
+    auth = {}
+    for url in urls:
+        schemerest = url.split("://", 1)
+        if len(schemerest) < 2:
+            continue
+        if not (schemerest[0] in ["http", "https"]):
+            # For other protocols, bazel currently does not support
+            # authentication. So ignore them.
+            continue
+        host = schemerest[1].split("/")[0].split(":")[0]
+        if not host in netrc:
+            continue
+        authforhost = netrc[host]
+        if "login" in authforhost and "password" in authforhost:
+            auth[url] = {
+                "type": "basic",
+                "login": authforhost["login"],
+                "password": authforhost["password"],
+            }
+    return auth

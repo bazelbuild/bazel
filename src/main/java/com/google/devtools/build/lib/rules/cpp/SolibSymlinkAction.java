@@ -71,7 +71,8 @@ public final class SolibSymlinkAction extends AbstractAction {
               + symlink.prettyPrint()
               + "' to target '"
               + getPrimaryInput()
-              + "'",
+              + "': "
+              + e.getMessage(),
           e,
           this,
           false);

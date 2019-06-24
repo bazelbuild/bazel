@@ -177,14 +177,14 @@ public class BazelRuleClassProviderTest {
             "--action_env=FOO=bar");
 
     ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.getActionEnvironment(options);
-    assertThat(env.getFixedEnv().toMap()).containsEntry("PATH", "/bin:/usr/bin");
+    assertThat(env.getFixedEnv().toMap()).containsEntry("PATH", "/bin:/usr/bin:/usr/local/bin");
     assertThat(env.getFixedEnv().toMap()).containsEntry("FOO", "bar");
   }
 
   @Test
   public void pathOrDefaultOnLinux() {
-    assertThat(pathOrDefault(OS.LINUX, null, null)).isEqualTo("/bin:/usr/bin");
-    assertThat(pathOrDefault(OS.LINUX, "/not/bin", null)).isEqualTo("/bin:/usr/bin");
+    assertThat(pathOrDefault(OS.LINUX, null, null)).isEqualTo("/bin:/usr/bin:/usr/local/bin");
+    assertThat(pathOrDefault(OS.LINUX, "/not/bin", null)).isEqualTo("/bin:/usr/bin:/usr/local/bin");
   }
 
   @Test

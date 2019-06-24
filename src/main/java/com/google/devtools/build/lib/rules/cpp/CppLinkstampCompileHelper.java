@@ -178,6 +178,7 @@ public class CppLinkstampCompileHelper {
         /* includeDirs= */ ImmutableList.of(PathFragment.create(".")),
         /* quoteIncludeDirs= */ ImmutableList.of(),
         /* systemIncludeDirs= */ ImmutableList.of(),
+        /* frameworkIncludeDirs= */ ImmutableList.of(),
         computeAllLinkstampDefines(
             labelReplacement,
             outputReplacement,

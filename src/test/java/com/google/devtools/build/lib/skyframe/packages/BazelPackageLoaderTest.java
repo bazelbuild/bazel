@@ -86,6 +86,11 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "",
         "def http_file(**kwargs):",
         "  pass");
+    FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/build_defs/repo/utils.bzl"),
+        "def maybe(repo_rule, name, **kwargs):",
+        "  if name not in native.existing_rules():",
+        "    repo_rule(name = name, **kwargs)");
   }
 
   private void fetchExternalRepo(RepositoryName externalRepo) {

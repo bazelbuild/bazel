@@ -271,7 +271,7 @@ function test_packages_cleared() {
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
   # A few packages aren't cleared.
-  [[ "$package_count" -le 16 ]] \
+  [[ "$package_count" -le 18 ]] \
       || fail "package count $package_count too high"
   glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -le 1 ]] \
@@ -403,9 +403,10 @@ function test_actions_not_deleted_after_execution() {
 genrule(name = "foo", cmd = "touch $@", outs = ["foo.out"])
 EOF
 
+  readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
   bazel build $BUILD_FLAGS //foo:foo \
       >& "$TEST_log" || fail "Expected success"
-  "$jmaptool" -histo:live "$(bazel info server_pid)" > histo.txt
+  "$jmaptool" -histo:live $server_pid > histo.txt
   genrule_action_count="$(extract_histogram_count histo.txt \
         'GenRuleAction$')"
   if [[ "$genrule_action_count" -lt 1 ]]; then

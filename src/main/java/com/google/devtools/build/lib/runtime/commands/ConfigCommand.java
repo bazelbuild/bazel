@@ -21,6 +21,7 @@ import static java.util.Map.Entry.comparingByKey;
 import com.google.common.base.Functions;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -30,12 +31,17 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigOptions;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.OutputStreamWriter;
@@ -43,6 +49,7 @@ import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Handles the 'config' command on the Blaze command line. */
@@ -50,6 +57,7 @@ import javax.annotation.Nullable;
     name = "config",
     builds = true,
     inherits = {BuildCommand.class},
+    options = {ConfigOptions.class},
     usesConfigurationOptions = true,
     shortDescription = "Displays details of configurations.",
     allowResidue = true,
@@ -58,20 +66,36 @@ import javax.annotation.Nullable;
     help = "resource:config.txt")
 public class ConfigCommand implements BlazeCommand {
 
+  /** Options for the "config" command. */
+  public static class ConfigOptions extends OptionsBase {
+    @Option(
+        name = "dump_all",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "If set, dump all known configurations instead of just the ids.")
+    public boolean dumpAll;
+  }
+
   @Override
   public void editOptions(OptionsParser optionsParser) {}
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    if (options.getResidue().isEmpty()) {
-      env.getReporter().handle(Event.error("Missing config id."));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
-    }
     ImmutableMap<String, BuildConfiguration> configurations = findConfigurations(env);
 
     try (PrintWriter writer =
         new PrintWriter(
             new OutputStreamWriter(env.getReporter().getOutErr().getOutputStream(), UTF_8))) {
+
+      if (options.getResidue().isEmpty()) {
+        if (options.getOptions(ConfigOptions.class).dumpAll) {
+          return reportAllConfigurations(writer, env);
+        } else {
+          return reportConfigurationIds(writer, configurations.keySet());
+        }
+      }
+
       if (options.getResidue().size() == 1) {
         String configHash = options.getResidue().get(0);
         env.getReporter()
@@ -136,8 +160,42 @@ public class ConfigCommand implements BlazeCommand {
         .map(Map.Entry::getValue)
         .map(v -> (BuildConfigurationValue) v)
         .map(BuildConfigurationValue::getConfiguration)
-        .distinct()
-        .collect(toImmutableMap(BuildConfiguration::checksum, Functions.identity()));
+        .collect(
+            toImmutableMap(
+                BuildConfiguration::checksum, Functions.identity(), (config1, config2) -> config1));
+  }
+
+  private BlazeCommandResult reportAllConfigurations(PrintWriter writer, CommandEnvironment env) {
+    InMemoryMemoizingEvaluator evaluator =
+        (InMemoryMemoizingEvaluator)
+            env.getRuntime().getWorkspace().getSkyframeExecutor().getEvaluatorForTesting();
+    ImmutableMap<BuildConfigurationValue.Key, BuildConfigurationValue> configs =
+        evaluator.getDoneValues().entrySet().stream()
+            .filter(e -> SkyFunctions.BUILD_CONFIGURATION.equals(e.getKey().functionName()))
+            .collect(
+                toImmutableMap(
+                    e -> (BuildConfigurationValue.Key) e.getKey(),
+                    e -> (BuildConfigurationValue) e.getValue()));
+
+    for (Map.Entry<BuildConfigurationValue.Key, BuildConfigurationValue> entry :
+        configs.entrySet()) {
+      writer.print("BuildConfigurationValue.Key: ");
+      writer.println(entry.getKey().toString());
+
+      writer.print("BuildConfigurationValue:\n");
+      StringBuilder sb = new StringBuilder();
+      entry.getValue().getConfiguration().describe(sb);
+      writer.print(sb.toString());
+    }
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+  }
+
+  private BlazeCommandResult reportConfigurationIds(
+      PrintWriter writer, ImmutableSet<String> configurationIds) {
+    writer.println("Available configurations:");
+    writer.println(configurationIds.stream().collect(Collectors.joining("\n")));
+
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
   private Table<Class<? extends FragmentOptions>, String, Pair<Object, Object>> diffConfigurations(

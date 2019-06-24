@@ -3808,68 +3808,35 @@ def _impl(ctx):
 
     coverage_feature = feature(name = "coverage")
 
-    if (ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
-        include_system_dirs_feature = feature(
-            name = "include_system_dirs",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-isysroot",
-                                "%{sdk_dir}",
-                                "-F%{sdk_framework_dir}",
-                                "-F%{platform_developer_framework_dir}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
-        include_system_dirs_feature = feature(
-            name = "include_system_dirs",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                    ],
-                    flag_groups = [flag_group(flags = ["-isysroot", "%{sdk_dir}"])],
-                ),
-            ],
-        )
+    include_system_dirs_feature = feature(
+        name = "include_system_dirs",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                    "objc-executable",
+                    "objc++-executable",
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-isysroot",
+                            "%{sdk_dir}",
+                            "-F%{sdk_framework_dir}",
+                            "-F%{platform_developer_framework_dir}",
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
 
     input_param_flags_feature = feature(
         name = "input_param_flags",

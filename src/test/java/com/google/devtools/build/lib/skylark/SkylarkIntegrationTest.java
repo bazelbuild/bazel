@@ -2738,12 +2738,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test");
     // Test print from top level transition
-    assertContainsEventWithFrequency("printing from transition impl [\"meow\"]", 1);
+    assertContainsEvent("printing from transition impl [\"meow\"]");
     // Test print from dep transition
-    assertContainsEventWithFrequency("printing from transition impl [\"meow\", \"meow\"]", 1);
+    assertContainsEvent("printing from transition impl [\"meow\", \"meow\"]");
     // Test print from (non-top level) rule class transition
-    assertContainsEventWithFrequency(
-        "printing from transition impl [\"meow\", \"meow\", \"meow\"]", 1);
+    assertContainsEvent("printing from transition impl [\"meow\", \"meow\", \"meow\"]");
   }
 
   @Test
@@ -2910,6 +2909,30 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testNoRuleOutputsParam() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_no_rule_outputs_param=true");
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _impl(ctx):",
+        "  output = ctx.outputs.out",
+        "  ctx.actions.write(output = output, content = 'hello')",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  outputs = {\"out\": \"%{name}.txt\"})");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:target");
+    assertContainsEvent(
+        "parameter 'outputs' is deprecated and will be removed soon. It may be temporarily "
+            + "re-enabled by setting --incompatible_no_rule_outputs_param=false");
+  }
+
+  @Test
   public void testExecutableNotInRunfiles() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
@@ -2929,6 +2952,26 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/skylark:target");
     assertContainsEvent("exe not included in runfiles");
+  }
+
+  @Test
+  public void testCommandStringList() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_run_shell_command_string");
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _my_rule_impl(ctx):",
+        "  exe = ctx.actions.declare_file('exe')",
+        "  ctx.actions.run_shell(outputs=[exe], command=['touch', 'exe'])",
+        "  return []",
+        "my_rule = rule(implementation = _my_rule_impl)");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:target");
+    assertContainsEvent("'command' must be of type string");
   }
 
   /**

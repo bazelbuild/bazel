@@ -103,6 +103,43 @@ public class SpawnInputExpanderTest {
   }
 
   @Test
+  public void testRunfilesWithFileset() throws Exception {
+    Artifact artifact = createFilesetArtifact("foo/biz/fs_out");
+    Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
+    RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
+    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
+    mockCache.put(
+        artifact,
+        FileArtifactValue.createNormalFile(
+            FAKE_DIGEST, /*proxy=*/ null, 0L, /*isShareable=*/ true));
+
+    ArtifactExpander filesetExpander =
+        new ArtifactExpander() {
+          @Override
+          public void expand(Artifact artifact, Collection<? super Artifact> output) {
+            throw new IllegalStateException("Unexpected tree expansion");
+          }
+
+          @Override
+          public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+            return ImmutableList.of(
+                FilesetOutputSymlink.createForTesting(
+                    PathFragment.create("zizz"),
+                    PathFragment.create("/foo/fake_exec/xyz/zizz"),
+                    PathFragment.create("/foo/fake_exec/")));
+          }
+        };
+
+    expander.addRunfilesToInputs(
+        inputMappings, supplier, mockCache, filesetExpander, ArtifactPathResolver.IDENTITY, true);
+    assertThat(inputMappings).hasSize(1);
+    assertThat(inputMappings)
+        .containsEntry(
+            PathFragment.create("runfiles/workspace/foo/biz/fs_out/zizz"),
+            ActionInputHelper.fromPath("/root/xyz/zizz"));
+  }
+
+  @Test
   public void testRunfilesDirectoryStrict() {
     Artifact artifact =
         ActionsTestUtil.createArtifact(
@@ -327,6 +364,15 @@ public class SpawnInputExpanderTest {
   }
 
   private SpecialArtifact createTreeArtifact(String relPath) throws IOException {
+    return createSpecialArtifact(relPath, SpecialArtifactType.TREE);
+  }
+
+  private SpecialArtifact createFilesetArtifact(String relPath) throws IOException {
+    return createSpecialArtifact(relPath, SpecialArtifactType.FILESET);
+  }
+
+  private SpecialArtifact createSpecialArtifact(String relPath, SpecialArtifactType type)
+      throws IOException {
     Path outputDir = execRoot.getRelative("out");
     Path outputPath = outputDir.getRelative(relPath);
     outputPath.createDirectoryAndParents();
@@ -335,7 +381,7 @@ public class SpawnInputExpanderTest {
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        SpecialArtifactType.TREE);
+        type);
   }
 
   @Test

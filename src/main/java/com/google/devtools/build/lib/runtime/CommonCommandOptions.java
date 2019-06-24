@@ -188,6 +188,15 @@ public class CommonCommandOptions extends OptionsBase {
   public String buildRequestId;
 
   @Option(
+      name = "oom_message",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "Custom message to be emitted on an out of memory failure.")
+  public String oomMessage;
+
+  @Option(
       name = "incompatible_remove_binary_profile",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -200,14 +209,25 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean removeBinaryProfile;
 
   @Option(
-    name = "experimental_generate_json_trace_profile",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    help =
-        "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in the "
-            + "output base."
-  )
+      name = "incompatible_enable_profile_by_default",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, Bazel will generate a JSON profile by default.")
+  public boolean enableProfileByDefault;
+
+  @Option(
+      name = "experimental_generate_json_trace_profile",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in"
+              + " the output base. View profile by loading into chrome://tracing.")
   public boolean enableTracer;
 
   @Option(

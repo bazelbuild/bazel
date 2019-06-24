@@ -49,7 +49,7 @@ public class PlatformRule implements RuleDefinition {
 
         <p>Each <code>constraint_value</code> in this list must be for a different
         <code>constraint_setting</code>. For example, you cannot define a platform that requires the
-        cpu architecture to be both <code>@bazel_tools//platforms:x86_64</code> and
+        cpu architecture to be both <code>@platforms//cpu:x86_64</code> and
         <code>@bazel_tools//platforms:arm</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
@@ -130,8 +130,8 @@ more details.
 platform(
     name = "linux_arm",
     constraint_values = [
-        "@bazel_tools//platforms:linux",
-        "@bazel_tools//platforms:arm",
+        "@platforms//os:linux",
+        "@platforms//cpu:arm",
     ],
 )
 </pre>
@@ -177,8 +177,8 @@ platform(
 platform(
     name = "parent",
     constraint_values = [
-        "@bazel_tools//platforms:linux",
-        "@bazel_tools//platforms:arm",
+        "@platforms//os:linux",
+        "@platforms//cpu:arm",
     ],
     remote_execution_properties = """
       parent properties
@@ -188,7 +188,7 @@ platform(
     name = "child_a",
     parents = [":parent"],
     constraint_values = [
-        "@bazel_tools//platforms:x86_64",
+        "@platforms//cpu:x86_64",
     ],
     remote_execution_properties = """
       child a properties
@@ -210,8 +210,8 @@ platform(
 
   <ul>
     <li>
-      "child_a" has the constraint values "@bazel_tools//platforms:linux" (inherited from the
-      parent) and "@bazel_tools//platforms:x86_64" (set directly on the platform). It has the
+      "child_a" has the constraint values "@platforms//os:linux" (inherited from the
+      parent) and "@platforms//cpu:x86_64" (set directly on the platform). It has the
       "remote_execution_properties" set to "child a properties"
     </li>
     <li>

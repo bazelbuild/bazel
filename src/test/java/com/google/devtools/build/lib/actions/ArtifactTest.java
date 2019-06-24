@@ -353,7 +353,8 @@ public class ArtifactTest {
   public void testCodecRecyclesSourceArtifactInstances() throws Exception {
     Root root = Root.fromPath(scratch.dir("/"));
     ArtifactRoot artifactRoot = ArtifactRoot.asSourceRoot(root);
-    ArtifactFactory artifactFactory = new ArtifactFactory(execDir, "blaze-out");
+    ArtifactFactory artifactFactory =
+        new ArtifactFactory(execDir.getParentDirectory(), "blaze-out");
     artifactFactory.setSourceArtifactRoots(ImmutableMap.of(root, artifactRoot));
     ArtifactResolverSupplier artifactResolverSupplierForTest = () -> artifactFactory;
 
@@ -490,5 +491,19 @@ public class ArtifactTest {
     return ActionsTestUtil.createArtifact(
         ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/"))),
         scratch.file("/aaa/bbb/ccc/ddd"));
+  }
+
+  @Test
+  public void canDeclareContentBasedOutput() throws Exception {
+    Path execRoot = scratch.getFileSystem().getPath("/");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/newRoot"));
+    assertThat(
+            new Artifact.DerivedArtifact(
+                    root,
+                    PathFragment.create("newRoot/my.output"),
+                    ActionsTestUtil.NULL_ARTIFACT_OWNER,
+                    /*contentBasedPath=*/ true)
+                .contentBasedPath())
+        .isTrue();
   }
 }

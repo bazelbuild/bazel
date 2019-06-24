@@ -40,14 +40,14 @@ import javax.annotation.Nullable;
  *
  * <p>This implementation only supports creating local action outputs.
  */
-public class RemoteActionFileSystem extends DelegateFileSystem {
+class RemoteActionFileSystem extends DelegateFileSystem {
 
   private final Path execRoot;
   private final Path outputBase;
   private final ActionInputMap inputArtifactData;
   private final RemoteActionInputFetcher inputFetcher;
 
-  public RemoteActionFileSystem(
+  RemoteActionFileSystem(
       FileSystem localDelegate,
       PathFragment execRootFragment,
       String relativeOutputPath,
@@ -59,6 +59,11 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         execRoot.getRelative(Preconditions.checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputFetcher = Preconditions.checkNotNull(inputFetcher, "inputFetcher");
+  }
+
+  /** Returns true if {@code path} is a file that's stored remotely. */
+  boolean isRemote(Path path) {
+    return getRemoteInputMetadata(path) != null;
   }
 
   @Override

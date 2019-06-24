@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.Command;
@@ -228,7 +229,7 @@ public final class RemoteModule extends BlazeModule {
           capabilities = rsc.get(buildRequestId, invocationId);
         } catch (IOException e) {
           throw new AbruptExitException(
-              "Failed to query remote execution capabilities: " + e.getMessage(),
+              "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
               ExitCode.REMOTE_ERROR,
               e);
         } catch (InterruptedException e) {
@@ -255,24 +256,14 @@ public final class RemoteModule extends BlazeModule {
                 digestUtil,
                 uploader.retain());
         uploader.release();
-        if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
-          Context requestContext =
-              TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
-          buildEventArtifactUploaderFactoryDelegate.init(
-              new ByteStreamBuildEventArtifactUploaderFactory(
-                  uploader,
-                  cacheChannel.authority(),
-                  requestContext,
-                  remoteOptions.remoteInstanceName));
-        } else {
-          // TODO(buchgr): Fix BES local file upload to work with
-          // --experimental_remote_download_outputs
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "BES artifact upload is disabled when using "
-                          + "--experimental_remote_download_outputs=minimal"));
-        }
+        Context requestContext =
+            TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
+        buildEventArtifactUploaderFactoryDelegate.init(
+            new ByteStreamBuildEventArtifactUploaderFactory(
+                uploader,
+                cacheChannel.authority(),
+                requestContext,
+                remoteOptions.remoteInstanceName));
       }
 
       if (enableBlobStoreCache) {
@@ -369,7 +360,7 @@ public final class RemoteModule extends BlazeModule {
   private void checkClientServerCompatibility(
       ServerCapabilities capabilities,
       RemoteOptions remoteOptions,
-      DigestFunction digestFunction,
+      DigestFunction.Value digestFunction,
       Reporter reporter)
       throws AbruptExitException {
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =

@@ -242,6 +242,19 @@ public class CppHelper {
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
       RuleContext ruleContext) throws RuleErrorException {
+    try {
+      return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext);
+    } catch (EvalException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
+    }
+  }
+
+  /**
+   * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
+   * for Starlark-defined rules that link against the C++ runtime.
+   */
+  public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(
+      RuleContext ruleContext) throws EvalException {
     CcToolchainProvider defaultToolchain =
         getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     if (defaultToolchain == null) {
@@ -249,11 +262,8 @@ public class CppHelper {
     }
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
-    try {
-      return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
-    } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
-    }
+
+    return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
   }
 
   /**

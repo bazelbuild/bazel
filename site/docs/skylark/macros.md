@@ -49,9 +49,10 @@ macro), use the function [native.package_name()](lib/native.html#package_name).
     full stack trace.
 
 *   You can also use [print](lib/globals.html#print) for debugging. It displays
-    the message as a warning during the loading phase. Except in rare cases,
-    either remove `print` calls, or make them conditional under a `debugging`
-    parameter that defaults to `False` before submitting the code to the depot.
+    the message as a `DEBUG` log line during the loading phase. Except in rare
+    cases, either remove `print` calls, or make them conditional under a
+    `debugging` parameter that defaults to `False` before submitting the code to
+    the depot.
 
 ## Errors
 

@@ -81,9 +81,6 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       builder.allowedFileTypes(FileTypeSet.ANY_FILE);
     } else if (fileTypesObj == Boolean.FALSE) {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
-    } else if (fileTypesObj instanceof SkylarkFileType) {
-      // TODO(laurentlb): deprecated, to be removed
-      builder.allowedFileTypes(((SkylarkFileType) fileTypesObj).getFileTypeSet());
     } else if (fileTypesObj instanceof SkylarkList) {
       List<String> arg =
           SkylarkList.castSkylarkListOrNoneToList(

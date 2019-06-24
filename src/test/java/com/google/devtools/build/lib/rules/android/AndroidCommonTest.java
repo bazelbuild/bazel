@@ -38,6 +38,14 @@ public class AndroidCommonTest extends BuildViewTestCase {
     scratch.file("java/srcs/a.properties", "foo");
   }
 
+  @Before
+  public void setup() throws Exception {
+    // Force tests to use aapt to unblock global aapt2 migration, until these
+    // tests are migrated to use aapt2.
+    // TODO(jingwen): https://github.com/bazelbuild/bazel/issues/6907
+    useConfiguration("--android_aapt=aapt");
+  }
+
   // regression test for #3169099
   @Test
   public void testLibrarySrcs() throws Exception {

@@ -144,6 +144,17 @@ public interface BazelCcModuleApi<
             defaultValue = "[]",
             type = SkylarkList.class),
         @Param(
+            name = "framework_includes",
+            doc =
+                "Search paths for header files from Apple frameworks. They can be either relative "
+                    + "to the exec root or absolute. Usually passed with -F. Propagated to "
+                    + "dependents transitively.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
             name = "defines",
             doc = "Set of defines needed to compile this target. Each define is a string.",
             positional = false,
@@ -198,6 +209,7 @@ public interface BazelCcModuleApi<
       SkylarkList<String> includes,
       SkylarkList<String> quoteIncludes,
       SkylarkList<String> systemIncludes,
+      SkylarkList<String> frameworkIncludes,
       SkylarkList<String> defines,
       SkylarkList<String> userCompileFlags,
       SkylarkList<CompilationContextT> ccCompilationContexts,

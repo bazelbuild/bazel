@@ -65,8 +65,11 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
   @Before
   public void setUp() throws Exception {
     optionsParser =
-        OptionsParser.newOptionsParser(
-            Iterables.concat(requiredOptionsClasses, ruleClassProvider.getConfigurationOptions()));
+        OptionsParser.builder()
+            .optionsClasses(
+                Iterables.concat(
+                    requiredOptionsClasses, ruleClassProvider.getConfigurationOptions()))
+            .build();
     starlarkOptionsParser =
         StarlarkOptionsParser.newStarlarkOptionsParserForTesting(
             skyframeExecutor, reporter, PathFragment.EMPTY_FRAGMENT, optionsParser);
@@ -198,12 +201,8 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
     assertThat(e).hasMessageThat().contains("Error loading option //fake_flag");
   }
 
-  // test -flag=value (Note - there's currently no way in real life to allow single dash long form
-  // options.)
   @Test
   public void testSingleDash_notAllowed() throws Exception {
-    optionsParser.setAllowSingleDashLongOptions(false);
-
     writeBasicIntFlag();
 
     OptionsParsingResult result = parseStarlarkOptions("-//test:my_int_setting=666");

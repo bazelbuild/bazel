@@ -233,10 +233,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
+
     actionKeyContext = new ActionKeyContext();
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
     mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     mockToolsConfig.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
+    mockToolsConfig.create(
+        "/bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
+        "def maybe(repo_rule, name, **kwargs):",
+        "  if name not in native.existing_rules():",
+        "    repo_rule(name = name, **kwargs)");
     mockToolsConfig.create(
         "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
         "def http_archive(**kwargs):",
@@ -251,7 +257,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
-
+    getOutputPath().createDirectoryAndParents();
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
         ImmutableList.of(
             PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.<String, String>of()),
@@ -350,10 +356,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final BuildConfigurationCollection createConfigurations(
       ImmutableMap<String, Object> skylarkOptions, String... args) throws Exception {
     optionsParser =
-        OptionsParser.newOptionsParser(
-            Iterables.concat(
-                Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
-                ruleClassProvider.getConfigurationOptions()));
+        OptionsParser.builder()
+            .optionsClasses(
+                Iterables.concat(
+                    Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
+                    ruleClassProvider.getConfigurationOptions()))
+            .build();
     List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
     allArgs.add("--stamp");  // Stamp is now defaulted to false.
@@ -449,7 +457,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   private static PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(PackageCacheOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(PackageCacheOptions.class).build();
     parser.parse("--default_visibility=public");
     parser.parse(options);
     return parser.getOptions(PackageCacheOptions.class);
@@ -457,7 +466,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private static StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
       throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
     parser.parse(options);
     return parser.getOptions(StarlarkSemanticsOptions.class);
   }
@@ -1497,7 +1507,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Path getOutputPath() {
-    return directories.getOutputPath();
+    return directories.getOutputPath(ruleClassProvider.getRunfilesPrefix());
   }
 
   /**
@@ -2007,6 +2017,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public Artifact.DerivedArtifact getDerivedArtifact(
         PathFragment rootRelativePath, ArtifactRoot root) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Artifact.DerivedArtifact getDerivedArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
       throw new UnsupportedOperationException();
     }
 

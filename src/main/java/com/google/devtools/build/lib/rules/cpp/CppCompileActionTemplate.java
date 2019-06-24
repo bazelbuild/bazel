@@ -193,9 +193,6 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         CompileBuildVariables.OUTPUT_FILE.getVariableName(),
         outputTreeFileArtifact.getExecPathString());
     buildVariables.overrideStringVariable(
-        CompileBuildVariables.OUTPUT_OBJECT_FILE.getVariableName(),
-        outputTreeFileArtifact.getExecPathString());
-    buildVariables.overrideStringVariable(
         CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
         dotdFileArtifact.getExecPathString());
 

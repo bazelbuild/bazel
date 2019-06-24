@@ -65,8 +65,8 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkMutable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkMutable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
@@ -310,7 +310,8 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
-      Location location)
+      Location location,
+      StarlarkSemantics semantics)
       throws EvalException {
     context.checkMutable("actions.run_shell");
 
@@ -338,6 +339,13 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         }
       }
     } else if (commandUnchecked instanceof SkylarkList) {
+      if (semantics.incompatibleRunShellCommandString()) {
+        throw new EvalException(
+            location,
+            "'command' must be of type string. passing a sequence of strings as 'command'"
+                + " is deprecated. To temporarily disable this check,"
+                + " set --incompatible_objc_framework_cleanup=false.");
+      }
       SkylarkList commandList = (SkylarkList) commandUnchecked;
       if (argumentList.size() > 0) {
         throw new EvalException(location,
@@ -620,7 +628,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
   /** Args module. */
   @VisibleForTesting
-  public static class Args extends SkylarkMutable implements CommandLineArgsApi {
+  public static class Args extends StarlarkMutable implements CommandLineArgsApi {
     private final Mutability mutability;
     private final StarlarkSemantics starlarkSemantics;
     private final SkylarkCustomCommandLine.Builder commandLine;

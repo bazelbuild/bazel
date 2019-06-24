@@ -7,8 +7,8 @@ load(":osx_archs.bzl", "OSX_TOOLS_ARCHS", "OSX_TOOLS_CONSTRAINTS")
         name = "cc-toolchain-" + arch,
         exec_compatible_with = [
             # These only execute on macOS.
-            "@bazel_tools//platforms:osx",
-            "@bazel_tools//platforms:x86_64",
+            "@platforms//os:osx",
+            "@platforms//cpu:x86_64",
         ],
         target_compatible_with = OSX_TOOLS_CONSTRAINTS[arch],
         toolchain = "@local_config_cc//:cc-compiler-" + arch,

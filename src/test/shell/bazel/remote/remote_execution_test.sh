@@ -1061,6 +1061,42 @@ EOF
 
 
 }
+
+function test_downloads_minimal_bep() {
+  # Test that when using --experimental_remote_download_outputs=minimal all URI's in the BEP
+  # are rewritten as bytestream://..
+  mkdir -p a
+  cat > a/success.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/success.sh
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "success_test",
+  srcs = ["success.sh"],
+)
+
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=minimal \
+    --build_event_text_file=$TEST_log \
+    //a:foo //a:success_test || fail "Failed to test //a:foo //a:success_test"
+
+  expect_not_log 'uri:.*file://'
+  expect_log "uri:.*bytestream://localhost"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

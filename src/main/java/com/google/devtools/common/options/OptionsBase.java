@@ -34,7 +34,9 @@ import java.util.Objects;
  * or from an array of command-line arguments:
  *
  * <pre>
- *   OptionsParser parser = OptionsParser.newOptionsParser(X.class);
+ *   OptionsParser parser = OptionsParser.builder()
+ *       .optionsClasses(X.class)
+ *       .build();
  *   parser.parse("--host", "localhost", "--port", "80");
  *   X x = parser.getOptions(X.class);
  * </pre>

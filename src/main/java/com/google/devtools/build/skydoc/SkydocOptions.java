@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.skydoc;
 
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -48,12 +49,25 @@ public class SkydocOptions extends OptionsBase {
   public String outputFilePath;
 
   @Option(
+      name = "output_format",
+      defaultValue = "markdown",
+      converter = OutputFormatConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help = "The format choice for the output file (\"markdown\" or \"proto\").")
+  public OutputFormat outputFormat;
+
+  @Option(
       name = "symbols",
       allowMultiple = true,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
-      help = "The path of the file to output documentation into")
+      help =
+          "A list of symbol names to generate documentation for. These should correspond to the"
+              + " names of rule, provider, or function definitions in the input file. If this list"
+              + " is empty, then documentation for all exported rule definitions will be"
+              + " generated.")
   public List<String> symbolNames;
 
   @Option(
@@ -64,4 +78,21 @@ public class SkydocOptions extends OptionsBase {
       effectTags = OptionEffectTag.UNKNOWN,
       help = "File path roots to search when resolving transitive bzl dependencies")
   public List<String> depRoots;
+
+  /** Converter for {@link OutputFormat} */
+  public static class OutputFormatConverter extends EnumConverter<OutputFormat> {
+
+    public OutputFormatConverter() {
+      super(OutputFormat.class, "output format");
+    }
+  }
+
+  /**
+   * The possible values for the --output_format flag, which controls the format of Stardoc's output
+   * file.
+   */
+  public enum OutputFormat {
+    MARKDOWN,
+    PROTO
+  }
 }

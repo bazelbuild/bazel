@@ -798,7 +798,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
     } catch (RuntimeException | Error e) { // A definite bug...
-      BugReport.printBug(OutErr.SYSTEM_OUT_ERR, e);
+      BugReport.printBug(OutErr.SYSTEM_OUT_ERR, e, /* oomMessage = */ null);
       BugReport.sendBugReport(e, Arrays.asList(args));
       System.exit(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
       throw e; // Shouldn't get here.
@@ -1147,8 +1147,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         BlazeCommandUtils.getStartupOptions(modules);
 
     // First parse the command line so that we get the option_sources argument
-    OptionsParser parser = OptionsParser.newOptionsParser(optionClasses);
-    parser.setAllowResidue(false);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
     parser.parse(PriorityCategory.COMMAND_LINE, null, args);
     Map<String, String> optionSources =
         parser.getOptions(BlazeServerStartupOptions.class).optionSources;
@@ -1161,8 +1161,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     : optionSources.get(option.getOptionName());
 
     // Then parse the command line again, this time with the correct option sources
-    parser = OptionsParser.newOptionsParser(optionClasses);
-    parser.setAllowResidue(false);
+    parser = OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
     parser.parseWithSourceFunction(PriorityCategory.COMMAND_LINE, sourceFunction, args);
     return parser;
   }

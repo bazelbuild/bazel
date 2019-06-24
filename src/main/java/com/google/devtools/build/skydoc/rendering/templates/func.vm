@@ -1,6 +1,6 @@
-<a name="#${funcInfo.name}"></a>
+<a name="#${funcInfo.functionName}"></a>
 
-#[[##]]# ${funcInfo.name}
+#[[##]]# ${funcInfo.functionName}
 
 <pre>
 ${util.funcSummary($funcInfo)}
@@ -8,7 +8,7 @@ ${util.funcSummary($funcInfo)}
 
 ${funcInfo.docString}
 
-#if (!$funcInfo.parameters.isEmpty())
+#if (!$funcInfo.getParameterList().isEmpty())
 #[[###]]# Parameters
 
 <table class="params-table">
@@ -17,8 +17,8 @@ ${funcInfo.docString}
     <col class="col-description" />
   </colgroup>
   <tbody>
-#foreach ($param in $funcInfo.parameters)
-    <tr id="${funcInfo.name}-${param.name}">
+#foreach ($param in $funcInfo.getParameterList())
+    <tr id="${funcInfo.functionName}-${param.name}">
       <td><code>${param.name}</code></td>
       <td>
         ${util.mandatoryString($param)}.#if(!$param.getDefaultValue().isEmpty()) default is <code>$param.getDefaultValue()</code>#end

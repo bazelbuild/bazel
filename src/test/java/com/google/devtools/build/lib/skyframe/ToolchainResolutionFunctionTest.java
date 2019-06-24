@@ -153,14 +153,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     assertThat(unloadedToolchainContext.requiredToolchainTypes()).isEmpty();
 
-    // With no toolchains requested, should fall back to the host platform.
+    // Even with no toolchains requested, should still select the first execution platform.
     assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
     assertThat(unloadedToolchainContext.executionPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//host:host"));
-
-    assertThat(unloadedToolchainContext.targetPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.targetPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:mac"));
   }
 
   @Test

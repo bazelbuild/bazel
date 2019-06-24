@@ -212,7 +212,8 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
         getDerivedArtifact(
             PathFragment.create(name),
             ArtifactRoot.asDerivedRoot(
-                directories.getExecRoot(), directories.getExecRoot().getChild("out")),
+                directories.getExecRoot("workspace"),
+                directories.getExecRoot("workspace").getChild("out")),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
     return new SpecialArtifact(
         treeArtifactBase.getRoot(),

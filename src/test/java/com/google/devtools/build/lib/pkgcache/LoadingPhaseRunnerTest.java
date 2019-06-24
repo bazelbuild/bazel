@@ -1253,7 +1253,7 @@ public class LoadingPhaseRunnerTest {
     }
 
     public void useLoadingOptions(String... options) throws OptionsParsingException {
-      OptionsParser parser = OptionsParser.newOptionsParser(LoadingOptions.class);
+      OptionsParser parser = OptionsParser.builder().optionsClasses(LoadingOptions.class).build();
       parser.parse(ImmutableList.copyOf(options));
       this.options = parser.getOptions(LoadingOptions.class);
     }

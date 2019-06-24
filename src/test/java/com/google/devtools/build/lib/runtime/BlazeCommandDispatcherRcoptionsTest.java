@@ -139,7 +139,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
             .setProductName(productName)
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(
-                OptionsParser.newOptionsParser(BlazeServerStartupOptions.class))
+                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeModule(
                 new BlazeModule() {
                   @Override

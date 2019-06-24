@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -87,7 +88,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -137,7 +138,7 @@ import javax.annotation.Nullable;
  * invariants.
  */
 public class BuildView {
-  private static final Logger logger = Logger.getLogger(BuildView.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final BlazeDirectories directories;
 
@@ -210,7 +211,7 @@ public class BuildView {
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
       throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException {
-    logger.info("Starting analysis");
+    logger.atInfo().log("Starting analysis");
     pollInterruptedStatus();
 
     skyframeBuildView.resetEvaluatedConfiguredTargetKeysSet();
@@ -414,7 +415,7 @@ public class BuildView {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
                                     numSuccessful, numTargetsToAnalyze);
       eventHandler.handle(Event.info(msg));
-      logger.info(msg);
+      logger.atInfo().log(msg);
     }
 
     Set<ConfiguredTarget> targetsToSkip =
@@ -435,7 +436,7 @@ public class BuildView {
             skyframeAnalysisResult,
             targetsToSkip,
             topLevelTargetsWithConfigsResult);
-    logger.info("Finished analysis");
+    logger.atInfo().log("Finished analysis");
     return result;
   }
 
@@ -530,6 +531,8 @@ public class BuildView {
                   "Interruption not expected from this graph: " + generatingActionKey, e);
             }
             if (val == null) {
+              logger.atWarning().atMostEvery(1, TimeUnit.SECONDS).log(
+                  "Missing generating action for %s (%s)", artifact, generatingActionKey);
               return null;
             }
             int actionIndex = generatingActionKey.getActionIndex();

@@ -40,8 +40,8 @@ public class NodeEntrySubject extends Subject {
         .that(Iterables.concat(actual.getTemporaryDirectDeps()));
   }
 
-  public ComparableSubject<?, NodeEntry.DependencyState> addReverseDepAndCheckIfDone(
-      @Nullable SkyKey reverseDep) throws InterruptedException {
+  public ComparableSubject addReverseDepAndCheckIfDone(@Nullable SkyKey reverseDep)
+      throws InterruptedException {
     return check("addReverseDepAndCheckIfDone()")
         .that(actual.addReverseDepAndCheckIfDone(reverseDep));
   }

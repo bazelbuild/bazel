@@ -166,7 +166,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         name = "struct_field_with_extra",
         documented = false,
         structField = true,
-        useSkylarkSemantics = true)
+        useStarlarkSemantics = true)
     public String structFieldWithExtra(StarlarkSemantics sem) {
       return "struct_field_with_extra("
         + (sem != null)
@@ -316,7 +316,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         useLocation = true,
         useAst = true,
         useEnvironment = true,
-        useSkylarkSemantics = true,
+        useStarlarkSemantics = true,
         useContext = true)
     public String withExtraInterpreterParams(
         Location location,
@@ -384,7 +384,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         useAst = true,
         useLocation = true,
         useEnvironment = true,
-        useSkylarkSemantics = true)
+        useStarlarkSemantics = true)
     public String withParamsAndExtraInterpreterParams(
         Integer pos1,
         boolean pos2,

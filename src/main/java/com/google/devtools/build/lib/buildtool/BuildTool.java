@@ -110,10 +110,6 @@ public class BuildTool {
     try (SilentCloseable c = Profiler.instance().profile("createBuildOptions")) {
       buildOptions = runtime.createBuildOptions(request);
     }
-    // Sync the package manager before sending the BuildStartingEvent in runLoadingPhase()
-    try (SilentCloseable c = Profiler.instance().profile("setupPackageCache")) {
-      env.setupPackageCache(request);
-    }
 
     ExecutionTool executionTool = null;
     boolean catastrophe = false;

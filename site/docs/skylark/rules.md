@@ -5,37 +5,43 @@ title: Rules
 
 # Rules
 
-A rule defines a series of [actions](#actions) that Bazel should perform on
-inputs to get a set of outputs. For example, a C++ binary rule might take a set
-of `.cpp` files (the inputs), run `g++` on them (the action), and return an
-executable file (the output).
+A **rule** defines a series of [**actions**](#actions) that Bazel performs on
+inputs to produce a set of outputs. For example, a C++ binary rule might:
 
-Note that, from Bazel's perspective, `g++` and the standard C++ libraries are
-also inputs to this rule. As a rule writer, you must consider not only the
-user-provided inputs to a rule, but also all of the tools and libraries required
-to execute the actions.
+1. Take a set of `.cpp` files (the inputs)
+2. Run `g++` on them (the action)
+3. Return an executable file (the output).
 
-Before creating or modifying any rule, make sure you are familiar with the
-[evaluation model](concepts.md). You must understand the three phases of
-execution and the differences between macros and rules.
+From Bazel's perspective, `g++` and the standard C++ libraries are also inputs
+to this rule. As a rule writer, you must consider not only the user-provided
+inputs to a rule, but also all of the tools and libraries required to execute
+the actions.
+
+Before creating or modifying any rule, ensure you are familiar with Bazel's
+[build phases](concepts.md). It will be important to understand the three phases
+of a build (loading, analysis and execution). It will also be useful to learn
+about [macros](macros.md) to understand the difference between rules and macros.
 
 A few rules are built into Bazel itself. These *native rules*, such as
 `cc_library` and `java_binary`, provide some core support for certain languages.
 By defining your own rules, you can add similar support for languages and tools
 that Bazel does not support natively.
 
-Rules defined in .bzl files work just like native rules. For example, their
-targets have labels, can appear in `bazel query`, and get built whenever they
-are needed for a `bazel build` command or similar. When defining your own rule,
-you get to decide what attributes it supports and how it generates its outputs.
+Bazel provides an extensibility model for writing rules using the
+[Starlark](language.md) language. These rules are written in `.bzl` files,
+which can be loaded directly from `BUILD` files.
 
-The exact behavior of a rule during the
-[analysis phase](concepts.md#evaluation-model) is governed by its
-`implementation` function. This function does not run any external commands.
-Rather, it registers [actions](#actions) that will be used later during the
-execution phase to build the rule's outputs, if they are needed. Rules also
-produce and pass along information that may be useful to other rules, in the
-form of [providers](#providers).
+When defining your own rule, you get to decide what attributes it supports and
+how it generates its outputs.
+
+The rule's `implementation` function defines its exact behavior during the
+[analysis phase](concepts.md#evaluation-model). This function does not run any
+external commands. Rather, it registers [actions](#actions) that will be used
+later during the execution phase to build the rule's outputs, if they are
+needed.
+
+Rules also produce and pass along information that may be useful to other rules
+in the form of [providers](#providers).
 
 ## Contents
 {:.no_toc}

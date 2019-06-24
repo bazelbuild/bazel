@@ -23,6 +23,17 @@ package stardoc_output;
 option java_package = "com.google.devtools.build.skydoc.rendering.proto";
 option java_outer_classname = "StardocOutputProtos";
 
+// The root output proto of Stardoc. A single invocation of Stardoc will output
+// exactly one instance of this proto, representing all documentation for
+// the input Starlark file.
+message ModuleInfo {
+  repeated RuleInfo rule_info = 1;
+
+  repeated ProviderInfo provider_info = 2;
+
+  repeated UserDefinedFunctionInfo func_info = 3;
+}
+
 // Representation of a Starlark rule attribute type. These generally
 // have a one-to-one correspondence with functions defined at
 // https://docs.bazel.build/versions/master/skylark/lib/attr.html.
@@ -45,6 +56,15 @@ enum AttributeType {
   OUTPUT_LIST = 13;
 }
 
+// Representation of a Starlark rule definition.
+message RuleInfo {
+  // The documentation string of the rule.
+  string doc_string = 1;
+
+  // The attributes of the rule.
+  repeated AttributeInfo attribute = 2;
+}
+
 // Representation of a Starlark rule attribute definition, comprised of an
 // attribute name, and a schema defined by a call to one of the 'attr' module
 // methods enumerated at
@@ -63,6 +83,19 @@ message AttributeInfo {
 
   // If true, all targets of the rule must specify a value for this attribute.
   bool mandatory = 4;
+}
+
+// Representation of Starlark function definition.
+message UserDefinedFunctionInfo {
+  // The name of the function.
+  string function_name = 1;
+
+  // The parameters for the function.
+  repeated FunctionParamInfo parameter = 2;
+
+  // The documented description of the function (if specified in the function's
+  // docstring).
+  string doc_string = 3;
 }
 
 // Representation of a Starlark function parameter definition.
@@ -92,4 +125,13 @@ message ProviderFieldInfo {
 
   // The description of the provider.
   string doc_string = 2;
+}
+
+// Representation of a Starlark provider definition.
+message ProviderInfo {
+  // The description of the provider.
+  string doc_string = 1;
+
+  // The fields of the provider.
+  repeated ProviderFieldInfo field_info = 2;
 }

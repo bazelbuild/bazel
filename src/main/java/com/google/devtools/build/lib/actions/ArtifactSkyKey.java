@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -39,12 +40,34 @@ public class ArtifactSkyKey implements SkyKey {
     this.artifact = Preconditions.checkNotNull(sourceArtifact);
   }
 
+  /**
+   * Returns a {@link SkyKey} that, when built, will produce this artifact. For mandatory source
+   * artifacts and generated artifacts that may aggregate other artifacts (middleman, since they may
+   * be aggregating middlemen, and tree), returns the artifact itself. For normal generated
+   * artifacts, returns the key of the generating action. For non-mandatory source artifacts,
+   * returns a custom SkyKey.
+   *
+   * <p>Callers should use this method (or the related ones below) in preference to directly
+   * requesting an {@link Artifact} to be built by Skyframe, since ordinary derived artifacts should
+   * never be directly built by Skyframe.
+   */
   @ThreadSafety.ThreadSafe
   public static SkyKey key(Artifact artifact, boolean isMandatory) {
-    if (isMandatory || !artifact.isSourceArtifact()) {
+    if (artifact.isTreeArtifact() || artifact.isMiddlemanArtifact()) {
       return artifact;
     }
-    return create(((Artifact.SourceArtifact) artifact));
+    if (artifact.isSourceArtifact()) {
+      return isMandatory ? artifact : create((Artifact.SourceArtifact) artifact);
+    }
+    return ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
+  }
+
+  public static SkyKey mandatoryKey(Artifact artifact) {
+    return key(artifact, /*isMandatory=*/ true);
+  }
+
+  public static Iterable<SkyKey> mandatoryKeys(Iterable<Artifact> artifacts) {
+    return Iterables.transform(artifacts, ArtifactSkyKey::mandatoryKey);
   }
 
   @AutoCodec.VisibleForSerialization

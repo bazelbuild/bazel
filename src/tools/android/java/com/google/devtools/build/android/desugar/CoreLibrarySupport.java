@@ -23,6 +23,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
@@ -63,6 +64,10 @@ class CoreLibrarySupport {
   private final ImmutableSet<Class<?>> emulatedInterfaces;
   /** Map from {@code owner#name} core library members to their new owners. */
   private final ImmutableMap<String, String> memberMoves;
+  /** Map from core library types to the classes that convert to desugared types. */
+  private final ImmutableMap<String, String> fromConversions;
+  /** Map from preserved method names to the base classes that define them. */
+  private final ImmutableMultimap<String, String> preserveOverrides;
 
   /** ASM {@link Remapper} based on {@link #renamedPrefixes}. */
   private final Remapper corePackageRemapper = new Remapper() {
@@ -75,8 +80,8 @@ class CoreLibrarySupport {
   /** For the collection of definitions of emulated default methods (deterministic iteration). */
   private final Multimap<String, EmulatedMethod> emulatedDefaultMethods =
       LinkedHashMultimap.create();
-  /** Collect move targets we've queried in {@link #getMoveTarget}. */
-  private final Set<String> seenMoveTargets = new LinkedHashSet<>();
+  /** Collect targets queried in {@link #getMoveTarget} and {@link #getFromCoreLibraryConverter}. */
+  private final Set<String> usedRuntimeHelpers = new LinkedHashSet<>();
 
   public CoreLibrarySupport(
       CoreLibraryRewriter rewriter,
@@ -84,7 +89,9 @@ class CoreLibrarySupport {
       List<String> renamedPrefixes,
       List<String> emulatedInterfaces,
       List<String> memberMoves,
-      List<String> excludeFromEmulation) {
+      List<String> excludeFromEmulation,
+      List<String> fromOriginalConversions,
+      List<String> preserveOverrides) {
     this.rewriter = rewriter;
     this.targetLoader = targetLoader;
     checkArgument(
@@ -103,7 +110,8 @@ class CoreLibrarySupport {
 
     // We can call isRenamed and rename below b/c we initialized the necessary fields above
     // Use LinkedHashMap to tolerate identical duplicates
-    LinkedHashMap<String, String> movesBuilder = new LinkedHashMap<>();
+    // TODO(kmb): Make map parsing code more reusable
+    LinkedHashMap<String, String> mapBuilder = new LinkedHashMap<>();
     Splitter splitter = Splitter.on("->").trimResults().omitEmptyStrings();
     for (String move : memberMoves) {
       List<String> pair = splitter.splitToList(move);
@@ -118,11 +126,45 @@ class CoreLibrarySupport {
           "Retargeted invocation %s shouldn't overlap with excluded", move);
 
       String value = renameCoreLibrary(pair.get(1));
-      String existing = movesBuilder.put(pair.get(0), value);
+      String existing = mapBuilder.put(pair.get(0), value);
       checkArgument(existing == null || existing.equals(value),
           "Two move destinations %s and %s configured for %s", existing, value, pair.get(0));
     }
-    this.memberMoves = ImmutableMap.copyOf(movesBuilder);
+    this.memberMoves = ImmutableMap.copyOf(mapBuilder);
+
+    splitter = Splitter.on("=").trimResults().omitEmptyStrings();
+    mapBuilder = new LinkedHashMap<>();
+    for (String fromConversion : fromOriginalConversions) {
+      List<String> pair = splitter.splitToList(fromConversion);
+      checkArgument(pair.size() == 2, "Doesn't split as expected: %s", fromConversion);
+      String key = pair.get(0);
+      String value = pair.get(1);
+      checkArgument(isRenamedCoreLibrary(key), "Conversion subject not renamed: %s", key);
+      checkArgument(!isRenamedCoreLibrary(value), "Renamed converters not supported: %s", value);
+      String existing = mapBuilder.put(key, value);
+      checkArgument(
+          existing == null || existing.equals(value),
+          "Two conversions %s and %s configured for %s",
+          existing,
+          value,
+          key);
+    }
+    this.fromConversions = ImmutableMap.copyOf(mapBuilder);
+
+    splitter = Splitter.on("#").trimResults().omitEmptyStrings();
+    ImmutableMultimap.Builder<String, String> multimapBuilder = ImmutableMultimap.builder();
+    for (String override : preserveOverrides) {
+      List<String> pair = splitter.splitToList(override);
+      checkArgument(pair.size() == 2, "Doesn't split as expected: %s", override);
+      String className = pair.get(0);
+      String methodName = pair.get(1);
+      checkArgument(
+          !isRenamedCoreLibrary(className),
+          "Conversion subject is renamed, no need to preserve: %s",
+          className);
+      multimapBuilder.put(methodName, className); // build reverse map for convenient lookups
+    }
+    this.preserveOverrides = multimapBuilder.build();
   }
 
   public boolean isRenamedCoreLibrary(String internalName) {
@@ -151,9 +193,67 @@ class CoreLibrarySupport {
   public String getMoveTarget(String owner, String name) {
     String result = memberMoves.get(rewriter.unprefix(owner) + '#' + name);
     if (result != null) {
-      seenMoveTargets.add(result);
+      // Remember that we need the move target so we can include it in the output later
+      usedRuntimeHelpers.add(result);
     }
     return result;
+  }
+
+  public String getFromCoreLibraryConverter(String internalName) {
+    String result =
+        checkNotNull(
+            fromConversions.get(rewriter.unprefix(internalName)),
+            "No from converter for %s",
+            internalName);
+    // Remember that we need this conversion so we can include it in the output later
+    usedRuntimeHelpers.add(result);
+    return result;
+  }
+
+  /**
+   * Indicates whether the given method should be preserved with its original descriptor b/c it
+   * overrides an undesugared core library method.
+   */
+  public boolean preserveOriginalMethod(
+      int access, String internalName, String methodName, String descriptor) {
+    if (BitFlags.isStatic(access)) {
+      return false; // static methods don't override anything
+    }
+
+    if (!preserveOverrides.containsKey(methodName)) {
+      return false; // unknown name
+    }
+
+    Class<?> clazz = loadFromInternal(internalName);
+    if (clazz.isInterface()) {
+      return false; // only support preserving in classes
+    }
+
+    // See if clazz extends any of the configured base classes for this method
+    for (String baseclassName : preserveOverrides.get(methodName)) {
+      Class<?> baseclass = loadFromInternal(baseclassName);
+      checkState(
+          !baseclass.isInterface(), "Cannot preserve interface overrides: %s", baseclassName);
+      if (!baseclass.isAssignableFrom(clazz)) {
+        continue; // clazz must be a subclass of baseclass
+      }
+
+      for (Method m : clazz.getSuperclass().getMethods()) {
+        if (methodName.equals(m.getName())
+            && descriptor.equals(Type.getMethodDescriptor(m))
+            && baseclass.equals(m.getDeclaringClass())) {
+          // Return true if internalName directly overrides the configured method, that is,
+          // super.<emthodName> would call the method we want to preserve.  Otherwise return false,
+          // which will include methods with different name, methods with different descriptors,
+          // methods with the same name declared in superclasses besides baseclass, and overrides of
+          // method we want to preserve in superclasses besides baseclass.  Note in particular that
+          // we don't need to preserve an override if a baseclass already overrides, since the
+          // base class will preserve already.
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -309,8 +409,9 @@ class CoreLibrarySupport {
     return null;
   }
 
-  public Set<String> seenMoveTargets() {
-    return unmodifiableSet(seenMoveTargets);
+  /** Returns targets queried in {@link #getMoveTarget} and {@link #getFromCoreLibraryConverter}. */
+  public Set<String> usedRuntimeHelpers() {
+    return unmodifiableSet(usedRuntimeHelpers);
   }
 
   public void makeDispatchHelpers(GeneratedClassStore store) {

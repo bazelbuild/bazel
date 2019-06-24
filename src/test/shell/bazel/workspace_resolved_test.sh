@@ -1078,7 +1078,8 @@ EOF
 }
 
 test_toolchain_recorded() {
-  # Verify that the registration of toolchains is recorded in the resolved file
+  # Verify that the registration of toolchains and execution platforms is
+  # recorded in the resolved file
   EXTREPODIR=`pwd`
   tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
@@ -1087,6 +1088,7 @@ test_toolchain_recorded() {
   cat > ext/toolchains.bzl <<'EOF'
 def ext_toolchains():
   native.register_toolchains("@ext//:toolchain")
+  native.register_execution_platforms("@ext//:platform")
 EOF
   tar cvf ext.tar ext
   rm -rf ext
@@ -1110,6 +1112,8 @@ EOF
 
   grep 'register_toolchains.*ext//:toolchain' resolved.bzl \
       || fail "tool chain not registered in resolved file"
+  grep 'register_execution_platforms.*ext//:platform' resolved.bzl \
+      || fail "execution platform not registered in resolved file"
 }
 
 test_definition_location_recorded() {

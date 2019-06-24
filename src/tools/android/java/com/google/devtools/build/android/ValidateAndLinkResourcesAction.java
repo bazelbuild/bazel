@@ -152,10 +152,11 @@ public class ValidateAndLinkResourcesAction {
       Logger.getLogger(ValidateAndLinkResourcesAction.class.getName());
 
   public static void main(String[] args) throws Exception {
-    final OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, Aapt2ConfigOptions.class);
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    OptionsParser optionsParser =
+        OptionsParser.builder()
+            .optionsClasses(Options.class, Aapt2ConfigOptions.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parse(args);
 
     Options options = optionsParser.getOptions(Options.class);

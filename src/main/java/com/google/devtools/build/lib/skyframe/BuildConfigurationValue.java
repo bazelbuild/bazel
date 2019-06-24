@@ -189,6 +189,7 @@ public class BuildConfigurationValue implements SkyValue {
 
     @Override
     public String toString() {
+      // This format is depended on by integration tests.
       return "BuildConfigurationValue.Key[" + optionsDiff.getChecksum() + "]";
     }
   }

@@ -94,7 +94,11 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
                     /*ast=*/ null,
                     env);
 
-        if (ruleContext.hasErrors()) {
+        // If allowing analysis failures, targets should be created somewhat normally, and errors
+        // will be propagated via a hook elsewhere as AnalysisFailureInfo.
+        boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
+
+        if (ruleContext.hasErrors() && !allowAnalysisFailures) {
           return null;
         } else if (!(aspectSkylarkObject instanceof StructImpl)
             && !(aspectSkylarkObject instanceof Iterable)

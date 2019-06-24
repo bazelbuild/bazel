@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBin
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 
@@ -54,7 +53,6 @@ public final class BazelPyTestRule implements RuleDefinition {
         that the stamp argument is set to 0 by default for tests.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .override(attr("stamp", TRISTATE).value(TriState.NO))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .add(
             attr("$launcher", LABEL)
                 .cfg(HostTransition.createFactory())

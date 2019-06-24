@@ -108,7 +108,7 @@ public interface AndroidConfigurationApi {
   @SkylarkCallable(name = "desugar_java8", structField = true, doc = "", documented = false)
   boolean desugarJava8();
 
-  @SkylarkCallable(name = "get_output_driecot", structField = true, doc = "", documented = false)
+  @SkylarkCallable(name = "desugar_java8_libs", structField = true, doc = "", documented = false)
   boolean desugarJava8Libs();
 
   @SkylarkCallable(name = "check_desugar_deps", structField = true, doc = "", documented = false)

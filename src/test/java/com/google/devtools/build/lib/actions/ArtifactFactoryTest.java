@@ -89,7 +89,7 @@ public class ArtifactFactoryTest {
     alienPackage = PackageIdentifier.create("@alien", alienPath);
     alienRelative = alienPath.getRelative("alien.txt");
 
-    artifactFactory = new ArtifactFactory(execRoot, "bazel-out");
+    artifactFactory = new ArtifactFactory(execRoot.getParentDirectory(), "bazel-out");
     setupRoots();
   }
 

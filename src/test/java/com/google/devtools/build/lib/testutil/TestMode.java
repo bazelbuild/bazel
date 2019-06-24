@@ -31,7 +31,8 @@ import java.util.Map;
 public abstract class TestMode {
   private static StarlarkSemantics parseSkylarkSemantics(String... skylarkOptions)
       throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
     parser.parse(skylarkOptions);
     return parser.getOptions(StarlarkSemanticsOptions.class).toSkylarkSemantics();
   }

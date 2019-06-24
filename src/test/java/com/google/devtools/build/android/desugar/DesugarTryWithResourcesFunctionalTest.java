@@ -75,23 +75,50 @@ public class DesugarTryWithResourcesFunctionalTest {
         assertThrows(Exception.class, () -> ClassUsingTryWithResources.simpleTryWithResources());
     assertThat(expected.getClass()).isEqualTo(RuntimeException.class);
 
-      String expectedStrategyName = getTwrStrategyClassNameSpecifiedInSystemProperty();
-      assertThat(getStrategyClassName()).isEqualTo(expectedStrategyName);
-      if (isMimicStrategy()) {
-        assertThat(expected.getSuppressed()).isEmpty();
-        assertThat(ThrowableExtension.getSuppressed(expected)).hasLength(1);
-        assertThat(ThrowableExtension.getSuppressed(expected)[0].getClass())
-            .isEqualTo(IOException.class);
-      } else if (isReuseStrategy()) {
-        assertThat(expected.getSuppressed()).hasLength(1);
-        assertThat(expected.getSuppressed()[0].getClass()).isEqualTo(IOException.class);
-        assertThat(ThrowableExtension.getSuppressed(expected)[0].getClass())
-            .isEqualTo(IOException.class);
-      } else if (isNullStrategy()) {
-        assertThat(expected.getSuppressed()).isEmpty();
-        assertThat(ThrowableExtension.getSuppressed(expected)).isEmpty();
-      } else {
-        fail("unexpected desugaring strategy " + getStrategyClassName());
+    String expectedStrategyName = getTwrStrategyClassNameSpecifiedInSystemProperty();
+    assertThat(getStrategyClassName()).isEqualTo(expectedStrategyName);
+    if (isMimicStrategy()) {
+      assertThat(expected.getSuppressed()).isEmpty();
+      assertThat(ThrowableExtension.getSuppressed(expected)).hasLength(1);
+      assertThat(ThrowableExtension.getSuppressed(expected)[0].getClass())
+          .isEqualTo(IOException.class);
+    } else if (isReuseStrategy()) {
+      assertThat(expected.getSuppressed()).hasLength(1);
+      assertThat(expected.getSuppressed()[0].getClass()).isEqualTo(IOException.class);
+      assertThat(ThrowableExtension.getSuppressed(expected)[0].getClass())
+          .isEqualTo(IOException.class);
+    } else if (isNullStrategy()) {
+      assertThat(expected.getSuppressed()).isEmpty();
+      assertThat(ThrowableExtension.getSuppressed(expected)).isEmpty();
+    } else {
+      fail("unexpected desugaring strategy " + getStrategyClassName());
+    }
+  }
+
+  @Test
+  public void simpleTryWithResources_multipleClosableResources() {
+
+    IOException expected =
+        assertThrows(
+            IOException.class, () -> ClassUsingTryWithResources.multipleTryWithResources());
+
+    String expectedStrategyName = getTwrStrategyClassNameSpecifiedInSystemProperty();
+    assertThat(getStrategyClassName()).isEqualTo(expectedStrategyName);
+    if (isMimicStrategy()) {
+      assertThat(expected.getSuppressed()).isEmpty();
+      assertThat(ThrowableExtension.getSuppressed(expected)).hasLength(2);
+      assertThat(ThrowableExtension.getSuppressed(expected)[0].getClass())
+          .isEqualTo(IOException.class);
+    } else if (isReuseStrategy()) {
+      assertThat(expected.getSuppressed()).hasLength(2);
+      assertThat(expected.getSuppressed()[0].getClass()).isEqualTo(IOException.class);
+      assertThat(ThrowableExtension.getSuppressed(expected)[0].getClass())
+          .isEqualTo(IOException.class);
+    } else if (isNullStrategy()) {
+      assertThat(expected.getSuppressed()).isEmpty();
+      assertThat(ThrowableExtension.getSuppressed(expected)).isEmpty();
+    } else {
+      fail("unexpected desugaring strategy " + getStrategyClassName());
     }
   }
 

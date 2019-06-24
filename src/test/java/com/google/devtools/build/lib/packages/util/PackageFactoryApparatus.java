@@ -101,7 +101,8 @@ public class PackageFactoryApparatus {
       String skylarkOption)
       throws Exception {
 
-    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
     parser.parse(
         skylarkOption == null
             ? ImmutableList.<String>of()

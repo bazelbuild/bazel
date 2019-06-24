@@ -38,6 +38,29 @@ function serve_file() {
   cd -
 }
 
+# Serves $1 as a file on localhost:$nc_port insisting on authentication (but
+# accepting any credentials.
+#   * nc_port - the port nc is listening on.
+#   * nc_log - the path to nc's log.
+#   * nc_pid - the PID of nc.
+function serve_file_auth() {
+  file_name=served_file.$$
+  cat $1 > "${TEST_TMPDIR}/$file_name"
+  nc_log="${TEST_TMPDIR}/nc.log"
+  rm -f $nc_log
+  touch $nc_log
+  cd "${TEST_TMPDIR}"
+  port_file=server-port.$$
+  rm -f $port_file
+  python $python_server auth $file_name > $port_file &
+  nc_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  nc_port=$(head -n 1 $port_file)
+  fileserver_port=$nc_port
+  wait_for_server_startup
+  cd -
+}
+
 # Creates a jar carnivore.Mongoose and serves it using serve_file.
 function serve_jar() {
   make_test_jar

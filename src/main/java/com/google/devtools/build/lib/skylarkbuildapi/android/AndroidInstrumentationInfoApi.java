@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -34,27 +33,12 @@ import com.google.devtools.build.lib.syntax.EvalException;
             + "Android instrumentation and target APKs to run in a test",
     documented = false,
     category = SkylarkModuleCategory.PROVIDER)
-public interface AndroidInstrumentationInfoApi<FileT extends FileApi, ApkT extends ApkInfoApi<?>>
-    extends StructApi {
+public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> extends StructApi {
 
   /**
    * Name of this info object.
    */
   public static String NAME = "AndroidInstrumentationInfo";
-
-  @SkylarkCallable(
-      name = "target_apk",
-      doc = "Returns the target APK of the instrumentation test.",
-      documented = false,
-      structField = true)
-  FileT getTargetApk();
-
-  @SkylarkCallable(
-      name = "instrumentation_apk",
-      doc = "Returns the instrumentation APK that should be executed.",
-      documented = false,
-      structField = true)
-  FileT getInstrumentationApk();
 
   @SkylarkCallable(
       name = "target",
@@ -71,8 +55,7 @@ public interface AndroidInstrumentationInfoApi<FileT extends FileApi, ApkT exten
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface AndroidInstrumentationInfoApiProvider<
-          FileT extends FileApi, ApkT extends ApkInfoApi<?>>
+  public interface AndroidInstrumentationInfoApiProvider<ApkT extends ApkInfoApi<?>>
       extends ProviderApi {
 
     @SkylarkCallable(
@@ -81,26 +64,13 @@ public interface AndroidInstrumentationInfoApi<FileT extends FileApi, ApkT exten
         documented = false,
         parameters = {
           @Param(
-              name = "target_apk",
-              type = FileApi.class,
-              named = true,
-              doc = "The target APK of the instrumentation test."),
-          @Param(
-              name = "instrumentation_apk",
-              type = FileApi.class,
-              named = true,
-              doc = "The instrumentation APK that should be executed."),
-          @Param(
               name = "target",
               type = ApkInfoApi.class,
               named = true,
-              defaultValue = "None",
-              noneable = true,
               doc = "The target ApkInfo of the instrumentation test.")
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidInstrumentationInfoApi.class, receiverNameForDoc = NAME)
-    public AndroidInstrumentationInfoApi<FileT, ApkT> createInfo(
-        FileT targetApk, FileT instrumentationApk, Object target) throws EvalException;
+    public AndroidInstrumentationInfoApi<ApkT> createInfo(ApkT target) throws EvalException;
   }
 }
