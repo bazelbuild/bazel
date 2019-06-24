@@ -244,9 +244,7 @@ public final class TargetUtils {
    */
   public static ImmutableMap<String, String> getFilteredExecutionInfo(Object executionRequirementsUnchecked,
       Rule rule) throws EvalException {
-    ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
-    executionInfoBuilder.putAll(getExecutionInfo(rule));
-
+    Map<String, String> executionInfoBuilder = new HashMap<>();
     executionInfoBuilder.putAll(TargetUtils.filter(
         SkylarkDict.castSkylarkDictOrNoneToDict(
             executionRequirementsUnchecked,
@@ -254,7 +252,9 @@ public final class TargetUtils {
             String.class,
             "execution_requirements")));
 
-    return executionInfoBuilder.build();
+    getExecutionInfo(rule).forEach(executionInfoBuilder::putIfAbsent);
+
+    return ImmutableMap.copyOf(executionInfoBuilder);
   }
 
   /**

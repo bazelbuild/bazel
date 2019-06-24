@@ -114,7 +114,7 @@ def _test_impl(ctx):
   ctx.actions.run(
       outputs = [ctx.outputs.out],
       executable = 'dummy',
-      execution_requirements = {"requires-x": "", "custom-tag-whatever": ""})
+      execution_requirements = {"requires-x": "", "custom-tag-whatever": "", "no-cache": "1"})
   files_to_build = depset([ctx.outputs.out])
   return DefaultInfo(
       files = files_to_build,
@@ -131,7 +131,7 @@ EOF
   bazel aquery '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
-  assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: '', requires-network: '', requires-x: ''}" output1
+  assert_contains "ExecutionInfo: {local: '', no-cache: 1, no-remote: '', requires-network: '', requires-x: ''}" output1
 }
 
 run_suite "tags propagation: skylark rule tests"

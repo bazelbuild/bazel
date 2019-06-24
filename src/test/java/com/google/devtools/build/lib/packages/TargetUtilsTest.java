@@ -220,6 +220,20 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testFilteredExecutionInfo_withDuplicateTags() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])"
+    );
+    Rule tag1 = (Rule) getTarget("//tests:tag1");
+    SkylarkDict<String, String> executionRequirementsUnchecked = SkylarkDict.of(null, "no-cache", "1");
+
+    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, tag1);
+
+    assertThat(execInfo).containsExactly("no-cache", "1", "supports-workers", "");
+  }
+
+  @Test
   public void testFilteredExecutionInfo_WithNullUncheckedExecRequirements() throws Exception {
     scratch.file(
         "tests/BUILD",
