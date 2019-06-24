@@ -72,13 +72,16 @@ function test_glob_control_chars() {
   done
 }
 
-# TODO(b/131100868): Re-enable this test.
-function DISABLED_test_glob_utf8() {
+function test_glob_utf8() {
   local -r pkg="$FUNCNAME"
   mkdir $pkg
   echo "filegroup(name='t', srcs=glob(['*']))" > $pkg/BUILD
   cd $pkg
-  perl -CS -e 'for $i (160..0xd7ff) {print chr $i, $i%80?"":"\n"}' | xargs touch
+  # This might print error messages for individual file names on systems like
+  # macOS that use a file system that only permits correct UTF-8 strings as file
+  # names. The errors can be ignored - we just test with whatever files the OS
+  # allowed us to create.
+  perl -CS -e 'for $i (160..0xd7ff) {print chr $i, $i%20?"":"\n"}' | xargs touch || true
   cd ..
   bazel query "//$pkg:*" >& $TEST_log || fail "Expected success"
 }
