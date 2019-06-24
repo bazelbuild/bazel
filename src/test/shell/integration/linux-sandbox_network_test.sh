@@ -42,7 +42,7 @@ function set_up {
 }
 
 function test_network_namespace() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -N  -- /bin/ip link ls &> $TEST_log || fail
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -N  -- ip link ls &> $TEST_log || fail
   expect_log "LOOPBACK,UP"
 }
 
