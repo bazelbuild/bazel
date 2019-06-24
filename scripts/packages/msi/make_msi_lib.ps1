@@ -14,11 +14,11 @@
 
 # Set path constants. These are relative to the Bazel source tree root.
 $Icon = "site\images\favicon.ico"
-$ArtworkBig = "scripts\packages\wix\dialog.bmp"
-$ArtworkSmall = "scripts\packages\wix\banner.bmp"
-$Licence = "scripts\packages\wix\license.rtf"
-$Guids = "scripts\packages\wix\guids.txt"
-$Wxs = "scripts\packages\wix\bazelmsi.wxs"
+$ArtworkBig = "scripts\packages\msi\dialog.bmp"
+$ArtworkSmall = "scripts\packages\msi\banner.bmp"
+$Licence = "scripts\packages\msi\license.rtf"
+$Guids = "scripts\packages\msi\guids.txt"
+$Wxs = "scripts\packages\msi\bazelmsi.wxs"
 
 # Logs a message to stdout.
 function Log-Info {

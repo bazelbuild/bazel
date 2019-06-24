@@ -1,4 +1,4 @@
-﻿Import-Module .\scripts\packages\wix\make_msi_lib.ps1
+﻿Import-Module .\scripts\packages\msi\make_msi_lib.ps1
 
 function AssertEq {
     Param(

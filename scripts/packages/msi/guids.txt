@@ -24,7 +24,7 @@
 
 # IMPORTANT: If building the .msi yields an error like this:
 #
-#   UpgradeGuid for 0.28.0 not found in scripts\packages\wix\guids.txt
+#   UpgradeGuid for 0.28.0 not found in scripts\packages\msi\guids.txt
 #
 # ...then you have to add more GUIDs to this file.
 #

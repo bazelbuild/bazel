@@ -15,7 +15,7 @@
 # This module creates a Windows Installer (.msi) package for a Bazel release.
 #
 # Example usage:
-#   C:\src\bazel> powershell -NonInteractive scripts\packages\wix\make_msi.ps1 outputs\bazel-0.28.0rc5-windows-x86_64.exe
+#   C:\src\bazel> powershell -NonInteractive scripts\packages\msi\make_msi.ps1 outputs\bazel-0.28.0rc5-windows-x86_64.exe
 #
 # Mandatory arguments:
 #   -BazelExe <path>: path to the Bazel binary to package. Its name must
@@ -39,7 +39,7 @@ param(
 # Exit immediately when a Cmdlet fails.
 $ErrorActionPreference = "Stop"
 
-Import-Module .\scripts\packages\wix\make_msi_lib.ps1
+Import-Module .\scripts\packages\msi\make_msi_lib.ps1
 
 # Ensure all paths are Windows-style.
 $BazelExe = "$(Replace-Slashes($BazelExe))"
