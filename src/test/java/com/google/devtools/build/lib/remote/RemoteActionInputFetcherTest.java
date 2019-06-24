@@ -260,5 +260,10 @@ public class RemoteActionInputFetcherTest {
     public void close() {
       // Intentionally left empty.
     }
+
+    @Override
+    public boolean supportsRemoteExecution() {
+      return false;
+    }
   }
 }

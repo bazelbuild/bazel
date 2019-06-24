@@ -13,14 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore;
 
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.remote.Chunker;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 /** A {@link SimpleBlobStore} implementation using a {@link ConcurrentMap}. */
@@ -43,7 +51,7 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public ListenableFuture<Boolean> get(String key, OutputStream out) {
+  public ListenableFuture<Boolean> get(String key, Digest digest, OutputStream out) {
     byte[] data = map.get(key);
     SettableFuture<Boolean> f = SettableFuture.create();
     if (data == null) {
@@ -60,23 +68,34 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
-    return get(ACTION_KEY_PREFIX + key, out);
+  public ListenableFuture<Boolean> getActionResult(Digest digest, OutputStream out) {
+    return get(ACTION_KEY_PREFIX + digest.getHash(), digest, out);
   }
 
   @Override
-  public void put(String key, long length, InputStream in) throws IOException {
+  public void put(String key, Digest digest, long length, Chunker chunker, InputStream in) throws IOException {
     byte[] value = ByteStreams.toByteArray(in);
     Preconditions.checkState(value.length == length);
     map.put(key, value);
   }
 
   @Override
-  public void putActionResult(String key, byte[] in) {
-    map.put(ACTION_KEY_PREFIX + key, in);
+  public void putActionResult(Digest digest, ActionResult actionResult) {
+    map.put(ACTION_KEY_PREFIX + digest.getHash(), actionResult.toByteArray());
   }
 
   @Override
   public void close() {}
 
+  @Override
+  public void ensureInputsPresent(
+      MerkleTree merkleTree, Map<Digest, Message> additionalInputs, Path execRoot) {
+    throw new UnsupportedOperationException("Concurrent Map does not use this method.");
+  }
+
+  @Override
+  public ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
+      throws IOException, InterruptedException {
+    throw new UnsupportedOperationException("Concurrent Map does not use this method.");
+  }
 }

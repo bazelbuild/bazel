@@ -1170,5 +1170,10 @@ public class AbstractRemoteActionCacheTests {
     public void close() {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean supportsRemoteExecution() {
+      return false;
+    }
   }
 }

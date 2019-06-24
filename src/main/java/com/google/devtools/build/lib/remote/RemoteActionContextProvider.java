@@ -77,7 +77,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   public static RemoteActionContextProvider createForRemoteExecution(
       CommandEnvironment env,
-      GrpcRemoteCache cache,
+      SimpleBlobStoreActionCache cache,
       GrpcRemoteExecutor executor,
       RemoteRetrier retrier,
       DigestUtil digestUtil,
@@ -116,7 +116,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               env.getReporter(),
               buildRequestId,
               commandId,
-              (GrpcRemoteCache) cache,
+              (SimpleBlobStoreActionCache) cache,
               executor,
               retrier,
               digestUtil,

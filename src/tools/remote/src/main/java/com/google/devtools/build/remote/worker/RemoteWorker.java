@@ -246,7 +246,7 @@ public final class RemoteWorker {
     }
 
     logger.info("Initializing in-memory cache server.");
-    boolean usingRemoteCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
+    boolean usingRemoteCache = SimpleBlobStoreFactory.isHttpCache(remoteOptions);
     if (!usingRemoteCache) {
       logger.warning("Not using remote cache. This should be used for testing only!");
     }

@@ -119,6 +119,11 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       throws IOException, InterruptedException;
 
   /**
+   * We need to make sure gRPC cache is used when remote execution is turned on.
+   */
+  abstract public boolean supportsRemoteExecution();
+
+  /**
    * Upload the result of a locally executed action to the remote cache.
    *
    * @throws IOException if there was an error uploading to the remote cache

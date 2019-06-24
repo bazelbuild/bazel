@@ -13,15 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Digest;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.remote.Chunker;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.Message;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Map;
 import java.util.UUID;
 
 /** A on-disk store for the remote action cache. */
@@ -44,7 +51,7 @@ public class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public ListenableFuture<Boolean> get(String key, OutputStream out) {
+  public ListenableFuture<Boolean> get(String key, Digest digest, OutputStream out) {
     SettableFuture<Boolean> f = SettableFuture.create();
     Path p = toPath(key, /* actionResult= */ false);
     if (!p.exists()) {
@@ -61,12 +68,12 @@ public class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
-    return get(getDiskKey(key, /* actionResult= */ true), out);
+  public ListenableFuture<Boolean> getActionResult(Digest digest, OutputStream out) {
+    return get(getDiskKey(digest.getHash(), /* actionResult= */ true), digest, out);
   }
 
   @Override
-  public void put(String key, long length, InputStream in)
+  public void put(String key, Digest digest, long length, Chunker chunker, InputStream in)
       throws IOException, InterruptedException {
     Path target = toPath(key, /* actionResult= */ false);
     if (target.exists()) {
@@ -84,8 +91,9 @@ public class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
-    put(getDiskKey(key, /* actionResult= */ true), in.length, new ByteArrayInputStream(in));
+  public void putActionResult(Digest digest, ActionResult actionResult) throws IOException, InterruptedException {
+    byte[] in = actionResult.toByteArray();
+    put(getDiskKey(digest.getHash(), /* actionResult= */ true), digest, in.length, null, new ByteArrayInputStream(in));
   }
 
   @Override
@@ -97,5 +105,17 @@ public class OnDiskBlobStore implements SimpleBlobStore {
 
   private String getDiskKey(String key, boolean actionResult) {
     return actionResult ? OnDiskBlobStore.ACTION_KEY_PREFIX + key : key;
+  }
+
+  @Override
+  public void ensureInputsPresent(
+      MerkleTree merkleTree, Map<Digest, Message> additionalInputs, Path execRoot) {
+    throw new UnsupportedOperationException("Disk Caching does not use this method.");
+  }
+
+  @Override
+  public ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
+      throws IOException, InterruptedException {
+    throw new UnsupportedOperationException("Disk Caching does not use this method.");
   }
 }

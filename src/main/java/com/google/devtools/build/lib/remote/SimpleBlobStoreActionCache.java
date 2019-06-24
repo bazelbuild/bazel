@@ -21,6 +21,9 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import com.google.common.hash.HashCode;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -30,6 +33,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -38,11 +42,13 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,7 +62,7 @@ import javax.annotation.Nullable;
  * <p>Note that this class is used from src/tools/remote.
  */
 @ThreadSafe
-public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache {
+public class SimpleBlobStoreActionCache extends AbstractRemoteActionCache {
   private static final int MAX_BLOB_SIZE_FOR_INLINE = 10 * 1024;
 
   private final SimpleBlobStore blobStore;
@@ -87,7 +93,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   private Digest uploadFileContents(Path file) throws IOException, InterruptedException {
     Digest digest = digestUtil.compute(file);
     try (InputStream in = file.getInputStream()) {
-      return uploadStream(digest, in);
+      return uploadStream(digest, Chunker.builder().setInput(digest.getSizeBytes(), file).build(), in);
     }
   }
 
@@ -110,7 +116,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       Digest stdout = uploadFileContents(outErr.getOutputPath());
       result.setStdoutDigest(stdout);
     }
-    blobStore.putActionResult(actionKey.getDigest().getHash(), result.build().toByteArray());
+    blobStore.putActionResult(actionKey.getDigest(), result.build());
   }
 
   public void upload(
@@ -134,14 +140,40 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       manifest.addAction(actionKey, action, command);
     }
 
-    for (Map.Entry<Digest, Path> entry : manifest.getDigestToFile().entrySet()) {
-      try (InputStream in = entry.getValue().getInputStream()) {
-        uploadStream(entry.getKey(), in);
-      }
-    }
+    Map<Digest, Path> digestToFile = manifest.getDigestToFile();
+    Map<Digest, Chunker> digestToChunkers = manifest.getDigestToChunkers();
+    if (supportsRemoteExecution()) {
+      Collection<Digest> digests = new ArrayList<>();
+      digests.addAll(digestToFile.keySet());
+      digests.addAll(digestToChunkers.keySet());
 
-    for (Map.Entry<Digest, Chunker> entry : manifest.getDigestToChunkers().entrySet()) {
-      uploadBlob(entry.getValue().next().getData().toByteArray(), entry.getKey());
+      ImmutableSet<Digest> digestsToUpload = blobStore.getMissingDigests(digests);
+      for (Digest digest : digestsToUpload) {
+        Chunker chunker;
+        Path file = digestToFile.get(digest);
+        if (file != null) {
+          chunker = Chunker.builder().setInput(digest.getSizeBytes(), file).build();
+        } else {
+          chunker = digestToChunkers.get(digest);
+          if (chunker == null) {
+            String message = "FindMissingBlobs call returned an unknown digest: " + digest;
+            throw new IOException(message);
+          }
+        }
+        uploadBlob(chunker.next().getData().toByteArray(), digest, chunker);
+      }
+    } else {
+      for (Map.Entry<Digest, Path> entry : digestToFile.entrySet()) {
+        try (InputStream in = entry.getValue().getInputStream()) {
+          Digest digest = entry.getKey();
+          uploadStream(digest, Chunker.builder().setInput(digest.getSizeBytes(), entry.getValue()).build(), in);
+        }
+      }
+
+      for (Map.Entry<Digest, Chunker> entry : digestToChunkers.entrySet()) {
+        Chunker chunker = entry.getValue();
+        uploadBlob(chunker.next().getData().toByteArray(), entry.getKey(), chunker);
+      }
     }
   }
 
@@ -160,22 +192,22 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   }
 
   public Digest uploadBlob(byte[] blob) throws IOException, InterruptedException {
-    return uploadBlob(blob, digestUtil.compute(blob));
+    return uploadBlob(blob, digestUtil.compute(blob), Chunker.builder().setInput(blob).build());
   }
 
-  private Digest uploadBlob(byte[] blob, Digest digest) throws IOException, InterruptedException {
+  private Digest uploadBlob(byte[] blob, Digest digest, Chunker chunker) throws IOException, InterruptedException {
     try (InputStream in = new ByteArrayInputStream(blob)) {
-      return uploadStream(digest, in);
+      return uploadStream(digest, chunker, in);
     }
   }
 
-  public Digest uploadStream(Digest digest, InputStream in)
+  public Digest uploadStream(Digest digest, Chunker chunker, InputStream in)
       throws IOException, InterruptedException {
     final String hash = digest.getHash();
 
     if (storedBlobs.putIfAbsent(hash, true) == null) {
       try {
-        blobStore.put(hash, digest.getSizeBytes(), in);
+        blobStore.put(hash, digest, digest.getSizeBytes(), chunker, in);
       } catch (Exception e) {
         storedBlobs.remove(hash);
         throw e;
@@ -206,7 +238,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     }
     // This unconditionally downloads the whole blob into memory!
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    boolean success = getFromFuture(blobStore.getActionResult(digest.getHash(), out));
+    boolean success = getFromFuture(blobStore.getActionResult(digest, out));
     if (!success) {
       throw new CacheNotFoundException(digest, digestUtil);
     }
@@ -215,7 +247,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
 
   public void setCachedActionResult(ActionKey actionKey, ActionResult result)
       throws IOException, InterruptedException {
-    blobStore.putActionResult(actionKey.getDigest().getHash(), result.toByteArray());
+    blobStore.putActionResult(actionKey.getDigest(), result);
   }
 
   @Override
@@ -230,7 +262,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     HashingOutputStream hashOut =
         options.remoteVerifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
     Futures.addCallback(
-        blobStore.get(digest.getHash(), hashOut != null ? hashOut : out),
+        blobStore.get(digest.getHash(), digest, hashOut != null ? hashOut : out),
         new FutureCallback<Boolean>() {
           @Override
           public void onSuccess(Boolean found) {
@@ -256,5 +288,16 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
         },
         MoreExecutors.directExecutor());
     return outerF;
+  }
+
+  public void ensureInputsPresent(
+      MerkleTree merkleTree, Map<Digest, Message> additionalInputs, Path execRoot)
+      throws IOException, InterruptedException {
+    blobStore.ensureInputsPresent(merkleTree, additionalInputs, execRoot);
+  }
+
+  @Override
+  public boolean supportsRemoteExecution() {
+    return blobStore instanceof GrpcBlobStore;
   }
 }
