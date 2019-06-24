@@ -1562,6 +1562,97 @@ EOF
        || fail "Parsed dict not equal to expected value"
 }
 
+function test_use_netrc() {
+    # Test the starlark utility function use_netrc.
+  cat > .netrc <<'EOF'
+machine foo.example.org
+login foousername
+password foopass
+
+machine bar.example.org
+login barusername
+password passbar
+EOF
+  # Read a given .netrc file and combine it with a list of URL,
+  # and write the obtained authentication dicionary to disk; this
+  # is not the intended way of using, but makes testing easy.
+  cat > def.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
+def _impl(ctx):
+  rc = read_netrc(ctx, ctx.attr.path)
+  auth = use_netrc(rc, ctx.attr.urls)
+  ctx.file("data.bzl", "auth = %s" % (auth,))
+  ctx.file("BUILD", "")
+  ctx.file("WORKSPACE", "")
+
+authrepo = repository_rule(
+  implementation = _impl,
+  attrs = {"path": attr.string(),
+           "urls": attr.string_list()
+  },
+)
+EOF
+  cat > WORKSPACE <<EOF
+load("//:def.bzl", "authrepo")
+
+authrepo(
+  name = "auth",
+  path="$(pwd)/.netrc",
+  urls = [
+    "http://example.org/public/null.tar",
+    "https://foo.example.org/file1.tar",
+    "https://foo.example.org:8080/file2.tar",
+    "https://bar.example.org/file3.tar",
+    "https://evil.com/bar.example.org/file4.tar",
+  ],
+)
+EOF
+  # Here dicts give us the correct notion of equality, so we can simply
+  # compare against the expected value.
+  cat > expected.bzl <<'EOF'
+expected = {
+    "https://foo.example.org/file1.tar" : {
+      "type" : "basic",
+      "login": "foousername",
+      "password" : "foopass",
+    },
+    "https://foo.example.org:8080/file2.tar" : {
+      "type" : "basic",
+      "login": "foousername",
+      "password" : "foopass",
+    },
+    "https://bar.example.org/file3.tar" : {
+      "type" : "basic",
+      "login": "barusername",
+      "password" : "passbar",
+    },
+}
+EOF
+  cat > verify.bzl <<'EOF'
+load("@auth//:data.bzl", "auth")
+load("//:expected.bzl", "expected")
+
+def check_equal_expected():
+  print("Computed value: %s" % (auth,))
+  print("Expected value: %s" % (expected,))
+  if auth == expected:
+    return "OK"
+  else:
+    return "BAD"
+EOF
+  cat > BUILD <<'EOF'
+load ("//:verify.bzl", "check_equal_expected")
+genrule(
+  name = "check_expected",
+  outs = ["check_expected.txt"],
+  cmd = "echo %s > $@" % (check_equal_expected(),)
+)
+EOF
+  bazel build //:check_expected
+  grep 'OK' `bazel info bazel-genfiles`/check_expected.txt \
+       || fail "Authentication merged incorrectly"
+}
+
 function tear_down() {
   shutdown_server
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then
