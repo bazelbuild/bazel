@@ -31,12 +31,12 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 
 /** A fake implementation of the {@link MetadataProvider} interface. */
-final class FakeActionInputFileCache implements MetadataProvider {
+public final class FakeActionInputFileCache implements MetadataProvider {
   private final Path execRoot;
   private final BiMap<ActionInput, String> cas = HashBiMap.create();
   private final DigestUtil digestUtil;
 
-  FakeActionInputFileCache(Path execRoot) {
+  public FakeActionInputFileCache(Path execRoot) {
     this.execRoot = execRoot;
     this.digestUtil = new DigestUtil(execRoot.getFileSystem().getDigestFunction());
   }

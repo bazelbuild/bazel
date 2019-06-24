@@ -58,8 +58,12 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
-import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.shared.ByteStreamUploader;
+import com.google.devtools.build.lib.remote.shared.Chunker;
+import com.google.devtools.build.lib.remote.shared.ReferenceCountedChannel;
+import com.google.devtools.build.lib.remote.shared.RemoteRetrier;
+import com.google.devtools.build.lib.remote.shared.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.TestUtils;
@@ -211,8 +215,17 @@ public class GrpcRemoteExecutionClientTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
             remoteOptions.remoteTimeout, retrier);
-    GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+    SimpleBlobStoreActionCache remoteCache =
+        new SimpleBlobStoreActionCache(
+            remoteOptions,
+            SimpleBlobStoreFactory.create(
+                remoteOptions,
+                channel.retain(),
+                creds,
+                retrier,
+                uploader,
+                DIGEST_UTIL),
+            DIGEST_UTIL);
     client =
         new RemoteSpawnRunner(
             execRoot,

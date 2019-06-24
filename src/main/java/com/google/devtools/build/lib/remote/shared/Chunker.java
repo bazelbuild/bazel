@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.shared;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -47,7 +47,7 @@ public final class Chunker {
 
   /** This method must only be called in tests! */
   @VisibleForTesting
-  static void setDefaultChunkSizeForTesting(int value) {
+  public static void setDefaultChunkSizeForTesting(int value) {
     defaultChunkSize = value;
   }
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.shared;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -21,7 +21,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
+import com.google.devtools.build.lib.remote.shared.Retrier.CircuitBreaker.State;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;

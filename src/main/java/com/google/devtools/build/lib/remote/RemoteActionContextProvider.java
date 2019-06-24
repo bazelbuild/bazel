@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.shared.RemoteRetrier;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -77,7 +78,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   public static RemoteActionContextProvider createForRemoteExecution(
       CommandEnvironment env,
-      GrpcRemoteCache cache,
+      SimpleBlobStoreActionCache cache,
       GrpcRemoteExecutor executor,
       RemoteRetrier retrier,
       DigestUtil digestUtil,
@@ -116,7 +117,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               env.getReporter(),
               buildRequestId,
               commandId,
-              (GrpcRemoteCache) cache,
+              (SimpleBlobStoreActionCache) cache,
               executor,
               retrier,
               digestUtil,

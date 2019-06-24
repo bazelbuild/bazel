@@ -25,6 +25,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.remote.shared.ByteStreamUploader;
+import com.google.devtools.build.lib.remote.shared.Chunker;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.Context;

@@ -24,9 +24,9 @@ import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
-import com.google.devtools.build.lib.remote.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.Chunker;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
+import com.google.devtools.build.lib.remote.shared.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.shared.Chunker;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -232,8 +232,9 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
         try {
           Digest d = digestUtil.compute(temp);
+          Chunker c = Chunker.builder().setInput(d.getSizeBytes(), temp).build();
           try (InputStream in = temp.getInputStream()) {
-            cache.uploadStream(d, in);
+            cache.uploadStream(d, c, in);
           }
           try {
             temp.delete();

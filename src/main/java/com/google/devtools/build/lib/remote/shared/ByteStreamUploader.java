@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.shared;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -32,7 +32,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
+import com.google.devtools.build.lib.remote.shared.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
@@ -70,7 +70,7 @@ import javax.annotation.concurrent.GuardedBy;
  *
  * See {@link ReferenceCounted} for more information on reference counting.
  */
-class ByteStreamUploader extends AbstractReferenceCounted {
+public class ByteStreamUploader extends AbstractReferenceCounted {
 
   private static final Logger logger = Logger.getLogger(ByteStreamUploader.class.getName());
 

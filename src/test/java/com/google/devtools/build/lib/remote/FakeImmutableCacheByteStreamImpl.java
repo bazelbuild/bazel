@@ -26,7 +26,7 @@ import io.grpc.stub.StreamObserver;
 import java.util.HashMap;
 import java.util.Map;
 
-class FakeImmutableCacheByteStreamImpl extends ByteStreamImplBase {
+public class FakeImmutableCacheByteStreamImpl extends ByteStreamImplBase {
   private final Map<ReadRequest, ReadResponse> cannedReplies;
   private final Map<ReadRequest, Integer> numErrors;
   // Start returning the correct response after this number of errors is reached.

@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.OutputFilesLocker;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.shared.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -1169,6 +1170,11 @@ public class AbstractRemoteActionCacheTests {
     @Override
     public void close() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isGrpcBlobStore() {
+      return false;
     }
   }
 }

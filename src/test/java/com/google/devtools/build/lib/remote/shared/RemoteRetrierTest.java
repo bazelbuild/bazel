@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.shared;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
@@ -21,10 +21,10 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.Range;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
-import com.google.devtools.build.lib.remote.Retrier.Backoff;
-import com.google.devtools.build.lib.remote.Retrier.Sleeper;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.shared.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.shared.Retrier.Backoff;
+import com.google.devtools.build.lib.remote.shared.Retrier.Sleeper;
 import com.google.devtools.common.options.Options;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;

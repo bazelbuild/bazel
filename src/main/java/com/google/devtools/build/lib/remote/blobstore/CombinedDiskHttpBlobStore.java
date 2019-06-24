@@ -13,14 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore;
 
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.shared.Chunker;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -52,18 +59,18 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void put(String key, long length, InputStream in)
+  public void put(String key, Digest digest, long length, Chunker chunker, InputStream in)
       throws IOException, InterruptedException {
-    diskCache.put(key, length, in);
+    diskCache.put(key, digest, length, chunker, in);
     try (InputStream inFile = diskCache.toPath(key, /* actionResult= */ false).getInputStream()) {
-      remoteCache.put(key, length, inFile);
+      remoteCache.put(key, digest, length, chunker, inFile);
     }
   }
 
   @Override
-  public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
-    diskCache.putActionResult(key, in);
-    remoteCache.putActionResult(key, in);
+  public void putActionResult(Digest digest, ActionResult actionResult) throws IOException, InterruptedException {
+    diskCache.putActionResult(digest, actionResult);
+    remoteCache.putActionResult(digest, actionResult);
   }
 
   @Override
@@ -73,28 +80,28 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public ListenableFuture<Boolean> get(String key, OutputStream out) {
-    return get(key, out, /* actionResult= */ false);
+  public ListenableFuture<Boolean> get(String key, Digest digest, OutputStream out) {
+    return get(key, digest, out, /* actionResult= */ false);
   }
 
-  private ListenableFuture<Boolean> get(String key, OutputStream out, boolean actionResult) {
+  private ListenableFuture<Boolean> get(String key, Digest digest, OutputStream out, boolean actionResult) {
     boolean foundOnDisk =
         actionResult ? diskCache.containsActionResult(key) : diskCache.contains(key);
 
     if (foundOnDisk) {
-      return getFromCache(diskCache, key, out, actionResult);
+      return getFromCache(diskCache, digest, out, actionResult);
     } else {
-      return getFromRemoteAndSaveToDisk(key, out, actionResult);
+      return getFromRemoteAndSaveToDisk(digest, out, actionResult);
     }
   }
 
   @Override
-  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
-    return get(key, out, /* actionResult= */ true);
+  public ListenableFuture<Boolean> getActionResult(Digest digest, OutputStream out) {
+    return get(digest.getHash(), digest, out, /* actionResult= */ true);
   }
 
   private ListenableFuture<Boolean> getFromRemoteAndSaveToDisk(
-      String key, OutputStream out, boolean actionResult) {
+      Digest digest, OutputStream out, boolean actionResult) {
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
     Path temp = diskCache.toPath(UUID.randomUUID().toString(), /* actionResult= */ false);
 
@@ -106,13 +113,13 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
     }
     ListenableFuture<Boolean> chained =
         Futures.transformAsync(
-            getFromCache(remoteCache, key, tempOut, actionResult),
+            getFromCache(remoteCache, digest, tempOut, actionResult),
             (found) -> {
               if (!found) {
                 return Futures.immediateFuture(false);
               } else {
-                saveToDiskCache(key, temp, actionResult);
-                return getFromCache(diskCache, key, out, actionResult);
+                saveToDiskCache(digest.getHash(), temp, actionResult);
+                return getFromCache(diskCache, digest, out, actionResult);
               }
             },
             MoreExecutors.directExecutor());
@@ -138,11 +145,23 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   private ListenableFuture<Boolean> getFromCache(
-      SimpleBlobStore blobStore, String key, OutputStream tempOut, boolean actionResult) {
+      SimpleBlobStore blobStore, Digest digest, OutputStream tempOut, boolean actionResult) {
     if (!actionResult) {
-      return blobStore.get(key, tempOut);
+      return blobStore.get(digest.getHash(), digest, tempOut);
     } else {
-      return blobStore.getActionResult(key, tempOut);
+      return blobStore.getActionResult(digest, tempOut);
     }
+  }
+
+  @Override
+  public void ensureInputsPresent(
+      MerkleTree merkleTree, Map<Digest, Message> additionalInputs, Path execRoot) {
+    throw new UnsupportedOperationException("Combined Disk HTTP Caching does not use this method.");
+  }
+
+  @Override
+  public ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
+      throws IOException, InterruptedException {
+    throw new UnsupportedOperationException("Combined Disk HTTP Caching does not use this method.");
   }
 }

@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResu
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResultMetadata.SymlinkMetadata;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.shared.Chunker;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -87,7 +88,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
   /** See {@link SpawnExecutionContext#lockOutputFiles()}. */
   @FunctionalInterface
-  interface OutputFilesLocker {
+  public interface OutputFilesLocker {
     void lock() throws InterruptedException;
   }
 
@@ -117,6 +118,11 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
   @Nullable
   abstract ActionResult getCachedActionResult(DigestUtil.ActionKey actionKey)
       throws IOException, InterruptedException;
+
+  /**
+   * We need to make sure gRPC cache is used when remote execution is turned on.
+   */
+  abstract public boolean isGrpcBlobStore();
 
   /**
    * Upload the result of a locally executed action to the remote cache.

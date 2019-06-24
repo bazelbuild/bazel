@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.shared;
 
 import io.grpc.CallOptions;
 import io.grpc.ClientCall;
@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
  *
  * See {@link ReferenceCounted} for more information about reference counting.
  */
-class ReferenceCountedChannel extends ManagedChannel implements ReferenceCounted {
+public class ReferenceCountedChannel extends ManagedChannel implements ReferenceCounted {
 
   private final ManagedChannel channel;
   private final AbstractReferenceCounted referenceCounted = new AbstractReferenceCounted() {

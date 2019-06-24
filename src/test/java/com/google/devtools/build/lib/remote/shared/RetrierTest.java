@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.shared;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
@@ -24,11 +24,11 @@ import static org.mockito.Mockito.when;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.Retrier.Backoff;
-import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker;
-import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
-import com.google.devtools.build.lib.remote.Retrier.CircuitBreakerException;
-import com.google.devtools.build.lib.remote.Retrier.ZeroBackoff;
+import com.google.devtools.build.lib.remote.shared.Retrier.Backoff;
+import com.google.devtools.build.lib.remote.shared.Retrier.CircuitBreaker;
+import com.google.devtools.build.lib.remote.shared.Retrier.CircuitBreaker.State;
+import com.google.devtools.build.lib.remote.shared.Retrier.CircuitBreakerException;
+import com.google.devtools.build.lib.remote.shared.Retrier.ZeroBackoff;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;

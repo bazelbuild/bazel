@@ -13,11 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore.http;
 
-
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.shared.Chunker;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.Message;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -65,6 +71,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -401,7 +408,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public ListenableFuture<Boolean> get(String key, OutputStream out) {
+  public ListenableFuture<Boolean> get(String key, Digest digest, OutputStream out) {
     return get(key, out, true);
   }
 
@@ -513,12 +520,12 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public ListenableFuture<Boolean> getActionResult(String actionKey, OutputStream out) {
-    return get(actionKey, out, false);
+  public ListenableFuture<Boolean> getActionResult(Digest digest, OutputStream out) {
+    return get(digest.getHash(), out, false);
   }
 
   @Override
-  public void put(String key, long length, InputStream in)
+  public void put(String key, Digest digest, long length, Chunker chunker, InputStream in)
       throws IOException, InterruptedException {
     put(key, length, in, true);
   }
@@ -595,10 +602,11 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(String actionKey, byte[] data)
+  public void putActionResult(Digest digest, ActionResult actionResult)
       throws IOException, InterruptedException {
+    byte[] data = actionResult.toByteArray();
     try (InputStream in = new ByteArrayInputStream(data)) {
-      put(actionKey, data.length, in, false);
+      put(digest.getHash(), data.length, in, false);
     }
   }
 
@@ -654,5 +662,17 @@ public final class HttpBlobStore implements SimpleBlobStore {
         creds.refresh();
       }
     }
+  }
+
+  @Override
+  public void ensureInputsPresent(
+      MerkleTree merkleTree, Map<Digest, Message> additionalInputs, Path execRoot) {
+    throw new UnsupportedOperationException("HTTP Caching does not use this method.");
+  }
+
+  @Override
+  public ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
+      throws IOException, InterruptedException {
+    throw new UnsupportedOperationException("HTTP Caching does not use this method.");
   }
 }

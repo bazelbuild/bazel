@@ -62,6 +62,10 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
+import com.google.devtools.build.lib.remote.shared.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.shared.ExecutionStatusException;
+import com.google.devtools.build.lib.remote.shared.RemoteRetrier;
+import com.google.devtools.build.lib.remote.shared.RemoteRetrierUtils;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -104,7 +108,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final boolean verboseFailures;
 
   @Nullable private final Reporter cmdlineReporter;
-  private final GrpcRemoteCache remoteCache;
+  private final SimpleBlobStoreActionCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
   @Nullable private final RemoteRetrier retrier;
   private final String buildRequestId;
@@ -132,7 +136,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       @Nullable Reporter cmdlineReporter,
       String buildRequestId,
       String commandId,
-      GrpcRemoteCache remoteCache,
+      SimpleBlobStoreActionCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor,
       @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,

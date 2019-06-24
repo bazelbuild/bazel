@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.shared;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -1089,7 +1089,7 @@ public class ByteStreamUploaderTest {
     }
   }
 
-  static class FixedBackoff implements Retrier.Backoff {
+  public static class FixedBackoff implements Retrier.Backoff {
 
     private final int maxRetries;
     private final int delayMillis;
@@ -1120,13 +1120,13 @@ public class ByteStreamUploaderTest {
    * An byte stream service where an upload for a given blob may or may not fail on the first
    * attempt but is guaranteed to succeed on the second try.
    */
-  static class MaybeFailOnceUploadService extends ByteStreamImplBase {
+  public static class MaybeFailOnceUploadService extends ByteStreamImplBase {
 
     private final Map<HashCode, byte[]> blobsByHash;
     private final Set<HashCode> uploadsFailedOnce = Collections.synchronizedSet(Sets.newHashSet());
     private final Random rand = new Random();
 
-    MaybeFailOnceUploadService(Map<HashCode, byte[]> blobsByHash) {
+    public MaybeFailOnceUploadService(Map<HashCode, byte[]> blobsByHash) {
       this.blobsByHash = blobsByHash;
     }
 

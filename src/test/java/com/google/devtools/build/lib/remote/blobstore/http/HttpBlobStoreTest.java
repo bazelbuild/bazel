@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 import com.google.api.client.util.Preconditions;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -263,7 +264,7 @@ public class HttpBlobStoreTest {
 
     Credentials credentials = newCredentials();
     HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-    getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
+    getFromFuture(blobStore.get("key", null, new ByteArrayOutputStream()));
 
     fail("Exception expected");
   }
@@ -286,7 +287,7 @@ public class HttpBlobStoreTest {
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       ByteArrayInputStream in = new ByteArrayInputStream(data);
-      blobStore.put("key", data.length, in);
+      blobStore.put("key", null, data.length, null, in);
       fail("Exception expected");
     } finally {
       testServer.stop(server);
@@ -309,7 +310,7 @@ public class HttpBlobStoreTest {
 
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-      getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
+      getFromFuture(blobStore.get("key", null, new ByteArrayOutputStream()));
       fail("Exception expected");
     } finally {
       testServer.stop(server);
@@ -333,7 +334,7 @@ public class HttpBlobStoreTest {
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-      getFromFuture(blobStore.get("key", out));
+      getFromFuture(blobStore.get("key", null, out));
       assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
@@ -364,7 +365,7 @@ public class HttpBlobStoreTest {
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       ByteArrayInputStream in = new ByteArrayInputStream(data);
-      blobStore.put("key", data.length, in);
+      blobStore.put("key", null, data.length, null, in);
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
       verify(credentials, times(2)).hasRequestMetadata();
@@ -390,7 +391,7 @@ public class HttpBlobStoreTest {
 
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-      getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
+      getFromFuture(blobStore.get("key", null, new ByteArrayOutputStream()));
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);
@@ -417,7 +418,7 @@ public class HttpBlobStoreTest {
 
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-      blobStore.put("key", 1, new ByteArrayInputStream(new byte[]{0}));
+      blobStore.put("key", null, 1, null, new ByteArrayInputStream(new byte[]{0}));
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);

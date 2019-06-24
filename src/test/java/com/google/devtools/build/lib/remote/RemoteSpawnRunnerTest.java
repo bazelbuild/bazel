@@ -66,6 +66,9 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
+import com.google.devtools.build.lib.remote.shared.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.shared.ExecutionStatusException;
+import com.google.devtools.build.lib.remote.shared.RemoteRetrier;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
@@ -114,7 +117,7 @@ public class RemoteSpawnRunnerTest {
   private RemoteOptions remoteOptions;
   private RemoteRetrier retrier;
 
-  @Mock private GrpcRemoteCache cache;
+  @Mock private SimpleBlobStoreActionCache cache;
 
   @Mock private GrpcRemoteExecutor executor;
 

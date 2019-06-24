@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.shared;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -109,7 +109,7 @@ public class RemoteRetrier extends Retrier {
     }
   }
 
-  static class ExponentialBackoff implements Backoff {
+  public static class ExponentialBackoff implements Backoff {
 
     private final long maxMillis;
     private long nextDelayMillis;
@@ -141,7 +141,7 @@ public class RemoteRetrier extends Retrier {
       this.maxAttempts = maxAttempts;
     }
 
-    ExponentialBackoff(RemoteOptions options) {
+    public ExponentialBackoff(RemoteOptions options) {
       this(
           /* initial = */ Duration.ofMillis(100),
           /* max = */ Duration.ofSeconds(5),
@@ -172,7 +172,7 @@ public class RemoteRetrier extends Retrier {
     }
   }
 
-  static class ProgressiveBackoff implements Backoff {
+  public static class ProgressiveBackoff implements Backoff {
 
     private final Supplier<Backoff> backoffSupplier;
     private Backoff currentBackoff = null;
@@ -185,7 +185,7 @@ public class RemoteRetrier extends Retrier {
      *
      * @param backoffSupplier Delegate Backoff generator
      */
-    ProgressiveBackoff(Supplier<Backoff> backoffSupplier) {
+    public ProgressiveBackoff(Supplier<Backoff> backoffSupplier) {
       this.backoffSupplier = backoffSupplier;
       currentBackoff = backoffSupplier.get();
     }
