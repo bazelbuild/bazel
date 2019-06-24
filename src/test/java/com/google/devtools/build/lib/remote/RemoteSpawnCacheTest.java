@@ -38,7 +38,9 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -70,6 +72,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
@@ -213,6 +216,7 @@ public class RemoteSpawnCacheTest {
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem()));
     simpleSpawn =
         new SimpleSpawn(
             new FakeOwner("Mnemonic", "Progress Message"),
@@ -220,7 +224,8 @@ public class RemoteSpawnCacheTest {
             ImmutableMap.of("VARIABLE", "value"),
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
             /*inputs=*/ ImmutableList.of(ActionInputHelper.fromPath("input")),
-            /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath("/random/file")),
+            /*outputs=*/ ImmutableList.of(new Artifact.SourceArtifact(root, PathFragment.create("/random/file"),
+                                                ArtifactOwner.NullArtifactOwner.INSTANCE)),
             ResourceSet.ZERO);
 
     Path stdout = fs.getPath("/tmp/stdout");
@@ -246,10 +251,16 @@ public class RemoteSpawnCacheTest {
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 
+  private ActionResult getActionResultWithOutput() {
+    return ActionResult.newBuilder().addOutputFiles(
+      OutputFile.newBuilder().setPath("/random/file").build()
+    ).build();
+  }
+
   @SuppressWarnings("unchecked")
   @Test
   public void cacheHit() throws Exception {
-    ActionResult actionResult = ActionResult.getDefaultInstance();
+    ActionResult actionResult = getActionResultWithOutput();
     when(remoteCache.getCachedActionResult(any(ActionKey.class)))
         .thenAnswer(
             new Answer<ActionResult>() {

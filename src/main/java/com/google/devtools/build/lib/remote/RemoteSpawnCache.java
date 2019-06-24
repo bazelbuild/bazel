@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.OutputFile;
+import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -65,6 +66,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** A remote {@link SpawnCache} implementation. */
@@ -301,9 +303,10 @@ final class RemoteSpawnCache implements SpawnCache {
     // cache miss
     if (result == null || result.getExitCode() != 0)
       return false;
-    Set<String> actualFiles = result.getOutputFilesList().stream()
-      .map(OutputFile::getPath)
-      .collect(Collectors.toSet());
+    Set<String> actualFiles = Stream.concat(result.getOutputFilesList().stream()
+          .map(OutputFile::getPath)
+      , result.getOutputFileSymlinksList().stream()
+          .map(OutputSymlink::getPath)).collect(Collectors.toSet());
     for (ActionInput requiredFile: spawn.getOutputFiles()) {
       if (requiredFile instanceof Artifact && !metadataProvider.artifactOmitted((Artifact)requiredFile)) {
         if (!actualFiles.contains(requiredFile.getExecPathString())) {
