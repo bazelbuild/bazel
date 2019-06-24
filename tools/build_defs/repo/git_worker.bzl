@@ -68,7 +68,7 @@ def git_repo(ctx, directory):
         fetch_ref = "tags/" + ctx.attr.tag + ":tags/" + ctx.attr.tag
     elif ctx.attr.branch:
         reset_ref = "origin/" + ctx.attr.branch
-        fetch_ref = ctx.attr.branch
+        fetch_ref = ctx.attr.branch + ":origin/" + ctx.attr.branch
 
     git_repo = _GitRepoInfo(
         directory = ctx.path(directory),
