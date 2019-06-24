@@ -299,7 +299,7 @@ final class RemoteSpawnCache implements SpawnCache {
         Spawn spawn) {
     // In case the remote cache returned a failed action (exit code != 0) we treat it as a
     // cache miss
-    if (result == null || result.getExitCode() == 0)
+    if (result == null || result.getExitCode() != 0)
       return false;
     Set<String> actualFiles = result.getOutputFilesList().stream()
       .map(OutputFile::getPath)
