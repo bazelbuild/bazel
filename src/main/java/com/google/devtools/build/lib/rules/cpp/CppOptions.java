@@ -903,6 +903,20 @@ public class CppOptions extends FragmentOptions {
               + "See https://github.com/bazelbuild/bazel/issues/8546.")
   public boolean disableStaticCcToolchains;
 
+  @Option(
+      name = "incompatible_disable_nocopts",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+      },
+      help =
+          "When enabled, it removes nocopts attribute from C++ rules. See"
+              + " https://github.com/bazelbuild/bazel/issues/8706 for details.")
+  public boolean disableNoCopts;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -959,6 +973,7 @@ public class CppOptions extends FragmentOptions {
     host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
     host.useSpecificToolFiles = useSpecificToolFiles;
     host.disableStaticCcToolchains = disableStaticCcToolchains;
+    host.disableNoCopts = disableNoCopts;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;
