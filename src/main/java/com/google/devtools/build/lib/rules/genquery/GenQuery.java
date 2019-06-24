@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ByteStringDeterministicWriter;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -59,15 +60,15 @@ import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
-import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
-import com.google.devtools.build.lib.query2.query.BlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
@@ -152,8 +153,18 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("opts", "option --order_output is not allowed");
       return null;
     }
-    // Force results to be deterministic.
-    queryOptions.orderOutput = OrderOutput.FULL;
+    if (optionsParser.containsExplicitOption("experimental_graphless_query")) {
+      ruleContext.attributeError("opts", "option --experimental_graphless_query is not allowed");
+      return null;
+    }
+    if (ruleContext.getConfiguration().getOptions().get(CoreOptions.class).useGraphlessQuery) {
+      queryOptions.orderOutput = OrderOutput.NO;
+      queryOptions.useGraphlessQuery = true;
+    } else {
+      // Force results to be deterministic.
+      queryOptions.orderOutput = OrderOutput.FULL;
+      queryOptions.useGraphlessQuery = false;
+    }
 
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;
@@ -298,7 +309,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       RuleContext ruleContext)
       throws InterruptedException {
 
-    DigraphQueryEvalResult<Target> queryResult;
+    QueryEvalResult queryResult;
     OutputFormatter formatter;
     AggregateAllOutputFormatterCallback<Target, ?> targets;
     try {
@@ -322,32 +333,30 @@ public class GenQuery implements RuleConfiguredTargetFactory {
             OutputFormatter.formatterNames(OutputFormatter.getDefaultFormatters())));
         return null;
       }
-      BlazeQueryEnvironment queryEnvironment =
-          (BlazeQueryEnvironment)
-              QUERY_ENVIRONMENT_FACTORY.create(
-                  /*transitivePackageLoader=*/ null,
-                  /* graphFactory= */ null,
-                  packageProvider,
-                  packageProvider,
-                  preloader,
-                  PathFragment.EMPTY_FRAGMENT,
-                  /*keepGoing=*/ false,
-                  ruleContext.attributes().get("strict", Type.BOOLEAN),
-                  /*orderedResults=*/ !QueryOutputUtils.shouldStreamResults(
-                      queryOptions, formatter),
-                  /*universeScope=*/ ImmutableList.of(),
-                  // Use a single thread to prevent race conditions causing nondeterministic output
-                  // (b/127644784). All the packages are already loaded at this point, so there is
-                  // no need to start up multiple threads anyway.
-                  /*loadingPhaseThreads=*/ 1,
-                  labelFilter,
-                  getEventHandler(ruleContext),
-                  settings,
-                  /*extraFunctions=*/ ImmutableList.of(),
-                  /*packagePath=*/ null,
-                  /*blockUniverseEvaluationErrors=*/ false,
-                  /*useForkJoinPool=*/ false,
-                  /*useGraphlessQuery=*/ false);
+      AbstractBlazeQueryEnvironment<Target> queryEnvironment =
+          QUERY_ENVIRONMENT_FACTORY.create(
+              /*transitivePackageLoader=*/ null,
+              /* graphFactory= */ null,
+              packageProvider,
+              packageProvider,
+              preloader,
+              PathFragment.EMPTY_FRAGMENT,
+              /*keepGoing=*/ false,
+              ruleContext.attributes().get("strict", Type.BOOLEAN),
+              /*orderedResults=*/ !QueryOutputUtils.shouldStreamResults(queryOptions, formatter),
+              /*universeScope=*/ ImmutableList.of(),
+              // Use a single thread to prevent race conditions causing nondeterministic output
+              // (b/127644784). All the packages are already loaded at this point, so there is
+              // no need to start up multiple threads anyway.
+              /*loadingPhaseThreads=*/ 1,
+              labelFilter,
+              getEventHandler(ruleContext),
+              settings,
+              /*extraFunctions=*/ ImmutableList.of(),
+              /*packagePath=*/ null,
+              /*blockUniverseEvaluationErrors=*/ false,
+              /*useForkJoinPool=*/ false,
+              /*useGraphlessQuery=*/ queryOptions.useGraphlessQuery);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
