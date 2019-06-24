@@ -32,7 +32,7 @@ function create_fake_sandboxfs() {
   local version="${1}"; shift
 
   cat >"${path}" <<EOF
-#! /bin/sh
+#!/bin/sh
 
 rm -f "${log}"
 trap 'echo "Terminated" >>"${log}"' EXIT TERM
