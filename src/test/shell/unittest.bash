@@ -378,6 +378,7 @@ function fail() {
     __show_stack
     # Cleanup as we are leaving the subshell now
     tear_down
+    testenv_tear_down
     exit 1
 }
 
@@ -666,6 +667,7 @@ function __test_terminated_err() {
     # to run tests, so we shouldn't call tear_down.
     if [[ ! -z "$TEST_name" ]]; then
       tear_down
+      testenv_tear_down
     fi
     exit 1
 }
