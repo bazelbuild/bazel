@@ -58,7 +58,7 @@ class GitRepositoryHelper {
    *     code.
    */
   void addAll() throws Exception {
-    runGit("add", ".");
+    runGit("add", "-A");
   }
 
   /**
