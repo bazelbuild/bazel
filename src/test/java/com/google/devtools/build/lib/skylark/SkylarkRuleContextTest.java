@@ -695,7 +695,6 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithUnusedInputsList() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_unused_inputs_list=True");
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
