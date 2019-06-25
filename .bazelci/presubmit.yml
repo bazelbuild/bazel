@@ -1,5 +1,38 @@
 ---
 platforms:
+  centos7:
+    shell_commands:
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - rm -f WORKSPACE.bak
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+    test_flags:
+      - "--test_timeout=1200"
+    test_targets:
+      - "--"
+      - "//scripts/..."
+      - "//src/java_tools/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/android/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      # Disable Slow Tests
+      - "-//src/test/shell/bazel:bazel_determinism_test"
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
+      - "-//src/test/shell/bazel/android:android_ndk_integration_test"
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+      - "-//src/java_tools/buildjar/..."
+      - "-//src/java_tools/import_deps_checker/..."
+      # TODO(philwo): Re-enable after #8708 is fixed.
+      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+      - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
+      - "-//src/test/shell/bazel:bazel_coverage_sh_test"
   ubuntu1604:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
