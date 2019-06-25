@@ -85,6 +85,7 @@ cc_toolchain_suite(
         name = (arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"),
         compiler = "compiler",
         cpu = arch,
+        cxx_builtin_include_directories = [%{cxx_builtin_include_directories}],
     )
     for arch in OSX_TOOLS_ARCHS
 ]

@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""A C++ toolchain configuration rule for macOS."""
 
-load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+load(
+    "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
     "env_entry",
     "env_set",
@@ -60,18 +62,18 @@ def _impl(ctx):
 
     if (ctx.attr.cpu == "armeabi-v7a"):
         host_system_name = "armeabi-v7a"
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         host_system_name = "x86_64-apple-macosx"
     else:
         fail("Unreachable")
@@ -136,21 +138,21 @@ def _impl(ctx):
 
     if (ctx.attr.cpu == "armeabi-v7a"):
         target_libc = "armeabi-v7a"
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64"):
         target_libc = "ios"
     elif (ctx.attr.cpu == "darwin_x86_64"):
         target_libc = "macosx"
-    elif (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    elif (ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "tvos_x86_64"):
         target_libc = "tvos"
-    elif (ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         target_libc = "watchos"
     else:
         fail("Unreachable")
@@ -161,17 +163,17 @@ def _impl(ctx):
         abi_version = "armeabi-v7a"
     elif (ctx.attr.cpu == "darwin_x86_64"):
         abi_version = "darwin_x86_64"
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         abi_version = "local"
     else:
         fail("Unreachable")
@@ -180,17 +182,17 @@ def _impl(ctx):
         abi_libc_version = "armeabi-v7a"
     elif (ctx.attr.cpu == "darwin_x86_64"):
         abi_libc_version = "darwin_x86_64"
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         abi_libc_version = "local"
     else:
         fail("Unreachable")
@@ -264,8 +266,8 @@ def _impl(ctx):
         tools = [tool(path = "/usr/bin/strip")],
     )
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         cpp_header_parsing_action = action_config(
             action_name = ACTION_NAMES.cpp_header_parsing,
             implies = [
@@ -289,17 +291,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         cpp_header_parsing_action = action_config(
             action_name = ACTION_NAMES.cpp_header_parsing,
             implies = [
@@ -322,9 +324,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        cpp_header_parsing_action = None
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "watchos_arm64_32"):
         objc_compile_action = action_config(
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
@@ -356,8 +360,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "tvos_arm64"):
         objc_compile_action = action_config(
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
@@ -485,8 +489,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
+    elif (ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "watchos_i386"):
         objc_compile_action = action_config(
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
@@ -519,9 +523,9 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_x86_64"):
         objc_compile_action = action_config(
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
@@ -586,9 +590,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        objc_compile_action = None
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "watchos_arm64_32"):
         objcpp_executable_action = action_config(
             action_name = "objc++-executable",
             flag_sets = [
@@ -650,8 +656,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "tvos_arm64"):
         objcpp_executable_action = action_config(
             action_name = "objc++-executable",
             flag_sets = [
@@ -899,8 +905,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
+    elif (ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "watchos_i386"):
         objcpp_executable_action = action_config(
             action_name = "objc++-executable",
             flag_sets = [
@@ -962,10 +968,10 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_x86_64"):
         objcpp_executable_action = action_config(
             action_name = "objc++-executable",
             flag_sets = [
@@ -1027,9 +1033,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        objcpp_executable_action = None
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         cpp_link_dynamic_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
@@ -1055,17 +1063,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         cpp_link_dynamic_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
@@ -1090,6 +1098,8 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        cpp_link_dynamic_library_action = None
 
     cpp_link_static_library_action = action_config(
         action_name = ACTION_NAMES.cpp_link_static_library,
@@ -1108,8 +1118,8 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         c_compile_action = action_config(
             action_name = ACTION_NAMES.c_compile,
             implies = [
@@ -1133,17 +1143,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         c_compile_action = action_config(
             action_name = ACTION_NAMES.c_compile,
             implies = [
@@ -1166,9 +1176,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        c_compile_action = None
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         cpp_compile_action = action_config(
             action_name = ACTION_NAMES.cpp_compile,
             implies = [
@@ -1192,17 +1204,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         cpp_compile_action = action_config(
             action_name = ACTION_NAMES.cpp_compile,
             implies = [
@@ -1225,9 +1237,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        cpp_compile_action = None
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "watchos_arm64_32"):
         objcpp_compile_action = action_config(
             action_name = ACTION_NAMES.objcpp_compile,
             flag_sets = [
@@ -1267,8 +1281,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "tvos_arm64"):
         objcpp_compile_action = action_config(
             action_name = ACTION_NAMES.objcpp_compile,
             flag_sets = [
@@ -1408,8 +1422,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
+    elif (ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "watchos_i386"):
         objcpp_compile_action = action_config(
             action_name = ACTION_NAMES.objcpp_compile,
             flag_sets = [
@@ -1445,9 +1459,9 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_x86_64"):
         objcpp_compile_action = action_config(
             action_name = ACTION_NAMES.objcpp_compile,
             flag_sets = [
@@ -1518,9 +1532,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        objcpp_compile_action = None
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         assemble_action = action_config(
             action_name = ACTION_NAMES.assemble,
             implies = [
@@ -1542,17 +1558,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         assemble_action = action_config(
             action_name = ACTION_NAMES.assemble,
             implies = [
@@ -1573,9 +1589,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        assemble_action = None
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         preprocess_assemble_action = action_config(
             action_name = ACTION_NAMES.preprocess_assemble,
             implies = [
@@ -1599,17 +1617,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         preprocess_assemble_action = action_config(
             action_name = ACTION_NAMES.preprocess_assemble,
             implies = [
@@ -1632,9 +1650,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        preprocess_assemble_action = None
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "watchos_arm64_32"):
         objc_archive_action = action_config(
             action_name = "objc-archive",
             flag_sets = [
@@ -1665,8 +1685,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "tvos_arm64"):
         objc_archive_action = action_config(
             action_name = "objc-archive",
             flag_sets = [
@@ -1790,8 +1810,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
+    elif (ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "watchos_i386"):
         objc_archive_action = action_config(
             action_name = "objc-archive",
             flag_sets = [
@@ -1822,10 +1842,10 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_x86_64"):
         objc_archive_action = action_config(
             action_name = "objc-archive",
             flag_sets = [
@@ -1856,9 +1876,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        objc_archive_action = None
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "watchos_arm64_32"):
         objc_executable_action = action_config(
             action_name = "objc-executable",
             flag_sets = [
@@ -1924,8 +1946,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "tvos_arm64"):
         objc_executable_action = action_config(
             action_name = "objc-executable",
             flag_sets = [
@@ -2189,8 +2211,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
+    elif (ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "watchos_i386"):
         objc_executable_action = action_config(
             action_name = "objc-executable",
             flag_sets = [
@@ -2256,10 +2278,10 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_x86_64"):
         objc_executable_action = action_config(
             action_name = "objc-executable",
             flag_sets = [
@@ -2325,9 +2347,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        objc_executable_action = None
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
@@ -2352,17 +2376,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
@@ -2386,6 +2410,8 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        cpp_link_executable_action = None
 
     linkstamp_compile_action = action_config(
         action_name = ACTION_NAMES.linkstamp_compile,
@@ -2410,8 +2436,8 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         cpp_module_compile_action = action_config(
             action_name = ACTION_NAMES.cpp_module_compile,
             implies = [
@@ -2435,17 +2461,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         cpp_module_compile_action = action_config(
             action_name = ACTION_NAMES.cpp_module_compile,
             implies = [
@@ -2468,9 +2494,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        cpp_module_compile_action = None
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         cpp_link_nodeps_dynamic_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
@@ -2496,17 +2524,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         cpp_link_nodeps_dynamic_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
@@ -2531,9 +2559,11 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        cpp_link_nodeps_dynamic_library_action = None
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "watchos_arm64_32"):
         objc_fully_link_action = action_config(
             action_name = "objc-fully-link",
             flag_sets = [
@@ -2574,8 +2604,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "tvos_arm64"):
         objc_fully_link_action = action_config(
             action_name = "objc-fully-link",
             flag_sets = [
@@ -2739,8 +2769,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
+    elif (ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "watchos_i386"):
         objc_fully_link_action = action_config(
             action_name = "objc-fully-link",
             flag_sets = [
@@ -2781,10 +2811,10 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_x86_64"):
         objc_fully_link_action = action_config(
             action_name = "objc-fully-link",
             flag_sets = [
@@ -2825,6 +2855,8 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        objc_fully_link_action = None
 
     if (ctx.attr.cpu == "armeabi-v7a"):
         objcopy_embed_data_action = action_config(
@@ -2832,56 +2864,58 @@ def _impl(ctx):
             enabled = True,
             tools = [tool(path = "/bin/false")],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         objcopy_embed_data_action = action_config(
             action_name = "objcopy_embed_data",
             enabled = True,
             tools = [tool(path = "/usr/bin/objcopy")],
         )
+    else:
+        objcopy_embed_data_action = None
 
     action_configs = [
-            strip_action,
-            c_compile_action,
-            cpp_compile_action,
-            linkstamp_compile_action,
-            cpp_module_compile_action,
-            cpp_header_parsing_action,
-            objc_compile_action,
-            objcpp_compile_action,
-            assemble_action,
-            preprocess_assemble_action,
-            objc_archive_action,
-            objc_executable_action,
-            objcpp_executable_action,
-            cpp_link_executable_action,
-            cpp_link_dynamic_library_action,
-            cpp_link_nodeps_dynamic_library_action,
-            cpp_link_static_library_action,
-            objc_fully_link_action,
-            objcopy_embed_data_action,
-        ]
+        strip_action,
+        c_compile_action,
+        cpp_compile_action,
+        linkstamp_compile_action,
+        cpp_module_compile_action,
+        cpp_header_parsing_action,
+        objc_compile_action,
+        objcpp_compile_action,
+        assemble_action,
+        preprocess_assemble_action,
+        objc_archive_action,
+        objc_executable_action,
+        objcpp_executable_action,
+        cpp_link_executable_action,
+        cpp_link_dynamic_library_action,
+        cpp_link_nodeps_dynamic_library_action,
+        cpp_link_static_library_action,
+        objc_fully_link_action,
+        objcopy_embed_data_action,
+    ]
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
+        ctx.attr.cpu == "ios_armv7" or
+        ctx.attr.cpu == "ios_i386" or
+        ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "watchos_arm64_32" or
+        ctx.attr.cpu == "watchos_armv7k" or
+        ctx.attr.cpu == "watchos_i386" or
+        ctx.attr.cpu == "watchos_x86_64"):
         apply_default_compiler_flags_feature = feature(
             name = "apply_default_compiler_flags",
             flag_sets = [
@@ -2901,8 +2935,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    elif (ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "tvos_x86_64"):
         apply_default_compiler_flags_feature = feature(
             name = "apply_default_compiler_flags",
             flag_sets = [
@@ -2912,6 +2946,8 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        apply_default_compiler_flags_feature = None
 
     dynamic_linking_mode_feature = feature(name = "dynamic_linking_mode")
 
@@ -2922,7 +2958,7 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = all_link_actions +
-                    [ACTION_NAMES.cpp_link_static_library],
+                          [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = [
@@ -2935,7 +2971,7 @@ def _impl(ctx):
             ),
             flag_set(
                 actions = all_link_actions +
-                    [ACTION_NAMES.cpp_link_static_library],
+                          [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = ["%{runtime_root_flags}"],
@@ -2946,7 +2982,7 @@ def _impl(ctx):
             ),
             flag_set(
                 actions = all_link_actions +
-                    [ACTION_NAMES.cpp_link_static_library],
+                          [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = ["%{runtime_root_entries}"],
@@ -3001,8 +3037,8 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"):
+    if (ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64"):
         unfiltered_cxx_flags_feature = feature(
             name = "unfiltered_cxx_flags",
             flag_sets = [
@@ -3021,18 +3057,20 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         unfiltered_cxx_flags_feature = feature(name = "unfiltered_cxx_flags")
+    else:
+        unfiltered_cxx_flags_feature = None
 
     compiler_input_flags_feature = feature(
         name = "compiler_input_flags",
@@ -3065,7 +3103,7 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = all_link_actions +
-                    ["objc-executable", "objc++-executable"],
+                          ["objc-executable", "objc++-executable"],
                 flag_groups = [
                     flag_group(
                         flags = ["-Wl,-S"],
@@ -3089,11 +3127,11 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    if (ctx.attr.cpu == "ios_i386" or
+        ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "tvos_x86_64" or
+        ctx.attr.cpu == "watchos_i386" or
+        ctx.attr.cpu == "watchos_x86_64"):
         apply_simulator_compiler_flags_feature = feature(
             name = "apply_simulator_compiler_flags",
             flag_sets = [
@@ -3112,15 +3150,17 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k"):
         apply_simulator_compiler_flags_feature = feature(name = "apply_simulator_compiler_flags")
+    else:
+        apply_simulator_compiler_flags_feature = None
 
     supports_pic_feature = feature(name = "supports_pic", enabled = True)
 
@@ -3149,7 +3189,7 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = all_link_actions +
-                    ["objc-executable", "objc++-executable"],
+                          ["objc-executable", "objc++-executable"],
                 flag_groups = [
                     flag_group(
                         flags = ["%{user_link_flags}"],
@@ -3161,18 +3201,18 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
+        ctx.attr.cpu == "ios_armv7" or
+        ctx.attr.cpu == "ios_i386" or
+        ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64" or
+        ctx.attr.cpu == "watchos_arm64_32" or
+        ctx.attr.cpu == "watchos_armv7k" or
+        ctx.attr.cpu == "watchos_i386" or
+        ctx.attr.cpu == "watchos_x86_64"):
         contains_objc_source_feature = feature(
             name = "contains_objc_source",
             flag_sets = [
@@ -3208,6 +3248,8 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        contains_objc_source_feature = None
 
     includes_feature = feature(
         name = "includes",
@@ -3273,7 +3315,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -3293,7 +3335,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -3313,7 +3355,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -3333,7 +3375,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -3353,7 +3395,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -3373,7 +3415,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -3393,7 +3435,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -3413,7 +3455,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -3433,7 +3475,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -3453,7 +3495,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = ["-no-canonical-prefixes"],
@@ -3462,8 +3504,8 @@ def _impl(ctx):
                 ),
                 flag_set(
                     actions = [
-                      ACTION_NAMES.cpp_link_dynamic_library,
-                      ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+                        ACTION_NAMES.cpp_link_dynamic_library,
+                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
                     ],
                     flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
                 ),
@@ -3478,16 +3520,16 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_x86_64"):
         default_link_flags_feature = feature(
             name = "default_link_flags",
             enabled = True,
             flag_sets = [
                 flag_set(
                     actions = all_link_actions +
-                        ["objc-executable", "objc++-executable"],
+                              ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
                             flags = ["-no-canonical-prefixes"],
@@ -3568,8 +3610,8 @@ def _impl(ctx):
     if ctx.attr.cpu == "armeabi-v7a":
         # This stub doesn't have a sensible value for this feature
         version_min_feature = feature(name = "version_min")
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"):
+    elif (ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64"):
         version_min_feature = feature(
             name = "version_min",
             flag_sets = [
@@ -3596,9 +3638,9 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"):
+    elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7"):
         version_min_feature = feature(
             name = "version_min",
             flag_sets = [
@@ -3754,6 +3796,8 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        version_min_feature = None
 
     compiler_output_flags_feature = feature(
         name = "compiler_output_flags",
@@ -3843,7 +3887,7 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = all_link_actions +
-                    [ACTION_NAMES.cpp_link_static_library],
+                          [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = ["-L%{library_search_directories}"],
@@ -3854,7 +3898,7 @@ def _impl(ctx):
             ),
             flag_set(
                 actions = all_link_actions +
-                    [ACTION_NAMES.cpp_link_static_library],
+                          [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = ["%{libopts}"],
@@ -3865,7 +3909,7 @@ def _impl(ctx):
             ),
             flag_set(
                 actions = all_link_actions +
-                    [ACTION_NAMES.cpp_link_static_library],
+                          [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = ["-Wl,-force_load,%{whole_archive_linker_params}"],
@@ -3876,7 +3920,7 @@ def _impl(ctx):
             ),
             flag_set(
                 actions = all_link_actions +
-                    [ACTION_NAMES.cpp_link_static_library],
+                          [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = ["%{linker_input_params}"],
@@ -3887,7 +3931,7 @@ def _impl(ctx):
             ),
             flag_set(
                 actions = all_link_actions +
-                    [ACTION_NAMES.cpp_link_static_library],
+                          [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         iterate_over = "libraries_to_link",
@@ -4088,18 +4132,18 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
+        ctx.attr.cpu == "ios_armv7" or
+        ctx.attr.cpu == "ios_i386" or
+        ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64" or
+        ctx.attr.cpu == "watchos_arm64_32" or
+        ctx.attr.cpu == "watchos_armv7k" or
+        ctx.attr.cpu == "watchos_i386" or
+        ctx.attr.cpu == "watchos_x86_64"):
         apply_implicit_frameworks_feature = feature(
             name = "apply_implicit_frameworks",
             flag_sets = [
@@ -4124,6 +4168,8 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        apply_implicit_frameworks_feature = None
 
     dbg_feature = feature(name = "dbg")
 
@@ -4251,7 +4297,7 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = all_link_actions +
-                    ["objc-executable", "objc++-executable"],
+                          ["objc-executable", "objc++-executable"],
                 flag_groups = [flag_group(flags = ["-lc++"])],
                 with_features = [with_feature_set(not_features = ["kernel_extension"])],
             ),
@@ -4561,10 +4607,10 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_x86_64"):
         unfiltered_compile_flags_feature = feature(
             name = "unfiltered_compile_flags",
             flag_sets = [
@@ -4593,6 +4639,8 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        unfiltered_compile_flags_feature = None
 
     linker_param_file_feature = feature(
         name = "linker_param_file",
@@ -4712,18 +4760,20 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         cpp_linker_flags_feature = feature(name = "cpp_linker_flags")
+    else:
+        cpp_linker_flags_feature = None
 
     exclude_private_headers_in_module_maps_feature = feature(name = "exclude_private_headers_in_module_maps")
 
@@ -4800,12 +4850,12 @@ def _impl(ctx):
 
     only_doth_headers_in_module_maps_feature = feature(name = "only_doth_headers_in_module_maps")
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    if (ctx.attr.cpu == "armeabi-v7a" or
+        ctx.attr.cpu == "ios_arm64e" or
+        ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64" or
+        ctx.attr.cpu == "watchos_arm64_32" or
+        ctx.attr.cpu == "watchos_x86_64"):
         default_compile_flags_feature = feature(
             name = "default_compile_flags",
             enabled = True,
@@ -4917,13 +4967,13 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386"):
         default_compile_flags_feature = feature(
             name = "default_compile_flags",
             enabled = True,
@@ -5034,6 +5084,8 @@ def _impl(ctx):
                 ),
             ],
         )
+    else:
+        default_compile_flags_feature = None
 
     objcopy_embed_flags_feature = feature(
         name = "objcopy_embed_flags",
@@ -5051,7 +5103,7 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = all_link_actions +
-                    ["objc-executable", "objc++-executable"],
+                          ["objc-executable", "objc++-executable"],
                 flag_groups = [
                     flag_group(
                         flags = ["-dead_strip", "-no_dead_strip_inits_and_terms"],
@@ -5111,19 +5163,21 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         kernel_extension_feature = feature(name = "kernel_extension")
+    else:
+        kernel_extension_feature = None
 
     apply_default_warnings_feature = feature(
         name = "apply_default_warnings",
@@ -5238,19 +5292,21 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "armeabi-v7a" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         link_cocoa_feature = feature(name = "link_cocoa")
+    else:
+        link_cocoa_feature = None
 
     user_compile_flags_feature = feature(
         name = "user_compile_flags",
@@ -5297,13 +5353,13 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "darwin_x86_64"):
+    if (ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
+        ctx.attr.cpu == "ios_armv7" or
+        ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "watchos_arm64_32" or
+        ctx.attr.cpu == "watchos_armv7k" or
+        ctx.attr.cpu == "darwin_x86_64"):
         bitcode_embedded_feature = feature(
             name = "bitcode_embedded",
             flag_sets = [
@@ -5335,7 +5391,6 @@ def _impl(ctx):
                 ),
             ],
         )
-
         bitcode_embedded_markers_feature = feature(
             name = "bitcode_embedded_markers",
             flag_sets = [
@@ -5361,238 +5416,234 @@ def _impl(ctx):
         bitcode_embedded_markers_feature = feature(name = "bitcode_embedded_markers")
         bitcode_embedded_feature = feature(name = "bitcode_embedded")
 
-    if (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    if (ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
+        ctx.attr.cpu == "ios_armv7" or
+        ctx.attr.cpu == "ios_i386" or
+        ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64" or
+        ctx.attr.cpu == "watchos_arm64_32" or
+        ctx.attr.cpu == "watchos_armv7k" or
+        ctx.attr.cpu == "watchos_i386" or
+        ctx.attr.cpu == "watchos_x86_64"):
         features = [
-                fastbuild_feature,
-                no_legacy_features_feature,
-                opt_feature,
-                dbg_feature,
-                link_libcpp_feature,
-                compile_all_modules_feature,
-                exclude_private_headers_in_module_maps_feature,
-                has_configured_linker_path_feature,
-                only_doth_headers_in_module_maps_feature,
-                default_compile_flags_feature,
-                debug_prefix_map_pwd_is_dot_feature,
-                generate_dsym_file_feature,
-                contains_objc_source_feature,
-                objc_actions_feature,
-                strip_debug_symbols_feature,
-                symbol_counts_feature,
-                shared_flag_feature,
-                kernel_extension_feature,
-                linkstamps_feature,
-                output_execpath_flags_feature,
-                archiver_flags_feature,
-                runtime_root_flags_feature,
-                input_param_flags_feature,
-                force_pic_flags_feature,
-                pch_feature,
-                module_maps_feature,
-                use_objc_modules_feature,
-                no_enable_modules_feature,
-                apply_default_warnings_feature,
-                includes_feature,
-                include_paths_feature,
-                sysroot_feature,
-                dependency_file_feature,
-                pic_feature,
-                per_object_debug_info_feature,
-                preprocessor_defines_feature,
-                framework_paths_feature,
-                random_seed_feature,
-                fdo_instrument_feature,
-                fdo_optimize_feature,
-                autofdo_feature,
-                lipo_feature,
-                coverage_feature,
-                llvm_coverage_map_format_feature,
-                gcc_coverage_map_format_feature,
-                apply_default_compiler_flags_feature,
-                include_system_dirs_feature,
-                headerpad_feature,
-                bitcode_embedded_feature,
-                bitcode_embedded_markers_feature,
-                objc_arc_feature,
-                no_objc_arc_feature,
-                apple_env_feature,
-                user_link_flags_feature,
-                default_link_flags_feature,
-                version_min_feature,
-                dead_strip_feature,
-                cpp_linker_flags_feature,
-                apply_implicit_frameworks_feature,
-                link_cocoa_feature,
-                apply_simulator_compiler_flags_feature,
-                unfiltered_cxx_flags_feature,
-                user_compile_flags_feature,
-                unfiltered_compile_flags_feature,
-                linker_param_file_feature,
-                compiler_input_flags_feature,
-                compiler_output_flags_feature,
-                objcopy_embed_flags_feature,
-            ]
+            fastbuild_feature,
+            no_legacy_features_feature,
+            opt_feature,
+            dbg_feature,
+            link_libcpp_feature,
+            compile_all_modules_feature,
+            exclude_private_headers_in_module_maps_feature,
+            has_configured_linker_path_feature,
+            only_doth_headers_in_module_maps_feature,
+            default_compile_flags_feature,
+            debug_prefix_map_pwd_is_dot_feature,
+            generate_dsym_file_feature,
+            contains_objc_source_feature,
+            objc_actions_feature,
+            strip_debug_symbols_feature,
+            symbol_counts_feature,
+            shared_flag_feature,
+            kernel_extension_feature,
+            linkstamps_feature,
+            output_execpath_flags_feature,
+            archiver_flags_feature,
+            runtime_root_flags_feature,
+            input_param_flags_feature,
+            force_pic_flags_feature,
+            pch_feature,
+            module_maps_feature,
+            use_objc_modules_feature,
+            no_enable_modules_feature,
+            apply_default_warnings_feature,
+            includes_feature,
+            include_paths_feature,
+            sysroot_feature,
+            dependency_file_feature,
+            pic_feature,
+            per_object_debug_info_feature,
+            preprocessor_defines_feature,
+            framework_paths_feature,
+            random_seed_feature,
+            fdo_instrument_feature,
+            fdo_optimize_feature,
+            autofdo_feature,
+            lipo_feature,
+            coverage_feature,
+            llvm_coverage_map_format_feature,
+            gcc_coverage_map_format_feature,
+            apply_default_compiler_flags_feature,
+            include_system_dirs_feature,
+            headerpad_feature,
+            bitcode_embedded_feature,
+            bitcode_embedded_markers_feature,
+            objc_arc_feature,
+            no_objc_arc_feature,
+            apple_env_feature,
+            user_link_flags_feature,
+            default_link_flags_feature,
+            version_min_feature,
+            dead_strip_feature,
+            cpp_linker_flags_feature,
+            apply_implicit_frameworks_feature,
+            link_cocoa_feature,
+            apply_simulator_compiler_flags_feature,
+            unfiltered_cxx_flags_feature,
+            user_compile_flags_feature,
+            unfiltered_compile_flags_feature,
+            linker_param_file_feature,
+            compiler_input_flags_feature,
+            compiler_output_flags_feature,
+            objcopy_embed_flags_feature,
+        ]
     elif (ctx.attr.cpu == "darwin_x86_64"):
         features = [
-                fastbuild_feature,
-                no_legacy_features_feature,
-                opt_feature,
-                dbg_feature,
-                link_libcpp_feature,
-                compile_all_modules_feature,
-                exclude_private_headers_in_module_maps_feature,
-                has_configured_linker_path_feature,
-                only_doth_headers_in_module_maps_feature,
-                default_compile_flags_feature,
-                debug_prefix_map_pwd_is_dot_feature,
-                generate_dsym_file_feature,
-                contains_objc_source_feature,
-                objc_actions_feature,
-                strip_debug_symbols_feature,
-                symbol_counts_feature,
-                shared_flag_feature,
-                kernel_extension_feature,
-                linkstamps_feature,
-                output_execpath_flags_feature,
-                archiver_flags_feature,
-                runtime_root_flags_feature,
-                input_param_flags_feature,
-                force_pic_flags_feature,
-                pch_feature,
-                module_maps_feature,
-                use_objc_modules_feature,
-                no_enable_modules_feature,
-                apply_default_warnings_feature,
-                includes_feature,
-                include_paths_feature,
-                sysroot_feature,
-                dependency_file_feature,
-                pic_feature,
-                per_object_debug_info_feature,
-                preprocessor_defines_feature,
-                framework_paths_feature,
-                random_seed_feature,
-                fdo_instrument_feature,
-                fdo_optimize_feature,
-                autofdo_feature,
-                lipo_feature,
-                coverage_feature,
-                llvm_coverage_map_format_feature,
-                gcc_coverage_map_format_feature,
-                apply_default_compiler_flags_feature,
-                include_system_dirs_feature,
-                headerpad_feature,
-                bitcode_embedded_feature,
-                bitcode_embedded_markers_feature,
-                objc_arc_feature,
-                no_objc_arc_feature,
-                apple_env_feature,
-                user_link_flags_feature,
-                default_link_flags_feature,
-                version_min_feature,
-                dead_strip_feature,
-                cpp_linker_flags_feature,
-                apply_implicit_frameworks_feature,
-                link_cocoa_feature,
-                apply_simulator_compiler_flags_feature,
-                unfiltered_cxx_flags_feature,
-                user_compile_flags_feature,
-                unfiltered_compile_flags_feature,
-                linker_param_file_feature,
-                compiler_input_flags_feature,
-                compiler_output_flags_feature,
-                supports_dynamic_linker_feature,
-                objcopy_embed_flags_feature,
-                dynamic_linking_mode_feature,
-            ]
+            fastbuild_feature,
+            no_legacy_features_feature,
+            opt_feature,
+            dbg_feature,
+            link_libcpp_feature,
+            compile_all_modules_feature,
+            exclude_private_headers_in_module_maps_feature,
+            has_configured_linker_path_feature,
+            only_doth_headers_in_module_maps_feature,
+            default_compile_flags_feature,
+            debug_prefix_map_pwd_is_dot_feature,
+            generate_dsym_file_feature,
+            contains_objc_source_feature,
+            objc_actions_feature,
+            strip_debug_symbols_feature,
+            symbol_counts_feature,
+            shared_flag_feature,
+            kernel_extension_feature,
+            linkstamps_feature,
+            output_execpath_flags_feature,
+            archiver_flags_feature,
+            runtime_root_flags_feature,
+            input_param_flags_feature,
+            force_pic_flags_feature,
+            pch_feature,
+            module_maps_feature,
+            use_objc_modules_feature,
+            no_enable_modules_feature,
+            apply_default_warnings_feature,
+            includes_feature,
+            include_paths_feature,
+            sysroot_feature,
+            dependency_file_feature,
+            pic_feature,
+            per_object_debug_info_feature,
+            preprocessor_defines_feature,
+            framework_paths_feature,
+            random_seed_feature,
+            fdo_instrument_feature,
+            fdo_optimize_feature,
+            autofdo_feature,
+            lipo_feature,
+            coverage_feature,
+            llvm_coverage_map_format_feature,
+            gcc_coverage_map_format_feature,
+            apply_default_compiler_flags_feature,
+            include_system_dirs_feature,
+            headerpad_feature,
+            bitcode_embedded_feature,
+            bitcode_embedded_markers_feature,
+            objc_arc_feature,
+            no_objc_arc_feature,
+            apple_env_feature,
+            user_link_flags_feature,
+            default_link_flags_feature,
+            version_min_feature,
+            dead_strip_feature,
+            cpp_linker_flags_feature,
+            apply_implicit_frameworks_feature,
+            link_cocoa_feature,
+            apply_simulator_compiler_flags_feature,
+            unfiltered_cxx_flags_feature,
+            user_compile_flags_feature,
+            unfiltered_compile_flags_feature,
+            linker_param_file_feature,
+            compiler_input_flags_feature,
+            compiler_output_flags_feature,
+            supports_dynamic_linker_feature,
+            objcopy_embed_flags_feature,
+            dynamic_linking_mode_feature,
+        ]
     elif (ctx.attr.cpu == "armeabi-v7a"):
         features = [
-                fastbuild_feature,
-                no_legacy_features_feature,
-                opt_feature,
-                dbg_feature,
-                link_libcpp_feature,
-                compile_all_modules_feature,
-                exclude_private_headers_in_module_maps_feature,
-                has_configured_linker_path_feature,
-                only_doth_headers_in_module_maps_feature,
-                default_compile_flags_feature,
-                debug_prefix_map_pwd_is_dot_feature,
-                generate_dsym_file_feature,
-                contains_objc_source_feature,
-                objc_actions_feature,
-                strip_debug_symbols_feature,
-                symbol_counts_feature,
-                shared_flag_feature,
-                kernel_extension_feature,
-                linkstamps_feature,
-                output_execpath_flags_feature,
-                archiver_flags_feature,
-                runtime_root_flags_feature,
-                input_param_flags_feature,
-                force_pic_flags_feature,
-                pch_feature,
-                module_maps_feature,
-                use_objc_modules_feature,
-                no_enable_modules_feature,
-                apply_default_warnings_feature,
-                includes_feature,
-                include_paths_feature,
-                sysroot_feature,
-                dependency_file_feature,
-                pic_feature,
-                per_object_debug_info_feature,
-                preprocessor_defines_feature,
-                framework_paths_feature,
-                random_seed_feature,
-                fdo_instrument_feature,
-                fdo_optimize_feature,
-                autofdo_feature,
-                lipo_feature,
-                coverage_feature,
-                llvm_coverage_map_format_feature,
-                gcc_coverage_map_format_feature,
-                apply_default_compiler_flags_feature,
-                include_system_dirs_feature,
-                headerpad_feature,
-                bitcode_embedded_feature,
-                bitcode_embedded_markers_feature,
-                objc_arc_feature,
-                no_objc_arc_feature,
-                apple_env_feature,
-                user_link_flags_feature,
-                default_link_flags_feature,
-                version_min_feature,
-                dead_strip_feature,
-                cpp_linker_flags_feature,
-                apply_implicit_frameworks_feature,
-                link_cocoa_feature,
-                apply_simulator_compiler_flags_feature,
-                unfiltered_cxx_flags_feature,
-                user_compile_flags_feature,
-                unfiltered_compile_flags_feature,
-                linker_param_file_feature,
-                compiler_input_flags_feature,
-                compiler_output_flags_feature,
-                supports_pic_feature,
-                objcopy_embed_flags_feature,
-            ]
+            fastbuild_feature,
+            no_legacy_features_feature,
+            opt_feature,
+            dbg_feature,
+            link_libcpp_feature,
+            compile_all_modules_feature,
+            exclude_private_headers_in_module_maps_feature,
+            has_configured_linker_path_feature,
+            only_doth_headers_in_module_maps_feature,
+            default_compile_flags_feature,
+            debug_prefix_map_pwd_is_dot_feature,
+            generate_dsym_file_feature,
+            contains_objc_source_feature,
+            objc_actions_feature,
+            strip_debug_symbols_feature,
+            symbol_counts_feature,
+            shared_flag_feature,
+            kernel_extension_feature,
+            linkstamps_feature,
+            output_execpath_flags_feature,
+            archiver_flags_feature,
+            runtime_root_flags_feature,
+            input_param_flags_feature,
+            force_pic_flags_feature,
+            pch_feature,
+            module_maps_feature,
+            use_objc_modules_feature,
+            no_enable_modules_feature,
+            apply_default_warnings_feature,
+            includes_feature,
+            include_paths_feature,
+            sysroot_feature,
+            dependency_file_feature,
+            pic_feature,
+            per_object_debug_info_feature,
+            preprocessor_defines_feature,
+            framework_paths_feature,
+            random_seed_feature,
+            fdo_instrument_feature,
+            fdo_optimize_feature,
+            autofdo_feature,
+            lipo_feature,
+            coverage_feature,
+            llvm_coverage_map_format_feature,
+            gcc_coverage_map_format_feature,
+            apply_default_compiler_flags_feature,
+            include_system_dirs_feature,
+            headerpad_feature,
+            bitcode_embedded_feature,
+            bitcode_embedded_markers_feature,
+            objc_arc_feature,
+            no_objc_arc_feature,
+            apple_env_feature,
+            user_link_flags_feature,
+            default_link_flags_feature,
+            version_min_feature,
+            dead_strip_feature,
+            cpp_linker_flags_feature,
+            apply_implicit_frameworks_feature,
+            link_cocoa_feature,
+            apply_simulator_compiler_flags_feature,
+            unfiltered_cxx_flags_feature,
+            user_compile_flags_feature,
+            unfiltered_compile_flags_feature,
+            linker_param_file_feature,
+            compiler_input_flags_feature,
+            compiler_output_flags_feature,
+            supports_pic_feature,
+            objcopy_embed_flags_feature,
+        ]
     else:
         fail("Unreachable")
-
-    cxx_builtin_include_directories = [
-%{cxx_builtin_include_directories}
-    ]
 
     artifact_name_patterns = []
 
@@ -5617,18 +5668,18 @@ def _impl(ctx):
             tool_path(name = "objdump", path = "/bin/false"),
             tool_path(name = "strip", path = "/bin/false"),
         ]
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
+          ctx.attr.cpu == "ios_armv7" or
+          ctx.attr.cpu == "ios_i386" or
+          ctx.attr.cpu == "ios_x86_64" or
+          ctx.attr.cpu == "tvos_arm64" or
+          ctx.attr.cpu == "tvos_x86_64" or
+          ctx.attr.cpu == "watchos_arm64_32" or
+          ctx.attr.cpu == "watchos_armv7k" or
+          ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64"):
         tool_paths = [
             tool_path(name = "ar", path = "wrapped_ar"),
             tool_path(name = "compat-ld", path = "/usr/bin/ld"),
@@ -5645,7 +5696,6 @@ def _impl(ctx):
     else:
         fail("Unreachable")
 
-
     out = ctx.actions.declare_file(ctx.label.name)
     ctx.actions.write(out, "Fake executable")
     return [
@@ -5654,7 +5704,7 @@ def _impl(ctx):
             features = features,
             action_configs = action_configs,
             artifact_name_patterns = artifact_name_patterns,
-            cxx_builtin_include_directories = cxx_builtin_include_directories,
+            cxx_builtin_include_directories = ctx.attr.cxx_builtin_include_directories,
             toolchain_identifier = toolchain_identifier,
             host_system_name = host_system_name,
             target_system_name = target_system_name,
@@ -5666,18 +5716,19 @@ def _impl(ctx):
             tool_paths = tool_paths,
             make_variables = make_variables,
             builtin_sysroot = builtin_sysroot,
-            cc_target_os = cc_target_os
+            cc_target_os = cc_target_os,
         ),
         DefaultInfo(
             executable = out,
         ),
     ]
 
-cc_toolchain_config =  rule(
+cc_toolchain_config = rule(
     implementation = _impl,
     attrs = {
-        "cpu": attr.string(mandatory=True),
+        "cpu": attr.string(mandatory = True),
         "compiler": attr.string(),
+        "cxx_builtin_include_directories": attr.string_list(),
     },
     provides = [CcToolchainConfigInfo],
     executable = True,
