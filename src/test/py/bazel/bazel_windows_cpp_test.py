@@ -357,7 +357,8 @@ class BazelWindowsCppTest(test_base.TestBase):
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     exit_code, _, stderr = self.RunBazel([
-        'build', '//main:main.dll', '--output_groups=default,interface_library'
+        'build', '//main:main.dll',
+        '--output_groups=default,runtime_dynamic_libraries,interface_library'
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
@@ -387,11 +388,19 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  linkshared = 1,'
             '  features=["windows_export_all_symbols"]',
             ')',
+            '',
+            'genrule(',
+            '  name = "renamed_main",',
+            '  srcs = [":main.dll"],',
+            '  outs = ["main_renamed.dll"],',
+            '  cmd = "cp $< $@",',
+            ')',
         ])
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     exit_code, _, stderr = self.RunBazel([
-        'build', '//main:main.dll', '--output_groups=default,interface_library'
+        'build', '//main:main.dll',
+        '--output_groups=default,runtime_dynamic_libraries,interface_library'
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
@@ -401,13 +410,19 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertTrue(os.path.exists(main_library))
     self.assertTrue(os.path.exists(main_interface))
     self.assertTrue(os.path.exists(def_file))
-    # A.dll and B.dll should be copied.
+    # A.dll and B.dll should be built and copied because they belong to
+    # runtime_dynamic_libraries output group.
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/A.dll')))
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/B.dll')))
     # hello_A and hello_B should not be exported.
     self.AssertFileContentNotContains(def_file, 'hello_A')
     self.AssertFileContentNotContains(def_file, 'hello_B')
     self.AssertFileContentContains(def_file, 'hello_C')
+
+    # The copy should succeed since //main:main.dll is only supposed to refer to
+    # main.dll, A.dll and B.dll should be in a separate output group.
+    exit_code, _, stderr = self.RunBazel(['build', '//main:renamed_main'])
+    self.AssertExitCode(exit_code, 0, stderr)
 
   def testGetDefFileOfSharedLibraryFromCcBinary(self):
     self.createProjectFiles()
