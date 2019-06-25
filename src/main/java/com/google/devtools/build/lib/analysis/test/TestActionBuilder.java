@@ -269,9 +269,15 @@ public final class TestActionBuilder {
       extraTestEnv.put(BAZEL_CC_COVERAGE_TOOL, GCOV_TOOL);
 
       // We don't add this attribute to non-supported test target
+      String lcovMergerAttr = null;
       if (ruleContext.isAttrDefined(":lcov_merger", LABEL)) {
+        lcovMergerAttr = ":lcov_merger";
+      } else if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
+        lcovMergerAttr = "$lcov_merger";
+      }
+      if (lcovMergerAttr != null) {
         TransitiveInfoCollection lcovMerger =
-            ruleContext.getPrerequisite(":lcov_merger", Mode.TARGET);
+            ruleContext.getPrerequisite(lcovMergerAttr, Mode.TARGET);
         FilesToRunProvider lcovFilesToRun = lcovMerger.getProvider(FilesToRunProvider.class);
         if (lcovFilesToRun != null) {
           extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
@@ -286,7 +292,7 @@ public final class TestActionBuilder {
             inputsBuilder.add(lcovMergerArtifact);
           } else {
             ruleContext.attributeError(
-                ":lcov_merger",
+                lcovMergerAttr,
                 "the LCOV merger should be either an executable or a single artifact");
           }
         }
