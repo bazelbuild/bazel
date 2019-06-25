@@ -16,6 +16,7 @@
 def windows_dll_library(
         name,
         srcs = [],
+        deps = [],
         hdrs = [],
         visibility = None,
         **kwargs):
@@ -28,6 +29,7 @@ def windows_dll_library(
     native.cc_binary(
         name = dll_name,
         srcs = srcs + hdrs,
+        deps = deps,
         linkshared = 1,
         **kwargs
     )
@@ -52,7 +54,7 @@ def windows_dll_library(
         name = name,
         hdrs = hdrs,
         visibility = visibility,
-        deps = [
+        deps = deps + [
             ":" + import_target_name,
         ],
     )
