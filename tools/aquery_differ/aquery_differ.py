@@ -26,9 +26,9 @@ bazel aquery //path/to:target_two --output=textproto > \
 From a bazel repo:
 bazel run //tools/aquery_differ:aquery_differ -- \
 --before=/path/to/output_one.textproto \
---after=/path/to/output_two.textproto
---input_type=textproto
---attrs=cmdline
+--after=/path/to/output_two.textproto \
+--input_type=textproto \
+--attrs=cmdline \
 --attrs=inputs
 """
 
