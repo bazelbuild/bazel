@@ -103,14 +103,14 @@ public class OptionsParser implements OptionsParsingResult {
 
   /**
    * Returns {@link OpaqueOptionsData} suitable for passing along to {@link
-   * #newOptionsParser(OpaqueOptionsData optionsData)}.
+   * Builder#optionsData(OpaqueOptionsData optionsData)}.
    *
    * <p>This is useful when you want to do the work of analyzing the given {@code optionsClasses}
    * exactly once, but you want to parse lots of different lists of strings (and thus need to
    * construct lots of different {@link OptionsParser} instances).
    */
   public static OpaqueOptionsData getOptionsData(
-      List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
+      List<Class<? extends OptionsBase>> optionsClasses) {
     return getOptionsDataInternal(optionsClasses);
   }
 
@@ -140,98 +140,6 @@ public class OptionsParser implements OptionsParsingResult {
   static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass)
       throws ConstructionException {
     return getOptionsDataInternal(ImmutableList.of(optionsClass));
-  }
-
-  /**
-   * @see #newOptionsParser(Iterable)
-   */
-  public static OptionsParser newOptionsParser(Class<? extends OptionsBase> class1)
-      throws ConstructionException {
-    return builder().optionsClasses(class1).build();
-  }
-
-  /** @see #newOptionsParser(Iterable) */
-  public static OptionsParser newOptionsParser(Class<? extends OptionsBase>... optionsClasses)
-      throws ConstructionException {
-    return builder().optionsClasses(optionsClasses).build();
-  }
-
-  public static OptionsParser newOptionsParser(
-      boolean allowResidue, Class<? extends OptionsBase>... optionsClasses)
-      throws ConstructionException {
-    return builder().optionsClasses(optionsClasses).allowResidue(allowResidue).build();
-  }
-
-  public static OptionsParser newOptionsParser(
-      @Nullable ParamsFilePreProcessor preProcessor, Class<? extends OptionsBase>... optionsClasses)
-      throws ConstructionException {
-    OptionsParser.Builder builder = builder().optionsClasses(optionsClasses);
-
-    if (preProcessor != null) {
-      builder.argsPreProcessor(preProcessor);
-    }
-
-    return builder.build();
-  }
-
-  public static OptionsParser newOptionsParser(
-      boolean allowResidue,
-      @Nullable ParamsFilePreProcessor preProcessor,
-      Class<? extends OptionsBase>... optionsClasses)
-      throws ConstructionException {
-    OptionsParser.Builder builder =
-        builder().optionsClasses(optionsClasses).allowResidue(allowResidue);
-
-    if (preProcessor != null) {
-      builder.argsPreProcessor(preProcessor);
-    }
-
-    return builder.build();
-  }
-
-  public static OptionsParser newOptionsParser(
-      boolean allowResidue, Iterable<? extends Class<? extends OptionsBase>> optionsClasses)
-      throws ConstructionException {
-    return builder().optionsClasses(optionsClasses).allowResidue(allowResidue).build();
-  }
-
-  /** Create a new {@link OptionsParser}. */
-  public static OptionsParser newOptionsParser(
-      Iterable<? extends Class<? extends OptionsBase>> optionsClasses)
-      throws ConstructionException {
-    return builder().optionsClasses(optionsClasses).build();
-  }
-  
-  /**
-   * Create a new {@link OptionsParser}, using {@link OpaqueOptionsData} previously returned from
-   * {@link #getOptionsData}.
-   */
-  public static OptionsParser newOptionsParser(OpaqueOptionsData optionsData) {
-    return builder().optionsData(optionsData).build();
-  }
-
-  /**
-   * Create a new {@link OptionsParser}, using {@link OpaqueOptionsData} previously returned from
-   * {@link #getOptionsData} and a prefix that signifies the parser should skip parsing args that
-   * begin with that prefix.
-   */
-  public static OptionsParser newOptionsParser(
-      OpaqueOptionsData optionsData, String skippedPrefix) {
-    return builder().optionsData(optionsData).skippedPrefix(skippedPrefix).build();
-  }
-
-  /**
-   * Create a new {@link OptionsParser}, using {@link OpaqueOptionsData} previously returned from
-   * {@link #getOptionsData} and a prefix that signifies the parser should skip parsing args that
-   * begin with that prefix, and a boolean that declares whether extra data should be kept.
-   */
-  public static OptionsParser newOptionsParser(
-      OpaqueOptionsData optionsData, String skippedPrefix, boolean allowResidue) {
-    return builder()
-        .optionsData(optionsData)
-        .allowResidue(allowResidue)
-        .skippedPrefix(skippedPrefix)
-        .build();
   }
 
   /** A helper class to create new instances of {@link OptionsParser}. */
