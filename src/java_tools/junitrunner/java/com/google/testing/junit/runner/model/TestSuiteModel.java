@@ -14,14 +14,13 @@
 
 package com.google.testing.junit.runner.model;
 
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
-
 import com.google.testing.junit.junit4.runner.DynamicTestException;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
+import com.google.testing.junit.runner.util.TestClock;
+import com.google.testing.junit.runner.util.TestClock.TestInstant;
 import com.google.testing.junit.runner.util.TestIntegrationsRunnerIntegration;
 import com.google.testing.junit.runner.util.TestPropertyRunnerIntegration;
-import com.google.testing.junit.runner.util.Ticker;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringWriter;
@@ -48,7 +47,7 @@ public class TestSuiteModel {
   private final TestSuiteNode rootNode;
   private final Map<Description, TestCaseNode> testCaseMap;
   private final Map<Description, TestNode> testsMap;
-  private final Ticker ticker;
+  private final TestClock testClock;
   private final AtomicBoolean wroteXml = new AtomicBoolean(false);
   private final XmlResultWriter xmlResultWriter;
   @Nullable private final Filter shardingFilter;
@@ -57,7 +56,7 @@ public class TestSuiteModel {
     rootNode = builder.rootNode;
     testsMap = builder.testsMap;
     testCaseMap = filterTestCases(builder.testsMap);
-    ticker = builder.ticker;
+    testClock = builder.testClock;
     shardingFilter = builder.shardingFilter;
     xmlResultWriter = builder.xmlResultWriter;
   }
@@ -142,7 +141,7 @@ public class TestSuiteModel {
   public void testStarted(Description description) {
     TestCaseNode testCase = getTestCase(description);
     if (testCase != null) {
-      testCase.started(currentMillis());
+      testCase.started(now());
       TestPropertyRunnerIntegration.setTestCaseForThread(testCase);
       TestIntegrationsRunnerIntegration.setTestCaseForThread(testCase);
     }
@@ -152,7 +151,7 @@ public class TestSuiteModel {
    * Indicate that the entire test run was interrupted.
    */
   public void testRunInterrupted() {
-    rootNode.testInterrupted(currentMillis());
+    rootNode.testInterrupted(now());
   }
 
   /**
@@ -181,10 +180,9 @@ public class TestSuiteModel {
     if (test != null) {
       if (throwable instanceof DynamicTestException) {
         DynamicTestException dynamicFailure = (DynamicTestException) throwable;
-        test.dynamicTestFailure(
-            dynamicFailure.getTest(), dynamicFailure.getCause(), currentMillis());
+        test.dynamicTestFailure(dynamicFailure.getTest(), dynamicFailure.getCause(), now());
       } else {
-        test.testFailure(throwable, currentMillis());
+        test.testFailure(throwable, now());
       }
     }
   }
@@ -197,7 +195,7 @@ public class TestSuiteModel {
   public void testSkipped(Description description) {
     TestNode test = getTest(description);
     if (test != null) {
-      test.testSkipped(currentMillis());
+      test.testSkipped(now());
     }
   }
 
@@ -210,7 +208,7 @@ public class TestSuiteModel {
   public void testSuppressed(Description description) {
     TestNode test = getTest(description);
     if (test != null) {
-      test.testSuppressed(currentMillis());
+      test.testSuppressed(now());
     }
   }
 
@@ -220,7 +218,7 @@ public class TestSuiteModel {
   public void testFinished(Description description) {
     TestCaseNode testCase = getTestCase(description);
     if (testCase != null) {
-      testCase.finished(currentMillis());
+      testCase.finished(now());
     }
 
     /*
@@ -230,8 +228,8 @@ public class TestSuiteModel {
      */
   }
 
-  private long currentMillis() {
-    return NANOSECONDS.toMillis(ticker.read());
+  private TestInstant now() {
+    return testClock.now();
   }
 
   /**
@@ -285,7 +283,7 @@ public class TestSuiteModel {
    * A builder for creating a model of a test suite.
    */
   public static class Builder {
-    private final Ticker ticker;
+    private final TestClock testClock;
     private final Map<Description, TestNode> testsMap = new ConcurrentHashMap<>();
     private final ShardingEnvironment shardingEnvironment;
     private final ShardingFilters shardingFilters;
@@ -295,9 +293,12 @@ public class TestSuiteModel {
     private boolean buildWasCalled = false;
 
     @Inject
-    public Builder(Ticker ticker, ShardingFilters shardingFilters,
-        ShardingEnvironment shardingEnvironment, XmlResultWriter xmlResultWriter) {
-      this.ticker = ticker;
+    public Builder(
+        TestClock testClock,
+        ShardingFilters shardingFilters,
+        ShardingEnvironment shardingEnvironment,
+        XmlResultWriter xmlResultWriter) {
+      this.testClock = testClock;
       this.shardingFilters = shardingFilters;
       this.shardingEnvironment = shardingEnvironment;
       this.xmlResultWriter = xmlResultWriter;

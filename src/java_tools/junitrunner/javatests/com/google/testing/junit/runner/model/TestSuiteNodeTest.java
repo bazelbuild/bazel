@@ -20,6 +20,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
+import com.google.testing.junit.runner.util.TestClock.TestInstant;
+import java.time.Duration;
+import java.time.Instant;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.Description;
@@ -33,7 +36,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class TestSuiteNodeTest {
 
-  private static final long NOW = 1;
+  private static final TestInstant NOW = new TestInstant(Instant.EPOCH, Duration.ZERO);
 
   @Mock private TestCaseNode testCaseNode;
   private TestSuiteNode testSuiteNode;

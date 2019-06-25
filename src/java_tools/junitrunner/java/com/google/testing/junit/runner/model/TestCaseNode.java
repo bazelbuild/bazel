@@ -17,6 +17,7 @@ package com.google.testing.junit.runner.model;
 import static com.google.testing.junit.runner.util.TestPropertyExporter.INITIAL_INDEX_FOR_REPEATED_PROPERTY;
 
 import com.google.testing.junit.runner.model.TestResult.Status;
+import com.google.testing.junit.runner.util.TestClock.TestInstant;
 import com.google.testing.junit.runner.util.TestIntegration;
 import com.google.testing.junit.runner.util.TestIntegrationsExporter;
 import com.google.testing.junit.runner.util.TestPropertyExporter;
@@ -66,7 +67,7 @@ class TestCaseNode extends TestNode
    * Indicates that the test represented by this node is scheduled to start.
    */
   void pending() {
-    compareAndSetState(State.INITIAL, State.PENDING, -1);
+    compareAndSetState(State.INITIAL, State.PENDING, TestInstant.UNKNOWN);
   }
 
   /**
@@ -74,12 +75,12 @@ class TestCaseNode extends TestNode
    *
    * @param now Time that the test started
    */
-  public void started(long now) {
+  public void started(TestInstant now) {
     compareAndSetState(INITIAL_STATES, State.STARTED, now);
   }
 
   @Override
-  public void testInterrupted(long now) {
+  public void testInterrupted(TestInstant now) {
     if (compareAndSetState(State.STARTED, State.INTERRUPTED, now)) {
       globalFailures.add(new Exception("Test interrupted"));
       return;
@@ -107,13 +108,12 @@ class TestCaseNode extends TestNode
   }
 
   @Override
-  public void testSkipped(long now) {
+  public void testSkipped(TestInstant now) {
     compareAndSetState(State.STARTED, State.SKIPPED, now);
   }
 
-
   @Override
-  public void testSuppressed(long now) {
+  public void testSuppressed(TestInstant now) {
     compareAndSetState(INITIAL_STATES, State.SUPPRESSED, now);
   }
 
@@ -122,18 +122,18 @@ class TestCaseNode extends TestNode
    *
    * @param now Time that the test finished
    */
-  public void finished(long now) {
+  public void finished(TestInstant now) {
     compareAndSetState(State.STARTED, State.FINISHED, now);
   }
 
   @Override
-  public void testFailure(Throwable throwable, long now) {
+  public void testFailure(Throwable throwable, TestInstant now) {
     compareAndSetState(INITIAL_STATES, State.FINISHED, now);
     globalFailures.add(throwable);
   }
 
   @Override
-  public void dynamicTestFailure(Description test, Throwable throwable, long now) {
+  public void dynamicTestFailure(Description test, Throwable throwable, TestInstant now) {
     compareAndSetState(INITIAL_STATES, State.FINISHED, now);
     addThrowableToDynamicTestToFailures(test, throwable);
   }
@@ -168,7 +168,7 @@ class TestCaseNode extends TestNode
     return previousRepetitionsNr;
   }
 
-  private boolean compareAndSetState(State fromState, State toState, long now) {
+  private boolean compareAndSetState(State fromState, State toState, TestInstant now) {
     if (fromState == null) {
       throw new NullPointerException();
     }
@@ -176,14 +176,14 @@ class TestCaseNode extends TestNode
   }
 
   // TODO(bazel-team): Use AtomicReference instead of a synchronized method.
-  private synchronized boolean compareAndSetState(Set<State> fromStates, State toState, long now) {
+  private synchronized boolean compareAndSetState(
+      Set<State> fromStates, State toState, TestInstant now) {
     if (fromStates == null || toState == null || state == null) {
       throw new NullPointerException();
     }
     if (fromStates.isEmpty()) {
       throw new IllegalArgumentException();
     }
-
     if (fromStates.contains(state) && toState != state) {
       state = toState;
       if (toState != State.PENDING) {

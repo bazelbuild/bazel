@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner.model;
 
+import com.google.testing.junit.runner.util.TestClock.TestInstant;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -25,11 +26,11 @@ import java.util.TimeZone;
  * <p>This class is thread-safe and immutable.
  */
 public final class TestInterval {
-  private final long startInstant;
-  private final long endInstant;
+  private final TestInstant startInstant;
+  private final TestInstant endInstant;
 
-  public TestInterval(long startInstant, long endInstant) {
-    if (startInstant > endInstant) {
+  public TestInterval(TestInstant startInstant, TestInstant endInstant) {
+    if (startInstant.monotonicTime().compareTo(endInstant.monotonicTime()) > 0) {
       throw new IllegalArgumentException("Start must be before end");
     }
     this.startInstant = startInstant;
@@ -37,19 +38,19 @@ public final class TestInterval {
   }
 
   public long getStartMillis() {
-    return startInstant;
+    return startInstant.wallTime().toEpochMilli();
   }
 
   public long getEndMillis() {
-    return endInstant;
+    return endInstant.wallTime().toEpochMilli();
   }
 
   public long toDurationMillis() {
-    return endInstant - startInstant;
+    return endInstant.monotonicTime().minus(startInstant.monotonicTime()).toMillis();
   }
 
-  public TestInterval withEndMillis(long millis) {
-    return new TestInterval(startInstant, millis);
+  public TestInterval withEndMillis(TestInstant now) {
+    return new TestInterval(startInstant, now);
   }
 
   public String startInstantToString() {
@@ -62,6 +63,19 @@ public final class TestInterval {
   String startInstantToString(TimeZone tz) {
     DateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
     format.setTimeZone(tz);
-    return format.format(new Date(startInstant));
+    return format.format(Date.from(startInstant.wallTime()));
+  }
+
+  /** Returns a TestInterval that contains both TestIntervals passed as parameter. */
+  public static TestInterval around(TestInterval a, TestInterval b) {
+    TestInstant start =
+        a.startInstant.monotonicTime().compareTo(b.startInstant.monotonicTime()) < 0
+            ? a.startInstant
+            : b.startInstant;
+    TestInstant end =
+        a.endInstant.monotonicTime().compareTo(b.endInstant.monotonicTime()) > 0
+            ? a.endInstant
+            : b.endInstant;
+    return new TestInterval(start, end);
   }
 }

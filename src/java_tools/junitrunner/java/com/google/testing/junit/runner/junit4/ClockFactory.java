@@ -15,22 +15,20 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Ticker;
+import com.google.testing.junit.runner.util.TestClock;
 
-/**
- * A factory that supplies {@link Ticker}.
- */
-public enum TickerFactory implements Factory<Ticker> {
+/** A factory that supplies {@link TestClock}. */
+public enum ClockFactory implements Factory<TestClock> {
   INSTANCE;
 
   @Override
-  public Ticker get() {
-    Ticker ticker = JUnit4RunnerModule.ticker();
-    assert ticker != null;
-    return ticker;
+  public TestClock get() {
+    TestClock testClock = JUnit4RunnerModule.clock();
+    assert testClock != null;
+    return testClock;
   }
 
-  public static Factory<Ticker> create() {
+  public static Factory<TestClock> create() {
     return INSTANCE;
   }
 }

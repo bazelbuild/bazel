@@ -14,29 +14,26 @@
 
 package com.google.testing.junit.runner.util;
 
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.time.Duration;
+import java.time.Instant;
 
 /**
  * A Ticker whose value can be advanced programmatically in test.
- * <p> The ticker can be configured so that the time is incremented whenever {@link #read} is
+ *
+ * <p>The ticker can be configured so that the time is incremented whenever {@link #now()} is
  * called.
  *
- * <p> This class is thread-safe.
+ * <p>This class is thread-safe.
  */
-public class FakeTicker extends Ticker {
+public class FakeTestClock extends TestClock {
 
-  private final AtomicLong nanos = new AtomicLong();
-  private volatile long autoIncrementStepNanos;
+  private final Instant wallTimeStart = Instant.EPOCH;
+  private Duration monotonic = Duration.ZERO;
+  private Duration autoIncrementStep = Duration.ZERO;
 
   /** Advances the ticker value by {@code time} in {@code timeUnit}. */
-  public FakeTicker advance(long time, TimeUnit timeUnit) {
-    return advance(timeUnit.toNanos(time));
-  }
-
-  /** Advances the ticker value by {@code nanoseconds}. */
-  public FakeTicker advance(long nanoseconds) {
-    nanos.addAndGet(nanoseconds);
+  public synchronized FakeTestClock advance(Duration duration) {
+    monotonic = monotonic.plus(duration);
     return this;
   }
 
@@ -46,17 +43,28 @@ public class FakeTicker extends Ticker {
    * <p>The default behavior is to auto increment by zero. i.e: The ticker is left unchanged when
    * queried.
    */
-  public FakeTicker setAutoIncrementStep(long autoIncrementStep, TimeUnit timeUnit) {
-    if (autoIncrementStep < 0) {
+  public synchronized FakeTestClock setAutoIncrementStep(Duration autoIncrementStep) {
+    if (autoIncrementStep.toNanos() < 0) {
       throw new IllegalArgumentException("May not auto-increment by a negative amount");
     }
-    this.autoIncrementStepNanos = timeUnit.toNanos(autoIncrementStep);
+    this.autoIncrementStep = autoIncrementStep;
     return this;
   }
 
   @Override
-  public long read() {
-    return nanos.getAndAdd(autoIncrementStepNanos);
+  Duration monotonicTime() {
+    return monotonic;
+  }
+
+  @Override
+  Instant wallTime() {
+    return wallTimeStart.plus(monotonic);
+  }
+
+  @Override
+  public synchronized TestInstant now() {
+    advance(autoIncrementStep);
+    return super.now();
   }
 }
 
