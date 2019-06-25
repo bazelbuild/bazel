@@ -996,7 +996,9 @@ public class CppOptions extends FragmentOptions {
 
   /** Returns true if targets under this configuration should apply CSFdo. */
   public boolean isCSFdo() {
-    return ((getFdoOptimize() != null || fdoProfileLabel != null)
-        && (csFdoInstrumentForBuild != null || csFdoProfileLabel != null));
+    return (getFdoOptimize() != null || fdoProfileLabel != null)
+        && (csFdoInstrumentForBuild != null
+            || csFdoProfileLabel != null
+            || csFdoAbsolutePathForBuild != null);
   }
 }
