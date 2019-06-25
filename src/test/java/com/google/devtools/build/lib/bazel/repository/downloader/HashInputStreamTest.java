@@ -20,6 +20,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -43,8 +45,7 @@ public class HashInputStreamTest {
         new InputStreamReader(
             new HashInputStream(
                 new ByteArrayInputStream("hello".getBytes(UTF_8)),
-                Hashing.sha1(),
-                HashCode.fromString("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d")),
+                Checksum.fromString(KeyType.SHA1, "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d")),
             UTF_8)) {
       assertThat(CharStreams.toString(reader)).isEqualTo("hello");
     }
@@ -58,8 +59,7 @@ public class HashInputStreamTest {
         new InputStreamReader(
             new HashInputStream(
                 new ByteArrayInputStream("hello".getBytes(UTF_8)),
-                Hashing.sha1(),
-                HashCode.fromString("0000000000000000000000000000000000000000")),
+                Checksum.fromString(KeyType.SHA1, "0000000000000000000000000000000000000000")),
             UTF_8)) {
       assertThat(CharStreams.toString(reader))
           .isNull(); // Only here to make @CheckReturnValue happy.

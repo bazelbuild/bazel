@@ -23,9 +23,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Optional;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -54,10 +57,10 @@ public class HttpStreamTest {
 
   private static final Random randoCalrissian = new Random();
   private static final byte[] data = "hello".getBytes(UTF_8);
-  private static final String GOOD_CHECKSUM =
-      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
-  private static final String BAD_CHECKSUM =
-      "0000000000000000000000000000000000000000000000000000000000000000";
+  private static final Optional<Checksum> GOOD_CHECKSUM = Optional.of(
+      Checksum.fromString(KeyType.SHA256, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"));
+  private static final Optional<Checksum> BAD_CHECKSUM = Optional.of(
+      Checksum.fromString(KeyType.SHA256, "0000000000000000000000000000000000000000000000000000000000000000"));
   private static final URL AURL = makeUrl("http://doodle.example");
 
   @Rule
@@ -86,7 +89,7 @@ public class HttpStreamTest {
 
   @Test
   public void noChecksum_readsOk() throws Exception {
-    try (HttpStream stream = streamFactory.create(connection, AURL, "", reconnector)) {
+    try (HttpStream stream = streamFactory.create(connection, AURL, Optional.absent(), reconnector)) {
       assertThat(toByteArray(stream)).isEqualTo(data);
     }
   }
@@ -113,7 +116,9 @@ public class HttpStreamTest {
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(bigData));
     try (HttpStream stream =
             streamFactory.create(
-                connection, AURL, Hashing.sha256().hashBytes(bigData).toString(), reconnector)) {
+                connection, AURL,
+                Optional.of(Checksum.fromString(KeyType.SHA256, Hashing.sha256().hashBytes(bigData).toString())),
+                reconnector)) {
       assertThat(toByteArray(stream)).isEqualTo(bigData);
     }
   }
@@ -137,7 +142,7 @@ public class HttpStreamTest {
     when(connection.getURL()).thenReturn(AURL);
     when(connection.getContentEncoding()).thenReturn("gzip");
     thrown.expect(ZipException.class);
-    streamFactory.create(connection, AURL, "", reconnector);
+    streamFactory.create(connection, AURL, Optional.absent(), reconnector);
   }
 
   @Test
@@ -145,7 +150,7 @@ public class HttpStreamTest {
     when(connection.getURL()).thenReturn(AURL);
     when(connection.getContentEncoding()).thenReturn("x-gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzipData(data)));
-    try (HttpStream stream = streamFactory.create(connection, AURL, "", reconnector)) {
+    try (HttpStream stream = streamFactory.create(connection, AURL, Optional.absent(), reconnector)) {
       assertThat(toByteArray(stream)).isEqualTo(data);
     }
   }
@@ -156,7 +161,7 @@ public class HttpStreamTest {
     when(connection.getURL()).thenReturn(new URL("http://doodle.example/foo.tar.gz"));
     when(connection.getContentEncoding()).thenReturn("gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzData));
-    try (HttpStream stream = streamFactory.create(connection, AURL, "", reconnector)) {
+    try (HttpStream stream = streamFactory.create(connection, AURL, Optional.absent(), reconnector)) {
       assertThat(toByteArray(stream)).isEqualTo(gzData);
     }
   }
@@ -168,7 +173,7 @@ public class HttpStreamTest {
         new Runnable() {
           @Override
           public void run() {
-            try (HttpStream stream = streamFactory.create(connection, AURL, "", reconnector)) {
+            try (HttpStream stream = streamFactory.create(connection, AURL, Optional.absent(), reconnector)) {
               stream.read();
               Thread.currentThread().interrupt();
               stream.read();

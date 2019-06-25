@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -474,6 +475,12 @@ public class SkylarkRepositoryContext
       warnAboutSha256Error(urls, sha256);
       sha256 = "";
     }
+    Optional<Checksum> checksum;
+    if (sha256.isEmpty()) {
+      checksum = Optional.absent();
+    } else {
+      checksum = Optional.of(Checksum.fromString(KeyType.SHA256, sha256));
+    }
     SkylarkPath outputPath = getPath("download()", output);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadEvent(
@@ -487,7 +494,7 @@ public class SkylarkRepositoryContext
           httpDownloader.download(
               urls,
               authHeaders,
-              sha256,
+              checksum,
               canonicalId,
               Optional.<String>absent(),
               outputPath.getPath(),
@@ -579,6 +586,12 @@ public class SkylarkRepositoryContext
       warnAboutSha256Error(urls, sha256);
       sha256 = "";
     }
+    Optional<Checksum> checksum;
+    if (sha256.isEmpty()) {
+      checksum = Optional.absent();
+    } else {
+      checksum = Optional.of(Checksum.fromString(KeyType.SHA256, sha256));
+    }
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadAndExtractEvent(
@@ -601,7 +614,7 @@ public class SkylarkRepositoryContext
           httpDownloader.download(
               urls,
               authHeaders,
-              sha256,
+              checksum,
               canonicalId,
               Optional.of(type),
               outputPath.getPath(),

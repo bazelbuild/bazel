@@ -42,10 +42,10 @@ final class HashInputStream extends InputStream {
   @Nullable private volatile HashCode actual;
 
   HashInputStream(
-      @WillCloseWhenClosed InputStream delegate, HashFunction function, HashCode code) {
+      @WillCloseWhenClosed InputStream delegate, Checksum checksum) {
     this.delegate = delegate;
-    this.hasher = function.newHasher();
-    this.code = code;
+    this.hasher = checksum.getKeyType().newHasher();
+    this.code = checksum.getHashCode();
   }
 
   @Override
