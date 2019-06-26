@@ -21,12 +21,13 @@ import java.util.List;
 /**
  * Interface for parsing options from a single options specification class.
  *
- * The {@link Options#parse(Class, String...)} method in this class has no clear
- * use case. Instead, use the {@link OptionsParser} class directly, as in this
- * code snippet:
+ * <p>The {@link Options#parse(Class, String...)} method in this class has no clear use case.
+ * Instead, use the {@link OptionsParser} class directly, as in this code snippet:
  *
  * <pre>
- * OptionsParser parser = OptionsParser.newOptionsParser(FooOptions.class);
+ * OptionsParser parser = OptionsParser.builder()
+ *     .optionsClasses(FooOptions.class)
+ *     .build();
  * try {
  *   parser.parse(FooOptions.class, args);
  * } catch (OptionsParsingException e) {

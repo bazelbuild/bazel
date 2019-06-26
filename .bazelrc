@@ -27,3 +27,4 @@ build:remote --disk_cache=
 
 # Flags for Android
 build:remote --noexperimental_check_desugar_deps # Workaround for singlejar incompatibility with RBE
+build --android_aapt=aapt2 # Turn aapt2 on by default for Bazel's own Android builds and tests.

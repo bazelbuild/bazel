@@ -226,3 +226,38 @@ def read_netrc(ctx, filename):
     if not currentmachinename == None:
         netrc[currentmachinename] = currentmachine
     return netrc
+
+def use_netrc(netrc, urls):
+    """compute an auth dict from a parsed netrc file and a list of URLs
+
+    Args:
+      netrc: a netrc file already parsed to a dict, e.g., as obtained from
+        read_netrc
+      urls: a list of URLs.
+
+    Returns:
+      dict suitable as auth argument for ctx.download; more precisely, the dict
+      will map all URLs where the netrc file provides login and password to a
+      dict containing the corresponding login and passwored, as well as the
+      mapping of "type" to "basic"
+    """
+    auth = {}
+    for url in urls:
+        schemerest = url.split("://", 1)
+        if len(schemerest) < 2:
+            continue
+        if not (schemerest[0] in ["http", "https"]):
+            # For other protocols, bazel currently does not support
+            # authentication. So ignore them.
+            continue
+        host = schemerest[1].split("/")[0].split(":")[0]
+        if not host in netrc:
+            continue
+        authforhost = netrc[host]
+        if "login" in authforhost and "password" in authforhost:
+            auth[url] = {
+                "type": "basic",
+                "login": authforhost["login"],
+                "password": authforhost["password"],
+            }
+    return auth

@@ -245,7 +245,7 @@ public abstract class StarlarkSemantics {
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(true)
-          .experimentalStarlarkUnusedInputsList(false)
+          .experimentalStarlarkUnusedInputsList(true)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(true)
           .incompatibleDepsetUnion(true)

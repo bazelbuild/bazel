@@ -101,6 +101,10 @@ public class ResourceLinker {
   private static final ImmutableSet<String> PSEUDO_LOCALE_FILTERS =
       ImmutableSet.of("en_XA", "ar_XB");
 
+  private static final boolean OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING =
+      Boolean.parseBoolean(
+          System.getProperty("rpbb.override_styles_instead_of_overlaying", "false"));
+
   /** Represents errors thrown during linking. */
   public static class LinkError extends Aapt2Exception {
 
@@ -244,6 +248,8 @@ public class ResourceLinker {
                   "-R", compiledResourcesToPaths(compiled, IS_FLAT_FILE), workingDirectory)
               .addRepeated("-I", pathsToLinkAgainst)
               .add("--auto-add-overlay")
+              .when(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING)
+              .thenAdd("--override-styles-instead-of-overlaying")
               .add("-o", outPath)
               .when(linkAgainst.size() == 1) // If using all compiled resources, generates sources
               .thenAdd("--java", javaSourceDirectory)
@@ -272,6 +278,8 @@ public class ResourceLinker {
                 .addRepeated(
                     "-R", pathsToLinkAgainst.stream().filter(IS_JAR.negate()).collect(toList()))
                 .add("--auto-add-overlay")
+                .when(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING)
+                .thenAdd("--override-styles-instead-of-overlaying")
                 .add("-o", outPath.resolveSibling("transitive.apk"))
                 .add("--java", javaSourceDirectory)
                 .add("--output-text-symbols", rTxt)
@@ -381,6 +389,8 @@ public class ResourceLinker {
             .add("--manifest", compiled.getManifest())
             // Enables resource redefinition and merging
             .add("--auto-add-overlay")
+            .when(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING)
+            .thenAdd("--override-styles-instead-of-overlaying")
             // Always link to proto, as resource shrinking needs the extra information.
             .add("--proto-format")
             .when(debug)

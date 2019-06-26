@@ -694,4 +694,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public boolean useSpecificToolFiles() {
     return cppOptions.useSpecificToolFiles;
   }
+
+  public boolean disableNoCopts() {
+    return cppOptions.disableNoCopts;
+  }
 }

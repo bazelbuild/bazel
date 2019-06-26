@@ -15,18 +15,31 @@
 package com.google.testing.junit.runner.model;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.testing.junit.runner.model.TestInstantUtil.testInstant;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.testing.junit.runner.util.TestClock.TestInstant;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.SAXException;
 
 @RunWith(JUnit4.class)
 public class AntXmlResultWriterTest {
-  private static final long NOW = 1;
+
   private static TestSuiteNode root;
   private static XmlWriter writer;
   private static AntXmlResultWriter resultWriter;
@@ -69,9 +82,37 @@ public class AntXmlResultWriterTest {
     assertThat(resultXml).doesNotContain("<testcase name='testCase2'");
   }
 
+  @Test
+  public void testWallTimeAndMonotonicTimestamp() throws Exception {
+    TestSuiteNode parent = createTestSuite();
+    TestCaseNode test = createTestCase(parent);
+
+    // wall time may appear to go back in time in exceptional cases (e.g. daylight saving time)
+    test.started(new TestInstant(Instant.ofEpochMilli(1560786184600L), Duration.ZERO));
+    test.finished(new TestInstant(Instant.EPOCH, Duration.ofMillis(1L)));
+
+    resultWriter.writeTestSuites(writer, root.getResult());
+
+    String resultXml = stringWriter.toString();
+    assertThat(resultXml).contains("time=");
+    assertThat(resultXml).contains("timestamp=");
+
+    Document document = parseXml(resultXml);
+    Element testSuites = document.getDocumentElement();
+    Element testSuite = (Element) testSuites.getElementsByTagName("testsuite").item(0);
+    assertThat(testSuite.getTagName()).isEqualTo("testsuite");
+    assertThat(testSuite.getAttribute("name"))
+        .isEqualTo("com.google.testing.junit.runner.model.TestCaseNodeTest$TestSuite");
+    assertThat(testSuite.getAttribute("time")).isEqualTo("0.001");
+    assertThat(
+            Instant.from(
+                DateTimeFormatter.ISO_DATE_TIME.parse(testSuite.getAttribute("timestamp"))))
+        .isEqualTo(Instant.ofEpochMilli(1560786184600L));
+  }
+
   private void runToCompletion(TestCaseNode test) {
-    test.started(NOW);
-    test.finished(NOW + 1);
+    test.started(testInstant(Instant.ofEpochMilli(1)));
+    test.finished(testInstant(Instant.ofEpochMilli(2)));
   }
 
   private TestCaseNode createTestCase(TestSuiteNode parent) {
@@ -87,5 +128,13 @@ public class AntXmlResultWriterTest {
     TestSuiteNode parent = new TestSuiteNode(suite);
     root.addTestSuite(parent);
     return parent;
+  }
+
+  private static Document parseXml(String testXml)
+      throws SAXException, ParserConfigurationException, IOException {
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setIgnoringElementContentWhitespace(true);
+    DocumentBuilder documentBuilder = factory.newDocumentBuilder();
+    return documentBuilder.parse(new ByteArrayInputStream(testXml.getBytes(UTF_8)));
   }
 }

@@ -107,6 +107,16 @@ public class Utils {
     return !Collections.disjoint(outputs, topLevelOutputs);
   }
 
+  public static String grpcAwareErrorMessage(IOException e) {
+    io.grpc.Status errStatus = io.grpc.Status.fromThrowable(e);
+    if (!errStatus.getCode().equals(io.grpc.Status.UNKNOWN.getCode())) {
+      // If the error originated in the gRPC library then display it as "STATUS: error message"
+      // to the user
+      return String.format("%s: %s", errStatus.getCode().name(), errStatus.getDescription());
+    }
+    return e.getMessage();
+  }
+
   /** An in-memory output file. */
   public static final class InMemoryOutput {
     private final ActionInput output;

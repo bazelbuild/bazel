@@ -40,10 +40,10 @@ import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import com.google.testing.junit.runner.sharding.testing.FakeShardingFilters;
 import com.google.testing.junit.runner.util.CurrentRunningTest;
-import com.google.testing.junit.runner.util.FakeTicker;
+import com.google.testing.junit.runner.util.FakeTestClock;
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
+import com.google.testing.junit.runner.util.TestClock;
 import com.google.testing.junit.runner.util.TestNameProvider;
-import com.google.testing.junit.runner.util.Ticker;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -571,8 +571,8 @@ public class JUnit4RunnerTest {
       return shardingEnvironment;
     }
 
-    Ticker ticker() {
-      return new FakeTicker();
+    TestClock clock() {
+      return new FakeTestClock();
     }
 
     JUnit4Config config() {

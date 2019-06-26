@@ -1060,4 +1060,15 @@ public class CcCommonTest extends BuildViewTestCase {
   private String removeOutDirectory(String s) {
     return s.replace("blaze-out", "").replace("bazel-out", "");
   }
+
+  @Test
+  public void testNoCoptsDisabled() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'], nocopts = 'abc')");
+    useConfiguration("--incompatible_disable_nocopts");
+    getConfiguredTarget("//x:foo");
+    assertContainsEvent(
+        "This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for"
+            + " details.");
+  }
 }

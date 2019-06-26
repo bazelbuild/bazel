@@ -15,7 +15,12 @@
 package com.google.testing.junit.runner.model;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.testing.junit.runner.model.TestInstantUtil.advance;
+import static com.google.testing.junit.runner.model.TestInstantUtil.testInstant;
 
+import com.google.testing.junit.runner.util.TestClock.TestInstant;
+import java.time.Duration;
+import java.time.Instant;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.Description;
@@ -28,7 +33,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class TestCaseNodeTest {
 
-  private static final long NOW = 1;
+  private static final TestInstant NOW = testInstant(Instant.ofEpochMilli(1));
   private static Description suite;
   private static Description testCase;
 
@@ -88,7 +93,7 @@ public class TestCaseNodeTest {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
     testCaseNode.pending();
     testCaseNode.started(NOW);
-    testCaseNode.testInterrupted(NOW + 1);
+    testCaseNode.testInterrupted(advance(NOW, Duration.ofMillis(1)));
     assertStatusAndTiming(testCaseNode, TestResult.Status.INTERRUPTED, NOW, 1);
   }
 
@@ -97,7 +102,7 @@ public class TestCaseNodeTest {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
     testCaseNode.pending();
     testCaseNode.started(NOW);
-    testCaseNode.testSkipped(NOW + 1);
+    testCaseNode.testSkipped(advance(NOW, Duration.ofMillis(1)));
     assertStatusAndTiming(testCaseNode, TestResult.Status.SKIPPED, NOW, 1);
   }
 
@@ -106,7 +111,7 @@ public class TestCaseNodeTest {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
     testCaseNode.pending();
     testCaseNode.started(NOW);
-    testCaseNode.finished(NOW + 1);
+    testCaseNode.finished(advance(NOW, Duration.ofMillis(1)));
     assertStatusAndTiming(testCaseNode, TestResult.Status.COMPLETED, NOW, 1);
   }
 
@@ -115,8 +120,8 @@ public class TestCaseNodeTest {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
     testCaseNode.pending();
     testCaseNode.started(NOW);
-    testCaseNode.testFailure(new Exception(), NOW + 1);
-    testCaseNode.finished(NOW + 2);
+    testCaseNode.testFailure(new Exception(), advance(NOW, Duration.ofMillis(1)));
+    testCaseNode.finished(advance(NOW, Duration.ofMillis(2)));
     assertStatusAndTiming(testCaseNode, TestResult.Status.COMPLETED, NOW, 2);
   }
 
@@ -125,8 +130,8 @@ public class TestCaseNodeTest {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
     testCaseNode.pending();
     testCaseNode.started(NOW);
-    testCaseNode.testFailure(new Exception(), NOW + 1);
-    testCaseNode.testInterrupted(NOW + 2);
+    testCaseNode.testFailure(new Exception(), advance(NOW, Duration.ofMillis(1)));
+    testCaseNode.testInterrupted(advance(NOW, Duration.ofMillis(2)));
     assertStatusAndTiming(testCaseNode, TestResult.Status.INTERRUPTED, NOW, 2);
   }
 
@@ -139,11 +144,12 @@ public class TestCaseNodeTest {
   }
 
   private void assertStatusAndTiming(
-      TestCaseNode testCase, TestResult.Status status, long start, long duration) {
+      TestCaseNode testCase, TestResult.Status status, TestInstant start, long duration) {
     TestResult result = testCase.getResult();
     assertThat(result.getStatus()).isEqualTo(status);
     assertThat(result.getRunTimeInterval()).isNotNull();
-    assertThat(result.getRunTimeInterval().getStartMillis()).isEqualTo(start);
+    assertThat(result.getRunTimeInterval().getStartMillis())
+        .isEqualTo(start.wallTime().toEpochMilli());
     assertThat(result.getRunTimeInterval().toDurationMillis()).isEqualTo(duration);
   }
 

@@ -164,15 +164,13 @@ function check_output_content() {
 # Typical "rebuild" scenario.
 function test_dependency_pruning_scenario() {
   # Initial build.
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA contentB contentC"
   check_unused_content
 
   # Mark "b" as unused.
   echo "unused" > pkg/b.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA contentC"
   check_unused_content "pkg/b.input"
 
@@ -180,16 +178,14 @@ function test_dependency_pruning_scenario() {
   # This time it should be used. But given that it was marked "unused"
   # the build should not trigger: "b" should still be considered unused.
   echo "newContentB" > pkg/b.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA contentC"
   check_unused_content "pkg/b.input"
 
   # Change c:
   # The build should be triggered, and the newer version of "b" should be used.
   echo "unused" > pkg/c.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA newContentB"
   check_unused_content "pkg/c.input"
 }
@@ -198,8 +194,7 @@ function test_dependency_pruning_scenario() {
 function test_unused_shutdown() {
   # Mark "b" as unused + initial build
   echo "unused" > pkg/b.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA contentC"
   check_unused_content "pkg/b.input"
 
@@ -209,16 +204,14 @@ function test_unused_shutdown() {
   # Change "b" again:
   # Check that the action is still cached, although b changed.
   echo "newContentB" > pkg/b.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA contentC"
   check_unused_content "pkg/b.input"
 
   # Change c:
   # The build should be trigerred, and the newer version of "b" should be used.
   echo "unused" > pkg/c.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA newContentB"
   check_unused_content "pkg/c.input"
 }
@@ -228,8 +221,7 @@ function test_unused_shutdown() {
 function test_used_shutdown() {
   # Mark "b" as unused + initial build
   echo "unused" > pkg/b.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA contentC"
   check_unused_content "pkg/b.input"
 
@@ -238,8 +230,7 @@ function test_used_shutdown() {
 
   # Change "c", which is used.
   echo "newContentC" > pkg/c.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA newContentC"
   check_unused_content "pkg/b.input"
 }
@@ -249,8 +240,7 @@ function test_used_shutdown() {
 function test_invalid_unused() {
   # Mark "b" as producing an invalid unused file + initial build
   echo "invalidUnused" > pkg/b.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   # Note: build should not fail: it is OK for unused file to contain
   # non-existing files.
   check_output_content "contentA contentC"
@@ -259,17 +249,17 @@ function test_invalid_unused() {
   # Change "b" again:
   # It should just be picked-up, as it was not "unused".
   echo "newContentB" > pkg/b.input
-  bazel build --experimental_starlark_unused_inputs_list //pkg:output \
-      || fail "build failed"
+  bazel build //pkg:output || fail "build failed"
   check_output_content "contentA newContentB contentC"
   check_unused_content
 }
 
 # Verify that the flag '--experimental_starlark_unused_inputs_list' is required
-# for 'unused_inputs_list' usage.
+# for 'unused_inputs_list' usage. Note: defaults to true.
 function test_experiment_flag_required() {
   # This should fail.
-  bazel build //pkg:output >& $TEST_log && fail "Expected failure"
+  bazel build --noexperimental_starlark_unused_inputs_list \
+      //pkg:output >& $TEST_log && fail "Expected failure"
   exitcode=$?
   assert_equals 1 "$exitcode"
   expect_log "Use --experimental_starlark_unused_inputs_list"

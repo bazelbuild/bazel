@@ -23,7 +23,7 @@ import java.io.IOException;
  */
 public class RendererMain {
   public static void main(String[] args) throws IOException {
-    OptionsParser parser = OptionsParser.newOptionsParser(RendererOptions.class);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RendererOptions.class).build();
     parser.parseAndExitUponError(args);
     RendererOptions rendererOptions = parser.getOptions(RendererOptions.class);
 

@@ -525,6 +525,14 @@ public final class CcCommon {
     if (Strings.isNullOrEmpty(nocoptsValue)) {
       return null;
     }
+
+    if (ruleContext.getConfiguration().getFragment(CppConfiguration.class).disableNoCopts()) {
+      ruleContext.attributeError(
+          NO_COPTS_ATTRIBUTE,
+          "This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for"
+              + " details.");
+    }
+
     String nocoptsAttr = ruleContext.getExpander().expand(NO_COPTS_ATTRIBUTE, nocoptsValue);
     try {
       return Pattern.compile(nocoptsAttr);

@@ -96,7 +96,7 @@ public class ObjcCppSemantics implements CppSemantics {
     actionBuilder
         // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
         // including header files, as opposed to just the "compile" filegroup.
-        .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getAllFiles())
+        .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getAllFilesMiddleman())
         .setShouldScanIncludes(false);
 
     if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {

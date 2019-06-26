@@ -694,6 +694,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "all non-Genrule actions.\n")
   public ExecutionInfoModifier executionInfoModifier;
 
+  @Option(
+      name = "experimental_genquery_use_graphless_query",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help = "Whether to use graphless query and disable output ordering.")
+  public boolean useGraphlessQuery;
+
   @Override
   public FragmentOptions getHost() {
     CoreOptions host = (CoreOptions) getDefault();
