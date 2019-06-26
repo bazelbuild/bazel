@@ -356,8 +356,9 @@ fi
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR"; then
   (
    shopt -s dotglob failglob
-   zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- *
-  ) 2> /dev/null
+   zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * || \
+       echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": zip not found or failed"
+  )
 fi
 
 exit $exitCode
