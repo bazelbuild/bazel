@@ -27,7 +27,7 @@ import java.time.Instant;
  */
 public class FakeTestClock extends TestClock {
 
-  private final Instant wallTimeStart = Instant.EPOCH;
+  private Instant wallTimeOffset = Instant.EPOCH;
   private Duration monotonic = Duration.ZERO;
   private Duration autoIncrementStep = Duration.ZERO;
 
@@ -51,6 +51,18 @@ public class FakeTestClock extends TestClock {
     return this;
   }
 
+  /**
+   * Sets the wall time offset to the specified value. That is the offset between the wall time and
+   * the monotonic advance set either via {@link #setAutoIncrementStep(Duration)} or {@link
+   * #advance(Duration)}.
+   *
+   * <p>The default behavior is to have an offset of zero, which means that the monotonic timestamp
+   * has the same value as the wall time (relative to EPOCH).
+   */
+  public void setWallTimeOffset(Instant wallTimeOffset) {
+    this.wallTimeOffset = wallTimeOffset;
+  }
+
   @Override
   Duration monotonicTime() {
     return monotonic;
@@ -58,7 +70,7 @@ public class FakeTestClock extends TestClock {
 
   @Override
   Instant wallTime() {
-    return wallTimeStart.plus(monotonic);
+    return wallTimeOffset.plus(monotonic);
   }
 
   @Override

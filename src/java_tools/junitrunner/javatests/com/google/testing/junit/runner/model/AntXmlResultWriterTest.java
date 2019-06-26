@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.testing.junit.runner.model.TestInstantUtil.testInstant;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.testing.junit.runner.util.TestClock.TestInstant;
+import com.google.testing.junit.runner.util.FakeTestClock;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -84,12 +84,17 @@ public class AntXmlResultWriterTest {
 
   @Test
   public void testWallTimeAndMonotonicTimestamp() throws Exception {
+    FakeTestClock clock = new FakeTestClock();
+    Instant startTime = Instant.ofEpochMilli(1560786184600L);
+    clock.setWallTimeOffset(startTime);
     TestSuiteNode parent = createTestSuite();
     TestCaseNode test = createTestCase(parent);
 
+    test.started(clock.now());
     // wall time may appear to go back in time in exceptional cases (e.g. daylight saving time)
-    test.started(new TestInstant(Instant.ofEpochMilli(1560786184600L), Duration.ZERO));
-    test.finished(new TestInstant(Instant.EPOCH, Duration.ofMillis(1L)));
+    clock.advance(Duration.ofMillis(1L));
+    clock.setWallTimeOffset(startTime.minus(Duration.ofHours(1)));
+    test.finished(clock.now());
 
     resultWriter.writeTestSuites(writer, root.getResult());
 
@@ -107,7 +112,7 @@ public class AntXmlResultWriterTest {
     assertThat(
             Instant.from(
                 DateTimeFormatter.ISO_DATE_TIME.parse(testSuite.getAttribute("timestamp"))))
-        .isEqualTo(Instant.ofEpochMilli(1560786184600L));
+        .isEqualTo(startTime);
   }
 
   private void runToCompletion(TestCaseNode test) {
