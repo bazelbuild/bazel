@@ -305,7 +305,11 @@ _rule_test_rule = rule(
 )
 
 def rule_test(name, rule, generates = None, provides = None, **kwargs):
-    _rule_test_rule(
+    # merge the common attributes (such as `tags`, ...) provided by
+    # users with the attributes of _rule_test_rule
+    # attributes defined here (such as `testonly`) takes precedence.
+    rule_dict = dict(kwargs)
+    rule_dict.update(dict(
         name = name + "_impl",
         rule = rule,
         generates = generates,
@@ -313,7 +317,9 @@ def rule_test(name, rule, generates = None, provides = None, **kwargs):
         out = name + ".sh",
         testonly = 1,
         visibility = ["//visibility:private"],
-    )
+        ))
+
+    _rule_test_rule(**rule_dict)
 
     _make_sh_test(name, **kwargs)
 
