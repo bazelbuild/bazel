@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcLibraryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 
@@ -43,9 +45,10 @@ public final class BazelCcLibraryRule implements RuleDefinition {
         <code>objc_library</code> targets.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("compile_only_deps", LABEL_LIST)
+            .allowedFileTypes()
             .allowedRuleClasses(BazelCppRuleClasses.DEPS_ALLOWED_RULES)
-            .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
-            .skipAnalysisTimeFileTypeCheck())
+            .skipAnalysisTimeFileTypeCheck()
+            .mandatoryProviders(SkylarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey())))
         /*<!-- #BLAZE_RULE(cc_library).ATTRIBUTE(alwayslink) -->
         If 1, any binary that depends (directly or indirectly) on this C++
         library will link in all the object files for the files listed in

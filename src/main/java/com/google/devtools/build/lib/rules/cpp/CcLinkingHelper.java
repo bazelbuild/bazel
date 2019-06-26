@@ -177,14 +177,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  /** Sets fields that only exist in cc_library rules. */
-  public CcLinkingHelper fromLibrary(RuleContext ruleContext) {
-    addCcLinkingContexts(
-        CppHelper.getLinkingContextsFromDeps(
-            ImmutableList.copyOf(ruleContext.getPrerequisites("compile_only_deps", Mode.TARGET))));
-    return this;
-  }
-
   public CcLinkingHelper setNativeDeps(boolean nativeDeps) {
     this.nativeDeps = nativeDeps;
     return this;

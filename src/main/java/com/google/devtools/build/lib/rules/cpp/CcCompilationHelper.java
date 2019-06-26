@@ -346,14 +346,6 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  /** Sets fields that only exist in cc_library rules. */
-  public CcCompilationHelper fromLibrary(RuleContext ruleContext) {
-    addCompileActionCcCompilationContexts(
-        CppHelper.getCompilationContextsFromDeps(
-            ImmutableList.copyOf(ruleContext.getPrerequisites("compile_only_deps", Mode.TARGET))));
-    return this;
-  }
-
   /**
    * Adds {@code headers} as public header files. These files will be made visible to dependent
    * rules. They may be parsed/preprocessed or compiled into a header module depending on the
