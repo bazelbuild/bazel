@@ -78,6 +78,37 @@ class CacheEmptyAnswerTest(test_base.TestBase):
 
     exit_code, _, stderr = self.RunBazel(['build', '//:genrule.txt', '--remote_http_cache', self.url])
     self.AssertExitCode(exit_code, 0, stderr)
+    self.assertNotIn('INFO: 1 process: 1 remote cache hit.', stderr)
+
+  def testEmptyAnswerWithNoOutputsTreatedAsHit(self):
+    content = ['Hello HTTP']
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('input.txt', content)
+    self.ScratchFile('myrule.bzl', [
+        'def _impl(ctx):',
+        '    out = ctx.actions.declare_file("myrule.txt")',
+        '    ctx.actions.expand_template(template=ctx.file.src, output=out, substitutions={})',
+        '    return [DefaultInfo(files=depset([out]))]',
+        '',
+        'myrule = rule(',
+        '    implementation=_impl,',
+        '    attrs={',
+        '        "src": attr.label(allow_single_file=True),',
+        '    },'
+        ')'
+    ])
+    self.ScratchFile('BUILD', [
+        'load(":myrule.bzl", "myrule")',
+        '',
+        'myrule(',
+        '    name = "myrule",',
+        '    src = "//:input.txt",',
+        ')',
+    ])
+
+    exit_code, _, stderr = self.RunBazel(['build', '//:myrule', '--remote_http_cache', self.url])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('INFO: 1 process: 1 remote cache hit.', stderr)
 
   def GetFreeTCPPort(self):
     tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
