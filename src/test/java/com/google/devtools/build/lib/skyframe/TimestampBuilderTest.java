@@ -79,18 +79,6 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testBuildingNonexistentSourcefileFails() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    Artifact hello = createSourceArtifact("hello");
-    BuildFailedException e =
-        assertThrows(
-            "Expected input file to be missing",
-            BuildFailedException.class,
-            () -> buildArtifacts(cachingBuilder(), hello));
-    assertThat(e).hasMessageThat().isEqualTo("missing input file '" + hello.getPath() + "'");
-  }
-
-  @Test
   public void testCachingBuilderCachesUntilReset() throws Exception {
     // [action] -> hello
     Artifact hello = createDerivedArtifact("hello");
@@ -114,7 +102,8 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   @Test
   public void testUnneededInputs() throws Exception {
     Artifact hello = createSourceArtifact("hello");
-    BlazeTestUtils.makeEmptyFile(hello.getPath());
+    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact optional = createSourceArtifact("hello.optional");
     Artifact goodbye = createDerivedArtifact("goodbye");
     Button button = createActionButton(Sets.newHashSet(hello, optional), Sets.newHashSet(goodbye));
@@ -128,6 +117,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertThat(button.pressed).isFalse(); // not rebuilt
 
     BlazeTestUtils.makeEmptyFile(optional.getPath());
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content2");
 
     button.pressed = false;
     buildArtifacts(cachingBuilder(), goodbye);
@@ -138,6 +128,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertThat(button.pressed).isFalse(); // not rebuilt
 
     optional.getPath().delete();
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content3");
 
     button.pressed = false;
     buildArtifacts(cachingBuilder(), goodbye);

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -1018,8 +1017,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             && ((Artifact) skyKey.argument()).isTreeArtifact()) {
           return TreeArtifactValue.create(allTreeFiles);
         }
-        return FileArtifactValue.createShareable(
-            ArtifactSkyKey.artifact((SkyKey) skyKey.argument()).getPath());
+        return FileArtifactValue.createShareable(((Artifact) skyKey.argument()).getPath());
       } catch (IOException e) {
         throw new SkyFunctionException(e, Transience.PERSISTENT){};
       }

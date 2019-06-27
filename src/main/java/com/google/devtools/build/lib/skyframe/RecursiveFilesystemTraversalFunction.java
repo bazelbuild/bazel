@@ -19,7 +19,6 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -249,7 +248,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       SkyValue fsVal = null;
       if (traversal.root.getOutputArtifact() != null) {
         Artifact artifact = traversal.root.getOutputArtifact();
-        SkyKey artifactKey = ArtifactSkyKey.key(artifact, true);
+        SkyKey artifactKey = Artifact.key(artifact);
         SkyValue value = env.getValue(artifactKey);
         if (env.valuesMissing()) {
           throw new MissingDepException();

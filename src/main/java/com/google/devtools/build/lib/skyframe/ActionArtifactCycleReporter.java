@@ -19,7 +19,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
@@ -54,9 +53,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   }
 
   private static String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
-    if (arg instanceof ArtifactSkyKey) {
-      return prettyPrintArtifact(((ArtifactSkyKey) arg).getArtifact());
-    } else if (arg instanceof Artifact) {
+    if (arg instanceof Artifact) {
       return prettyPrintArtifact(((Artifact) arg));
     } else if (arg instanceof ActionLookupData) {
       return "action from: " + arg;
@@ -68,15 +65,13 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return "test target: " + ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }
     throw new IllegalStateException(
-        "Argument is not Action, TargetCompletion, TestCompletion or ArtifactSkyKey: " + arg);
+        "Argument is not Action, TargetCompletion or TestCompletion: " + arg);
   }
 
   @Override
   protected Label getLabel(SkyKey key) {
     Object arg = key.argument();
-    if (arg instanceof ArtifactSkyKey) {
-      return ((ArtifactSkyKey) arg).getArtifact().getOwner();
-    } else if (arg instanceof Artifact) {
+    if (arg instanceof Artifact) {
       return ((Artifact) arg).getOwner();
     } else if (arg instanceof ActionLookupData) {
       return ((ActionLookupData) arg).getLabel();
@@ -88,7 +83,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }
     throw new IllegalStateException(
-        "Argument is not Action, TargetCompletion, TestCompletion or ArtifactSkyKey: " + arg);
+        "Argument is not Action, TargetCompletion or TestCompletion: " + arg);
   }
 
   @Override

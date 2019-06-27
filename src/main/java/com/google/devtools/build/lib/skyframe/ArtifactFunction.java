@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
@@ -65,6 +63,18 @@ import javax.annotation.Nullable;
 class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
 
+  public static final class MissingFileArtifactValue implements SkyValue {
+    private final MissingInputFileException exception;
+
+    private MissingFileArtifactValue(MissingInputFileException e) {
+      this.exception = e;
+    }
+
+    public MissingInputFileException getException() {
+      return exception;
+    }
+  }
+
   public ArtifactFunction(Supplier<Boolean> mkdirForTreeArtifacts) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
   }
@@ -72,15 +82,10 @@ class ArtifactFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
-    Artifact artifact = ArtifactSkyKey.artifact(skyKey);
+    Artifact artifact = (Artifact) skyKey;
     if (artifact.isSourceArtifact()) {
       try {
-        return createSourceValue(artifact, ArtifactSkyKey.isMandatory(skyKey), env);
-      } catch (MissingInputFileException e) {
-        // The error is not necessarily truly transient, but we mark it as such because we have
-        // the above side effect of posting an event to the EventBus. Importantly, that event
-        // is potentially used to report root causes.
-        throw new ArtifactFunctionException(e, Transience.TRANSIENT);
+        return createSourceValue(artifact, env);
       } catch (IOException e) {
         throw new ArtifactFunctionException(e, Transience.TRANSIENT);
       }
@@ -207,26 +212,23 @@ class ArtifactFunction implements SkyFunction {
     return TreeArtifactValue.create(map.build());
   }
 
-  private FileArtifactValue createSourceValue(Artifact artifact, boolean mandatory, Environment env)
-      throws MissingInputFileException, IOException, InterruptedException {
+  private static SkyValue createSourceValue(Artifact artifact, Environment env)
+      throws IOException, InterruptedException {
     RootedPath path = RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getPath());
     SkyKey fileSkyKey = FileValue.key(path);
     FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
     } catch (IOException e) {
-      throw makeMissingInputFileException(artifact, mandatory, e, env.getListener());
+      return makeMissingInputFileValue(artifact, e);
     }
     if (fileValue == null) {
       return null;
     }
     if (!fileValue.exists()) {
-      if (!mandatory) {
-        return FileArtifactValue.MISSING_FILE_MARKER;
-      } else {
-        throw makeMissingInputFileException(artifact, mandatory, null, env.getListener());
-      }
+      return makeMissingInputFileValue(artifact, null);
     }
+
     // For directory artifacts that are not Filesets, we initiate a directory traversal here, and
     // compute a hash from the directory structure.
     if (fileValue.isDirectory() && TrackSourceDirectoriesFlag.trackSourceDirectories()) {
@@ -269,19 +271,15 @@ class ArtifactFunction implements SkyFunction {
     try {
       return FileArtifactValue.create(artifact, fileValue);
     } catch (IOException e) {
-      throw makeMissingInputFileException(artifact, mandatory, e, env.getListener());
+      return makeMissingInputFileValue(artifact, e);
     }
   }
 
-  private static MissingInputFileException makeMissingInputFileException(
-      Artifact artifact, boolean mandatory, Exception failure, EventHandler reporter) {
+  private static SkyValue makeMissingInputFileValue(Artifact artifact, Exception failure) {
     String extraMsg = (failure == null) ? "" : (":" + failure.getMessage());
     MissingInputFileException ex =
         new MissingInputFileException(constructErrorMessage(artifact) + extraMsg, null);
-    if (mandatory) {
-      reporter.handle(Event.error(ex.getLocation(), ex.getMessage()));
-    }
-    return ex;
+    return new MissingFileArtifactValue(ex);
   }
 
   /**
@@ -322,13 +320,12 @@ class ArtifactFunction implements SkyFunction {
       // Avoid iterating over nested set twice.
       inputs = ((NestedSet<Artifact>) inputs).toList();
     }
-    Map<SkyKey, SkyValue> values = env.getValues(ArtifactSkyKey.mandatoryKeys(inputs));
+    Map<SkyKey, SkyValue> values = env.getValues(Artifact.keys(inputs));
     if (env.valuesMissing()) {
       return null;
     }
     for (Artifact input : inputs) {
-      SkyValue inputValue =
-          Preconditions.checkNotNull(values.get(ArtifactSkyKey.mandatoryKey(input)), input);
+      SkyValue inputValue = Preconditions.checkNotNull(values.get(Artifact.key(input)), input);
       if (inputValue instanceof FileArtifactValue) {
         fileInputsBuilder.add(Pair.of(input, (FileArtifactValue) inputValue));
       } else if (inputValue instanceof ActionExecutionValue) {
@@ -381,7 +378,7 @@ class ArtifactFunction implements SkyFunction {
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(ArtifactSkyKey.artifact(skyKey).getOwner());
+    return Label.print(((Artifact) skyKey).getOwner());
   }
 
   static ActionLookupKey getActionLookupKey(Artifact artifact) {
@@ -406,10 +403,6 @@ class ArtifactFunction implements SkyFunction {
   }
 
   static final class ArtifactFunctionException extends SkyFunctionException {
-    ArtifactFunctionException(MissingInputFileException e, Transience transience) {
-      super(e, transience);
-    }
-
     ArtifactFunctionException(IOException e, Transience transience) {
       super(e, transience);
     }

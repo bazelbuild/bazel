@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -101,7 +100,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   @Test
   public void testMissingNonMandatoryArtifact() throws Throwable {
     Artifact input = createSourceArtifact("input1");
-    assertThat(evaluateArtifactValue(input, /*mandatory=*/ false)).isNotNull();
+    assertThat(evaluateArtifactValue(input)).isNotNull();
   }
 
   @Test
@@ -121,19 +120,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     file(inputPath, "dummynotused");
     inputPath.chmod(0);
 
-    FileArtifactValue value =
-        (FileArtifactValue) evaluateArtifactValue(input, /*mandatory=*/ true);
+    FileArtifactValue value = (FileArtifactValue) evaluateArtifactValue(input);
 
     FileStatus stat = inputPath.stat();
     assertThat(value.getSize()).isEqualTo(stat.getSize());
     assertThat(value.getDigest()).isEqualTo(expectedDigest);
-  }
-
-  @Test
-  public void testMissingMandatoryArtifact() throws Throwable {
-    Artifact input = createSourceArtifact("input1");
-    assertThrows(
-        MissingInputFileException.class, () -> evaluateArtifactValue(input, /*mandatory=*/ true));
   }
 
   @Test
@@ -154,8 +145,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     file(input1.getPath(), "source contents");
     evaluate(
         Iterables.toArray(
-            ArtifactSkyKey.mandatoryKeys(ImmutableSet.of(input2, input1, input2, tree)),
-            SkyKey.class));
+            Artifact.keys(ImmutableSet.of(input2, input1, input2, tree)), SkyKey.class));
     SkyValue value = evaluateArtifactValue(output);
     ArrayList<Pair<Artifact, ?>> inputs = new ArrayList<>();
     inputs.addAll(((AggregatingArtifactValue) value).getFileArtifacts());
@@ -184,10 +174,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             return super.statIfFound(path, followSymlinks);
           }
         });
-    MissingInputFileException e =
-        assertThrows(
-            MissingInputFileException.class,
-            () -> evaluateArtifactValue(createSourceArtifact("bad")));
+    IOException e =
+        assertThrows(IOException.class, () -> evaluateArtifactValue(createSourceArtifact("bad")));
     assertThat(e).hasMessageThat().contains(exception.getMessage());
   }
 
@@ -384,11 +372,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private SkyValue evaluateArtifactValue(Artifact artifact) throws Throwable {
-    return evaluateArtifactValue(artifact, /* mandatory= */ true);
-  }
-
-  private SkyValue evaluateArtifactValue(Artifact artifact, boolean mandatory) throws Throwable {
-    SkyKey key = ArtifactSkyKey.key(artifact, mandatory);
+    SkyKey key = Artifact.key(artifact);
     EvaluationResult<SkyValue> result = evaluate(ImmutableList.of(key).toArray(new SkyKey[0]));
     if (result.hasError()) {
       throw result.getError().getException();

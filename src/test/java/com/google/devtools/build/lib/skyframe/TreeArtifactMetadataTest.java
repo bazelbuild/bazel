@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
@@ -91,7 +90,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     for (PathFragment child : children) {
       file(treeArtifact.getPath().getRelative(child), child.toString());
     }
-    return (TreeArtifactValue) evaluateArtifactValue(treeArtifact, /*mandatory=*/ true);
+    return (TreeArtifactValue) evaluateArtifactValue(treeArtifact);
   }
 
   private TreeArtifactValue doTestTreeArtifacts(Iterable<PathFragment> children) throws Exception {
@@ -240,8 +239,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     return output;
   }
 
-  private SkyValue evaluateArtifactValue(Artifact artifact, boolean mandatory) throws Exception {
-    SkyKey key = ArtifactSkyKey.key(artifact, mandatory);
+  private SkyValue evaluateArtifactValue(Artifact artifact) throws Exception {
+    SkyKey key = Artifact.key(artifact);
     EvaluationResult<SkyValue> result = evaluate(key);
     if (result.hasError()) {
       throw result.getError().getException();

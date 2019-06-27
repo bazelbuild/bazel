@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -317,7 +316,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
         List<SkyKey> keys = new ArrayList<>();
         for (Artifact artifact : artifacts) {
-          keys.add(ArtifactSkyKey.key(artifact, true));
+          keys.add(Artifact.key(artifact));
         }
 
         try {

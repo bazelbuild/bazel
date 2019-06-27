@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -27,9 +28,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 
@@ -48,13 +47,26 @@ public class TestAction extends AbstractAction {
       };
 
   protected final Callable<Void> effect;
+  private final ImmutableList<Artifact> mandatoryInputs;
+  private final ImmutableList<Artifact> optionalInputs;
 
   /** Use this constructor if the effect can't throw exceptions. */
   public TestAction(Runnable effect,
              Collection<Artifact> inputs,
              Collection<Artifact> outputs) {
-    super(NULL_ACTION_OWNER, inputs, outputs);
-    this.effect = Executors.callable(effect, null);
+    this(Executors.callable(effect, null), inputs, outputs);
+  }
+
+  private static boolean isOptional(Artifact artifact) {
+    return artifact.getExecPath().getBaseName().endsWith(".optional");
+  }
+
+  private static ImmutableList<Artifact> mandatoryArtifacts(Collection<Artifact> inputs) {
+    return inputs.stream().filter(a -> !isOptional(a)).collect(ImmutableList.toImmutableList());
+  }
+
+  private static ImmutableList<Artifact> optionalArtifacts(Collection<Artifact> inputs) {
+    return inputs.stream().filter(a -> isOptional(a)).collect(ImmutableList.toImmutableList());
   }
 
   /**
@@ -65,36 +77,31 @@ public class TestAction extends AbstractAction {
   public TestAction(Callable<Void> effect,
              Collection<Artifact> inputs,
              Collection<Artifact> outputs) {
-    super(NULL_ACTION_OWNER, inputs, outputs);
+    super(NULL_ACTION_OWNER, mandatoryArtifacts(inputs), outputs);
+    this.mandatoryInputs = mandatoryArtifacts(inputs);
+    this.optionalInputs = optionalArtifacts(inputs);
     this.effect = effect;
   }
 
   @Override
   public Collection<Artifact> getMandatoryInputs() {
-    List<Artifact> mandatoryInputs = new ArrayList<>();
-    for (Artifact input : getInputs()) {
-      if (!input.getExecPath().getBaseName().endsWith(".optional")) {
-        mandatoryInputs.add(input);
-      }
-    }
     return mandatoryInputs;
   }
 
   @Override
   public boolean discoversInputs() {
-    for (Artifact input : getInputs()) {
-      if (input.getExecPath().getBaseName().endsWith(".optional")) {
-        return true;
-      }
-    }
-    return false;
+    return !optionalInputs.isEmpty();
   }
 
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
     Preconditions.checkState(discoversInputs(), this);
-    updateInputs(getInputs());
-    return ImmutableList.of();
+    ImmutableList<Artifact> discoveredInputs =
+        optionalInputs.stream()
+            .filter(i -> i.getPath().exists())
+            .collect(ImmutableList.toImmutableList());
+    updateInputs(Iterables.concat(mandatoryInputs, discoveredInputs));
+    return discoveredInputs;
   }
 
   @Override
@@ -105,8 +112,7 @@ public class TestAction extends AbstractAction {
       // used by tests to specify artifacts that may or may not be missing.
       // This is used, e.g., to test Blaze behavior when action has missing
       // input artifacts but still is successfully executed.
-      if (!artifact.getPath().exists()
-          && !artifact.getExecPath().getBaseName().endsWith(".optional")) {
+      if (!artifact.getPath().exists()) {
         throw new IllegalStateException("action's input file does not exist: "
             + artifact.getPath());
       }

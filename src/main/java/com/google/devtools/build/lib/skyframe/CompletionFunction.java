@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifactValue;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
@@ -43,7 +43,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -358,11 +358,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     // Avoid iterating over nested set twice.
     ImmutableList<Artifact> allArtifacts =
         completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts().toList();
-    Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
-        env.getValuesOrThrow(
-            ArtifactSkyKey.mandatoryKeys(allArtifacts),
-            MissingInputFileException.class,
-            ActionExecutionException.class);
+    Map<SkyKey, ValueOrException<ActionExecutionException>> inputDeps =
+        env.getValuesOrThrow(Artifact.keys(allArtifacts), ActionExecutionException.class);
 
     ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
     Map<Artifact, Collection<Artifact>> expandedArtifacts = new HashMap<>();
@@ -374,27 +371,27 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     for (Artifact input : allArtifacts) {
       try {
-        SkyValue artifactValue = inputDeps.get(ArtifactSkyKey.mandatoryKey(input)).get();
+        SkyValue artifactValue = inputDeps.get(Artifact.key(input)).get();
         if (artifactValue != null) {
-          ActionInputMapHelper.addToMap(
-              inputMap,
-              expandedArtifacts,
-              expandedFilesets,
-              input,
-              artifactValue,
-              env);
-          if (input.isFileset()) {
-            expandedFilesets.put(
-                input, ActionInputMapHelper.getFilesets(env, (Artifact.SpecialArtifact) input));
+          if (artifactValue instanceof MissingFileArtifactValue) {
+            missingCount++;
+            final Label inputOwner = input.getOwner();
+            if (inputOwner != null) {
+              MissingInputFileException e =
+                  ((MissingFileArtifactValue) artifactValue).getException();
+              env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
+              Cause cause = new LabelCause(inputOwner, e.getMessage());
+              rootCausesBuilder.add(cause);
+              env.getListener().handle(completor.getRootCauseError(value, cause, env));
+            }
+          } else {
+            ActionInputMapHelper.addToMap(
+                inputMap, expandedArtifacts, expandedFilesets, input, artifactValue, env);
+            if (input.isFileset()) {
+              expandedFilesets.put(
+                  input, ActionInputMapHelper.getFilesets(env, (Artifact.SpecialArtifact) input));
+            }
           }
-        }
-      } catch (MissingInputFileException e) {
-        missingCount++;
-        final Label inputOwner = input.getOwner();
-        if (inputOwner != null) {
-          Cause cause = new LabelCause(inputOwner, e.getMessage());
-          rootCausesBuilder.add(cause);
-          env.getListener().handle(completor.getRootCauseError(value, cause, env));
         }
       } catch (ActionExecutionException e) {
         rootCausesBuilder.addTransitive(e.getRootCauses());

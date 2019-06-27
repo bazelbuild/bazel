@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSu
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
@@ -103,8 +104,7 @@ import javax.annotation.Nullable;
  * </ul>
  *
  * <p>While Artifact implements {@link SkyKey} for memory-saving purposes, Skyframe requests
- * involving artifacts should always go through {@link ArtifactSkyKey#key}, {@link
- * ArtifactSkyKey#mandatoryKey}, or {@link ArtifactSkyKey#mandatoryKeys}, since ordinary derived
+ * involving artifacts should always go through {@link Artifact#key} since ordinary derived
  * artifacts should not be requested directly from Skyframe.
  */
 @Immutable
@@ -166,6 +166,31 @@ public abstract class Artifact
    * memory since we can make mandatory source artifacts their own SkyKeys!
    */
   public static final SkyFunctionName ARTIFACT = SkyFunctionName.createHermetic("ARTIFACT");
+
+  /**
+   * Returns a {@link SkyKey} that, when built, will produce this artifact. For source artifacts and
+   * generated artifacts that may aggregate other artifacts (middleman, since they may be
+   * aggregating middlemen, and tree), returns the artifact itself. For normal generated artifacts,
+   * returns the key of the generating action.
+   *
+   * <p>Callers should use this method (or the related ones below) in preference to directly
+   * requesting an {@link Artifact} to be built by Skyframe, since ordinary derived artifacts should
+   * never be directly built by Skyframe.
+   */
+  @ThreadSafety.ThreadSafe
+  public static SkyKey key(Artifact artifact) {
+    if (artifact.isTreeArtifact()
+        || artifact.isMiddlemanArtifact()
+        || artifact.isSourceArtifact()) {
+      return artifact;
+    }
+
+    return ((DerivedArtifact) artifact).getGeneratingActionKey();
+  }
+
+  public static Iterable<SkyKey> keys(Iterable<Artifact> artifacts) {
+    return Iterables.transform(artifacts, Artifact::key);
+  }
 
   @Override
   public int compareTo(Artifact o) {

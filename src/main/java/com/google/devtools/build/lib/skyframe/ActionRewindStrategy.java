@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.LostInputsExecException.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -119,7 +118,7 @@ public class ActionRewindStrategy {
             lostInputsException);
 
     for (Artifact.DerivedArtifact lostArtifact : lostArtifacts) {
-      SkyKey artifactKey = ArtifactSkyKey.mandatoryKey(lostArtifact);
+      SkyKey artifactKey = Artifact.key(lostArtifact);
 
       Map<ActionLookupData, Action> actionMap = getActionsForLostArtifact(lostArtifact, env);
       if (actionMap == null) {
@@ -220,7 +219,7 @@ public class ActionRewindStrategy {
       if (owner != null) {
         runfilesTransitiveOwners = runfilesDepOwners.getDepOwners(owner);
         for (Artifact runfilesTransitiveOwner : runfilesTransitiveOwners) {
-          if (failedActionDeps.contains(ArtifactSkyKey.mandatoryKey(runfilesTransitiveOwner))) {
+          if (failedActionDeps.contains(Artifact.key(runfilesTransitiveOwner))) {
             lostArtifacts.add((Artifact.DerivedArtifact) runfilesTransitiveOwner);
             foundLostInputDepOwner = true;
           }
@@ -240,13 +239,13 @@ public class ActionRewindStrategy {
           throw new ActionExecutionException(
               lostInputsException, failedAction, /*catastrophe=*/ false);
         }
-        if (failedActionDeps.contains(ArtifactSkyKey.mandatoryKey(runfilesOwner))) {
+        if (failedActionDeps.contains(Artifact.key(runfilesOwner))) {
           lostArtifacts.add((Artifact.DerivedArtifact) runfilesOwner);
           foundLostInputDepOwner = true;
         }
       }
 
-      if (owner != null && failedActionDeps.contains(ArtifactSkyKey.mandatoryKey(owner))) {
+      if (owner != null && failedActionDeps.contains(Artifact.key(owner))) {
         // The lost input is included in a tree artifact or fileset that the action directly depends
         // on.
         lostArtifacts.add((Artifact.DerivedArtifact) owner);
@@ -254,7 +253,7 @@ public class ActionRewindStrategy {
       }
 
       if (lostInput instanceof Artifact
-          && failedActionDeps.contains(ArtifactSkyKey.mandatoryKey((Artifact) lostInput))) {
+          && failedActionDeps.contains(Artifact.key((Artifact) lostInput))) {
         lostArtifacts.add((Artifact.DerivedArtifact) lostInput);
         foundLostInputDepOwner = true;
       }
@@ -389,7 +388,7 @@ public class ActionRewindStrategy {
       if (input.isSourceArtifact()) {
         continue;
       }
-      SkyKey artifactKey = ArtifactSkyKey.mandatoryKey(input);
+      SkyKey artifactKey = Artifact.key(input);
       // Restarting all derived inputs of propagating actions is overkill. Preferably, we'd want
       // to only restart the inputs which correspond to the known lost outputs. The information
       // to do this is probably present in the data available to #getRewindPlan.
@@ -434,7 +433,7 @@ public class ActionRewindStrategy {
 
     ImmutableList.Builder<ActionAndLookupData> newlyVisitedActions =
         ImmutableList.builderWithExpectedSize(actionMap.size());
-    SkyKey artifactKey = ArtifactSkyKey.mandatoryKey(artifact);
+    SkyKey artifactKey = Artifact.key(artifact);
     for (Map.Entry<ActionLookupData, Action> actionEntry : actionMap.entrySet()) {
       ActionLookupData actionKey = actionEntry.getKey();
       if (rewindGraph.addNode(actionKey)) {

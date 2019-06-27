@@ -70,7 +70,8 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   @Test
   public void testUnneededInputs() throws Exception {
     Artifact hello = createSourceArtifact("hello");
-    BlazeTestUtils.makeEmptyFile(hello.getPath());
+    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact optional = createSourceArtifact("hello.optional");
     Artifact goodbye = createDerivedArtifact("goodbye");
     Button button = createActionButton(Sets.newHashSet(hello, optional), Sets.newHashSet(goodbye));
@@ -91,6 +92,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertThat(button.pressed).isFalse(); // not rebuilt
 
     BlazeTestUtils.makeEmptyFile(optional.getPath());
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content2");
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -101,6 +103,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertThat(button.pressed).isFalse(); // not rebuilt
 
     optional.getPath().delete();
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content3");
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
