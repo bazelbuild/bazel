@@ -453,7 +453,10 @@ cc_library(
 cc_library(
     name = "token_stream",
     hdrs = ["token_stream.h"],
-    deps = [":diag"],
+    deps = [
+        ":diag",
+        "//src/main/cpp/util",
+    ],
 )
 
 filegroup(
