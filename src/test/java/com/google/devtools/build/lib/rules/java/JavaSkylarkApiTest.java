@@ -78,7 +78,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "jrule(name='r')",
         "constraint_value(",
         "    name = 'constraint',",
-        "    constraint_setting = '" + TestConstants.PLATFORM_BASE + "/java/constraints:runtime',",
+        "    constraint_setting = '"
+            + TestConstants.PLATFORM_PACKAGE_ROOT
+            + "/java/constraints:runtime',",
         ")",
         "toolchain(",
         "    name = 'java_runtime_toolchain',",
@@ -139,7 +141,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "jrule(name='r')",
         "constraint_value(",
         "    name = 'constraint',",
-        "    constraint_setting = '" + TestConstants.PLATFORM_BASE + "/java/constraints:runtime',",
+        "    constraint_setting = '"
+            + TestConstants.PLATFORM_PACKAGE_ROOT
+            + "/java/constraints:runtime',",
         ")",
         "toolchain(",
         "    name = 'java_runtime_toolchain',",
@@ -201,7 +205,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "jrule(name='r')",
         "constraint_value(",
         "    name = 'constraint',",
-        "    constraint_setting = '" + TestConstants.PLATFORM_BASE + "/java/constraints:runtime',",
+        "    constraint_setting = '"
+            + TestConstants.PLATFORM_PACKAGE_ROOT
+            + "/java/constraints:runtime',",
         ")",
         "toolchain(",
         "    name = 'java_runtime_toolchain',",
@@ -2628,7 +2634,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "jrule(name='r')",
         "constraint_value(",
         "    name = 'constraint',",
-        "    constraint_setting = '" + TestConstants.PLATFORM_BASE + "/java/constraints:runtime',",
+        "    constraint_setting = '"
+            + TestConstants.PLATFORM_PACKAGE_ROOT
+            + "/java/constraints:runtime',",
         ")",
         "toolchain(",
         "    name = 'java_runtime_toolchain',",

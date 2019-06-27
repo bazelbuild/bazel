@@ -135,10 +135,15 @@ public class TestConstants {
   public static final String CC_DEPENDENCY_CORRECTION =
       " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")";
 
-  public static final String PLATFORM_BASE = "@bazel_tools//platforms";
+  public static final String PLATFORM_PACKAGE_ROOT = "@bazel_tools//platforms";
+  public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
+
+  public static final String PLATFORMS_PATH = "/bazel_tools_workspace/platforms";
+  public static final String CONSTRAINTS_PATH = "/platforms";
+  public static final String LOCAL_CONFIG_PLATFORM_PATH = "/local_config_platform_workspace";
 
   public static final String PLATFORM_LABEL =
-      PLATFORM_BASE + ":host_platform + " + PLATFORM_BASE + ":target_platform";
+      PLATFORM_PACKAGE_ROOT + ":host_platform + " + PLATFORM_PACKAGE_ROOT + ":target_platform";
 
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {

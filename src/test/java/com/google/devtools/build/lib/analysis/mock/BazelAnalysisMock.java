@@ -101,25 +101,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/local_config_xcode/WORKSPACE");
     config.create("/protobuf/WORKSPACE");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
+    /** The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("/platforms/WORKSPACE", "workspace(name = 'platforms')");
-    config.create("/platforms/BUILD");
-    config.create(
-        "/platforms/cpu/BUILD",
-        "constraint_setting(name = 'cpu')",
-        "constraint_value(name = 'x86_32', constraint_setting = ':cpu')",
-        "constraint_value(name = 'x86_64', constraint_setting = ':cpu')",
-        "constraint_value(name = 'ppc', constraint_setting = ':cpu')",
-        "constraint_value(name = 'arm', constraint_setting = ':cpu')",
-        "constraint_value(name = 'aarch64', constraint_setting = ':cpu')",
-        "constraint_value(name = 's390x', constraint_setting = ':cpu')");
-
-    config.create(
-        "/platforms/os/BUILD",
-        "constraint_setting(name = 'os')",
-        "constraint_value(name = 'linux', constraint_setting = ':os')",
-        "constraint_value(name = 'osx', constraint_setting = ':os')",
-        "constraint_value(name = 'freebsd', constraint_setting = ':os')",
-        "constraint_value(name = 'windows', constraint_setting = ':os')");
     config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
     for (String filename :
