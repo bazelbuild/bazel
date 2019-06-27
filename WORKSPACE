@@ -208,6 +208,33 @@ http_file(
 )
 
 http_file(
+    name = "openjdk_linux_aarch64",
+    downloaded_file_path = "zulu-linux-aarch64.tar.gz",
+    sha256 = "23c37c0c3a8fdcbc68e96e70ff5c5c020c14db76deaae9b547849afda4586e5e",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu11.31.15-ca-jdk11.0.3/zulu11.31.15-ca-jdk11.0.3-linux_aarch64-allmodules-c82eb4878c7dc829455caeb915affe36c89df06f-1561630858.tar.gz",
+    ],
+)
+
+http_file(
+    name = "openjdk_linux_aarch64_vanilla",
+    downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
+    sha256 = "3b0d91611b1bdc4d409afcf9eab4f0e7f4ae09f88fc01bd9f2b48954882ae69b",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu11.31.15-ca-jdk11.0.3/zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz",
+    ],
+)
+
+http_file(
+    name = "openjdk_linux_aarch64_minimal",
+    downloaded_file_path = "zulu-linux-aarch64-minimal.tar.gz",
+    sha256 = "7af2583fe5ef0a781d4a9dca0c0160d42e7db1305ec1b66f98aa44c91cc875df",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu11.31.15-ca-jdk11.0.3/zulu11.31.15-ca-jdk11.0.3-linux_aarch64-minimal-c82eb4878c7dc829455caeb915affe36c89df06f-1561630858.tar.gz",
+    ],
+)
+
+http_file(
     name = "openjdk_macos",
     downloaded_file_path = "zulu-macos.tar.gz",
     sha256 = "8fa61d85ca6f657d646fdb50cfc8634987f8f7d8a3250ed39fb7364647633252",
@@ -302,18 +329,6 @@ http_archive(
     ],
 )
 
-# The source-code for this OpenJDK can be found at:
-# https://openjdk.linaro.org/releases/jdk9-src-1708.tar.xz
-http_file(
-    name = "openjdk_linux_aarch64",
-    sha256 = "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
-    urls = [
-        # When you update this, also update the link to the source-code above.
-        "https://mirror.bazel.build/openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
-        "http://openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
-    ],
-)
-
 http_archive(
     name = "bazel_toolchains",
     sha256 = "67335b3563d9b67dc2550b8f27cc689b64fadac491e69ce78763d9ba894cc5cc",
@@ -397,6 +412,7 @@ distdir_tar(
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz",
         "zulu11.2.3-jdk11.0.1-win_x64.zip",
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz",
+        "zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip",
         "android_tools_pkg-0.7.tar.gz",
@@ -418,6 +434,7 @@ distdir_tar(
         "java_tools_javac11_darwin-v2.0.zip": "0ceb0c9ff91256fe33508306bc9cd9e188dcca38df78e70839d426bdaef67a38",
         "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": "232b1c3511f0d26e92582b7c3cc363be7ac633e371854ca2f2e9f2b50eb72a75",
+        "zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz": "3b0d91611b1bdc4d409afcf9eab4f0e7f4ae09f88fc01bd9f2b48954882ae69b",
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": "1edf366ee821e5db8e348152fcb337b28dfd6bf0f97943c270dcc6747cedb6cb",
         "zulu11.2.3-jdk11.0.1-win_x64.zip": "8e1e2b8347de6746f3fd1538840dd643201533ab113abc4ed93678e342d28aa3",
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": "f3f44b6235508e87b760bf37a49e186cc1fa4e9cd28384c4dbf5a33991921e08",
@@ -444,6 +461,7 @@ distdir_tar(
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz"],
         "zulu11.2.3-jdk11.0.1-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-win_x64.zip"],
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz"],
+        "zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.31.15-ca-jdk11.0.3/zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz"],
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip"],
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-win_x64.zip"],
         "android_tools_pkg-0.7.tar.gz": [

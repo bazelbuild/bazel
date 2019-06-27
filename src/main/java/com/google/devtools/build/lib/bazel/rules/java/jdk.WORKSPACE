@@ -185,6 +185,16 @@ http_archive(
 )
 
 http_archive(
+    name = "remotejdk11_linux_aarch64",
+    build_file = "@local_jdk//:BUILD.bazel",
+    sha256 = "3b0d91611b1bdc4d409afcf9eab4f0e7f4ae09f88fc01bd9f2b48954882ae69b",
+    strip_prefix = "zulu11.31.15-ca-jdk11.0.3-linux_aarch64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu11.31.15-ca-jdk11.0.3/zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz",
+    ],
+)
+
+http_archive(
     name = "remotejdk11_macos",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "1edf366ee821e5db8e348152fcb337b28dfd6bf0f97943c270dcc6747cedb6cb",

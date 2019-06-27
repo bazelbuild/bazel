@@ -208,6 +208,9 @@ filegroup(
         "//src/conditions:windows": [
             "@openjdk_win_minimal//file",
         ],
+        "//src/conditions:linux_aarch64": [
+            "@openjdk_linux_aarch64_minimal//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux_minimal//file",
         ],

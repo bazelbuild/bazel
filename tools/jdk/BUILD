@@ -492,6 +492,7 @@ alias(
             "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
             "//src/conditions:darwin_x86_64": "@remotejdk11_macos//:jdk",
             "//src/conditions:windows": "@remotejdk11_win//:jdk",
+            "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +

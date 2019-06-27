@@ -51,7 +51,10 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   mv "tmp.$$/reduced.zip" "$out"
   rm -rf "tmp.$$"
 else
-  tar xf "$fulljdk"
+  # The --no-same-owner flag instructs tar to not try to chown extracted files
+  # to the owner stored in the archive - it will try to do that when running as
+  # root, but fail when running inside Docker, so we explicitly disable it.
+  tar xf "$fulljdk" --no-same-owner
   cd zulu*
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
