@@ -65,7 +65,7 @@ class ArgTokenStream {
         diag_err(1, "%s:%d: AsAbsoluteWindowsPath failed: %s", __FILE__, __LINE__,
                  error.c_str());
       }
-      fp_ = _wfopen(wpath.c_str(), "r");
+      fp_ = _wfopen(wpath.c_str(), L"r");
 #else
       fp_ = fopen(filename, "r");
 #endif
