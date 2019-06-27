@@ -164,7 +164,7 @@ class TestWrapperTest(test_base.TestBase):
             'shutil.copyfile(r.Rlocation("__main__/foo/dummy.ico"),',
             '                os.path.join(root, "out1", "data1.ico"))',
             'shutil.copyfile(r.Rlocation("__main__/foo/dummy.dat"),',
-            '                os.path.join(root, "out2", "data2.dat"))',
+            '                os.path.join(root, "out2", "my data 2.dat"))',
         ],
         executable=True)
 
@@ -413,7 +413,7 @@ class TestWrapperTest(test_base.TestBase):
             'empty/': 0,
             'empty/sub/': 0,
             'out1/data1.ico': 70,
-            'out2/data2.dat': 16
+            'out2/my data 2.dat': 16
         })
 
     undecl_mf = os.path.join(bazel_testlogs, 'foo', 'undecl_test',
@@ -439,7 +439,7 @@ class TestWrapperTest(test_base.TestBase):
             'image/icon', 'text/ico', 'application/ico'
         ]):
       self._FailWithOutput(mf_content)
-    if mf_content[1] != 'out2/data2.dat\t16\tapplication/octet-stream':
+    if mf_content[1] != 'out2/my data 2.dat\t16\tapplication/octet-stream':
       self._FailWithOutput(mf_content)
 
   def _AssertUndeclaredOutputsAnnotations(self, flags):

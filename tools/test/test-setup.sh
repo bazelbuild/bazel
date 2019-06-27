@@ -354,10 +354,14 @@ fi
 
 # Zip up undeclared outputs.
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR"; then
-  (
-   shopt -s dotglob failglob
-   zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- *
-  ) 2> /dev/null
+  shopt -s dotglob
+  if [[ "$(echo *)" != "*" ]]; then
+    # If * found nothing, echo printed the literal *.
+    # Otherwise echo printed the top-level files and directories.
+    # Pass files to zip with *, so paths with spaces aren't broken up.
+    zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>/dev/null || \
+        echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": zip not found or failed"
+  fi
 fi
 
 exit $exitCode
