@@ -3061,4 +3061,21 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test:r");
   }
+
+  @Test
+  public void testNoOutputsError() throws Exception {
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _my_rule_impl(ctx):",
+        "  ctx.actions.run_shell(outputs=[], command='foo')",
+        "my_rule = rule(implementation = _my_rule_impl, executable = True)");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:target");
+    assertContainsEvent("param 'outputs' may not be empty");
+  }
 }

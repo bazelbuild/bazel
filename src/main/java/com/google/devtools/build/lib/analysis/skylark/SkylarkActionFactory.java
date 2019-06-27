@@ -444,7 +444,13 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       builder.addTransitiveInputs(inputSet);
       inputArtifacts = inputSet;
     }
-    builder.addOutputs(outputs.getContents(Artifact.class, "outputs"));
+
+    @SuppressWarnings("unchecked")
+    List<Artifact> outputArtifacts = outputs.getContents(Artifact.class, "outputs");
+    if (outputArtifacts.isEmpty()) {
+      throw new EvalException(location, "param 'outputs' may not be empty");
+    }
+    builder.addOutputs(outputArtifacts);
 
     if (unusedInputsList != Runtime.NONE) {
       if (!starlarkSemantics.experimentalStarlarkUnusedInputsList()) {
