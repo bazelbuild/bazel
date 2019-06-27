@@ -58,13 +58,19 @@ class ArgTokenStream {
   class FileTokenStream {
    public:
     FileTokenStream(const char *filename) {
+#ifdef _WIN32
       std::wstring wpath;
       std::string error;
       if (!blaze_util::AsAbsoluteWindowsPath(filename, &wpath, &error)) {
         diag_err(1, "%s:%d: AsAbsoluteWindowsPath failed: %s", __FILE__, __LINE__,
                  error.c_str());
       }
-      if (!(fp_ = _wfopen(wpath.c_str(), "r"))) {
+      fp_ = _wfopen(wpath.c_str(), "r");
+#else
+      fp_ = fopen(filename, "r");
+#endif
+
+      if (!fp_) {
         diag_err(1, "%s", filename);
       }
       filename_ = filename;
