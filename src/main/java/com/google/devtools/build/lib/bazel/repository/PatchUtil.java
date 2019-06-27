@@ -77,16 +77,13 @@ public class PatchUtil {
    * to find a content match with an offset.
    */
   private static class OffsetPatch {
-    private List<Delta<String>> deltas;
 
-    public OffsetPatch(Patch<String> patch) {
-      this.deltas = patch.getDeltas();
-    }
-
-    public List<String> applyTo(List<String> target) throws PatchFailedException {
+    public static List<String> applyTo(Patch<String> patch, List<String> target)
+        throws PatchFailedException {
+      List<Delta<String>> deltas = patch.getDeltas();
       List<String> result = new ArrayList<>(target);
-      this.deltas.sort(DeltaComparator.INSTANCE);
-      ListIterator<Delta<String>> it = this.deltas.listIterator(this.deltas.size());
+      deltas.sort(DeltaComparator.INSTANCE);
+      ListIterator<Delta<String>> it = deltas.listIterator(deltas.size());
 
       while(it.hasPrevious()) {
         Delta<String> delta = it.previous();
@@ -101,7 +98,8 @@ public class PatchUtil {
      * it tries to apply the Delta with an offset, starting from 1, up to the total lines in
      * the original content. For every offset, we try both forwards and backwards.
      */
-    private void applyTo(Delta<String> delta, List<String> result) throws PatchFailedException {
+    private static void applyTo(Delta<String> delta, List<String> result)
+        throws PatchFailedException {
       PatchFailedException e = applyDelta(delta, result);
       if (e == null) {
         return;
@@ -131,7 +129,7 @@ public class PatchUtil {
       throw e;
     }
 
-    private PatchFailedException applyDelta(Delta<String> delta, List<String> result) {
+    private static PatchFailedException applyDelta(Delta<String> delta, List<String> result) {
       try {
         delta.applyTo(result);
         return null;
@@ -148,45 +146,78 @@ public class PatchUtil {
     CHUNK_ADD,
     CHUNK_DEL,
     CHUNK_EQL,
+    GIT_HEADER,
+    RENAME_FROM,
+    RENAME_TO,
+    GIT_LINE,
     UNKNOWN
   }
 
+  private static final String[] GIT_LINE_PREFIXES = {
+      "old mode ",
+      "new mode ",
+      "deleted file mode ",
+      "new file mode ",
+      "copy from ",
+      "copy to ",
+      "rename old ",
+      "rename new ",
+      "similarity index ",
+      "dissimilarity index ",
+      "index "
+  };
+
   private static LineType getLineType(String line, boolean isReadingChunk) {
-    if (!isReadingChunk && line.startsWith("---")) {
-      return LineType.OLD_FILE;
-    }
-    if (!isReadingChunk && line.startsWith("+++")) {
-      return LineType.NEW_FILE;
+    if (isReadingChunk) {
+      if (line.startsWith("+")) {
+        return LineType.CHUNK_ADD;
+      }
+      if (line.startsWith("-")) {
+        return LineType.CHUNK_DEL;
+      }
+      if (line.startsWith(" ") || line.isEmpty()) {
+        return LineType.CHUNK_EQL;
+      }
+    } else {
+      if (line.startsWith("---")) {
+        return LineType.OLD_FILE;
+      }
+      if (line.startsWith("+++")) {
+        return LineType.NEW_FILE;
+      }
+      if (line.startsWith("diff --git ")) {
+        return LineType.GIT_HEADER;
+      }
+      if (line.startsWith("rename from ")) {
+        return LineType.RENAME_FROM;
+      }
+      if (line.startsWith("rename to ")) {
+        return LineType.RENAME_TO;
+      }
+      for (String prefix : GIT_LINE_PREFIXES) {
+        if (line.startsWith(prefix)) {
+          return LineType.GIT_LINE;
+        }
+      }
     }
     if (line.startsWith("@@") && line.lastIndexOf("@@") != 0) {
       int pos = line.indexOf("@@", 2);
       Matcher m = chunkHeaderRe.matcher(line.substring(0, pos + 2));
       if (m.find()) {
         return LineType.CHUNK_HEAD;
-      } else {
-        return LineType.UNKNOWN;
       }
-    }
-    if (isReadingChunk && line.startsWith("+")) {
-      return LineType.CHUNK_ADD;
-    }
-    if (isReadingChunk && line.startsWith("-")) {
-      return LineType.CHUNK_DEL;
-    }
-    if (isReadingChunk && (line.startsWith(" ") || line.isEmpty())) {
-      return LineType.CHUNK_EQL;
     }
     return LineType.UNKNOWN;
   }
 
   /**
-   * If file is not null and the file exists, return the file content as a list for String.
+   * If the file exists, return the file content as a list of String.
    * Otherwise, return an empty list.
    */
   @VisibleForTesting
   public static List<String> readFile(Path file) throws IOException {
     List<String> content = new ArrayList<>();
-    if (file != null && file.exists()) {
+    if (file.exists()) {
       BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
       String line;
       while ((line = reader.readLine()) != null) {
@@ -206,8 +237,14 @@ public class PatchUtil {
     writer.close();
   }
 
-  private static void applyPatchToFile(List<String> patchContent, Path oldFile, Path newFile)
+  private static void applyPatchToFile(List<String> patchContent, Path oldFile, Path newFile,
+      boolean isRenaming)
       throws IOException, PatchFailedException {
+    // Neither of newFile and oldFile can be none if we should do a rename.
+    if (isRenaming && (oldFile == null || newFile == null)) {
+      throw new PatchFailedException("Cannot rename file without two valid file names");
+    }
+
     // The oldFile could be <newFile>.orig, but the .orig may not exist, so in this case,
     // we consider oldFile is the same as newFile.
     if (oldFile != null && newFile != null) {
@@ -216,17 +253,35 @@ public class PatchUtil {
       }
     }
 
-    List<String> oldContent = readFile(oldFile);
-    Patch<String> patch = DiffUtils.parseUnifiedDiff(patchContent);
-    List<String> newContent = new OffsetPatch(patch).applyTo(oldContent);
-
-    if (newContent.isEmpty() && newFile == null) {
+    List<String> oldContent;
+    if (oldFile == null)  {
+      oldContent = new ArrayList<>();
+    } else {
+      oldContent = readFile(oldFile);
+      // The old file should always change, therefore we can just delete the original file.
+      // If the output file name is the same as the old file, we'll just recreate it later.
       oldFile.delete();
-      return;
     }
 
-    if (newFile != null) {
-      writeFile(newFile, newContent);
+    Patch<String> patch = DiffUtils.parseUnifiedDiff(patchContent);
+    List<String> newContent = OffsetPatch.applyTo(patch, oldContent);
+
+    // The file we should write newContent to.
+    Path outputFile;
+
+    if ((newFile != null && oldFile != null && !isRenaming)
+        || (newFile == null && !newContent.isEmpty())) {
+      // We should write to the old file name under two situations:
+      //   1. Both file names are not none, and we are not doing a renaming.
+      //   2. The new file name is none, but the new content is not empty.
+      // This is the same behavior as the patch command line tool.
+      outputFile = oldFile;
+    } else {
+      outputFile = newFile;
+    }
+
+    if (outputFile != null) {
+      writeFile(outputFile, newContent);
     }
   }
 
@@ -279,6 +334,9 @@ public class PatchUtil {
     // Adding an extra line to make sure last chunk also gets applied.
     patch.add("$");
 
+    boolean isGitDiff = false;
+    boolean hasRenameFrom = false;
+    boolean hasRenameTo = false;
     boolean isReadingChunk = false;
     List<String> patchContent = new ArrayList<>();
     ChunkHeader header = null;
@@ -290,7 +348,8 @@ public class PatchUtil {
 
     for (int i = 0; i < patch.size(); i++) {
       String line = patch.get(i);
-      switch (getLineType(line, isReadingChunk)) {
+      LineType type;
+      switch (type = getLineType(line, isReadingChunk)) {
         case OLD_FILE:
           patchContent.add(line);
           oldFile = getFilePath(line, strip, outputDirectory);
@@ -342,15 +401,35 @@ public class PatchUtil {
                 "Wrong chunk detected near line " + (i + 1) + ": " + line);
           }
           break;
+        case RENAME_FROM:
+          hasRenameFrom = true;
+          if (oldFile == null) {
+            // len("rename from ") == 12
+            oldFile = outputDirectory.getRelative(line.substring(12));
+          }
+          break;
+        case RENAME_TO:
+          hasRenameTo = true;
+          if (newFile == null) {
+            // len("rename to ") == 10
+            newFile = outputDirectory.getRelative(line.substring(10));
+          }
+          break;
+        case GIT_LINE:
+          break;
+        case GIT_HEADER:
         case UNKNOWN:
-          if (!patchContent.isEmpty() && (oldFile != null || newFile != null)) {
-            result = header.check(oldLineCount, newLineCount);
-            // result will never be Result.Error here because it would have been throw in previous
-            // line already.
-            if (result == Result.CONTINUE) {
-              throw new PatchFailedException("Expecting more chunk line at line " + (i + 1));
+          boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
+          if ((!patchContent.isEmpty() || isRenaming) && (oldFile != null || newFile != null)) {
+            if (!patchContent.isEmpty()) {
+              result = header.check(oldLineCount, newLineCount);
+              // result will never be Result.Error here because it would have been throw in previous
+              // line already.
+              if (result == Result.CONTINUE) {
+                throw new PatchFailedException("Expecting more chunk line at line " + (i + 1));
+              }
             }
-            applyPatchToFile(patchContent, oldFile, newFile);
+            applyPatchToFile(patchContent, oldFile, newFile, isRenaming);
           }
           patchContent.clear();
           oldFile = null;
@@ -358,6 +437,10 @@ public class PatchUtil {
           oldLineCount = 0;
           newLineCount = 0;
           isReadingChunk = false;
+          // If the new patch starts with "diff --git " then its a git diff.
+          isGitDiff = type == LineType.GIT_HEADER;
+          hasRenameFrom = false;
+          hasRenameTo = false;
           break;
       }
     }

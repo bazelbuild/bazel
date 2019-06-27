@@ -157,6 +157,57 @@ public class PatchUtilTest {
   }
 
   @Test
+  public void testGitFormatRenaming() throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.cc",
+        "#include <stdio.h>",
+        "",
+        "void main(){",
+        "  printf(\"Hello foo\");",
+        "}");
+    Path bar = scratch.file("/root/bar.cc",
+        "void lib(){",
+        "  printf(\"Hello bar\");",
+        "}");
+    Path patchFile = scratch.file("/root/patchfile",
+        "diff --git a/bar.cc b/bar.cpp",
+        "similarity index 61%",
+        "rename from bar.cc",
+        "rename to bar.cpp",
+        "index e77137b..9e35ee4 100644",
+        "--- a/bar.cc",
+        "+++ b/bar.cpp",
+        "@@ -1,3 +1,4 @@",
+        " void lib(){",
+        "   printf(\"Hello bar\");",
+        "+  printf(\"Hello cpp\");",
+        " }",
+        "diff --git a/foo.cc b/foo.cpp",
+        "similarity index 100%",
+        "rename from foo.cc",
+        "rename to foo.cpp");
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> newFoo = ImmutableList.of(
+        "#include <stdio.h>",
+        "",
+        "void main(){",
+        "  printf(\"Hello foo\");",
+        "}"
+    );
+    ImmutableList<String> newBar = ImmutableList.of(
+        "void lib(){",
+        "  printf(\"Hello bar\");",
+        "  printf(\"Hello cpp\");",
+        "}"
+    );
+    Path fooCpp = root.getRelative("foo.cpp");
+    Path barCpp = root.getRelative("bar.cpp");
+    assertThat(foo.exists()).isFalse();
+    assertThat(bar.exists()).isFalse();
+    assertThat(PatchUtil.readFile(fooCpp)).containsExactlyElementsIn(newFoo);
+    assertThat(PatchUtil.readFile(barCpp)).containsExactlyElementsIn(newBar);
+  }
+
+  @Test
   public void testMatchWithOffset() throws IOException, PatchFailedException {
     Path foo = scratch.file("/root/foo.cc",
         "#include <stdio.h>",
