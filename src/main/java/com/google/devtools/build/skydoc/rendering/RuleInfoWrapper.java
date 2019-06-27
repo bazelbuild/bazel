@@ -23,9 +23,11 @@ public class RuleInfoWrapper {
 
   private final BaseFunction identifierFunction;
   private final Location location;
-  private final RuleInfo ruleInfo;
+  // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
+  private final RuleInfo.Builder ruleInfo;
 
-  public RuleInfoWrapper(BaseFunction identifierFunction, Location location, RuleInfo ruleInfo) {
+  public RuleInfoWrapper(
+      BaseFunction identifierFunction, Location location, RuleInfo.Builder ruleInfo) {
     this.identifierFunction = identifierFunction;
     this.location = location;
     this.ruleInfo = ruleInfo;
@@ -39,7 +41,7 @@ public class RuleInfoWrapper {
     return location;
   }
 
-  public RuleInfo getRuleInfo() {
+  public RuleInfo.Builder getRuleInfo() {
     return ruleInfo;
   }
 }

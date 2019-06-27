@@ -33,20 +33,21 @@ import java.util.Collection;
 public class ProviderInfoWrapper {
 
   private final BaseFunction identifier;
-  private final ProviderInfo providerInfo;
+  // Only the Builder is passed to ProviderInfoWrapper as the provider name is not yet available.
+  private final ProviderInfo.Builder providerInfo;
 
   public ProviderInfoWrapper(
       BaseFunction identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
     this.identifier = identifier;
     this.providerInfo =
-        ProviderInfo.newBuilder().setDocString(docString).addAllFieldInfo(fieldInfos).build();
+        ProviderInfo.newBuilder().setDocString(docString).addAllFieldInfo(fieldInfos);
   }
 
   public BaseFunction getIdentifier() {
     return identifier;
   }
 
-  public ProviderInfo getProviderInfo() {
+  public ProviderInfo.Builder getProviderInfo() {
     return providerInfo;
   }
 }

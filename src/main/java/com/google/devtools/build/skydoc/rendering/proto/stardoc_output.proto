@@ -58,11 +58,14 @@ enum AttributeType {
 
 // Representation of a Starlark rule definition.
 message RuleInfo {
+  // The name of the rule.
+  string rule_name = 1;
+
   // The documentation string of the rule.
-  string doc_string = 1;
+  string doc_string = 2;
 
   // The attributes of the rule.
-  repeated AttributeInfo attribute = 2;
+  repeated AttributeInfo attribute = 3;
 }
 
 // Representation of a Starlark rule attribute definition, comprised of an
@@ -129,9 +132,12 @@ message ProviderFieldInfo {
 
 // Representation of a Starlark provider definition.
 message ProviderInfo {
+  // The name of the provider.
+  string provider_name = 1;
+
   // The description of the provider.
-  string doc_string = 1;
+  string doc_string = 2;
 
   // The fields of the provider.
-  repeated ProviderFieldInfo field_info = 2;
+  repeated ProviderFieldInfo field_info = 3;
 }

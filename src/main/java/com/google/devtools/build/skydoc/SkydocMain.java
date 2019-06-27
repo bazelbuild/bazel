@@ -217,7 +217,7 @@ public class SkydocMain {
     Label targetFileLabel = Label.parseAbsolute(targetFileLabelString, ImmutableMap.of());
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
-    ImmutableMap.Builder<String, ProviderInfoWrapper> providerInfoMap = ImmutableMap.builder();
+    ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctions = ImmutableMap.builder();
 
     try {
@@ -237,7 +237,7 @@ public class SkydocMain {
         ruleInfoMap.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-    Map<String, ProviderInfoWrapper> filteredProviderInfos =
+    Map<String, ProviderInfo> filteredProviderInfos =
         providerInfoMap.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
@@ -296,13 +296,11 @@ public class SkydocMain {
   }
 
   private static void printProviderInfos(
-      PrintWriter printWriter,
-      MarkdownRenderer renderer,
-      Map<String, ProviderInfoWrapper> providerInfos)
+      PrintWriter printWriter, MarkdownRenderer renderer, Map<String, ProviderInfo> providerInfos)
       throws IOException {
-    for (Entry<String, ProviderInfoWrapper> entry : providerInfos.entrySet()) {
-      ProviderInfoWrapper infoWrapper = entry.getValue();
-      printProviderInfo(printWriter, renderer, entry.getKey(), infoWrapper.getProviderInfo());
+    for (Entry<String, ProviderInfo> entry : providerInfos.entrySet()) {
+      ProviderInfo providerInfo = entry.getValue();
+      printProviderInfo(printWriter, renderer, entry.getKey(), providerInfo);
       printWriter.println();
     }
   }
@@ -369,7 +367,7 @@ public class SkydocMain {
       StarlarkSemantics semantics,
       Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
-      ImmutableMap.Builder<String, ProviderInfoWrapper> providerInfoMap,
+      ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
       ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap)
       throws InterruptedException, IOException, LabelSyntaxException, EvalException,
           StarlarkEvaluationException {
@@ -393,11 +391,14 @@ public class SkydocMain {
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {
-        RuleInfo ruleInfo = ruleFunctions.get(envEntry.getValue()).getRuleInfo();
+        RuleInfo.Builder ruleInfoBuild = ruleFunctions.get(envEntry.getValue()).getRuleInfo();
+        RuleInfo ruleInfo = ruleInfoBuild.setRuleName(envEntry.getKey()).build();
         ruleInfoMap.put(envEntry.getKey(), ruleInfo);
       }
       if (providerInfos.containsKey(envEntry.getValue())) {
-        ProviderInfoWrapper providerInfo = providerInfos.get(envEntry.getValue());
+        ProviderInfo.Builder providerInfoBuild =
+            providerInfos.get(envEntry.getValue()).getProviderInfo();
+        ProviderInfo providerInfo = providerInfoBuild.setProviderName(envEntry.getKey()).build();
         providerInfoMap.put(envEntry.getKey(), providerInfo);
       }
       if (envEntry.getValue() instanceof UserDefinedFunction) {

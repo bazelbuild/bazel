@@ -42,9 +42,8 @@ public class ProtoRenderer {
   }
 
   /** Appends {@link ProviderInfo} protos to a {@link ModuleInfo.Builder}. */
-  public ProtoRenderer appendProviderInfos(Collection<ProviderInfoWrapper> providerInfoWrappers) {
-    for (ProviderInfoWrapper providerInfoWrapper : providerInfoWrappers) {
-      ProviderInfo providerInfo = providerInfoWrapper.getProviderInfo();
+  public ProtoRenderer appendProviderInfos(Collection<ProviderInfo> providerInfos) {
+    for (ProviderInfo providerInfo : providerInfos) {
       moduleInfo.addProviderInfo(providerInfo);
     }
     return this;
@@ -65,5 +64,9 @@ public class ProtoRenderer {
   public void writeModuleInfo(BufferedOutputStream outputStream) throws IOException {
     ModuleInfo build = moduleInfo.build();
     build.writeTo(outputStream);
+  }
+
+  public ModuleInfo.Builder getModuleInfo() {
+    return moduleInfo;
   }
 }

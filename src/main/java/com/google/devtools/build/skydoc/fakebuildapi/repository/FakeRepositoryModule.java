@@ -74,7 +74,8 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     RepositoryRuleDefinitionIdentifier functionIdentifier =
         new RepositoryRuleDefinitionIdentifier();
 
-    RuleInfo ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos).build();
+    // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
+    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
 
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, ast.getLocation(), ruleInfo));
     return functionIdentifier;

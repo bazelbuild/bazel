@@ -30,11 +30,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.FunctionUtil;
+import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -125,12 +127,11 @@ public final class SkydocTest extends SkylarkTestCase {
     Map<String, RuleInfo> ruleInfos = ruleInfoMap.build();
     assertThat(ruleInfos).hasSize(1);
 
-    Entry<String, RuleInfo> ruleInfo = Iterables.getOnlyElement(ruleInfos.entrySet());
-    assertThat(ruleInfo.getKey()).isEqualTo("my_rule");
-    assertThat(ruleInfo.getValue().getDocString()).isEqualTo("This is my rule. It does stuff.");
-    assertThat(getAttrNames(ruleInfo.getValue())).containsExactly(
-        "name", "a", "b", "c", "d").inOrder();
-    assertThat(getAttrTypes(ruleInfo.getValue()))
+    RuleInfo ruleInfo = Iterables.getOnlyElement(ruleInfos.values());
+    assertThat(ruleInfo.getRuleName()).isEqualTo("my_rule");
+    assertThat(ruleInfo.getDocString()).isEqualTo("This is my rule. It does stuff.");
+    assertThat(getAttrNames(ruleInfo)).containsExactly("name", "a", "b", "c", "d").inOrder();
+    assertThat(getAttrTypes(ruleInfo))
         .containsExactly(
             AttributeType.NAME,
             AttributeType.LABEL,
@@ -390,5 +391,46 @@ public final class SkydocTest extends SkylarkTestCase {
         .contains(
             "/test/main.bzl:1:5 line 8: invalid parameter documentation "
                 + "(expected format: \"parameter_name: documentation\").");
+  }
+
+  @Test
+  public void testFuncInfoParams() throws Exception {
+    scratch.file(
+        "/test/test.bzl",
+        "def check_function(foo, bar, baz):",
+        "\"\"\"Runs some checks on the given function parameter.",
+        " ",
+        "This rule runs checks on a given function parameter.",
+        " ",
+        "Args:",
+        "foo: A unique parameter for this rule.",
+        "bar: A unique parameter for this rule.",
+        "baz: A unique parameter for this rule.",
+        "\"\"\"",
+        "pass");
+
+    ImmutableMap.Builder<String, UserDefinedFunction> funcInfoMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        funcInfoMap);
+
+    Map<String, UserDefinedFunction> functions = funcInfoMap.build();
+    assertThat(functions).hasSize(1);
+
+    ModuleInfo moduleInfo =
+        new ProtoRenderer().appendUserDefinedFunctionInfos(functions).getModuleInfo().build();
+    UserDefinedFunctionInfo funcInfo = moduleInfo.getFuncInfo(0);
+    assertThat(funcInfo.getFunctionName()).isEqualTo("check_function");
+    assertThat(getParamNames(funcInfo)).containsExactly("foo", "bar", "baz").inOrder();
+  }
+
+  private static Iterable<String> getParamNames(UserDefinedFunctionInfo funcInfo) {
+    return funcInfo.getParameterList().stream()
+        .map(param -> param.getName())
+        .collect(Collectors.toList());
   }
 }

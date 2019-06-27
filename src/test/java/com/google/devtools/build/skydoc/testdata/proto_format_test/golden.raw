@@ -1,11 +1,12 @@
 
-q
-Small example of rule.*
-nameA unique name for this target. +
-uselessThis argument will be ignored.Œ
-$Stores information about an example. 
-fooA string representing foo 
-barA string representing bar 
+}
+
+my_exampleSmall example of rule.*
+nameA unique name for this target. +
+uselessThis argument will be ignored.•
+example$Stores information about an example. 
+fooA string representing foo 
+barA string representing bar 
 bazA string representing bazÆ
 check_function%
 fooA unique name for this rule. ŒRuns some checks on the given function parameter.
