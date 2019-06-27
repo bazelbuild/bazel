@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <wchar.h>
 
 #include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/test_util.h"
@@ -86,9 +87,21 @@ TEST(TokenStreamTest, CommandFileLongPath) {
   const char *tempdir = getenv("TEST_TMPDIR");
   ASSERT_NE(nullptr, tempdir);
 
-  std::string command_file_path = singlejar_test_util::OutputFilePath(std::string(255, 'A'));
   std::wstring wpath;
   std::string error;
+  std::string command_file_path = singlejar_test_util::OutputFilePath(std::string(251, 'a'));
+  command_file_path += ".aaa\\";
+  ASSERT_TRUE(blaze_util::AsAbsoluteWindowsPath(command_file_path, &wpath, &error)) << error;
+  ASSERT_EQ(0, _wmkdir(wpath.c_str()));
+
+  command_file_path += std::string(251, 'b');
+  command_file_path += ".bbb\\";
+  ASSERT_TRUE(blaze_util::AsAbsoluteWindowsPath(command_file_path, &wpath, &error)) << error;
+  ASSERT_EQ(0, _wmkdir(wpath.c_str()));
+
+  command_file_path += std::string(251, 'c');
+  command_file_path += ".ccc";
+
   ASSERT_TRUE(blaze_util::AsAbsoluteWindowsPath(command_file_path, &wpath, &error)) << error;
 
   FILE *fp = _wfopen(wpath.c_str(), L"w");
