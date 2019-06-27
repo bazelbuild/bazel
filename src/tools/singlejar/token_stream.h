@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/diag.h"
 
 /*
@@ -57,14 +58,13 @@ class ArgTokenStream {
   class FileTokenStream {
    public:
     FileTokenStream(const char *filename) {
-      // TODO(laszlocsomor): use the fopen and related file handling API
-      // implementations from ProtoBuf, in order to support long paths:
-      // https://github.com/google/protobuf/blob/
-      //   47b7d2c7cadf74ceec90fc5042232819cd0dd557/
-      //   src/google/protobuf/stubs/io_win32.cc
-      // Best would be to extract that library to a common location and use
-      // here, in ProtoBuf, and in Bazel itself.
-      if (!(fp_ = fopen(filename, "r"))) {
+      std::wstring wpath;
+      std::string error;
+      if (!blaze_util::AsAbsoluteWindowsPath(filename, &wpath, &error)) {
+        diag_err(1, "%s:%d: AsAbsoluteWindowsPath failed: %s", __FILE__, __LINE__,
+                 error.c_str());
+      }
+      if (!(fp_ = _wfopen(wpath.c_str(), "r"))) {
         diag_err(1, "%s", filename);
       }
       filename_ = filename;
