@@ -1,0 +1,13 @@
+Important changes:
+
+  - Add new options --cs_fdo_absolute_path= to support the absolute
+    path
+    profile for LLVM's context-sensitive FDO.
+  - When `--incompatible_strict_action_env` is enabled, the default
+    `PATH` now includes `/usr/local/bin`.
+  - Turn on --experimental_build_setting_api by default for starlark
+    build settings (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-build-settings for more info)
+
+This release contains contributions from many people at Google, as well as Ricky Pai.
