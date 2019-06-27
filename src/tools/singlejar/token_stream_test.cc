@@ -86,7 +86,7 @@ TEST(TokenStreamTest, CommandFileLongPath) {
   const char *tempdir = getenv("TEST_TMPDIR");
   ASSERT_NE(nullptr, tempdir);
 
-  std::string command_file_path = singlejar_test_util::OutputFilePath(std::string(260, 'A'));
+  std::string command_file_path = singlejar_test_util::OutputFilePath(std::string(255, 'A'));
   std::wstring wpath;
   std::string error;
   ASSERT_TRUE(blaze_util::AsAbsoluteWindowsPath(command_file_path, &wpath, &error)) << error;
