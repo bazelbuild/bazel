@@ -174,16 +174,7 @@ public class RemoteSpawnRunnerTest {
             .build();
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
 
-    Spawn spawn =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            NO_CACHE,
-            /*inputs=*/ ImmutableList.of(),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
-            ResourceSet.ZERO);
-
+    Spawn spawn = simpleSpawnWithExecutionInfo(NO_CACHE);
     SpawnExecutionContext policy =
         new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
 
@@ -202,38 +193,110 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
-  public void nonCachableSpawnsShouldNotBeCached_local() throws Exception {
-    // Test that if a spawn is executed locally, due to the local fallback, that its result is not
-    // uploaded to the remote cache.
+  public void nonCachableSpawnsShouldNotBeCached_localFallback() throws Exception {
+    // Test that if a non-cachable spawn is executed locally due to the local fallback,
+    // that its result is not uploaded to the remote cache.
 
     remoteOptions.remoteAcceptCached = true;
     remoteOptions.remoteLocalFallback = true;
     remoteOptions.remoteUploadLocalResults = true;
 
-    RemoteSpawnRunner runner = newSpawnRunnerWithoutExecutor();
+    RemoteSpawnRunner runner = newSpawnRunner();
 
     // Throw an IOException to trigger the local fallback.
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(IOException.class);
 
-    Spawn spawn =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            NO_CACHE,
-            /*inputs=*/ ImmutableList.of(),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
-            ResourceSet.ZERO);
-
+    Spawn spawn = simpleSpawnWithExecutionInfo(NO_CACHE);
     SpawnExecutionContext policy =
         new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
 
     runner.exec(spawn, policy);
 
     verify(localRunner).exec(spawn, policy);
-
-    verify(cache, never()).getCachedActionResult(any(ActionKey.class));
+    verify(cache, never()).upload(any(), any(), any(), any(), any(), any());
     verifyNoMoreInteractions(cache);
+  }
+
+  @Test
+  public void cachableSpawnsShouldBeCached_localFallback() throws Exception {
+    // Test that if a cachable spawn is executed locally due to the local fallback,
+    // that its result is uploaded to the remote cache.
+
+    remoteOptions.remoteAcceptCached = true;
+    remoteOptions.remoteLocalFallback = true;
+    remoteOptions.remoteUploadLocalResults = true;
+
+    RemoteSpawnRunner runner = spy(newSpawnRunner());
+
+    // Throw an IOException to trigger the local fallback.
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(IOException.class);
+
+    SpawnResult res =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setRunnerName("test")
+            .build();
+    when(localRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(res);
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
+
+    SpawnResult result = runner.exec(spawn, policy);
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+    verify(localRunner).exec(eq(spawn), eq(policy));
+    verify(runner)
+        .execLocallyAndUpload(
+            eq(spawn),
+            eq(policy),
+            any(),
+            any(),
+            any(),
+            any(),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache).upload(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void noRemoteExecExecutesLocallyButUsesCache() throws Exception {
+    // Test that if the NO_REMOTE_EXEC execution requirement is specified, the spawn is executed
+    // locally, but its result is still uploaded to the remote cache.
+
+    remoteOptions.remoteAcceptCached = true;
+    remoteOptions.remoteUploadLocalResults = true;
+
+    RemoteSpawnRunner runner = spy(newSpawnRunner());
+
+    SpawnResult res =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setRunnerName("test")
+            .build();
+    when(localRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(res);
+
+    Spawn spawn =
+        simpleSpawnWithExecutionInfo(ImmutableMap.of(ExecutionRequirements.NO_REMOTE_EXEC, ""));
+    SpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
+
+    SpawnResult result = runner.exec(spawn, policy);
+
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+    verify(localRunner).exec(eq(spawn), eq(policy));
+    verify(runner)
+        .execLocallyAndUpload(
+            eq(spawn),
+            eq(policy),
+            any(),
+            any(),
+            any(),
+            any(),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache).upload(any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -261,7 +324,6 @@ public class RemoteSpawnRunnerTest {
             eq(spawn),
             eq(policy),
             any(),
-            eq(cache),
             any(),
             any(),
             any(),
@@ -299,7 +361,6 @@ public class RemoteSpawnRunnerTest {
             eq(spawn),
             eq(policy),
             any(),
-            eq(cache),
             any(),
             any(),
             any(),
@@ -801,7 +862,7 @@ public class RemoteSpawnRunnerTest {
             /*arguments=*/ ImmutableList.of(),
             /*environment=*/ ImmutableMap.of(),
             /*executionInfo=*/ ImmutableMap.of(),
-            ImmutableList.of(input),
+            /*inputs=*/ ImmutableList.of(input),
             /*outputs=*/ ImmutableList.<ActionInput>of(),
             ResourceSet.ZERO);
     SpawnExecutionContext policy =
@@ -949,11 +1010,18 @@ public class RemoteSpawnRunnerTest {
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {
+    return simpleSpawnWithExecutionInfo(ImmutableMap.of(), outputs);
+  }
+
+  private static SimpleSpawn simpleSpawnWithExecutionInfo(
+      ImmutableMap<String, String> executionInfo,
+      Artifact... outputs
+  ) {
     return new SimpleSpawn(
         new FakeOwner("foo", "bar"),
         /*arguments=*/ ImmutableList.of(),
         /*environment=*/ ImmutableMap.of(),
-        /*executionInfo=*/ ImmutableMap.of(),
+        /*executionInfo=*/ executionInfo,
         /*inputs=*/ ImmutableList.of(),
         /*outputs=*/ ImmutableList.copyOf(outputs),
         ResourceSet.ZERO);
