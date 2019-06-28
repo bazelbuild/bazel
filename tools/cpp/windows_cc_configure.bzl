@@ -232,7 +232,7 @@ def _is_vs_2017_or_2019(vc_path):
 def _find_vcvars_bat_script(repository_ctx, vc_path):
     """Find batch script to set up environment variables for VC. Doesn't %-escape the result."""
     if _is_vs_2017_or_2019(vc_path):
-        vcvars_script = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
+        vcvars_script = vc_path + "\\Auxiliary\\Build\\VCVARS64.BAT"
     else:
         vcvars_script = vc_path + "\\bin\\amd64\\VCVARS64.BAT"
 
@@ -254,9 +254,7 @@ def setup_vc_env_vars(repository_ctx, vc_path):
         full_version = _get_vc_full_version(repository_ctx, vc_path)
         if full_version:
             vcvars_ver = "-vcvars_ver=" + full_version
-        cmd = "\"%s\" amd64 %s %s" % (vcvars_script, winsdk_version, vcvars_ver)
-    else:
-        cmd = "\"%s\" %s" % (vcvars_script, winsdk_version)
+    cmd = "\"%s\" %s %s" % (vcvars_script, winsdk_version, vcvars_ver)
     repository_ctx.file(
         "get_env.bat",
         "@echo off\n" +
@@ -341,10 +339,7 @@ def _find_missing_vc_tools(repository_ctx, vc_path):
     """Check if any required tool is missing under given VC path."""
     missing_tools = []
     if not _find_vcvars_bat_script(repository_ctx, vc_path):
-        if _is_vs_2017_or_2019(repository_ctx):
-            missing_tools.append("VCVARSALL.BAT")
-        else:
-            missing_tools.append("VCVARS64.BAT")
+        missing_tools.append("VCVARS64.BAT")
 
     for tool in ["cl.exe", "link.exe", "lib.exe", "ml64.exe"]:
         if not find_msvc_tool(repository_ctx, vc_path, tool):
