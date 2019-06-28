@@ -261,3 +261,13 @@ def use_netrc(netrc, urls):
                 "password": authforhost["password"],
             }
     return auth
+
+def _fail_with_message_impl(repository_ctx):
+    fail(repository_ctx.attr.message)
+
+fail_with_message = repository_rule(
+    implementation = _fail_with_message_impl,
+    attrs = {
+        "message": attr.string(doc = "Message to be shown when the repository is fetched."),
+    },
+)
