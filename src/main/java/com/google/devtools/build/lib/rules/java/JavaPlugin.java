@@ -30,6 +30,7 @@ public class JavaPlugin implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     return new JavaLibrary(semantics)
         .init(
             ruleContext,

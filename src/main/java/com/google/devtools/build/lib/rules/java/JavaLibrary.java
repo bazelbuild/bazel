@@ -39,6 +39,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     JavaCommon common = new JavaCommon(ruleContext, semantics);
     return init(
         ruleContext,

@@ -75,6 +75,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     final JavaCommon common = new JavaCommon(ruleContext, semantics);
     DeployArchiveBuilder deployArchiveBuilder = new DeployArchiveBuilder(semantics, ruleContext);
     Runfiles.Builder runfilesBuilder =
