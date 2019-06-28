@@ -184,7 +184,14 @@ To build C++ targets, you need:
     SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).
 
     The Windows SDK contains header files and libraries you need when building
-    Windows applications, including Bazel itself.
+    Windows applications, including Bazel itself. You can specify Windows SDK version
+    by setting `BAZEL_WINSDK_FULL_VERSION`. You can use a full Windows 10 SDK number such as 
+    10.0.10240.0, or specify 8.1 to use the Windows 8.1 SDK. Please make sure you have the specified
+    Windows SDK installed. If this environment variable is not set, the latest Windows SDK installed
+    will be used.
+    ```
+    set BAZEL_WINSDK_FULL_VERSION=10.0.10240.0
+    ```
 
 If everything is set up, you can build a C++ target now!
 

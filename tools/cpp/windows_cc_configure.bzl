@@ -229,32 +229,38 @@ def _is_vs_2017_or_2019(vc_path):
     # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\
     return vc_path.find("2017") != -1 or vc_path.find("2019") != -1
 
-def _find_vcvarsall_bat_script(repository_ctx, vc_path):
-    """Find vcvarsall.bat script. Doesn't %-escape the result."""
+def _find_vcvars_bat_script(repository_ctx, vc_path):
+    """Find batch script to set up environment variables for VC. Doesn't %-escape the result."""
     if _is_vs_2017_or_2019(vc_path):
-        vcvarsall = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
+        vcvars_script = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
     else:
-        vcvarsall = vc_path + "\\VCVARSALL.BAT"
+        vcvars_script = vc_path + "\\bin\\amd64\\VCVARS64.BAT"
 
-    if not repository_ctx.path(vcvarsall).exists:
+    if not repository_ctx.path(vcvars_script).exists:
         return None
 
-    return vcvarsall
+    return vcvars_script
 
 def setup_vc_env_vars(repository_ctx, vc_path):
-    """Get environment variables set by VCVARSALL.BAT. Doesn't %-escape the result!"""
-    vcvarsall = _find_vcvarsall_bat_script(repository_ctx, vc_path)
-    if not vcvarsall:
+    """Get environment variables set by VCVARS*.BAT script. Doesn't %-escape the result!"""
+    vcvars_script = _find_vcvars_bat_script(repository_ctx, vc_path)
+    if not vcvars_script:
         return None
+    winsdk_version = _get_winsdk_full_version(repository_ctx)
+    if not winsdk_version:
+        winsdk_version = ""
     vcvars_ver = ""
     if _is_vs_2017_or_2019(vc_path):
         full_version = _get_vc_full_version(repository_ctx, vc_path)
         if full_version:
             vcvars_ver = "-vcvars_ver=" + full_version
+        cmd = "\"%s\" amd64 %s %s" % (vcvars_script, winsdk_version, vcvars_ver)
+    else:
+        cmd = "\"%s\" %s" % (vcvars_script, winsdk_version)
     repository_ctx.file(
         "get_env.bat",
         "@echo off\n" +
-        ("call \"%s\" amd64 %s > NUL \n" % (vcvarsall, vcvars_ver)) +
+        ("call %s > NUL || exit /b \n" % cmd) +
         "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB%,WINDOWSSDKDIR=%WINDOWSSDKDIR% \n",
         True,
     )
@@ -267,7 +273,15 @@ def setup_vc_env_vars(repository_ctx, vc_path):
     for env in envs:
         key, value = env.split("=", 1)
         env_map[key] = escape_string(value.replace("\\", "\\\\"))
+    _check_env_vars(env_map, cmd)
     return env_map
+
+def _check_env_vars(env_map, cmd):
+    envs = ["PATH", "INCLUDE", "LIB", "WINDOWSSDKDIR"]
+    for env in envs:
+        if not env_map.get(env):
+            auto_configure_fail(
+                "Setting up VC environment variables failed, %s is not set by the following command:\n    %s" % (env, cmd))
 
 def _get_latest_subversion(repository_ctx, vc_path):
     """Get the latest subversion of a VS 2017/2019 installation.
@@ -300,6 +314,12 @@ def _get_vc_full_version(repository_ctx, vc_path):
         return repository_ctx.os.environ["BAZEL_VC_FULL_VERSION"]
     return _get_latest_subversion(repository_ctx, vc_path)
 
+def _get_winsdk_full_version(repository_ctx):
+    """Return the value of BAZEL_WINSDK_FULL_VERSION if defined, otherwise None."""
+    if "BAZEL_WINSDK_FULL_VERSION" in repository_ctx.os.environ:
+        return repository_ctx.os.environ["BAZEL_WINSDK_FULL_VERSION"]
+    return None
+
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
     tool_path = None
@@ -320,8 +340,11 @@ def find_msvc_tool(repository_ctx, vc_path, tool):
 def _find_missing_vc_tools(repository_ctx, vc_path):
     """Check if any required tool is missing under given VC path."""
     missing_tools = []
-    if not _find_vcvarsall_bat_script(repository_ctx, vc_path):
-        missing_tools.append("VCVARSALL.BAT")
+    if not _find_vcvars_bat_script(repository_ctx, vc_path):
+        if _is_vs_2017_or_2019(repository_ctx):
+            missing_tools.append("VCVARSALL.BAT")
+        else:
+            missing_tools.append("VCVARS64.BAT")
 
     for tool in ["cl.exe", "link.exe", "lib.exe", "ml64.exe"]:
         if not find_msvc_tool(repository_ctx, vc_path, tool):
