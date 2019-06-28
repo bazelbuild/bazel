@@ -473,16 +473,14 @@ cc_library(
 
 cc_library(
     name = "lib-file",
-    srcs = ["java_tools/src/main/native/windows/file.cc"],
-    hdrs = ["java_tools/src/main/native/windows/file.h"],
-    strip_include_prefix = "java_tools",
-    deps = [":lib-util"],
-)
-
-cc_library(
-    name = "lib-util",
-    srcs = ["java_tools/src/main/native/windows/util.cc"],
-    hdrs = ["java_tools/src/main/native/windows/util.h"],
+    srcs = [
+        "java_tools/src/main/native/windows/file.cc",
+        "java_tools/src/main/native/windows/util.cc",
+    ],
+    hdrs = [
+        "java_tools/src/main/native/windows/file.h",
+        "java_tools/src/main/native/windows/util.h",
+    ],
     strip_include_prefix = "java_tools",
 )
 
