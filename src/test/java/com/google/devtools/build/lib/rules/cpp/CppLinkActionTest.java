@@ -334,48 +334,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompilesTestSourcesIntoDynamicLibrary() throws Exception {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Skip the test on Windows.
-      // TODO(#7524): This test should work on Windows just fine, investigate and fix.
-      return;
-    }
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.SUPPORTS_PIC,
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-
-    scratch.file(
-        "x/BUILD",
-        "cc_test(name = 'a', srcs = ['a.cc'])",
-        "cc_binary(name = 'b', srcs = ['a.cc'], linkstatic = 0)");
-    scratch.file("x/a.cc", "int main() {}");
-    useConfiguration("--experimental_link_compile_output_separately", "--force_pic");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
-    assertThat(artifactsToStrings(linkAction.getInputs()))
-        .contains("bin _solib_k8/libx_Sliba.ifso");
-    assertThat(linkAction.getArguments())
-        .contains(getBinArtifactWithNoOwner("_solib_k8/libx_Sliba.ifso").getExecPathString());
-    RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
-    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .contains("bin _solib_k8/libx_Sliba.so");
-
-    configuredTarget = getConfiguredTarget("//x:b");
-    linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b");
-    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/a.pic.o");
-    runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
-    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .containsExactly("bin x/b");
-  }
-
-  @Test
   public void testCompilesDynamicModeTestSourcesWithFeatureIntoDynamicLibrary() throws Exception {
     if (OS.getCurrent() == OS.WINDOWS) {
       // Skip the test on Windows.

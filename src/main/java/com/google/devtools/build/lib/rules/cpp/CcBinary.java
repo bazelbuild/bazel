@@ -377,16 +377,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             .build();
     Iterable<Artifact> additionalLinkerInputs = common.getAdditionalLinkerInputs();
 
-    // Allows the dynamic library generated for code of default dynamic mode targets to be linked
-    // separately. The main use case for default dynamic mode is the cc_test rule. The same behavior
-    // can also be enabled specifically for tests with an experimental flag.
-    // TODO(meikeb): Retire the experimental flag in Q1 2019.
+    // Allows the dynamic library generated for code of test targets to be linked separately.
     boolean linkCompileOutputSeparately =
         ruleContext.isTestTarget()
             && linkingMode == LinkingMode.DYNAMIC
             && cppConfiguration.getDynamicModeFlag() == DynamicMode.DEFAULT
-            && (cppConfiguration.getLinkCompileOutputSeparately()
-                || ruleContext.getFeatures().contains(DYNAMIC_LINK_TEST_SRCS));
+            && ruleContext.getFeatures().contains(DYNAMIC_LINK_TEST_SRCS);
     // When linking the object files directly into the resulting binary, we do not need
     // library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
     // (either shared object files or archives) for a non-library link type [*], and add
