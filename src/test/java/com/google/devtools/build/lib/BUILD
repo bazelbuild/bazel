@@ -5,6 +5,8 @@ package(
     ],
 )
 
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
 # Tests for Windows-specific functionality that can run cross-platform.
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",

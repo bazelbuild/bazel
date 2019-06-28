@@ -1,5 +1,7 @@
 licenses(["notice"])  #  BSD/MIT-like license
 
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

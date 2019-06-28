@@ -8,6 +8,7 @@ package(
 licenses(["notice"])  # Apache 2.0
 
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
 
 cc_library(
     name = "zip",

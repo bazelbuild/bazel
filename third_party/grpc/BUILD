@@ -24,6 +24,7 @@ package(
     ],
 )
 
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
 load(
     ":build_defs.bzl",
     "grpc_cc_library",

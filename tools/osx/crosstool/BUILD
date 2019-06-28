@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
 # Files which shouldn't be publicly visible and dependencies of all objc_* or ios_* rules should be excluded.
 exports_files(glob(
     ["**"],

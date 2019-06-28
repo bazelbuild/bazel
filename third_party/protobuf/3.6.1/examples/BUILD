@@ -12,6 +12,8 @@
 # Remote repository "com_google_protobuf" must be defined to use this rule.
 licenses(["notice"])
 
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_proto_library")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

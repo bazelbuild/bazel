@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(

@@ -14,6 +14,8 @@
 # )
 licenses(["notice"])
 
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
 genrule(
     name = "copy_link_jni_md_header",
     srcs = select({

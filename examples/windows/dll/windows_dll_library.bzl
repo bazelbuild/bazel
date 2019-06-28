@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_import", "cc_library")
+
 # This is a simple windows_dll_library rule for builing a DLL Windows
 # that can be depended on by other cc rules.
 #
@@ -25,7 +27,7 @@ def windows_dll_library(
     import_target_name = name + "_dll_import"
 
     # Build the shared library
-    native.cc_binary(
+    cc_binary(
         name = dll_name,
         srcs = srcs + hdrs,
         linkshared = 1,
@@ -41,14 +43,14 @@ def windows_dll_library(
 
     # Because we cannot directly depend on cc_binary from other cc rules in deps attribute,
     # we use cc_import as a bridge to depend on the dll.
-    native.cc_import(
+    cc_import(
         name = import_target_name,
         interface_library = ":" + import_lib_name,
         shared_library = ":" + dll_name,
     )
 
     # Create a new cc_library to also include the headers needed for the shared library
-    native.cc_library(
+    cc_library(
         name = name,
         hdrs = hdrs,
         visibility = visibility,

@@ -7,6 +7,8 @@ package(
     ],
 )
 
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
 cc_library(
     name = "def_parser_lib",
     srcs = ["def_parser.cc"],
@@ -27,15 +29,15 @@ py_test(
         "//src/conditions:windows": ["def_parser_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
-    tags = ["no_windows"],
-    main = select({
-        "//src/conditions:windows": "def_parser_test.py",
-        "//conditions:default": "empty_test.py",
-    }),
     data = select({
         "//src/conditions:windows": [":def_parser"],
         "//conditions:default": [],
     }),
+    main = select({
+        "//src/conditions:windows": "def_parser_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
+    tags = ["no_windows"],
     deps = ["//src/test/py/bazel:test_base"],
 )
 

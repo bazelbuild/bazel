@@ -4,6 +4,8 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
 WIN_LINK_OPTS = [
     "-DEFAULTLIB:advapi32.lib",  # GetUserNameW
     "-DEFAULTLIB:ole32.lib",  # CoTaskMemFree

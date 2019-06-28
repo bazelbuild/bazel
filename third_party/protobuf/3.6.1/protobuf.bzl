@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
 def _GetPath(ctx, path):
     if ctx.label.workspace_root:
         return ctx.label.workspace_root + "/" + path
@@ -224,7 +226,7 @@ def cc_proto_library(
         )
 
         # An empty cc_library to make rule dependency consistent.
-        native.cc_library(
+        cc_library(
             name = name,
             **kargs
         )
@@ -256,7 +258,7 @@ def cc_proto_library(
     if use_grpc_plugin:
         cc_libs = cc_libs + ["//external:grpc_lib"]
 
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = gen_srcs,
         hdrs = gen_hdrs,
