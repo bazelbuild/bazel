@@ -43,6 +43,7 @@ test_pkg_tar() {
   mkdir main
   cd main
   touch WORKSPACE
+  add_rules_cc_to_workspace "WORKSPACE"
   echo Hello World > foo.txt
   echo Hello World, again > bar.txt
   cat > BUILD <<'EOF'
@@ -66,6 +67,7 @@ test_pkg_tar_quoting() {
   mkdir main
   cd main
   touch WORKSPACE
+  add_rules_cc_to_workspace "WORKSPACE"
   mkdir data
   echo 'with equal' > data/'foo=bar'
   echo 'like an option' > data/--foo
@@ -95,6 +97,7 @@ test_pkg_tar_strip_directory() {
   mkdir main
   cd main
   touch WORKSPACE
+  add_rules_cc_to_workspace "WORKSPACE"
   cat > BUILD <<'EOF'
 load(":apple.bzl", "create_banana_directory")
 
@@ -158,6 +161,7 @@ http_archive(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -200,6 +204,7 @@ new_git_repository(
   build_file_content="exports_files([\"foo.sh\"])",
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",

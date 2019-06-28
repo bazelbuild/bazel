@@ -89,6 +89,7 @@ load('//:test.bzl', 'macro')
 
 macro('$repo2')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   # Empty package for the .bzl file
   echo -n >BUILD
@@ -172,6 +173,7 @@ function test_load_from_symlink_to_outside_of_workspace() {
   cat > WORKSPACE<<EOF
 load("//a/b:c.bzl", "c")
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   mkdir -p $OTHER/a/b
   touch $OTHER/a/b/BUILD
@@ -220,6 +222,7 @@ local_repository(name='proxy', path='$repo3')
 load('@proxy//:test.bzl', 'macro')
 macro('$repo2')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   bazel build @endangered//carnivore:mongoose >& $TEST_log \
     || fail "Failed to build"
@@ -253,6 +256,7 @@ local_repository(name='foo', path='$repo2')
 load("@foo//:ext.bzl", "macro")
 macro()
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   cat > BUILD <<'EOF'
 genrule(name = "foo", srcs=["@foo//:data.txt"], outs=["foo.txt"], cmd = "cat $< | tee $@")
@@ -287,6 +291,7 @@ load("@foo//:ext.bzl", "macro")
 macro()
 local_repository(name='foo', path='$repo2')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   local exitCode=0
   bazel build @foo//:data.txt >& $TEST_log || exitCode=$?
@@ -338,6 +343,7 @@ EOF
 load('//:test.bzl', 'repo')
 repo(name='foo', path='$repo2')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   # Our custom repository rule
   cat >test.bzl <<EOF
@@ -371,6 +377,7 @@ function setup_skylark_repository() {
 load('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   # Need to be in a package
   cat > BUILD
 }
@@ -1063,6 +1070,7 @@ repo(name = 'foo',
      output = "whatever.txt"
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   # Our custom repository rule
   cat >test.bzl <<EOF
@@ -1176,6 +1184,7 @@ load('//:test.bzl', 'macro')
 
 macro('$repo2')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   # Empty package for the .bzl file
   echo -n >BUILD
@@ -1240,6 +1249,7 @@ load("//:repo.bzl", "with_timeout")
 
 with_timeout(name="maytimeout")
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   touch BUILD
   cat > repo.bzl <<'EOF'
 def _impl(ctx):
@@ -1312,6 +1322,7 @@ trivial_repo(
   data = "@ext_bar//:data.txt",
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   bazel build //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
@@ -1372,6 +1383,7 @@ function test_circular_load_error_message() {
   cat > WORKSPACE <<'EOF'
 load("//:a.bzl", "total")
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   touch BUILD
   cat > a.bzl <<'EOF'
 load("//:b.bzl", "b")
@@ -1400,6 +1412,7 @@ function test_ciruclar_load_error_with_path_message() {
   cat > WORKSPACE <<'EOF'
 load("//:x.bzl", "x")
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   touch BUILD
   cat > x.bzl <<'EOF'
 load("//:y.bzl", "y")
@@ -1449,6 +1462,7 @@ with_auth(
   url = "http://127.0.0.1:$nc_port/x.tar",
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   cat > auth.bzl <<'EOF'
 def _impl(ctx):
   ctx.download_and_extract(
@@ -1509,6 +1523,7 @@ load("//:def.bzl", "netrcrepo")
 
 netrcrepo(name = "netrc", path="$(pwd)/.netrc")
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   # ...and that from the parse result, we can read off the
   # credentials for example.com.
   cat > BUILD <<'EOF'
@@ -1607,6 +1622,7 @@ authrepo(
   ],
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   # Here dicts give us the correct notion of equality, so we can simply
   # compare against the expected value.
   cat > expected.bzl <<'EOF'

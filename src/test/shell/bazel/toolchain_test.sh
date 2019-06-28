@@ -734,6 +734,7 @@ function test_register_toolchain_error_invalid_target() {
   cat > WORKSPACE <<EOF
 register_toolchains('//demo:not_a_target')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   mkdir -p demo
   cat >> demo/BUILD <<EOF
@@ -827,6 +828,7 @@ EOF
   cat > WORKSPACE <<EOF
 register_toolchains('//invalid:invalid_toolchain')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   mkdir -p demo
   cat >> demo/BUILD <<EOF

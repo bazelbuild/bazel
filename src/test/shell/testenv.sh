@@ -453,6 +453,7 @@ function write_workspace_file() {
   cat > WORKSPACE << EOF
 workspace(name = '$WORKSPACE_NAME')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace
 }
@@ -703,4 +704,19 @@ echo 'I am Python 3'
 EOF
     chmod +x tools/python/$PYTHON2_FILENAME tools/python/$PYTHON3_FILENAME
   fi
+}
+
+function add_rules_cc_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_cc",
+    sha256 = "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
+    strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",
+    urls = [
+        "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
+    ],
+)
+EOF
 }

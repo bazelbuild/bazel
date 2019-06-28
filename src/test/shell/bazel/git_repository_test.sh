@@ -118,6 +118,7 @@ git_repository(
     commit = "$commit_hash",
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   mkdir -p planets
   cat > planets/BUILD <<EOF
 sh_binary(
@@ -181,6 +182,7 @@ new_git_repository(
     build_file = "//:pluto.BUILD",
 )
 EOF
+    add_rules_cc_to_workspace "WORKSPACE"
 
   cat > BUILD <<EOF
 exports_files(['pluto.BUILD'])
@@ -207,6 +209,7 @@ filegroup(
 )"""
 )
 EOF
+    add_rules_cc_to_workspace "WORKSPACE"
   fi
 
   mkdir -p planets

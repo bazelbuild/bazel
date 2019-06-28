@@ -47,6 +47,7 @@ local_repository(
     path = "$repo_a",
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   bazel build @x//:x || fail "build failed"
   assert_contains "hi" bazel-genfiles/external/x/out
@@ -57,6 +58,7 @@ local_repository(
     path = "$repo_b",
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   bazel build @x//:x || fail "build failed"
   assert_contains "bye" bazel-genfiles/external/x/out
@@ -93,6 +95,7 @@ function test_middleman_conflict() {
 local_repository(name = 'repo1', path='$test_repo1')
 local_repository(name = 'repo2', path='$test_repo2')
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   cat > BUILD <<'EOF'
 genrule(
@@ -131,6 +134,7 @@ new_local_repository(
         "//conditions:default" : "BUILD.2"}),
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   bazel build @foo//... &> $TEST_log && fail "Failure expected" || true
   expect_log "select() cannot be used in WORKSPACE files"
@@ -141,6 +145,7 @@ function test_macro_select() {
 load('//:foo.bzl', 'foo_repo')
 foo_repo()
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   touch BUILD
   cat > foo.bzl <<EOF
@@ -164,6 +169,7 @@ function test_clean() {
   cat > WORKSPACE <<EOF
 workspace(name = "y")
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   cat > BUILD <<'EOF'
 genrule(name = "z", cmd = "echo hi > $@", outs = ["x.out"], srcs = [])
 EOF
@@ -179,6 +185,7 @@ load("//:macro.bzl", "macro")
 print("In workspace: ")
 macro()
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   cat > macro.bzl <<EOF
 def macro():
   print("In workspace macro: ")
@@ -265,6 +272,7 @@ local_repository(
     path = "original",
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
   assert_contains "override" bazel-genfiles/external/o/gen.out
@@ -367,6 +375,7 @@ local_repository(
     repo_mapping = {"@tulip" : "@daffodil"}
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
 
   # Test that packages in the tree workspace are not affected
   bazel query --experimental_ui_debug_all_events \
@@ -825,6 +834,7 @@ local_repository(
   path="../extref",
 )
 EOF
+  add_rules_cc_to_workspace "WORKSPACE"
   touch BUILD
   bazel build @extref//:it >"${TEST_log}" 2>&1 && fail "expected failure" || :
   expect_not_log 'download_and_extract'
