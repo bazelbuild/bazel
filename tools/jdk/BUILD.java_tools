@@ -710,7 +710,10 @@ cc_library(
     name = "token_stream",
     hdrs = ["java_tools/src/tools/singlejar/token_stream.h"],
     strip_include_prefix = "java_tools",
-    deps = [":diag"],
+    deps = [
+        ":diag",
+        ":filesystem",
+    ],
 )
 
 filegroup(
