@@ -710,6 +710,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(action.getUnusedInputsList()).isPresent();
     assertThat(action.getUnusedInputsList().get().getFilename()).isEqualTo("a.txt");
     assertThat(action.discoversInputs()).isTrue();
+    assertThat(action.isShareable()).isFalse();
   }
 
   @Test
