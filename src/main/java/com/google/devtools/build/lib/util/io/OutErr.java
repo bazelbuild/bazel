@@ -21,8 +21,7 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 
 /**
- * A pair of output streams to be used for redirecting the output and error
- * streams of a subprocess.
+ * A pair of output streams to be used for redirecting the output and error streams of a subprocess.
  */
 public class OutErr implements Closeable {
 
@@ -52,19 +51,56 @@ public class OutErr implements Closeable {
   }
 
   /**
-   * This method redirects {@link System#out} / {@link System#err} into
-   * {@code this} object. After calling this method, writing to
-   * {@link System#out} or {@link System#err} will result in
-   * {@code "System.out: " + message} or {@code "System.err: " + message}
-   * being written to the OutputStreams of {@code this} instance.
+   * Temporarily patches {@link System#out} and {@link System#err} with custom streams.
    *
-   * Note: This method affects global variables.
+   * <p>{@link #start} is called to signal the beginning of the scope of the patch. {@link #close}
+   * ends the scope of the patch, returning {@link System#out} and {@link System#err} to what they
+   * were before.
    */
-  public void addSystemOutErrAsSource() {
-    System.setOut(new PrintStream(new LinePrefixingOutputStream("System.out: ", getOutputStream()),
-                                  /*autoflush=*/false));
-    System.setErr(new PrintStream(new LinePrefixingOutputStream("System.err: ", getErrorStream()),
-                                  /*autoflush=*/false));
+  public interface SystemPatcher extends AutoCloseable {
+    void start();
+  }
+
+  /** Returns a {@link SystemPatcher} that uses this instance's out and err streams. */
+  public final SystemPatcher getSystemPatcher() {
+    PrintStream savedOut = System.out;
+    PrintStream savedErr = System.err;
+    SwitchingPrintStream outPatch = new SwitchingPrintStream(out);
+    SwitchingPrintStream errPatch = new SwitchingPrintStream(err);
+    return new SystemPatcher() {
+      @Override
+      public void start() {
+        System.setOut(outPatch);
+        System.setErr(errPatch);
+      }
+
+      @Override
+      public void close() {
+        System.setOut(savedOut);
+        System.setErr(savedErr);
+        outPatch.switchBackTo(savedOut);
+        errPatch.switchBackTo(savedErr);
+      }
+    };
+  }
+
+  /**
+   * Starts by streaming to {@code override}, then switches back to {@code saved}.
+   *
+   * <p>The switching strategy is used to guard against memory leaks. For example, if {@code
+   * override} is passed directly to {@link System#setErr}, anyone may retain a reference to it via
+   * {@link System#err}. Instead, they will get a reference to this class, which frees up {@code
+   * override} in {@link #switchBackTo}.
+   */
+  private static final class SwitchingPrintStream extends PrintStream {
+
+    private SwitchingPrintStream(OutputStream override) {
+      super(override, /*autoFlush=*/ true);
+    }
+
+    private void switchBackTo(OutputStream saved) {
+      out = saved;
+    }
   }
 
   /**
