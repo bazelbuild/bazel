@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.windows.jni;
 
-import java.util.List;
 
 /** Process management on Windows. */
 public class WindowsProcesses {
@@ -215,59 +214,4 @@ public class WindowsProcesses {
   }
 
   private static native int nativeGetpid();
-
-  // TODO(laszlocsomor): Replace this method with ShellUtils.windowsEscapeArg in order to fix
-  // https://github.com/bazelbuild/bazel/issues/7122
-  public static String quoteCommandLine(List<String> argv) {
-    StringBuilder result = new StringBuilder();
-    for (int iArg = 0; iArg < argv.size(); iArg++) {
-      if (iArg != 0) {
-        result.append(" ");
-      }
-      String arg = argv.get(iArg);
-      if (arg.isEmpty()) {
-        result.append("\"\"");
-        continue;
-      }
-      boolean hasSpace = arg.contains(" ");
-      if (!arg.contains("\"") && !arg.contains("\\") && !hasSpace) {
-        // fast path. Just append the input string.
-        result.append(arg);
-      } else {
-        // We need to quote things if the argument contains a space.
-        if (hasSpace) {
-          result.append("\"");
-        }
-
-        for (int iChar = 0; iChar < arg.length(); iChar++) {
-          boolean lastChar = iChar == arg.length() - 1;
-          switch (arg.charAt(iChar)) {
-            case '"':
-              // Escape double quotes
-              result.append("\\\"");
-              break;
-            case '\\':
-              // Backslashes at the end of the string are quoted if we add quotes
-              if (lastChar) {
-                result.append(hasSpace ? "\\\\" : "\\");
-              } else {
-                // Backslashes everywhere else are quoted if they are followed by a
-                // quote or a backslash
-                result.append(
-                    arg.charAt(iChar + 1) == '"' || arg.charAt(iChar + 1) == '\\' ? "\\\\" : "\\");
-              }
-              break;
-            default:
-              result.append(arg.charAt(iChar));
-          }
-        }
-        // Add ending quotes if we added a quote at the beginning.
-        if (hasSpace) {
-          result.append("\"");
-        }
-      }
-    }
-
-    return result.toString();
-  }
 }

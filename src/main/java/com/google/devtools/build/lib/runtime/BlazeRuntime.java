@@ -1125,10 +1125,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem();
   }
 
-  private static SubprocessFactory subprocessFactoryImplementation(
-      BlazeServerStartupOptions startupOptions) {
+  private static SubprocessFactory subprocessFactoryImplementation() {
     if (!"0".equals(System.getProperty("io.bazel.EnableJni")) && OS.getCurrent() == OS.WINDOWS) {
-      return new WindowsSubprocessFactory(startupOptions.windowsStyleArgEscaping);
+      return WindowsSubprocessFactory.INSTANCE;
     } else {
       return JavaSubprocessFactory.INSTANCE;
     }
@@ -1234,7 +1233,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           "No module set the default hash function.", ExitCode.BLAZE_INTERNAL_ERROR, e);
     }
     Path.setFileSystemForSerialization(fs);
-    SubprocessBuilder.setDefaultSubprocessFactory(subprocessFactoryImplementation(startupOptions));
+    SubprocessBuilder.setDefaultSubprocessFactory(subprocessFactoryImplementation());
 
     Path outputUserRootPath = fs.getPath(outputUserRoot);
     Path installBasePath = fs.getPath(installBase);

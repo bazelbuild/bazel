@@ -18,7 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
@@ -65,16 +66,26 @@ public class WindowsProcessesTest {
     }
   }
 
+  private static List<String> quoteArgs(List<String> argv, String... args) {
+    for (String arg : args) {
+      argv.add(ShellUtils.windowsEscapeArg(arg));
+    }
+    return argv;
+  }
+
+  private static List<String> quoteArgs(String... args) {
+    List<String> argv = new ArrayList<>();
+    return quoteArgs(argv, args);
+  }
+
   private String mockArgs(String... args) {
     List<String> argv = new ArrayList<>();
 
     argv.add("-jar");
     argv.add(mockSubprocess);
-    for (String arg : args) {
-      argv.add(arg);
-    }
+    quoteArgs(argv, args);
 
-    return WindowsProcesses.quoteCommandLine(argv);
+    return Joiner.on(" ").join(argv);
   }
 
   private void assertNoProcessError() throws Exception {
@@ -87,35 +98,32 @@ public class WindowsProcessesTest {
 
   @Test
   public void testDoesNotQuoteSimpleArg() throws Exception {
-    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a"))).isEqualTo("x a");
+    assertThat(quoteArgs("x", "a")).containsExactly("x", "a").inOrder();
   }
 
   @Test
   public void testQuotesEmptyArg() throws Exception {
-    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", ""))).isEqualTo("x \"\"");
+    assertThat(quoteArgs("x", "")).containsExactly("x", "\"\"").inOrder();
   }
 
   @Test
   public void testQuotesArgWithSpace() throws Exception {
-    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a b")))
-        .isEqualTo("x \"a b\"");
+    assertThat(quoteArgs("x", "a b")).containsExactly("x", "\"a b\"").inOrder();
   }
 
   @Test
   public void testDoesNotQuoteArgWithBackslash() throws Exception {
-    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a\\b")))
-        .isEqualTo("x a\\b");
+    assertThat(quoteArgs("x", "a\\b")).containsExactly("x", "a\\b").inOrder();
   }
 
   @Test
   public void testDoesNotQuoteArgWithSingleQuote() throws Exception {
-    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a'b"))).isEqualTo("x a'b");
+    assertThat(quoteArgs("x", "a'b")).containsExactly("x", "a'b").inOrder();
   }
 
   @Test
-  public void testDoesNotQuoteArgWithDoubleQuote() throws Exception {
-    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a\"b")))
-        .isEqualTo("x a\\\"b");
+  public void testQuotesArgWithDoubleQuote() throws Exception {
+    assertThat(quoteArgs("x", "a\"b", "y")).containsExactly("x", "\"a\\\"b\"", "y").inOrder();
   }
 
   @Test

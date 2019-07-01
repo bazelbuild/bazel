@@ -346,10 +346,6 @@ class TestWrapperTest(test_base.TestBase):
     bazel_bin = bazel_bin[0]
 
     exit_code, stdout, stderr = self.RunBazel([
-        # --[no]incompatible_windows_style_arg_escaping affects what arguments
-        # the test receives. Run with --incompatible_windows_style_arg_escaping
-        # to test for future (as of 2019-04-05) behavior.
-        '--incompatible_windows_style_arg_escaping',
         'test',
         '//foo:testargs_test',
         '-t-',

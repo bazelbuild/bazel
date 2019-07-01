@@ -87,9 +87,11 @@ def _impl(ctx, cmd, out):
     return [DefaultInfo(executable = output)]
 
 def _impl1(ctx):
+  # See https://github.com/bazelbuild/bazel/issues/7122
   return _impl(ctx, '${1+"$@"}', "foo1")
 
 def _impl2(ctx):
+  # See https://github.com/bazelbuild/bazel/issues/7122
   return _impl(ctx, '${1+"$@"} ', "foo2")
 
 args1_test = rule(implementation = _impl1, test = True)
@@ -115,58 +117,16 @@ function assert_command_succeeded() {
   expect_log "not all outputs were created"
 }
 
-function assert_build() {
-  local -r enable_windows_style_arg_escaping=$1
-
-  if $enable_windows_style_arg_escaping; then
-    local -r flag="--incompatible_windows_style_arg_escaping"
-    local -r expect_foo1_fails="false"
-  else
-    local -r flag="--noincompatible_windows_style_arg_escaping"
-    local -r expect_foo1_fails="$is_windows"
-  fi
-
+function test_windows_style_arg_escaping() {
   create_pkg
 
-  bazel $flag build foo:x --verbose_failures 2>$TEST_log \
+  bazel build foo:x --verbose_failures 2>$TEST_log \
       && fail "expected failure" || true
-  if $expect_foo1_fails; then
-    # foo1's command does not work on Windows without the Windows-style argument
-    # escaping, see https://github.com/bazelbuild/bazel/issues/7122
-    assert_foo1_failed
-  else
-    assert_command_succeeded foo1
-  fi
+  assert_command_succeeded foo1
 
-  # foo2's command works on Windows even with the incorrect escaping semantics,
-  # see https://github.com/bazelbuild/bazel/issues/7122
-  bazel $flag build foo:y --verbose_failures 2>$TEST_log \
+  bazel build foo:y --verbose_failures 2>$TEST_log \
       && fail "expected failure" || true
   assert_command_succeeded foo2
-}
-
-function test_nowindows_style_arg_escaping() {
-  # On Windows: assert that with --noincompatible_windows_style_arg_escaping,
-  # Bazel incorrectly escapes the shell command arguments of "//foo:x" and
-  # reports a bogus error ("/usr/bin/bash: $: command not found"), but it
-  # correctly invokes the command for "//foo:y".
-  #
-  # On other platforms: assert that Bazel correctly invokes the commands for
-  # both "//foo:x" and "//foo:y". This is not affected by
-  # --noincompatible_windows_style_arg_escaping.
-  # The test should behave the same as test_windows_style_arg_escaping.
-  assert_build false
-}
-
-function test_windows_style_arg_escaping() {
-  # On Windows: assert that with --incompatible_windows_style_arg_escaping,
-  # Bazel correctly invokes the commands for both "//foo:x" and "//foo:y".
-  #
-  # On other platforms: assert that Bazel correctly invokes the commands for
-  # both "//foo:x" and "//foo:y". This is not affected by
-  # --incompatible_windows_style_arg_escaping.
-  # The test should behave the same as test_nowindows_style_arg_escaping.
-  assert_build true
 }
 
 run_suite "Windows argument escaping test"
