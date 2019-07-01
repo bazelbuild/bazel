@@ -318,7 +318,8 @@ The root directory observed by a test may or may not be the real root directory.
 <code>/proc</code> shall be mounted.<br>
 All build tools shall be present at the absolute paths under <code>/usr</code> used by a local installation.<br>
 Paths starting with <code>/home</code> may not be available. Tests should not access any such paths.<br>
-<code>/tmp</code> and <code>/export/hda3/tmp</code> shall be writable, but tests should avoid using these paths.<br>
+<code>/tmp</code>
+shall be writable, but tests should avoid using these paths.<br>
 
 Tests must not assume that any constant path is available for their exclusive use.<br>
 Tests must not assume that atimes are enabled for any mounted filesystem.<br>
