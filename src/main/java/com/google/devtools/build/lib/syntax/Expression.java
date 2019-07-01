@@ -17,6 +17,12 @@ import java.io.IOException;
 
 /**
  * Base class for all expression nodes in the AST.
+ *
+ * <p>The only expressions permitted on the left-hand side of an assignment (such as 'lhs=rhs' or
+ * 'for lhs in expr') are identifiers, dot expressions (x.y), list expressions ([expr, ...]), tuple
+ * expressions ((expr, ...)), or parenthesized variants of those. In particular and unlike Python,
+ * slice expressions and starred expressions cannot appear on the LHS. TODO(bazel-team): Add support
+ * for assigning to slices (e.g. a[2:6] = [3]).
  */
 public abstract class Expression extends ASTNode {
 

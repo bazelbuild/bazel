@@ -76,10 +76,10 @@ public class SyntaxTreeVisitor {
   public void visit(@SuppressWarnings("unused") Identifier node) {}
 
   public void visit(AbstractComprehension node) {
-    for (ListComprehension.Clause clause : node.getClauses()) {
+    for (AbstractComprehension.Clause clause : node.getClauses()) {
       visit(clause.getExpression());
-      if (clause.getLValue() != null) {
-        visit(clause.getLValue());
+      if (clause.getLHS() != null) {
+        visit(clause.getLHS());
       }
     }
     visitAll(node.getOutputExpressions());
@@ -87,7 +87,7 @@ public class SyntaxTreeVisitor {
 
   public void visit(ForStatement node) {
     visit(node.getCollection());
-    visit(node.getVariable());
+    visit(node.getLHS());
     visitBlock(node.getBlock());
   }
 
@@ -105,18 +105,14 @@ public class SyntaxTreeVisitor {
 
   public void visit(@SuppressWarnings("unused") StringLiteral node) {}
 
-  public void visit(LValue node) {
-    visit(node.getExpression());
-  }
-
   public void visit(AssignmentStatement node) {
-    visit(node.getExpression());
-    visit(node.getLValue());
+    visit(node.getRHS());
+    visit(node.getLHS());
   }
 
   public void visit(AugmentedAssignmentStatement node) {
-    visit(node.getExpression());
-    visit(node.getLValue());
+    visit(node.getRHS());
+    visit(node.getLHS());
   }
 
   public void visit(ExpressionStatement node) {

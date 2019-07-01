@@ -57,8 +57,7 @@ public abstract class AbstractComprehension extends Expression {
     /**
      * Returns whether this is a For or If clause.
      *
-     * <p>This avoids having to rely on reflection, or on checking whether {@link #getLValue} is
-     * null.
+     * <p>This avoids having to rely on reflection, or on checking whether {@link #getLHS} is null.
      */
     Kind getKind();
 
@@ -77,12 +76,9 @@ public abstract class AbstractComprehension extends Expression {
     void eval(Environment env, OutputCollector collector, int step)
         throws EvalException, InterruptedException;
 
-    /**
-     * The LValue defined in Clause, i.e. the loop variables for ForClause and null for
-     * IfClause. This is needed for SyntaxTreeVisitor.
-     */
-    @Nullable  // for the IfClause
-    LValue getLValue();
+    /** The LHS variables defined in a ForClause, or null for an IfClause. */
+    @Nullable
+    Expression getLHS();
 
     /**
      * The Expression defined in Clause, i.e. the collection for ForClause and the
@@ -97,7 +93,7 @@ public abstract class AbstractComprehension extends Expression {
   /** A for clause in a comprehension, e.g. "for a in b" in the example above. */
   @AutoCodec
   public static final class ForClause implements Clause {
-    private final LValue lvalue;
+    private final Expression lhs;
     private final Expression iterable;
 
     @Override
@@ -105,8 +101,8 @@ public abstract class AbstractComprehension extends Expression {
       return Kind.FOR;
     }
 
-    public ForClause(LValue lvalue, Expression iterable) {
-      this.lvalue = lvalue;
+    public ForClause(Expression lhs, Expression iterable) {
+      this.lhs = lhs;
       this.iterable = iterable;
     }
 
@@ -119,7 +115,7 @@ public abstract class AbstractComprehension extends Expression {
       EvalUtils.lock(iterableObject, loc);
       try {
         for (Object listElement : listValue) {
-          lvalue.assign(listElement, env, loc);
+          Eval.assign(lhs, listElement, env, loc);
           evalStep(env, collector, step);
         }
       } finally {
@@ -128,8 +124,8 @@ public abstract class AbstractComprehension extends Expression {
     }
 
     @Override
-    public LValue getLValue() {
-      return lvalue;
+    public Expression getLHS() {
+      return lhs;
     }
 
     @Override
@@ -140,7 +136,7 @@ public abstract class AbstractComprehension extends Expression {
     @Override
     public void prettyPrint(Appendable buffer) throws IOException {
       buffer.append("for ");
-      lvalue.prettyPrint(buffer);
+      lhs.prettyPrint(buffer);
       buffer.append(" in ");
       iterable.prettyPrint(buffer);
     }
@@ -181,7 +177,7 @@ public abstract class AbstractComprehension extends Expression {
     }
 
     @Override
-    public LValue getLValue() {
+    public Expression getLHS() {
       return null;
     }
 
@@ -246,8 +242,8 @@ public abstract class AbstractComprehension extends Expression {
 
     protected final List<Clause> clauses = new ArrayList<>();
 
-    public void addFor(LValue lvalue, Expression iterable) {
-      Clause forClause = new ForClause(lvalue, iterable);
+    public void addFor(Expression lhs, Expression iterable) {
+      Clause forClause = new ForClause(lhs, iterable);
       clauses.add(forClause);
     }
 
@@ -284,9 +280,9 @@ public abstract class AbstractComprehension extends Expression {
     // TODO(laurentlb): Instead of removing variables, we should create them in a nested scope.
     for (Clause clause : clauses) {
       // Check if a loop variable conflicts with another local variable.
-      LValue lvalue = clause.getLValue();
-      if (lvalue != null) {
-        for (Identifier ident : lvalue.boundIdentifiers()) {
+      Expression lhs = clause.getLHS();
+      if (lhs != null) {
+        for (Identifier ident : ValidationEnvironment.boundIdentifiers(lhs)) {
           env.removeLocalBinding(ident.getName());
         }
       }

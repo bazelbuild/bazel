@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -115,10 +116,10 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   private void collectDefinitions(Statement stmt) {
     switch (stmt.kind()) {
       case ASSIGNMENT:
-        collectDefinitions(((AssignmentStatement) stmt).getLValue());
+        collectDefinitions(((AssignmentStatement) stmt).getLHS());
         break;
       case AUGMENTED_ASSIGNMENT:
-        collectDefinitions(((AugmentedAssignmentStatement) stmt).getLValue());
+        collectDefinitions(((AugmentedAssignmentStatement) stmt).getLHS());
         break;
       case IF:
         IfStatement ifStmt = (IfStatement) stmt;
@@ -129,7 +130,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
         break;
       case FOR:
         ForStatement forStmt = (ForStatement) stmt;
-        collectDefinitions(forStmt.getVariable());
+        collectDefinitions(forStmt.getLHS());
         collectDefinitions(forStmt.getBlock());
         break;
       case FUNCTION_DEF:
@@ -150,21 +151,23 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     }
   }
 
-  private void collectDefinitions(LValue left) {
-    for (Identifier id : left.boundIdentifiers()) {
+  private void collectDefinitions(Expression lhs) {
+    for (Identifier id : boundIdentifiers(lhs)) {
       declare(id.getName(), id.getLocation());
     }
   }
 
-  private void validateLValue(Location loc, Expression expr) {
-    if (expr instanceof IndexExpression) {
-      visit(expr);
-    } else if (expr instanceof ListLiteral) {
-      for (Expression e : ((ListLiteral) expr).getElements()) {
-        validateLValue(loc, e);
+  private void assign(Expression lhs) {
+    if (lhs instanceof Identifier) {
+      // no-op
+    } else if (lhs instanceof IndexExpression) {
+      visit(lhs);
+    } else if (lhs instanceof ListLiteral) {
+      for (Expression elem : ((ListLiteral) lhs).getElements()) {
+        assign(elem);
       }
-    } else if (!(expr instanceof Identifier)) {
-      throw new ValidationException(loc, "cannot assign to '" + expr + "'");
+    } else {
+      throw new ValidationException(lhs.getLocation(), "cannot assign to '" + lhs + "'");
     }
   }
 
@@ -190,11 +193,6 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   @Override
-  public void visit(LValue node) {
-    validateLValue(node.getLocation(), node.getExpression());
-  }
-
-  @Override
   public void visit(ReturnStatement node) {
     if (block.scope != Scope.Local) {
       throw new ValidationException(
@@ -206,7 +204,9 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   @Override
   public void visit(ForStatement node) {
     loopCount++;
-    super.visit(node);
+    visit(node.getCollection());
+    assign(node.getLHS());
+    visitBlock(node.getBlock());
     Preconditions.checkState(loopCount > 0);
     loopCount--;
   }
@@ -230,11 +230,18 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   public void visit(AbstractComprehension node) {
     openBlock(Scope.Local);
     for (AbstractComprehension.Clause clause : node.getClauses()) {
-      if (clause.getLValue() != null) {
-        collectDefinitions(clause.getLValue());
+      if (clause.getLHS() != null) {
+        collectDefinitions(clause.getLHS());
       }
     }
-    super.visit(node);
+    // TODO(adonovan): opt: combine loops
+    for (AbstractComprehension.Clause clause : node.getClauses()) {
+      visit(clause.getExpression());
+      if (clause.getLHS() != null) {
+        assign(clause.getLHS());
+      }
+    }
+    visitAll(node.getOutputExpressions());
     closeBlock();
   }
 
@@ -268,13 +275,20 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   @Override
+  public void visit(AssignmentStatement node) {
+    visit(node.getRHS());
+    assign(node.getLHS());
+  }
+
+  @Override
   public void visit(AugmentedAssignmentStatement node) {
-    if (node.getLValue().getExpression() instanceof ListLiteral) {
+    if (node.getLHS() instanceof ListLiteral) {
       throw new ValidationException(
           node.getLocation(), "cannot perform augmented assignment on a list or tuple expression");
     }
-    // Other bad cases are handled when visiting the LValue node.
-    super.visit(node);
+    // Other bad cases are handled in assign.
+    visit(node.getRHS());
+    assign(node.getLHS());
   }
 
   /** Declare a variable and add it to the environment. */
@@ -465,5 +479,42 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
         };
     checker.visitAll(statements);
     return success[0];
+  }
+
+  /**
+   * Returns all names bound by an LHS expression.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li><{@code x = ...} binds x.
+   *   <li><{@code x, [y,z] = ..} binds x, y, z.
+   *   <li><{@code x[5] = ..} does not bind any names.
+   * </ul>
+   */
+  // TODO(adonovan): make this private after weaning Skyframe off it.
+  public static ImmutableSet<Identifier> boundIdentifiers(Expression expr) {
+    if (expr instanceof Identifier) {
+      // Common case/fast path - skip the builder.
+      return ImmutableSet.of((Identifier) expr);
+    } else {
+      ImmutableSet.Builder<Identifier> result = ImmutableSet.builder();
+      collectBoundIdentifiers(expr, result);
+      return result.build();
+    }
+  }
+
+  private static void collectBoundIdentifiers(
+      Expression lhs, ImmutableSet.Builder<Identifier> result) {
+    if (lhs instanceof Identifier) {
+      result.add((Identifier) lhs);
+      return;
+    }
+    if (lhs instanceof ListLiteral) {
+      ListLiteral variables = (ListLiteral) lhs;
+      for (Expression expression : variables.getElements()) {
+        collectBoundIdentifiers(expression, result);
+      }
+    }
   }
 }

@@ -790,7 +790,7 @@ public class Parser {
         // The expression cannot be a ternary expression ('x if y else z') due to
         // conflicts in Python grammar ('if' is used by the comprehension).
         Expression listExpression = parseNonTupleExpression(0);
-        comprehensionBuilder.addFor(new LValue(lhs), listExpression);
+        comprehensionBuilder.addFor(lhs, listExpression);
       } else if (token.kind == TokenKind.IF) {
         nextToken();
         // [x for x in li if 1, 2]  # parse error
@@ -1168,18 +1168,14 @@ public class Parser {
     Expression expression = parseExpression();
     if (token.kind == TokenKind.EQUALS) {
       nextToken();
-      Expression rvalue = parseExpression();
-      return setLocation(
-          new AssignmentStatement(new LValue(expression), rvalue),
-          start, rvalue);
+      Expression rhs = parseExpression();
+      return setLocation(new AssignmentStatement(expression, rhs), start, rhs);
     } else if (augmentedAssignmentMethods.containsKey(token.kind)) {
       Operator operator = augmentedAssignmentMethods.get(token.kind);
       nextToken();
       Expression operand = parseExpression();
       return setLocation(
-          new AugmentedAssignmentStatement(operator, new LValue(expression), operand),
-          start,
-          operand);
+          new AugmentedAssignmentStatement(operator, expression, operand), start, operand);
     } else {
       return setLocation(new ExpressionStatement(expression), start, expression);
     }
@@ -1229,12 +1225,12 @@ public class Parser {
   private void parseForStatement(List<Statement> list) {
     int start = token.left;
     expect(TokenKind.FOR);
-    Expression loopVar = parseForLoopVariables();
+    Expression lhs = parseForLoopVariables();
     expect(TokenKind.IN);
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
     List<Statement> block = parseSuite();
-    Statement stmt = new ForStatement(new LValue(loopVar), collection, block);
+    Statement stmt = new ForStatement(lhs, collection, block);
     int end = block.isEmpty() ? token.left : Iterables.getLast(block).getLocation().getEndOffset();
     list.add(setLocation(stmt, start, end));
   }

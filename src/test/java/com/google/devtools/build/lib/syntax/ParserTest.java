@@ -455,7 +455,7 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(statements).hasSize(1);
     assertThat(statements.get(0)).isInstanceOf(AssignmentStatement.class);
     AssignmentStatement assign = (AssignmentStatement) statements.get(0);
-    assertThat(assign.getLValue().getExpression()).isInstanceOf(ListLiteral.class);
+    assertThat(assign.getLHS()).isInstanceOf(ListLiteral.class);
   }
 
   @Test
@@ -492,7 +492,7 @@ public class ParserTest extends EvaluationTestCase {
   public void testEndLineAndColumnIsInclusive() {
     AssignmentStatement stmt =
         (AssignmentStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, "a = b");
-    assertThat(stmt.getLValue().getLocation().getEndLineAndColumn())
+    assertThat(stmt.getLHS().getLocation().getEndLineAndColumn())
         .isEqualTo(new LineAndColumn(1, 1));
   }
 
@@ -544,10 +544,10 @@ public class ParserTest extends EvaluationTestCase {
   public void testTuplePosition() throws Exception {
     String input = "for a,b in []: pass";
     ForStatement stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
-    assertThat(getText(input, stmt.getVariable())).isEqualTo("a,b");
+    assertThat(getText(input, stmt.getLHS())).isEqualTo("a,b");
     input = "for (a,b) in []: pass";
     stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
-    assertThat(getText(input, stmt.getVariable())).isEqualTo("(a,b)");
+    assertThat(getText(input, stmt.getLHS())).isEqualTo("(a,b)");
     assertExpressionLocationCorrect("a, b");
     assertExpressionLocationCorrect("(a, b)");
   }
@@ -812,7 +812,7 @@ public class ParserTest extends EvaluationTestCase {
         "['foo/%s.java' % x for x in []]")).getClauses();
     assertThat(clauses).hasSize(1);
     assertThat(clauses.get(0).getExpression().toString()).isEqualTo("[]");
-    assertThat(clauses.get(0).getLValue().getExpression().toString()).isEqualTo("x");
+    assertThat(clauses.get(0).getLHS().toString()).isEqualTo("x");
   }
 
   @Test
@@ -820,7 +820,7 @@ public class ParserTest extends EvaluationTestCase {
     List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
         "['foo/%s.java' % x for x in ['bar', 'wiz', 'quux']]")).getClauses();
     assertThat(clauses).hasSize(1);
-    assertThat(clauses.get(0).getLValue().getExpression().toString()).isEqualTo("x");
+    assertThat(clauses.get(0).getLHS().toString()).isEqualTo("x");
     assertThat(clauses.get(0).getExpression()).isInstanceOf(ListLiteral.class);
   }
 
@@ -829,9 +829,9 @@ public class ParserTest extends EvaluationTestCase {
     List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
         "['%s/%s.java' % (x, y) for x in ['foo', 'bar'] for y in list]")).getClauses();
     assertThat(clauses).hasSize(2);
-    assertThat(clauses.get(0).getLValue().getExpression().toString()).isEqualTo("x");
+    assertThat(clauses.get(0).getLHS().toString()).isEqualTo("x");
     assertThat(clauses.get(0).getExpression()).isInstanceOf(ListLiteral.class);
-    assertThat(clauses.get(1).getLValue().getExpression().toString()).isEqualTo("y");
+    assertThat(clauses.get(1).getLHS().toString()).isEqualTo("y");
     assertThat(clauses.get(1).getExpression()).isInstanceOf(Identifier.class);
   }
 
