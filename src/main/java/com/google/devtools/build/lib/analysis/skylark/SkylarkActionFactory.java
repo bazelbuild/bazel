@@ -578,8 +578,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   }
 
   private String getMnemonic(Object mnemonicUnchecked) {
-    String mnemonic =
-        mnemonicUnchecked == Runtime.NONE ? "SkylarkAction" : (String) mnemonicUnchecked;
+    String mnemonic = mnemonicUnchecked == Runtime.NONE ? "Action" : (String) mnemonicUnchecked;
     if (ruleContext.getConfiguration().getReservedActionMnemonics().contains(mnemonic)) {
       mnemonic = mangleMnemonic(mnemonic);
     }
@@ -587,7 +586,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   }
 
   private static String mangleMnemonic(String mnemonic) {
-    return mnemonic + "FromSkylark";
+    return mnemonic + "FromStarlark";
   }
 
   @Override

@@ -224,7 +224,7 @@ Turbine=+requires-turbine,\
 JavaSourceJar=+requires-java-source-jar,\
 Javac=+requires-javac,\
 PyTinypar=+requires-py-tinypar,\
-SkylarkAction=+requires-skylark-action \
+Action=+requires-action \
    > output 2> "$TEST_log" || fail "Expected success"
 
   # There are sometimes other elements in ExecutionInfo, e.g. requires-darwin
@@ -232,7 +232,7 @@ SkylarkAction=+requires-skylark-action \
   # would be brittle, irrelevant to the operation of the flag, and in some
   # cases platform-dependent, we just search for the key itself, not the whole
   # ExecutionInfo: {...} line.
-  assert_contains "requires-skylark-action: ''" output
+  assert_contains "requires-action: ''" output
   assert_contains "requires-cpp-compile: ''" output
   assert_contains "requires-cpp-link: ''" output
   assert_contains "requires-extra-action: ''" output

@@ -86,8 +86,8 @@ EOF
   # If dependencies were not properly accounted for, the order would have been:
   # rule1, rule2, dir1, dir2
 
-  dir1Num=`grep "SkylarkAction dir_name1" -n output.json | grep -Eo '^[^:]+'`
-  dir2Num=`grep "SkylarkAction dir_name2" -n output.json | grep -Eo '^[^:]+'`
+  dir1Num=`grep "Action dir_name1" -n output.json | grep -Eo '^[^:]+'`
+  dir2Num=`grep "Action dir_name2" -n output.json | grep -Eo '^[^:]+'`
   rule1Num=`grep "Executing genrule //:rule1" -n output.json | grep -Eo '^[^:]+'`
   rule2Num=`grep "Executing genrule //:rule2" -n output.json | grep -Eo '^[^:]+'`
 
