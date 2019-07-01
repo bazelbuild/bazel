@@ -598,7 +598,7 @@ EOF
 }
 
 function test_experimental_symlinked_sandbox_uses_expanded_tree_artifacts_in_runfiles_tree() {
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
 def _mkdata_impl(ctx):
@@ -657,7 +657,7 @@ EOF
 
 # regression test for https://github.com/bazelbuild/bazel/issues/6262
 function test_create_tree_artifact_inputs() {
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
 def _r(ctx):

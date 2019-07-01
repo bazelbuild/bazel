@@ -731,11 +731,10 @@ function test_register_toolchain_error_invalid_target() {
   write_test_rule
   write_register_toolchain
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 register_toolchains('//demo:not_a_target')
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   mkdir -p demo
   cat >> demo/BUILD <<EOF
 load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
@@ -825,11 +824,10 @@ toolchain(
     visibility = ['//visibility:public'])
 EOF
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 register_toolchains('//invalid:invalid_toolchain')
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   mkdir -p demo
   cat >> demo/BUILD <<EOF
 load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')

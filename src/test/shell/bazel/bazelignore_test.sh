@@ -27,7 +27,7 @@ set -e
 
 test_broken_BUILD_files_ignored() {
     rm -rf work && mkdir work && cd work
-    touch WORKSPACE
+    create_workspace_with_default_repos WORKSPACE
     mkdir -p ignoreme/deep/reallydep/stillignoreme
     echo This is a broken BUILD file > ignoreme/BUILD
     echo This is a broken BUILD file > ignoreme/deep/BUILD
@@ -44,7 +44,7 @@ test_broken_BUILD_files_ignored() {
 
 test_symlink_loop_ignored() {
     rm -rf work && mkdir work && cd work
-    touch WORKSPACE
+    create_workspace_with_default_repos WORKSPACE
     mkdir -p ignoreme/deep
     (cd ignoreme/deep && ln -s . loop)
     touch BUILD
@@ -58,7 +58,7 @@ test_symlink_loop_ignored() {
 
 test_build_specific_target() {
     rm -rf work && mkdir work && cd work
-    touch WORKSPACE
+    create_workspace_with_default_repos WORKSPACE
     mkdir -p ignoreme
     echo Not a valid BUILD file > ignoreme/BUILD
     mkdir -p foo/bar
@@ -75,7 +75,7 @@ EOI
 
 test_aquery_specific_target() {
     rm -rf work && mkdir work && cd work
-    touch WORKSPACE
+    create_workspace_with_default_repos WORKSPACE
     mkdir -p foo/ignoreme
     cat > foo/ignoreme/BUILD <<'EOI'
 genrule(

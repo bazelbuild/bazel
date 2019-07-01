@@ -132,7 +132,7 @@ function do_git_repository_test() {
   [ $# -eq 3 ] && shallow_since="shallow_since=\"$3\","
   # Create a workspace that clones the repository at the first commit.
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
@@ -142,8 +142,7 @@ git_repository(
     $shallow_since
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  mkdir -p planets
+    mkdir -p planets
   cat > planets/BUILD <<EOF
 sh_binary(
     name = "planet-info",
@@ -228,7 +227,7 @@ function do_new_git_repository_test() {
   cd $WORKSPACE_DIR
 
   if [ "$2" == "build_file" ] ; then
-    cat > WORKSPACE <<EOF
+    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
@@ -238,8 +237,7 @@ new_git_repository(
     $strip_prefix
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   cat > BUILD <<EOF
 exports_files(['pluto.BUILD'])
 EOF
@@ -251,7 +249,7 @@ filegroup(
 )
 EOF
   else
-    cat > WORKSPACE <<EOF
+    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
@@ -266,8 +264,7 @@ filegroup(
 )"""
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  fi
+    fi
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
@@ -321,7 +318,7 @@ function test_new_git_repository_submodules() {
 
   # Create a workspace that clones the outer_planets repository.
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "outer_planets",
@@ -331,8 +328,7 @@ new_git_repository(
     build_file = "//:outer_planets.BUILD",
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   cat > BUILD <<EOF
 exports_files(['outer_planets.BUILD'])
 EOF
@@ -379,12 +375,11 @@ function test_git_repository_not_refetched_on_server_restart() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   # Use batch to force server restarts.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
@@ -396,25 +391,23 @@ EOF
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 
   # Change the WORKSPACE but not the commit id, which should not cause the checkout to be re-cloned.
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 # This comment line is to change the line numbers, which should not cause Bazel
 # to refetch the repository
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
@@ -423,21 +416,19 @@ EOF
 function test_git_repository_not_refetched_on_server_restart_strip_prefix() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
   # Change the strip_prefix which should cause a new checkout
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True)
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  bazel --batch build @g//gdir:g >& $TEST_log || fail "Build failed"
+    bazel --batch build @g//gdir:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/gdir/go
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True, strip_prefix="gdir")
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+    bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 }
@@ -447,23 +438,21 @@ function test_git_repository_refetched_when_commit_changes() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
@@ -473,35 +462,32 @@ function test_git_repository_and_nofetch() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
   expect_log "fetching repositories is disabled"
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
   expect_log "External repository 'g' is not up-to-date"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', strip_prefix="gdir")
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
   expect_log "External repository 'g' is not up-to-date"
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
@@ -549,7 +535,7 @@ function test_git_repository_both_commit_tag_error() {
   local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
@@ -558,8 +544,7 @@ git_repository(
     commit = "$commit_hash",
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "Exactly one of commit"
@@ -579,15 +564,14 @@ function test_git_repository_no_commit_tag_error() {
   local pluto_repo_dir=$(get_pluto_repo)
 
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "Exactly one of commit"
@@ -600,7 +584,7 @@ function test_invalid_strip_prefix_error() {
   local pluto_repo_dir=$(get_pluto_repo)
 
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
@@ -609,8 +593,7 @@ git_repository(
     strip_prefix = "dir_does_not_exist"
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "strip_prefix at dir_does_not_exist does not exist in repo"
@@ -624,7 +607,7 @@ function test_git_repository_shallow_since_with_tag_error() {
   local pluto_repo_dir=$(get_pluto_repo)
 
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
@@ -633,8 +616,7 @@ git_repository(
     shallow_since = "2018-01-01"
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "shallow_since not allowed if a tag is specified; --depth=1 will be used for tags"

@@ -27,7 +27,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 function test_runfiles() {
 
   name=blorp_malorp
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 workspace(name = "$name")
 
 EOF
@@ -55,7 +55,7 @@ EOF
 }
 
 function test_legacy_runfiles_change() {
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 workspace(name = "foo")
 
 new_local_repository(

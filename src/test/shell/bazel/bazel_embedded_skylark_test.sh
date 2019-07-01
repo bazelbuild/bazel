@@ -42,8 +42,7 @@ test_pkg_tar() {
   rm -rf main
   mkdir main
   cd main
-  touch WORKSPACE
-  add_rules_cc_to_workspace "WORKSPACE"
+  create_workspace_with_default_repos WORKSPACE
   echo Hello World > foo.txt
   echo Hello World, again > bar.txt
   cat > BUILD <<'EOF'
@@ -66,8 +65,7 @@ test_pkg_tar_quoting() {
   rm -rf main out
   mkdir main
   cd main
-  touch WORKSPACE
-  add_rules_cc_to_workspace "WORKSPACE"
+  create_workspace_with_default_repos WORKSPACE
   mkdir data
   echo 'with equal' > data/'foo=bar'
   echo 'like an option' > data/--foo
@@ -96,8 +94,7 @@ test_pkg_tar_strip_directory() {
   rm -rf main out
   mkdir main
   cd main
-  touch WORKSPACE
-  add_rules_cc_to_workspace "WORKSPACE"
+  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<'EOF'
 load(":apple.bzl", "create_banana_directory")
 
@@ -151,7 +148,7 @@ EOF
   EXTREPODIR=`pwd`
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -161,8 +158,7 @@ http_archive(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  cat > BUILD <<'EOF'
+    cat > BUILD <<'EOF'
 genrule(
   name = "foo",
   outs = ["foo.sh"],
@@ -195,7 +191,7 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
@@ -204,8 +200,7 @@ new_git_repository(
   build_file_content="exports_files([\"foo.sh\"])",
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  cat > BUILD <<'EOF'
+    cat > BUILD <<'EOF'
 genrule(
   name = "foo",
   outs = ["foo.sh"],

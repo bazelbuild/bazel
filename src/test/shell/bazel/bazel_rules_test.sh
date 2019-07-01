@@ -324,13 +324,13 @@ EOF
 }
 
 function test_genrule_remote() {
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(
     name = "r",
     path = __workspace_dir__,
 )
 EOF
-  mkdir package
+    mkdir package
   cat > package/BUILD <<EOF
 genrule(
     name = "abs_dep",
@@ -355,13 +355,13 @@ EOF
 }
 
 function test_genrule_remote_d() {
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(
     name = "r",
     path = __workspace_dir__,
 )
 EOF
-  mkdir package
+    mkdir package
   cat > package/BUILD <<'EOF'
 genrule(
     name = "hi",
@@ -429,11 +429,11 @@ EOF
 
  cd ${WORKSPACE_DIR}
  mkdir -p {module1,module2}
- cat > WORKSPACE <<EOF
+ cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 workspace(name = "foobar")
 local_repository(name="remote", path="${remote_path}")
 EOF
- cat > module1/BUILD <<EOF
+  cat > module1/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
 py_library(name = "fib", srcs=["fib.py"],)
 EOF

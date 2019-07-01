@@ -50,7 +50,7 @@ EOF
 function test_cc_library_include_prefix_external_repository() {
   r="$TEST_TMPDIR/r"
   mkdir -p "$TEST_TMPDIR/r/foo/v1"
-  add_rules_cc_to_workspace "$TEST_TMPDIR/r/WORKSPACE"
+  create_workspace_with_default_repos "$TEST_TMPDIR/r/WORKSPACE"
   echo "#define FOO 42" > "$TEST_TMPDIR/r/foo/v1/foo.h"
   cat > "$TEST_TMPDIR/r/foo/BUILD" <<EOF
 cc_library(
@@ -61,14 +61,13 @@ cc_library(
   visibility = ["//visibility:public"],
 )
 EOF
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(
   name = "foo",
   path = "$TEST_TMPDIR/r",
 )
 EOF
-  add_rules_cc_to_workspace WORKSPACE
-
+  
   cat > BUILD <<EOF
 cc_binary(
   name = "ok",
@@ -281,7 +280,7 @@ EOF
 function setup_cc_starlark_api_test() {
   local pkg="$1"
 
-  add_rules_cc_to_workspace "$pkg"/WORKSPACE
+  create_workspace_with_default_repos "$pkg"/WORKSPACE
 
   mkdir "$pkg"/include_dir
   touch "$pkg"/include_dir/include.h

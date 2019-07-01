@@ -119,10 +119,10 @@ EOF
 }
 
 function test_env_vars() {
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 workspace(name = "bar")
 EOF
-  mkdir -p foo
+    mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
 echo "pwd: $PWD"
@@ -525,10 +525,10 @@ EOF
 
 function test_detailed_test_summary() {
   copy_examples
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 workspace(name = "io_bazel")
 EOF
-  setup_javatest_support
+    setup_javatest_support
 
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
 

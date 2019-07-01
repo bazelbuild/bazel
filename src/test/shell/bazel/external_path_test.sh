@@ -29,9 +29,8 @@ repo_with_local_include() {
   # Generate a repository, in the current working directory, with a target
   # //src:hello that includes a file via a local path.
 
-  touch WORKSPACE
-  add_rules_cc_to_workspace "WORKSPACE"
-  mkdir src
+  create_workspace_with_rules_cc WORKSPACE
+    mkdir src
   cat > src/main.c <<'EOF'
 #include <stdio.h>
 #include "src/consts/greeting.h"
@@ -58,8 +57,7 @@ library_with_local_include() {
   # is a library with headers that include via paths relative to the root of
   # that repository
 
-  touch WORKSPACE
-  add_rules_cc_to_workspace "WORKSPACE"
+  create_workspace_with_rules_cc WORKSPACE
   mkdir lib
   cat > lib/lib.h <<'EOF'
 #include "lib/constants.h"
@@ -115,7 +113,7 @@ test_local_paths_remote() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -123,8 +121,7 @@ http_archive(
   urls=["file://${WRKDIR}/remote.tar"],
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel build @remote//src:hello || fail "Expected build to succeed"
   bazel run @remote//src:hello | grep 'Hello World' \
       || fail "Expected output 'Hello World'"
@@ -143,8 +140,7 @@ test_lib_paths_main() {
   cd main
   library_with_local_include
 
-  touch WORKSPACE
-  add_rules_cc_to_workspace "WORKSPACE"
+  create_workspace_with_rules_cc WORKSPACE
   cat > main.c <<'EOF'
 #include "lib/lib.h"
 
@@ -182,7 +178,7 @@ test_lib_paths_remote() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -190,8 +186,7 @@ http_archive(
   urls=["file://${WRKDIR}/remote.tar"],
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  cat > main.c <<'EOF'
+    cat > main.c <<'EOF'
 #include "lib/lib.h"
 
 int main(int argc, char **argv) {
@@ -249,7 +244,7 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remotelib",
@@ -262,8 +257,7 @@ http_archive(
   urls=["file://${WRKDIR}/remotemain.tar"],
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  bazel build @remotemain//:hello || fail "Expected build to succeed"
+    bazel build @remotemain//:hello || fail "Expected build to succeed"
   bazel run @remotemain//:hello | grep 'Hello World' \
       || fail "Expected output 'Hello World'"
 }
@@ -299,9 +293,8 @@ test_fixed_path_local() {
 
   mkdir main
   cd main
-  touch WORKSPACE
-  add_rules_cc_to_workspace "WORKSPACE"
-  repo_with_local_path_reference
+  create_workspace_with_rules_cc WORKSPACE
+    repo_with_local_path_reference
 
   bazel build //withpath:it || fail "Expected success"
 }
@@ -319,7 +312,7 @@ DISABLED_test_fixed_path_remote() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -327,8 +320,7 @@ http_archive(
   urls=["file://${WRKDIR}/remote.tar"],
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel build @remote//withpath:it || fail "Expected success"
 }
 repo_with_local_implicit_dependencies() {
@@ -374,7 +366,7 @@ test_local_rules() {
 
   mkdir main
   cd main
-  touch WORKSPACE
+  create_workspace_with_rules_cc WORKSPACE
   repo_with_local_implicit_dependencies
   mkdir call
   echo hello world > call/hello.txt
@@ -403,7 +395,7 @@ test_remote_rules() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
@@ -411,8 +403,7 @@ http_archive(
   urls=["file://${WRKDIR}/remote.tar"],
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  mkdir call
+    mkdir call
   echo hello world > call/hello.txt
   cat > call/BUILD <<'EOF'
 load("@r//rule:to_upper.bzl", "to_upper")
@@ -453,7 +444,7 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="a",
@@ -466,8 +457,7 @@ http_archive(
   urls=["file://${WRKDIR}/b.tar"],
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel build -s @b//call:upper_hello || fail "Expected success"
 }
 
@@ -534,9 +524,8 @@ test_embedded_local() {
   cd "${WRKDIR}"
 
   mkdir main
-  touch WORKSPACE
-  add_rules_cc_to_workspace "WORKSPACE"
-  repo_with_embedded_paths
+  create_workspace_with_rules_cc WORKSPACE
+    repo_with_embedded_paths
   mkdir call
   cat > call/plain.txt <<'EOF'
 Hello World!
@@ -567,7 +556,7 @@ test_embedded_remote() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
@@ -575,8 +564,7 @@ http_archive(
   urls=["file://${WRKDIR}/remote.tar"],
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  mkdir call
+    mkdir call
   cat > call/plain.txt <<'EOF'
 Hello World!
 EOF
@@ -621,7 +609,7 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
@@ -634,8 +622,7 @@ http_archive(
   urls=["file://${WRKDIR}/b.tar"],
 )
 EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-
+  
   bazel build -s @b//call:hello || fail "Expected success"
 }
 

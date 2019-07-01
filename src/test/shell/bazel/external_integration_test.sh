@@ -94,7 +94,7 @@ function http_archive_helper() {
     rm -rf $repo2
     mkdir -p $repo2/fox
     cd $repo2
-    touch WORKSPACE
+    create_workspace_with_default_repos WORKSPACE
     cat > fox/BUILD <<EOF
 filegroup(
     name = "fox",
@@ -237,7 +237,7 @@ function test_http_archive_mismatched_sha256() {
   rm -rf $repo2
   mkdir -p $repo2
   cd $repo2
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   repo2_zip=$TEST_TMPDIR/fox.zip
   zip -r $repo2_zip WORKSPACE
   serve_file $repo2_zip
@@ -847,7 +847,7 @@ function test_flip_flopping() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  touch WORKSPACE BUILD foo
+  create_workspace_with_default_repos WORKSPACE
   zip -r repo.zip *
   startup_server $PWD
   # Make the remote repo and local repo slightly different.
@@ -887,7 +887,7 @@ function test_sha256_weird() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  touch WORKSPACE BUILD foo
+  create_workspace_with_default_repos WORKSPACE
   zip -r repo.zip *
   startup_server $PWD
   cd -
@@ -909,7 +909,7 @@ function test_sha256_incorrect() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  touch WORKSPACE BUILD foo
+  create_workspace_with_default_repos WORKSPACE
   zip -r repo.zip *
   startup_server $PWD
   cd -
@@ -1045,7 +1045,7 @@ EOF
 }
 
 function test_failing_fetch_with_keep_going() {
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
 

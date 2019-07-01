@@ -121,6 +121,9 @@ function test_cc_test_coverage_gcov() {
   fi
   setup_a_cc_lib_and_t_cc_test
 
+  echo "FINDME"
+  cat "WORKSPACE"
+
   bazel coverage  --test_output=all \
      --build_event_text_file=bep.txt //:t &>"$TEST_log" \
      || fail "Coverage for //:t failed"

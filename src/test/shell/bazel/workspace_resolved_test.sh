@@ -68,7 +68,7 @@ EOF
   mkdir analysisrepo
   mv repo.bzl analysisrepo
   cd analysisrepo
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<'EOF'
 load("//:repo.bzl", "resolved")
 
@@ -394,7 +394,7 @@ EOF
 
   cd ..
   echo; cat repo.bzl; echo
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<'EOF'
 load("//:repo.bzl", "resolved")
 
@@ -452,7 +452,7 @@ EOF
 
   cd ..
   echo; cat repo.bzl; echo
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<'EOF'
 load("//:repo.bzl", "resolved")
 
@@ -549,7 +549,7 @@ EOF
 
   cd ..
   echo; cat repo.bzl; echo
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<'EOF'
 load("//:repo.bzl", "resolved")
 
@@ -611,7 +611,7 @@ EOF
   bazel build \
         --experimental_resolved_file_instead_of_workspace=`pwd`/resolved.bzl \
         :out || fail "Expected success with resolved file replacing WORKSPACE"
-  rm WORKSPACE && touch WORKSPACE # bazel info needs a valid WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   grep 'Hello World' `bazel info bazel-genfiles`/out.txt \
       || fail "Did not find the expected output"
 }
@@ -647,7 +647,7 @@ genrule(
 EOF
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
-  rm WORKSPACE; touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   echo; cat resolved.bzl; echo
 
   bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
@@ -760,7 +760,7 @@ test_hash_included_and_reproducible() {
 
   cd ..
   echo; cat repo.bzl; echo
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<'EOF'
 load("//:repo.bzl", "resolved")
 hashes = [entry["repositories"][0]["output_tree_hash"]

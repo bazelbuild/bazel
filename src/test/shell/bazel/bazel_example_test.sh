@@ -51,7 +51,7 @@ javabase=${javabase%/bin/java}
 
 function set_up() {
   copy_examples
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 workspace(name = "io_bazel")
 EOF
 }

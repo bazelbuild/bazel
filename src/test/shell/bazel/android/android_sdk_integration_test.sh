@@ -43,20 +43,20 @@ android_sdk_repository(
     name = "androidsdk",
 )
 EOF
-  ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || fail \
+    ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || fail \
     "android_sdk_repository failed to build with \$ANDROID_HOME instead of " \
     "path"
 }
 
 function test_android_sdk_repository_no_path_or_android_home() {
   create_new_workspace
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 android_sdk_repository(
     name = "androidsdk",
     api_level = 25,
 )
 EOF
-  bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed"
+    bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed"
   expect_log "Either the path attribute of android_sdk_repository"
 }
 
@@ -70,7 +70,7 @@ android_sdk_repository(
     path = "$TEST_SRCDIR/some_dir",
 )
 EOF
-  bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed"
+    bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed"
   expect_log "Unable to read the Android SDK at $TEST_SRCDIR/some_dir, the path may be invalid." \
     " Is the path in android_sdk_repository() or \$ANDROID_SDK_HOME set correctly?"
 }
@@ -85,7 +85,7 @@ android_sdk_repository(
     name = "a",
 )
 EOF
-  ANDROID_HOME=$ANDROID_SDK bazel build --android_sdk=@a//:sdk-24 \
+    ANDROID_HOME=$ANDROID_SDK bazel build --android_sdk=@a//:sdk-24 \
     //java/bazel:bin || fail "build with --android_sdk failed"
 }
 

@@ -38,7 +38,7 @@ function setup_repository() {
 
   # Test with the extension
   serve_file $repo2_zip
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -48,7 +48,7 @@ http_archive(
     type = 'zip',
 )
 EOF
-}
+  }
 
 function setup_skylark_repository() {
   # Prepare HTTP server with Python
@@ -66,11 +66,11 @@ function setup_skylark_repository() {
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
-  touch BUILD
+    touch BUILD
 }
 
 function setup_maven_repository() {
@@ -96,7 +96,7 @@ EOF
 
   serve_artifact com.example.carnivore carnivore 1.23
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
@@ -106,7 +106,7 @@ maven_jar(
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
-}
+  }
 
 # Test downloading a file from a repository.
 # This creates a simple repository containing:
@@ -135,7 +135,7 @@ function http_archive_helper() {
     rm -rf "$repo2"
     mkdir -p "$repo2/fox"
     cd "$repo2"
-    touch WORKSPACE
+    create_workspace_with_default_repos WORKSPACE
     cat > fox/BUILD <<EOF
 filegroup(
     name = "fox",
@@ -166,7 +166,7 @@ EOF
   mkdir -p zoo
 
   if [[ $write_workspace = 0 ]]; then
-    cat > WORKSPACE <<EOF
+    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -175,7 +175,7 @@ http_archive(
     sha256 = '$sha256'
 )
 EOF
-
+    
     cat > zoo/BUILD <<EOF
 sh_binary(
     name = "breeding-program",
@@ -286,7 +286,7 @@ function test_write_cache_without_hash() {
   setup_repository
 
   # Have a WORKSPACE file without the specified sha256
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -295,7 +295,7 @@ http_archive(
     type = 'zip',
 )
 EOF
-
+  
   # Fetch; as we did not specify a hash, we expect bazel to tell us the hash
   # in an info message.
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
@@ -312,7 +312,7 @@ EOF
     && fail "expected failure" || :
 
   # However, if we add the hash, the value is taken from cache
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -322,7 +322,7 @@ http_archive(
     sha256 = '${sha256}',
 )
 EOF
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+    bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || fail "expected fetch to succeed"
 }
 
