@@ -368,6 +368,8 @@ public abstract class CcModule
    * @param dynamicLibraryObject Artifact
    * @param interfaceLibraryObject Artifact
    * @param alwayslink boolean
+   * @param dynamicLibraryPath String
+   * @param interfaceLibraryPath String
    * @return
    * @throws EvalException
    * @throws InterruptedException
@@ -382,6 +384,8 @@ public abstract class CcModule
       Object dynamicLibraryObject,
       Object interfaceLibraryObject,
       boolean alwayslink,
+      Object dynamicLibraryPath,
+      Object interfaceLibraryPath,
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -396,9 +400,38 @@ public abstract class CcModule
     Artifact dynamicLibrary = nullIfNone(dynamicLibraryObject, Artifact.class);
     Artifact interfaceLibrary = nullIfNone(interfaceLibraryObject, Artifact.class);
 
-    Artifact notNullArtifactForIdentifier = null;
     StringBuilder extensionErrorsBuilder = new StringBuilder();
     String extensionErrorMessage = "does not have any of the allowed extensions";
+
+    PathFragment dynamicLibraryPathFragment = null;
+    if (dynamicLibraryPath != Runtime.NONE) {
+      dynamicLibraryPathFragment = PathFragment.create(String.class.cast(dynamicLibraryPath));
+      if (dynamicLibraryPathFragment.isEmpty() || dynamicLibraryPathFragment.isAbsolute() || dynamicLibraryPathFragment.containsUplevelReferences()) {
+        throw new EvalException(location, String.format("dynamic_library_path must be a relative file path. Got '%s'", dynamicLibraryPathFragment.toString()));
+      }
+      if (!Link.ONLY_SHARED_LIBRARY_FILETYPES.matches(dynamicLibraryPathFragment.getBaseName())) {
+        String extensions = Link.ONLY_SHARED_LIBRARY_FILETYPES.toString();
+        extensionErrorsBuilder.append(
+            String.format("'%s' %s %s", dynamicLibraryPathFragment.toString(), extensionErrorMessage, extensions));
+        extensionErrorsBuilder.append(LINE_SEPARATOR.value());
+      }
+    }
+
+    PathFragment interfaceLibraryPathFragment = null;
+    if (interfaceLibraryPath != Runtime.NONE) {
+      interfaceLibraryPathFragment = PathFragment.create(String.class.cast(interfaceLibraryPath));
+      if (interfaceLibraryPathFragment.isEmpty() || interfaceLibraryPathFragment.isAbsolute() || interfaceLibraryPathFragment.containsUplevelReferences()) {
+        throw new EvalException(location, String.format("interface_library_path must be a relative file path. Got '%s'", interfaceLibraryPathFragment.toString()));
+      }
+      if (!Link.ONLY_INTERFACE_LIBRARY_FILETYPES.matches(interfaceLibraryPathFragment.getBaseName())) {
+        String extensions = Link.ONLY_INTERFACE_LIBRARY_FILETYPES.toString();
+        extensionErrorsBuilder.append(
+            String.format("'%s' %s %s", interfaceLibraryPathFragment.toString(), extensionErrorMessage, extensions));
+        extensionErrorsBuilder.append(LINE_SEPARATOR.value());
+      }
+    }
+
+    Artifact notNullArtifactForIdentifier = null;
     if (staticLibrary != null) {
       String filename = staticLibrary.getFilename();
       if (!Link.ARCHIVE_FILETYPES.matches(filename)
@@ -461,29 +494,53 @@ public abstract class CcModule
     if (!featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
       if (dynamicLibrary != null) {
         resolvedSymlinkDynamicLibrary = dynamicLibrary;
-        dynamicLibrary =
-            SolibSymlinkAction.getDynamicLibrarySymlink(
-                /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
-                    location, skylarkActionFactory),
-                /* actionConstructionContext= */ skylarkActionFactory
-                    .getActionConstructionContext(),
-                ccToolchainProvider.getSolibDirectory(),
-                dynamicLibrary,
-                /* preserveName= */ true,
-                /* prefixConsumer= */ true);
+        if (dynamicLibraryPathFragment != null) {
+          dynamicLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                      location, skylarkActionFactory),
+                  /* actionConstructionContext= */ skylarkActionFactory
+                      .getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  dynamicLibrary,
+                  dynamicLibraryPathFragment);
+        } else {
+          dynamicLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                      location, skylarkActionFactory),
+                  /* actionConstructionContext= */ skylarkActionFactory
+                      .getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  dynamicLibrary,
+                  /* preserveName= */ true,
+                  /* prefixConsumer= */ true);
+        }
       }
       if (interfaceLibrary != null) {
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
-        interfaceLibrary =
-            SolibSymlinkAction.getDynamicLibrarySymlink(
-                /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
-                    location, skylarkActionFactory),
-                /* actionConstructionContext= */ skylarkActionFactory
-                    .getActionConstructionContext(),
-                ccToolchainProvider.getSolibDirectory(),
-                interfaceLibrary,
-                /* preserveName= */ true,
-                /* prefixConsumer= */ true);
+        if (interfaceLibraryPathFragment != null) {
+          interfaceLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                      location, skylarkActionFactory),
+                  /* actionConstructionContext= */ skylarkActionFactory
+                      .getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  interfaceLibrary,
+                  interfaceLibraryPathFragment);
+        } else {
+          interfaceLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                      location, skylarkActionFactory),
+                  /* actionConstructionContext= */ skylarkActionFactory
+                      .getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  interfaceLibrary,
+                  /* preserveName= */ true,
+                  /* prefixConsumer= */ true);
+        }
       }
     }
     if (staticLibrary == null
