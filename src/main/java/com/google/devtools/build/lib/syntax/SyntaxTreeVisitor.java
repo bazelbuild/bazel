@@ -143,13 +143,16 @@ public class SyntaxTreeVisitor {
     visitBlock(node.getStatements());
   }
 
+  public void visit(PassStatement node) {}
+
   public void visit(ReturnStatement node) {
     if (node.getReturnExpression() != null) {
       visit(node.getReturnExpression());
     }
   }
 
-  public void visit(FlowStatement node) {}
+  public void visit(FlowStatement node) {
+  }
 
   public void visit(DictionaryLiteral node) {
     visitAll(node.getEntries());

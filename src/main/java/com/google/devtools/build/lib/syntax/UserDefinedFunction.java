@@ -77,8 +77,24 @@ public class UserDefinedFunction extends BaseFunction {
       }
 
       Eval eval = Eval.fromEnvironment(env);
-      eval.execStatements(statements);
-      return eval.getResult();
+      try {
+        for (Statement stmt : statements) {
+          if (stmt instanceof ReturnStatement) {
+            // Performance optimization.
+            // Executing the statement would throw an exception, which is slow.
+            Expression returnExpr = ((ReturnStatement) stmt).getReturnExpression();
+            if (returnExpr == null) {
+              return Runtime.NONE;
+            }
+            return returnExpr.eval(env);
+          } else {
+            eval.exec(stmt);
+          }
+        }
+      } catch (ReturnStatement.ReturnException e) {
+        return e.getValue();
+      }
+      return Runtime.NONE;
     } finally {
       env.exitScope();
     }

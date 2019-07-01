@@ -67,7 +67,25 @@ public class EvalException extends Exception {
    * @param dueToIncompleteAST if the error is caused by a previous error, such as parsing.
    */
   public EvalException(Location location, String message, boolean dueToIncompleteAST) {
-    super(null, null, /*enableSuppression=*/ true, /*writableStackTrace=*/ true);
+    this(location, message, dueToIncompleteAST, true);
+  }
+
+  /**
+   * Create an EvalException with the option to not fill in the java stack trace. An optimization
+   * for ReturnException, and potentially others, which aren't exceptional enough to include a
+   * stack trace.
+   *
+   * @param location the location where evaluation/execution failed.
+   * @param message the error message.
+   * @param dueToIncompleteAST if the error is caused by a previous error, such as parsing.
+   * @param fillInJavaStackTrace whether or not to fill in the java stack trace for this exception
+   */
+  EvalException(
+      Location location,
+      String message,
+      boolean dueToIncompleteAST,
+      boolean fillInJavaStackTrace) {
+    super(null, null, /*enableSuppression=*/ true, fillInJavaStackTrace);
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
     this.dueToIncompleteAST = dueToIncompleteAST;

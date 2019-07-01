@@ -144,6 +144,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
       case CONDITIONAL:
       case EXPRESSION:
       case FLOW:
+      case PASS:
       case RETURN:
         // nothing to declare
     }
@@ -212,10 +213,9 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(FlowStatement node) {
-    if (node.getKind() != TokenKind.PASS && loopCount <= 0) {
+    if (loopCount <= 0) {
       throw new ValidationException(
-          node.getLocation(),
-          node.getKind().getPrettyName() + " statement must be inside a for loop");
+          node.getLocation(), node.getKind().getName() + " statement must be inside a for loop");
     }
     super.visit(node);
   }

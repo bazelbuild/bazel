@@ -291,11 +291,11 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   @Test
   public void flowStatement() {
     // The parser would complain if we tried to construct them from source.
-    ASTNode breakNode = new FlowStatement(TokenKind.BREAK);
+    ASTNode breakNode = new FlowStatement(FlowStatement.Kind.BREAK);
     assertIndentedPrettyMatches(breakNode, "  break\n");
     assertTostringMatches(breakNode, "break\n");
 
-    ASTNode continueNode = new FlowStatement(TokenKind.CONTINUE);
+    ASTNode continueNode = new FlowStatement(FlowStatement.Kind.CONTINUE);
     assertIndentedPrettyMatches(continueNode, "  continue\n");
     assertTostringMatches(continueNode, "continue\n");
   }
