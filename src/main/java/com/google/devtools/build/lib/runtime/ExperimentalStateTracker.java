@@ -18,7 +18,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Comparators;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -57,6 +60,7 @@ import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -69,6 +73,10 @@ import javax.annotation.concurrent.ThreadSafe;
  * An experimental state tracker for the new experimental UI.
  */
 class ExperimentalStateTracker {
+  enum ProgressMode {
+    OLDEST_ACTIONS,
+    MNEMONIC_HISTOGRAM
+  }
 
   static final long SHOW_TIME_THRESHOLD_SECONDS = 3;
   static final String ELLIPSIS = "...";
@@ -80,6 +88,7 @@ class ExperimentalStateTracker {
   static final int NANOS_PER_SECOND = 1000000000;
   static final String URL_PROTOCOL_SEP = "://";
 
+  private ProgressMode progressMode = ProgressMode.OLDEST_ACTIONS;
   private int sampleSize = 3;
 
   private String status;
@@ -342,15 +351,10 @@ class ExperimentalStateTracker {
     this(clock, 0);
   }
 
-  /**
-   * Set the maximal number of actions shown in the progress bar.
-   */
-  void setSampleSize(int sampleSize) {
-    if (sampleSize >= 1) {
-      this.sampleSize = sampleSize;
-    } else {
-      this.sampleSize = 1;
-    }
+  /** Set the progress bar mode and sample size. */
+  void setProgressMode(ProgressMode progressMode, int sampleSize) {
+    this.progressMode = progressMode;
+    this.sampleSize = Math.max(1, sampleSize);
   }
 
   void buildStarted(BuildStartingEvent event) {
@@ -768,6 +772,31 @@ class ExperimentalStateTracker {
     }
   }
 
+  private void printActionState(AnsiTerminalWriter terminalWriter) throws IOException {
+    switch (progressMode) {
+      case OLDEST_ACTIONS:
+        sampleOldestActions(terminalWriter);
+        break;
+      case MNEMONIC_HISTOGRAM:
+        showMnemonicHistogram(terminalWriter);
+        break;
+    }
+  }
+
+  private void showMnemonicHistogram(AnsiTerminalWriter terminalWriter) throws IOException {
+    Multiset<String> mnemonicHistogram = HashMultiset.create();
+    for (Map.Entry<Artifact, ActionState> action : activeActions.entrySet()) {
+      mnemonicHistogram.add(action.getValue().action.getMnemonic());
+    }
+    List<Multiset.Entry<String>> sorted =
+        mnemonicHistogram.entrySet().stream()
+            .collect(
+                Comparators.greatest(sampleSize, Comparator.comparingLong((e) -> e.getCount())));
+    for (Multiset.Entry<String> entry : sorted) {
+      terminalWriter.newline().append("    " + entry.getElement() + " " + entry.getCount());
+    }
+  }
+
   private void sampleOldestActions(AnsiTerminalWriter terminalWriter) throws IOException {
     int count = 0;
     int totalCount = 0;
@@ -1109,7 +1138,7 @@ class ExperimentalStateTracker {
         terminalWriter.normal().append(" " + statusMessage);
         maybeShowRecentTest(
             terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
-        sampleOldestActions(terminalWriter);
+        printActionState(terminalWriter);
       }
     }
     if (!shortVersion) {

@@ -270,7 +270,7 @@ public class ExperimentalEventHandler implements EventHandler {
         this.cursorControl
             ? new ExperimentalStateTracker(clock, this.terminalWidth - 2)
             : new ExperimentalStateTracker(clock);
-    this.stateTracker.setSampleSize(options.experimentalUiActionsShown);
+    this.stateTracker.setProgressMode(options.uiProgressMode, options.uiSamplesShown);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
       this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);

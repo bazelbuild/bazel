@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.ExperimentalStateTracker.ProgressMode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.EnumConverter;
@@ -59,6 +60,13 @@ public class BlazeCommandEventHandler implements EventHandler {
   public static class UseCursesConverter extends EnumConverter<UseCurses> {
     public UseCursesConverter() {
       super(UseCurses.class, "--curses setting");
+    }
+  }
+
+  /** Progress mode converter. */
+  public static class ProgressModeConverter extends EnumConverter<ProgressMode> {
+    public ProgressModeConverter() {
+      super(ProgressMode.class, "--experimental_ui_mode setting");
     }
   }
 
@@ -223,17 +231,30 @@ public class BlazeCommandEventHandler implements EventHandler {
     public boolean experimentalUiDebugAllEvents;
 
     @Option(
+        name = "experimental_ui_mode",
+        defaultValue = "oldest_actions",
+        converter = ProgressModeConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help =
+            "Determines what kind of data is shown in the detailed progress bar. By default, it is "
+                + "set to show the oldest actions and their running time. The underlying data "
+                + "source is usually sampled in a mode-dependend way to fit within the number of "
+                + "lines given by --ui_actions_shown.")
+    public ProgressMode uiProgressMode;
+
+    @Option(
         name = "ui_actions_shown",
         oldName = "experimental_ui_actions_shown",
         defaultValue = "8",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
         help =
             "Number of concurrent actions shown in the detailed progress bar; each "
                 + "action is shown on a separate line. The progress bar always shows "
                 + "at least one one, all numbers less than 1 are mapped to 1. "
                 + "This option has no effect if --noui is set.")
-    public int experimentalUiActionsShown;
+    public int uiSamplesShown;
 
     @Option(
         name = "experimental_ui_limit_console_output",
