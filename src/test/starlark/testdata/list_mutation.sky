@@ -17,6 +17,14 @@ assert_eq(foo, ['f', 'c', 'd', 'a', 'b', 'e'])
 foo.insert(10, 'g')
 assert_eq(foo, ['f', 'c', 'd', 'a', 'b', 'e', 'g'])
 
+# check that list() returns new mutable object
+a = list()
+b = list()
+a.insert(0, 1)
+
+assert_eq(a, [1])
+assert_eq(b, [])
+
 ---
 (1, 2).insert(3) ### type 'tuple' has no method insert\(\)
 ---
