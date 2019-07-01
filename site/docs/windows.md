@@ -187,7 +187,12 @@ To build C++ targets, you need:
     Windows applications, including Bazel itself. By default, the latest Windows SDK installed will
     be used. You also can specify Windows SDK version by setting `BAZEL_WINSDK_FULL_VERSION`. You
     can use a full Windows 10 SDK number such as 10.0.10240.0, or specify 8.1 to use the Windows 8.1
-    SDK. Please make sure you have the specified Windows SDK installed.
+    SDK (only one version of Windows 8.1 SDK is available). Please make sure you have the specified
+    Windows SDK installed.
+
+    Note that: This is supported with VC 2017 and 2019. With VC 2015, you'll need the full Visual
+    Studio installation, otherwise `BAZEL_WINSDK_FULL_VERSION` will be ignored.
+
     ```
     set BAZEL_WINSDK_FULL_VERSION=10.0.10240.0
     ```
