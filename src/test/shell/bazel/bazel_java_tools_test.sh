@@ -173,4 +173,26 @@ function test_java_tools_has_proguard() {
   expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.html"
 }
 
+function test_java_tools_toolchain_builds() {
+  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
+  local java_tools_zip_file_url="file://${java_tools_rlocation}"
+  if "$is_windows"; then
+        java_tools_zip_file_url="file:///${java_tools_rlocation}"
+  fi
+  cat >WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "local_java_tools",
+    urls = ["${java_tools_zip_file_url}"]
+)
+http_archive(
+    name = "rules_java",
+    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+    urls = ["https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip"],
+    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178"
+)
+EOF
+  bazel build @local_java_tools//:toolchain || fail "toolchain failed to build"
+}
+
 run_suite "Java tools archive tests"
