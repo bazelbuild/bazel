@@ -138,6 +138,24 @@ public abstract class FileSystem {
   public abstract boolean isFilePathCaseSensitive();
 
   /**
+   * Returns true if glob() is case-sensitive.
+   *
+   * <p>When glob() is case-sensitive, it will only match (or exclude) file "Foo" if the include (or
+   * exclude) pattern uses the same upper-case and lower-case letters.
+   *
+   * <p>When glob() is case-insensitive (or case-ignoring), it will match (or exclude) the file
+   * "Foo" even if the include (or exclude) pattern uses a different casing, e.g. "foO").
+   */
+  // TODO(laszlocsomor): After `--incompatible_windows_case_insensitive_glob` is flipped to true,
+  // remove this method and all references to it and replace call sites with
+  // isFilePathCaseSensitive().
+  public boolean isGlobCaseSensitive() {
+    // TODO(laszlocsomor): as part of wiring up `--incompatible_windows_case_insensitive_glob`,
+    // override this in WindowsFileSystem.
+    return true;
+  }
+
+  /**
    * Returns the type of the file system path belongs to.
    *
    * <p>The string returned is obtained directly from the operating system, so

@@ -43,7 +43,8 @@ import javax.annotation.Nullable;
  */
 public final class GlobFunction implements SkyFunction {
 
-  private final ConcurrentHashMap<String, Pattern> regexPatternCache = new ConcurrentHashMap<>();
+  private final UnixGlob.PatternCache regexPatternCache =
+      new UnixGlob.PatternCache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
 
   private final boolean alwaysUseDirListing;
 
