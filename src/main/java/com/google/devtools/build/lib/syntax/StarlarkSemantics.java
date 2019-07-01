@@ -237,7 +237,7 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
-          .experimentalBuildSettingApi(false)
+          .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalAllowIncrementalRepositoryUpdates(false)
           .experimentalEnableAndroidMigrationApis(false)

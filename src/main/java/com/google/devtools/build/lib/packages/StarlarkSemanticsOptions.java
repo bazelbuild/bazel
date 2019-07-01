@@ -79,7 +79,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "experimental_build_setting_api",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
       help =
