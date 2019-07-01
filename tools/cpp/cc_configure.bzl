@@ -139,6 +139,7 @@ cc_autoconf = repository_rule(
         "BAZEL_VC",
         "BAZEL_VC_FULL_VERSION",
         "BAZEL_VS",
+        "BAZEL_WINSDK_FULL_VERSION",
         "BAZEL_LLVM",
         "USE_CLANG_CL",
         "CC",
