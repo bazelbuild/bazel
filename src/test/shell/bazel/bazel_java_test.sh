@@ -71,9 +71,6 @@ if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
-unzip $(rlocation io_bazel/$JAVA_TOOLS_ZIP) WORKSPACE -d java_tools_dir
-cat java_tools_dir/WORKSPACE
-
 if [[ $# -gt 0 ]]; then
     JAVABASE_VALUE="$1"; shift
     add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
