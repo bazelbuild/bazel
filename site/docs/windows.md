@@ -190,8 +190,9 @@ To build C++ targets, you need:
     SDK (only one version of Windows 8.1 SDK is available). Please make sure you have the specified
     Windows SDK installed.
 
-    Note that: This is supported with VC 2017 and 2019. With VC 2015, you'll need the full Visual
-    Studio installation, otherwise `BAZEL_WINSDK_FULL_VERSION` will be ignored.
+    *Requirement*: This is supported with VC 2017 and 2019. The standalone VC 2015 Build Tools doesn't
+    support selecting Windows SDK, you'll need the full Visual Studio 2015 installation, otherwise
+    `BAZEL_WINSDK_FULL_VERSION` will be ignored.
 
     ```
     set BAZEL_WINSDK_FULL_VERSION=10.0.10240.0

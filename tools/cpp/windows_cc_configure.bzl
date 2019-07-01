@@ -279,7 +279,7 @@ def setup_vc_env_vars(repository_ctx, vc_path):
     repository_ctx.file(
         "get_env.bat",
         "@echo off\n" +
-        ("call %s > NUL || exit /b \n" % cmd) +
+        ("call %s > NUL \n" % cmd) +
         "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB%,WINDOWSSDKDIR=%WINDOWSSDKDIR% \n",
         True,
     )
@@ -335,9 +335,7 @@ def _get_vc_full_version(repository_ctx, vc_path):
 
 def _get_winsdk_full_version(repository_ctx):
     """Return the value of BAZEL_WINSDK_FULL_VERSION if defined, otherwise an empty string."""
-    if "BAZEL_WINSDK_FULL_VERSION" in repository_ctx.os.environ:
-        return repository_ctx.os.environ["BAZEL_WINSDK_FULL_VERSION"]
-    return ""
+    return repository_ctx.os.environ.get("BAZEL_WINSDK_FULL_VERSION", default = "")
 
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
