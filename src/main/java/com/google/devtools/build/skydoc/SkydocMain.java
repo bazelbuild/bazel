@@ -193,26 +193,15 @@ public class SkydocMain {
     ImmutableSet<String> symbolNames;
     ImmutableList<String> depRoots;
 
-    // TODO(cparsons): Remove optional positional arg parsing.
-    List<String> residualArgs = parser.getResidue();
     if (Strings.isNullOrEmpty(skydocOptions.targetFileLabel)
         || Strings.isNullOrEmpty(skydocOptions.outputFilePath)) {
-      if (residualArgs.size() < 2) {
-        throw new IllegalArgumentException(
-            "Expected two or more arguments. Usage:\n"
-                + "{skydoc_bin} {target_skylark_file_label} {output_file} [symbol_names]...");
-      }
-
-      targetFileLabelString = residualArgs.get(0);
-      outputPath = residualArgs.get(1);
-      symbolNames = getSymbolNames(residualArgs);
-      depRoots = ImmutableList.of();
-    } else {
-      targetFileLabelString = skydocOptions.targetFileLabel;
-      outputPath = skydocOptions.outputFilePath;
-      symbolNames = ImmutableSet.copyOf(skydocOptions.symbolNames);
-      depRoots = ImmutableList.copyOf(skydocOptions.depRoots);
+      throw new IllegalArgumentException("Expected a target file label and an output file path.");
     }
+
+    targetFileLabelString = skydocOptions.targetFileLabel;
+    outputPath = skydocOptions.outputFilePath;
+    symbolNames = ImmutableSet.copyOf(skydocOptions.symbolNames);
+    depRoots = ImmutableList.copyOf(skydocOptions.depRoots);
 
     Label targetFileLabel = Label.parseAbsolute(targetFileLabelString, ImmutableMap.of());
 
@@ -276,14 +265,6 @@ public class SkydocMain {
       return symbolNames.contains(symbolName.substring(0, symbolName.indexOf('.')));
     }
     return false;
-  }
-
-  private static ImmutableSet<String> getSymbolNames(List<String> args) {
-    ImmutableSet.Builder<String> symbolNameSet = ImmutableSet.builder();
-    for (int argi = 2; argi < args.size(); argi++) {
-      symbolNameSet.add(args.get(argi));
-    }
-    return symbolNameSet.build();
   }
 
   private static void printRuleInfos(
