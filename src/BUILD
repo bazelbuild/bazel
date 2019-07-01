@@ -650,6 +650,13 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
     for java_version in JAVA_VERSIONS
 ]
 
+genrule(
+    name = "create_java_tools_workspace_file_zip",
+    srcs = ["//tools/jdk:WORKSPACE.java_tools"],
+    outs = ["java_tools_workspace.zip"],
+    cmd = "cp $< WORKSPACE && zip -jX $@ WORKSPACE",
+)
+
 [
     genrule(
         name = "java_tools_java" + java_version + "_build_zip",
@@ -687,6 +694,7 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
         srcs = [
             "java_tools_java" + java_version + "_no_build.zip",
             "java_tools_java_" + java_version + "_build.zip",
+            ":java_tools_workspace.zip"
         ],
         outs = ["java_tools_java" + java_version + ".zip"],
         cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
