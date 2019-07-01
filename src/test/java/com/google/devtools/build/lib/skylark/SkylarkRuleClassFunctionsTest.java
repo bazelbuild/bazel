@@ -198,6 +198,46 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testAttrNameSpecialCharactersAreForbidden() throws Exception {
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+                .incompatibleRestrictAttributeNames(true)
+                .build());
+    ev.initialize();
+
+    ev.setFailFast(false);
+    evalAndExport("def impl(ctx): return", "r = rule(impl, attrs = {'ab$c': attr.int()})");
+    ev.assertContainsError("attribute name `ab$c` is not a valid identfier");
+  }
+
+  @Test
+  public void testAttrNameCannotStartWithDigit() throws Exception {
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+                .incompatibleRestrictAttributeNames(true)
+                .build());
+    ev.initialize();
+
+    ev.setFailFast(false);
+    evalAndExport("def impl(ctx): return", "r = rule(impl, attrs = {'2_foo': attr.int()})");
+    ev.assertContainsError("attribute name `2_foo` is not a valid identfier");
+  }
+
+  @Test
+  public void testAttrNameSpecialCharactersLegacy() throws Exception {
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+                .incompatibleRestrictAttributeNames(false)
+                .build());
+    ev.initialize();
+
+    evalAndExport("def impl(ctx): return", "r = rule(impl, attrs = {'ab$c': attr.int()})");
+  }
+
+  @Test
   public void testDisableDeprecatedParams() throws Exception {
     ev =
         createEvaluationTestCase(

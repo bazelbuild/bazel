@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -302,7 +303,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
     ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes =
-        attrObjectToAttributesList(attrs, ast);
+        attrObjectToAttributesList(attrs, ast.getLocation(), funcallEnv);
 
     if (skylarkTestable) {
       builder.setSkylarkTestable();
@@ -408,8 +409,20 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
   }
 
-  protected static ImmutableList<Pair<String, Descriptor>> attrObjectToAttributesList(
-      Object attrs, FuncallExpression ast) throws EvalException {
+  private static void checkAttributeName(Location loc, Environment env, String name)
+      throws EvalException {
+    if (env.getSemantics().incompatibleRestrictAttributeNames() && !Identifier.isValid(name)) {
+      throw new EvalException(
+          loc,
+          "attribute name `"
+              + name
+              + "` is not a valid identfier. "
+              + "This check can be disabled with `--incompatible_restrict_attribute_names=false`.");
+    }
+  }
+
+  private static ImmutableList<Pair<String, Descriptor>> attrObjectToAttributesList(
+      Object attrs, Location loc, Environment env) throws EvalException {
     ImmutableList.Builder<Pair<String, Descriptor>> attributes = ImmutableList.builder();
 
     if (attrs != Runtime.NONE) {
@@ -417,7 +430,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
         AttributeValueSource source = attrDescriptor.getValueSource();
-        String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
+        checkAttributeName(loc, env, attr.getKey());
+        String attrName = source.convertToNativeName(attr.getKey(), loc);
         attributes.add(Pair.of(attrName, attrDescriptor));
       }
     }
@@ -502,7 +516,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     ImmutableList<Pair<String, SkylarkAttr.Descriptor>> descriptors =
-        attrObjectToAttributesList(attrs, ast);
+        attrObjectToAttributesList(attrs, ast.getLocation(), funcallEnv);
     ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
     ImmutableSet.Builder<String> requiredParams = ImmutableSet.builder();
     for (Pair<String, Descriptor> nameDescriptorPair : descriptors) {

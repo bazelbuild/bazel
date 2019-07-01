@@ -160,6 +160,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_objc_framework_cleanup=" + rand.nextBoolean(),
         "--incompatible_remap_main_repo=" + rand.nextBoolean(),
         "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
+        "--incompatible_restrict_attribute_names=" + rand.nextBoolean(),
         "--incompatible_restrict_named_params=" + rand.nextBoolean(),
         "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
         "--incompatible_string_join_requires_strings=" + rand.nextBoolean(),
@@ -212,6 +213,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleObjcFrameworkCleanup(rand.nextBoolean())
         .incompatibleRemapMainRepo(rand.nextBoolean())
         .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
+        .incompatibleRestrictAttributeNames(rand.nextBoolean())
         .incompatibleRestrictNamedParams(rand.nextBoolean())
         .incompatibleRunShellCommandString(rand.nextBoolean())
         .incompatibleStringJoinRequiresStrings(rand.nextBoolean())

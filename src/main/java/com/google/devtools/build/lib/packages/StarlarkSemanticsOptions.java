@@ -571,6 +571,18 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleRestrictNamedParams;
 
   @Option(
+      name = "incompatible_restrict_attribute_names",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, restrict rule attribute names to valid identifiers")
+  public boolean incompatibleRestrictAttributeNames;
+
+  @Option(
       name = "incompatible_depset_for_libraries_to_link_getter",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -648,6 +660,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleObjcFrameworkCleanup(incompatibleObjcFrameworkCleanup)
             .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
             .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
+            .incompatibleRestrictAttributeNames(incompatibleRestrictAttributeNames)
             .incompatibleRestrictNamedParams(incompatibleRestrictNamedParams)
             .incompatibleRunShellCommandString(incompatibleRunShellCommandString)
             .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
