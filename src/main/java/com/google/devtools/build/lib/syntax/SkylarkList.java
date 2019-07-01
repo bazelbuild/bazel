@@ -490,6 +490,20 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     }
 
     @SkylarkCallable(
+      name = "clear",
+      doc = "Removes all the elements of the list.",
+      useLocation = true,
+      useEnvironment = true
+    )
+    public Runtime.NoneType clear(
+        Location loc, Environment env)
+        throws EvalException {
+      checkMutable(loc, env.mutability());
+      contents.clear();
+      return Runtime.NONE;
+    }
+
+    @SkylarkCallable(
       name = "insert",
       doc = "Inserts an item at a given position.",
       parameters = {
