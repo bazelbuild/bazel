@@ -115,6 +115,6 @@ option, and represents autodetected platform for the system Bazel is running on.
 You can specify the host and target platforms for a build using the following
 command-line flags:
 
-*  `--host_platform` - defaults to `@local_config_platform//:host`
+*  `--host_platform` - defaults to `@bazel_tools//platforms:host_platform`
 
-*  `--platforms` - defaults to `@local_config_platform//:host`
+*  `--platforms` - defaults to `@bazel_tools//platforms:target_platform`
