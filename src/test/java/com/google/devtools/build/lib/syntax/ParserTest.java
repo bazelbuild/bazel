@@ -608,28 +608,33 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testForBreakContinue() throws Exception {
-    List<Statement> file = parseFileForSkylark(
-        "def foo():",
-        "  for i in [1, 2]:",
-        "    break",
-        "    continue",
-        "    break");
+  public void testForBreakContinuePass() throws Exception {
+    List<Statement> file =
+        parseFileForSkylark(
+            "def foo():",
+            "  for i in [1, 2]:",
+            "    break",
+            "    continue",
+            "    pass",
+            "    break");
     assertThat(file).hasSize(1);
     List<Statement> body = ((FunctionDefStatement) file.get(0)).getStatements();
     assertThat(body).hasSize(1);
 
     List<Statement> loop = ((ForStatement) body.get(0)).getBlock();
-    assertThat(loop).hasSize(3);
+    assertThat(loop).hasSize(4);
 
-    assertThat(((FlowStatement) loop.get(0)).getKind()).isEqualTo(FlowStatement.Kind.BREAK);
+    assertThat(((FlowStatement) loop.get(0)).getKind()).isEqualTo(TokenKind.BREAK);
     assertLocation(34, 39, loop.get(0).getLocation());
 
-    assertThat(((FlowStatement) loop.get(1)).getKind()).isEqualTo(FlowStatement.Kind.CONTINUE);
+    assertThat(((FlowStatement) loop.get(1)).getKind()).isEqualTo(TokenKind.CONTINUE);
     assertLocation(44, 52, loop.get(1).getLocation());
 
-    assertThat(((FlowStatement) loop.get(2)).getKind()).isEqualTo(FlowStatement.Kind.BREAK);
-    assertLocation(57, 62, loop.get(2).getLocation());
+    assertThat(((FlowStatement) loop.get(2)).getKind()).isEqualTo(TokenKind.PASS);
+    assertLocation(57, 61, loop.get(2).getLocation());
+
+    assertThat(((FlowStatement) loop.get(3)).getKind()).isEqualTo(TokenKind.BREAK);
+    assertLocation(66, 71, loop.get(3).getLocation());
   }
 
   @Test
@@ -1014,13 +1019,6 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testPass() throws Exception {
-    List<Statement> statements = parseFileForSkylark("pass\n");
-    assertThat(statements).hasSize(1);
-    assertThat(statements.get(0)).isInstanceOf(PassStatement.class);
-  }
-
-  @Test
   public void testForPass() throws Exception {
     List<Statement> statements = parseFileForSkylark(
         "def foo():",
@@ -1028,7 +1026,7 @@ public class ParserTest extends EvaluationTestCase {
 
     assertThat(statements).hasSize(1);
     FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
-    assertThat(stmt.getStatements().get(0)).isInstanceOf(PassStatement.class);
+    assertThat(stmt.getStatements().get(0)).isInstanceOf(FlowStatement.class);
   }
 
   @Test

@@ -1126,26 +1126,16 @@ public class Parser {
     }
   }
 
-  // small_stmt | 'pass'
-  private void parseSmallStatementOrPass(List<Statement> list) {
-    if (token.kind == TokenKind.PASS) {
-      list.add(setLocation(new PassStatement(), token.left, token.right));
-      expect(TokenKind.PASS);
-    } else {
-      list.add(parseSmallStatement());
-    }
-  }
-
   // simple_stmt ::= small_stmt (';' small_stmt)* ';'? NEWLINE
   private void parseSimpleStatement(List<Statement> list) {
-    parseSmallStatementOrPass(list);
+    list.add(parseSmallStatement());
 
     while (token.kind == TokenKind.SEMI) {
       nextToken();
       if (token.kind == TokenKind.NEWLINE) {
         break;
       }
-      parseSmallStatementOrPass(list);
+      list.add(parseSmallStatement());
     }
     expectAndRecover(TokenKind.NEWLINE);
   }
@@ -1153,7 +1143,7 @@ public class Parser {
   //     small_stmt ::= assign_stmt
   //                  | expr
   //                  | return_stmt
-  //                  | flow_stmt
+  //                  | BREAK | CONTINUE | PASS
   //     assign_stmt ::= expr ('=' | augassign) expr
   //     augassign ::= ('+=' | '-=' | '*=' | '/=' | '%=' | '//=' )
   // Note that these are in Python, but not implemented here (at least for now):
@@ -1162,8 +1152,13 @@ public class Parser {
     int start = token.left;
     if (token.kind == TokenKind.RETURN) {
       return parseReturnStatement();
-    } else if (token.kind == TokenKind.BREAK || token.kind == TokenKind.CONTINUE) {
-      return parseFlowStatement(token.kind);
+    } else if (token.kind == TokenKind.BREAK
+        || token.kind == TokenKind.CONTINUE
+        || token.kind == TokenKind.PASS) {
+      TokenKind kind = token.kind;
+      int end = token.right;
+      expect(kind);
+      return setLocation(new FlowStatement(kind), start, end);
     }
     Expression expression = parseExpression();
     if (token.kind == TokenKind.EQUALS) {
@@ -1331,16 +1326,6 @@ public class Parser {
       parseSimpleStatement(list);
     }
     return list;
-  }
-
-  // flow_stmt ::= BREAK | CONTINUE
-  private FlowStatement parseFlowStatement(TokenKind kind) {
-    int start = token.left;
-    int end = token.right;
-    expect(kind);
-    FlowStatement.Kind flowKind =
-        kind == TokenKind.BREAK ? FlowStatement.Kind.BREAK : FlowStatement.Kind.CONTINUE;
-    return setLocation(new FlowStatement(flowKind), start, end);
   }
 
   // return_stmt ::= RETURN [expr]

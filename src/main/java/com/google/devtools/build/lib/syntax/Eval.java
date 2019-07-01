@@ -25,18 +25,7 @@ import java.util.function.Function;
  */
 public class Eval {
   protected final Environment env;
-
-  /** An exception that signals changes in the control flow (e.g. break or continue) */
-  private static class FlowException extends EvalException {
-    FlowException(String message) {
-      super(null, message);
-    }
-
-    @Override
-    public boolean canBeAddedToStackTrace() {
-      return false;
-    }
-  }
+  private Object result = Runtime.NONE;
 
   public static Eval fromEnvironment(Environment env) {
     return evalSupplier.apply(env);
@@ -54,16 +43,17 @@ public class Eval {
   // TODO(bazel-team): remove this static state in favor of storing Eval instances in Environment
   private static Function<Environment, Eval> evalSupplier = Eval::new;
 
-  private static final FlowException breakException = new FlowException("FlowException - break");
-  private static final FlowException continueException =
-      new FlowException("FlowException - continue");
-
   /**
    * This constructor should never be called directly. Call {@link #fromEnvironment(Environment)}
    * instead.
    */
   protected Eval(Environment env) {
     this.env = env;
+  }
+
+  /** getResult returns the value returned by executing a ReturnStatement. */
+  Object getResult() {
+    return this.result;
   }
 
   void execAssignment(AssignmentStatement node) throws EvalException, InterruptedException {
@@ -77,12 +67,12 @@ public class Eval {
         .assignAugmented(node.getOperator(), node.getExpression(), env, node.getLocation());
   }
 
-  void execIfBranch(IfStatement.ConditionalStatements node)
+  TokenKind execIfBranch(IfStatement.ConditionalStatements node)
       throws EvalException, InterruptedException {
-    execStatements(node.getStatements());
+    return execStatements(node.getStatements());
   }
 
-  void execFor(ForStatement node) throws EvalException, InterruptedException {
+  TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
     Object o = node.getCollection().eval(env);
     Iterable<?> col = EvalUtils.toIterable(o, node.getLocation(), env);
     EvalUtils.lock(o, node.getLocation());
@@ -90,17 +80,25 @@ public class Eval {
       for (Object it : col) {
         node.getVariable().assign(it, env, node.getLocation());
 
-        try {
-          execStatements(node.getBlock());
-        } catch (FlowException ex) {
-          if (ex == breakException) {
-            return;
-          }
+        switch (execStatements(node.getBlock())) {
+          case PASS:
+          case CONTINUE:
+            // Stay in loop.
+            continue;
+          case BREAK:
+            // Finish loop, execute next statement after loop.
+            return TokenKind.PASS;
+          case RETURN:
+            // Finish loop, return from function.
+            return TokenKind.RETURN;
+          default:
+            throw new IllegalStateException("unreachable");
         }
       }
     } finally {
       EvalUtils.unlock(o, node.getLocation());
     }
+    return TokenKind.PASS;
   }
 
   void execDef(FunctionDefStatement node) throws EvalException, InterruptedException {
@@ -130,17 +128,16 @@ public class Eval {
             env.getGlobals()));
   }
 
-  void execIf(IfStatement node) throws EvalException, InterruptedException {
+  TokenKind execIf(IfStatement node) throws EvalException, InterruptedException {
     ImmutableList<IfStatement.ConditionalStatements> thenBlocks = node.getThenBlocks();
     // Avoid iterator overhead - most of the time there will be one or few "if"s.
     for (int i = 0; i < thenBlocks.size(); i++) {
       IfStatement.ConditionalStatements stmt = thenBlocks.get(i);
       if (EvalUtils.toBoolean(stmt.getCondition().eval(env))) {
-        exec(stmt);
-        return;
+        return exec(stmt);
       }
     }
-    execStatements(node.getElseBlock());
+    return execStatements(node.getElseBlock());
   }
 
   void execLoad(LoadStatement node) throws EvalException, InterruptedException {
@@ -163,12 +160,12 @@ public class Eval {
     }
   }
 
-  void execReturn(ReturnStatement node) throws EvalException, InterruptedException {
+  TokenKind execReturn(ReturnStatement node) throws EvalException, InterruptedException {
     Expression ret = node.getReturnExpression();
-    if (ret == null) {
-      throw new ReturnStatement.ReturnException(node.getLocation(), Runtime.NONE);
+    if (ret != null) {
+      this.result = ret.eval(env);
     }
-    throw new ReturnStatement.ReturnException(ret.getLocation(), ret.eval(env));
+    return TokenKind.RETURN;
   }
 
   /**
@@ -177,57 +174,54 @@ public class Eval {
    * @throws EvalException if execution of the statement could not be completed.
    * @throws InterruptedException may be thrown in a sub class.
    */
-  public void exec(Statement st) throws EvalException, InterruptedException {
+  protected TokenKind exec(Statement st) throws EvalException, InterruptedException {
     try {
-      execDispatch(st);
+      return execDispatch(st);
     } catch (EvalException ex) {
       throw st.maybeTransformException(ex);
     }
   }
 
-  void execDispatch(Statement st) throws EvalException, InterruptedException {
+  TokenKind execDispatch(Statement st) throws EvalException, InterruptedException {
     switch (st.kind()) {
       case ASSIGNMENT:
         execAssignment((AssignmentStatement) st);
-        break;
+        return TokenKind.PASS;
       case AUGMENTED_ASSIGNMENT:
         execAugmentedAssignment((AugmentedAssignmentStatement) st);
-        break;
+        return TokenKind.PASS;
       case CONDITIONAL:
-        execIfBranch((IfStatement.ConditionalStatements) st);
-        break;
+        return execIfBranch((IfStatement.ConditionalStatements) st);
       case EXPRESSION:
         ((ExpressionStatement) st).getExpression().eval(env);
-        break;
+        return TokenKind.PASS;
       case FLOW:
-        throw ((FlowStatement) st).getKind() == FlowStatement.Kind.BREAK
-            ? breakException
-            : continueException;
+        return ((FlowStatement) st).getKind();
       case FOR:
-        execFor((ForStatement) st);
-        break;
+        return execFor((ForStatement) st);
       case FUNCTION_DEF:
         execDef((FunctionDefStatement) st);
-        break;
+        return TokenKind.PASS;
       case IF:
-        execIf((IfStatement) st);
-        break;
+        return execIf((IfStatement) st);
       case LOAD:
         execLoad((LoadStatement) st);
-        break;
-      case PASS:
-        break;
+        return TokenKind.PASS;
       case RETURN:
-        execReturn((ReturnStatement) st);
-        break;
+        return execReturn((ReturnStatement) st);
     }
+    throw new IllegalArgumentException("unexpected statement: " + st.kind());
   }
 
-  private void execStatements(ImmutableList<Statement> statements)
+  public TokenKind execStatements(ImmutableList<Statement> statements)
       throws EvalException, InterruptedException {
     // Hot code path, good chance of short lists which don't justify the iterator overhead.
     for (int i = 0; i < statements.size(); i++) {
-      exec(statements.get(i));
+      TokenKind flow = exec(statements.get(i));
+      if (flow != TokenKind.PASS) {
+        return flow;
+      }
     }
+    return TokenKind.PASS;
   }
 }
