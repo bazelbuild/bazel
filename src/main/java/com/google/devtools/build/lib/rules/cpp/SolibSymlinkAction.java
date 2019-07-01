@@ -132,6 +132,37 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   /**
+   * Replaces shared library artifact with user specified symlink and creates related symlink
+   * action.
+   *
+   * <p>This action is performed to minimize number of -rpath entries used during linking process
+   * (by essentially "collecting" as many shared libraries as possible in the single directory),
+   * since we will be paying quadratic price for each additional entry on the -rpath.
+   *
+   * @param actionRegistry action registry of rule requesting symlink.
+   * @param actionConstructionContext action construction context of rule requesting symlink
+   * @param solibDir String giving the solib directory
+   * @param library Shared library artifact that needs to be linked.
+   * @param path Symlink path underneath the solib directory.
+   * @return linked symlink artifact.
+   */
+  public static Artifact getDynamicLibrarySymlink(
+      ActionRegistry actionRegistry,
+      ActionConstructionContext actionConstructionContext,
+      String solibDir,
+      final Artifact library,
+      PathFragment path) {
+    Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()));
+    Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(path.getBaseName()));
+    Preconditions.checkArgument(!library.getRootRelativePath().getSegment(0).startsWith("_solib_"));
+
+    PathFragment solibDirPath = PathFragment.create(solibDir);
+    PathFragment linkName = solibDirPath.getRelative(path);
+    return getDynamicLibrarySymlinkInternal(
+        actionRegistry, actionConstructionContext, library, linkName);
+  }
+
+  /**
    * Version of {@link #getDynamicLibrarySymlink} for the special case of C++ runtime libraries.
    * These are handled differently than other libraries: neither their names nor directories are
    * mangled, i.e. libstdc++.so.6 is symlinked from _solib_[arch]/libstdc++.so.6
