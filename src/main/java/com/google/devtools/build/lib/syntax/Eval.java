@@ -325,12 +325,11 @@ public class Eval {
    * value).
    */
   private static void assignAugmented(
-      Expression expr, Operator operator, Expression rhs, Environment env, Location loc)
+      Expression expr, TokenKind op, Expression rhs, Environment env, Location loc)
       throws EvalException, InterruptedException {
     if (expr instanceof Identifier) {
       Object result =
-          BinaryOperatorExpression.evaluateAugmented(
-              operator, expr.eval(env), rhs.eval(env), env, loc);
+          BinaryOperatorExpression.evaluateAugmented(op, expr.eval(env), rhs.eval(env), env, loc);
       assignIdentifier((Identifier) expr, result, env);
     } else if (expr instanceof IndexExpression) {
       IndexExpression indexExpression = (IndexExpression) expr;
@@ -340,8 +339,7 @@ public class Eval {
       Object oldValue = IndexExpression.evaluate(object, key, env, loc);
       // Evaluate rhs after lhs.
       Object rhsValue = rhs.eval(env);
-      Object result =
-          BinaryOperatorExpression.evaluateAugmented(operator, oldValue, rhsValue, env, loc);
+      Object result = BinaryOperatorExpression.evaluateAugmented(op, oldValue, rhsValue, env, loc);
       assignItem(object, key, result, env, loc);
     } else if (expr instanceof ListLiteral) {
       throw new EvalException(loc, "cannot perform augmented assignment on a list literal");

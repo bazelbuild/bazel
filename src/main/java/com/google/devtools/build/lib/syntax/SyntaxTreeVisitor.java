@@ -64,8 +64,8 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(BinaryOperatorExpression node) {
-    visit(node.getLhs());
-    visit(node.getRhs());
+    visit(node.getX());
+    visit(node.getY());
   }
 
   public void visit(FuncallExpression node) {
@@ -160,7 +160,7 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(UnaryOperatorExpression node) {
-    visit(node.getOperand());
+    visit(node.getX());
   }
 
   public void visit(DotExpression node) {

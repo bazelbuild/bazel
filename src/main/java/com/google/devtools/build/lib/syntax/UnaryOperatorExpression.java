@@ -16,53 +16,49 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 
-/** Syntax node for a unary operator expression. */
+/** A UnaryOperatorExpression represents a unary operator expression, 'op x'. */
 public final class UnaryOperatorExpression extends Expression {
 
-  private final UnaryOperator operator;
+  private final TokenKind op; // NOT or MINUS
+  private final Expression x;
 
-  private final Expression operand;
-
-  public UnaryOperatorExpression(UnaryOperator operator, Expression operand) {
-    this.operator = operator;
-    this.operand = operand;
+  public UnaryOperatorExpression(TokenKind op, Expression x) {
+    this.op = op;
+    this.x = x;
   }
 
-  public UnaryOperator getOperator() {
-    return operator;
+  /** getOperator returns the operator. */
+  public TokenKind getOperator() {
+    return op;
   }
 
-  public Expression getOperand() {
-    return operand;
+  /** getX returns the operand. */
+  public Expression getX() {
+    return x;
   }
 
   @Override
   public void prettyPrint(Appendable buffer) throws IOException {
-    // TODO(bazel-team): Possibly omit parentheses when they are not needed according to operator
-    // precedence rules. This requires passing down more contextual information.
-    buffer.append(operator.toString());
+    // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
+    // conservatively emit them here.
+    buffer.append(op == TokenKind.NOT ? "not " : op.toString());
     buffer.append('(');
-    operand.prettyPrint(buffer);
+    x.prettyPrint(buffer);
     buffer.append(')');
   }
 
   @Override
   public String toString() {
-    // All current and planned unary operators happen to be prefix operators.
-    // Non-symbolic operators have trailing whitespace built into their name.
-    //
     // Note that this omits the parentheses for brevity, but is not correct in general due to
     // operator precedence rules. For example, "(not False) in mylist" prints as
     // "not False in mylist", which evaluates to opposite results in the case that mylist is empty.
-    return operator.toString() + operand;
+    // TODO(adonovan): record parentheses explicitly in syntax tree.
+    return (op == TokenKind.NOT ? "not " : op.toString()) + x;
   }
 
-  private static Object evaluate(
-      UnaryOperator operator,
-      Object value,
-      Location loc)
+  private static Object evaluate(TokenKind op, Object value, Location loc)
       throws EvalException, InterruptedException {
-    switch (operator) {
+    switch (op) {
       case NOT:
         return !EvalUtils.toBoolean(value);
 
@@ -81,13 +77,13 @@ public final class UnaryOperatorExpression extends Expression {
         }
 
       default:
-        throw new AssertionError("Unsupported unary operator: " + operator);
+        throw new AssertionError("Unsupported unary operator: " + op);
     }
   }
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    return evaluate(operator, operand.eval(env), getLocation());
+    return evaluate(op, x.eval(env), getLocation());
   }
 
   @Override

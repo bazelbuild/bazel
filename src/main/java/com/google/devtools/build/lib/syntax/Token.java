@@ -53,9 +53,9 @@ class Token {
   @Override
   public String toString() {
     // TODO(bazel-team): do proper escaping of string literals
-    return kind == TokenKind.STRING     ? ("\"" + value + "\"")
-        : value == null                 ? kind.getPrettyName()
-        : value.toString();
+    return kind == TokenKind.STRING
+        ? ("\"" + value + "\"")
+        : value == null ? kind.toString() : value.toString();
   }
 
 }

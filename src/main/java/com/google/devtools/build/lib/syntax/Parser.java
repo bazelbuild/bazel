@@ -126,49 +126,38 @@ public class Parser {
   private final Lexer lexer;
   private final EventHandler eventHandler;
 
-  private static final Map<TokenKind, Operator> binaryOperators =
-      new ImmutableMap.Builder<TokenKind, Operator>()
-          .put(TokenKind.AND, Operator.AND)
-          .put(TokenKind.EQUALS_EQUALS, Operator.EQUALS_EQUALS)
-          .put(TokenKind.GREATER, Operator.GREATER)
-          .put(TokenKind.GREATER_EQUALS, Operator.GREATER_EQUALS)
-          .put(TokenKind.IN, Operator.IN)
-          .put(TokenKind.LESS, Operator.LESS)
-          .put(TokenKind.LESS_EQUALS, Operator.LESS_EQUALS)
-          .put(TokenKind.MINUS, Operator.MINUS)
-          .put(TokenKind.NOT_EQUALS, Operator.NOT_EQUALS)
-          .put(TokenKind.NOT_IN, Operator.NOT_IN)
-          .put(TokenKind.OR, Operator.OR)
-          .put(TokenKind.PERCENT, Operator.PERCENT)
-          .put(TokenKind.SLASH, Operator.DIVIDE)
-          .put(TokenKind.SLASH_SLASH, Operator.FLOOR_DIVIDE)
-          .put(TokenKind.PLUS, Operator.PLUS)
-          .put(TokenKind.PIPE, Operator.PIPE)
-          .put(TokenKind.STAR, Operator.MULT)
+  // TODO(adonovan): opt: compute this by subtraction.
+  private static final Map<TokenKind, TokenKind> augmentedAssignmentMethods =
+      new ImmutableMap.Builder<TokenKind, TokenKind>()
+          .put(TokenKind.PLUS_EQUALS, TokenKind.PLUS)
+          .put(TokenKind.MINUS_EQUALS, TokenKind.MINUS)
+          .put(TokenKind.STAR_EQUALS, TokenKind.STAR)
+          .put(TokenKind.SLASH_EQUALS, TokenKind.SLASH)
+          .put(TokenKind.SLASH_SLASH_EQUALS, TokenKind.SLASH_SLASH)
+          .put(TokenKind.PERCENT_EQUALS, TokenKind.PERCENT)
           .build();
 
-  private static final Map<TokenKind, Operator> augmentedAssignmentMethods =
-      new ImmutableMap.Builder<TokenKind, Operator>()
-          .put(TokenKind.PLUS_EQUALS, Operator.PLUS)
-          .put(TokenKind.MINUS_EQUALS, Operator.MINUS)
-          .put(TokenKind.STAR_EQUALS, Operator.MULT)
-          .put(TokenKind.SLASH_EQUALS, Operator.DIVIDE)
-          .put(TokenKind.SLASH_SLASH_EQUALS, Operator.FLOOR_DIVIDE)
-          .put(TokenKind.PERCENT_EQUALS, Operator.PERCENT)
-          .build();
-
-  /** Highest precedence goes last.
-   *  Based on: http://docs.python.org/2/reference/expressions.html#operator-precedence
-   **/
-  private static final List<EnumSet<Operator>> operatorPrecedence = ImmutableList.of(
-      EnumSet.of(Operator.OR),
-      EnumSet.of(Operator.AND),
-      EnumSet.of(Operator.NOT),
-      EnumSet.of(Operator.EQUALS_EQUALS, Operator.NOT_EQUALS, Operator.LESS, Operator.LESS_EQUALS,
-          Operator.GREATER, Operator.GREATER_EQUALS, Operator.IN, Operator.NOT_IN),
-      EnumSet.of(Operator.PIPE),
-      EnumSet.of(Operator.MINUS, Operator.PLUS),
-      EnumSet.of(Operator.DIVIDE, Operator.FLOOR_DIVIDE, Operator.MULT, Operator.PERCENT));
+  /**
+   * Highest precedence goes last. Based on:
+   * http://docs.python.org/2/reference/expressions.html#operator-precedence
+   */
+  private static final List<EnumSet<TokenKind>> operatorPrecedence =
+      ImmutableList.of(
+          EnumSet.of(TokenKind.OR),
+          EnumSet.of(TokenKind.AND),
+          EnumSet.of(TokenKind.NOT),
+          EnumSet.of(
+              TokenKind.EQUALS_EQUALS,
+              TokenKind.NOT_EQUALS,
+              TokenKind.LESS,
+              TokenKind.LESS_EQUALS,
+              TokenKind.GREATER,
+              TokenKind.GREATER_EQUALS,
+              TokenKind.IN,
+              TokenKind.NOT_IN),
+          EnumSet.of(TokenKind.PIPE),
+          EnumSet.of(TokenKind.MINUS, TokenKind.PLUS),
+          EnumSet.of(TokenKind.SLASH, TokenKind.SLASH_SLASH, TokenKind.STAR, TokenKind.PERCENT));
 
   private int errorsCount;
   private boolean recoveryMode;  // stop reporting errors until next statement
@@ -335,7 +324,7 @@ public class Parser {
   private boolean expect(TokenKind kind) {
     boolean expected = token.kind == kind;
     if (!expected) {
-      syntaxError("expected " + kind.getPrettyName());
+      syntaxError("expected " + kind);
     }
     nextToken();
     return expected;
@@ -425,7 +414,9 @@ public class Parser {
       case RAISE: error = "'raise' not supported, use 'fail' instead"; break;
       case TRY: error = "'try' not supported, all exceptions are fatal"; break;
       case WHILE: error = "'while' not supported, use 'for' instead"; break;
-      default: error = "keyword '" + token.kind.getPrettyName() + "' not supported"; break;
+      default:
+        error = "keyword '" + token.kind + "' not supported";
+        break;
     }
     reportError(lexer.createLocation(token.left, token.right), error);
   }
@@ -676,7 +667,7 @@ public class Parser {
         {
           nextToken();
           Expression expr = parsePrimaryWithSuffix();
-          UnaryOperatorExpression minus = new UnaryOperatorExpression(UnaryOperator.MINUS, expr);
+          UnaryOperatorExpression minus = new UnaryOperatorExpression(TokenKind.MINUS, expr);
           return setLocation(minus, start, expr);
         }
       default:
@@ -802,7 +793,7 @@ public class Parser {
         nextToken();
         return expr;
       } else {
-        syntaxError("expected '" + closingBracket.getPrettyName() + "', 'for' or 'if'");
+        syntaxError("expected '" + closingBracket + "', 'for' or 'if'");
         syncPast(LIST_TERMINATOR_SET);
         return makeErrorExpression(comprehensionStartOffset, token.right);
       }
@@ -927,9 +918,8 @@ public class Parser {
     Expression expr = parseNonTupleExpression(prec + 1);
     // The loop is not strictly needed, but it prevents risks of stack overflow. Depth is
     // limited to number of different precedence levels (operatorPrecedence.size()).
-    Operator lastOp = null;
+    TokenKind lastOp = null;
     for (;;) {
-
       if (token.kind == TokenKind.NOT) {
         // If NOT appears when we expect a binary operator, it must be followed by IN.
         // Since the code expects every operator to be a single token, we push a NOT_IN token.
@@ -940,44 +930,40 @@ public class Parser {
         token.kind = TokenKind.NOT_IN;
       }
 
-      if (!binaryOperators.containsKey(token.kind)) {
-        return expr;
-      }
-      Operator operator = binaryOperators.get(token.kind);
-      if (!operatorPrecedence.get(prec).contains(operator)) {
+      TokenKind op = token.kind;
+      if (!operatorPrecedence.get(prec).contains(op)) {
         return expr;
       }
 
       // Operator '==' and other operators of the same precedence (e.g. '<', 'in')
       // are not associative.
-      if (lastOp != null && operatorPrecedence.get(prec).contains(Operator.EQUALS_EQUALS)) {
+      if (lastOp != null && operatorPrecedence.get(prec).contains(TokenKind.EQUALS_EQUALS)) {
         reportError(
             lexer.createLocation(token.left, token.right),
-            String.format("Operator '%s' is not associative with operator '%s'. Use parens.",
-                lastOp, operator));
+            String.format(
+                "Operator '%s' is not associative with operator '%s'. Use parens.", lastOp, op));
       }
 
       nextToken();
       Expression secondary = parseNonTupleExpression(prec + 1);
-      expr = optimizeBinOpExpression(operator, expr, secondary);
+      expr = optimizeBinOpExpression(expr, op, secondary);
       setLocation(expr, start, secondary);
-      lastOp = operator;
+      lastOp = op;
     }
   }
 
   // Optimize binary expressions.
   // string literal + string literal can be concatenated into one string literal
   // so we don't have to do the expensive string concatenation at runtime.
-  private Expression optimizeBinOpExpression(
-      Operator operator, Expression expr, Expression secondary) {
-    if (operator == Operator.PLUS) {
-      if (expr instanceof StringLiteral && secondary instanceof StringLiteral) {
-        StringLiteral left = (StringLiteral) expr;
-        StringLiteral right = (StringLiteral) secondary;
+  private Expression optimizeBinOpExpression(Expression x, TokenKind op, Expression y) {
+    if (op == TokenKind.PLUS) {
+      if (x instanceof StringLiteral && y instanceof StringLiteral) {
+        StringLiteral left = (StringLiteral) x;
+        StringLiteral right = (StringLiteral) y;
         return new StringLiteral(stringInterner.intern(left.getValue() + right.getValue()));
       }
     }
-    return new BinaryOperatorExpression(operator, expr, secondary);
+    return new BinaryOperatorExpression(x, op, y);
   }
 
   // Equivalent to 'test' rule in Python grammar.
@@ -1005,7 +991,7 @@ public class Parser {
     if (prec >= operatorPrecedence.size()) {
       return parsePrimaryWithSuffix();
     }
-    if (token.kind == TokenKind.NOT && operatorPrecedence.get(prec).contains(Operator.NOT)) {
+    if (token.kind == TokenKind.NOT && operatorPrecedence.get(prec).contains(TokenKind.NOT)) {
       return parseNotExpression(prec);
     }
     return parseBinOpExpression(prec);
@@ -1016,9 +1002,8 @@ public class Parser {
     int start = token.left;
     expect(TokenKind.NOT);
     Expression expression = parseNonTupleExpression(prec);
-    UnaryOperatorExpression notExpression =
-        new UnaryOperatorExpression(UnaryOperator.NOT, expression);
-    return setLocation(notExpression, start, expression);
+    UnaryOperatorExpression not = new UnaryOperatorExpression(TokenKind.NOT, expression);
+    return setLocation(not, start, expression);
   }
 
   // file_input ::= ('\n' | stmt)* EOF
@@ -1171,11 +1156,10 @@ public class Parser {
       Expression rhs = parseExpression();
       return setLocation(new AssignmentStatement(expression, rhs), start, rhs);
     } else if (augmentedAssignmentMethods.containsKey(token.kind)) {
-      Operator operator = augmentedAssignmentMethods.get(token.kind);
+      TokenKind op = augmentedAssignmentMethods.get(token.kind);
       nextToken();
       Expression operand = parseExpression();
-      return setLocation(
-          new AugmentedAssignmentStatement(operator, expression, operand), start, operand);
+      return setLocation(new AugmentedAssignmentStatement(op, expression, operand), start, operand);
     } else {
       return setLocation(new ExpressionStatement(expression), start, expression);
     }

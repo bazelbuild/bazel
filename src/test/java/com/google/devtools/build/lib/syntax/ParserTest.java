@@ -105,35 +105,35 @@ public class ParserTest extends EvaluationTestCase {
     BinaryOperatorExpression e =
       (BinaryOperatorExpression) parseExpression("'%sx' % 'foo' + 'bar'");
 
-    assertThat(e.getOperator()).isEqualTo(Operator.PLUS);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PLUS);
   }
 
   @Test
   public void testPrecedence2() throws Exception {
     BinaryOperatorExpression e =
       (BinaryOperatorExpression) parseExpression("('%sx' % 'foo') + 'bar'");
-    assertThat(e.getOperator()).isEqualTo(Operator.PLUS);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PLUS);
   }
 
   @Test
   public void testPrecedence3() throws Exception {
     BinaryOperatorExpression e =
       (BinaryOperatorExpression) parseExpression("'%sx' % ('foo' + 'bar')");
-    assertThat(e.getOperator()).isEqualTo(Operator.PERCENT);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PERCENT);
   }
 
   @Test
   public void testPrecedence4() throws Exception {
     BinaryOperatorExpression e =
         (BinaryOperatorExpression) parseExpression("1 + - (2 - 3)");
-    assertThat(e.getOperator()).isEqualTo(Operator.PLUS);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PLUS);
   }
 
   @Test
   public void testPrecedence5() throws Exception {
     BinaryOperatorExpression e =
         (BinaryOperatorExpression) parseExpression("2 * x | y + 1");
-    assertThat(e.getOperator()).isEqualTo(Operator.PIPE);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PIPE);
   }
 
   @Test
@@ -170,9 +170,9 @@ public class ParserTest extends EvaluationTestCase {
     UnaryOperatorExpression e = (UnaryOperatorExpression) parseExpression("-5");
     UnaryOperatorExpression e2 = (UnaryOperatorExpression) parseExpression("- 5");
 
-    IntegerLiteral i = (IntegerLiteral) e.getOperand();
+    IntegerLiteral i = (IntegerLiteral) e.getX();
     assertThat(i.getValue()).isEqualTo(5);
-    IntegerLiteral i2 = (IntegerLiteral) e2.getOperand();
+    IntegerLiteral i2 = (IntegerLiteral) e2.getX();
     assertThat(i2.getValue()).isEqualTo(5);
     assertLocation(0, 2, e.getLocation());
     assertLocation(0, 3, e2.getLocation());

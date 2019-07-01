@@ -48,7 +48,7 @@ public enum TokenKind {
   IMPORT("import"),
   IN("in"),
   INDENT("indent"),
-  INT("integer"),
+  INT("integer literal"),
   IS("is"),
   LAMBDA("lambda"),
   LBRACE("{"),
@@ -85,22 +85,20 @@ public enum TokenKind {
   STAR("*"),
   STAR_EQUALS("*="),
   STAR_STAR("**"),
-  STRING("string"),
+  STRING("string literal"),
   TRY("try"),
   WHILE("while"),
   WITH("with"),
   YIELD("yield");
 
-  private final String prettyName;
+  private final String name;
 
-  private TokenKind(String prettyName) {
-    this.prettyName = prettyName;
+  private TokenKind(String name) {
+    this.name = name;
   }
 
-  /**
-   * Returns the pretty name for this token, for use in error messages for the user.
-   */
-  public String getPrettyName() {
-    return prettyName;
+  @Override
+  public String toString() {
+    return name;
   }
 }

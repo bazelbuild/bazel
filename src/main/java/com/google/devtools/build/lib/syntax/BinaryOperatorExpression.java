@@ -19,48 +19,68 @@ import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.io.IOException;
+import java.util.EnumSet;
 import java.util.IllegalFormatException;
 
-/** Syntax node for a binary operator expression. */
+/** A BinaryExpression represents a binary operator expression 'x op y'. */
 public final class BinaryOperatorExpression extends Expression {
 
-  private final Expression lhs;
+  private final Expression x;
+  private final TokenKind op; // one of 'operators'
+  private final Expression y;
 
-  private final Expression rhs;
+  /** operators is the set of valid binary operators. */
+  public static final EnumSet<TokenKind> operators =
+      EnumSet.of(
+          TokenKind.AND,
+          TokenKind.EQUALS_EQUALS,
+          TokenKind.GREATER,
+          TokenKind.GREATER_EQUALS,
+          TokenKind.IN,
+          TokenKind.LESS,
+          TokenKind.LESS_EQUALS,
+          TokenKind.MINUS,
+          TokenKind.NOT_EQUALS,
+          TokenKind.NOT_IN,
+          TokenKind.OR,
+          TokenKind.PERCENT,
+          TokenKind.SLASH,
+          TokenKind.SLASH_SLASH,
+          TokenKind.PLUS,
+          TokenKind.PIPE,
+          TokenKind.STAR);
 
-  private final Operator operator;
-
-  public BinaryOperatorExpression(Operator operator, Expression lhs, Expression rhs) {
-    this.lhs = lhs;
-    this.rhs = rhs;
-    this.operator = operator;
+  public BinaryOperatorExpression(Expression x, TokenKind op, Expression y) {
+    this.x = x;
+    this.op = op;
+    this.y = y;
   }
 
-  public Expression getLhs() {
-    return lhs;
+  /** getX returns the left operand. */
+  public Expression getX() {
+    return x;
   }
 
-  public Expression getRhs() {
-    return rhs;
+  /** getOperator returns the operator. */
+  public TokenKind getOperator() {
+    return op;
   }
 
-  /**
-   * Returns the operator kind for this binary operation.
-   */
-  public Operator getOperator() {
-    return operator;
+  /** getY returns the right operand. */
+  public Expression getY() {
+    return y;
   }
 
   @Override
   public void prettyPrint(Appendable buffer) throws IOException {
-    // TODO(bazel-team): Possibly omit parentheses when they are not needed according to operator
-    // precedence rules. This requires passing down more contextual information.
+    // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
+    // conservatively emit them here.
     buffer.append('(');
-    lhs.prettyPrint(buffer);
+    x.prettyPrint(buffer);
     buffer.append(' ');
-    buffer.append(operator.toString());
+    buffer.append(op.toString());
     buffer.append(' ');
-    rhs.prettyPrint(buffer);
+    y.prettyPrint(buffer);
     buffer.append(')');
   }
 
@@ -68,47 +88,47 @@ public final class BinaryOperatorExpression extends Expression {
   public String toString() {
     // This omits the parentheses for brevity, but is not correct in general due to operator
     // precedence rules.
-    return lhs + " " + operator + " " + rhs;
+    return x + " " + op + " " + y;
   }
 
   /** Implements comparison operators. */
-  private static int compare(Object lval, Object rval, Location location) throws EvalException {
+  private static int compare(Object x, Object y, Location location) throws EvalException {
     try {
-      return EvalUtils.SKYLARK_COMPARATOR.compare(lval, rval);
+      return EvalUtils.SKYLARK_COMPARATOR.compare(x, y);
     } catch (EvalUtils.ComparisonException e) {
       throw new EvalException(location, e);
     }
   }
 
-  /** Implements the "in" operator. */
-  private static boolean in(Object lval, Object rval, Environment env, Location location)
+  /** Implements 'x in y'. */
+  private static boolean in(Object x, Object y, Environment env, Location location)
       throws EvalException {
-    if (env.getSemantics().incompatibleDepsetIsNotIterable() && rval instanceof SkylarkNestedSet) {
+    if (env.getSemantics().incompatibleDepsetIsNotIterable() && y instanceof SkylarkNestedSet) {
       throw new EvalException(
           location,
           "argument of type '"
-              + EvalUtils.getDataTypeName(rval)
+              + EvalUtils.getDataTypeName(y)
               + "' is not iterable. "
               + "in operator only works on lists, tuples, dicts and strings. "
               + "Use --incompatible_depset_is_not_iterable=false to temporarily disable "
               + "this check.");
-    } else if (rval instanceof SkylarkQueryable) {
-      return ((SkylarkQueryable) rval).containsKey(lval, location, env.getStarlarkContext());
-    } else if (rval instanceof String) {
-      if (lval instanceof String) {
-        return ((String) rval).contains((String) lval);
+    } else if (y instanceof SkylarkQueryable) {
+      return ((SkylarkQueryable) y).containsKey(x, location, env.getStarlarkContext());
+    } else if (y instanceof String) {
+      if (x instanceof String) {
+        return ((String) y).contains((String) x);
       } else {
         throw new EvalException(
             location,
             "'in <string>' requires string as left operand, not '"
-                + EvalUtils.getDataTypeName(lval)
+                + EvalUtils.getDataTypeName(x)
                 + "'");
       }
     } else {
       throw new EvalException(
           location,
           "argument of type '"
-              + EvalUtils.getDataTypeName(rval)
+              + EvalUtils.getDataTypeName(y)
               + "' is not iterable. "
               + "in operator only works on lists, tuples, dicts and strings.");
     }
@@ -121,111 +141,98 @@ public final class BinaryOperatorExpression extends Expression {
    * side expression is evaluated exactly once, and the right-hand side expression is evaluated
    * either once or not at all.
    *
-   * @throws IllegalArgumentException if {@code operator} is not {@link Operator#AND} or
-   *     {@link Operator#OR}.
+   * @throws IllegalArgumentException if {@code op} is not {@link Operator#AND} or {@link
+   *     Operator#OR}.
    */
   public static Object evaluateWithShortCircuiting(
-      Operator operator,
-      Expression lhs,
-      Expression rhs,
-      Environment env,
-      Location loc)
+      TokenKind op, Expression x, Expression y, Environment env, Location loc)
       throws EvalException, InterruptedException {
-    Object lval = lhs.eval(env);
-    if (operator == Operator.AND) {
-      return EvalUtils.toBoolean(lval) ? rhs.eval(env) : lval;
-    } else if (operator == Operator.OR) {
-      return EvalUtils.toBoolean(lval) ? lval : rhs.eval(env);
-    } else {
-      throw new IllegalArgumentException("Not a short-circuiting operator: " + operator);
+    Object xval = x.eval(env);
+    switch (op) {
+      case AND:
+        return EvalUtils.toBoolean(xval) ? y.eval(env) : xval;
+      case OR:
+        return EvalUtils.toBoolean(xval) ? xval : y.eval(env);
+      default:
+        throw new IllegalArgumentException("Not a short-circuiting operator: " + op);
     }
   }
 
   /**
-   * Evaluates {@code lhs @ rhs}, where {@code @} is the operator, and returns the result.
+   * Evaluates {@code x @ y}, where {@code @} is the operator, and returns the result.
    *
    * <p>This method does not implement any short-circuiting logic for boolean operations, as the
    * parameters are already evaluated.
    */
-  public static Object evaluate(
-      Operator operator,
-      Object lhs,
-      Object rhs,
-      Environment env,
-      Location loc)
+  public static Object evaluate(TokenKind op, Object x, Object y, Environment env, Location loc)
       throws EvalException, InterruptedException {
-    return evaluate(operator, lhs, rhs, env, loc, /*isAugmented=*/false);
+    return evaluate(op, x, y, env, loc, /*isAugmented=*/ false);
   }
 
   private static Object evaluate(
-      Operator operator,
-      Object lhs,
-      Object rhs,
-      Environment env,
-      Location location,
-      boolean isAugmented)
+      TokenKind op, Object x, Object y, Environment env, Location location, boolean isAugmented)
       throws EvalException, InterruptedException {
     try {
-      switch (operator) {
+      switch (op) {
           // AND and OR are included for completeness, but should normally be handled using
           // evaluateWithShortCircuiting() instead of this method.
 
         case AND:
-          return EvalUtils.toBoolean(lhs) ? rhs : lhs;
+          return EvalUtils.toBoolean(x) ? y : x;
 
         case OR:
-          return EvalUtils.toBoolean(lhs) ? lhs : rhs;
+          return EvalUtils.toBoolean(x) ? x : y;
 
         case PLUS:
-          return plus(lhs, rhs, env, location, isAugmented);
+          return plus(x, y, env, location, isAugmented);
 
         case PIPE:
-          return pipe(lhs, rhs, env, location);
+          return pipe(x, y, env, location);
 
         case MINUS:
-          return minus(lhs, rhs, location);
+          return minus(x, y, location);
 
-        case MULT:
-          return mult(lhs, rhs, env, location);
+        case STAR:
+          return mult(x, y, env, location);
 
-        case DIVIDE:
+        case SLASH:
           throw new EvalException(
               location,
               "The `/` operator is not allowed. Please use the `//` operator for integer "
                   + "division.");
 
-        case FLOOR_DIVIDE:
-          return divide(lhs, rhs, location);
+        case SLASH_SLASH:
+          return divide(x, y, location);
 
         case PERCENT:
-          return percent(lhs, rhs, location);
+          return percent(x, y, location);
 
         case EQUALS_EQUALS:
-          return lhs.equals(rhs);
+          return x.equals(y);
 
         case NOT_EQUALS:
-          return !lhs.equals(rhs);
+          return !x.equals(y);
 
         case LESS:
-          return compare(lhs, rhs, location) < 0;
+          return compare(x, y, location) < 0;
 
         case LESS_EQUALS:
-          return compare(lhs, rhs, location) <= 0;
+          return compare(x, y, location) <= 0;
 
         case GREATER:
-          return compare(lhs, rhs, location) > 0;
+          return compare(x, y, location) > 0;
 
         case GREATER_EQUALS:
-          return compare(lhs, rhs, location) >= 0;
+          return compare(x, y, location) >= 0;
 
         case IN:
-          return in(lhs, rhs, env, location);
+          return in(x, y, env, location);
 
         case NOT_IN:
-          return !in(lhs, rhs, env, location);
+          return !in(x, y, env, location);
 
         default:
-          throw new AssertionError("Unsupported binary operator: " + operator);
+          throw new AssertionError("Unsupported binary operator: " + op);
       } // endswitch
     } catch (ArithmeticException e) {
       throw new EvalException(location, e.getMessage());
@@ -233,23 +240,23 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /**
-   * Evaluates {@code lhs @= rhs} and returns the result, possibly mutating {@code lhs}.
+   * Evaluates {@code x @= y} and returns the result, possibly mutating {@code x}.
    *
-   * <p>Whether or not {@code lhs} is mutated depends on its type. If it is mutated, then it is also
+   * <p>Whether or not {@code x} is mutated depends on its type. If it is mutated, then it is also
    * the return value.
    */
   public static Object evaluateAugmented(
-      Operator operator, Object lhs, Object rhs, Environment env, Location loc)
+      TokenKind op, Object x, Object y, Environment env, Location loc)
       throws EvalException, InterruptedException {
-    return evaluate(operator, lhs, rhs, env, loc, /*isAugmented=*/ true);
+    return evaluate(op, x, y, env, loc, /*isAugmented=*/ true);
   }
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    if (operator == Operator.AND || operator == Operator.OR) {
-      return evaluateWithShortCircuiting(operator, lhs, rhs, env, getLocation());
+    if (op == TokenKind.AND || op == TokenKind.OR) {
+      return evaluateWithShortCircuiting(op, x, y, env, getLocation());
     } else {
-      return evaluate(operator, lhs.eval(env), rhs.eval(env), env, getLocation());
+      return evaluate(op, x.eval(env), y.eval(env), env, getLocation());
     }
   }
 
@@ -263,42 +270,43 @@ public final class BinaryOperatorExpression extends Expression {
     return Kind.BINARY_OPERATOR;
   }
 
-  /** Implements Operator.PLUS. */
+  /** Implements 'x + y'. */
   private static Object plus(
-      Object lval, Object rval, Environment env, Location location, boolean isAugmented)
+      Object x, Object y, Environment env, Location location, boolean isAugmented)
       throws EvalException {
     // int + int
-    if (lval instanceof Integer && rval instanceof Integer) {
-      return Math.addExact((Integer) lval, (Integer) rval);
+    if (x instanceof Integer && y instanceof Integer) {
+      return Math.addExact((Integer) x, (Integer) y);
     }
 
     // string + string
-    if (lval instanceof String && rval instanceof String) {
-      return (String) lval + (String) rval;
+    if (x instanceof String && y instanceof String) {
+      return (String) x + (String) y;
     }
 
-    if (lval instanceof SelectorValue || rval instanceof SelectorValue
-        || lval instanceof SelectorList
-        || rval instanceof SelectorList) {
-      return SelectorList.concat(location, lval, rval);
+    if (x instanceof SelectorValue
+        || y instanceof SelectorValue
+        || x instanceof SelectorList
+        || y instanceof SelectorList) {
+      return SelectorList.concat(location, x, y);
     }
 
-    if ((lval instanceof Tuple) && (rval instanceof Tuple)) {
-      return Tuple.concat((Tuple<?>) lval, (Tuple<?>) rval);
+    if (x instanceof Tuple && y instanceof Tuple) {
+      return Tuple.concat((Tuple<?>) x, (Tuple<?>) y);
     }
 
-    if ((lval instanceof MutableList) && (rval instanceof MutableList)) {
+    if (x instanceof MutableList && y instanceof MutableList) {
       if (isAugmented) {
         @SuppressWarnings("unchecked")
-        MutableList<Object> list = (MutableList) lval;
-        list.addAll((MutableList<?>) rval, location, env.mutability());
+        MutableList<Object> list = (MutableList) x;
+        list.addAll((MutableList<?>) y, location, env.mutability());
         return list;
       } else {
-        return MutableList.concat((MutableList<?>) lval, (MutableList<?>) rval, env.mutability());
+        return MutableList.concat((MutableList<?>) x, (MutableList<?>) y, env.mutability());
       }
     }
 
-    if (lval instanceof SkylarkDict && rval instanceof SkylarkDict) {
+    if (x instanceof SkylarkDict && y instanceof SkylarkDict) {
       if (env.getSemantics().incompatibleDisallowDictPlus()) {
         throw new EvalException(
             location,
@@ -306,22 +314,22 @@ public final class BinaryOperatorExpression extends Expression {
                 + "`update` method instead. You can temporarily enable the `+` operator by passing "
                 + "the flag --incompatible_disallow_dict_plus=false");
       }
-      return SkylarkDict.plus((SkylarkDict<?, ?>) lval, (SkylarkDict<?, ?>) rval, env);
+      return SkylarkDict.plus((SkylarkDict<?, ?>) x, (SkylarkDict<?, ?>) y, env);
     }
 
-    if (lval instanceof Concatable && rval instanceof Concatable) {
-      Concatable lobj = (Concatable) lval;
-      Concatable robj = (Concatable) rval;
+    if (x instanceof Concatable && y instanceof Concatable) {
+      Concatable lobj = (Concatable) x;
+      Concatable robj = (Concatable) y;
       Concatter concatter = lobj.getConcatter();
       if (concatter != null && concatter.equals(robj.getConcatter())) {
         return concatter.concat(lobj, robj, location);
       } else {
-        throw typeException(lval, rval, Operator.PLUS, location);
+        throw typeException(x, y, TokenKind.PLUS, location);
       }
     }
 
     // TODO(bazel-team): Remove deprecated operator.
-    if (lval instanceof SkylarkNestedSet) {
+    if (x instanceof SkylarkNestedSet) {
       if (env.getSemantics().incompatibleDepsetUnion()) {
         throw new EvalException(
             location,
@@ -330,15 +338,15 @@ public final class BinaryOperatorExpression extends Expression {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return SkylarkNestedSet.of((SkylarkNestedSet) lval, rval, location);
+      return SkylarkNestedSet.of((SkylarkNestedSet) x, y, location);
     }
-    throw typeException(lval, rval, Operator.PLUS, location);
+    throw typeException(x, y, TokenKind.PLUS, location);
   }
 
-  /** Implements Operator.PIPE. */
-  private static Object pipe(Object lval, Object rval, Environment env, Location location)
+  /** Implements 'x | y'. */
+  private static Object pipe(Object x, Object y, Environment env, Location location)
       throws EvalException {
-    if (lval instanceof SkylarkNestedSet) {
+    if (x instanceof SkylarkNestedSet) {
       if (env.getSemantics().incompatibleDepsetUnion()) {
         throw new EvalException(
             location,
@@ -347,31 +355,31 @@ public final class BinaryOperatorExpression extends Expression {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return SkylarkNestedSet.of((SkylarkNestedSet) lval, rval, location);
+      return SkylarkNestedSet.of((SkylarkNestedSet) x, y, location);
     }
-    throw typeException(lval, rval, Operator.PIPE, location);
+    throw typeException(x, y, TokenKind.PIPE, location);
   }
 
-  /** Implements Operator.MINUS. */
-  private static Object minus(Object lval, Object rval, Location location) throws EvalException {
-    if (lval instanceof Integer && rval instanceof Integer) {
-      return Math.subtractExact((Integer) lval, (Integer) rval);
+  /** Implements 'x - y'. */
+  private static Object minus(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      return Math.subtractExact((Integer) x, (Integer) y);
     }
-    throw typeException(lval, rval, Operator.MINUS, location);
+    throw typeException(x, y, TokenKind.MINUS, location);
   }
 
-  /** Implements Operator.MULT. */
-  private static Object mult(Object lval, Object rval, Environment env, Location location)
+  /** Implements 'x * y'. */
+  private static Object mult(Object x, Object y, Environment env, Location location)
       throws EvalException {
     Integer number = null;
     Object otherFactor = null;
 
-    if (lval instanceof Integer) {
-      number = (Integer) lval;
-      otherFactor = rval;
-    } else if (rval instanceof Integer) {
-      number = (Integer) rval;
-      otherFactor = lval;
+    if (x instanceof Integer) {
+      number = (Integer) x;
+      otherFactor = y;
+    } else if (y instanceof Integer) {
+      number = (Integer) y;
+      otherFactor = x;
     }
 
     if (number != null) {
@@ -385,14 +393,14 @@ public final class BinaryOperatorExpression extends Expression {
         return ((SkylarkList<?>) otherFactor).repeat(number, env.mutability());
       }
     }
-    throw typeException(lval, rval, Operator.MULT, location);
+    throw typeException(x, y, TokenKind.STAR, location);
   }
 
-  /** Implements Operator.DIVIDE. */
-  private static Object divide(Object lval, Object rval, Location location) throws EvalException {
+  /** Implements 'x // y'. */
+  private static Object divide(Object x, Object y, Location location) throws EvalException {
     // int / int
-    if (lval instanceof Integer && rval instanceof Integer) {
-      if (rval.equals(0)) {
+    if (x instanceof Integer && y instanceof Integer) {
+      if (y.equals(0)) {
         throw new EvalException(location, "integer division by zero");
       }
       // Integer division doesn't give the same result in Java and in Python 2 with
@@ -400,23 +408,22 @@ public final class BinaryOperatorExpression extends Expression {
       // Java:   -7/3 = -2
       // Python: -7/3 = -3
       // We want to follow Python semantics, so we use float division and round down.
-      return (int) Math.floor(Double.valueOf((Integer) lval) / (Integer) rval);
+      return (int) Math.floor(Double.valueOf((Integer) x) / (Integer) y);
     }
-    throw typeException(lval, rval, Operator.FLOOR_DIVIDE, location);
+    throw typeException(x, y, TokenKind.SLASH_SLASH, location);
   }
 
-  /** Implements Operator.PERCENT. */
-  private static Object percent(Object lval, Object rval, Location location)
-      throws EvalException {
+  /** Implements 'x % y'. */
+  private static Object percent(Object x, Object y, Location location) throws EvalException {
     // int % int
-    if (lval instanceof Integer && rval instanceof Integer) {
-      if (rval.equals(0)) {
+    if (x instanceof Integer && y instanceof Integer) {
+      if (y.equals(0)) {
         throw new EvalException(location, "integer modulo by zero");
       }
       // Python and Java implement division differently, wrt negative numbers.
       // In Python, sign of the result is the sign of the divisor.
-      int div = (Integer) rval;
-      int result = ((Integer) lval).intValue() % Math.abs(div);
+      int div = (Integer) y;
+      int result = ((Integer) x).intValue() % Math.abs(div);
       if (result > 0 && div < 0) {
         result += div; // make the result negative
       } else if (result < 0 && div > 0) {
@@ -426,25 +433,22 @@ public final class BinaryOperatorExpression extends Expression {
     }
 
     // string % tuple, string % dict, string % anything-else
-    if (lval instanceof String) {
-      String pattern = (String) lval;
+    if (x instanceof String) {
+      String pattern = (String) x;
       try {
-        if (rval instanceof Tuple) {
-          return Printer.formatWithList(pattern, (Tuple) rval);
+        if (y instanceof Tuple) {
+          return Printer.formatWithList(pattern, (Tuple) y);
         }
-        return Printer.format(pattern, rval);
+        return Printer.format(pattern, y);
       } catch (IllegalFormatException e) {
         throw new EvalException(location, e.getMessage());
       }
     }
-    throw typeException(lval, rval, Operator.PERCENT, location);
+    throw typeException(x, y, TokenKind.PERCENT, location);
   }
 
-  /**
-   * Throws an exception signifying incorrect types for the given operator.
-   */
-  private static EvalException typeException(
-      Object lval, Object rval, Operator operator, Location location) {
+  /** Throws an exception signifying incorrect types for the given operator. */
+  private static EvalException typeException(Object x, Object y, TokenKind op, Location location) {
     // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
     // though python raises a TypeError.
     // For more details, we'll hopefully have usable stack traces at some point.
@@ -452,8 +456,6 @@ public final class BinaryOperatorExpression extends Expression {
         location,
         String.format(
             "unsupported operand type(s) for %s: '%s' and '%s'",
-            operator,
-            EvalUtils.getDataTypeName(lval),
-            EvalUtils.getDataTypeName(rval)));
+            op, EvalUtils.getDataTypeName(x), EvalUtils.getDataTypeName(y)));
   }
 }
