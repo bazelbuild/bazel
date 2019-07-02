@@ -47,10 +47,13 @@ import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.common.options.EnumConverter;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.Serializable;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -259,17 +262,17 @@ public abstract class OutputFormatter implements Serializable {
 
   /** Abstract class supplying a {@link PrintStream} to implementations, flushing it on close. */
   abstract static class TextOutputFormatterCallback<T> extends OutputFormatterCallback<T> {
-    protected PrintStream printStream;
+    protected Writer writer;
 
+    @SuppressWarnings("DefaultCharset")
     TextOutputFormatterCallback(OutputStream out) {
-      this.printStream = new PrintStream(out);
+      // This code intentionally uses the platform default encoding.
+      this.writer = new BufferedWriter(new OutputStreamWriter(out));
     }
 
     @Override
     public void close(boolean failFast) throws IOException {
-      if (!failFast) {
-        flushAndCheckError(printStream);
-      }
+      writer.flush();
     }
   }
 
@@ -295,14 +298,15 @@ public abstract class OutputFormatter implements Serializable {
         OutputStream out, final QueryOptions options) {
       return new TextOutputFormatterCallback<Target>(out) {
         @Override
-        public void processOutput(Iterable<Target> partialResult) {
+        public void processOutput(Iterable<Target> partialResult) throws IOException {
           String lineTerm = options.getLineTerminator();
           for (Target target : partialResult) {
             if (showKind) {
-              printStream.print(target.getTargetKind());
-              printStream.print(' ');
+              writer.append(target.getTargetKind());
+              writer.append(' ');
             }
-            printStream.print(target.getLabel().getDefaultCanonicalForm() + lineTerm);
+            Label label = target.getLabel();
+            writer.append(label.getDefaultCanonicalForm()).append(lineTerm);
           }
         }
       };
@@ -358,7 +362,7 @@ public abstract class OutputFormatter implements Serializable {
           if (!failFast) {
             final String lineTerm = options.getLineTerminator();
             for (String packageName : packageNames) {
-              printStream.print(packageName + lineTerm);
+              writer.append(packageName).append(lineTerm);
             }
           }
           super.close(failFast);
@@ -410,17 +414,17 @@ public abstract class OutputFormatter implements Serializable {
       return new TextOutputFormatterCallback<Target>(out) {
 
         @Override
-        public void processOutput(Iterable<Target> partialResult) {
+        public void processOutput(Iterable<Target> partialResult) throws IOException {
           final String lineTerm = options.getLineTerminator();
           for (Target target : partialResult) {
             Location location = target.getLocation();
-            printStream.print(
-                location.print()
-                    + ": "
-                    + target.getTargetKind()
-                    + " "
-                    + target.getLabel().getDefaultCanonicalForm()
-                    + lineTerm);
+            writer
+                .append(location.print())
+                .append(": ")
+                .append(target.getTargetKind())
+                .append(" ")
+                .append(target.getLabel().getDefaultCanonicalForm())
+                .append(lineTerm);
           }
         }
       };

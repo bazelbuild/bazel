@@ -31,8 +31,9 @@ import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputF
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -60,41 +61,41 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
    * implementations.
    */
   public static class TargetOutputter {
-    private final PrintStream printStream;
+    private final Writer writer;
     private final BiPredicate<Rule, Attribute> preserveSelect;
     private final String lineTerm;
     private final Set<Label> printed = CompactHashSet.create();
 
     /**
-     * @param printStream where to write output
+     * @param writer where to write output
      * @param preserveSelect a predicate that determines if the given attribute on the given rule is
      *     a <code>select</code> that should be output as-is (without figuring out which branch it
      *     takes). This is useful for implementations that can't evaluate <code>select</code>.
      * @param lineTerm character to add to the end of each line
      */
     public TargetOutputter(
-        PrintStream printStream, BiPredicate<Rule, Attribute> preserveSelect, String lineTerm) {
-      this.printStream = printStream;
+        Writer writer, BiPredicate<Rule, Attribute> preserveSelect, String lineTerm) {
+      this.writer = writer;
       this.preserveSelect = preserveSelect;
       this.lineTerm = lineTerm;
     }
 
     /** Outputs a given target in BUILD-style syntax. */
-    public void output(Target target, AttributeReader attrReader) throws InterruptedException {
+    public void output(Target target, AttributeReader attrReader) throws IOException {
       Rule rule = target.getAssociatedRule();
       if (rule == null || printed.contains(rule.getLabel())) {
         return;
       }
-      outputRule(rule, attrReader, printStream);
+      outputRule(rule, attrReader, writer);
       printed.add(rule.getLabel());
     }
 
     /** Outputs a given rule in BUILD-style syntax. */
-    private void outputRule(Rule rule, AttributeReader attrReader, PrintStream printStream) {
-      final String outputAttributePattern = "  %s = %s," + lineTerm;
-      printStream.printf("# %s%s", rule.getLocation(), lineTerm);
-      printStream.printf("%s(%s", rule.getRuleClass(), lineTerm);
-      printStream.printf("  name = \"%s\",%s", rule.getName(), lineTerm);
+    private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
+        throws IOException {
+      writer.append("# ").append(rule.getLocation().print()).append(lineTerm);
+      writer.append(rule.getRuleClass()).append("(").append(lineTerm);
+      writer.append("  name = \"").append(rule.getName()).append("\",").append(lineTerm);
 
       for (Attribute attr : rule.getAttributes()) {
         // Ignore the "name" attribute here, as we already print it above.
@@ -104,8 +105,13 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           continue;
         }
         if (preserveSelect.test(rule, attr)) {
-          printStream.printf(
-              outputAttributePattern, attr.getPublicName(), reconstructSelect(rule, attr));
+          writer
+              .append("  ")
+              .append(attr.getPublicName())
+              .append(" = ")
+              .append(reconstructSelect(rule, attr))
+              .append(",")
+              .append(lineTerm);
           continue;
         }
         PossibleAttributeValues values = attrReader.getPossibleValues(rule, attr);
@@ -116,12 +122,15 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           // Computed defaults that depend on configurable attributes can have multiple values.
           continue;
         }
-        printStream.printf(
-            outputAttributePattern,
-            attr.getPublicName(),
-            outputRawAttrValue(Iterables.getOnlyElement(values)));
+        writer
+            .append("  ")
+            .append(attr.getPublicName())
+            .append(" = ")
+            .append(outputRawAttrValue(Iterables.getOnlyElement(values)))
+            .append(",")
+            .append(lineTerm);
       }
-      printStream.printf(")\n%s", lineTerm);
+      writer.append(")\n").append(lineTerm);
     }
 
     /** Outputs the given attribute value BUILD-style. Does not support selects. */
@@ -183,13 +192,13 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       super(out);
       this.targetOutputter =
           new TargetOutputter(
-              printStream,
+              writer,
               (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
               lineTerm);
     }
 
     @Override
-    public void processOutput(Iterable<Target> partialResult) throws InterruptedException {
+    public void processOutput(Iterable<Target> partialResult) throws IOException {
       for (Target target : partialResult) {
         targetOutputter.output(target, (rule, attr) -> getPossibleAttributeValues(rule, attr));
       }

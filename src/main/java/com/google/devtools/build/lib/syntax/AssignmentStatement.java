@@ -19,38 +19,34 @@ import java.io.IOException;
 /** Syntax node for an assignment statement. */
 public final class AssignmentStatement extends Statement {
 
-  private final LValue lvalue;
-
-  private final Expression expression;
+  private final Expression lhs; // = IDENTIFIER | DOT | INDEX | LIST_LITERAL
+  private final Expression rhs;
 
   /**
-   *  Constructs an assignment: "lvalue := value".
+   * Constructs an assignment: "lhs = rhs". The LHS must be of the form id, x.y, x[i], [e, ...], or
+   * (e, ...).
    */
-  public AssignmentStatement(LValue lvalue, Expression expression) {
-    this.lvalue = lvalue;
-    this.expression = expression;
+  public AssignmentStatement(Expression lhs, Expression rhs) {
+    this.lhs = lhs;
+    this.rhs = rhs;
   }
 
-  /**
-   *  Returns the LHS of the assignment.
-   */
-  public LValue getLValue() {
-    return lvalue;
+  /** Returns the LHS of the assignment. */
+  public Expression getLHS() {
+    return lhs;
   }
 
-  /**
-   *  Returns the RHS of the assignment.
-   */
-  public Expression getExpression() {
-    return expression;
+  /** Returns the RHS of the assignment. */
+  public Expression getRHS() {
+    return rhs;
   }
 
   @Override
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
     printIndent(buffer, indentLevel);
-    lvalue.prettyPrint(buffer, indentLevel);
+    lhs.prettyPrint(buffer, indentLevel);
     buffer.append(" = ");
-    expression.prettyPrint(buffer, indentLevel);
+    rhs.prettyPrint(buffer, indentLevel);
     buffer.append('\n');
   }
 

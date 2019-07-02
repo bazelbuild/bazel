@@ -18,26 +18,45 @@ import java.util.Comparator;
 import java.util.PriorityQueue;
 
 /**
- * A stream aggregator that, given a {@code k}, aggregates a sequence of elements into the {@code k}
- * most extreme.
+ * A streaming aggregator that, given a {@code k}, allows a streaming aggregation of {@code n}
+ * elements into the {@code min(k, n)} most extreme, in {@code O(min(k, n))} memory and {@code O(n *
+ * log(min(k, n)))} time.
  */
-public class Extrema<T extends Comparable<T>> {
+public class Extrema<T> {
   private final int k;
   private final Comparator<T> extremaComparator;
   private final PriorityQueue<T> priorityQueue;
 
   /**
-   * Creates an {@link Extrema} that aggregates a sequence of elements into the {@code k} smallest.
+   * Creates an {@link Extrema} that can aggregate {@code n} elements into the {@code min(k, n)}
+   * smallest.
    */
   public static <T extends Comparable<T>> Extrema<T> min(int k) {
-    return new Extrema<>(k, Comparator.<T>naturalOrder());
+    return min(k, Comparator.<T>naturalOrder());
   }
 
   /**
-   * Creates an {@link Extrema} that aggregates a sequence of elements into the {@code k} largest.
+   * Creates an {@link Extrema} that can aggregate {@code n} elements into the {@code min(k, n)}
+   * smallest, per the given {@code comparator}.
+   */
+  public static <T> Extrema<T> min(int k, Comparator<T> comparator) {
+    return new Extrema<>(k, comparator);
+  }
+
+  /**
+   * Creates an {@link Extrema} that can aggregate {@code n} elements into the {@code min(k, n)}
+   * largest.
    */
   public static <T extends Comparable<T>> Extrema<T> max(int k) {
-    return new Extrema<>(k, Comparator.<T>naturalOrder().reversed());
+    return max(k, Comparator.<T>naturalOrder());
+  }
+
+  /**
+   * Creates an {@link Extrema} that can aggregate {@code n} elements into the {@code min(k, n)}
+   * largest, per the given {@code comparator}.
+   */
+  public static <T> Extrema<T> max(int k, Comparator<T> comparator) {
+    return new Extrema<>(k, comparator.reversed());
   }
 
   /**
@@ -77,8 +96,8 @@ public class Extrema<T extends Comparable<T>> {
 
   /**
    * For an {@link Extrema} created with {@code k} and with {@code n} calls to {@link #aggregate}
-   * since the most recent call to {@link #clear}, returns the min(k, n) most extreme elements
-   * {@link #aggregate}'ed since the most recent call to {@link #clear}.
+   * since the most recent call to {@link #clear}, returns the {@code min(k, n)} most extreme of the
+   * those elements.
    */
   public ImmutableList<T> getExtremeElements() {
     return ImmutableList.sortedCopyOf(extremaComparator, priorityQueue);

@@ -105,35 +105,35 @@ public class ParserTest extends EvaluationTestCase {
     BinaryOperatorExpression e =
       (BinaryOperatorExpression) parseExpression("'%sx' % 'foo' + 'bar'");
 
-    assertThat(e.getOperator()).isEqualTo(Operator.PLUS);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PLUS);
   }
 
   @Test
   public void testPrecedence2() throws Exception {
     BinaryOperatorExpression e =
       (BinaryOperatorExpression) parseExpression("('%sx' % 'foo') + 'bar'");
-    assertThat(e.getOperator()).isEqualTo(Operator.PLUS);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PLUS);
   }
 
   @Test
   public void testPrecedence3() throws Exception {
     BinaryOperatorExpression e =
       (BinaryOperatorExpression) parseExpression("'%sx' % ('foo' + 'bar')");
-    assertThat(e.getOperator()).isEqualTo(Operator.PERCENT);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PERCENT);
   }
 
   @Test
   public void testPrecedence4() throws Exception {
     BinaryOperatorExpression e =
         (BinaryOperatorExpression) parseExpression("1 + - (2 - 3)");
-    assertThat(e.getOperator()).isEqualTo(Operator.PLUS);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PLUS);
   }
 
   @Test
   public void testPrecedence5() throws Exception {
     BinaryOperatorExpression e =
         (BinaryOperatorExpression) parseExpression("2 * x | y + 1");
-    assertThat(e.getOperator()).isEqualTo(Operator.PIPE);
+    assertThat(e.getOperator()).isEqualTo(TokenKind.PIPE);
   }
 
   @Test
@@ -170,9 +170,9 @@ public class ParserTest extends EvaluationTestCase {
     UnaryOperatorExpression e = (UnaryOperatorExpression) parseExpression("-5");
     UnaryOperatorExpression e2 = (UnaryOperatorExpression) parseExpression("- 5");
 
-    IntegerLiteral i = (IntegerLiteral) e.getOperand();
+    IntegerLiteral i = (IntegerLiteral) e.getX();
     assertThat(i.getValue()).isEqualTo(5);
-    IntegerLiteral i2 = (IntegerLiteral) e2.getOperand();
+    IntegerLiteral i2 = (IntegerLiteral) e2.getX();
     assertThat(i2.getValue()).isEqualTo(5);
     assertLocation(0, 2, e.getLocation());
     assertLocation(0, 3, e2.getLocation());
@@ -455,7 +455,7 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(statements).hasSize(1);
     assertThat(statements.get(0)).isInstanceOf(AssignmentStatement.class);
     AssignmentStatement assign = (AssignmentStatement) statements.get(0);
-    assertThat(assign.getLValue().getExpression()).isInstanceOf(ListLiteral.class);
+    assertThat(assign.getLHS()).isInstanceOf(ListLiteral.class);
   }
 
   @Test
@@ -492,7 +492,7 @@ public class ParserTest extends EvaluationTestCase {
   public void testEndLineAndColumnIsInclusive() {
     AssignmentStatement stmt =
         (AssignmentStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, "a = b");
-    assertThat(stmt.getLValue().getLocation().getEndLineAndColumn())
+    assertThat(stmt.getLHS().getLocation().getEndLineAndColumn())
         .isEqualTo(new LineAndColumn(1, 1));
   }
 
@@ -544,10 +544,10 @@ public class ParserTest extends EvaluationTestCase {
   public void testTuplePosition() throws Exception {
     String input = "for a,b in []: pass";
     ForStatement stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
-    assertThat(getText(input, stmt.getVariable())).isEqualTo("a,b");
+    assertThat(getText(input, stmt.getLHS())).isEqualTo("a,b");
     input = "for (a,b) in []: pass";
     stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
-    assertThat(getText(input, stmt.getVariable())).isEqualTo("(a,b)");
+    assertThat(getText(input, stmt.getLHS())).isEqualTo("(a,b)");
     assertExpressionLocationCorrect("a, b");
     assertExpressionLocationCorrect("(a, b)");
   }
@@ -812,7 +812,7 @@ public class ParserTest extends EvaluationTestCase {
         "['foo/%s.java' % x for x in []]")).getClauses();
     assertThat(clauses).hasSize(1);
     assertThat(clauses.get(0).getExpression().toString()).isEqualTo("[]");
-    assertThat(clauses.get(0).getLValue().getExpression().toString()).isEqualTo("x");
+    assertThat(clauses.get(0).getLHS().toString()).isEqualTo("x");
   }
 
   @Test
@@ -820,7 +820,7 @@ public class ParserTest extends EvaluationTestCase {
     List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
         "['foo/%s.java' % x for x in ['bar', 'wiz', 'quux']]")).getClauses();
     assertThat(clauses).hasSize(1);
-    assertThat(clauses.get(0).getLValue().getExpression().toString()).isEqualTo("x");
+    assertThat(clauses.get(0).getLHS().toString()).isEqualTo("x");
     assertThat(clauses.get(0).getExpression()).isInstanceOf(ListLiteral.class);
   }
 
@@ -829,9 +829,9 @@ public class ParserTest extends EvaluationTestCase {
     List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
         "['%s/%s.java' % (x, y) for x in ['foo', 'bar'] for y in list]")).getClauses();
     assertThat(clauses).hasSize(2);
-    assertThat(clauses.get(0).getLValue().getExpression().toString()).isEqualTo("x");
+    assertThat(clauses.get(0).getLHS().toString()).isEqualTo("x");
     assertThat(clauses.get(0).getExpression()).isInstanceOf(ListLiteral.class);
-    assertThat(clauses.get(1).getLValue().getExpression().toString()).isEqualTo("y");
+    assertThat(clauses.get(1).getLHS().toString()).isEqualTo("y");
     assertThat(clauses.get(1).getExpression()).isInstanceOf(Identifier.class);
   }
 

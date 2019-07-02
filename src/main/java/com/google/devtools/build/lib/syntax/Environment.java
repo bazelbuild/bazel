@@ -1239,7 +1239,7 @@ public final class Environment implements Freezable, Debuggable {
     switch (statement.kind()) {
       case ASSIGNMENT:
       case AUGMENTED_ASSIGNMENT:
-        return ((AssignmentStatement) statement).getLValue().getExpression().doEval(this);
+        return ((AssignmentStatement) statement).getLHS().doEval(this);
       case RETURN:
         Expression expr = ((ReturnStatement) statement).getReturnExpression();
         return expr != null ? expr.doEval(this) : Runtime.NONE;

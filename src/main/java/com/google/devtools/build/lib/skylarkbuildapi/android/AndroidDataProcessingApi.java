@@ -682,7 +682,7 @@ public interface AndroidDataProcessingApi<
             generic1 = String.class,
             named = true,
             doc =
-                "A SkylarkList of resource configuration filters, such 'en' that will limit the"
+                "A list of resource configuration filters, such 'en' that will limit the"
                     + " resources in the apk to only the ones in the 'en' configuration."),
         @Param(
             name = "densities",
@@ -703,7 +703,7 @@ public interface AndroidDataProcessingApi<
             generic1 = String.class,
             named = true,
             doc =
-                "A SkylarkList of file extension to leave uncompressed in apk. Templates must be"
+                "A list of file extension to leave uncompressed in apk. Templates must be"
                     + " expanded before passing this value in."),
         @Param(
             name = "aapt_version",

@@ -124,6 +124,15 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   }
 
   @Override
+  public QueryTaskFuture<Void> eval(
+      QueryExpression expr, QueryExpressionContext<Target> context, Callback<Target> callback) {
+    // The graphless query implementation does not perform any streaming at this point, and all
+    // operators only make a single call to the callback, so it is perfectly safe to pass the
+    // callback to the expression eval call. This is also a lot cheaper than making a copy here.
+    return expr.eval(this, context, callback);
+  }
+
+  @Override
   public void close() {
     // BlazeQueryEnvironment has no resources that need to be cleaned up.
   }

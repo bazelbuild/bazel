@@ -223,7 +223,7 @@ EOF
   bazel aquery --output=text "//$pkg:goo" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
-  assert_contains "Mnemonic: SkylarkAction" output
+  assert_contains "Mnemonic: Action" output
   assert_contains "Target: //$pkg:goo" output
   assert_contains "Environment: \[.*foo=bar" output
 }
@@ -729,7 +729,7 @@ def _impl(ctx):
     outputs = [ctx.outputs.outfile],
     executable = 'dummy',
     arguments = ['--non-param-file-flag', args],
-    mnemonic = 'SkylarkAction'
+    mnemonic = 'Action'
   )
 
 test_rule = rule(

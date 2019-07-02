@@ -21,21 +21,19 @@ import java.util.List;
 /** Syntax node for a for loop statement. */
 public final class ForStatement extends Statement {
 
-  private final LValue variable;
+  private final Expression lhs;
   private final Expression collection;
   private final ImmutableList<Statement> block;
 
-  /**
-   * Constructs a for loop statement.
-   */
-  public ForStatement(LValue variable, Expression collection, List<Statement> block) {
-    this.variable = Preconditions.checkNotNull(variable);
+  /** Constructs a for loop statement. */
+  public ForStatement(Expression lhs, Expression collection, List<Statement> block) {
+    this.lhs = Preconditions.checkNotNull(lhs);
     this.collection = Preconditions.checkNotNull(collection);
     this.block = ImmutableList.copyOf(block);
   }
 
-  public LValue getVariable() {
-    return variable;
+  public Expression getLHS() {
+    return lhs;
   }
 
   /**
@@ -53,7 +51,7 @@ public final class ForStatement extends Statement {
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
     printIndent(buffer, indentLevel);
     buffer.append("for ");
-    variable.prettyPrint(buffer);
+    lhs.prettyPrint(buffer);
     buffer.append(" in ");
     collection.prettyPrint(buffer);
     buffer.append(":\n");
@@ -62,7 +60,7 @@ public final class ForStatement extends Statement {
 
   @Override
   public String toString() {
-    return "for " + variable + " in " + collection + ": ...\n";
+    return "for " + lhs + " in " + collection + ": ...\n";
   }
 
   @Override

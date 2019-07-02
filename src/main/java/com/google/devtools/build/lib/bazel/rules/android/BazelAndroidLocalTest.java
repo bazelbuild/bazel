@@ -38,8 +38,6 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
     super(BazelAndroidSemantics.INSTANCE);
   }
 
-  Artifact androidAllJarsPropFile;
-
   @Override
   protected AndroidSemantics createAndroidSemantics() {
     return BazelAndroidSemantics.INSTANCE;
@@ -94,14 +92,6 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
   // run. If it does not find it in the deps of the android_local_test rule, it will
   // throw an error.
   protected Artifact getAndroidAllJarsPropertiesFile(RuleContext ruleContext)
-      throws RuleErrorException {
-    if (androidAllJarsPropFile == null) {
-      androidAllJarsPropFile = getAndroidAllJarsPropertiesFileHelper(ruleContext);
-    }
-    return androidAllJarsPropFile;
-  }
-
-  private Artifact getAndroidAllJarsPropertiesFileHelper(RuleContext ruleContext)
       throws RuleErrorException {
     Iterable<RunfilesProvider> runfilesProviders =
         ruleContext.getPrerequisites("deps", Mode.TARGET, RunfilesProvider.class);

@@ -42,8 +42,12 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       Environment env)
       throws EvalException, ConversionException, InterruptedException {
     SkylarkUtils.checkLoadingPhase(env, "native.glob", ast.getLocation());
-    return PackageFactory.callGlob(
-        null, include, exclude, excludeDirectories != 0, allowEmpty, ast, env);
+    try {
+      return PackageFactory.callGlob(
+          null, include, exclude, excludeDirectories != 0, allowEmpty, ast, env);
+    } catch (IllegalArgumentException e) {
+      throw new EvalException(ast.getLocation(), "illegal argument in call to glob", e);
+    }
   }
 
   @Override

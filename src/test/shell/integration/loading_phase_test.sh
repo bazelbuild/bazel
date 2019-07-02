@@ -390,4 +390,22 @@ function test_package_loading_errors_in_target_parsing() {
   done
 }
 
+function test_illegal_glob_exclude_pattern_in_bzl() {
+  mkdir badglob-bzl || fail "mkdir failed"
+  cat > badglob-bzl/BUILD <<EOF
+load("//badglob-bzl:badglob.bzl", "f")
+f()
+EOF
+  cat > badglob-bzl/badglob.bzl  <<EOF
+def f():
+  return native.glob(include = ["BUILD"], exclude = ["a/**b/c"])
+EOF
+
+  bazel query //badglob-bzl:BUILD >& "$TEST_log" && fail "Expected failure"
+  local exit_code=$?
+  assert_equals 7 "$exit_code"
+  expect_log "illegal argument in call to glob"
+  expect_not_log "IllegalArgumentException"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

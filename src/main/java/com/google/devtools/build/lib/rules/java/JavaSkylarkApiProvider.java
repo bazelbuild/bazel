@@ -157,7 +157,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider
           location,
           "The .java provider is deprecated and cannot be used "
               + "when --incompatible_disallow_legacy_java_provider is set. "
-              + "Please migrate to the JavaInfo Skylark provider.");
+              + "Please migrate to the JavaInfo Starlark provider.");
     }
   }
 }

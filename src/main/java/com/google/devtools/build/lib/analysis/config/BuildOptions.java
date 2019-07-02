@@ -567,8 +567,8 @@ public final class BuildOptions implements Cloneable, Serializable {
   public static OptionsDiff diff(OptionsDiff diff, BuildOptions first, BuildOptions second) {
     if (diff.hasStarlarkOptions) {
       throw new IllegalStateException(
-          "OptionsDiff cannot handle multiple 'second' BuildOptions with skylark options "
-              + "and is trying to diff against a second BuildOptions with skylark options.");
+          "OptionsDiff cannot handle multiple 'second' BuildOptions with Starlark options "
+              + "and is trying to diff against a second BuildOptions with Starlark options.");
     }
     if (first == null || second == null) {
       throw new IllegalArgumentException("Cannot diff null BuildOptions");

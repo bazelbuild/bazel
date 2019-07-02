@@ -53,7 +53,6 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -307,13 +306,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     }
 
     BlazeCommandResult result = BlazeCommandResult.exitCode(ExitCode.BLAZE_INTERNAL_ERROR);
-    PrintStream savedOut = System.out;
-    PrintStream savedErr = System.err;
     boolean afterCommandCalled = false;
-    try {
+    Reporter reporter = env.getReporter();
+    try (OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher()) {
       // Temporary: there are modules that output events during beforeCommand, but the reporter
       // isn't setup yet. Add the stored event handler to catch those events.
-      env.getReporter().addHandler(storedEventHandler);
+      reporter.addHandler(storedEventHandler);
       for (BlazeModule module : runtime.getBlazeModules()) {
         try (SilentCloseable closeable = Profiler.instance().profile(module + ".beforeCommand")) {
           module.beforeCommand(env);
@@ -328,7 +326,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           earlyExitCode = e.getExitCode();
         }
       }
-      env.getReporter().removeHandler(storedEventHandler);
+      reporter.removeHandler(storedEventHandler);
 
       // Setup stdout / stderr.
       outErr = tee(outErr, env.getOutputListeners());
@@ -346,7 +344,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                 commandName, firstContactTime, false, true, env.getCommandId().toString()));
       }
 
-      Reporter reporter = env.getReporter();
       try (SilentCloseable closeable = Profiler.instance().profile("setup event handler")) {
         BlazeCommandEventHandler.Options eventHandlerOptions =
             options.getOptions(BlazeCommandEventHandler.Options.class);
@@ -455,11 +452,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
-      // While a Blaze command is active, direct all errors to the client's
-      // event handler (and out/err streams).
-      OutErr reporterOutErr = reporter.getOutErr();
-      System.setOut(new PrintStream(reporterOutErr.getOutputStream(), /*autoflush=*/ true));
-      System.setErr(new PrintStream(reporterOutErr.getErrorStream(), /*autoflush=*/ true));
+      // While a Blaze command is active, direct all errors to the client's event handler (and
+      // out/err streams).
+      systemOutErrPatcher.start();
 
       try (SilentCloseable closeable = Profiler.instance().profile("CommandEnv.beforeCommand")) {
         // Notify the BlazeRuntime, so it can do some initial setup.
@@ -494,11 +489,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           env.setupPackageCache(options);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
-          env.getReporter()
-              .handle(Event.error("command interrupted while setting up package cache"));
+          reporter.handle(Event.error("command interrupted while setting up package cache"));
           earlyExitCode = ExitCode.INTERRUPTED;
         } catch (AbruptExitException e) {
-          env.getReporter().handle(Event.error(e.getMessage()));
+          reporter.handle(Event.error(e.getMessage()));
           earlyExitCode = e.getExitCode();
         }
         if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
@@ -553,8 +547,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       Flushables.flushQuietly(outErr.getOutputStream());
       Flushables.flushQuietly(outErr.getErrorStream());
 
-      System.setOut(savedOut);
-      System.setErr(savedErr);
       env.getTimestampGranularityMonitor().waitForTimestampGranularity(outErr);
     }
   }

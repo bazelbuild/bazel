@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -31,7 +32,10 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 public final class JavaRuntimeRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    return builder
+    return ConfigAwareRuleClassBuilder.of(builder)
+        .requiresHostConfigurationFragments(JavaConfiguration.class)
+        .originalBuilder()
+        .requiresConfigurationFragments(JavaConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(srcs) -->
         All files in the runtime.

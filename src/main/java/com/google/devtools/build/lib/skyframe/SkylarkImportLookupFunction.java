@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
@@ -556,7 +557,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       return;
     }
     AssignmentStatement assignmentStatement = (AssignmentStatement) statement;
-    ImmutableSet<Identifier> boundIdentifiers = assignmentStatement.getLValue().boundIdentifiers();
+    ImmutableSet<Identifier> boundIdentifiers =
+        ValidationEnvironment.boundIdentifiers(assignmentStatement.getLHS());
     for (Identifier ident : boundIdentifiers) {
       Object lookup = extensionEnv.moduleLookup(ident.getName());
       if (lookup instanceof SkylarkExportable) {

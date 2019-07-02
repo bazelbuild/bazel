@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -39,6 +40,36 @@ public class ExtremaTest {
     extrema.aggregate(3);
     extrema.aggregate(1);
     assertThat(extrema.getExtremeElements()).containsExactly(1, 1, 1);
+  }
+
+  @Test
+  public void customComparator() {
+    class BoxedInt {
+      private final int i;
+
+      private BoxedInt(int i) {
+        this.i = i;
+      }
+    }
+    Extrema<BoxedInt> extrema =
+        Extrema.max(
+            2,
+            new Comparator<BoxedInt>() {
+              @Override
+              public int compare(BoxedInt bi1, BoxedInt bi2) {
+                return Integer.compare(bi1.i, bi2.i);
+              }
+            });
+    extrema.aggregate(new BoxedInt(4));
+    extrema.aggregate(new BoxedInt(1));
+    extrema.aggregate(new BoxedInt(2));
+    extrema.aggregate(new BoxedInt(3));
+    extrema.aggregate(new BoxedInt(5));
+    ImmutableList<Integer> extremeElements =
+        extrema.getExtremeElements().stream()
+            .map(bi -> bi.i)
+            .collect(ImmutableList.toImmutableList());
+    assertThat(extremeElements).containsExactly(5, 4).inOrder();
   }
 
   @Test

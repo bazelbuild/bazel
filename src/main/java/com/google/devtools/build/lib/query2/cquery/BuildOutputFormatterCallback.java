@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.query2.query.output.OutputFormatter.Possibl
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.skyframe.BuildDriver;
+import java.io.IOException;
 import java.io.OutputStream;
 
 /** Cquery implementation of BUILD-style output. */
@@ -94,7 +95,8 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<ConfiguredTarget> partialResult)
+      throws InterruptedException, IOException {
     BuildOutputFormatter.TargetOutputter outputter =
         new TargetOutputter(
             printStream,
