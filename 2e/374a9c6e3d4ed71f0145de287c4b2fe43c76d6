@@ -8,9 +8,6 @@ Incompatible changes:
 
 Important changes:
 
-  - Add new options --cs_fdo_absolute_path= to support the absolute
-    path
-    profile for LLVM's context-sensitive FDO.
   - Bazel now supports hiding compiler warnings for targets that
     you're not explicitly building (see
     https://docs.bazel.build/versions/master/user-manual.html#flag--au
@@ -88,4 +85,4 @@ Important changes:
     syntactically valid identifiers.
     https://github.com/bazelbuild/bazel/issues/6437
 
-This release contains contributions from many people at Google, as well as Ben Diuguid, Benjamin Peterson, Dave Lee, Loo Rong Jie, Mark Butcher, Marwan Tammam, Pedro Alvarez, Ricky Pai.
+This release contains contributions from many people at Google, as well as Ben Diuguid, Benjamin Peterson, Dave Lee, Loo Rong Jie, Mark Butcher, Marwan Tammam, Pedro Alvarez.
