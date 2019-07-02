@@ -495,6 +495,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   @Override
   public final boolean containsKey(Object key, Location loc, StarlarkContext context)
       throws EvalException {
+    EvalUtils.checkValidDictKey(key);
     return this.containsKey(key);
   }
 

@@ -82,3 +82,16 @@ d3 = dict([('a', 1), ('a', 2)])
 assert_eq(d1['a'], 2)
 assert_eq(d1, d2)
 assert_eq(d1, d3)
+
+
+# in
+
+assert_eq(1 in {1: 0}, True)
+assert_eq(() in {}, False)
+assert_eq("a" in dict(a=1), True)
+---
+{} in {} ### unhashable type: 'dict'
+---
+[] in {} ### unhashable type: 'list'
+---
+len in {} ### unhashable type: 'function'
