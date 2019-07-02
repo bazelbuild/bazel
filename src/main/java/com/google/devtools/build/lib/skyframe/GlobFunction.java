@@ -43,8 +43,11 @@ import javax.annotation.Nullable;
  */
 public final class GlobFunction implements SkyFunction {
 
-  private final UnixGlob.PatternCache regexPatternCache =
-      new UnixGlob.PatternCache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+  // TODO(laszlocsomor): we might need to create another regexPatternCache for case-insensitive
+  // glob() mode to avoid reading wrong cache results when the user changes the
+  // --incompatible_windows_case_ignoring_glob flag value between builds.
+  // See https://github.com/bazelbuild/bazel/issues/8767.
+  private final ConcurrentHashMap<String, Pattern> regexPatternCache = new ConcurrentHashMap<>();
 
   private final boolean alwaysUseDirListing;
 

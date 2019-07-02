@@ -73,21 +73,25 @@ public class WindowsGlobTest {
   }
 
   @Test
-  public void testMatches() throws Exception {
-    UnixGlob.PatternCache patternCache =
-        new UnixGlob.PatternCache(new HashMap<>(), new HashMap<>());
+  public void testCaseSensitiveMatches() throws Exception {
+    Map<String, Pattern> patternCache = new HashMap<>();
     // Test correct caching by executing the same checks twice.
     for (int i = 0; i < 2; i++) {
       assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
-      assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-
       assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", patternCache, true)).isFalse();
-      assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-
       assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
-      assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-
       assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", patternCache, true)).isFalse();
+    }
+  }
+
+  @Test
+  public void testCaseInsensitiveMatches() throws Exception {
+    Map<String, Pattern> patternCache = new HashMap<>();
+    // Test correct caching by executing the same checks twice.
+    for (int i = 0; i < 2; i++) {
+      assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
+      assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
+      assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
       assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
     }
   }

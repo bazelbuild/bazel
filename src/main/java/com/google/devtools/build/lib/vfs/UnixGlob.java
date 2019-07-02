@@ -169,12 +169,12 @@ public final class UnixGlob {
    * @param patternCache a cache from patterns to compiled Pattern objects, or {@code null} to skip
    *     caching
    */
-  public static boolean matches(String pattern, String str, PatternCache patternCache) {
+  public static boolean matches(String pattern, String str, Map<String, Pattern> patternCache) {
     return matches(pattern, str, patternCache, OsPathPolicy.getFilePathOs().isCaseSensitive());
   }
 
   @VisibleForTesting
-  public static boolean matches(String pattern, String str, PatternCache patternCache,
+  public static boolean matches(String pattern, String str, Map<String, Pattern> patternCache,
       boolean caseSensitive) {
     if (pattern.length() == 0 || str.length() == 0) {
       return false;
@@ -210,7 +210,7 @@ public final class UnixGlob {
     Pattern regex =
         patternCache == null
             ? makePatternFromWildcard(pattern, caseSensitive)
-            : patternCache.get(caseSensitive).computeIfAbsent(
+            : patternCache.computeIfAbsent(
                 pattern, p -> makePatternFromWildcard(p, caseSensitive));
     return regex.matcher(str).matches();
   }
@@ -492,8 +492,7 @@ public final class UnixGlob {
   private static final class GlobVisitor {
     // These collections are used across workers and must therefore be thread-safe.
     private final Collection<Path> results = Sets.newConcurrentHashSet();
-    private final PatternCache cache = new PatternCache(
-        new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+    private final ConcurrentHashMap<String, Pattern> cache = new ConcurrentHashMap<>();
 
     private final GlobFuture result;
     private final Executor executor;
@@ -935,7 +934,7 @@ public final class UnixGlob {
       return;
     }
     List<String[]> splitPatterns = checkAndSplitPatterns(complexPatterns);
-    PatternCache patternCache = new PatternCache(new HashMap<>(), new HashMap<>());
+    HashMap<String, Pattern> patternCache = new HashMap<>();
     paths.removeIf(
         path -> {
           String[] segments = Iterables.toArray(Splitter.on('/').split(path), String.class);
@@ -950,7 +949,7 @@ public final class UnixGlob {
 
   /** Returns true if {@code pattern} matches {@code path} starting from the given segments. */
   private static boolean matchesPattern(
-      String[] pattern, String[] path, int i, int j, PatternCache patternCache,
+      String[] pattern, String[] path, int i, int j, Map<String, Pattern> patternCache,
       boolean caseSensitive) {
     if (i == pattern.length) {
       return j == path.length;
@@ -971,25 +970,6 @@ public final class UnixGlob {
 
   private static boolean isWildcardFree(String pattern) {
     return !pattern.contains("*") && !pattern.contains("?");
-  }
-
-  /**
-   * Glob pattern cache.
-   *
-   * <p>Has separate caches for case-sensitive and case-insensitive patterns.
-   */
-  public static final class PatternCache {
-    private final Map<String, Pattern> respectsCase;
-    private final Map<String, Pattern> ignoresCase;
-
-    public PatternCache(Map<String, Pattern> respectsCase, Map<String, Pattern> ignoresCase) {
-      this.respectsCase = respectsCase;
-      this.ignoresCase = ignoresCase;
-    }
-
-    public Map<String, Pattern> get(boolean caseSensitive) {
-      return caseSensitive ? respectsCase : ignoresCase;
-    }
   }
 
   @VisibleForTesting
