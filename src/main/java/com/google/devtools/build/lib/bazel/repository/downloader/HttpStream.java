@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.hash.HashCode;
-import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -62,9 +61,9 @@ final class HttpStream extends FilterInputStream {
     HttpStream create(
         @WillCloseWhenClosed URLConnection connection,
         URL originalUrl,
-        String sha256,
+        Optional<Checksum> checksum,
         Reconnector reconnector)
-            throws IOException {
+        throws IOException {
       InputStream stream = new InterruptibleInputStream(connection.getInputStream());
       try {
         // If server supports range requests, we can retry on read errors. See RFC7233 § 2.3.
@@ -89,8 +88,8 @@ final class HttpStream extends FilterInputStream {
           stream = new GZIPInputStream(stream, GZIP_BUFFER_BYTES);
         }
 
-        if (!sha256.isEmpty()) {
-          stream = new HashInputStream(stream, Hashing.sha256(), HashCode.fromString(sha256));
+        if (checksum.isPresent()) {
+          stream = new HashInputStream(stream, checksum.get());
           if (retrier != null) {
             retrier.disabled = true;
           }
