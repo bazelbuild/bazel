@@ -433,6 +433,7 @@ genrule(
     ],
 ) for suffix in [
     "",
+    "-dev",
     "_notools",
     "_nojdk",
 ]]
