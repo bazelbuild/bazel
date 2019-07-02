@@ -33,6 +33,7 @@ import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import java.io.IOException;
@@ -431,6 +432,54 @@ public final class SkydocTest extends SkylarkTestCase {
   private static Iterable<String> getParamNames(UserDefinedFunctionInfo funcInfo) {
     return funcInfo.getParameterList().stream()
         .map(param -> param.getName())
+        .collect(Collectors.toList());
+  }
+
+  @Test
+  public void testProviderInfo() throws Exception {
+    scratch.file(
+        "/test/test.bzl",
+        "MyExampleInfo = provider(",
+        "  doc = 'Stores information about example.',",
+        "  fields = {",
+        "    'name' : 'A string representing a random name.',",
+        "    'city' : 'A string representing a city.',",
+        "  },",
+        ")",
+        "pass");
+
+    ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
+        ImmutableMap.builder(),
+        providerInfoMap,
+        ImmutableMap.builder());
+
+    Map<String, ProviderInfo> providers = providerInfoMap.build();
+    assertThat(providers).hasSize(1);
+
+    ModuleInfo moduleInfo =
+        new ProtoRenderer().appendProviderInfos(providers.values()).getModuleInfo().build();
+    ProviderInfo providerInfo = moduleInfo.getProviderInfo(0);
+    assertThat(providerInfo.getProviderName()).isEqualTo("MyExampleInfo");
+    assertThat(providerInfo.getDocString()).isEqualTo("Stores information about example.");
+    assertThat(getFieldNames(providerInfo)).containsExactly("name", "city").inOrder();
+    assertThat(getFieldDocString(providerInfo))
+        .containsExactly("A string representing a random name.", "A string representing a city.")
+        .inOrder();
+  }
+
+  private static Iterable<String> getFieldNames(ProviderInfo providerInfo) {
+    return providerInfo.getFieldInfoList().stream()
+        .map(field -> field.getName())
+        .collect(Collectors.toList());
+  }
+
+  private static Iterable<String> getFieldDocString(ProviderInfo providerInfo) {
+    return providerInfo.getFieldInfoList().stream()
+        .map(field -> field.getDocString())
         .collect(Collectors.toList());
   }
 }
