@@ -883,14 +883,6 @@ public final class UnixGlob {
    * Filters out exclude patterns from a Set of paths. Common cases such as wildcard-free patterns
    * or suffix patterns are special-cased to make this function efficient.
    */
-  public static void removeExcludes(Set<String> paths, Collection<String> excludes) {
-    // TODO(laszlocsomor): set `caseSensitive` to OsPathPolicy.getFilePathOs().isCaseSensitive()
-    // after `--incompatible_windows_case_insensitive_glob` was flipped to true.
-    final boolean caseSensitive = true;
-    removeExcludes(paths, excludes, caseSensitive);
-  }
-
-  @VisibleForTesting
   public static void removeExcludes(Set<String> paths, Collection<String> excludes,
       boolean caseSensitive) {
     ArrayList<String> complexPatterns = new ArrayList<>(excludes.size());
