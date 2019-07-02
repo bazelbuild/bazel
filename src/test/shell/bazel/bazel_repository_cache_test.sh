@@ -38,6 +38,7 @@ function setup_repository() {
 
   # Test with the extension
   serve_file $repo2_zip
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -48,7 +49,7 @@ http_archive(
     type = 'zip',
 )
 EOF
-  }
+}
 
 function setup_skylark_repository() {
   # Prepare HTTP server with Python
@@ -57,7 +58,7 @@ function setup_skylark_repository() {
 
   zip_file="${server_dir}/zip_file.zip"
 
-  touch "${server_dir}"/WORKSPACE
+  create_workspace_with_default_repos "${server_dir}"/WORKSPACE
   echo "some content" > "${server_dir}"/file
   zip -0 -ry $zip_file "${server_dir}"/WORKSPACE "${server_dir}"/file >& $TEST_log
 
@@ -135,7 +136,7 @@ function http_archive_helper() {
     rm -rf "$repo2"
     mkdir -p "$repo2/fox"
     cd "$repo2"
-    create_workspace_with_default_repos WORKSPACE
+    touch WORKSPACE
     cat > fox/BUILD <<EOF
 filegroup(
     name = "fox",
@@ -175,7 +176,7 @@ http_archive(
     sha256 = '$sha256'
 )
 EOF
-    
+
     cat > zoo/BUILD <<EOF
 sh_binary(
     name = "breeding-program",
@@ -286,6 +287,7 @@ function test_write_cache_without_hash() {
   setup_repository
 
   # Have a WORKSPACE file without the specified sha256
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -295,7 +297,7 @@ http_archive(
     type = 'zip',
 )
 EOF
-  
+
   # Fetch; as we did not specify a hash, we expect bazel to tell us the hash
   # in an info message.
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
@@ -312,6 +314,7 @@ EOF
     && fail "expected failure" || :
 
   # However, if we add the hash, the value is taken from cache
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 

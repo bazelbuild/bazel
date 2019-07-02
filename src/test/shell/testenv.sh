@@ -474,7 +474,6 @@ function write_workspace_file() {
   cat > WORKSPACE << EOF
 workspace(name = '$WORKSPACE_NAME')
 EOF
-  echo "ARE WE HERE?"
   add_rules_cc_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace

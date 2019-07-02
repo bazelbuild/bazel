@@ -318,7 +318,7 @@ function test_git_repository_not_refetched_on_server_restart() {
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
-  
+
   # Use batch to force server restarts.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
@@ -328,22 +328,24 @@ EOF
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
-  
+
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 
   # Change the WORKSPACE but not the commit id, which should not cause the checkout to be re-cloned.
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 # This comment line is to change the line numbers, which should not cause Bazel
 # to refetch the repository
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
-  
+
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 }
@@ -356,16 +358,17 @@ function test_git_repository_refetched_when_commit_changes() {
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
-  
+
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
-  
+
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 }
@@ -378,17 +381,18 @@ function test_git_repository_and_nofetch() {
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
-  
+
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
   expect_log "fetching repositories is disabled"
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
-  
+
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
   expect_log "External repository 'g' is not up-to-date"
   assert_contains "GIT 1" bazel-genfiles/external/g/go

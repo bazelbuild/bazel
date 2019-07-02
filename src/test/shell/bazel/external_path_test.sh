@@ -29,8 +29,8 @@ repo_with_local_include() {
   # Generate a repository, in the current working directory, with a target
   # //src:hello that includes a file via a local path.
 
-  create_workspace_with_rules_cc WORKSPACE
-    mkdir src
+  create_workspace_with_default_repos WORKSPACE
+  mkdir src
   cat > src/main.c <<'EOF'
 #include <stdio.h>
 #include "src/consts/greeting.h"
@@ -57,7 +57,7 @@ library_with_local_include() {
   # is a library with headers that include via paths relative to the root of
   # that repository
 
-  create_workspace_with_rules_cc WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   mkdir lib
   cat > lib/lib.h <<'EOF'
 #include "lib/constants.h"
@@ -121,7 +121,7 @@ http_archive(
   urls=["file://${WRKDIR}/remote.tar"],
 )
 EOF
-  
+
   bazel build @remote//src:hello || fail "Expected build to succeed"
   bazel run @remote//src:hello | grep 'Hello World' \
       || fail "Expected output 'Hello World'"
@@ -140,7 +140,7 @@ test_lib_paths_main() {
   cd main
   library_with_local_include
 
-  create_workspace_with_rules_cc WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > main.c <<'EOF'
 #include "lib/lib.h"
 
@@ -293,8 +293,8 @@ test_fixed_path_local() {
 
   mkdir main
   cd main
-  create_workspace_with_rules_cc WORKSPACE
-    repo_with_local_path_reference
+  create_workspace_with_default_repos WORKSPACE
+  repo_with_local_path_reference
 
   bazel build //withpath:it || fail "Expected success"
 }
@@ -320,7 +320,7 @@ http_archive(
   urls=["file://${WRKDIR}/remote.tar"],
 )
 EOF
-  
+
   bazel build @remote//withpath:it || fail "Expected success"
 }
 repo_with_local_implicit_dependencies() {
@@ -366,7 +366,7 @@ test_local_rules() {
 
   mkdir main
   cd main
-  create_workspace_with_rules_cc WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   repo_with_local_implicit_dependencies
   mkdir call
   echo hello world > call/hello.txt
@@ -524,7 +524,7 @@ test_embedded_local() {
   cd "${WRKDIR}"
 
   mkdir main
-  create_workspace_with_rules_cc WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
     repo_with_embedded_paths
   mkdir call
   cat > call/plain.txt <<'EOF'

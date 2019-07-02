@@ -1,3 +1,4 @@
+  
 #!/bin/bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
@@ -89,7 +90,7 @@ load('//:test.bzl', 'macro')
 
 macro('$repo2')
 EOF
-  
+
   # Empty package for the .bzl file
   echo -n >BUILD
 

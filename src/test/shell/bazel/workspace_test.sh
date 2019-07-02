@@ -357,7 +357,7 @@ EOF
   expect_log "@flower//daisy:daisy"
 
   # Change mapping in tree/WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 workspace(name="tree")
 local_repository(
     name = "flower",

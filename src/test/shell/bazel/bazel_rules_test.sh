@@ -429,8 +429,8 @@ EOF
 
  cd ${WORKSPACE_DIR}
  mkdir -p {module1,module2}
+ rm WORKSPACE
  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-workspace(name = "foobar")
 local_repository(name="remote", path="${remote_path}")
 EOF
   cat > module1/BUILD <<EOF

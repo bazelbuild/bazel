@@ -237,7 +237,7 @@ new_git_repository(
     $strip_prefix
 )
 EOF
-  
+
   cat > BUILD <<EOF
 exports_files(['pluto.BUILD'])
 EOF
@@ -328,7 +328,7 @@ new_git_repository(
     build_file = "//:outer_planets.BUILD",
 )
 EOF
-  
+
   cat > BUILD <<EOF
 exports_files(['outer_planets.BUILD'])
 EOF
@@ -379,7 +379,7 @@ function test_git_repository_not_refetched_on_server_restart() {
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
-  
+
   # Use batch to force server restarts.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
@@ -391,23 +391,25 @@ EOF
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
-  
+
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 
   # Change the WORKSPACE but not the commit id, which should not cause the checkout to be re-cloned.
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 # This comment line is to change the line numbers, which should not cause Bazel
 # to refetch the repository
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
-  
+
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
@@ -424,6 +426,7 @@ EOF
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/gdir/go
 
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True, strip_prefix="gdir")
@@ -442,17 +445,18 @@ function test_git_repository_refetched_when_commit_changes() {
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
-  
+
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
-  
+
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
@@ -466,28 +470,30 @@ function test_git_repository_and_nofetch() {
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
-  
+
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
   expect_log "fetching repositories is disabled"
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
-  
+
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
   expect_log "External repository 'g' is not up-to-date"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', strip_prefix="gdir")
 EOF
-  
+
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
   expect_log "External repository 'g' is not up-to-date"
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
@@ -544,7 +550,7 @@ git_repository(
     commit = "$commit_hash",
 )
 EOF
-  
+
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "Exactly one of commit"
@@ -571,7 +577,7 @@ git_repository(
     remote = "$pluto_repo_dir",
 )
 EOF
-  
+
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "Exactly one of commit"
@@ -593,7 +599,7 @@ git_repository(
     strip_prefix = "dir_does_not_exist"
 )
 EOF
-  
+
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "strip_prefix at dir_does_not_exist does not exist in repo"
@@ -616,7 +622,7 @@ git_repository(
     shallow_since = "2018-01-01"
 )
 EOF
-  
+
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "shallow_since not allowed if a tag is specified; --depth=1 will be used for tags"

@@ -27,10 +27,10 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 function test_runfiles() {
 
   name=blorp_malorp
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 workspace(name = "$name")
-
 EOF
+  create_workspace_with_default_repos WORKSPACE
 
   mkdir foo
   cat > foo/BUILD <<EOF
@@ -55,7 +55,7 @@ EOF
 }
 
 function test_legacy_runfiles_change() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 workspace(name = "foo")
 
 new_local_repository(
@@ -64,7 +64,7 @@ new_local_repository(
     build_file = "BUILD",
 )
 EOF
-
+  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<EOF
 exports_files(glob(["*"]))
 
