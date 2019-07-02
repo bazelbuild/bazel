@@ -210,21 +210,17 @@ public class PatchUtil {
     return LineType.UNKNOWN;
   }
 
-  /**
-   * If the file exists, return the file content as a list of String.
-   * Otherwise, return an empty list.
-   */
   @VisibleForTesting
   public static List<String> readFile(Path file) throws IOException {
     List<String> content = new ArrayList<>();
-    if (file.exists()) {
-      BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
-      String line;
-      while ((line = reader.readLine()) != null) {
-        content.add(line);
-      }
-      reader.close();
+
+    BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
+    String line;
+    while ((line = reader.readLine()) != null) {
+      content.add(line);
     }
+    reader.close();
+
     return content;
   }
 
@@ -245,22 +241,19 @@ public class PatchUtil {
       throw new PatchFailedException("Cannot rename file without two valid file names");
     }
 
-    // The oldFile could be <newFile>.orig, but the .orig may not exist, so in this case,
-    // we consider oldFile is the same as newFile.
-    if (oldFile != null && newFile != null) {
-      if (oldFile.getBaseName().equals(newFile.getBaseName().concat(".orig"))) {
-        oldFile = newFile;
-      }
+    // The file we should read oldContent from.
+    Path inputFile = null;
+    if (oldFile != null && oldFile.exists()) {
+      inputFile = oldFile;
+    } else if (newFile != null && newFile.exists()) {
+      inputFile = newFile;
     }
 
     List<String> oldContent;
-    if (oldFile == null)  {
+    if (inputFile == null)  {
       oldContent = new ArrayList<>();
     } else {
-      oldContent = readFile(oldFile);
-      // The old file should always change, therefore we can just delete the original file.
-      // If the output file name is the same as the old file, we'll just recreate it later.
-      oldFile.delete();
+      oldContent = readFile(inputFile);
     }
 
     Patch<String> patch = DiffUtils.parseUnifiedDiff(patchContent);
@@ -268,19 +261,22 @@ public class PatchUtil {
 
     // The file we should write newContent to.
     Path outputFile;
-
-    if ((newFile != null && oldFile != null && !isRenaming)
-        || (newFile == null && !newContent.isEmpty())) {
-      // We should write to the old file name under two situations:
-      //   1. Both file names are not none, and we are not doing a renaming.
-      //   2. The new file name is none, but the new content is not empty.
-      // This is the same behavior as the patch command line tool.
+    if (oldFile != null && oldFile.exists() && !isRenaming) {
       outputFile = oldFile;
     } else {
       outputFile = newFile;
     }
 
-    if (outputFile != null) {
+    // The old file should always change, therefore we can just delete the original file.
+    // If the output file name is the same as the old file, we'll just recreate it later.
+    if (oldFile != null) {
+      oldFile.delete();
+    }
+
+    // Does this patch look like deleting a file.
+    boolean isDelete = newFile == null && newContent.isEmpty();
+
+    if (outputFile != null && !isDelete) {
       writeFile(outputFile, newContent);
     }
   }

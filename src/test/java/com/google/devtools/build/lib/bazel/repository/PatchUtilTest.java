@@ -78,18 +78,71 @@ public class PatchUtilTest {
         "bye, world"
         );
     Path patchFile = scratch.file("/root/patchfile",
-        "diff --git a/oldfile b/oldfile",
-        "deleted file mode 100644",
-        "index f742c88..0000000",
         "--- a/oldfile",
         "+++ /dev/null",
         "@@ -1,2 +0,0 @@",
         "-I'm an old file",
-        "-bye, world",
-        "-- ",
-        "2.21.0.windows.1");
+        "-bye, world");
     PatchUtil.apply(patchFile, 1, root);
     assertThat(oldFile.exists()).isFalse();
+  }
+
+  @Test
+  public void testDeleteAllContentButNotFile() throws IOException, PatchFailedException {
+    // If newfile is not /dev/null, we don't delete the file even it's empty after patching,
+    // this is the behavior of patch command line tool.
+    Path oldFile = scratch.file("/root/oldfile",
+        "I'm an old file",
+        "bye, world"
+    );
+    Path patchFile = scratch.file("/root/patchfile",
+        "--- a/oldfile",
+        "+++ b/oldfile",
+        "@@ -1,2 +0,0 @@",
+        "-I'm an old file",
+        "-bye, world");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(oldFile.exists()).isTrue();
+    assertThat(PatchUtil.readFile(oldFile)).isEmpty();
+  }
+
+  @Test
+  public void testApplyToOldFile() throws IOException, PatchFailedException {
+    // If both oldfile and newfile exits, we should patch the old file.
+    Path oldFile = scratch.file("/root/oldfile", "line one");
+    Path newFile = scratch.file("/root/newfile", "line one");
+    Path patchFile = scratch.file("/root/patchfile",
+        "--- oldfile",
+        "+++ newfile",
+        "@@ -1,1 +1,2 @@",
+        " line one",
+        "+line two");
+    PatchUtil.apply(patchFile, 0, root);
+    ImmutableList<String> newContent = ImmutableList.of(
+        "line one",
+        "line two"
+    );
+    assertThat(PatchUtil.readFile(oldFile)).containsExactlyElementsIn(newContent);
+    // new file should not change
+    assertThat(PatchUtil.readFile(newFile)).containsExactly("line one");
+  }
+
+  @Test
+  public void testApplyToNewFile() throws IOException, PatchFailedException {
+    // If only newfile exits, we should patch the new file.
+    Path newFile = scratch.file("/root/newfile", "line one");
+    Path patchFile = scratch.file("/root/patchfile",
+        "--- oldfile",
+        "+++ newfile",
+        "@@ -1,1 +1,2 @@",
+        " line one",
+        "+line two");
+    PatchUtil.apply(patchFile, 0, root);
+    ImmutableList<String> newContent = ImmutableList.of(
+        "line one",
+        "line two"
+    );
+    assertThat(PatchUtil.readFile(newFile)).containsExactlyElementsIn(newContent);
   }
 
   @Test
