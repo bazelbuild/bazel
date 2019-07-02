@@ -96,13 +96,14 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         protoResult.getResultsList().forEach(ct -> queryResult.addTarget(ct.getTarget()));
         writeData(queryResult.build());
       }
+      printStream.flush();
     }
   }
 
   private void writeData(Message message) throws IOException {
     switch (outputType) {
       case BINARY:
-        message.writeTo(printStream);
+        message.writeTo(outputStream);
         break;
       case TEXT:
         TextFormat.print(message, printStream);

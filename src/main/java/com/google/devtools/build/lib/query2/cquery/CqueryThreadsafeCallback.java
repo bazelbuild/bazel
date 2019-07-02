@@ -20,9 +20,11 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,12 +37,14 @@ public abstract class CqueryThreadsafeCallback
 
   protected final ExtendedEventHandler eventHandler;
   protected final CqueryOptions options;
-  protected PrintStream printStream = null;
+  protected OutputStream outputStream;
+  protected Writer printStream;
   protected final SkyframeExecutor skyframeExecutor;
   protected final ConfiguredTargetAccessor accessor;
 
   private final List<String> result = new ArrayList<>();
 
+  @SuppressWarnings("DefaultCharset")
   CqueryThreadsafeCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
@@ -50,7 +54,9 @@ public abstract class CqueryThreadsafeCallback
     this.eventHandler = eventHandler;
     this.options = options;
     if (out != null) {
-      this.printStream = new PrintStream(out);
+      this.outputStream = out;
+      // This code intentionally uses the platform default encoding.
+      this.printStream = new BufferedWriter(new OutputStreamWriter(out));
     }
     this.skyframeExecutor = skyframeExecutor;
     this.accessor = (ConfiguredTargetAccessor) accessor;
@@ -68,7 +74,11 @@ public abstract class CqueryThreadsafeCallback
   @Override
   public void close(boolean failFast) throws InterruptedException, IOException {
     if (!failFast && printStream != null) {
-      result.forEach(printStream::println);
+      for (String s : result) {
+        // TODO(ulfjack): We should use queryOptions.getLineTerminator() instead.
+        printStream.append(s).append("\n");
+      }
+      printStream.flush();
     }
   }
 }
