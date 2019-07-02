@@ -994,11 +994,6 @@ public final class UnixGlob {
 
   @VisibleForTesting
   static boolean startsWithCase(String s, String p, boolean caseSensitive) {
-//    if (p.isEmpty()) {
-//      return true;
-//    } else if (s.isEmpty()) {
-//      return false;
-//    }
     if (caseSensitive) {
       return s.startsWith(p);
     } else {
@@ -1008,11 +1003,6 @@ public final class UnixGlob {
 
   @VisibleForTesting
   static boolean endsWithCase(String s, String p, boolean caseSensitive) {
-//    if (p.isEmpty()) {
-//      return true;
-//    } else if (s.isEmpty()) {
-//      return false;
-//    }
     if (caseSensitive) {
       return s.endsWith(p);
     } else {
