@@ -345,6 +345,33 @@ public class PatchUtilTest {
   }
 
   @Test
+  public void testFailedToGetFileName() throws IOException {
+    scratch.file("/root/foo.cc",
+        "#include <stdio.h>",
+        "",
+        "void main(){",
+        "  printf(\"Hello foo\");",
+        "}");
+    Path patchFile = scratch.file("/root/patchfile",
+        "diff --git a/foo.cc b/foo.cc",
+        "index f3008f9..ec4aaa0 100644",
+        "--- a/foo.cc",
+        "+++ b/foo.cc",
+        "@@ -2,4 +2,5 @@",
+        " ",
+        " void main(){",
+        "   printf(\"Hello foo\");",
+        "+  printf(\"Hello from patch\");",
+        " }");
+    PatchFailedException expected =
+        assertThrows(
+            PatchFailedException.class,
+            () -> PatchUtil.apply(patchFile, 2, root)); // strip=2 is wrong
+    assertThat(expected).hasMessageThat()
+        .contains("Cannot determine file name with strip=2 from line:\n--- a/foo.cc");
+  }
+
+  @Test
   public void testChunkDoesNotMatch() throws IOException {
     Path foo = scratch.file("/root/foo.cc",
         "#include <stdio.h>",

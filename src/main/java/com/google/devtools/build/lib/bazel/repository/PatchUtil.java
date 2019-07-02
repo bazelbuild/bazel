@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.bazel.repository;
 
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.BufferedReader;
@@ -23,6 +25,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
@@ -180,10 +183,10 @@ public class PatchUtil {
         return LineType.CHUNK_EQL;
       }
     } else {
-      if (line.startsWith("---")) {
+      if (line.startsWith("--- ")) {
         return LineType.OLD_FILE;
       }
-      if (line.startsWith("+++")) {
+      if (line.startsWith("+++ ")) {
         return LineType.NEW_FILE;
       }
       if (line.startsWith("diff --git ")) {
@@ -213,25 +216,11 @@ public class PatchUtil {
 
   @VisibleForTesting
   public static List<String> readFile(Path file) throws IOException {
-    List<String> content = new ArrayList<>();
-
-    BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
-    String line;
-    while ((line = reader.readLine()) != null) {
-      content.add(line);
-    }
-    reader.close();
-
-    return content;
+    return Lists.newArrayList(FileSystemUtils.readLines(file, StandardCharsets.UTF_8));
   }
 
   private static void writeFile(Path file, List<String> content) throws IOException {
-    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(file.getOutputStream()));
-    for (String line : content) {
-      writer.write(line);
-      writer.write("\n");
-    }
-    writer.close();
+    FileSystemUtils.writeLinesAs(file, StandardCharsets.UTF_8, content);
   }
 
   private static void applyPatchToFile(List<String> patchContent, Path oldFile, Path newFile,
@@ -239,7 +228,9 @@ public class PatchUtil {
       throws IOException, PatchFailedException {
     // Neither of newFile and oldFile can be none if we should do a rename.
     if (isRenaming && (oldFile == null || newFile == null)) {
-      throw new PatchFailedException("Cannot rename file without two valid file names");
+      String msg = "old file is " + (oldFile == null ? "not specified" : oldFile.getPathString());
+      msg += "and new file is " + (newFile == null ? "not specified" : newFile.getPathString());
+      throw new PatchFailedException("Cannot rename file without two valid file names, " + msg);
     }
 
     // The file we should read oldContent from.
@@ -299,7 +290,8 @@ public class PatchUtil {
     return path.substring(pos);
   }
 
-  private static Path getFilePath(String line, int strip, Path outputDirectory) {
+  private static Path getFilePath(String line, int strip, Path outputDirectory)
+      throws PatchFailedException {
     // The line could look like:
     // --- a/foo/bar.txt   2019-05-27 17:19:37.054593200 +0200
     // +++ b/foo/bar.txt   2019-05-27 17:19:37.054593200 +0200
@@ -316,7 +308,8 @@ public class PatchUtil {
         return outputDirectory.getRelative(file);
       }
     }
-    return null;
+    throw new PatchFailedException(
+        "Cannot determine file name with strip=" + strip + " from line:\n" + line);
   }
 
   /**
