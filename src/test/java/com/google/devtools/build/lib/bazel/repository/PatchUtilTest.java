@@ -396,7 +396,7 @@ public class PatchUtilTest {
             PatchFailedException.class,
             () -> PatchUtil.apply(patchFile, 1, root));
     assertThat(expected).hasMessageThat()
-        .contains("Wrong chunk detected near line 11:  }");
+        .contains("Wrong chunk detected near line 11:  }, does not expect an equal line here.");
   }
 
   @Test

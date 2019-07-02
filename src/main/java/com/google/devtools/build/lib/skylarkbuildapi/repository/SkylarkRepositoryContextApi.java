@@ -297,7 +297,11 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   @SkylarkCallable(
       name = "patch",
       doc =
-          "Apply a patch file to the external repository.",
+          "Apply a patch file to the root directory of external repository. "
+              + "The patch file should be a standard "
+              + "[unified diff format](https://en.wikipedia.org/wiki/Diff#Unified_format) file. "
+              + "The native patch implementation doesn't support fuzz matching like the patch "
+              + "command line tool, so make sure your patch file content is correct.",
       useLocation = true,
       parameters = {
           @Param(

@@ -134,7 +134,8 @@ public class PatchUtil {
         delta.applyTo(result);
         return null;
       } catch (PatchFailedException e) {
-        return e;
+        return new PatchFailedException(e.getMessage() +
+            "\nFailed to apply delta:\n    " + delta.toString());
       }
     }
   }
@@ -371,7 +372,8 @@ public class PatchUtil {
             isReadingChunk = false;
           } else if (result == Result.ERROR) {
             throw new PatchFailedException(
-                "Wrong chunk detected near line " + (i + 1) + ": " + line);
+                "Wrong chunk detected near line " + (i + 1) + ": " + line +
+                    ", does not expect an adding line here.");
           }
           break;
         case CHUNK_DEL:
@@ -382,7 +384,8 @@ public class PatchUtil {
             isReadingChunk = false;
           } else if (result == Result.ERROR) {
             throw new PatchFailedException(
-                "Wrong chunk detected near line " + (i + 1) + ": " + line);
+                "Wrong chunk detected near line " + (i + 1) + ": " + line +
+                    ", does not expect a deleting line here.");
           }
           break;
         case CHUNK_EQL:
@@ -394,7 +397,8 @@ public class PatchUtil {
             isReadingChunk = false;
           } else if (result == Result.ERROR) {
             throw new PatchFailedException(
-                "Wrong chunk detected near line " + (i + 1) + ": " + line);
+                "Wrong chunk detected near line " + (i + 1) + ": " + line +
+                    ", does not expect an equal line here.");
           }
           break;
         case RENAME_FROM:
