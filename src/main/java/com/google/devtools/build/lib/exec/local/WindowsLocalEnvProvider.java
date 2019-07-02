@@ -30,7 +30,7 @@ public final class WindowsLocalEnvProvider implements LocalEnvProvider {
    *
    * @param clientEnv a map of the current Bazel command's environment
    */
-  WindowsLocalEnvProvider(Map<String, String> clientEnv) {
+  public WindowsLocalEnvProvider(Map<String, String> clientEnv) {
     this.clientEnv = clientEnv;
   }
 

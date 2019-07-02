@@ -539,7 +539,7 @@ typedef unsigned __int64 uint64_t;
 #ifndef GRPC_ALLOW_EXCEPTIONS
 /* If not already set, set to 1 on Windows (style guide standard) but to
  * 0 on non-Windows platforms unless the compiler defines __EXCEPTIONS */
-#ifdef GPR_WINDOWS
+#if 0
 #define GRPC_ALLOW_EXCEPTIONS 1
 #else /* GPR_WINDOWS */
 #ifdef __EXCEPTIONS
