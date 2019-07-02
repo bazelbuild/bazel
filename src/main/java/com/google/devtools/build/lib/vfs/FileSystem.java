@@ -148,7 +148,7 @@ public abstract class FileSystem {
    */
   // TODO(laszlocsomor): After `--incompatible_windows_case_insensitive_glob` is flipped to true,
   // remove this method and all references to it and replace call sites with
-  // isFilePathCaseSensitive().
+  // isFilePathCaseSensitive(). See https://github.com/bazelbuild/bazel/issues/8767
   public boolean isGlobCaseSensitive() {
     return true;
   }

@@ -156,6 +156,11 @@ public final class GlobFunction implements SkyFunction {
         }
       }
 
+      // TODO(laszlocsomor): set `caseSensitive` from the value of
+      // `--incompatible_windows_case_insensitive_glob` or from FileSystem.isGlobCaseSensitive()
+      // See https://github.com/bazelbuild/bazel/issues/8767
+      final boolean caseSensitive = true;
+
       // Now that we have the directory listing, we do three passes over it so as to maximize
       // skyframe batching:
       // (1) Process every dirent, keeping track of values we need to request if the dirent cannot
@@ -173,7 +178,7 @@ public final class GlobFunction implements SkyFunction {
       for (Dirent dirent : listingValue.getDirents()) {
         Dirent.Type direntType = dirent.getType();
         String fileName = dirent.getName();
-        if (!UnixGlob.matches(patternHead, fileName, regexPatternCache)) {
+        if (!UnixGlob.matches(patternHead, fileName, regexPatternCache, caseSensitive)) {
           continue;
         }
 

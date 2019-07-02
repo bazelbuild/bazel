@@ -155,9 +155,9 @@ public final class UnixGlob {
     return null;
   }
 
-  /** Calls {@link #matches(String, String, Map) matches(pattern, str, null)} */
-  public static boolean matches(String pattern, String str) {
-    return matches(pattern, str, null);
+  /** Calls {@link #matches(String, String, Map) matches(pattern, str, null, boolean)} */
+  public static boolean matches(String pattern, String str, boolean caseSensitive) {
+    return matches(pattern, str, null, caseSensitive);
   }
 
   /**
@@ -169,14 +169,6 @@ public final class UnixGlob {
    * @param patternCache a cache from patterns to compiled Pattern objects, or {@code null} to skip
    *     caching
    */
-  public static boolean matches(String pattern, String str, Map<String, Pattern> patternCache) {
-    // TODO(laszlocsomor): set `caseSensitive` to OsPathPolicy.getFilePathOs().isCaseSensitive()
-    // after `--incompatible_windows_case_insensitive_glob` was flipped to true.
-    final boolean caseSensitive = true;
-    return matches(pattern, str, patternCache, caseSensitive);
-  }
-
-  @VisibleForTesting
   public static boolean matches(String pattern, String str, Map<String, Pattern> patternCache,
       boolean caseSensitive) {
     if (pattern.length() == 0 || str.length() == 0) {
