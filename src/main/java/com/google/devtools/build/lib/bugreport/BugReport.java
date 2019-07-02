@@ -40,6 +40,8 @@ import javax.annotation.Nullable;
  */
 public abstract class BugReport {
 
+  static final BugReporter REPORTER_INSTANCE = BugReport::sendBugReport;
+
   private BugReport() {}
 
   private static final Logger logger = Logger.getLogger(BugReport.class.getName());
