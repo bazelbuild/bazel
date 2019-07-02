@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -253,8 +254,8 @@ public final class UnixGlob {
             regexp.append(c);
           } else {
             regexp.append('[')
-                  .append(Character.toUpperCase(c))
-                  .append(Character.toLowerCase(c))
+                  .append(Ascii.toUpperCase(c))
+                  .append(Ascii.toLowerCase(c))
                   .append(']');
           }
           break;
@@ -892,7 +893,7 @@ public final class UnixGlob {
         if (caseSensitive) {
           paths.remove(exclude);
         } else {
-          paths.removeIf(p -> p.equalsIgnoreCase(exclude));
+          paths.removeIf(p -> Ascii.equalsIgnoreCase(p, exclude));
         }
         continue;
       }

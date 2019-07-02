@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -40,11 +41,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class WindowsGlobTest {
 
-  private static Set<String> setOf(String... ee) {
-    return new HashSet<>(Arrays.asList(ee));
-  }
-
-  private Set<Path> resolvePaths(Path root, String... relativePaths) {
+  private static Set<Path> resolvePaths(Path root, String... relativePaths) {
     Set<Path> expectedFiles = new HashSet<>();
     for (String expected : relativePaths) {
       Path file = expected.equals(".") ? root : root.getRelative(expected);
@@ -53,7 +50,7 @@ public class WindowsGlobTest {
     return expectedFiles;
   }
 
-  private void assertMatches(UnixGlob.FilesystemCalls fsCalls, Path root, String pattern,
+  private static void assertMatches(UnixGlob.FilesystemCalls fsCalls, Path root, String pattern,
       String... expecteds) throws IOException {
     AtomicReference<UnixGlob.FilesystemCalls> sysCalls = new AtomicReference<>(fsCalls);
     assertThat(
@@ -192,22 +189,18 @@ public class WindowsGlobTest {
 
   private static UnixGlob.FilesystemCalls mockFsCalls(Path root) {
     return new UnixGlob.FilesystemCalls() {
+      // These maps use case-sensitive or case-insensitive key comparison depending on
+      // root.getFileSystem().isGlobCaseSensitive()
       private final Map<String, Collection<Dirent>> dirents = mockDirents(root);
       private final Map<String, FileStatus> stats = mockStats(root);
 
       @Override
       public Collection<Dirent> readdir(Path path) throws IOException {
         String p = path.toString();
-        if (path.getFileSystem().isGlobCaseSensitive()) {
-          if (dirents.containsKey(p)) {
-            return dirents.get(p);
-          }
-        } else {
-          for (String k : dirents.keySet()) {
-            return dirents.get(p);
-          }
+        if (dirents.containsKey(p)) {
+          return dirents.get(p);
         }
-        throw new IOException(p.toString());
+        throw new IOException(p);
       }
 
       @Override
@@ -229,7 +222,7 @@ public class WindowsGlobTest {
             }
           }
         }
-        throw new IOException();
+        throw new IOException(p);
       }
     };
   }
