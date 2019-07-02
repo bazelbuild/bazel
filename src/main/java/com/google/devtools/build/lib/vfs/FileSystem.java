@@ -143,8 +143,8 @@ public abstract class FileSystem {
    * <p>When glob() is case-sensitive, it will only match (or exclude) file "Foo" if the include (or
    * exclude) pattern uses the same upper-case and lower-case letters.
    *
-   * <p>When glob() is case-insensitive (or case-ignoring), it will match (or exclude) the file
-   * "Foo" even if the include (or exclude) pattern uses a different casing, e.g. "foO").
+   * <p>When glob() is case-insensitive, it will match (or exclude) the file "Foo" even if the
+   * include (or exclude) pattern uses a different casing such as "foO".
    */
   // TODO(laszlocsomor): After `--incompatible_windows_case_insensitive_glob` is flipped to true,
   // remove this method and all references to it and replace call sites with
