@@ -340,8 +340,34 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
     ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
-    assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
-        .containsExactly("x/foo", "x/bar", ".");
+    assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo", "x/bar");
+  }
+
+  @Test
+  public void testExternalRepoWithGeneratedProto() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/foo')");
+    invalidatePackages();
+
+    scratch.file("/foo/WORKSPACE");
+    scratch.file(
+        "/foo/x/BUILD",
+        "proto_library(name='x', srcs=['generated.proto'])",
+        "genrule(name='g', srcs=[], outs=['generated.proto'], cmd='')");
+
+    scratch.file("a/BUILD", "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x:x'])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    ProtoInfo aInfo = a.get(ProtoInfo.PROVIDER);
+    assertThat(aInfo.getTransitiveProtoSourceRoots()).isEmpty();
+
+    ConfiguredTarget x = getConfiguredTarget("@foo//x:x");
+    ProtoInfo xInfo = x.get(ProtoInfo.PROVIDER);
+    assertThat(xInfo.getTransitiveProtoSourceRoots()).isEmpty();
   }
 
   @Test
