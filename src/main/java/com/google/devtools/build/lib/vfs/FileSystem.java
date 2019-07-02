@@ -150,8 +150,6 @@ public abstract class FileSystem {
   // remove this method and all references to it and replace call sites with
   // isFilePathCaseSensitive().
   public boolean isGlobCaseSensitive() {
-    // TODO(laszlocsomor): as part of wiring up `--incompatible_windows_case_insensitive_glob`,
-    // override this in WindowsFileSystem.
     return true;
   }
 
