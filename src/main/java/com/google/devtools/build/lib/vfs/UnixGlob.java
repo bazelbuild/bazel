@@ -170,7 +170,10 @@ public final class UnixGlob {
    *     caching
    */
   public static boolean matches(String pattern, String str, Map<String, Pattern> patternCache) {
-    return matches(pattern, str, patternCache, OsPathPolicy.getFilePathOs().isCaseSensitive());
+    // TODO(laszlocsomor): set `caseSensitive` to OsPathPolicy.getFilePathOs().isCaseSensitive()
+    // after `--incompatible_windows_case_insensitive_glob` was flipped to true.
+    final boolean caseSensitive = true;
+    return matches(pattern, str, patternCache, caseSensitive);
   }
 
   @VisibleForTesting
@@ -889,7 +892,10 @@ public final class UnixGlob {
    * or suffix patterns are special-cased to make this function efficient.
    */
   public static void removeExcludes(Set<String> paths, Collection<String> excludes) {
-    removeExcludes(paths, excludes, OsPathPolicy.getFilePathOs().isCaseSensitive());
+    // TODO(laszlocsomor): set `caseSensitive` to OsPathPolicy.getFilePathOs().isCaseSensitive()
+    // after `--incompatible_windows_case_insensitive_glob` was flipped to true.
+    final boolean caseSensitive = true;
+    removeExcludes(paths, excludes, caseSensitive);
   }
 
   @VisibleForTesting
