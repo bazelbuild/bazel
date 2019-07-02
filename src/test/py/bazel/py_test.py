@@ -22,7 +22,7 @@ class PyTest(test_base.TestBase):
   """Integration tests for the Python rules of Bazel."""
 
   def createSimpleFiles(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
 
     self.ScratchFile(
         'a/BUILD',
@@ -69,7 +69,7 @@ class PyTest(test_base.TestBase):
 class TestInitPyFiles(test_base.TestBase):
 
   def createSimpleFiles(self, create_init=True):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
 
     self.ScratchFile('src/a/BUILD', [
         'py_binary(name="a", srcs=["a.py"], deps=[":b"], legacy_create_init=%s)'

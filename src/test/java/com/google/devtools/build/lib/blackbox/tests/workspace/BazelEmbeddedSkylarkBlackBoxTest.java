@@ -44,7 +44,7 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testPkgTar() throws Exception {
-    context().write("main/WORKSPACE");
+    context().write("main/WORKSPACE", getWorkspaceWithDefaultRepos());
     context().write("main/foo.txt", "Hello World");
     context().write("main/bar.txt", "Hello World, again");
     context()
@@ -83,7 +83,7 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "WORKSPACE",
-            "load(\"@bazel_tools//tools/build_defs/repo:http.bzl\", \"http_archive\")\n",
+            getWorkspaceWithDefaultRepos(),
             String.format(
                 "local_repository(name=\"ext_local\", path=\"%s\",)",
                 PathUtils.pathForStarlarkFile(repo)),

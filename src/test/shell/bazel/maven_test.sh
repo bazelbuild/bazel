@@ -251,7 +251,7 @@ EOF
 function test_auth() {
   startup_auth_server
   create_artifact thing amabop 1.9
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_server(
     name = "x",
     url = "http://127.0.0.1:$fileserver_port/",

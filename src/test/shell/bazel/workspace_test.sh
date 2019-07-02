@@ -41,7 +41,7 @@ function test_workspace_changes() {
   setup_repo $repo_a hi
   setup_repo $repo_b bye
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 local_repository(
     name = "x",
     path = "$repo_a",
@@ -51,13 +51,13 @@ EOF
   bazel build @x//:x || fail "build failed"
   assert_contains "hi" bazel-genfiles/external/x/out
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 local_repository(
     name = "x",
     path = "$repo_b",
 )
 EOF
-  
+
   bazel build @x//:x || fail "build failed"
   assert_contains "bye" bazel-genfiles/external/x/out
 }
@@ -159,10 +159,10 @@ EOF
 function test_clean() {
   mkdir x
   cd x
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 workspace(name = "y")
 EOF
-    cat > BUILD <<'EOF'
+  cat > BUILD <<'EOF'
 genrule(name = "z", cmd = "echo hi > $@", outs = ["x.out"], srcs = [])
 EOF
   bazel build //:z &> $TEST_log || fail "Expected build to succeed"

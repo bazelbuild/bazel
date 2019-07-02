@@ -205,7 +205,7 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(stdout, arguments)
 
   def testJavaBinaryLauncher(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_binary(',
         '  name = "foo",',
@@ -235,8 +235,10 @@ class LauncherTest(test_base.TestBase):
     bazel_bin = stdout[0]
     self._buildJavaTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
+
+
   def testJavaBinaryArgumentPassing(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_binary(',
         '  name = "bin",',
@@ -257,7 +259,7 @@ class LauncherTest(test_base.TestBase):
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testShBinaryLauncher(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'foo/BUILD',
         [
@@ -301,7 +303,7 @@ class LauncherTest(test_base.TestBase):
     self._buildShBinaryTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testShBinaryArgumentPassing(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'sh_binary(',
         '  name = "bin",',
@@ -324,7 +326,7 @@ class LauncherTest(test_base.TestBase):
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testPyBinaryLauncher(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/foo.bzl', [
         'def _impl(ctx):',
         '  ctx.actions.run(',
@@ -379,7 +381,7 @@ class LauncherTest(test_base.TestBase):
     self._buildPyTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testPyBinaryArgumentPassing(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_binary(',
         '  name = "bin",',

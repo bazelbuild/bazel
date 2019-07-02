@@ -38,6 +38,7 @@ function test_android_sdk_repository_path_from_environment() {
   setup_android_sdk_support
   # Overwrite WORKSPACE that was created by setup_android_sdk_support with one
   # that does not set the path attribute of android_sdk_repository.
+  rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 android_sdk_repository(
     name = "androidsdk",
