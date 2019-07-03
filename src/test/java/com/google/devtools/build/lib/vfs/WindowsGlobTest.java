@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -41,25 +40,20 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class WindowsGlobTest {
 
-  private static Set<Path> resolvePaths(Path root, String... relativePaths) {
-    Set<Path> expectedFiles = new HashSet<>();
-    for (String expected : relativePaths) {
-      Path file = expected.equals(".") ? root : root.getRelative(expected);
-      expectedFiles.add(file);
-    }
-    return expectedFiles;
-  }
-
   private static void assertMatches(UnixGlob.FilesystemCalls fsCalls, Path root, String pattern,
       String... expecteds) throws IOException {
     AtomicReference<UnixGlob.FilesystemCalls> sysCalls = new AtomicReference<>(fsCalls);
     assertThat(
-        new UnixGlob.Builder(root)
-            .addPattern(pattern)
-            .setFilesystemCalls(sysCalls)
-            .setExcludeDirectories(true)
-            .glob())
-        .containsExactlyElementsIn(resolvePaths(root, expecteds));
+        Iterables.transform(
+            new UnixGlob.Builder(root)
+                .addPattern(pattern)
+                .setFilesystemCalls(sysCalls)
+                .setExcludeDirectories(true)
+                .glob(),
+            // Convert Paths to Strings, otherwise they'd be compared with the host system's Path
+            // comparison semantics.
+            a -> a.relativeTo(root).toString()))
+        .containsExactlyElementsIn(expecteds);
   }
 
   private static void assertExcludes(Collection<String> unfiltered, String exclusionPattern,
@@ -69,28 +63,118 @@ public class WindowsGlobTest {
     assertThat(matched).containsExactlyElementsIn(expected);
   }
 
-  @Test
-  public void testCaseSensitiveMatches() throws Exception {
-    Map<String, Pattern> patternCache = new HashMap<>();
-    // Test correct caching by executing the same checks twice.
-    for (int i = 0; i < 2; i++) {
-      assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
-      assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", patternCache, true)).isFalse();
-      assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
-      assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", patternCache, true)).isFalse();
+  private static final class MockPatternCache implements Map<String, Pattern> {
+    private final Map<String, Pattern> actual = new HashMap<>();
+    public Object lastPutKey;
+    public Object lastRemovedKey;
+
+    @Override
+    public int size() {
+      return actual.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return actual.isEmpty();
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+      return actual.containsKey(key);
+    }
+
+    @Override
+    public boolean containsValue(Object value) {
+      return actual.containsValue(value);
+    }
+
+    @Override
+    public Pattern get(Object key) {
+      return actual.get(key);
+    }
+
+    @Override
+    public Pattern put(String key, Pattern value) {
+      assertThat(actual.containsKey(key)).isFalse();
+      lastPutKey = key;
+      return actual.put(key, value);
+    }
+
+    @Override
+    public Pattern remove(Object key) {
+      lastRemovedKey = key;
+      return actual.remove(key);
+    }
+
+    @Override
+    public void putAll(Map<? extends String, ? extends Pattern> m) {
+      actual.putAll(m);
+    }
+
+    @Override
+    public void clear() {
+      actual.clear();
+    }
+
+    @Override
+    public Set<String> keySet() {
+      return actual.keySet();
+    }
+
+    @Override
+    public Collection<Pattern> values() {
+      return actual.values();
+    }
+
+    @Override
+    public Set<Map.Entry<String, Pattern>> entrySet() {
+      // entrySet() returns a mutable view. Let's not allow mutation outside of put()/remove().
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return actual.equals(o);
+    }
+
+    @Override
+    public int hashCode() {
+      return actual.hashCode();
     }
   }
 
   @Test
+  public void testCaseSensitiveMatches() throws Exception {
+    MockPatternCache patternCache = new MockPatternCache();
+    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
+    assertThat(patternCache.lastPutKey).isEqualTo("Foo/**");
+    assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", patternCache, true)).isFalse();
+    assertThat(patternCache.lastPutKey).isEqualTo("foo/**");
+    assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
+    assertThat(patternCache.lastPutKey).isEqualTo("F*o*o/**");
+    assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", patternCache, true)).isFalse();
+    assertThat(patternCache.lastPutKey).isEqualTo("f*o*o/**");
+    // Test correct caching: this pattern should already be in the Map.
+    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
+    assertThat(patternCache.lastPutKey).isEqualTo("f*o*o/**");
+    assertThat(patternCache.lastRemovedKey).isNull();
+  }
+
+  @Test
   public void testCaseInsensitiveMatches() throws Exception {
-    Map<String, Pattern> patternCache = new HashMap<>();
-    // Test correct caching by executing the same checks twice.
-    for (int i = 0; i < 2; i++) {
-      assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-      assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-      assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-      assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-    }
+    MockPatternCache patternCache = new MockPatternCache();
+    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
+    assertThat(patternCache.lastPutKey).isEqualTo("Foo/**");
+    assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
+    assertThat(patternCache.lastPutKey).isEqualTo("foo/**");
+    assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
+    assertThat(patternCache.lastPutKey).isEqualTo("F*o*o/**");
+    assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
+    assertThat(patternCache.lastPutKey).isEqualTo("f*o*o/**");
+    // Test correct caching: this pattern should already be in the Map.
+    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
+    assertThat(patternCache.lastPutKey).isEqualTo("f*o*o/**");
+    assertThat(patternCache.lastRemovedKey).isNull();
   }
 
   @Test
@@ -241,35 +325,53 @@ public class WindowsGlobTest {
     UnixGlob.FilesystemCalls unixFsCalls = mockFsCalls(unixRoot);
     UnixGlob.FilesystemCalls winFsCalls = mockFsCalls(winRoot);
 
+    // Try a simple, non-recursive glob that matches no files. (Directories are exluded.)
     assertMatches(unixFsCalls, unixRoot, "Foo/*");
     assertMatches(winFsCalls, winRoot, "Foo/*");
 
+    // Try a simple, non-recursive glob that should match some files.
     assertMatches(unixFsCalls, unixRoot, "Foo/*/*", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
     assertMatches(winFsCalls, winRoot, "Foo/*/*", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
 
+    // Try a recursive glob.
     assertMatches(unixFsCalls, unixRoot, "Foo/**", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
     assertMatches(winFsCalls, winRoot, "Foo/**", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
 
+    // Try a recursive glob, but use incorrect casing in the pattern.
+    // The results retain the casing of the pattern ("foO") because the glob logic checks its
+    // existence with 'statIfFound', and uses the name from the pattern.
+    // The **-matched parts use the actual casing ("Bar") because the glob does a 'readdir' to get
+    // these.
     assertMatches(unixFsCalls, unixRoot, "foO/**");
-    assertMatches(winFsCalls, winRoot, "foO/**", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
+    assertMatches(winFsCalls, winRoot, "foO/**", "foO/Bar/a.txt", "foO/Bar/b.dat");
 
+    // Try the same with another path component in the glob pattern. The casing of that pattern
+    // should be retained in the results.
     assertMatches(unixFsCalls, unixRoot, "foO/baR/*");
-    assertMatches(winFsCalls, winRoot, "foO/baR/*", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
+    assertMatches(winFsCalls, winRoot, "foO/baR/*", "foO/baR/a.txt", "foO/baR/b.dat");
 
+    // Even if the root's casing is incorrect, the case-insensitive glob should match it.
     assertMatches(unixFsCalls, unixRoot2, "**");
     assertMatches(winFsCalls, winRoot2, "**", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
 
+    // Try again the "wrong" root with a "wrong" first component. The result should retain the
+    // casing.
     assertMatches(unixFsCalls, unixRoot2, "foO/**");
-    assertMatches(winFsCalls, winRoot2, "foO/**", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
+    assertMatches(winFsCalls, winRoot2, "foO/**", "foO/Bar/a.txt", "foO/Bar/b.dat");
 
-    assertMatches(unixFsCalls, unixRoot2, "foO/baR/*");
-    assertMatches(winFsCalls, winRoot2, "foO/baR/*", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
+    // Try the same with more "wrong" path components in the pattern. The results should retain all
+    // the casing.
+    assertMatches(unixFsCalls, unixRoot2, "foO/baR/A.TXT");
+    assertMatches(winFsCalls, winRoot2, "foO/baR/A.TXT", "foO/baR/A.TXT");
 
+    // Try a so-called "complex" in the file name. The glob logic creates a regex for this, and
+    // matches that against the result of a 'readdir', so the result retains the filesystem casing. 
     assertMatches(unixFsCalls, unixRoot, "foO/baR/**");
-    assertMatches(winFsCalls, winRoot, "foO/baR/**", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
+    assertMatches(winFsCalls, winRoot, "foO/baR/**/*.TXT", "foO/baR/a.txt");
 
-    // A so-called "complex" first token with the right casing.
-    // The glob logic creates a regex for these.
+    // Try the same for a directory component. Again, because the glob logic matches a regex against
+    // the results of a 'readdir', the result should use the filesystem casing, not the pattern
+    // casing.
     assertMatches(unixFsCalls, unixRoot, "F*o*o/**", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
     assertMatches(winFsCalls, winRoot, "F*o*o/**", "Foo/Bar/a.txt", "Foo/Bar/b.dat");
 
