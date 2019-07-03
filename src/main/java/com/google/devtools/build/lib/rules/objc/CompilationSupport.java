@@ -158,14 +158,6 @@ public class CompilationSupport {
   static final String ABSOLUTE_INCLUDES_PATH_FORMAT =
       "The path '%s' is absolute, but only relative paths are allowed.";
 
-  @VisibleForTesting
-  static final ImmutableList<String> LINKER_COVERAGE_FLAGS =
-      ImmutableList.of("-ftest-coverage", "-fprofile-arcs");
-
-  @VisibleForTesting
-  static final ImmutableList<String> LINKER_LLVM_COVERAGE_FLAGS =
-      ImmutableList.of("-fprofile-instr-generate");
-
   // Flags for clang 6.1(xcode 6.4)
   @VisibleForTesting
   static final ImmutableList<String> CLANG_GCOV_COVERAGE_FLAGS =
