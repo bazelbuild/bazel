@@ -13,40 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.ExperimentalStateTracker.ProgressMode;
-import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.EnumSet;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
- * BlazeCommandEventHandler: an event handler established for the duration of a
- * single Blaze command.
+ * BlazeCommandEventHandler: an event handler established for the duration of a single Blaze
+ * command.
  */
-public class BlazeCommandEventHandler implements EventHandler {
-
-  private static final Logger logger = Logger.getLogger(BlazeCommandEventHandler.class.getName());
+public class BlazeCommandEventHandler {
 
   public enum UseColor { YES, NO, AUTO }
   public enum UseCurses { YES, NO, AUTO }
@@ -283,137 +262,5 @@ public class BlazeCommandEventHandler implements EventHandler {
     public boolean useCursorControl() {
       return useCursesEnum == UseCurses.YES || (useCursesEnum == UseCurses.AUTO && isStderrATty);
     }
-  }
-
-  private static final DateTimeFormatter TIMESTAMP_FORMAT =
-      DateTimeFormatter.ofPattern("(MM-dd HH:mm:ss.SSS) ");
-
-  protected final OutErr outErr;
-
-  private final PrintStream errPrintStream;
-
-  protected final Set<EventKind> eventMask =
-      EnumSet.copyOf(EventKind.ERRORS_WARNINGS_AND_INFO_AND_OUTPUT);
-
-  protected final boolean showTimestamp;
-
-  protected final LocationPrinter locationPrinter;
-
-  public BlazeCommandEventHandler(
-      OutErr outErr, Options eventOptions, PathFragment workspacePathFragment) {
-    this.outErr = outErr;
-    this.errPrintStream = new PrintStream(outErr.getErrorStream(), true);
-    if (eventOptions.showProgress) {
-      eventMask.add(EventKind.PROGRESS);
-      eventMask.add(EventKind.START);
-    } else {
-      // Skip PASS events if --noshow_progress is requested.
-      eventMask.remove(EventKind.PASS);
-    }
-    if (eventOptions.showTaskFinish) {
-      eventMask.add(EventKind.FINISH);
-    }
-    eventMask.add(EventKind.SUBCOMMAND);
-    this.showTimestamp = eventOptions.showTimestamp;
-    this.locationPrinter =
-        new LocationPrinter(eventOptions.attemptToPrintRelativePaths, workspacePathFragment);
-  }
-
-  /** See EventHandler.handle. */
-  @Override
-  public void handle(Event event) {
-    if (!eventMask.contains(event.getKind())) {
-      return;
-    }
-    String prefix;
-    switch (event.getKind()) {
-      case STDOUT:
-        putOutput(outErr.getOutputStream(), event);
-        return;
-      case STDERR:
-        putOutput(outErr.getErrorStream(), event);
-        return;
-      case PASS:
-      case FAIL:
-      case TIMEOUT:
-      case ERROR:
-      case WARNING:
-      case DEBUG:
-      case DEPCHECKER:
-        prefix = event.getKind() + ": ";
-        break;
-      case SUBCOMMAND:
-        prefix = ">>>>>>>>> ";
-        break;
-      case INFO:
-      case PROGRESS:
-      case START:
-      case FINISH:
-        prefix = "____";
-        break;
-      default:
-        throw new IllegalStateException("" + event.getKind());
-    }
-    StringBuilder buf = new StringBuilder();
-    buf.append(prefix);
-
-    if (showTimestamp) {
-      buf.append(timestamp());
-    }
-
-    Location location = event.getLocation();
-    if (location != null) {
-      buf.append(locationPrinter.getLocationString(location)).append(": ");
-    }
-
-    buf.append(event.getMessage());
-    if (event.getKind() == EventKind.FINISH) {
-      buf.append(" DONE");
-    }
-
-    // Add a trailing period for ERROR and WARNING messages, which are
-    // typically English sentences composed from exception messages.
-    if (event.getKind() == EventKind.WARNING ||
-        event.getKind() == EventKind.ERROR) {
-      buf.append('.');
-    }
-
-    // Event messages go to stderr; results (e.g. 'blaze query') go to stdout.
-    errPrintStream.println(buf);
-
-    if (event.getStdErr() != null) {
-      handle(
-          Event.of(
-              EventKind.STDERR, null, event.getStdErr().getBytes(StandardCharsets.ISO_8859_1)));
-    }
-    if (event.getStdOut() != null) {
-      handle(
-          Event.of(
-              EventKind.STDOUT, null, event.getStdOut().getBytes(StandardCharsets.ISO_8859_1)));
-    }
-  }
-
-  private void putOutput(OutputStream out, Event event) {
-    try {
-      out.write(event.getMessageBytes());
-      out.flush();
-    } catch (IOException e) {
-      // This can happen in server mode if the blaze client has exited, or if output is redirected
-      // to a file and the disk is full, etc. May be moot in the case of full disk, or useful in
-      // the case of real bug in our handling of streams.
-      logger.log(Level.WARNING, "Failed to write event", e);
-    }
-  }
-
-  /**
-   * @return a string representing the current time, eg "04-26 13:47:32.124".
-   */
-  protected String timestamp() {
-    return TIMESTAMP_FORMAT.format(ZonedDateTime.now(ZoneId.systemDefault()));
-  }
-
-  @Subscribe
-  public void packageLocatorCreated(PathPackageLocator packageLocator) {
-    locationPrinter.packageLocatorCreated(packageLocator);
   }
 }

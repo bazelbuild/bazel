@@ -360,11 +360,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
 
         if (!commandAnnotation.binaryStdOut()) {
-          outErr = bufferOut(outErr, eventHandlerOptions.experimentalUi);
+          outErr = bufferOut(outErr);
         }
 
         if (!commandAnnotation.binaryStdErr()) {
-          outErr = bufferErr(outErr, eventHandlerOptions.experimentalUi);
+          outErr = bufferErr(outErr);
         }
 
         if (!commonOptions.verbosity.equals(lastLogVerbosityLevel)) {
@@ -573,23 +573,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     return BlazeCommandResult.exitCode(earlyExitCode);
   }
 
-  private OutErr bufferOut(OutErr outErr, boolean fully) {
-    OutputStream wrappedOut;
-    if (fully) {
-      wrappedOut = new BufferedOutputStream(outErr.getOutputStream());
-    } else {
-      wrappedOut = new LineBufferedOutputStream(outErr.getOutputStream());
-    }
+  private OutErr bufferOut(OutErr outErr) {
+    OutputStream wrappedOut = new BufferedOutputStream(outErr.getOutputStream());
     return OutErr.create(wrappedOut, outErr.getErrorStream());
   }
 
-  private OutErr bufferErr(OutErr outErr, boolean fully) {
-    OutputStream wrappedErr;
-    if (fully) {
-      wrappedErr = new BufferedOutputStream(outErr.getErrorStream());
-    } else {
-      wrappedErr = new LineBufferedOutputStream(outErr.getErrorStream());
-    }
+  private OutErr bufferErr(OutErr outErr) {
+    OutputStream wrappedErr = new BufferedOutputStream(outErr.getErrorStream());
     return OutErr.create(outErr.getOutputStream(), wrappedErr);
   }
 
@@ -656,19 +646,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       OutErr outErr, BlazeCommandEventHandler.Options eventOptions) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
-    EventHandler eventHandler;
-    if (eventOptions.experimentalUi) {
-      // The experimental event handler is not to be rate limited, so don't wrap it in a
-      // RateLimitingEventHandler.
-      return new ExperimentalEventHandler(
-          outErr, eventOptions, runtime.getClock(), workspacePathFragment);
-    } else if ((eventOptions.useColor() || eventOptions.useCursorControl())) {
-      eventHandler = new FancyTerminalEventHandler(outErr, eventOptions, workspacePathFragment);
-    } else {
-      eventHandler = new BlazeCommandEventHandler(outErr, eventOptions, workspacePathFragment);
-    }
-
-    return RateLimitingEventHandler.create(eventHandler, eventOptions.showProgressRateLimit);
+    return new ExperimentalEventHandler(
+        outErr, eventOptions, runtime.getClock(), workspacePathFragment);
   }
 
   /**
