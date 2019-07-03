@@ -368,7 +368,61 @@ public class PatchUtilTest {
             PatchFailedException.class,
             () -> PatchUtil.apply(patchFile, 2, root)); // strip=2 is wrong
     assertThat(expected).hasMessageThat()
-        .contains("Cannot determine file name with strip=2 from line:\n--- a/foo.cc");
+        .contains("Cannot determine file name with strip = 2 from line:\n--- a/foo.cc");
+  }
+
+  @Test
+  public void testPatchFileNotFound() {
+    PatchFailedException expected =
+        assertThrows(
+            PatchFailedException.class,
+            () -> PatchUtil.apply(root.getRelative("patchfile"), 1, root));
+    assertThat(expected).hasMessageThat()
+        .contains("Cannot find patch file: /root/patchfile");
+  }
+
+  @Test
+  public void testCannotFindFileToPatch() throws IOException {
+    Path patchFile = scratch.file("/root/patchfile",
+        "diff --git a/foo.cc b/foo.cc",
+        "index f3008f9..ec4aaa0 100644",
+        "--- a/foo.cc",
+        "+++ b/foo.cc",
+        "@@ -2,4 +2,5 @@",
+        " ",
+        " void main(){",
+        "   printf(\"Hello foo\");",
+        "+  printf(\"Hello from patch\");",
+        " }");
+    PatchFailedException expected =
+        assertThrows(
+            PatchFailedException.class,
+            () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat()
+        .contains(
+            "Cannot find file to patch: old file is /root/foo.cc and new file is /root/foo.cc");
+  }
+
+  @Test
+  public void testPatchOutsideOfRepository() throws IOException {
+    Path patchFile = scratch.file("/root/patchfile",
+        "diff --git a/foo.cc b/foo.cc",
+        "index f3008f9..ec4aaa0 100644",
+        "--- a/../other_root/foo.cc",
+        "+++ b/../other_root/foo.cc",
+        "@@ -2,4 +2,5 @@",
+        " ",
+        " void main(){",
+        "   printf(\"Hello foo\");",
+        "+  printf(\"Hello from patch\");",
+        " }");
+    PatchFailedException expected =
+        assertThrows(
+            PatchFailedException.class,
+            () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat()
+        .contains(
+            "Cannot patch file outside of external repository (/root), file path = (/other_root/foo.cc)");
   }
 
   @Test

@@ -20,11 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -229,7 +225,7 @@ public class PatchUtil {
     // Neither of newFile and oldFile can be none if we should do a rename.
     if (isRenaming && (oldFile == null || newFile == null)) {
       String msg = "old file is " + (oldFile == null ? "not specified" : oldFile.getPathString());
-      msg += "and new file is " + (newFile == null ? "not specified" : newFile.getPathString());
+      msg += " and new file is " + (newFile == null ? "not specified" : newFile.getPathString());
       throw new PatchFailedException("Cannot rename file without two valid file names, " + msg);
     }
 
@@ -241,6 +237,18 @@ public class PatchUtil {
       inputFile = newFile;
     }
 
+    Patch<String> patch = DiffUtils.parseUnifiedDiff(patchContent);
+    // Does this patch look like adding a new file.
+    boolean isAddFile =
+        patch.getDeltas().size() == 1 && patch.getDeltas().get(0).getOriginal().getLines().isEmpty();
+
+    // If this patch is not adding a new file and we cannot find the input file, throw an error.
+    if (!isAddFile && inputFile == null) {
+      String msg = "old file is " + (oldFile == null ? "not specified" : oldFile.getPathString());
+      msg += " and new file is " + (newFile == null ? "not specified" : newFile.getPathString());
+      throw new PatchFailedException("Cannot find file to patch: " + msg);
+    }
+
     List<String> oldContent;
     if (inputFile == null)  {
       oldContent = new ArrayList<>();
@@ -248,7 +256,6 @@ public class PatchUtil {
       oldContent = readFile(inputFile);
     }
 
-    Patch<String> patch = DiffUtils.parseUnifiedDiff(patchContent);
     List<String> newContent = OffsetPatch.applyTo(patch, oldContent);
 
     // The file we should write newContent to.
@@ -266,9 +273,9 @@ public class PatchUtil {
     }
 
     // Does this patch look like deleting a file.
-    boolean isDelete = newFile == null && newContent.isEmpty();
+    boolean isDeleteFile = newFile == null && newContent.isEmpty();
 
-    if (outputFile != null && !isDelete) {
+    if (outputFile != null && !isDeleteFile) {
       writeFile(outputFile, newContent);
     }
   }
@@ -305,11 +312,17 @@ public class PatchUtil {
 
       file = stripPath(line.substring(4), strip);
       if (!file.isEmpty()) {
-        return outputDirectory.getRelative(file);
+        Path filePath = outputDirectory.getRelative(file);
+        if (!filePath.startsWith(outputDirectory)) {
+          throw new PatchFailedException(
+              String.format("Cannot patch file outside of external repository (%s), file path = (%s)",
+                  outputDirectory.getPathString(), filePath.getPathString()));
+        }
+        return filePath;
       }
     }
     throw new PatchFailedException(
-        "Cannot determine file name with strip=" + strip + " from line:\n" + line);
+        "Cannot determine file name with strip = " + strip + " from line:\n" + line);
   }
 
   /**
@@ -320,6 +333,9 @@ public class PatchUtil {
    */
   public static void apply(Path patchFile, int strip, Path outputDirectory)
       throws IOException, PatchFailedException {
+    if (!patchFile.exists()) {
+      throw new PatchFailedException("Cannot find patch file: " + patchFile.getPathString());
+    }
     List<String> patch = readFile(patchFile);
     // Adding an extra line to make sure last chunk also gets applied.
     patch.add("$");
