@@ -70,6 +70,14 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteCache;
 
   @Option(
+      name = "experimental_remote_repository_cache",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether the remote cache also supports caching external repositories.")
+  public boolean experimentalRemoteRepositoryCache;
+
+  @Option(
       name = "remote_timeout",
       defaultValue = "60",
       documentationCategory = OptionDocumentationCategory.REMOTE,

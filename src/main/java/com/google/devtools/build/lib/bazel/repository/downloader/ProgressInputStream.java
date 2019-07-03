@@ -33,18 +33,18 @@ import javax.annotation.WillCloseWhenClosed;
  * <p>This class is not thread safe, but it is safe to message pass its objects between threads.
  */
 @ThreadCompatible
-final class ProgressInputStream extends InputStream {
+public final class ProgressInputStream extends InputStream {
 
   private static final long PROGRESS_INTERVAL_MS = 200;
 
   /** Factory for {@link ProgressInputStream}. */
   @ThreadSafe
-  static class Factory {
+  public static class Factory {
     private final Locale locale;
     private final Clock clock;
     private final ExtendedEventHandler eventHandler;
 
-    Factory(Locale locale, Clock clock, ExtendedEventHandler eventHandler) {
+    public Factory(Locale locale, Clock clock, ExtendedEventHandler eventHandler) {
       this.locale = locale;
       this.clock = clock;
       this.eventHandler = eventHandler;
@@ -66,7 +66,7 @@ final class ProgressInputStream extends InputStream {
   private final AtomicLong toto = new AtomicLong();
   private final AtomicLong nextEvent;
 
-  ProgressInputStream(
+  public ProgressInputStream(
       Locale locale,
       Clock clock,
       ExtendedEventHandler eventHandler,

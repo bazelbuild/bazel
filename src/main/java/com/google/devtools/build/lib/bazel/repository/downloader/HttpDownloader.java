@@ -207,4 +207,7 @@ public class HttpDownloader extends Downloader {
 
     return destination;
   }
+
+  @Override
+  public void close() {}
 }

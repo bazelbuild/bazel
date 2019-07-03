@@ -61,6 +61,9 @@ public abstract class Downloader {
     String repo)
     throws IOException, InterruptedException;
 
+  /** Release resources associated with the cache. The cache may not be used after calling this. */
+  public abstract void close();
+
   protected static Path getDownloadDestination(URL url, Optional<String> type, Path output) {
     if (!type.isPresent()) {
       return output;
