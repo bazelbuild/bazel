@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
+import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestEnvironment;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,8 +52,7 @@ public class PythonBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private void writeHelloWorldFiles() throws IOException {
-    context().write("WORKSPACE", getWorkspaceWithDefaultRepos())
-      ;
+    context().write("WORKSPACE", BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos());
     context().write("python/hello/BUILD", "py_binary(name = 'hello', srcs = ['hello.py'])");
     context().write("python/hello/hello.py", String.format("print ('%s')", HELLO));
   }

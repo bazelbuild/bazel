@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
+import com.google.common.base.Joiner;
 
 /**
  * Abstract class for setting up the blackbox test environment, returns {@link BlackBoxTestContext}
@@ -72,5 +73,18 @@ public abstract class BlackBoxTestEnvironment {
     Preconditions.checkNotNull(executorService);
     MoreExecutors.shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS);
     executorService = null;
+  }
+
+  public static String getWorkspaceWithDefaultRepos() {
+    return Joiner.on("\n").join("load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
+        "http_archive(",
+        "    name = 'rules_cc',",
+        "    sha256 = '36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89',",
+        "    strip_prefix = 'rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c',",
+        "    urls = [",
+        "        'https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip',",
+        "    ],",
+        ")"
+        );
   }
 }

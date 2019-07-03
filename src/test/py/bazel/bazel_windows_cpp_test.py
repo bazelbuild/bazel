@@ -20,7 +20,7 @@ from src.test.py.bazel import test_base
 class BazelWindowsCppTest(test_base.TestBase):
 
   def createProjectFiles(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'package(',
         '  default_visibility = ["//visibility:public"],',
@@ -462,7 +462,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         self.fail('File "%s" does contain "%s"' % (file_path, entry))
 
   def testWinDefFileAttribute(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('lib.cc', ['void hello() {}'])
     self.ScratchFile('my_lib.def', [
         'EXPORTS',
@@ -505,7 +505,7 @@ class BazelWindowsCppTest(test_base.TestBase):
       self.assertIn('/DEF:my_lib.def', param_file.read())
 
   def testCcImportRule(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'cc_import(',
         '  name = "a_import",',
@@ -522,7 +522,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCppErrorShouldBeVisible(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "bad",',

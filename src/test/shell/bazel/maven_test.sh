@@ -163,7 +163,7 @@ EOF
 
 function test_default_repository() {
   serve_artifact thing amabop 1.9
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_server(
     name = "default",
     url = "http://127.0.0.1:$fileserver_port/",

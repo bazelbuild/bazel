@@ -400,7 +400,7 @@ class LauncherTest(test_base.TestBase):
     # Skip this test on non-Windows platforms
     if not self.IsWindows():
       return
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_binary(',
         '  name = "foo",',
@@ -520,7 +520,7 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInNonEnglishPath(self):
     if not self.IsWindows():
       return
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('bin/BUILD', [
         'java_binary(',
         '  name = "bin_java",',
@@ -573,7 +573,7 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInLongPath(self):
     if not self.IsWindows():
       return
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('bin/BUILD', [
         'java_binary(',
         '  name = "bin_java",',

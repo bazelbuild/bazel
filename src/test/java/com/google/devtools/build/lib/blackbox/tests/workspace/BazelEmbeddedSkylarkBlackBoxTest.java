@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.bazel.repository.TarFunction;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
+import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
@@ -44,7 +45,7 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testPkgTar() throws Exception {
-    context().write("main/WORKSPACE", getWorkspaceWithDefaultRepos());
+    context().write("main/WORKSPACE", BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos());
     context().write("main/foo.txt", "Hello World");
     context().write("main/bar.txt", "Hello World, again");
     context()
@@ -83,7 +84,7 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "WORKSPACE",
-            getWorkspaceWithDefaultRepos(),
+            BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos(),
             String.format(
                 "local_repository(name=\"ext_local\", path=\"%s\",)",
                 PathUtils.pathForStarlarkFile(repo)),
