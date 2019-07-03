@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
@@ -46,18 +48,15 @@ public final class TargetUtils {
   // some internal tags that we don't allow to be set on targets. We also don't want to
   // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
   // recognized by Bazel.
-  private static final Predicate<String> LEGAL_EXEC_INFO_KEYS = new Predicate<String>() {
-    @Override
-    public boolean apply(String tag) {
-      return tag.startsWith("block-")
-          || tag.startsWith("requires-")
-          || tag.startsWith("no-")
-          || tag.startsWith("supports-")
-          || tag.startsWith("disable-")
-          || tag.equals("local")
-          || tag.startsWith("cpu:");
-    }
-  };
+  private static boolean legalExecInfoKeys(String tag) {
+    return tag.startsWith("block-")
+        || tag.startsWith("requires-")
+        || tag.startsWith("no-")
+        || tag.startsWith("supports-")
+        || tag.startsWith("disable-")
+        || tag.equals("local")
+        || tag.startsWith("cpu:");
+  }
 
   private TargetUtils() {} // Uninstantiable.
 
@@ -220,19 +219,15 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
-   * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
+   * Returns the execution info from the tags declared on the target. These include only some tags
+   * {@link #LEGAL_EXEC_INFO_KEYS} as keys with empty values.
    */
   public static Map<String, String> getExecutionInfo(Rule rule) {
     // tags may contain duplicate values.
     Map<String, String> map = new HashMap<>();
     for (String tag :
         NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
-      // We don't want to pollute the execution info with random things, and we also need to reserve
-      // some internal tags that we don't allow to be set on targets. We also don't want to
-      // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
-      // recognized by Bazel.
-      if (LEGAL_EXEC_INFO_KEYS.apply(tag)) {
+      if (legalExecInfoKeys(tag)) {
         map.put(tag, "");
       }
     }
@@ -240,11 +235,41 @@ public final class TargetUtils {
   }
 
   /**
+   * Returns the execution info, obtained from the rule's tags and the execution requirements
+   * provided. Only supported tags are included into the execution info, see {@link
+   * #LEGAL_EXEC_INFO_KEYS}.
+   *
+   * @param executionRequirementsUnchecked execution_requirements of a rule, expected to be of a
+   *     {@code SkylarkDict<String, String>} type, null or {@link
+   *     com.google.devtools.build.lib.syntax.Runtime#NONE}
+   * @param rule a rule instance to get tags from
+   */
+  public static ImmutableMap<String, String> getFilteredExecutionInfo(
+      Object executionRequirementsUnchecked, Rule rule) throws EvalException {
+    Map<String, String> checkedExecutionRequirements =
+        TargetUtils.filter(
+            SkylarkDict.castSkylarkDictOrNoneToDict(
+                executionRequirementsUnchecked,
+                String.class,
+                String.class,
+                "execution_requirements"));
+    Map<String, String> checkedTags = getExecutionInfo(rule);
+
+    Map<String, String> executionInfoBuilder = new HashMap<>();
+    // adding filtered execution requirements to the execution info map
+    executionInfoBuilder.putAll(checkedExecutionRequirements);
+    // merging filtered tags to the execution info map avoiding duplicates
+    checkedTags.forEach(executionInfoBuilder::putIfAbsent);
+
+    return ImmutableMap.copyOf(executionInfoBuilder);
+  }
+
+  /**
    * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
    * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
    */
   public static Map<String, String> filter(Map<String, String> executionInfo) {
-    return Maps.filterKeys(executionInfo, LEGAL_EXEC_INFO_KEYS);
+    return Maps.filterKeys(executionInfo, TargetUtils::legalExecInfoKeys);
   }
 
   /**
