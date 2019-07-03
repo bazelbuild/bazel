@@ -137,7 +137,10 @@ def CreateModuleSpace():
 # Returns repository roots to add to the import path.
 def GetRepositoriesImports(module_space, import_all):
   if import_all:
-    repo_dirs = [os.path.join(module_space, d) for d in os.listdir(module_space)]
+    repo_dirs = [
+        os.path.join(module_space, d)
+        for d in sorted(os.listdir(module_space))
+    ]
     return [d for d in repo_dirs if os.path.isdir(d)]
   return [os.path.join(module_space, "%workspace_name%")]
 
