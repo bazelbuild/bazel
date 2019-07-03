@@ -17,6 +17,10 @@ package com.google.devtools.build.lib.skylarkbuildapi.proto;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
+import com.google.devtools.build.lib.syntax.FlagGuardedValue;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** A {@link Bootstrap} for Starlark objects related to protocol buffers. */
 public class ProtoBootstrap implements Bootstrap {
@@ -29,15 +33,31 @@ public class ProtoBootstrap implements Bootstrap {
 
   private final ProtoInfoApi.Provider protoInfoApiProvider;
   private final Object protoModule;
+  private final SkylarkAspectApi protoRegistryAspect;
+  private final ProviderApi protoRegistryProvider;
 
-  public ProtoBootstrap(ProtoInfoApi.Provider protoInfoApiProvider, Object protoModule) {
+  public ProtoBootstrap(
+      ProtoInfoApi.Provider protoInfoApiProvider,
+      Object protoModule,
+      SkylarkAspectApi protoRegistryAspect,
+      ProviderApi protoRegistryProvider) {
     this.protoInfoApiProvider = protoInfoApiProvider;
     this.protoModule = protoModule;
+    this.protoRegistryAspect = protoRegistryAspect;
+    this.protoRegistryProvider = protoRegistryProvider;
   }
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put(PROTO_INFO_STARLARK_NAME, protoInfoApiProvider);
     builder.put(PROTO_MODULE_NAME, protoModule);
+    builder.put(
+        "ProtoRegistryAspect",
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryAspect));
+    builder.put(
+        "ProtoRegistryProvider",
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryProvider));
   }
 }
