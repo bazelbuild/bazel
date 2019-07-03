@@ -1,0 +1,73 @@
+// Copyright 2019 The Bazel Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package bazel_repository_cache;
+
+import "build/bazel/remote/execution/v2/remote_execution.proto";
+
+option java_multiple_files = true;
+option java_outer_classname = "RemoteRepositoryCacheProto";
+option java_package = "com.google.devtools.build.lib.remote.repositorycache";
+
+// The repository cache API is used to download and cache external repositories.
+// Once downloaded, the repository content can be fetched from the
+// [ContentAddressableStorage][build.bazel.remote.execution.v2.ContentAddressableStorage]
+// by digest.
+service RepositoryCache {
+  // Download and cache a single file.
+  //
+  // Errors:
+  // * `INVALID_ARGUMENT`: One or more request fields are invalid.
+  // * `NOT_FOUND`: The cache could not find content for the given request.
+  // * `RESOURCE_EXHAUSTED`: There is insufficient CAS capacity to store the
+  //   downloaded content.
+  // * `FAILED_PRECONDITION`: The cache found content at the given URLs that it
+  //   believes is valid content, but it did not match the content integrity
+  //   checksum.
+  //
+  // Repository caches may, but are not required to, verify content integrity.
+  // The client is expected to perform its own content integrity validation if
+  // the cache is not trusted to do so.
+  rpc Download(DownloadRequest) returns (DownloadResponse);
+}
+
+// A request message for
+// [RepositoryCache.Download][bazel_repository_cache.RepositoryCache.Download].
+message DownloadRequest {
+  // The instance of the execution system to operate against. A server may
+  // support multiple instances of the execution system (with their own workers,
+  // storage, caches, etc.). The server MAY require use of this field to select
+  // between them in an implementation-defined fashion, otherwise it can be
+  // omitted.
+  string instance_name = 1;
+
+  // List of mirror URLs referencing the same file.
+  repeated string urls = 2;
+
+  // Expected checksum of the file downloaded, in Subresource Integrity format.
+  string integrity = 3;
+
+  // If set, restrict cache hits to those cases where the file was added to the
+  // cache with the same canonical id
+  string canonical_id = 4;
+}
+
+// A response message for
+// [RepositoryCache.Download][bazel_repository_cache.RepositoryCache.Download].
+message DownloadResponse {
+  // The blob digest of the downloaded file.
+  build.bazel.remote.execution.v2.Digest digest = 1;
+}
