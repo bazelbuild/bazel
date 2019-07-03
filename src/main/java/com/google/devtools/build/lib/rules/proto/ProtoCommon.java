@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -137,13 +136,10 @@ public class ProtoCommon {
    * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
    */
   private static NestedSet<String> computeTransitiveProtoSourceRoots(
-      RuleContext ruleContext, Optional<String> currentProtoSourceRoot) {
+      RuleContext ruleContext, String currentProtoSourceRoot) {
     NestedSetBuilder<String> protoPath = NestedSetBuilder.stableOrder();
 
-    if (currentProtoSourceRoot.isPresent()) {
-      protoPath.add(currentProtoSourceRoot.get());
-    }
-
+    protoPath.add(currentProtoSourceRoot);
     for (ProtoInfo provider :
         ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER)) {
       protoPath.addTransitive(provider.getTransitiveProtoSourceRoots());
@@ -163,11 +159,11 @@ public class ProtoCommon {
   static final class Library {
     private final ImmutableList<Artifact> sources;
     private final ImmutableList<Pair<Artifact, String>> importPathSourcePair;
-    private final Optional<String> sourceRoot;
+    private final String sourceRoot;
 
     Library(
         ImmutableList<Artifact> sources,
-        Optional<String> sourceRoot,
+        String sourceRoot,
         ImmutableList<Pair<Artifact, String>> importPathSourcePair) {
       this.sources = sources;
       this.sourceRoot = sourceRoot;
@@ -182,7 +178,7 @@ public class ProtoCommon {
       return importPathSourcePair;
     }
 
-    public Optional<String> getSourceRoot() {
+    public String getSourceRoot() {
       return sourceRoot;
     }
   }
@@ -205,38 +201,22 @@ public class ProtoCommon {
       return null;
     }
 
-    boolean hasNonGeneratedSources = false;
-    for (Artifact artifact : directSources) {
-      if (artifact.isSourceArtifact()) {
-        hasNonGeneratedSources = true;
-        break;
-      }
-    }
-
-    String sourceRoot = "";
-    // Otherwise, we'll direct the proto compiler to the source files using -Ifoo=bar arguments.
-    // Then let's not spam the command line.
-    if (hasNonGeneratedSources) {
-      // This is the same as getPackageIdentifier().getPathUnderExecRoot() due to the check above
-      // for protoSourceRoot == package name, but it's a bit more future-proof.
-      sourceRoot =
-          ruleContext
-              .getLabel()
-              .getPackageIdentifier()
-              .getRepository()
-              .getPathUnderExecRoot()
-              .getRelative(protoSourceRoot)
-              .getPathString();
-    }
+    // This is the same as getPackageIdentifier().getPathUnderExecRoot() due to the check above for
+    // protoSourceRoot == package name, but it's a bit more future-proof.
+    String result =
+        ruleContext
+            .getLabel()
+            .getPackageIdentifier()
+            .getRepository()
+            .getPathUnderExecRoot()
+            .getRelative(protoSourceRoot)
+            .getPathString();
 
     ImmutableList.Builder<Pair<Artifact, String>> builder = ImmutableList.builder();
     for (Artifact protoSource : directSources) {
       builder.add(new Pair<Artifact, String>(protoSource, null));
     }
-    return new Library(
-        directSources,
-        sourceRoot.isEmpty() ? Optional.absent() : Optional.of(sourceRoot),
-        builder.build());
+    return new Library(directSources, result.isEmpty() ? "." : result, builder.build());
   }
 
   private static PathFragment getPathFragmentAttribute(
@@ -347,7 +327,7 @@ public class ProtoCommon {
             .getExecPath()
             .getRelative(sourceRootPath)
             .getPathString();
-    return new Library(symlinks.build(), Optional.of(sourceRoot), protoSourceImportPair.build());
+    return new Library(symlinks.build(), sourceRoot, protoSourceImportPair.build());
   }
 
   private static Pair<PathFragment, Artifact> computeImports(
@@ -381,11 +361,9 @@ public class ProtoCommon {
    * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
    */
   private static NestedSet<String> getProtoSourceRootsOfAttribute(
-      RuleContext ruleContext, Optional<String> currentProtoSourceRoot, String attributeName) {
+      RuleContext ruleContext, String currentProtoSourceRoot, String attributeName) {
     NestedSetBuilder<String> protoSourceRoots = NestedSetBuilder.stableOrder();
-    if (currentProtoSourceRoot.isPresent()) {
-      protoSourceRoots.add(currentProtoSourceRoot.get());
-    }
+    protoSourceRoots.add(currentProtoSourceRoot);
 
     for (ProtoInfo provider :
         ruleContext.getPrerequisites(attributeName, Mode.TARGET, ProtoInfo.PROVIDER)) {
@@ -402,7 +380,7 @@ public class ProtoCommon {
    * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
    */
   private static NestedSet<String> computeStrictImportableProtoSourceRoots(
-      RuleContext ruleContext, Optional<String> currentProtoSourceRoot) {
+      RuleContext ruleContext, String currentProtoSourceRoot) {
     return getProtoSourceRootsOfAttribute(ruleContext, currentProtoSourceRoot, "deps");
   }
 
@@ -413,7 +391,7 @@ public class ProtoCommon {
    * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
    */
   private static NestedSet<String> computeExportedProtoSourceRoots(
-      RuleContext ruleContext, Optional<String> currentProtoSourceRoot) {
+      RuleContext ruleContext, String currentProtoSourceRoot) {
     return getProtoSourceRootsOfAttribute(ruleContext, currentProtoSourceRoot, "exports");
   }
 
@@ -512,7 +490,7 @@ public class ProtoCommon {
     ProtoInfo protoInfo =
         new ProtoInfo(
             library.getSources(),
-            library.getSourceRoot().or("."),
+            library.getSourceRoot(),
             transitiveProtoSources,
             transitiveProtoSourceRoots,
             strictImportableProtosForDependents,
