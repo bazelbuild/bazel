@@ -21,7 +21,7 @@ java_binary(
         "-XX:+IgnoreUnrecognizedVMOptions",
     ],
     main_class = "com.google.devtools.build.skydoc.RendererMain",
-    visibility = ["//visibility:private"],
+    visibility = ["//visibility:public"],
     runtime_deps = [
         ":renderer_lib",
     ],
