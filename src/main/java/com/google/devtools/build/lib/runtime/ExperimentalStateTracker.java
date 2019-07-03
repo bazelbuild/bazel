@@ -62,9 +62,9 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.ThreadSafe;
@@ -802,20 +802,21 @@ class ExperimentalStateTracker {
     int totalCount = 0;
     long nanoTime = clock.nanoTime();
     int actionCount = activeActions.size();
-    Set<Artifact> toSkip = new TreeSet<>();
+    Set<Artifact> toSkip = new HashSet<>();
 
-    Map<ActionState, Artifact> copy =
-        new TreeMap<>(
-            Comparator.comparing((ActionState entry) -> entry.runningStrategiesBitmap == 0)
-                .thenComparingLong(entry -> entry.nanoStartTime)
-                .thenComparingInt(ActionState::hashCode));
-    for (Map.Entry<Artifact, ActionState> action : activeActions.entrySet()) {
-      copy.put(action.getValue().deepCopy(), action.getKey());
-    }
-
-    for (Map.Entry<ActionState, Artifact> entry : copy.entrySet()) {
+    PriorityQueue<Map.Entry<Artifact, ActionState>> priorityHeap =
+        new PriorityQueue<>(
+            activeActions.size(),
+            Comparator.comparing(
+                    (Map.Entry<Artifact, ActionState> entry) ->
+                        entry.getValue().runningStrategiesBitmap == 0)
+                .thenComparingLong(entry -> entry.getValue().nanoStartTime)
+                .thenComparingInt(entry -> entry.getValue().hashCode()));
+    priorityHeap.addAll(activeActions.entrySet());
+    while (!priorityHeap.isEmpty()) {
+      Map.Entry<Artifact, ActionState> entry = priorityHeap.poll();
       totalCount++;
-      if (toSkip.contains(entry.getValue())) {
+      if (toSkip.contains(entry.getKey())) {
         continue;
       }
       count++;
@@ -827,7 +828,7 @@ class ExperimentalStateTracker {
           targetWidth - 4 - ((count >= sampleSize && count < actionCount) ? AND_MORE.length() : 0);
       terminalWriter
           .newline()
-          .append("    " + describeAction(entry.getKey(), nanoTime, width, toSkip));
+          .append("    " + describeAction(entry.getValue(), nanoTime, width, toSkip));
     }
     if (totalCount < actionCount) {
       terminalWriter.append(AND_MORE);

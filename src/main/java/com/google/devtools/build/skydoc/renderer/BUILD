@@ -32,9 +32,11 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = ["//src/test:__subpackages__"],
     deps = [
+        "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
     ],
 )

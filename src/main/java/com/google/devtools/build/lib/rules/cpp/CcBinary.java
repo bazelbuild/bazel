@@ -583,6 +583,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // logical since all symlinked libraries will be linked anyway and would
     // not require manual loading but if we do, then we would need to collect
     // their names and use a different constructor below.
+    NestedSetBuilder<Artifact> transitiveArtifacts =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(filesToBuild)
+            .addTransitive(extraLinkTimeRuntimeLibraries.build());
+    if (featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
+      transitiveArtifacts.addTransitive(copiedRuntimeDynamicLibraries);
+    }
     Runfiles runfiles =
         collectRunfiles(
             ruleContext,
@@ -593,10 +600,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ccLinkingOutputs,
             ccCompilationContext,
             linkingMode,
-            NestedSetBuilder.<Artifact>stableOrder()
-                .addTransitive(filesToBuild)
-                .addTransitive(extraLinkTimeRuntimeLibraries.build())
-                .build(),
+            transitiveArtifacts.build(),
             fakeLinkerInputs,
             fake,
             compilationHelper.getCompilationUnitSources(),
@@ -656,11 +660,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     if (copiedRuntimeDynamicLibraries != null) {
-      // When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, runtime dynamic libraries should be
-      // copied to the binary's directory. Therefore, we add them to HIDDEN_TOP_LEVEL output group
-      // to make sure they are built for the target and runtime_dynamic_libraries output group
-      // to make them easier to access.
-      ruleBuilder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, copiedRuntimeDynamicLibraries);
       ruleBuilder.addOutputGroup("runtime_dynamic_libraries", copiedRuntimeDynamicLibraries);
     }
 

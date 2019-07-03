@@ -1262,7 +1262,7 @@ java_library(
 
 java_library(
     name = "bug-report",
-    srcs = ["bugreport/BugReport.java"],
+    srcs = glob(["bugreport/*.java"]),
     deps = [
         ":blaze-version-info",
         ":custom-exit-code-publisher",

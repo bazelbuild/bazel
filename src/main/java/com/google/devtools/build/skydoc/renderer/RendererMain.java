@@ -11,17 +11,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.skydoc.renderer;
 
+import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.protobuf.InvalidProtocolBufferException;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.List;
 
 /**
  * Main entry point for Renderer binary.
  *
- * <p>This Renderer will take in raw stardoc_proto protos as input and produce rich markdown output.
+ * <p>This Renderer takes in raw stardoc_proto protos as input and produces rich markdown output.
  */
 public class RendererMain {
+
   public static void main(String[] args) throws IOException {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RendererOptions.class).build();
     parser.parseAndExitUponError(args);
@@ -33,21 +44,43 @@ public class RendererMain {
               + "{renderer_bin} --input=\"{input_proto_file}\" --output=\"{output_file}\"");
     }
 
-    RendererMain rendererMain = new RendererMain();
     String inputPath = rendererOptions.inputPath;
     String outputPath = rendererOptions.outputFilePath;
-    rendererMain.copyProtoFile(inputPath, outputPath);
+    MarkdownRenderer renderer = new MarkdownRenderer();
+    try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
+      ModuleInfo moduleInfo = ModuleInfo.parseFrom(new FileInputStream(inputPath));
+      printWriter.println(renderer.renderMarkdownHeader());
+      printRuleInfos(printWriter, renderer, moduleInfo.getRuleInfoList());
+      printProviderInfos(printWriter, renderer, moduleInfo.getProviderInfoList());
+      printUserDefinedFunctions(printWriter, renderer, moduleInfo.getFuncInfoList());
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalArgumentException("Input file is not a valid ModuleInfo proto.", e);
+    }
   }
 
-  // TODO(kendalllane, blossomsm): Implement proto to markdown conversion.
-  /** Copies the input proto file to the output location */
-  public void copyProtoFile(String inputPath, String outputPath) throws IOException {
-    ProtoFileAccessor fileAccessor = new FileSystemAccessor();
-    if (fileAccessor.fileExists(inputPath)) {
-      byte[] inputContent = fileAccessor.getProtoContent(inputPath);
-      fileAccessor.writeToOutputLocation(outputPath, inputContent);
-    } else {
-      throw new IOException(inputPath + " does not exist.");
+  private static void printRuleInfos(
+      PrintWriter printWriter, MarkdownRenderer renderer, List<RuleInfo> ruleInfos)
+      throws IOException {
+    for (RuleInfo ruleProto : ruleInfos) {
+      printWriter.println(renderer.render(ruleProto.getRuleName(), ruleProto));
+    }
+  }
+
+  private static void printProviderInfos(
+      PrintWriter printWriter, MarkdownRenderer renderer, List<ProviderInfo> providerInfos)
+      throws IOException {
+    for (ProviderInfo providerProto : providerInfos) {
+      printWriter.println(renderer.render(providerProto.getProviderName(), providerProto));
+    }
+  }
+
+  private static void printUserDefinedFunctions(
+      PrintWriter printWriter,
+      MarkdownRenderer renderer,
+      List<UserDefinedFunctionInfo> userDefinedFunctions)
+      throws IOException {
+    for (UserDefinedFunctionInfo funcProto : userDefinedFunctions) {
+      printWriter.println(renderer.render(funcProto));
     }
   }
 }

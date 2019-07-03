@@ -22,7 +22,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.same;
 import static org.mockito.Mockito.doAnswer;
@@ -33,8 +32,10 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -69,6 +70,11 @@ public class HttpConnectorMultiplexerTest {
   private static final byte[] data2 = "second".getBytes(UTF_8);
   private static final byte[] data3 = "third".getBytes(UTF_8);
 
+  private static final Optional<Checksum> DUMMY_CHECKSUM =
+      Optional.of(
+          Checksum.fromString(
+              KeyType.SHA256, "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"));
+
   @Rule
   public final ExpectedException thrown = ExpectedException.none();
 
@@ -94,47 +100,48 @@ public class HttpConnectorMultiplexerTest {
     when(connector.connect(eq(URL1), any(ImmutableMap.class))).thenReturn(connection1);
     when(connector.connect(eq(URL2), any(ImmutableMap.class))).thenReturn(connection2);
     when(connector.connect(eq(URL3), any(ImmutableMap.class))).thenReturn(connection3);
-    when(streamFactory
-            .create(same(connection1), any(URL.class), anyString(), any(Reconnector.class)))
+    when(streamFactory.create(
+            same(connection1), any(URL.class), any(Optional.class), any(Reconnector.class)))
         .thenReturn(stream1);
-    when(streamFactory
-            .create(same(connection2), any(URL.class), anyString(), any(Reconnector.class)))
+    when(streamFactory.create(
+            same(connection2), any(URL.class), any(Optional.class), any(Reconnector.class)))
         .thenReturn(stream2);
-    when(streamFactory
-            .create(same(connection3), any(URL.class), anyString(), any(Reconnector.class)))
+    when(streamFactory.create(
+            same(connection3), any(URL.class), any(Optional.class), any(Reconnector.class)))
         .thenReturn(stream3);
   }
 
   @Test
   public void emptyList_throwsIae() throws Exception {
     thrown.expect(IllegalArgumentException.class);
-    multiplexer.connect(ImmutableList.<URL>of(), "");
+    multiplexer.connect(ImmutableList.<URL>of(), null);
   }
 
   @Test
   public void ftpUrl_throwsIae() throws Exception {
     thrown.expect(IllegalArgumentException.class);
-    multiplexer.connect(asList(new URL("ftp://lol.example")), "");
+    multiplexer.connect(asList(new URL("ftp://lol.example")), null);
   }
 
   @Test
   public void threadIsInterrupted_throwsIeProntoAndDoesNothingElse() throws Exception {
     final AtomicBoolean wasInterrupted = new AtomicBoolean(true);
-    Thread task = new Thread(
-        new Runnable() {
-          @Override
-          public void run() {
-            Thread.currentThread().interrupt();
-            try {
-              multiplexer.connect(asList(new URL("http://lol.example")), "");
-            } catch (InterruptedIOException ignored) {
-              return;
-            } catch (Exception ignored) {
-              // ignored
-            }
-            wasInterrupted.set(false);
-          }
-        });
+    Thread task =
+        new Thread(
+            new Runnable() {
+              @Override
+              public void run() {
+                Thread.currentThread().interrupt();
+                try {
+                  multiplexer.connect(asList(new URL("http://lol.example")), null);
+                } catch (InterruptedIOException ignored) {
+                  return;
+                } catch (Exception ignored) {
+                  // ignored
+                }
+                wasInterrupted.set(false);
+              }
+            });
     task.start();
     task.join();
     assertThat(wasInterrupted.get()).isTrue();
@@ -143,10 +150,11 @@ public class HttpConnectorMultiplexerTest {
 
   @Test
   public void singleUrl_justCallsConnector() throws Exception {
-    assertThat(toByteArray(multiplexer.connect(asList(URL1), "abc"))).isEqualTo(data1);
+    assertThat(toByteArray(multiplexer.connect(asList(URL1), DUMMY_CHECKSUM))).isEqualTo(data1);
     verify(connector).connect(eq(URL1), any(ImmutableMap.class));
     verify(streamFactory)
-        .create(any(URLConnection.class), any(URL.class), eq("abc"), any(Reconnector.class));
+        .create(
+            any(URLConnection.class), any(URL.class), eq(DUMMY_CHECKSUM), any(Reconnector.class));
     verifyNoMoreInteractions(sleeper, connector, streamFactory);
   }
 
@@ -154,7 +162,7 @@ public class HttpConnectorMultiplexerTest {
   public void multipleUrlsFail_throwsIOException() throws Exception {
     when(connector.connect(any(URL.class), any(ImmutableMap.class))).thenThrow(new IOException());
     IOException e =
-        assertThrows(IOException.class, () -> multiplexer.connect(asList(URL1, URL2, URL3), ""));
+        assertThrows(IOException.class, () -> multiplexer.connect(asList(URL1, URL2, URL3), null));
     assertThat(e).hasMessageThat().contains("All mirrors are down");
     verify(connector, times(3)).connect(any(URL.class), any(ImmutableMap.class));
     verify(sleeper, times(2)).sleepMillis(anyLong());
@@ -172,12 +180,14 @@ public class HttpConnectorMultiplexerTest {
           }
         }).when(sleeper).sleepMillis(anyLong());
     when(connector.connect(eq(URL1), any(ImmutableMap.class))).thenThrow(new IOException());
-    assertThat(toByteArray(multiplexer.connect(asList(URL1, URL2), "abc"))).isEqualTo(data2);
+    assertThat(toByteArray(multiplexer.connect(asList(URL1, URL2), DUMMY_CHECKSUM)))
+        .isEqualTo(data2);
     assertThat(clock.currentTimeMillis()).isEqualTo(1000L);
     verify(connector).connect(eq(URL1), any(ImmutableMap.class));
     verify(connector).connect(eq(URL2), any(ImmutableMap.class));
     verify(streamFactory)
-        .create(any(URLConnection.class), any(URL.class), eq("abc"), any(Reconnector.class));
+        .create(
+            any(URLConnection.class), any(URL.class), eq(DUMMY_CHECKSUM), any(Reconnector.class));
     verify(sleeper).sleepMillis(anyLong());
     verifyNoMoreInteractions(sleeper, connector, streamFactory);
   }
@@ -204,7 +214,8 @@ public class HttpConnectorMultiplexerTest {
             return null;
           }
         }).when(sleeper).sleepMillis(anyLong());
-    assertThat(toByteArray(multiplexer.connect(asList(URL1, URL2), "abc"))).isEqualTo(data1);
+    assertThat(toByteArray(multiplexer.connect(asList(URL1, URL2), DUMMY_CHECKSUM)))
+        .isEqualTo(data1);
     assertThat(wasInterrupted.get()).isTrue();
   }
 
@@ -234,20 +245,21 @@ public class HttpConnectorMultiplexerTest {
             throw new RuntimeException();
           }
         });
-    Thread task = new Thread(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              multiplexer.connect(asList(URL1, URL2), "");
-            } catch (InterruptedIOException ignored) {
-              return;
-            } catch (Exception ignored) {
-              // ignored
-            }
-            wasInterrupted3.set(false);
-          }
-        });
+    Thread task =
+        new Thread(
+            new Runnable() {
+              @Override
+              public void run() {
+                try {
+                  multiplexer.connect(asList(URL1, URL2), null);
+                } catch (InterruptedIOException ignored) {
+                  return;
+                } catch (Exception ignored) {
+                  // ignored
+                }
+                wasInterrupted3.set(false);
+              }
+            });
     task.start();
     barrier.await();
     task.interrupt();

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.function.Consumer;
@@ -219,7 +220,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   protected Object rawGetSkylarkProvider(String providerKey) {
     if (providerKey.equals(ACTIONS_FIELD_NAME)) {
-      return actions;
+      // Only expose actions which are legitimate Starlark values, otherwise they will later
+      // cause a Bazel crash.
+      // TODO(cparsons): Expose all actions to Starlark.
+      return actions.stream()
+          .filter(action -> action instanceof ActionApi)
+          .collect(ImmutableList.toImmutableList());
     }
     return providers.get(providerKey);
   }
