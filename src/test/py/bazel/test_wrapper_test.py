@@ -538,7 +538,10 @@ class TestWrapperTest(test_base.TestBase):
   # has this bug, but I (@laszlocsomor) work on enabling the native test wrapper
   # by default so fixing the legacy one seems to make little sense.
   def testRunningTestFromExternalRepo(self):
-    rule_definition = ['local_repository(name = "a", path = "a")']
+    rule_definition = [
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        'local_repository(name = "a", path = "a")'
+    ]
     rule_definition.extend(self.GetCcRulesRepoRule())
     self.ScratchFile('WORKSPACE', rule_definition)
     self.CreateWorkspaceWithDefaultRepos('a/WORKSPACE')

@@ -56,7 +56,7 @@ function test_maven_jar() {
   setup_zoo
   serve_artifact com.example.carnivore carnivore 1.23
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
