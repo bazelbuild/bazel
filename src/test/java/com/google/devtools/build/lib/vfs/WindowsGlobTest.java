@@ -63,118 +63,22 @@ public class WindowsGlobTest {
     assertThat(matched).containsExactlyElementsIn(expected);
   }
 
-  private static final class MockPatternCache implements Map<String, Pattern> {
-    private final Map<String, Pattern> actual = new HashMap<>();
-    public Object lastPutKey;
-    public Object lastRemovedKey;
-
-    @Override
-    public int size() {
-      return actual.size();
-    }
-
-    @Override
-    public boolean isEmpty() {
-      return actual.isEmpty();
-    }
-
-    @Override
-    public boolean containsKey(Object key) {
-      return actual.containsKey(key);
-    }
-
-    @Override
-    public boolean containsValue(Object value) {
-      return actual.containsValue(value);
-    }
-
-    @Override
-    public Pattern get(Object key) {
-      return actual.get(key);
-    }
-
-    @Override
-    public Pattern put(String key, Pattern value) {
-      assertThat(actual.containsKey(key)).isFalse();
-      lastPutKey = key;
-      return actual.put(key, value);
-    }
-
-    @Override
-    public Pattern remove(Object key) {
-      lastRemovedKey = key;
-      return actual.remove(key);
-    }
-
-    @Override
-    public void putAll(Map<? extends String, ? extends Pattern> m) {
-      actual.putAll(m);
-    }
-
-    @Override
-    public void clear() {
-      actual.clear();
-    }
-
-    @Override
-    public Set<String> keySet() {
-      return actual.keySet();
-    }
-
-    @Override
-    public Collection<Pattern> values() {
-      return actual.values();
-    }
-
-    @Override
-    public Set<Map.Entry<String, Pattern>> entrySet() {
-      // entrySet() returns a mutable view. Let's not allow mutation outside of put()/remove().
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      return actual.equals(o);
-    }
-
-    @Override
-    public int hashCode() {
-      return actual.hashCode();
-    }
-  }
-
   @Test
-  public void testCaseSensitiveMatches() throws Exception {
-    MockPatternCache patternCache = new MockPatternCache();
-    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
-    assertThat(patternCache.lastPutKey).isEqualTo("Foo/**");
-    assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", patternCache, true)).isFalse();
-    assertThat(patternCache.lastPutKey).isEqualTo("foo/**");
-    assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
-    assertThat(patternCache.lastPutKey).isEqualTo("F*o*o/**");
-    assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", patternCache, true)).isFalse();
-    assertThat(patternCache.lastPutKey).isEqualTo("f*o*o/**");
-    // Test correct caching: this pattern should already be in the Map.
-    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, true)).isTrue();
-    assertThat(patternCache.lastPutKey).isEqualTo("f*o*o/**");
-    assertThat(patternCache.lastRemovedKey).isNull();
-  }
+  public void testMatches() throws Exception {
+    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", null, true)).isTrue();
+    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", null, false)).isTrue();
 
-  @Test
-  public void testCaseInsensitiveMatches() throws Exception {
-    MockPatternCache patternCache = new MockPatternCache();
-    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-    assertThat(patternCache.lastPutKey).isEqualTo("Foo/**");
-    assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-    assertThat(patternCache.lastPutKey).isEqualTo("foo/**");
-    assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-    assertThat(patternCache.lastPutKey).isEqualTo("F*o*o/**");
-    assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-    assertThat(patternCache.lastPutKey).isEqualTo("f*o*o/**");
-    // Test correct caching: this pattern should already be in the Map.
-    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", patternCache, false)).isTrue();
-    assertThat(patternCache.lastPutKey).isEqualTo("f*o*o/**");
-    assertThat(patternCache.lastRemovedKey).isNull();
+    assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", null, true)).isFalse();
+    assertThat(UnixGlob.matches("foo/**", "Foo/Bar/a.txt", null, false)).isTrue();
+
+    assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", null, true)).isTrue();
+    assertThat(UnixGlob.matches("F*o*o/**", "Foo/Bar/a.txt", null, false)).isTrue();
+
+    assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", null, true)).isFalse();
+    assertThat(UnixGlob.matches("f*o*o/**", "Foo/Bar/a.txt", null, false)).isTrue();
+
+    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", null, true)).isTrue();
+    assertThat(UnixGlob.matches("Foo/**", "Foo/Bar/a.txt", null, false)).isTrue();
   }
 
   @Test
