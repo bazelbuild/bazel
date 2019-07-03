@@ -175,6 +175,38 @@ public final class SandboxModule extends BlazeModule {
     throw new IllegalStateException("Not reachable");
   }
 
+  /**
+   * Returns true if windows-sandbox should be used for this build.
+   *
+   * <p>If the user set the use of windows-sandbox as optional, this only returns true if the configured
+   * sandboxfs binary is present and valid. If the user requested the use of windows-sandbox as mandatory,
+   * this throws an error if the binary is not valid.
+   *
+   * @param requested whether windows-sandbox use was requested or not
+   * @param binary path of the sandboxfs binary to use
+   * @return true if sandboxfs can and should be used; false otherwise
+   * @throws IOException if there are problems trying to determine the status of sandboxfs
+   */
+  private boolean shouldUseWindowsSandbox(TriState requested, PathFragment binary) throws IOException {
+    switch (requested) {
+      case AUTO:
+        return WindowsSandboxUtil.isAvailable(binary);
+
+      case NO:
+        return false;
+
+      case YES:
+        if (!WindowsSandboxUtil.isAvailable(binary)) {
+          throw new IOException(
+              "windows-sandbox explicitly requested but \""
+                  + binary
+                  + "\" could not be found or is not valid");
+        }
+        return true;
+    }
+    throw new IllegalStateException("Not reachable");
+  }
+
   private void setup(CommandEnvironment cmdEnv, ExecutorBuilder builder)
       throws IOException {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
@@ -238,6 +270,12 @@ public final class SandboxModule extends BlazeModule {
         }
         sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
       }
+    }
+
+    PathFragment windowsSandboxPath = PathFragment.create(options.windowsSandboxPath);
+    boolean useWindowsSandbox;
+    try (SilentCloseable c = Profiler.instance().profile("shouldUseWindowsSandbox")) {
+      useWindowsSandbox = shouldUseWindowsSandbox(options.useWindowsSandbox, windowsSandboxPath);
     }
 
     Duration timeoutKillDelay =

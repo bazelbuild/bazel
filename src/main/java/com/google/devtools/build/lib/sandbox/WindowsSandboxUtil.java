@@ -1,0 +1,244 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.sandbox;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.shell.Subprocess;
+import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
+import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.logging.Logger;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/** Utility functions for the {@code windows-sandbox} embedded tool. */
+public final class WindowsSandboxUtil {
+  private static final Logger log = Logger.getLogger(WindowsSandboxUtil.class.getName());
+
+  private static final String WINDOWS_SANDBOX = "BazelSandbox" + OsUtils.executableExtension();
+
+    /**
+   * Checks if the given Windows sandbox binary is available and is valid.
+   *
+   * @param binary path to the Windows sandbox binary that will later be used in the {@link #mount} call.
+   * @return true if the binary looks good, false otherwise
+   * @throws IOException if there is a problem trying to start the subprocess
+   */
+  public static boolean isAvailable(PathFragment binary) {
+    Subprocess process;
+    try {
+      process =
+          new SubprocessBuilder()
+              .setArgv(binary.getPathString(), "-h")
+              .setStdout(StreamAction.STREAM)
+              .redirectErrorStream(true)
+              .setWorkingDirectory(new File("."))
+              .start();
+    } catch (IOException e) {
+      log.warning("Windows sandbox binary at " + binary + " seems to be missing; got error " + e);
+      return false;
+    }
+
+    ByteArrayOutputStream outErrBytes = new ByteArrayOutputStream();
+    try {
+      ByteStreams.copy(process.getInputStream(), outErrBytes);
+    } catch (IOException e) {
+      try {
+        outErrBytes.write(("Failed to read stdout: " + e).getBytes());
+      } catch (IOException e2) {
+        // Should not really have happened. There is nothing we can do.
+      }
+    }
+    String outErr = outErrBytes.toString().replaceFirst("\n$", "");
+
+    int exitCode = waitForProcess(process);
+    if (exitCode == 0) {
+      // TODO(rongjiecomputer): Validate the version number and ensure we support it. Would be nice to reuse
+      // the DottedVersion logic from the Apple rules.
+      return true;
+    } else {
+      log.warning(
+          "Windows sandbox binary at "
+              + binary
+              + " returned non-zero exit code "
+              + exitCode
+              + " and output "
+              + outErr);
+      return false;
+    }
+  }
+
+
+  /**
+   * Waits for a process to terminate.
+   *
+   * @param process the process to wait for
+   * @return the exit code of the terminated process
+   */
+  private static int waitForProcess(Subprocess process) {
+    boolean interrupted = false;
+    try {
+      while (true) {
+        try {
+          process.waitFor();
+          break;
+        } catch (InterruptedException ie) {
+          interrupted = true;
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+    return process.exitValue();
+  }
+
+
+  /** Returns a new command line builder for the {@code windows-sandbox} tool. */
+  public static CommandLineBuilder commandLineBuilder(
+      PathFragment windowsSandboxPath, List<String> commandArguments) {
+    return new CommandLineBuilder()
+        .setWindowsSandboxPath(windowsSandboxPath)
+        .setCommandArguments(commandArguments);
+  }
+
+  /**
+   * A builder class for constructing the full command line to run a command using the {@code
+   * windows-sandbox} tool.
+   */
+  public static class CommandLineBuilder {
+    private PathFragment windowsSandboxPath;
+    private Path workingDirectory;
+    private Duration timeout;
+    private Duration killDelay;
+    private Path stdoutPath;
+    private Path stderrPath;
+    private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
+    private boolean useDebugMode = false;
+    private List<String> commandArguments = ImmutableList.of();
+
+    private CommandLineBuilder() {
+      // Prevent external construction via "new".
+    }
+
+    /** Sets the path of the {@code windows-sandbox} tool. */
+    public CommandLineBuilder setWindowsSandboxPath(PathFragment windowsSandboxPath) {
+      this.windowsSandboxPath = windowsSandboxPath;
+      return this;
+    }
+
+    /** Sets the working directory to use, if any. */
+    public CommandLineBuilder setWorkingDirectory(Path workingDirectory) {
+      this.workingDirectory = workingDirectory;
+      return this;
+    }
+
+    /** Sets the timeout for the command run using the {@code windows-sandbox} tool. */
+    public CommandLineBuilder setTimeout(Duration timeout) {
+      this.timeout = timeout;
+      return this;
+    }
+
+    /**
+     * Sets the kill delay for commands run using the {@code windows-sandbox} tool that exceed their
+     * timeout.
+     */
+    public CommandLineBuilder setKillDelay(Duration killDelay) {
+      this.killDelay = killDelay;
+      return this;
+    }
+
+    /** Sets the path to use for redirecting stdout, if any. */
+    public CommandLineBuilder setStdoutPath(Path stdoutPath) {
+      this.stdoutPath = stdoutPath;
+      return this;
+    }
+
+    /** Sets the path to use for redirecting stderr, if any. */
+    public CommandLineBuilder setStderrPath(Path stderrPath) {
+      this.stderrPath = stderrPath;
+      return this;
+    }
+
+    /** Sets the files or directories to make writable for the sandboxed process, if any. */
+    public CommandLineBuilder setWritableFilesAndDirectories(
+        Set<Path> writableFilesAndDirectories) {
+      this.writableFilesAndDirectories = writableFilesAndDirectories;
+      return this;
+    }
+
+    /** Sets whether to enable debug mode (e.g. to print debugging messages). */
+    public CommandLineBuilder setUseDebugMode(boolean useDebugMode) {
+      this.useDebugMode = useDebugMode;
+      return this;
+    }
+
+    /** Sets the command (and its arguments) to run using the {@code windows-sandbox} tool. */
+    public CommandLineBuilder setCommandArguments(List<String> commandArguments) {
+      this.commandArguments = commandArguments;
+      return this;
+    }
+
+    /**
+     * Builds the command line to invoke a specific command using the {@code windows-sandbox} tool.
+     */
+    public ImmutableList<String> build() {
+      Preconditions.checkNotNull(this.windowsSandboxPath, "windowsSandboxPath is required");
+      Preconditions.checkState(!this.commandArguments.isEmpty(), "commandArguments are required");
+
+      ImmutableList.Builder<String> commandLineBuilder = ImmutableList.builder();
+
+      commandLineBuilder.add(windowsSandboxPath.getPathString());
+      if (workingDirectory != null) {
+        commandLineBuilder.add("-W", workingDirectory.getPathString());
+      }
+      if (timeout != null) {
+        commandLineBuilder.add("-T", Long.toString(timeout.getSeconds()));
+      }
+      if (killDelay != null) {
+        commandLineBuilder.add("-t", Long.toString(killDelay.getSeconds()));
+      }
+      if (stdoutPath != null) {
+        commandLineBuilder.add("-l", stdoutPath.getPathString());
+      }
+      if (stderrPath != null) {
+        commandLineBuilder.add("-L", stderrPath.getPathString());
+      }
+      for (Path writablePath : writableFilesAndDirectories) {
+        commandLineBuilder.add("-w", writablePath.getPathString());
+      }
+      if (useDebugMode) {
+        commandLineBuilder.add("-D");
+      }
+      commandLineBuilder.add("--");
+      commandLineBuilder.addAll(commandArguments);
+
+      return commandLineBuilder.build();
+    }
+  }
+}

@@ -212,6 +212,30 @@ public class SandboxOptions extends OptionsBase {
               + "this on their own and should be removed once all such rules are fixed.")
   public boolean sandboxfsMapSymlinkTargets;
 
+  @Option(
+      name = "experimental_use_windows_sandbox",
+      converter = TriStateConverter.class,
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Use Windows sandbox to run actions. "
+              + "If \"yes\", the binary provided by --experimental_windows_sandbox_path must be "
+              + "valid and correspond to a supported version of sandboxfs. If \"auto\", the binary "
+              + "may be missing or not compatible.")
+  public TriState useWindowsSandbox;
+
+  @Option(
+    name = "experimental_windows_sandbox_path",
+    defaultValue = "BazelSandbox.exe",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Path to the Windows sandbox binary to use when --experimental_use_windows_sandbox is true. If a "
+            + "bare name, use the first binary of that name found in the PATH."
+  )
+  public String windowsSandboxPath;
+
   public ImmutableSet<Path> getInaccessiblePaths(FileSystem fs) {
     List<Path> inaccessiblePaths = new ArrayList<>();
     for (String path : sandboxBlockPath) {
