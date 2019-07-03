@@ -365,6 +365,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_rules_java_test",
+    srcs = ["bazel_rules_java_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_test_test",
     timeout = "long",
     srcs = ["bazel_test_test.sh"],

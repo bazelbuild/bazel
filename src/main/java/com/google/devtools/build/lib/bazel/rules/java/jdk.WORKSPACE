@@ -1,5 +1,6 @@
 # External dependencies for the java_* rules.
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 new_local_repository(
     name = "local_jdk",
@@ -238,8 +239,9 @@ http_archive(
     ],
 )
 
-http_archive(
-    name = "rules_java",
+maybe(
+    http_archive,
+    "rules_java",
     sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
     urls = ["https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip"],
     strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178"
