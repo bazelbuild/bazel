@@ -35,6 +35,12 @@ def _make_sh_test(name, **kwargs):
         **kwargs
     )
 
+def _merge_dicts(d1, d2):
+    r = {}
+    r.update(d1)
+    r.update(d2)
+    return r
+
 ### First, trivial tests that either always pass, always fail,
 ### or sometimes pass depending on a trivial computation.
 
@@ -75,11 +81,16 @@ _successful_rule = rule(
 
 def successful_test(name, msg, **kwargs):
     _successful_rule(
-        name = name + "_impl",
-        msg = msg,
-        out = name + "_impl.sh",
-        testonly = 1,
-        visibility = ["//visibility:private"],
+        **_merge_dicts(
+            kwargs,
+            dict(
+                name = name + "_impl",
+                msg = msg,
+                out = name + "_impl.sh",
+                testonly = 1,
+                visibility = ["//visibility:private"],
+            ),
+        )
     )
 
     _make_sh_test(name, **kwargs)
@@ -121,11 +132,16 @@ _failed_rule = rule(
 
 def failed_test(name, msg, **kwargs):
     _failed_rule(
-        name = name + "_impl",
-        msg = msg,
-        out = name + "_impl.sh",
-        testonly = 1,
-        visibility = ["//visibility:private"],
+        **_merge_dicts(
+            kwargs,
+            dict(
+                name = name + "_impl",
+                msg = msg,
+                out = name + "_impl.sh",
+                testonly = 1,
+                visibility = ["//visibility:private"],
+            ),
+        )
     )
 
     _make_sh_test(name, **kwargs)
@@ -306,13 +322,18 @@ _rule_test_rule = rule(
 
 def rule_test(name, rule, generates = None, provides = None, **kwargs):
     _rule_test_rule(
-        name = name + "_impl",
-        rule = rule,
-        generates = generates,
-        provides = provides,
-        out = name + ".sh",
-        testonly = 1,
-        visibility = ["//visibility:private"],
+        **_merge_dicts(
+            kwargs,
+            dict(
+                name = name + "_impl",
+                rule = rule,
+                generates = generates,
+                provides = provides,
+                out = name + ".sh",
+                testonly = 1,
+                visibility = ["//visibility:private"],
+            ),
+        )
     )
 
     _make_sh_test(name, **kwargs)
@@ -372,14 +393,18 @@ _file_test_rule = rule(
 
 def file_test(name, file, content = None, regexp = None, matches = None, **kwargs):
     _file_test_rule(
-        name = name + "_impl",
-        file = file,
-        content = content or "",
-        regexp = regexp or "",
-        matches = matches if (matches != None) else -1,
-        out = name + "_impl.sh",
-        testonly = 1,
-        visibility = ["//visibility:private"],
+        **_merge_dicts(
+            kwargs,
+            dict(
+                name = name + "_impl",
+                file = file,
+                content = content or "",
+                regexp = regexp or "",
+                matches = matches if (matches != None) else -1,
+                out = name + "_impl.sh",
+                testonly = 1,
+                visibility = ["//visibility:private"],
+            ),
+        )
     )
-
     _make_sh_test(name, **kwargs)
