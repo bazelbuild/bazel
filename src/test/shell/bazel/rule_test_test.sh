@@ -202,6 +202,8 @@ rule_test(
 )
 EOF
 
+  bazel build //:all >& "$TEST_log" && fail "should have failed" || true
+
   bazel build --build_tag_filters=-dont_build_me //:all >& "$TEST_log" || fail "build failed"
 
   bazel query --output=label 'attr(tags, dont_build_me, //:all)' >& "$TEST_log" || fail "query failed"
