@@ -63,6 +63,7 @@ public class RendererMain {
       throws IOException {
     for (RuleInfo ruleProto : ruleInfos) {
       printWriter.println(renderer.render(ruleProto.getRuleName(), ruleProto));
+      printWriter.println();
     }
   }
 
@@ -71,6 +72,7 @@ public class RendererMain {
       throws IOException {
     for (ProviderInfo providerProto : providerInfos) {
       printWriter.println(renderer.render(providerProto.getProviderName(), providerProto));
+      printWriter.println();
     }
   }
 
@@ -81,6 +83,7 @@ public class RendererMain {
       throws IOException {
     for (UserDefinedFunctionInfo funcProto : userDefinedFunctions) {
       printWriter.println(renderer.render(funcProto));
+      printWriter.println();
     }
   }
 }
