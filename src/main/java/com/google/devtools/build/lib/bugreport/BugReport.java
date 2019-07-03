@@ -125,7 +125,7 @@ public abstract class BugReport {
       return;
     }
 
-    logException(exception, filterClientEnv(args), values);
+    logException(exception, filterArgs(args), values);
   }
 
   private static void logCrash(Throwable throwable, boolean sendBugReport, String... args) {
@@ -246,19 +246,23 @@ public abstract class BugReport {
   }
 
   /**
-   * Filters {@code args} by removing any item that starts with "--client_env",
-   * then returns this as an immutable list.
+   * Filters {@code args} by removing superfluous items:
    *
-   * <p>The client's environment variables may contain sensitive data, so we filter it out.
+   * <ul>
+   *   <li>The client's environment variables may contain sensitive data, so we filter it out.
+   *   <li>{@code --default_override} is spammy.
+   * </ul>
    */
-  private static List<String> filterClientEnv(Iterable<String> args) {
+  private static List<String> filterArgs(Iterable<String> args) {
     if (args == null) {
       return null;
     }
 
     ImmutableList.Builder<String> filteredArgs = ImmutableList.builder();
     for (String arg : args) {
-      if (arg != null && !arg.startsWith("--client_env")) {
+      if (arg != null
+          && !arg.startsWith("--client_env=")
+          && !arg.startsWith("--default_override=")) {
         filteredArgs.add(arg);
       }
     }
