@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import java.util.Base64;
 
 /** The content checksum for an HTTP download, which knows its own type. */
 public class Checksum {
@@ -33,6 +34,11 @@ public class Checksum {
       throw new IllegalArgumentException("Invalid " + keyType + " checksum '" + hash + "'");
     }
     return new Checksum(keyType, HashCode.fromString(hash));
+  }
+
+  public String toSubresourceIntegrity() {
+    String encoded = Base64.getEncoder().encodeToString(hashCode.asBytes());
+    return keyType.getHashName() + "-" + encoded;
   }
 
   @Override

@@ -64,6 +64,10 @@ public class RepositoryCache {
       return hashFunction.newHasher();
     }
 
+    public String getHashName() {
+      return hashName;
+    }
+
     @Override
     public String toString() {
       return stringRepr;
