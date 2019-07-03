@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -82,7 +82,7 @@ public class SkylarkRepositoryContext
   private final SkylarkOS osObject;
   private final ImmutableSet<PathFragment> blacklistedPatterns;
   private final Environment env;
-  private final HttpDownloader httpDownloader;
+  private final Downloader downloader;
   private final double timeoutScaling;
   private final Map<String, String> markerData;
 
@@ -97,7 +97,7 @@ public class SkylarkRepositoryContext
       ImmutableSet<PathFragment> blacklistedPatterns,
       Environment environment,
       Map<String, String> env,
-      HttpDownloader httpDownloader,
+      Downloader downloader,
       double timeoutScaling,
       Map<String, String> markerData)
       throws EvalException {
@@ -107,7 +107,7 @@ public class SkylarkRepositoryContext
     this.blacklistedPatterns = blacklistedPatterns;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
-    this.httpDownloader = httpDownloader;
+    this.downloader = downloader;
     this.timeoutScaling = timeoutScaling;
     this.markerData = markerData;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
@@ -491,7 +491,7 @@ public class SkylarkRepositoryContext
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
       downloadedPath =
-          httpDownloader.download(
+          downloader.download(
               urls,
               authHeaders,
               checksum,
@@ -611,7 +611,7 @@ public class SkylarkRepositoryContext
     Path downloadedPath;
     try {
       downloadedPath =
-          httpDownloader.download(
+          downloader.download(
               urls,
               authHeaders,
               checksum,

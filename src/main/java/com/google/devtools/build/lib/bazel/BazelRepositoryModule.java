@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.bazel.repository.MavenServerRepositoryFunct
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
@@ -134,7 +135,7 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   public static ImmutableMap<String, RepositoryFunction> repositoryRules(
-      HttpDownloader httpDownloader, MavenDownloader mavenDownloader) {
+      Downloader Downloader, MavenDownloader mavenDownloader) {
     return ImmutableMap.<String, RepositoryFunction>builder()
         .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
         .put(MavenJarRule.NAME, new MavenJarFunction(mavenDownloader))

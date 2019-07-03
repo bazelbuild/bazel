@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -48,7 +47,7 @@ import java.util.concurrent.Semaphore;
  * <p>This class uses {@link HttpConnectorMultiplexer} to connect to HTTP mirrors and then reads the
  * file to disk.
  */
-public class HttpDownloader {
+public class HttpDownloader extends Downloader {
 
   private static final int MAX_PARALLEL_DOWNLOADS = 8;
   private static final Semaphore semaphore = new Semaphore(MAX_PARALLEL_DOWNLOADS, true);
@@ -69,25 +68,7 @@ public class HttpDownloader {
     this.timeoutScaling = timeoutScaling;
   }
 
-  /**
-   * Downloads file to disk and returns path.
-   *
-   * <p>If the checksum and path to the repository cache is specified, attempt to load the file from
-   * the {@link RepositoryCache}. If it doesn't exist, proceed to download the file and load it into
-   * the cache prior to returning the value.
-   *
-   * @param urls list of mirror URLs with identical content
-   * @param checksum valid checksum which is checked, or empty to disable
-   * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
-   * @param output destination filename if {@code type} is <i>absent</i>, otherwise output directory
-   * @param eventHandler CLI progress reporter
-   * @param clientEnv environment variables in shell issuing this command
-   * @param repo the name of the external repository for which the file was fetched; used only for
-   *     reporting
-   * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
-   * @throws IOException if download was attempted and ended up failing
-   * @throws InterruptedException if this thread is being cast into oblivion
-   */
+  @Override
   public Path download(
       List<URL> urls,
       Map<URI, Map<String, String>> authHeaders,
@@ -225,22 +206,5 @@ public class HttpDownloader {
     }
 
     return destination;
-  }
-
-  private Path getDownloadDestination(URL url, Optional<String> type, Path output) {
-    if (!type.isPresent()) {
-      return output;
-    }
-    String basename =
-        MoreObjects.firstNonNull(
-            Strings.emptyToNull(PathFragment.create(url.getPath()).getBaseName()),
-            "temp");
-    if (!type.get().isEmpty()) {
-      String suffix = "." + type.get();
-      if (!basename.endsWith(suffix)) {
-        basename += suffix;
-      }
-    }
-    return output.getRelative(basename);
   }
 }
