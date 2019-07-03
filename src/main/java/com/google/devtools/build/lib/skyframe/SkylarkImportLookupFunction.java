@@ -209,6 +209,41 @@ public class SkylarkImportLookupFunction implements SkyFunction {
             .build();
   }
 
+  private static ContainingPackageLookupValue getContainingPackageLookupValue(
+      Environment env, Label fileLabel)
+      throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
+    PathFragment dir = Label.getContainingDirectory(fileLabel);
+    PackageIdentifier dirId =
+        PackageIdentifier.create(fileLabel.getPackageIdentifier().getRepository(), dir);
+    ContainingPackageLookupValue containingPackageLookupValue;
+    try {
+      containingPackageLookupValue =
+          (ContainingPackageLookupValue)
+              env.getValueOrThrow(
+                  ContainingPackageLookupValue.key(dirId),
+                  BuildFileNotFoundException.class,
+                  InconsistentFilesystemException.class);
+    } catch (BuildFileNotFoundException e) {
+      throw SkylarkImportFailedException.errorReadingFile(
+          fileLabel.toPathFragment(), new ErrorReadingSkylarkExtensionException(e));
+    }
+    if (containingPackageLookupValue == null) {
+      return null;
+    }
+    // Ensure the label doesn't cross package boundaries.
+    if (!containingPackageLookupValue.hasContainingPackage()) {
+      throw SkylarkImportFailedException.noBuildFile(
+          fileLabel, containingPackageLookupValue.getReasonForNoContainingPackage());
+    }
+    if (!containingPackageLookupValue
+        .getContainingPackageName()
+        .equals(fileLabel.getPackageIdentifier())) {
+      throw SkylarkImportFailedException.labelCrossesPackageBoundary(
+          fileLabel, containingPackageLookupValue);
+    }
+    return containingPackageLookupValue;
+  }
+
   // It is vital that we don't return any value if any call to env#getValue(s)OrThrow throws an
   // exception. We are allowed to wrap the thrown exception and rethrow it for any calling functions
   // to handle though.
@@ -230,33 +265,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       return null;
     }
 
-    if (starlarkSemantics.incompatibleDisallowLoadLabelsToCrossPackageBoundaries()) {
-      PathFragment dir = Label.getContainingDirectory(fileLabel);
-      PackageIdentifier dirId =
-          PackageIdentifier.create(fileLabel.getPackageIdentifier().getRepository(), dir);
-      ContainingPackageLookupValue containingPackageLookupValue;
-      try {
-        containingPackageLookupValue = (ContainingPackageLookupValue) env.getValueOrThrow(
-            ContainingPackageLookupValue.key(dirId),
-            BuildFileNotFoundException.class,
-            InconsistentFilesystemException.class);
-      } catch (BuildFileNotFoundException e) {
-        throw SkylarkImportFailedException.errorReadingFile(
-            fileLabel.toPathFragment(),
-            new ErrorReadingSkylarkExtensionException(e));
-      }
-      if (containingPackageLookupValue == null) {
-        return null;
-      }
-      if (!containingPackageLookupValue.hasContainingPackage()) {
-        throw SkylarkImportFailedException.noBuildFile(
-            fileLabel, containingPackageLookupValue.getReasonForNoContainingPackage());
-      }
-      if (!containingPackageLookupValue.getContainingPackageName().equals(
-          fileLabel.getPackageIdentifier())) {
-        throw SkylarkImportFailedException.labelCrossesPackageBoundary(
-            fileLabel, containingPackageLookupValue);
-      }
+    if (getContainingPackageLookupValue(env, fileLabel) == null) {
+      return null;
     }
 
     // Load the AST corresponding to this file.
@@ -396,7 +406,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     return result;
   }
 
-  private ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
+  private static ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
       int workspaceChunk, RootedPath workspacePath, Label enclosingFileLabel, Environment env)
       throws InterruptedException {
 
@@ -448,13 +458,13 @@ public class SkylarkImportLookupFunction implements SkyFunction {
    * @param workspaceChunk the workspaceChunk we are currently evaluating that this load statement
    *     originated from. WORKSPACE files are chunked at every non-consecutive load statement and
    *     evaluated separately. See {@link WorkspaceFileValue} for more information.
-   * @param repositoryMapping map from original repository names to new repository names given
-   *     by the main repository
+   * @param repositoryMapping map from original repository names to new repository names given by
+   *     the main repository
    * @return a list of remapped {@link SkylarkImport}s or null if any SkyValue requested wasn't
    *     fully computed yet
    * @throws InterruptedException
    */
-  private ImmutableList<SkylarkImport> remapImports(
+  private static ImmutableList<SkylarkImport> remapImports(
       ImmutableList<SkylarkImport> unRemappedImports,
       int workspaceChunk,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
