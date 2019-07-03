@@ -133,6 +133,19 @@ public class RepositoryOptions extends OptionsBase {
       help = "If non-empty read the specified resolved file instead of the WORKSPACE file")
   public String experimentalResolvedFileInsteadOfWorkspace;
 
+  @Option(
+      name = "incompatible_use_native_patch",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, Bazel's repository rules use a native implementation of patch, "
+          + "otherwise Bazel still calls patch command line tool for applying patch files.")
+  public boolean useNativePatch;
+
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */

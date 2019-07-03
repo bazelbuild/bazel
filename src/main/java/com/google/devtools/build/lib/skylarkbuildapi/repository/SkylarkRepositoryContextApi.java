@@ -295,6 +295,35 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
 
   @SkylarkCallable(
+      name = "patch",
+      doc =
+          "Apply a patch file to the root directory of external repository. "
+              + "The patch file should be a standard "
+              + "[unified diff format](https://en.wikipedia.org/wiki/Diff#Unified_format) file. "
+              + "The native patch implementation doesn't support fuzz matching and git binary patch"
+              + " like the patch command line tool.",
+      useLocation = true,
+      parameters = {
+          @Param(
+              name = "patch_file",
+              allowedTypes = {
+                  @ParamType(type = String.class),
+                  @ParamType(type = Label.class),
+                  @ParamType(type = RepositoryPathApi.class)
+              },
+              doc =
+                  "Path of the patch file to apply."),
+          @Param(
+              name = "strip",
+              type = Integer.class,
+              named = true,
+              defaultValue = "0",
+              doc = "strip the specified number of leading components from file names."),
+      })
+  public void patch(Object patchFile, Integer strip, Location location)
+      throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
+
+  @SkylarkCallable(
       name = "which",
       doc =
           "Returns the path of the corresponding program or None "

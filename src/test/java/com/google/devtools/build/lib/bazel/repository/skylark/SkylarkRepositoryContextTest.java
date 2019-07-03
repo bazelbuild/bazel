@@ -59,6 +59,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
+import difflib.PatchFailedException;
+
 /**
  * Unit tests for complex function of SkylarkRepositoryContext.
  */
@@ -131,7 +133,8 @@ public class SkylarkRepositoryContextTest {
             ImmutableMap.of("FOO", "BAR"),
             downloader,
             1.0,
-            new HashMap<>());
+            new HashMap<>(),
+            true);
   }
 
   protected void setUpContexForRule(String name) throws Exception {
@@ -275,6 +278,43 @@ public class SkylarkRepositoryContextTest {
           .hasCauseThat()
           .hasMessageThat()
           .isEqualTo("Cannot read outside of the repository directory for path /somepath");
+    }
+  }
+
+  @Test
+  public void testPatch() throws Exception {
+    setUpContexForRule("test");
+    SkylarkPath foo = context.path("foo");
+    context.createFile(foo, "line one\n", false, true, null);
+    SkylarkPath patchFile = context.path("my.patch");
+    context.createFile(context.path("my.patch"),
+        "--- foo\n" +
+        "+++ foo\n" +
+        "@@ -1,1 +1,2 @@\n" +
+        " line one\n" +
+        "+line two\n", false, true, null);
+    context.patch(patchFile, 0, null);
+    testOutputFile(foo.getPath(), String.format("line one%nline two%n"));
+  }
+
+  @Test
+  public void testPatchFailed() throws Exception {
+    setUpContexForRule("test");
+    SkylarkPath patchFile = context.path("my.patch");
+    context.createFile(context.path("my.patch"),
+        "--- foo\n" +
+            "+++ foo\n" +
+            "@@ -1,1 +1,2 @@\n" +
+            " line one\n" +
+            "+line two\n", false, true, null);
+    try {
+      context.patch(patchFile, 0, null);
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Error applying patch /outputDir/my.patch: Cannot find file to patch: "
+              + "old file is /outputDir/foo and new file is /outputDir/foo");
     }
   }
 
