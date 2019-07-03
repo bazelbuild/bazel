@@ -152,7 +152,7 @@ remote_java_tools_filegroup(
     target = ":singlejar",
 )
 
-exports_files(["BUILD.java_tools", "WORKSPACE.java_tools"])
+exports_files(["BUILD.java_tools"])
 
 remote_java_tools_filegroup(
     name = "genclass",
@@ -403,7 +403,6 @@ filegroup(
         "proguard_whitelister_test_input.cfg",
         "remote_java_tools_aliases.bzl",
         "toolchain_utils.bzl",
-        "WORKSPACE.java_tools"
     ],
 )
 
