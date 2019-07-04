@@ -192,7 +192,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
       errmsg = L"Unrecoverable error: host OS is Windows 7 and subprocess"
         " got an inheritable console handle";
     } else {
-      errmsg = std::wstring(L"error: ") + ToString(err);
+      errmsg = GetLastErrorString(err) + L" (error: " + ToString(err) + L")";
     }
 
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateProcessW",
