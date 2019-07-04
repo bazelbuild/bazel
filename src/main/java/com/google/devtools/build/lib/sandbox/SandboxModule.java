@@ -146,12 +146,11 @@ public final class SandboxModule extends BlazeModule {
   /**
    * Returns true if sandboxfs should be used for this build.
    *
-   * <p>If the user set the use of sandboxfs as optional, this only returns true if the configured
-   * sandboxfs binary is present and valid. If the user requested the use of sandboxfs as mandatory,
-   * this throws an error if the binary is not valid.
+   * <p>Returns true if requested in ["auto", "yes"] and binary is valid. Throws an error if state is "yes"
+   * and binary is not valid.
    *
    * @param requested whether sandboxfs use was requested or not
-   * @param binary path of the sandboxfs binary to use
+   * @param binary path of the sandboxfs binary to use, can be absolute or relative path
    * @return true if sandboxfs can and should be used; false otherwise
    * @throws IOException if there are problems trying to determine the status of sandboxfs
    */
@@ -178,14 +177,13 @@ public final class SandboxModule extends BlazeModule {
   /**
    * Returns true if windows-sandbox should be used for this build.
    *
-   * <p>If the user set the use of windows-sandbox as optional, this only returns true if the configured
-   * sandboxfs binary is present and valid. If the user requested the use of windows-sandbox as mandatory,
-   * this throws an error if the binary is not valid.
+   * <p>Returns true if requested in ["auto", "yes"] and binary is valid. Throws an error if state is "yes"
+   * and binary is not valid.
    *
    * @param requested whether windows-sandbox use was requested or not
-   * @param binary path of the sandboxfs binary to use
-   * @return true if sandboxfs can and should be used; false otherwise
-   * @throws IOException if there are problems trying to determine the status of sandboxfs
+   * @param binary path of the windows-sandbox binary to use, can be absolute or relative path
+   * @return true if windows-sandbox can and should be used; false otherwise
+   * @throws IOException if there are problems trying to determine the status of windows-sandbox
    */
   private boolean shouldUseWindowsSandbox(TriState requested, PathFragment binary) throws IOException {
     switch (requested) {
