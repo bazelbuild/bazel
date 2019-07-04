@@ -50,14 +50,18 @@ static bool DupeHandle(HANDLE h, AutoHandle* out, std::wstring* error) {
 bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& argv_rest, void* env,
                              const std::wstring& wcwd, std::wstring* error) {
-  AutoHandle dup_in, dup_out, dup_err;
-  if (!DupeHandle(GetStdHandle(STD_INPUT_HANDLE), &dup_in, error) ||
-      !DupeHandle(GetStdHandle(STD_OUTPUT_HANDLE), &dup_out, error) ||
-      !DupeHandle(GetStdHandle(STD_ERROR_HANDLE), &dup_err, error)) {
-    return false;
-  }
-  return Create(argv0, argv_rest, env, wcwd, dup_in, dup_out, dup_err, nullptr,
-                true, error);
+  // On Windows 7, the subprocess cannot inherit console handles via the
+  // attribute list (CreateProcessW fails with ERROR_NO_SYSTEM_RESOURCES).
+  // If we pass only invalid handles here, the Create method creates an
+  // AutoAttributeList with 0 handles and initializes the STARTUPINFOEXW as
+  // empty and disallowing handle inheritance. At the same time, CreateProcessW
+  // specifies neither CREATE_NEW_CONSOLE nor DETACHED_PROCESS, so the
+  // subprocess *does* inherit the console, which is exactly what we want, and
+  // it works on all supported Windows versions.
+  // Fixes https://github.com/bazelbuild/bazel/issues/8676
+  return Create(argv0, argv_rest, env, wcwd, INVALID_HANDLE_VALUE,
+                INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, nullptr, true,
+                error);
 }
 
 bool WaitableProcess::Create(const std::wstring& argv0,
@@ -150,8 +154,8 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   static constexpr size_t kMaxCmdline = 32767;
 
   std::wstring cmd_sample = mutable_commandline.get();
-  if (cmd_sample.size() > 200) {
-    cmd_sample = cmd_sample.substr(0, 195) + L"(...)";
+  if (cmd_sample.size() > 500) {
+    cmd_sample = cmd_sample.substr(0, 495) + L"(...)";
   }
   if (wcsnlen_s(mutable_commandline.get(), kMaxCmdline) == kMaxCmdline) {
     std::wstringstream error_msg;
@@ -181,8 +185,19 @@ bool WaitableProcess::Create(const std::wstring& argv0,
           /* lpStartupInfo */ &info.StartupInfo,
           /* lpProcessInformation */ &process_info)) {
     DWORD err = GetLastError();
+
+    std::wstring errmsg;
+    if (err == ERROR_NO_SYSTEM_RESOURCES && !IsWindows8OrGreater() &&
+        attr_list->HasConsoleHandle()) {
+      errmsg =
+          L"Unrecoverable error: host OS is Windows 7 and subprocess"
+          " got an inheritable console handle";
+    } else {
+      errmsg = GetLastErrorString(err) + L" (error: " + ToString(err) + L")";
+    }
+
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateProcessW",
-                              cmd_sample, err);
+                              cmd_sample, errmsg);
     return false;
   }
 

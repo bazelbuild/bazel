@@ -81,6 +81,8 @@ class AutoAttributeList {
 
   void InitStartupInfoExW(STARTUPINFOEXW* startup_info) const;
 
+  bool HasConsoleHandle() const { return handles_.HasConsoleHandle(); }
+
  private:
   class StdHandles {
    public:
@@ -91,6 +93,15 @@ class AutoAttributeList {
     HANDLE StdIn() const { return stdin_h_; }
     HANDLE StdOut() const { return stdout_h_; }
     HANDLE StdErr() const { return stderr_h_; }
+
+    bool HasConsoleHandle() const {
+      for (size_t i = 0; i < valid_handles_; ++i) {
+        if (GetFileType(valid_handle_array_[i]) == FILE_TYPE_CHAR) {
+          return true;
+        }
+      }
+      return false;
+    }
 
    private:
     size_t valid_handles_;
