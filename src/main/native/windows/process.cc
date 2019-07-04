@@ -52,11 +52,12 @@ bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& wcwd, std::wstring* error) {
   // On Windows 7, the subprocess cannot inherit console handles via the
   // attribute list (CreateProcessW fails with ERROR_NO_SYSTEM_RESOURCES).
-  // If we pass invalid handles here, the Create method creates an
-  // AutoAttributeList with 0 handles in it, and initializes the STARTUPINFOEXW
-  // without allowing handle inheritance. And in that case, the subprocess
-  // inherits this process' STD handles, which is exactly what we want, and it
-  // works on all supported Windows versions.
+  // If we pass only invalid handles here, the Create method creates an
+  // AutoAttributeList with 0 handles and initializes the STARTUPINFOEXW as
+  // empty and disallowing handle inheritance. At the same time, CreateProcessW
+  // specifies neither CREATE_NEW_CONSOLE nor DETACHED_PROCESS, so the
+  // subprocess *does* inherit the console, which is exactly what we want, and
+  // it works on all supported Windows versions.
   // Fixes https://github.com/bazelbuild/bazel/issues/8676
   return Create(argv0, argv_rest, env, wcwd, INVALID_HANDLE_VALUE,
                 INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, nullptr, true,
