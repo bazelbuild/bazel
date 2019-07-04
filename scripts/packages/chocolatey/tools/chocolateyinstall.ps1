@@ -20,10 +20,6 @@ Install-ChocolateyZipPackage -PackageName "$packageName" `
 write-host @"
 bazel installed to $packageDir
 
-You also need, in your environment variables (adjust paths for your system):
-  BAZEL_SH=c:\tools\msys64\usr\bin\bash.exe
-  BAZEL_PYTHON=c:\tools\python2\python.exe
-
 See also https://bazel.build/docs/windows.html
 "@
 
