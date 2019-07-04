@@ -59,7 +59,10 @@ filegroup(
 
 filegroup(
     name = "bootstrap-derived-java-srcs",
-    srcs = glob(["derived/**/*.java"]),
+    srcs = glob(
+        ["derived/**/*.java"],
+        allow_empty = True,
+    ),
     visibility = ["//:__subpackages__"],
 )
 

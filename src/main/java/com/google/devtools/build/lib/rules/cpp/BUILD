@@ -19,6 +19,7 @@ java_library(
             "*.java",
             "transitions/*.java",
         ],
+        allow_empty = True,
         exclude = INTERFACE_SOURCES,
     ),
     deps = [
