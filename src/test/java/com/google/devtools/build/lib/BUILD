@@ -9,7 +9,6 @@ package(
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",
     "vfs/PathFragmentWindowsTest.java",
-    "vfs/WindowsGlobTest.java",
     "vfs/WindowsPathTest.java",
 ]
 

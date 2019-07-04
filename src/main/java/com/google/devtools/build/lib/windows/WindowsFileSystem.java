@@ -106,13 +106,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public boolean isGlobCaseSensitive() {
-    // TODO(laszlocsomor): return the opposite of `--incompatible_windows_case_insensitive_glob`
-    // here. See https://github.com/bazelbuild/bazel/issues/8767
-    return true;
-  }
-
-  @Override
   protected boolean fileIsSymbolicLink(File file) {
     try {
       if (isSymlinkOrJunction(file)) {

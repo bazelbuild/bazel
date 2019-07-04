@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -156,9 +155,9 @@ public final class UnixGlob {
     return null;
   }
 
-  /** Calls {@link #matches(String, String, Map) matches(pattern, str, null, boolean)} */
-  public static boolean matches(String pattern, String str, boolean caseSensitive) {
-    return matches(pattern, str, null, caseSensitive);
+  /** Calls {@link #matches(String, String, Map) matches(pattern, str, null)} */
+  public static boolean matches(String pattern, String str) {
+    return matches(pattern, str, null);
   }
 
   /**
@@ -170,8 +169,7 @@ public final class UnixGlob {
    * @param patternCache a cache from patterns to compiled Pattern objects, or {@code null} to skip
    *     caching
    */
-  public static boolean matches(
-      String pattern, String str, Map<String, Pattern> patternCache, boolean caseSensitive) {
+  public static boolean matches(String pattern, String str, Map<String, Pattern> patternCache) {
     if (pattern.length() == 0 || str.length() == 0) {
       return false;
     }
@@ -193,30 +191,30 @@ public final class UnixGlob {
 
     // Common case: *.xyz
     if (pattern.charAt(0) == '*' && pattern.lastIndexOf('*') == 0) {
-      return endsWithCase(str, pattern.substring(1), caseSensitive);
+      return str.endsWith(pattern.substring(1));
     }
     // Common case: xyz*
     int lastIndex = pattern.length() - 1;
     // The first clause of this if statement is unnecessary, but is an
     // optimization--charAt runs faster than indexOf.
     if (pattern.charAt(lastIndex) == '*' && pattern.indexOf('*') == lastIndex) {
-      return startsWithCase(str, pattern.substring(0, lastIndex), caseSensitive);
+      return str.startsWith(pattern.substring(0, lastIndex));
     }
 
     Pattern regex =
         patternCache == null
-            ? makePatternFromWildcard(pattern, caseSensitive)
-            : patternCache.computeIfAbsent(pattern, p -> makePatternFromWildcard(p, caseSensitive));
+            ? makePatternFromWildcard(pattern)
+            : patternCache.computeIfAbsent(pattern, p -> makePatternFromWildcard(p));
     return regex.matcher(str).matches();
   }
 
   /**
-   * Returns a regular expression implementing a matcher for "pattern", in which "*" and "?" are
-   * wildcards.
+   * Returns a regular expression implementing a matcher for "pattern", in which
+   * "*" and "?" are wildcards.
    *
    * <p>e.g. "foo*bar?.java" -> "foo.*bar.\\.java"
    */
-  private static Pattern makePatternFromWildcard(String pattern, boolean caseSensitive) {
+  private static Pattern makePatternFromWildcard(String pattern) {
     StringBuilder regexp = new StringBuilder();
     for (int i = 0, len = pattern.length(); i < len; i++) {
       char c = pattern.charAt(i);
@@ -249,15 +247,7 @@ public final class UnixGlob {
           regexp.append(c);
           break;
         default:
-          if (caseSensitive || !isAlphaAscii(c)) {
-            regexp.append(c);
-          } else {
-            regexp
-                .append('[')
-                .append(Ascii.toUpperCase(c))
-                .append(Ascii.toLowerCase(c))
-                .append(']');
-          }
+          regexp.append(c);
           break;
       }
     }
@@ -568,6 +558,7 @@ public final class UnixGlob {
       if (baseStat == null || patterns.isEmpty()) {
         return Futures.immediateFuture(Collections.<Path>emptyList());
       }
+
       List<String[]> splitPatterns = checkAndSplitPatterns(patterns);
 
       // We do a dumb loop, even though it will likely duplicate logical work (note that the
@@ -576,7 +567,6 @@ public final class UnixGlob {
       // glob [*/*.java, sub/*.java, */*.txt]).
       pendingOps.incrementAndGet();
       try {
-        final boolean caseSensitive = base.getFileSystem().isGlobCaseSensitive();
         for (String[] splitPattern : splitPatterns) {
           int numRecursivePatterns = 0;
           for (String pattern : splitPattern) {
@@ -584,12 +574,9 @@ public final class UnixGlob {
               ++numRecursivePatterns;
             }
           }
-          GlobTaskContext context =
-              numRecursivePatterns > 1
-                  ? new RecursiveGlobTaskContext(
-                      splitPattern, excludeDirectories, caseSensitive, dirPred, syscalls)
-                  : new GlobTaskContext(
-                      splitPattern, excludeDirectories, caseSensitive, dirPred, syscalls);
+          GlobTaskContext context = numRecursivePatterns > 1
+              ? new RecursiveGlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls)
+              : new GlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls);
           context.queueGlob(base, baseStat.isDirectory(), 0);
         }
       } finally {
@@ -698,19 +685,16 @@ public final class UnixGlob {
     private class GlobTaskContext {
       private final String[] patternParts;
       private final boolean excludeDirectories;
-      private final boolean caseSensitive;
       private final Predicate<Path> dirPred;
       private final FilesystemCalls syscalls;
 
       GlobTaskContext(
           String[] patternParts,
           boolean excludeDirectories,
-          boolean caseSensitive,
           Predicate<Path> dirPred,
           FilesystemCalls syscalls) {
         this.patternParts = patternParts;
         this.excludeDirectories = excludeDirectories;
-        this.caseSensitive = caseSensitive;
         this.dirPred = dirPred;
         this.syscalls = syscalls;
       }
@@ -760,10 +744,9 @@ public final class UnixGlob {
       private RecursiveGlobTaskContext(
           String[] patternParts,
           boolean excludeDirectories,
-          boolean caseSensitive,
           Predicate<Path> dirPred,
           FilesystemCalls syscalls) {
-        super(patternParts, excludeDirectories, caseSensitive, dirPred, syscalls);
+        super(patternParts, excludeDirectories, dirPred, syscalls);
       }
 
       @Override
@@ -837,7 +820,7 @@ public final class UnixGlob {
           // The file is a special file (fifo, etc.). No need to even match against the pattern.
           continue;
         }
-        if (matches(pattern, dent.getName(), cache, context.caseSensitive)) {
+        if (matches(pattern, dent.getName(), cache)) {
           Path child = base.getChild(dent.getName());
 
           if (childType == Dirent.Type.SYMLINK) {
@@ -885,17 +868,12 @@ public final class UnixGlob {
    * Filters out exclude patterns from a Set of paths. Common cases such as wildcard-free patterns
    * or suffix patterns are special-cased to make this function efficient.
    */
-  public static void removeExcludes(
-      Set<String> paths, Collection<String> excludes, boolean caseSensitive) {
+  public static void removeExcludes(Set<String> paths, Collection<String> excludes) {
     ArrayList<String> complexPatterns = new ArrayList<>(excludes.size());
     Map<String, List<String>> starstarSlashStarHeadTailPairs = new HashMap<>();
     for (String exclude : excludes) {
       if (isWildcardFree(exclude)) {
-        if (caseSensitive) {
-          paths.remove(exclude);
-        } else {
-          paths.removeIf(p -> Ascii.equalsIgnoreCase(p, exclude));
-        }
+        paths.remove(exclude);
         continue;
       }
       int patternPos = exclude.indexOf("**/*");
@@ -912,9 +890,9 @@ public final class UnixGlob {
     for (Map.Entry<String, List<String>> headTailPair : starstarSlashStarHeadTailPairs.entrySet()) {
       paths.removeIf(
           path -> {
-            if (startsWithCase(path, headTailPair.getKey(), caseSensitive)) {
+            if (path.startsWith(headTailPair.getKey())) {
               for (String tail : headTailPair.getValue()) {
-                if (endsWithCase(path, tail, caseSensitive)) {
+                if (path.endsWith(tail)) {
                   return true;
                 }
               }
@@ -931,7 +909,7 @@ public final class UnixGlob {
         path -> {
           String[] segments = Iterables.toArray(Splitter.on('/').split(path), String.class);
           for (String[] splitPattern : splitPatterns) {
-            if (matchesPattern(splitPattern, segments, 0, 0, patternCache, caseSensitive)) {
+            if (matchesPattern(splitPattern, segments, 0, 0, patternCache)) {
               return true;
             }
           }
@@ -941,54 +919,24 @@ public final class UnixGlob {
 
   /** Returns true if {@code pattern} matches {@code path} starting from the given segments. */
   private static boolean matchesPattern(
-      String[] pattern,
-      String[] path,
-      int i,
-      int j,
-      Map<String, Pattern> patternCache,
-      boolean caseSensitive) {
+      String[] pattern, String[] path, int i, int j, Map<String, Pattern> patternCache) {
     if (i == pattern.length) {
       return j == path.length;
     }
     if (pattern[i].equals("**")) {
-      return matchesPattern(pattern, path, i + 1, j, patternCache, caseSensitive)
-          || (j < path.length
-              && matchesPattern(pattern, path, i, j + 1, patternCache, caseSensitive));
+      return matchesPattern(pattern, path, i + 1, j, patternCache)
+          || (j < path.length && matchesPattern(pattern, path, i, j + 1, patternCache));
     }
     if (j == path.length) {
       return false;
     }
-    if (matches(pattern[i], path[j], patternCache, caseSensitive)) {
-      return matchesPattern(pattern, path, i + 1, j + 1, patternCache, caseSensitive);
+    if (matches(pattern[i], path[j], patternCache)) {
+      return matchesPattern(pattern, path, i + 1, j + 1, patternCache);
     }
     return false;
   }
 
   private static boolean isWildcardFree(String pattern) {
     return !pattern.contains("*") && !pattern.contains("?");
-  }
-
-  @VisibleForTesting
-  static boolean startsWithCase(String s, String p, boolean caseSensitive) {
-    if (caseSensitive) {
-      return s.startsWith(p);
-    } else {
-      return s.length() >= p.length() && s.regionMatches(true, 0, p, 0, p.length());
-    }
-  }
-
-  @VisibleForTesting
-  static boolean endsWithCase(String s, String p, boolean caseSensitive) {
-    if (caseSensitive) {
-      return s.endsWith(p);
-    } else {
-      return s.length() >= p.length()
-          && s.regionMatches(true, s.length() - p.length(), p, 0, p.length());
-    }
-  }
-
-  @VisibleForTesting
-  static boolean isAlphaAscii(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
   }
 }

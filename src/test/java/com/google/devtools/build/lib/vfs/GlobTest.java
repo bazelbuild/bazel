@@ -285,7 +285,7 @@ public class GlobTest {
 
   @Test
   public void testMatchesCallWithNoCache() {
-    assertThat(UnixGlob.matches("*a*b", "CaCb", null, true)).isTrue();
+    assertThat(UnixGlob.matches("*a*b", "CaCb", null)).isTrue();
   }
 
   @Test
@@ -297,11 +297,11 @@ public class GlobTest {
   public void testMatcherMethodRecursiveBelowDir() throws Exception {
     FileSystemUtils.createEmptyFile(tmpPath.getRelative("foo/file"));
     String pattern = "foo/**/*";
-    assertThat(UnixGlob.matches(pattern, "foo/bar", true)).isTrue();
-    assertThat(UnixGlob.matches(pattern, "foo/bar/baz", true)).isTrue();
-    assertThat(UnixGlob.matches(pattern, "foo", true)).isFalse();
-    assertThat(UnixGlob.matches(pattern, "foob", true)).isFalse();
-    assertThat(UnixGlob.matches("**/foo", "foo", true)).isTrue();
+    assertThat(UnixGlob.matches(pattern, "foo/bar")).isTrue();
+    assertThat(UnixGlob.matches(pattern, "foo/bar/baz")).isTrue();
+    assertThat(UnixGlob.matches(pattern, "foo")).isFalse();
+    assertThat(UnixGlob.matches(pattern, "foob")).isFalse();
+    assertThat(UnixGlob.matches("**/foo", "foo")).isTrue();
   }
 
   @Test
@@ -440,7 +440,7 @@ public class GlobTest {
 
   private Collection<String> removeExcludes(ImmutableList<String> paths, String... excludes) {
     HashSet<String> pathSet = new HashSet<>(paths);
-    UnixGlob.removeExcludes(pathSet, ImmutableList.copyOf(excludes), true);
+    UnixGlob.removeExcludes(pathSet, ImmutableList.copyOf(excludes));
     return pathSet;
   }
 

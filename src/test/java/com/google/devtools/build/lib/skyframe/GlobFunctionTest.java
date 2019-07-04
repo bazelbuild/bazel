@@ -544,7 +544,7 @@ public abstract class GlobFunctionTest {
 
   @Test
   public void testMatchesCallWithNoCache() {
-    assertThat(UnixGlob.matches("*a*b", "CaCb", null, true)).isTrue();
+    assertThat(UnixGlob.matches("*a*b", "CaCb", null)).isTrue();
   }
 
   @Test

@@ -1011,13 +1011,7 @@ public class PackageFunction implements SkyFunction {
         if (legacyIncludesToken != null) {
           matches.addAll(delegate.fetch(legacyIncludesToken));
         }
-
-        // TODO(laszlocsomor): set `caseSensitive` from the value of
-        // `--incompatible_windows_case_insensitive_glob` or from FileSystem.isGlobCaseSensitive()
-        // See https://github.com/bazelbuild/bazel/issues/8767
-        final boolean caseSensitive = true;
-
-        UnixGlob.removeExcludes(matches, excludes, caseSensitive);
+        UnixGlob.removeExcludes(matches, excludes);
         List<String> result = new ArrayList<>(matches);
         // Skyframe glob results are unsorted. And we used a LegacyGlobber that doesn't sort.
         // Therefore, we want to unconditionally sort here.

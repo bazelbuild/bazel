@@ -255,13 +255,7 @@ public class GlobCache {
       }
       results.addAll(items);
     }
-
-    // TODO(laszlocsomor): set `caseSensitive` from the value of
-    // `--incompatible_windows_case_insensitive_glob` or from FileSystem.isGlobCaseSensitive()
-    // See https://github.com/bazelbuild/bazel/issues/8767
-    final boolean caseSensitive = true;
-
-    UnixGlob.removeExcludes(results, excludes, caseSensitive);
+    UnixGlob.removeExcludes(results, excludes);
     if (!allowEmpty && results.isEmpty()) {
       throw new BadGlobException(
           "all files in the glob have been excluded, but allow_empty is set to False.");
