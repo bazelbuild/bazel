@@ -558,11 +558,15 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     if (EvalUtils.toBoolean(useDefaultShellEnv)) {
       builder.useDefaultShellEnvironment();
     }
-
-    ImmutableMap<String, String> executionInfo =
-        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, ruleContext.getRule());
-    builder.setExecutionInfo(executionInfo);
-
+    if (executionRequirementsUnchecked != Runtime.NONE) {
+      builder.setExecutionInfo(
+          TargetUtils.filter(
+              SkylarkDict.castSkylarkDictOrNoneToDict(
+                  executionRequirementsUnchecked,
+                  String.class,
+                  String.class,
+                  "execution_requirements")));
+    }
     if (inputManifestsUnchecked != Runtime.NONE) {
       for (RunfilesSupplier supplier : SkylarkList.castSkylarkListOrNoneToList(
           inputManifestsUnchecked, RunfilesSupplier.class, "runfiles suppliers")) {

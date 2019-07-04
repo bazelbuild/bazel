@@ -699,14 +699,6 @@ sh_test(
 )
 
 sh_test(
-    name = "tags_propagation_skylark_test",
-    size = "large",
-    srcs = ["tag_propagation_skylark_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "disk_cache_test",
     size = "small",
     srcs = ["disk_cache_test.sh"],
