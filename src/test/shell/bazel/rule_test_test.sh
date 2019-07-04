@@ -175,4 +175,59 @@ EOF
   bazel build //:turtle_rule_test &> $TEST_log || fail "turtle_rule_test failed"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/8723
+#
+# rule_test() is a macro that expands to a sh_test and _rule_test_rule.
+# Expect that:
+# * test- and build-rule attributes (e.g. "tags") are applied to both rules,
+# * test-only attributes are applied only to the sh_rule,
+# * the build rule has its own visibility
+function test_kwargs_with_macro_rules() {
+  create_new_workspace
+  cat > BUILD <<'EOF'
+load("@bazel_tools//tools/build_rules:test_rules.bzl", "rule_test")
+
+genrule(
+    name = "x",
+    srcs = ["@does_not_exist//:bad"],
+    outs = ["x.out"],
+    cmd = "touch $@",
+    tags = ["dont_build_me"],
+)
+
+rule_test(
+    name = "x_test",
+    rule = "//:x",
+    generates = ["x.out"],
+    visibility = ["//foo:__pkg__"],
+    tags = ["dont_build_me"],
+    args = ["x"],
+    flaky = False,
+    local = True,
+    shard_count = 2,
+    size = "small",
+    timeout = "short",
+)
+EOF
+
+  bazel build //:all >& "$TEST_log" && fail "should have failed" || true
+
+  bazel build --build_tag_filters=-dont_build_me //:all >& "$TEST_log" || fail "build failed"
+
+  bazel query --output=label 'attr(tags, dont_build_me, //:all)' >& "$TEST_log" || fail "query failed"
+  expect_log '//:x_test_impl'
+  expect_log '//:x_test\b'
+  expect_log '//:x\b'
+
+  bazel query --output=label 'attr(visibility, private, //:all)' >& "$TEST_log" || fail "query failed"
+  expect_log '//:x_test_impl'
+  expect_not_log '//:x_test\b'
+  expect_not_log '//:x\b'
+
+  bazel query --output=label 'attr(visibility, foo, //:all)' >& "$TEST_log" || fail "query failed"
+  expect_log '//:x_test\b'
+  expect_not_log '//:x_test_impl'
+  expect_not_log '//:x\b'
+}
+
 run_suite "rule_test tests"
