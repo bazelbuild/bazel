@@ -178,8 +178,10 @@ EOF
 # Regression test for https://github.com/bazelbuild/bazel/issues/8723
 #
 # rule_test() is a macro that expands to a sh_test and _rule_test_rule.
-# Expect that rule_tags(..., tags) is applied to both rules, but rule_tags(..., visibility) is only
-# applied to the sh_test because _rule_test_rule should be private.
+# Expect that:
+# * test- and build-rule attributes (e.g. "tags") are applied to both rules,
+# * test-only attributes are applied only to the sh_rule,
+# * the build rule has its own visibility
 function test_kwargs_with_macro_rules() {
   create_new_workspace
   cat > BUILD <<'EOF'
@@ -199,6 +201,12 @@ rule_test(
     generates = ["x.out"],
     visibility = ["//foo:__pkg__"],
     tags = ["dont_build_me"],
+    args = ["x"],
+    flaky = False,
+    local = True,
+    shard_count = 2,
+    size = "small",
+    timeout = "short",
 )
 EOF
 

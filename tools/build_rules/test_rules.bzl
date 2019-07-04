@@ -35,10 +35,25 @@ def _make_sh_test(name, **kwargs):
         **kwargs
     )
 
-def _merge_dicts(d1, d2):
+_TEST_ATTRS = {
+    "args": None,
+    "size": None,
+    "timeout": None,
+    "flaky": None,
+    "local": None,
+    "shard_count": None,
+}
+
+def _helper_rule_attrs(test_attrs, own_attrs):
     r = {}
-    r.update(d1)
-    r.update(d2)
+    r.update({k: v for k, v in test_attrs.items() if k not in _TEST_ATTRS})
+    r.update(own_attrs)
+    r.update(
+        dict(
+            testonly = 1,
+            visibility = ["//visibility:private"],
+        ),
+    )
     return r
 
 ### First, trivial tests that either always pass, always fail,
@@ -81,14 +96,12 @@ _successful_rule = rule(
 
 def successful_test(name, msg, **kwargs):
     _successful_rule(
-        **_merge_dicts(
+        **_helper_rule_attrs(
             kwargs,
             dict(
                 name = name + "_impl",
                 msg = msg,
                 out = name + "_impl.sh",
-                testonly = 1,
-                visibility = ["//visibility:private"],
             ),
         )
     )
@@ -132,14 +145,12 @@ _failed_rule = rule(
 
 def failed_test(name, msg, **kwargs):
     _failed_rule(
-        **_merge_dicts(
+        **_helper_rule_attrs(
             kwargs,
             dict(
                 name = name + "_impl",
                 msg = msg,
                 out = name + "_impl.sh",
-                testonly = 1,
-                visibility = ["//visibility:private"],
             ),
         )
     )
@@ -322,7 +333,7 @@ _rule_test_rule = rule(
 
 def rule_test(name, rule, generates = None, provides = None, **kwargs):
     _rule_test_rule(
-        **_merge_dicts(
+        **_helper_rule_attrs(
             kwargs,
             dict(
                 name = name + "_impl",
@@ -330,8 +341,6 @@ def rule_test(name, rule, generates = None, provides = None, **kwargs):
                 generates = generates,
                 provides = provides,
                 out = name + ".sh",
-                testonly = 1,
-                visibility = ["//visibility:private"],
             ),
         )
     )
@@ -393,7 +402,7 @@ _file_test_rule = rule(
 
 def file_test(name, file, content = None, regexp = None, matches = None, **kwargs):
     _file_test_rule(
-        **_merge_dicts(
+        **_helper_rule_attrs(
             kwargs,
             dict(
                 name = name + "_impl",
@@ -402,8 +411,6 @@ def file_test(name, file, content = None, regexp = None, matches = None, **kwarg
                 regexp = regexp or "",
                 matches = matches if (matches != None) else -1,
                 out = name + "_impl.sh",
-                testonly = 1,
-                visibility = ["//visibility:private"],
             ),
         )
     )
