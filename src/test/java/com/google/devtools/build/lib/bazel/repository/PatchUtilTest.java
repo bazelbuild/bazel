@@ -513,7 +513,10 @@ public class PatchUtilTest {
             PatchFailedException.class,
             () -> PatchUtil.apply(patchFile, 1, root));
     assertThat(expected).hasMessageThat()
-        .contains("Incorrect Chunk: the chunk content doesn't match the target");
+        .contains("Incorrect Chunk: the chunk content doesn't match the target\n"
+            + "Failed to apply delta:\n"
+            + "    [ChangeDelta, position: 1, lines: [, void main(){,   printf(\"Hello bar\");, }] "
+            + "to [, void main(){,   printf(\"Hello bar\");,   printf(\"Hello from patch\");, }]]");
   }
 
   @Test
@@ -541,7 +544,7 @@ public class PatchUtilTest {
             PatchFailedException.class,
             () -> PatchUtil.apply(patchFile, 1, root));
     assertThat(expected).hasMessageThat()
-        .contains("Wrong chunk detected near line 11:  }, does not expect an equal line here.");
+        .contains("Wrong chunk detected near line 11:  }, does not expect a context line here.");
   }
 
   @Test
@@ -568,5 +571,32 @@ public class PatchUtilTest {
             () -> PatchUtil.apply(patchFile, 1, root));
     assertThat(expected).hasMessageThat()
         .contains("Expecting more chunk line at line 10");
+  }
+
+  @Test
+  public void testWrongChunkFormat3() throws IOException {
+    Path foo = scratch.file("/root/foo.cc",
+        "#include <stdio.h>",
+        "",
+        "void main(){",
+        "  printf(\"Hello foo\");",
+        "}");
+    Path patchFile = scratch.file("/root/patchfile",
+        "diff --git a/foo.cc b/foo.cc",
+        "index f3008f9..ec4aaa0 100644",
+        "--- a/foo.cc",
+        "+++ b/foo.cc",
+        // Missing @@ -l,s +l,s @@ line
+        " ",
+        " void main(){",
+        "   printf(\"Hello foo\");",
+        "+  printf(\"Hello from patch\");",
+        " }");
+    PatchFailedException expected =
+        assertThrows(
+            PatchFailedException.class,
+            () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat()
+        .contains("Looks like a unified diff at line 3, but no patch chunk was found.");
   }
 }

@@ -331,11 +331,17 @@ public class PatchUtil {
       throws PatchFailedException {
     // If the patchContent is not empty, it should have correct format.
     if (!patchContent.isEmpty()) {
+      if (header == null) {
+        throw new PatchFailedException(
+            String.format(
+                "Looks like a unified diff at line %d, but no patch chunk was found.", loc));
+      }
       Result result = header.check(oldLineCount, newLineCount);
       // result will never be Result.Error here because it would have been throw in previous
       // line already.
       if (result == Result.CONTINUE) {
-        throw new PatchFailedException("Expecting more chunk line at line " + loc);
+        throw new PatchFailedException(
+            String.format("Expecting more chunk line at line %d", loc + patchContent.size()));
       }
     }
   }
@@ -469,7 +475,7 @@ public class PatchUtil {
           } else if (result == Result.ERROR) {
             throw new PatchFailedException(
                 "Wrong chunk detected near line " + (i + 1) + ": " + line +
-                    ", does not expect an adding line here.");
+                    ", does not expect an added line here.");
           }
           break;
         case CHUNK_DEL:
@@ -481,7 +487,7 @@ public class PatchUtil {
           } else if (result == Result.ERROR) {
             throw new PatchFailedException(
                 "Wrong chunk detected near line " + (i + 1) + ": " + line +
-                    ", does not expect a deleting line here.");
+                    ", does not expect a deleted line here.");
           }
           break;
         case CHUNK_EQL:
@@ -494,7 +500,7 @@ public class PatchUtil {
           } else if (result == Result.ERROR) {
             throw new PatchFailedException(
                 "Wrong chunk detected near line " + (i + 1) + ": " + line +
-                    ", does not expect an equal line here.");
+                    ", does not expect a context line here.");
           }
           break;
         case RENAME_FROM:
@@ -533,9 +539,10 @@ public class PatchUtil {
 
           if (!patchContent.isEmpty() || isRenaming) {
             // We collected something useful, let's do some sanity checks before applying the patch.
-            checkPatchContentIsComplete(patchContent, header, oldLineCount, newLineCount, i + 1);
-
             int patchStartLocation = i + 1 - patchContent.size();
+
+            checkPatchContentIsComplete(
+                patchContent, header, oldLineCount, newLineCount, patchStartLocation);
 
             if (isRenaming) {
               checkFilesStatusForRenaming(
@@ -550,6 +557,7 @@ public class PatchUtil {
           }
 
           patchContent.clear();
+          header = null;
           oldFileStr = null;
           newFileStr = null;
           oldFile = null;
