@@ -18,11 +18,23 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.Rule;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Strings used to express requirements on action execution environments.
+ *
+ * <ol>
+ *   If you are adding a new execution requirement, pay attention to the following:
+ *   <li>If its name starts with one of the supported prefixes, then it can be also used as a tag on
+ *       a target and will be propagated to the execution requirements, see for prefixes {@link
+ *       com.google.devtools.build.lib.packages.TargetUtils#getExecutionInfo(Rule)}
+ *   <li>If this is a potentially conflicting execution requirements, e.g. you are adding a pair
+ *       'requires-x' and 'block-x', you MUST take care of a potential conflict in the Executor that
+ *       is using new execution requirements. As an example, see {@link
+ *       Spawns#requiresNetwork(com.google.devtools.build.lib.actions.Spawn, boolean)}.
+ * </ol>
  */
 public class ExecutionRequirements {
 

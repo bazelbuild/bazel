@@ -11,6 +11,7 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",
     "vfs/PathFragmentWindowsTest.java",
+    "vfs/WindowsGlobTest.java",
     "vfs/WindowsPathTest.java",
 ]
 

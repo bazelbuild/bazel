@@ -158,14 +158,6 @@ public class CompilationSupport {
   static final String ABSOLUTE_INCLUDES_PATH_FORMAT =
       "The path '%s' is absolute, but only relative paths are allowed.";
 
-  @VisibleForTesting
-  static final ImmutableList<String> LINKER_COVERAGE_FLAGS =
-      ImmutableList.of("-ftest-coverage", "-fprofile-arcs");
-
-  @VisibleForTesting
-  static final ImmutableList<String> LINKER_LLVM_COVERAGE_FLAGS =
-      ImmutableList.of("-fprofile-instr-generate");
-
   // Flags for clang 6.1(xcode 6.4)
   @VisibleForTesting
   static final ImmutableList<String> CLANG_GCOV_COVERAGE_FLAGS =
@@ -298,7 +290,8 @@ public class CompilationSupport {
       // TODO(b/70777494): Find out how deps get used and remove if not needed.
       Iterable<? extends TransitiveInfoCollection> deps,
       ObjcCppSemantics semantics,
-      String purpose)
+      String purpose,
+      boolean generateModuleMap)
       throws RuleErrorException {
     CcCompilationHelper result =
         new CcCompilationHelper(
@@ -344,7 +337,7 @@ public class CompilationSupport {
       result.addNonModuleMapHeader(pchHdr);
     }
 
-    if (getCustomModuleMap(ruleContext).isPresent()) {
+    if (getCustomModuleMap(ruleContext).isPresent() || !generateModuleMap) {
       result.doNotGenerateModuleMap();
     }
 
@@ -394,7 +387,8 @@ public class CompilationSupport {
             pchHdr,
             deps,
             semantics,
-            purpose);
+            purpose,
+            /* generateModuleMap= */ true);
 
     purpose = String.format("%s_non_objc_arc", semantics.getPurpose());
     extensionBuilder.setArcEnabled(false);
@@ -412,7 +406,9 @@ public class CompilationSupport {
             pchHdr,
             deps,
             semantics,
-            purpose);
+            purpose,
+            // Only generate the module map once (see above) and re-use it here.
+            /* generateModuleMap= */ false);
 
     FeatureConfiguration featureConfiguration =
         getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider);

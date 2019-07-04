@@ -71,6 +71,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/stubs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",

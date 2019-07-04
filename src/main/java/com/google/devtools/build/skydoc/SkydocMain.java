@@ -52,6 +52,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
+import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -548,7 +550,11 @@ public class SkydocMain {
             new FakeJavaCcLinkParamsProvider.Provider());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     ProtoBootstrap protoBootstrap =
-        new ProtoBootstrap(new FakeProtoInfoApiProvider(), new FakeProtoModule());
+        new ProtoBootstrap(
+            new FakeProtoInfoApiProvider(),
+            new FakeProtoModule(),
+            new SkylarkAspectStub(),
+            new ProviderStub());
     PyBootstrap pyBootstrap =
         new PyBootstrap(new FakePyInfoProvider(), new FakePyRuntimeInfoProvider());
     RepositoryBootstrap repositoryBootstrap =
@@ -599,7 +605,6 @@ public class SkydocMain {
     ProguardMappingProviderApi.NAME,
     GeneratedExtensionRegistryProviderApi.NAME,
     AndroidBinaryDataInfoApi.NAME,
-    "ProtoRegistryAspect",
     "JspbInfo",
   };
 

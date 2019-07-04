@@ -100,6 +100,8 @@ import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
+import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -253,7 +255,11 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ProtoLangToolchainRule());
 
           ProtoBootstrap bootstrap =
-              new ProtoBootstrap(ProtoInfo.PROVIDER, BazelProtoModule.INSTANCE);
+              new ProtoBootstrap(
+                  ProtoInfo.PROVIDER,
+                  BazelProtoModule.INSTANCE,
+                  new SkylarkAspectStub(),
+                  new ProviderStub());
           builder.addSkylarkBootstrap(bootstrap);
         }
 

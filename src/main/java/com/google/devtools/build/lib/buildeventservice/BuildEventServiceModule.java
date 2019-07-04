@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatus.Status;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -70,7 +69,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -101,7 +99,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   private BuildEventProtocolOptions bepOptions;
   private AuthAndTLSOptions authTlsOptions;
   private BuildEventStreamOptions besStreamOptions;
-  private boolean useExperimentalUi;
   private boolean isRunsPerTestOverTheLimit;
 
   /**
@@ -298,9 +295,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         Preconditions.checkNotNull(parsingResult.getOptions(AuthAndTLSOptions.class));
     this.besStreamOptions =
         Preconditions.checkNotNull(parsingResult.getOptions(BuildEventStreamOptions.class));
-    this.useExperimentalUi =
-        Preconditions.checkNotNull(parsingResult.getOptions(BlazeCommandEventHandler.Options.class))
-            .experimentalUi;
     this.isRunsPerTestOverTheLimit =
         parsingResult.getOptions(TestOptions.class) != null
             && parsingResult.getOptions(TestOptions.class).runsPerTest.stream()
@@ -428,16 +422,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     }
   }
 
-  private void reportWaitingForBesMessage(Instant startTime) {
-    reporter.handle(
-        Event.progress(
-            "Waiting for Build Event Protocol upload. Waited "
-                + Duration.between(startTime, Instant.now()).getSeconds()
-                + "s, waiting at most "
-                + besOptions.besTimeout.getSeconds()
-                + "s."));
-  }
-
   private void waitForBuildEventTransportsToClose() throws AbruptExitException {
     final ScheduledExecutorService executor =
         Executors.newSingleThreadScheduledExecutor(
@@ -445,25 +429,14 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     ScheduledFuture<?> waitMessageFuture = null;
 
     try {
-      if (useExperimentalUi) {
-        // Notify the UI handler when a transport finished closing.
-        closeFuturesWithTimeoutsMap.forEach(
-            (bepTransport, closeFuture) ->
-                closeFuture.addListener(
-                    () -> {
-                      reporter.post(new BuildEventTransportClosedEvent(bepTransport));
-                    },
-                    executor));
-      } else {
-        reporter.handle(Event.progress("Waiting for Build Event Protocol upload..."));
-        Instant startTime = Instant.now();
-        waitMessageFuture =
-            executor.scheduleAtFixedRate(
-                () -> reportWaitingForBesMessage(startTime),
-                /* initialDelay = */ 0,
-                /* period = */ 1,
-                TimeUnit.SECONDS);
-      }
+      // Notify the UI handler when a transport finished closing.
+      closeFuturesWithTimeoutsMap.forEach(
+          (bepTransport, closeFuture) ->
+              closeFuture.addListener(
+                  () -> {
+                    reporter.post(new BuildEventTransportClosedEvent(bepTransport));
+                  },
+                  executor));
 
       try (AutoProfiler p = AutoProfiler.logged("waiting for BES close", logger)) {
         Uninterruptibles.getUninterruptibly(

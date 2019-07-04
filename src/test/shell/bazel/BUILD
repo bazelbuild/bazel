@@ -365,6 +365,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_rules_java_test",
+    srcs = ["bazel_rules_java_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_test_test",
     timeout = "long",
     srcs = ["bazel_test_test.sh"],
@@ -685,6 +694,14 @@ sh_test(
     name = "skylark_rule_test",
     size = "large",
     srcs = ["skylark_rule_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "tags_propagation_skylark_test",
+    size = "large",
+    srcs = ["tag_propagation_skylark_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )

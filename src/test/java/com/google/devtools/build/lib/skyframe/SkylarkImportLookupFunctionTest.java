@@ -274,21 +274,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfSamePkg() throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_disallow_load_labels_to_cross_package_boundaries");
-
-    scratch.file("a/BUILD");
-    scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
-    scratch.file("a/b/BUILD", "");
-    scratch.file("a/b/b.bzl", "b = 42");
-
-    checkSuccessfulLookup("//a:a.bzl");
-  }
-
-  @Test
   public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfSamePkg() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
-
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
     scratch.file("a/b/BUILD", "");
@@ -313,23 +299,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfDifferentPkgUnder()
-      throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_disallow_load_labels_to_cross_package_boundaries");
-    scratch.file("a/BUILD");
-    scratch.file("a/a.bzl", "load('//a/b:c/c.bzl', 'c')");
-    scratch.file("a/b/BUILD", "");
-    scratch.file("a/b/c/BUILD", "");
-    scratch.file("a/b/c/c.bzl", "c = 42");
-
-    checkSuccessfulLookup("//a:a.bzl");
-  }
-
-  @Test
   public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfDifferentPkgUnder()
       throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
-
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a/b:c/c.bzl', 'c')");
     scratch.file("a/b/BUILD", "");
@@ -355,45 +326,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfDifferentPkgAbove()
-      throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_disallow_load_labels_to_cross_package_boundaries");
-    scratch.file("a/b/BUILD");
-    scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
-    scratch.file("a/BUILD");
-    scratch.file("a/c/c/c.bzl", "c = 42");
-
-    // With the default of
-    // --incompatible_disallow_load_labels_to_cross_subpackage_boundaries=false,
-    // SkylarkImportLookupValue(//a/b:b.bzl) has an error because ASTFileLookupValue(//a/c:c/c.bzl)
-    // because package //a/c doesn't exist. The behavior with
-    // --incompatible_disallow_load_labels_to_cross_subpackage_boundaries=true is stricter, but we
-    // still have an explicit test for this case so that way we don't forget to think about it when
-    // we address the TODO in ASTFileLookupFunction.
-
-    SkyKey skylarkImportLookupKey = key("//a/b:b.bzl");
-    EvaluationResult<SkylarkImportLookupValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
-        .hasExceptionThat()
-        .isInstanceOf(SkylarkImportFailedException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains(
-            "Unable to load package for '//a/c:c/c.bzl': BUILD file not "
-                + "found on package path");
-  }
-
-  @Test
   public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfDifferentPkgAbove()
       throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
-
     scratch.file("a/b/BUILD");
     scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
     scratch.file("a/BUILD");
@@ -420,8 +354,6 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   @Test
   public void testWithNonExistentRepository_And_DisallowLoadUsingLabelThatCrossesBoundaryOfPackage()
       throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
-
     scratch.file("BUILD", "load(\"@repository//dir:file.bzl\", \"foo\")");
 
     SkyKey skylarkImportLookupKey = key("@repository//dir:file.bzl");

@@ -1,7 +1,6 @@
 # Description:
-#   This package contains interfaces representing the skylark "build API"
-#   (but not the implementation of that API). Ultimately, this package
-#   may be broken out of the Bazel package hierarchy to be standalone.
+#   This package contains stubs for the starlark "build API".
+#   Ultimately, this package may be broken out of the Bazel package hierarchy to be standalone.
 #   Thus, this package should not depend on Bazel-specific packages (only
 #   those which contain pure-Skylark concepts, such as the interpreter or
 #   annotation interfaces).
@@ -16,15 +15,10 @@ filegroup(
 )
 
 java_library(
-    name = "proto",
+    name = "stubs",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )

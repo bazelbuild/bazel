@@ -67,33 +67,48 @@ public abstract class CompressedTarFunction implements Decompressor {
           continue;
         }
 
-        Path filename = descriptor.repositoryPath().getRelative(entryPath.getPathFragment());
-        FileSystemUtils.createDirectoryAndParents(filename.getParentDirectory());
+        Path filePath = descriptor.repositoryPath().getRelative(entryPath.getPathFragment());
+        FileSystemUtils.createDirectoryAndParents(filePath.getParentDirectory());
         if (entry.isDirectory()) {
-          FileSystemUtils.createDirectoryAndParents(filename);
+          FileSystemUtils.createDirectoryAndParents(filePath);
         } else {
           if (entry.isSymbolicLink() || entry.isLink()) {
-            PathFragment linkName = PathFragment.create(entry.getLinkName());
-            linkName = maybeDeprefixSymlink(linkName, prefix, descriptor.repositoryPath());
-            if (filename.exists()) {
-              filename.delete();
-            }
+            PathFragment targetName = PathFragment.create(entry.getLinkName());
+            targetName = maybeDeprefixSymlink(targetName, prefix, descriptor.repositoryPath());
             if (entry.isSymbolicLink()) {
-              FileSystemUtils.ensureSymbolicLink(filename, linkName);
+              if (filePath.exists()) {
+                filePath.delete();
+              }
+              FileSystemUtils.ensureSymbolicLink(filePath, targetName);
             } else {
-              FileSystemUtils.createHardLink(
-                  filename, descriptor.repositoryPath().getRelative(linkName));
+              Path targetPath = descriptor.repositoryPath().getRelative(targetName);
+              if (filePath.equals(targetPath)) {
+                // The behavior here is semantically different, depending on whether the underlying
+                // filesystem is case-sensitive or case-insensitive. However, it is effectively the
+                // same: we drop the link entry.
+                // * On a case-sensitive filesystem, this is a hardlink to itself, such as GNU tar
+                //   creates when given repeated files. We do nothing since the link already exists.
+                // * On a case-insensitive filesystem, we may be extracting a differently-cased
+                //   hardlink to the same file (such as when extracting an archive created on a
+                //   case-sensitive filesystem). GNU tar, for example, will drop the new link entry.
+                //   BSD tar on MacOS X (by default case-insensitive) errors and aborts extraction.
+              } else {
+                if (filePath.exists()) {
+                  filePath.delete();
+                }
+                FileSystemUtils.createHardLink(filePath, targetPath);
+              }
             }
           } else {
-            try (OutputStream out = filename.getOutputStream()) {
+            try (OutputStream out = filePath.getOutputStream()) {
               ByteStreams.copy(tarStream, out);
             }
-            filename.chmod(entry.getMode());
+            filePath.chmod(entry.getMode());
 
             // This can only be done on real files, not links, or it will skip the reader to
             // the next "real" file to try to find the mod time info.
             Date lastModified = entry.getLastModifiedDate();
-            filename.setLastModifiedTime(lastModified.getTime());
+            filePath.setLastModifiedTime(lastModified.getTime());
           }
         }
         if (Thread.interrupted()) {

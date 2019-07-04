@@ -160,8 +160,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowLegacyJavaInfo();
 
-  public abstract boolean incompatibleDisallowLoadLabelsToCrossPackageBoundaries();
-
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
   public abstract boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed();
@@ -258,7 +256,6 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowEmptyGlob(false)
           .incompatibleDisallowLegacyJavaProvider(false)
           .incompatibleDisallowLegacyJavaInfo(false)
-          .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(true)
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
           .incompatibleDisallowStructProviderSyntax(false)
@@ -325,8 +322,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowLegacyJavaProvider(boolean value);
 
     public abstract Builder incompatibleDisallowLegacyJavaInfo(boolean value);
-
-    public abstract Builder incompatibleDisallowLoadLabelsToCrossPackageBoundaries(boolean value);
 
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 
