@@ -108,7 +108,7 @@ public class PatchUtilTest {
 
   @Test
   public void testApplyToOldFile() throws IOException, PatchFailedException {
-    // If both oldfile and newfile exits, we should patch the old file.
+    // If both oldfile and newfile exist, we should patch the old file.
     Path oldFile = scratch.file("/root/oldfile", "line one");
     Path newFile = scratch.file("/root/newfile", "line one");
     Path patchFile = scratch.file("/root/patchfile",
@@ -129,7 +129,7 @@ public class PatchUtilTest {
 
   @Test
   public void testApplyToNewFile() throws IOException, PatchFailedException {
-    // If only newfile exits, we should patch the new file.
+    // If only newfile exists, we should patch the new file.
     Path newFile = scratch.file("/root/newfile", "line one");
     Path patchFile = scratch.file("/root/patchfile",
         "--- oldfile",
@@ -368,7 +368,7 @@ public class PatchUtilTest {
             PatchFailedException.class,
             () -> PatchUtil.apply(patchFile, 2, root)); // strip=2 is wrong
     assertThat(expected).hasMessageThat()
-        .contains("Cannot determine file name with strip = 2 from line:\n--- a/foo.cc");
+        .contains("Cannot determine file name with strip = 2 at line 3:\n--- a/foo.cc");
   }
 
   @Test
@@ -382,12 +382,31 @@ public class PatchUtilTest {
   }
 
   @Test
+  public void testMissingBothOldAndNewFile() throws IOException {
+    Path patchFile = scratch.file("/root/patchfile",
+        "diff --git a/foo.cc b/foo.cc",
+        "index f3008f9..ec4aaa0 100644",
+        "@@ -2,4 +2,5 @@",
+        " ",
+        " void main(){",
+        "   printf(\"Hello foo\");",
+        "+  printf(\"Hello from patch\");",
+        " }");
+    PatchFailedException expected =
+        assertThrows(
+            PatchFailedException.class,
+            () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat()
+        .contains("Wrong patch format near line 3, neither new file or old file are specified.");
+  }
+
+  @Test
   public void testCannotFindFileToPatch() throws IOException {
     Path patchFile = scratch.file("/root/patchfile",
         "diff --git a/foo.cc b/foo.cc",
         "index f3008f9..ec4aaa0 100644",
         "--- a/foo.cc",
-        "+++ b/foo.cc",
+        "+++ /dev/null",
         "@@ -2,4 +2,5 @@",
         " ",
         " void main(){",
@@ -400,7 +419,51 @@ public class PatchUtilTest {
             () -> PatchUtil.apply(patchFile, 1, root));
     assertThat(expected).hasMessageThat()
         .contains(
-            "Cannot find file to patch: old file is /root/foo.cc and new file is /root/foo.cc");
+            "Cannot find file to patch (near line 3), old file name (foo.cc) doesn't exist, "
+                + "new file name is not specified.");
+  }
+
+  @Test
+  public void testCannotRenameFile() throws IOException {
+    Path patchFile = scratch.file("/root/patchfile",
+        "diff --git a/bar.cc b/bar.cpp",
+        "similarity index 61%",
+        "rename from bar.cc",
+        "rename to bar.cpp",
+        "index e77137b..9e35ee4 100644",
+        "--- a/bar.cc",
+        "+++ b/bar.cpp",
+        "@@ -1,3 +1,4 @@",
+        " void lib(){",
+        "   printf(\"Hello bar\");",
+        "+  printf(\"Hello cpp\");",
+        " }",
+        "diff --git a/foo.cc b/foo.cpp",
+        "similarity index 100%",
+        "rename from foo.cc",
+        "rename to foo.cpp");
+
+    PatchFailedException expected;
+    expected =
+        assertThrows(
+            PatchFailedException.class,
+            () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat()
+        .contains("Cannot rename file (near line 6), old file name (bar.cc) doesn't exist.");
+
+    scratch.file("/root/bar.cc",
+        "void lib(){",
+        "  printf(\"Hello bar\");",
+        "}");
+    scratch.file("/root/foo.cc");
+    scratch.file("/root/foo.cpp");
+
+    expected =
+        assertThrows(
+            PatchFailedException.class,
+            () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat()
+        .contains("Cannot rename file (near line 17), new file name (foo.cpp) already exists.");
   }
 
   @Test
@@ -422,7 +485,8 @@ public class PatchUtilTest {
             () -> PatchUtil.apply(patchFile, 1, root));
     assertThat(expected).hasMessageThat()
         .contains(
-            "Cannot patch file outside of external repository (/root), file path = (/other_root/foo.cc)");
+            "Cannot patch file outside of external repository (/root), "
+                + "file path = \"../other_root/foo.cc\" at line 3");
   }
 
   @Test

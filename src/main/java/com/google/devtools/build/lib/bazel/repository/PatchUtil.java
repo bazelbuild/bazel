@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -167,7 +168,7 @@ public class PatchUtil {
       "index "
   };
 
-  private static LineType getLineType(String line, boolean isReadingChunk) {
+  private static LineType getLineType(String line, boolean isReadingChunk, boolean isGitDiff) {
     if (isReadingChunk) {
       if (line.startsWith("+")) {
         return LineType.CHUNK_ADD;
@@ -188,15 +189,18 @@ public class PatchUtil {
       if (line.startsWith("diff --git ")) {
         return LineType.GIT_HEADER;
       }
-      if (line.startsWith("rename from ")) {
-        return LineType.RENAME_FROM;
-      }
-      if (line.startsWith("rename to ")) {
-        return LineType.RENAME_TO;
-      }
-      for (String prefix : GIT_LINE_PREFIXES) {
-        if (line.startsWith(prefix)) {
-          return LineType.GIT_LINE;
+      if (isGitDiff) {
+        // Only recognize the following when we saw "diff --git " before.
+        if (line.startsWith("rename from ")) {
+          return LineType.RENAME_FROM;
+        }
+        if (line.startsWith("rename to ")) {
+          return LineType.RENAME_TO;
+        }
+        for (String prefix : GIT_LINE_PREFIXES) {
+          if (line.startsWith(prefix)) {
+            return LineType.GIT_LINE;
+          }
         }
       }
     }
@@ -219,34 +223,15 @@ public class PatchUtil {
     FileSystemUtils.writeLinesAs(file, StandardCharsets.UTF_8, content);
   }
 
-  private static void applyPatchToFile(List<String> patchContent, Path oldFile, Path newFile,
+  private static void applyPatchToFile(Patch<String> patch, Path oldFile, Path newFile,
       boolean isRenaming)
       throws IOException, PatchFailedException {
-    // Neither of newFile and oldFile can be none if we should do a rename.
-    if (isRenaming && (oldFile == null || newFile == null)) {
-      String msg = "old file is " + (oldFile == null ? "not specified" : oldFile.getPathString());
-      msg += " and new file is " + (newFile == null ? "not specified" : newFile.getPathString());
-      throw new PatchFailedException("Cannot rename file without two valid file names, " + msg);
-    }
-
     // The file we should read oldContent from.
     Path inputFile = null;
     if (oldFile != null && oldFile.exists()) {
       inputFile = oldFile;
     } else if (newFile != null && newFile.exists()) {
       inputFile = newFile;
-    }
-
-    Patch<String> patch = DiffUtils.parseUnifiedDiff(patchContent);
-    // Does this patch look like adding a new file.
-    boolean isAddFile =
-        patch.getDeltas().size() == 1 && patch.getDeltas().get(0).getOriginal().getLines().isEmpty();
-
-    // If this patch is not adding a new file and we cannot find the input file, throw an error.
-    if (!isAddFile && inputFile == null) {
-      String msg = "old file is " + (oldFile == null ? "not specified" : oldFile.getPathString());
-      msg += " and new file is " + (newFile == null ? "not specified" : newFile.getPathString());
-      throw new PatchFailedException("Cannot find file to patch: " + msg);
     }
 
     List<String> oldContent;
@@ -297,32 +282,130 @@ public class PatchUtil {
     return path.substring(pos);
   }
 
-  private static Path getFilePath(String line, int strip, Path outputDirectory)
+  /**
+   * Extract the file path from a patch line starting with "--- " or "+++ "
+   * Returns null if the path is /dev/null, otherwise returns the extracted path if succeeded or
+   * throw an exception if failed.
+   * @throws PatchFailedException
+   */
+  private static String extractPath(String line, int strip, int loc)
       throws PatchFailedException {
     // The line could look like:
     // --- a/foo/bar.txt   2019-05-27 17:19:37.054593200 +0200
     // +++ b/foo/bar.txt   2019-05-27 17:19:37.054593200 +0200
-    // If strip is 1, we want get the file path as <outputDirectory>/foo/bar.txt
-    String file = null;
+    // If strip is 1, we want extract the file path as foo/bar.txt
+    Preconditions.checkArgument(line.startsWith("+++ ") || line.startsWith("--- "));
     line = line.split("\t")[0];
     if (line.length() > 4) {
-      if (line.substring(4).trim().equals("/dev/null")) {
+      String path = line.substring(4).trim();
+      if (path.equals("/dev/null")) {
         return null;
       }
-
-      file = stripPath(line.substring(4), strip);
-      if (!file.isEmpty()) {
-        Path filePath = outputDirectory.getRelative(file);
-        if (!filePath.startsWith(outputDirectory)) {
-          throw new PatchFailedException(
-              String.format("Cannot patch file outside of external repository (%s), file path = (%s)",
-                  outputDirectory.getPathString(), filePath.getPathString()));
-        }
-        return filePath;
+      path = stripPath(path, strip);
+      if (!path.isEmpty()) {
+        return path;
       }
     }
     throw new PatchFailedException(
-        "Cannot determine file name with strip = " + strip + " from line:\n" + line);
+        String.format(
+            "Cannot determine file name with strip = %d at line %d:\n%s", strip, loc, line));
+  }
+
+  private static Path getFilePath(String path, Path outputDirectory, int loc)
+      throws PatchFailedException {
+    if (path == null) {
+      return null;
+    }
+    Path filePath = outputDirectory.getRelative(path);
+    if (!filePath.startsWith(outputDirectory)) {
+      throw new PatchFailedException(
+          String.format(
+              "Cannot patch file outside of external repository (%s), file path = \"%s\" at line %d",
+              outputDirectory.getPathString(), path, loc));
+    }
+    return filePath;
+  }
+
+  private static void checkPatchContentIsComplete(
+      List<String> patchContent, ChunkHeader header, int oldLineCount, int newLineCount, int loc)
+      throws PatchFailedException {
+    // If the patchContent is not empty, it should have correct format.
+    if (!patchContent.isEmpty()) {
+      Result result = header.check(oldLineCount, newLineCount);
+      // result will never be Result.Error here because it would have been throw in previous
+      // line already.
+      if (result == Result.CONTINUE) {
+        throw new PatchFailedException("Expecting more chunk line at line " + loc);
+      }
+    }
+  }
+
+  private static void checkFilesStatusForRenaming(
+      Path oldFile, Path newFile, String oldFileStr, String newFileStr, int loc)
+      throws PatchFailedException {
+    // If we're doing a renaming,
+    // old file should be specified and exists,
+    // new file should be specified but doesn't exist yet.
+    String oldFileError = "";
+    String newFileError = "";
+    if (oldFile == null) {
+      oldFileError = ", old file name (%s) is not specified";
+    } else if (!oldFile.exists()) {
+      oldFileError = String.format(", old file name (%s) doesn't exist", oldFileStr);
+    }
+    if (newFile == null) {
+      newFileError = ", new file name is not specified";
+    } else if (newFile.exists()){
+      newFileError = String.format(", new file name (%s) already exists", newFileStr);
+    }
+    if (!oldFileError.isEmpty() || !newFileError.isEmpty()) {
+      throw new PatchFailedException(
+          String.format(
+              "Cannot rename file (near line %d)%s%s.", loc, oldFileError, newFileError));
+    }
+  }
+
+  private static void checkFilesStatusForPatching(
+      Patch<String> patch,
+      Path oldFile,
+      Path newFile,
+      String oldFileStr,
+      String newFileStr,
+      int loc) throws PatchFailedException {
+    // At least one of oldFile or newFile should be specified.
+    if (oldFile == null && newFile == null) {
+      throw new PatchFailedException(
+          String.format(
+              "Wrong patch format near line %d, neither new file or old file are specified.",
+              loc));
+    }
+
+    // Does this patch look like adding a new file.
+    boolean isAddFile =
+        patch.getDeltas().size() == 1 && patch.getDeltas().get(0).getOriginal().getLines().isEmpty();
+
+    // If this patch is not adding a new file,
+    // then either old file or new file should be specified and exists,
+    // if not we throw an error.
+    if (!isAddFile &&
+        (oldFile == null || !oldFile.exists()) &&
+        (newFile == null || !newFile.exists())) {
+      String oldFileError;
+      String newFileError;
+      if (oldFile == null) {
+        oldFileError = ", old file name (%s) is not specified";
+      } else {
+        oldFileError = String.format(", old file name (%s) doesn't exist", oldFileStr);
+      }
+      if (newFile == null) {
+        newFileError = ", new file name is not specified";
+      } else {
+        newFileError = String.format(", new file name (%s) doesn't exist", newFileStr);
+      }
+      throw new PatchFailedException(
+          String.format("Cannot find file to patch (near line %d)%s%s.",
+              loc, oldFileError, newFileError));
+    }
   }
 
   /**
@@ -336,9 +419,9 @@ public class PatchUtil {
     if (!patchFile.exists()) {
       throw new PatchFailedException("Cannot find patch file: " + patchFile.getPathString());
     }
-    List<String> patch = readFile(patchFile);
+    List<String> patchFileLines = readFile(patchFile);
     // Adding an extra line to make sure last chunk also gets applied.
-    patch.add("$");
+    patchFileLines.add("$");
 
     boolean isGitDiff = false;
     boolean hasRenameFrom = false;
@@ -346,23 +429,27 @@ public class PatchUtil {
     boolean isReadingChunk = false;
     List<String> patchContent = new ArrayList<>();
     ChunkHeader header = null;
+    String oldFileStr = null;
+    String newFileStr = null;
     Path oldFile = null;
     Path newFile = null;
     int oldLineCount = 0;
     int newLineCount = 0;
     Result result;
 
-    for (int i = 0; i < patch.size(); i++) {
-      String line = patch.get(i);
+    for (int i = 0; i < patchFileLines.size(); i++) {
+      String line = patchFileLines.get(i);
       LineType type;
-      switch (type = getLineType(line, isReadingChunk)) {
+      switch (type = getLineType(line, isReadingChunk, isGitDiff)) {
         case OLD_FILE:
           patchContent.add(line);
-          oldFile = getFilePath(line, strip, outputDirectory);
+          oldFileStr = extractPath(line, strip, i + 1);
+          oldFile = getFilePath(oldFileStr, outputDirectory, i + 1);
           break;
         case NEW_FILE:
           patchContent.add(line);
-          newFile = getFilePath(line, strip, outputDirectory);
+          newFileStr = extractPath(line, strip, i + 1);
+          newFile = getFilePath(newFileStr, outputDirectory, i + 1);
           break;
         case CHUNK_HEAD:
           int pos = line.indexOf("@@", 2);
@@ -412,35 +499,59 @@ public class PatchUtil {
           break;
         case RENAME_FROM:
           hasRenameFrom = true;
-          if (oldFile == null) {
+          if (oldFileStr == null) {
             // len("rename from ") == 12
-            oldFile = outputDirectory.getRelative(line.substring(12));
+            oldFileStr = line.substring(12).trim();
+            if (oldFileStr.isEmpty()) {
+              throw new PatchFailedException(
+                  String.format("Cannot determine file name from line %d:\n%s", i + 1, line));
+            }
+            oldFile = getFilePath(oldFileStr, outputDirectory, i + 1);
           }
           break;
         case RENAME_TO:
           hasRenameTo = true;
-          if (newFile == null) {
+          if (newFileStr == null) {
             // len("rename to ") == 10
-            newFile = outputDirectory.getRelative(line.substring(10));
+            newFileStr = line.substring(10).trim();
+            if (newFileStr.isEmpty()) {
+              throw new PatchFailedException(
+                  String.format("Cannot determine file name from line %d:\n%s", i + 1, line));
+            }
+            newFile = getFilePath(newFileStr, outputDirectory, i + 1);
           }
           break;
         case GIT_LINE:
           break;
         case GIT_HEADER:
         case UNKNOWN:
+          // A git header line or an unknown line should trigger an action to apply collected
+          // patch content to a file.
+
+          // Renaming is a git only format
           boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
-          if ((!patchContent.isEmpty() || isRenaming) && (oldFile != null || newFile != null)) {
-            if (!patchContent.isEmpty()) {
-              result = header.check(oldLineCount, newLineCount);
-              // result will never be Result.Error here because it would have been throw in previous
-              // line already.
-              if (result == Result.CONTINUE) {
-                throw new PatchFailedException("Expecting more chunk line at line " + (i + 1));
-              }
+
+          if (!patchContent.isEmpty() || isRenaming) {
+            // We collected something useful, let's do some sanity checks before applying the patch.
+            checkPatchContentIsComplete(patchContent, header, oldLineCount, newLineCount, i + 1);
+
+            int patchStartLocation = i + 1 - patchContent.size();
+
+            if (isRenaming) {
+              checkFilesStatusForRenaming(
+                  oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
             }
-            applyPatchToFile(patchContent, oldFile, newFile, isRenaming);
+
+            Patch<String> patch = DiffUtils.parseUnifiedDiff(patchContent);
+            checkFilesStatusForPatching(
+                patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+
+            applyPatchToFile(patch, oldFile, newFile, isRenaming);
           }
+
           patchContent.clear();
+          oldFileStr = null;
+          newFileStr = null;
           oldFile = null;
           newFile = null;
           oldLineCount = 0;
