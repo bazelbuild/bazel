@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Utility functions for the {@code windows-sandbox} embedded tool. */
+/** Utility functions for the {@code windows-sandbox}. */
 public final class WindowsSandboxUtil {
   private static final Logger log = Logger.getLogger(WindowsSandboxUtil.class.getName());
 
@@ -44,7 +44,7 @@ public final class WindowsSandboxUtil {
     /**
    * Checks if the given Windows sandbox binary is available and is valid.
    *
-   * @param binary path to the Windows sandbox binary that will later be used in the {@link #mount} call.
+   * @param binary path to the Windows sandbox binary
    * @return true if the binary looks good, false otherwise
    * @throws IOException if there is a problem trying to start the subprocess
    */
@@ -59,7 +59,7 @@ public final class WindowsSandboxUtil {
               .setWorkingDirectory(new File("."))
               .start();
     } catch (IOException e) {
-      log.warning("Windows sandbox binary at " + binary + " seems to be missing; got error " + e);
+      log.warning("Windows sandbox binary at " + binary + " seems to be missing; got error: " + e);
       return false;
     }
 
@@ -75,7 +75,7 @@ public final class WindowsSandboxUtil {
     }
     String outErr = outErrBytes.toString().replaceFirst("\n$", "");
 
-    int exitCode = waitForProcess(process);
+    int exitCode = SandboxHelpers.waitForProcess(process);
     if (exitCode == 0) {
       // TODO(rongjiecomputer): Validate the version number and ensure we support it. Would be nice to reuse
       // the DottedVersion logic from the Apple rules.
@@ -92,39 +92,10 @@ public final class WindowsSandboxUtil {
     }
   }
 
-
-  /**
-   * Waits for a process to terminate.
-   *
-   * @param process the process to wait for
-   * @return the exit code of the terminated process
-   */
-  private static int waitForProcess(Subprocess process) {
-    boolean interrupted = false;
-    try {
-      while (true) {
-        try {
-          process.waitFor();
-          break;
-        } catch (InterruptedException ie) {
-          interrupted = true;
-        }
-      }
-    } finally {
-      if (interrupted) {
-        Thread.currentThread().interrupt();
-      }
-    }
-    return process.exitValue();
-  }
-
-
   /** Returns a new command line builder for the {@code windows-sandbox} tool. */
   public static CommandLineBuilder commandLineBuilder(
       PathFragment windowsSandboxPath, List<String> commandArguments) {
-    return new CommandLineBuilder()
-        .setWindowsSandboxPath(windowsSandboxPath)
-        .setCommandArguments(commandArguments);
+    return new CommandLineBuilder(windowsSandboxPath, commandArguments);
   }
 
   /**
@@ -142,14 +113,9 @@ public final class WindowsSandboxUtil {
     private boolean useDebugMode = false;
     private List<String> commandArguments = ImmutableList.of();
 
-    private CommandLineBuilder() {
-      // Prevent external construction via "new".
-    }
-
-    /** Sets the path of the {@code windows-sandbox} tool. */
-    public CommandLineBuilder setWindowsSandboxPath(PathFragment windowsSandboxPath) {
+    private CommandLineBuilder(PathFragment windowsSandboxPath, List<String> commandArguments) {
       this.windowsSandboxPath = windowsSandboxPath;
-      return this;
+      this.commandArguments = commandArguments;
     }
 
     /** Sets the working directory to use, if any. */
@@ -195,12 +161,6 @@ public final class WindowsSandboxUtil {
     /** Sets whether to enable debug mode (e.g. to print debugging messages). */
     public CommandLineBuilder setUseDebugMode(boolean useDebugMode) {
       this.useDebugMode = useDebugMode;
-      return this;
-    }
-
-    /** Sets the command (and its arguments) to run using the {@code windows-sandbox} tool. */
-    public CommandLineBuilder setCommandArguments(List<String> commandArguments) {
-      this.commandArguments = commandArguments;
       return this;
     }
 

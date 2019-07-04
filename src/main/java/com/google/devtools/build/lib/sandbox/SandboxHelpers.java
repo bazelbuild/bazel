@@ -160,4 +160,29 @@ public final class SandboxHelpers {
         .testArguments
         .contains("--wrapper_script_flag=--debug");
   }
+
+  /**
+   * Waits for a process to terminate.
+   *
+   * @param process the process to wait for
+   * @return the exit code of the terminated process
+   */
+  static int waitForProcess(Subprocess process) {
+    boolean interrupted = false;
+    try {
+      while (true) {
+        try {
+          process.waitFor();
+          break;
+        } catch (InterruptedException ie) {
+          interrupted = true;
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+    return process.exitValue();
+  }
 }

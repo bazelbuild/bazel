@@ -128,7 +128,7 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
     }
     String outErr = outErrBytes.toString().replaceFirst("\n$", "");
 
-    int exitCode = waitForProcess(process);
+    int exitCode = SandboxHelpers.waitForProcess(process);
     if (exitCode == 0) {
       // TODO(jmmv): Validate the version number and ensure we support it. Would be nice to reuse
       // the DottedVersion logic from the Apple rules.
@@ -226,31 +226,6 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
   }
 
   /**
-   * Waits for a process to terminate.
-   *
-   * @param process the process to wait for
-   * @return the exit code of the terminated process
-   */
-  private static int waitForProcess(Subprocess process) {
-    boolean interrupted = false;
-    try {
-      while (true) {
-        try {
-          process.waitFor();
-          break;
-        } catch (InterruptedException ie) {
-          interrupted = true;
-        }
-      }
-    } finally {
-      if (interrupted) {
-        Thread.currentThread().interrupt();
-      }
-    }
-    return process.exitValue();
-  }
-
-  /**
    * Destroys a process and waits for it to exit.
    *
    * @param process the process to destroy
@@ -259,7 +234,7 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
   // of Uninterruptibles.callUninterruptibly that takes a lambda instead of a callable.
   private static void destroyProcess(Subprocess process) {
     process.destroy();
-    waitForProcess(process);
+    SandboxHelpers.waitForProcess(process);
   }
 
   @Override
