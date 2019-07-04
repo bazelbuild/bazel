@@ -313,8 +313,9 @@ public class SkylarkRepositoryContextTest {
       assertThat(ex)
           .hasCauseThat()
           .hasMessageThat()
-          .isEqualTo("Error applying patch /outputDir/my.patch: Cannot find file to patch: "
-              + "old file is /outputDir/foo and new file is /outputDir/foo");
+          .isEqualTo(
+              "Error applying patch /outputDir/my.patch: Cannot find file to patch (near line 1)"
+                  + ", old file name (foo) doesn't exist, new file name (foo) doesn't exist.");
     }
   }
 
