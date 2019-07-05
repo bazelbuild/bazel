@@ -1692,4 +1692,39 @@ EOF
       || fail "Expected success despite needing a file behind basic auth"
 }
 
+function test_implicit_netrc() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  serve_file_auth x.tar
+
+  export HOME=`pwd`
+  cat > .netrc <<'EOF'
+machine 127.0.0.1
+login foo
+password bar
+EOF
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it \
+      || fail "Expected success despite needing a file behind basic auth"
+}
+
 run_suite "local repository tests"
