@@ -108,7 +108,7 @@ public final class WindowsSandboxUtil {
     private Path stderrPath;
     private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
     private boolean useDebugMode = false;
-    private final List<String> commandArguments = ImmutableList.of();
+    private List<String> commandArguments = ImmutableList.of();
 
     private CommandLineBuilder(PathFragment windowsSandboxPath, List<String> commandArguments) {
       this.windowsSandboxPath = windowsSandboxPath;
