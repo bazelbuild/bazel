@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
+import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -441,10 +442,23 @@ public class SkylarkRepositoryContext
               Transience.TRANSIENT);
         }
       }
-    } catch (CommandException | PatchFailedException e) {
+    } catch (PatchFailedException e) {
       throw new RepositoryFunctionException(
           new EvalException(Location.BUILTIN,
               "Error applying patch " + skylarkPath.toString() + ": " + e.getLocalizedMessage()),
+          Transience.TRANSIENT);
+    } catch (CommandException e) {
+      String msg = "";
+      if (e instanceof BadExitStatusException) {
+        CommandResult result = ((BadExitStatusException) e).getResult();
+        msg = "\nCommand:\n" + String.join(" ", e.getCommand().getCommandLineElements()) + "\n";
+        msg += "\nSTDOUT:\n" + result.getStdoutStream().toString();
+        msg += "\nSTDERR:\n" + result.getStderrStream().toString();
+      }
+      throw new RepositoryFunctionException(
+          new EvalException(Location.BUILTIN,
+              "Error applying patch " + skylarkPath.toString() + ": "
+                  + e.getLocalizedMessage() + "\n" + msg),
           Transience.TRANSIENT);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -899,7 +913,7 @@ public class SkylarkRepositoryContext
                     "Authorization",
                     "Basic "
                         + Base64.getEncoder()
-                            .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
+                        .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
           }
         }
       } catch (MalformedURLException e) {
