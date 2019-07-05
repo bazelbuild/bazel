@@ -100,7 +100,7 @@ public final class WindowsSandboxUtil {
    * windows-sandbox} tool.
    */
   public static class CommandLineBuilder {
-    private PathFragment windowsSandboxPath;
+    private final PathFragment windowsSandboxPath;
     private Path workingDirectory;
     private Duration timeout;
     private Duration killDelay;
@@ -108,7 +108,7 @@ public final class WindowsSandboxUtil {
     private Path stderrPath;
     private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
     private boolean useDebugMode = false;
-    private List<String> commandArguments = ImmutableList.of();
+    private final List<String> commandArguments = ImmutableList.of();
 
     private CommandLineBuilder(PathFragment windowsSandboxPath, List<String> commandArguments) {
       this.windowsSandboxPath = windowsSandboxPath;
