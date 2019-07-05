@@ -646,6 +646,7 @@ java_library(
             "skyframe/*.java",
             "skyframe/actiongraph/*.java",
         ],
+        allow_empty = True,
         exclude = [
             "analysis/BuildInfo.java",
             "analysis/BuildVersionInfo.java",
