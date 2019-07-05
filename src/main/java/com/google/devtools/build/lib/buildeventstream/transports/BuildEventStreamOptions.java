@@ -85,8 +85,8 @@ public class BuildEventStreamOptions extends OptionsBase {
   public boolean buildEventBinaryFilePathConversion;
 
   @Option(
-      name = "experimental_build_event_json_file_path_conversion",
-      oldName = "build_event_json_file_path_conversion",
+      name = "build_event_json_file_path_conversion",
+      oldName = "experimental_build_event_json_file_path_conversion",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
