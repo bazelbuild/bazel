@@ -100,7 +100,6 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
    *
    * @param binary path to the sandboxfs binary that will later be used in the {@link #mount} call.
    * @return true if the binary looks good, false otherwise
-   * @throws IOException if there is a problem trying to start the subprocess
    */
   static boolean isAvailable(PathFragment binary) {
     Subprocess process;
@@ -112,7 +111,7 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
               .redirectErrorStream(true)
               .start();
     } catch (IOException e) {
-      log.warning("sandboxfs binary at " + binary + " seems to be missing; got error " + e);
+      log.warning("sandboxfs binary at " + binary + " seems to be missing; got error: " + e);
       return false;
     }
 
@@ -121,7 +120,7 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
       ByteStreams.copy(process.getInputStream(), outErrBytes);
     } catch (IOException e) {
       try {
-        outErrBytes.write(("Failed to read stdout: " + e).getBytes());
+        outErrBytes.write(("Failed to read stdout: " + e).getBytes("UTF-8"));
       } catch (IOException e2) {
         // Should not really have happened. There is nothing we can do.
       }

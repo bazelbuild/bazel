@@ -39,14 +39,11 @@ import java.util.Set;
 public final class WindowsSandboxUtil {
   private static final Logger log = Logger.getLogger(WindowsSandboxUtil.class.getName());
 
-  private static final String WINDOWS_SANDBOX = "BazelSandbox" + OsUtils.executableExtension();
-
-    /**
+  /**
    * Checks if the given Windows sandbox binary is available and is valid.
    *
    * @param binary path to the Windows sandbox binary
    * @return true if the binary looks good, false otherwise
-   * @throws IOException if there is a problem trying to start the subprocess
    */
   public static boolean isAvailable(PathFragment binary) {
     Subprocess process;
@@ -68,7 +65,7 @@ public final class WindowsSandboxUtil {
       ByteStreams.copy(process.getInputStream(), outErrBytes);
     } catch (IOException e) {
       try {
-        outErrBytes.write(("Failed to read stdout: " + e).getBytes());
+        outErrBytes.write(("Failed to read stdout: " + e).getBytes("UTF-8"));
       } catch (IOException e2) {
         // Should not really have happened. There is nothing we can do.
       }
