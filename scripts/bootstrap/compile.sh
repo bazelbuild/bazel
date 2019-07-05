@@ -81,6 +81,26 @@ get_minor_java_version
 
 JAR="${JAVA_HOME}/bin/jar"
 
+# Ensures unzip won't create paths longer than 259 chars (MAX_PATH) on Windows.
+function check_unzip_wont_create_long_paths() {
+  output_path="$1"
+  jars="$2"
+  if [[ "${PLATFORM}" == "windows" ]]; then
+    log "Checking if helper classes can be extracted..."
+    max_path=$((259-${#output_path}))
+    # Do not quote $jars, we rely on it being split on spaces.
+    for f in $jars ; do
+      # Get the zip entries. Match lines with a date: they have the paths.
+      entries="$(unzip -l "$f" | grep '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}' | awk '{print $4}')"
+      for e in $entries; do
+        if [[ ${#e} -gt $max_path ]]; then
+          fail "Cannot unzip \"$f\" because the output path is too long: extracting file \"$e\" under \"$output_path\" would create a path longer than 259 characters. To fix this, set a shorter TMP value and try again. Example: export TMP=/c/tmp/bzl"
+        fi
+      done
+    done
+  fi
+}
+
 # Compiles java classes.
 function java_compilation() {
   local name=$1
@@ -121,6 +141,8 @@ function java_compilation() {
     echo "List of compiled files:" >&2
     cat "$paramfile" >&2
   fi
+
+  check_unzip_wont_create_long_paths "${output}/classes" "$library_jars"
 
   # Use BAZEL_JAVAC_OPTS to pass additional arguments to javac, e.g.,
   # export BAZEL_JAVAC_OPTS="-J-Xmx2g -J-Xms200m"
