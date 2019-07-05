@@ -251,10 +251,6 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     // At this point, there is already some cache workspace file/file state value.
     bazel.build("@ext//:all");
   }
-
-  private boolean isWindows() {
-    return OS.WINDOWS.equals(OS.getCurrent());
-  }
   // TODO(ichern) move other tests from workspace_test.sh here.
 
 }
