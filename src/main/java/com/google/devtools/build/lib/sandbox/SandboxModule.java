@@ -146,12 +146,11 @@ public final class SandboxModule extends BlazeModule {
   /**
    * Returns true if sandboxfs should be used for this build.
    *
-   * <p>If the user set the use of sandboxfs as optional, this only returns true if the configured
-   * sandboxfs binary is present and valid. If the user requested the use of sandboxfs as mandatory,
-   * this throws an error if the binary is not valid.
+   * <p>Returns true if requested in ["auto", "yes"] and binary is valid. Throws an error if state
+   * is "yes" and binary is not valid.
    *
    * @param requested whether sandboxfs use was requested or not
-   * @param binary path of the sandboxfs binary to use
+   * @param binary path of the sandboxfs binary to use, can be absolute or relative path
    * @return true if sandboxfs can and should be used; false otherwise
    * @throws IOException if there are problems trying to determine the status of sandboxfs
    */
@@ -167,6 +166,38 @@ public final class SandboxModule extends BlazeModule {
         if (!RealSandboxfsProcess.isAvailable(binary)) {
           throw new IOException(
               "sandboxfs explicitly requested but \""
+                  + binary
+                  + "\" could not be found or is not valid");
+        }
+        return true;
+    }
+    throw new IllegalStateException("Not reachable");
+  }
+
+  /**
+   * Returns true if windows-sandbox should be used for this build.
+   *
+   * <p>Returns true if requested in ["auto", "yes"] and binary is valid. Throws an error if state
+   * is "yes" and binary is not valid.
+   *
+   * @param requested whether windows-sandbox use was requested or not
+   * @param binary path of the windows-sandbox binary to use, can be absolute or relative path
+   * @return true if windows-sandbox can and should be used; false otherwise
+   * @throws IOException if there are problems trying to determine the status of windows-sandbox
+   */
+  private boolean shouldUseWindowsSandbox(TriState requested, PathFragment binary)
+      throws IOException {
+    switch (requested) {
+      case AUTO:
+        return WindowsSandboxUtil.isAvailable(binary);
+
+      case NO:
+        return false;
+
+      case YES:
+        if (!WindowsSandboxUtil.isAvailable(binary)) {
+          throw new IOException(
+              "windows-sandbox explicitly requested but \""
                   + binary
                   + "\" could not be found or is not valid");
         }
@@ -238,6 +269,12 @@ public final class SandboxModule extends BlazeModule {
         }
         sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
       }
+    }
+
+    PathFragment windowsSandboxPath = PathFragment.create(options.windowsSandboxPath);
+    boolean useWindowsSandbox;
+    try (SilentCloseable c = Profiler.instance().profile("shouldUseWindowsSandbox")) {
+      useWindowsSandbox = shouldUseWindowsSandbox(options.useWindowsSandbox, windowsSandboxPath);
     }
 
     Duration timeoutKillDelay =

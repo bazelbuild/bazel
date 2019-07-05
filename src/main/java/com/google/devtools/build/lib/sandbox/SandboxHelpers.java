@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -159,5 +160,30 @@ public final class SandboxHelpers {
         .getOptions(TestConfiguration.TestOptions.class)
         .testArguments
         .contains("--wrapper_script_flag=--debug");
+  }
+
+  /**
+   * Waits for a process to terminate.
+   *
+   * @param process the process to wait for
+   * @return the exit code of the terminated process
+   */
+  static int waitForProcess(Subprocess process) {
+    boolean interrupted = false;
+    try {
+      while (true) {
+        try {
+          process.waitFor();
+          break;
+        } catch (InterruptedException ie) {
+          interrupted = true;
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+    return process.exitValue();
   }
 }
