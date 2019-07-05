@@ -15,6 +15,8 @@ import java.nio.file.Path;
 
 /** End to end test of patch API we exposed in @bazel_tools//tools/build_defs/repo:utils.bzl.
  * The patch API is used in http_repository and git_repository.
+ *
+ * The idea is to use a custom repository rules that use the API to patch existing files.
  * */
 public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
 
@@ -175,7 +177,6 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testFallBackToPatchCmdsWhenPatchCmdsWinNotSpecified() throws Exception {
-    // Should fallback to the specified patch tool.
     setUpPatchTestRepo(null, null, false);
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context()).withFlags("--incompatible_use_native_patch");
     if (isWindows()) {
