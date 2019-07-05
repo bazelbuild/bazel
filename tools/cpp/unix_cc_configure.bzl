@@ -167,11 +167,19 @@ def _is_linker_option_supported(repository_ctx, cc, option, pattern):
     ])
     return result.stderr.find(pattern) == -1
 
-def _is_gold_supported(repository_ctx, cc):
-    """Checks that `gold` is supported by the C compiler."""
+def _find_gold_linker_path(repository_ctx, cc):
+    """Checks if `gold` is supported by the C compiler.
+
+    Args:
+      repository_ctx: repository_ctx.
+      cc: path to the C compiler.
+
+    Returns:
+      String to put as value to -fuse-ld= flag, or None if gold couldn't be found.
+    """
     result = repository_ctx.execute([
         cc,
-        "-fuse-ld=gold",
+        str(repository_ctx.path("tools/cpp/empty.cc")),
         "-o",
         "/dev/null",
         # Some macos clang versions don't fail when setting -fuse-ld=gold, adding
@@ -179,9 +187,31 @@ def _is_gold_supported(repository_ctx, cc):
         # gold when only a very old (year 2010 and older) is present.
         "-Wl,--start-lib",
         "-Wl,--end-lib",
-        str(repository_ctx.path("tools/cpp/empty.cc")),
+        "-fuse-ld=gold",
+        "-v",
     ])
-    return result.return_code == 0
+    if result.return_code != 0:
+        return None
+
+    for line in result.stderr.splitlines():
+        if line.find("gold") == -1:
+            continue
+        for flag in line.split(" "):
+            if flag.find("gold") == -1:
+                continue
+
+            # flag is '-fuse-ld=gold' for GCC or "/usr/lib/ld.gold" for Clang
+            # strip space, single quote, and double quotes
+            flag = flag.strip(" \"'")
+
+            # remove -fuse-ld= from GCC output so we have only the flag value part
+            flag = flag.replace("-fuse-ld=", "")
+            return flag
+    auto_configure_warning(
+        "CC with -fuse-ld=gold returned 0, but its -v output " +
+        "didn't contain 'gold', falling back to the default linker.",
+    )
+    return None
 
 def _add_compiler_option_if_supported(repository_ctx, cc, option):
     """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
@@ -348,7 +378,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         "",
         False,
     ), ":")
-    supports_gold_linker = _is_gold_supported(repository_ctx, cc)
+    gold_linker_path = _find_gold_linker_path(repository_ctx, cc)
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
         # cc is outside the repository, set -B
@@ -457,7 +487,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             ),
             "%{cxx_flags}": get_starlark_list(cxx_opts + _escaped_cplus_include_paths(repository_ctx)),
             "%{link_flags}": get_starlark_list((
-                ["-fuse-ld=gold"] if supports_gold_linker else []
+                ["-fuse-ld=" + gold_linker_path] if gold_linker_path else []
             ) + _add_linker_option_if_supported(
                 repository_ctx,
                 cc,
@@ -532,6 +562,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{dbg_compile_flags}": get_starlark_list(["-g"]),
             "%{coverage_compile_flags}": coverage_compile_flags,
             "%{coverage_link_flags}": coverage_link_flags,
-            "%{supports_start_end_lib}": "True" if supports_gold_linker else "False",
+            "%{supports_start_end_lib}": "True" if gold_linker_path else "False",
         },
     )
