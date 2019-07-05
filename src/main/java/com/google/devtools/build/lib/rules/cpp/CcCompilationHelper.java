@@ -1151,16 +1151,20 @@ public final class CcCompilationHelper {
    * Calculate the output names for object file paths from a set of source files.
    *
    * <p>The object file path is constructed in the following format:
-   *    <bazel-bin>/<target_package_path>/_objs/<target_name>/<output_name>.<obj_extension>
-   * When there's no two source files having the same basename:
-   *   <output_name> = <prefixDir>/<source_file_base_name>
-   * otherwise:
-   *   <output_name> = <prefixDir>/N/<source_file_base_name>,
-   *   N = the file’s order among the source files with the same basename, starts with 0
+   *   {@code <bazel-bin>/<target_package_path>/_objs/<target_name>/<output_name>.<obj_extension>}.
    *
-   * <p>Examples: 1. Output names for ["lib1/foo.cc", "lib2/bar.cc"] are ["foo", "bar"]
-   *              2. Output names for ["foo.cc", "bar.cc", "foo.cpp", "lib/foo.cc"]
-   *                 are ["0/foo", "bar", "1/foo", "2/foo"]
+   * <p>When there's no two source files having the same basename:
+   *   {@code <output_name> = <prefixDir>/<source_file_base_name>}
+   * otherwise:
+   *   {@code <output_name> = <prefixDir>/N/<source_file_base_name>,
+   *   {@code N} = the file's order among the source files with the same basename, starts with 0
+   *
+   * <p>Examples:
+   * <ol>
+   * <li>Output names for ["lib1/foo.cc", "lib2/bar.cc"] are ["foo", "bar"]
+   * <li>Output names for ["foo.cc", "bar.cc", "foo.cpp", "lib/foo.cc"] are
+   *     ["0/foo", "bar", "1/foo", "2/foo"]
+   * </ol>
    */
   private ImmutableMap<Artifact, String> calculateOutputNameMap(
       NestedSet<Artifact> sourceArtifacts, String prefixDir) {

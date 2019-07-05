@@ -275,7 +275,7 @@ builds two additional source files.
 
 ### Use multiple packages
 
-Let’s now split the project into multiple packages. Take a look at the contents
+Let's now split the project into multiple packages. Take a look at the contents
 of the `cpp-tutorial/stage3` directory:
 
 ```

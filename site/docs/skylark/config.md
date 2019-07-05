@@ -314,7 +314,7 @@ configured targets in the build graph.
 
 ### Defining Transitions in Starlark
 Transitions define configuration changes between rules. For example, a request
-like “compile my dependency for a different CPU than its parent” is handled by a
+like "compile my dependency for a different CPU than its parent" is handled by a
 transition.
 
 Formally, a transition is a function from an input configuration to one or more

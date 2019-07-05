@@ -14,7 +14,7 @@ make builds significantly faster.
 
 * [Remote caching overview](#remote-caching-overview)
 * [How a build uses remote caching](#how-a-build-uses-remote-caching)
-* [Setting up a server as the cache’s backend](#setting-up-a-server-as-the-caches-backend)
+* [Setting up a server as the cache's backend](#setting-up-a-server-as-the-caches-backend)
     * [nginx](#nginx)
     * [Bazel Remote Cache](#bazel-remote-cache)
     * [Google Cloud Storage](#google-cloud-storage)
@@ -39,11 +39,11 @@ inputs and expected outputs are declared explicitly for each action.
 You can set up a server to be a remote cache for build outputs, which are these
 action outputs. These outputs consist of a list of output file names and the
 hashes of their contents. With a remote cache, you can reuse build outputs
-from another user’s build rather than building each new output locally.
+from another user's build rather than building each new output locally.
 
 To use remote caching:
 
-* Set up a server as the cache’s backend
+* Set up a server as the cache's backend
 * Configure the Bazel build to use the remote cache
 * Use Bazel version 0.10.0 or later
 
@@ -227,12 +227,12 @@ their flags below.
 You may also need configure authentication, which is specific to your
 chosen server.
 
-You may want to add these flags in a `.bazelrc` file so that you don’t
+You may want to add these flags in a `.bazelrc` file so that you don't
 need to specify them every time you run Bazel. Depending on your project and
 team dynamics, you can add flags to a `.bazelrc` file that is:
 
 * On your local machine
-* In your project’s workspace, shared with the team
+* In your project's workspace, shared with the team
 * On the CI system
 
 ### Read from and write to the remote cache
@@ -297,7 +297,7 @@ set up as the cache. When deleting outputs, either delete the entire cache,
 or delete old outputs.
 
 The cached outputs are stored as a set of names and hashes. When deleting
-content, there’s no way to distinguish which output belongs to a specific
+content, there's no way to distinguish which output belongs to a specific
 build.
 
 You may want to delete content from the cache to:

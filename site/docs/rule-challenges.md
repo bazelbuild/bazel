@@ -7,7 +7,7 @@ title: Challenges of Writing Rules
 
 We have heard feedback from various people that they have
 difficulty to write efficient Bazel rules. There is no single root cause, but
-it’s due to a combination of historical circumstances and intrinsic complexity
+it's due to a combination of historical circumstances and intrinsic complexity
 in the problem domain. This document attempts to give a high level overview of
 the specific issues that we believe to be the main contributors.
 
@@ -105,8 +105,8 @@ That means that the rules API requires a declarative description of the rule
 interface (what attributes it has, types of attributes). There are some
 exceptions where the API allows custom code to run during the loading phase to
 compute implicit names of output files and implicit values of attributes. For
-example, a java_library rule named ‘foo’ implicitly generates an output named
-‘libfoo.jar’, which can be referenced from other rules in the build graph.
+example, a java_library rule named 'foo' implicitly generates an output named
+'libfoo.jar', which can be referenced from other rules in the build graph.
 
 Furthermore, the analysis of a rule cannot read any source files or inspect the
 output of an action; instead, it needs to generate a partial directed bipartite
@@ -121,7 +121,7 @@ files that go into a build step in order to detect whether that build step is
 still up-to-date. The same is true for package loading and rule analysis, and we
 have designed [Skyframe] (https://bazel.build/designs/skyframe.html) to handle this
 in general. Skyframe is a graph library and evaluation framework that takes a
-goal node (such as ‘build //foo with these options’), and breaks it down into
+goal node (such as 'build //foo with these options'), and breaks it down into
 its constituent parts, which are then evaluated and combined to yield this
 result. As part of this process, Skyframe reads packages, analyzes rules, and
 executes actions.
@@ -137,12 +137,12 @@ As part of this, each node performs a dependency discovery process; i.e., each
 node can declare dependencies, and then use the contents of those dependencies
 to declare even further dependencies. In principle, this maps well to a
 thread-per-node model. However, medium-sized builds contain hundreds of
-thousands of Skyframe nodes, which isn’t easily possible with current Java
-technology (and for historical reasons, we’re currently tied to using Java, so
+thousands of Skyframe nodes, which isn't easily possible with current Java
+technology (and for historical reasons, we're currently tied to using Java, so
 no lightweight threads and no continuations).
 
 Instead, Bazel uses a fixed-size thread pool. However, that means that if a node
-declares a dependency that isn’t available yet, we may have to abort that
+declares a dependency that isn't available yet, we may have to abort that
 evaluation and restart it (possibly in another thread), when the dependency is
 available. This, in turn, means that nodes should not do this excessively; a
 node that declares N dependencies serially can potentially be restarted N times,
@@ -150,12 +150,12 @@ costing O(N^2) time. Instead, we aim for up-front bulk declaration of
 dependencies, which sometimes requires reorganizing the code, or even splitting
 a node into multiple nodes to limit the number of restarts.
 
-Note that this technology isn’t currently available in the rules API; instead,
+Note that this technology isn't currently available in the rules API; instead,
 the rules API is still defined using the legacy concepts of loading, analysis,
 and execution phases. However, a fundamental restriction is that all accesses to
 other nodes have to go through the framework so that it can track the
 corresponding dependencies. Regardless of the language in which the build system
-is implemented or in which the rules are written (they don’t have to be the
+is implemented or in which the rules are written (they don't have to be the
 same), rule authors must not use standard libraries or patterns that bypass
 Skyframe. For Java, that means avoiding java.io.File as well as any form of
 reflection, and any library that does either. Libraries that support dependency
@@ -189,7 +189,7 @@ on, for a total of 1+2+3+...+N = O(N^2) entries.
 2. Binary Rules Depending on the Same Library Rules -
 Consider the case where a set of binaries that depend on the same library
 rules; for example, you might have a number of test rules that test the same
-library code. Let’s say out of N rules, half the rules are binary rules, and
+library code. Let's say out of N rules, half the rules are binary rules, and
 the other half library rules. Now consider that each binary makes a copy of
 some property computed over the transitive closure of library rules, such as
 the Java runtime classpath, or the C++ linker command line. For example, it
@@ -203,7 +203,7 @@ Bazel is heavily affected by both of these scenarios, so we introduced a set of
 custom collection classes that effectively compress the information in memory by
 avoiding the copy at each step. Almost all of these data structures have set
 semantics, so we called the class NestedSet. The majority of changes to reduce
-Bazel’s memory consumption over the past several years were changes to use
+Bazel's memory consumption over the past several years were changes to use
 NestedSet instead of whatever was previously used.
 
 Unfortunately, usage of NestedSet does not automatically solve all the issues;

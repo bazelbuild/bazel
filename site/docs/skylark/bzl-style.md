@@ -33,7 +33,7 @@ update a library or do a cleanup.
 
 Do not create a macro just to avoid some amount of repetition in BUILD files.
 The [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle
-doesn’t really apply here. The goal is not to make the file shorter; the goal is
+doesn't really apply here. The goal is not to make the file shorter; the goal is
 to make your files easy to process, both by humans and tools.
 
 ## General advice
@@ -117,7 +117,7 @@ graph seen by the user is not the same as the one used by Bazel during the
 build - macros are expanded _before Bazel does any build graph analysis._
 
 Because of this, when something goes wrong, the user will need to understand
-your macro’s implementation to troubleshoot build problems. Additionally, `bazel
+your macro's implementation to troubleshoot build problems. Additionally, `bazel
 query` results can be hard to interpret because targets shown in the results
 come from macro expansion. Finally, aspects are not aware of macros, so tooling
 depending on aspects (IDEs and others) might fail.
@@ -148,7 +148,7 @@ For macros that define non-leaf nodes, follow these best practices:
 
 Engineers often write macros when the Starlark API of relevant rules is
 insufficient for their specific use case, regardless of whether the rule is
-defined within Bazel in native code, or in Starlark. If you’re facing this
+defined within Bazel in native code, or in Starlark. If you're facing this
 problem, ask the rule author if they can extend the API to accomplish your
 goals.
 
@@ -156,8 +156,8 @@ As a rule of thumb, the more macros resemble the rules, the better.
 
 ## Rules
 
-*   Rules, aspects, and their attributes should use lower_case names (“snake
-    case”).
+*   Rules, aspects, and their attributes should use lower_case names ("snake
+    case").
 *   Rule names are nouns that describe the main kind of artifact produced by the
     rule, from the point of view of its dependencies (or for leaf rules, the
     user). This is not necessarily a file suffix. For instance, a rule that

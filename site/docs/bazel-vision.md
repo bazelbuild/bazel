@@ -17,7 +17,7 @@ extend.</font>
     to reinvent the basic plumbing.
 *   **Engineers can easily contribute to any project.** A developer who wants to
     start working on a new project can simply clone the project and run the
-    build. There’s no need for local configuration - it just works. With
+    build. There's no need for local configuration - it just works. With
     cross-platform remote execution, they can work on any machine anywhere and
     fully test their changes against all platforms the project targets.
     Engineers can quickly configure the build for a new project or incrementally
@@ -36,7 +36,7 @@ incrementality (rebuilding only changed inputs doesn't introduce the risk of
 corruption) and distributability (build actions are isolated and can be
 offloaded). By minimizing the work needed to do a correct build and
 parallelizing that work across multiple cores and remote systems, Bazel can make
-any build fast. Bazel’s abstraction layer—instructions specific to languages,
+any build fast. Bazel's abstraction layer—instructions specific to languages,
 platforms, and toolchains implemented in a simple extensibility language —
 allows it to be easily applied to any context.
 

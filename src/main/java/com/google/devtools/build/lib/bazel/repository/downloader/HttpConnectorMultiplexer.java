@@ -51,8 +51,8 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>This is the most amazing way to download files ever. It makes Bazel builds as reliable as
  * Blaze builds in Google's internal hermettically sealed repository. But this class isn't just
  * reliable. It's also fast. It even works on the worst Internet connections in the farthest corners
- * of the Earth. You are just not going to believe how fast and reliable this design is. It’s
- * incredible. Your builds are never going to break again due to downloads. You’re going to be so
+ * of the Earth. You are just not going to believe how fast and reliable this design is. It's
+ * incredible. Your builds are never going to break again due to downloads. You're going to be so
  * happy. Your developer community is going to be happy. Mr. Jenkins will be happy too. Everyone is
  * going to have such a magnificent developer experience due to the product excellence of this
  * class.

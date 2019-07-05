@@ -39,10 +39,10 @@ Some caveats:
   tests.
 
 The basic principle is to define a testing rule that depends on the
-rule-under-test. This gives the testing rule access to the rule-under-test’s
+rule-under-test. This gives the testing rule access to the rule-under-test's
 providers.
 
-The testing rule’s implementation function carries out assertions. If there are
+The testing rule's implementation function carries out assertions. If there are
 any failures, these are not raised immediately by calling `fail()` (which would
 trigger an analysis-time build error), but rather by storing the errors in a
 generated script that fails at test execution time.
@@ -171,7 +171,7 @@ Then:
   should be prefixed with `foo_` (`provider_contents_`)
 
 Note that the labels of all targets can conflict with other labels in the same
-BUILD package, so it’s helpful to use a unique name for the test.
+BUILD package, so it's helpful to use a unique name for the test.
 
 ### Failure Testing
 
@@ -278,7 +278,7 @@ The most straightforward way to validate an artifact is to write a script and
 add a `*_test` target to your BUILD file. The specific artifacts you want to
 check should be data dependencies of this target. If your validation logic is
 reusable for multiple tests, it should be a script that takes command line
-arguments that are controlled by the test target’s `args` attribute. Here’s an
+arguments that are controlled by the test target's `args` attribute. Here's an
 example that validates that the output of `myrule` from above is `"abc"`.
 
 `//mypkg/myrule_validator.sh`:
@@ -447,5 +447,5 @@ def myhelpers_test_suite():
   )
 ```
 
-For more examples, see Skylib’s own [tests](https://github.com/bazelbuild/bazel-skylib/blob/master/tests/BUILD).
+For more examples, see Skylib's own [tests](https://github.com/bazelbuild/bazel-skylib/blob/master/tests/BUILD).
 
