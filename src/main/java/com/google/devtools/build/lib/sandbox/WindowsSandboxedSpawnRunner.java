@@ -92,17 +92,18 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // so we have to prefix our name to turn it into a globally unique value.
     Path sandboxPath =
         sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
-    sandboxPath.getParentDirectory().createDirectory();
-    sandboxPath.createDirectory();
+    sandboxPath.createDirectoryAndParents()
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
     // the normal execroot does.
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
-    sandboxExecRoot.getParentDirectory().createDirectory();
-    sandboxExecRoot.createDirectory();
+    sandboxExecRoot.createDirectoryAndParents()
 
+    Path tmpDir = createActionTemp(execRoot);
+    Path commandTmpDir = tmpDir.getRelative("work");
+    commandTmpDir.createDirectory();
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, commandTmpDir.getPathString());
 
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
@@ -121,7 +122,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path statisticsPath = null;
 
     SandboxedSpawn sandbox =
-          new WindowsSandboxedSpawn(
+          new CopyingSandboxedSpawn(
               sandboxPath,
               sandboxExecRoot,
               commandLineBuilder.build(),
@@ -136,6 +137,14 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               treeDeleter);
 
     return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
+  }
+
+  private Path createActionTemp(Path execRoot) throws IOException {
+    return execRoot.getRelative(
+        java.nio.file.Files.createTempDirectory(
+                java.nio.file.Paths.get(execRoot.getPathString()), "windows-sandbox.")
+            .getFileName()
+            .toString());
   }
 
   @Override

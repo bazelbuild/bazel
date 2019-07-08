@@ -247,12 +247,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           sandboxExecRoot,
           writablePaths,
           Preconditions.checkNotNull(env.get("TEMP")),
-          "Cannot resolve symlinks in TMPDIR because it doesn't exist: \"%s\"");
+          "Cannot resolve symlinks in TEMP because it doesn't exist: \"%s\"");
       addWritablePath(
           sandboxExecRoot,
           writablePaths,
           Preconditions.checkNotNull(env.get("TMP")),
-          "Cannot resolve symlinks in TMPDIR because it doesn't exist: \"%s\"");
+          "Cannot resolve symlinks in TMP because it doesn't exist: \"%s\"");
     } else {
       addWritablePath(
           sandboxExecRoot,
@@ -265,6 +265,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     for (String writablePath : sandboxOptions.sandboxWritablePath) {
       Path path = fileSystem.getPath(writablePath);
       writablePaths.add(path);
+      // TODO(laszlocsomor) Remove if guard when path.resolveSymbolicLinks supports non-symlink
       if (path.isSymbolicLink()) {
         writablePaths.add(path.resolveSymbolicLinks());
       }
@@ -289,6 +290,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       // If `path` itself is a symlink, then adding it to `writablePaths` would result in making
       // the symlink itself writable, not what it points to. Therefore we need to resolve symlinks
       // in `path`, however for that we need `path` to exist.
+      //
+      // TODO(laszlocsomor) Remove if guard when path.resolveSymbolicLinks supports non-symlink
       if (path.isSymbolicLink()) {
         writablePaths.add(path.resolveSymbolicLinks());
       } else {
