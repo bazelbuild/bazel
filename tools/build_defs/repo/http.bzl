@@ -229,13 +229,17 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "A list of files that are to be applied as patches after " +
             "extracting the archive. By default, it uses the Bazel-native patch implementation " +
             "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
-            "patch command line tool if `patch_tool` attribute is specified or there are " +
-            "arguments other than `-p` in `patch_args` attribute.",
+            "`patch_tool` if `use_patch_tool` is true or there are arguments other than " +
+            "`-p` in `patch_args` attribute.",
     ),
     "patch_tool": attr.string(
-        default = "",
-        doc = "The patch(1) utility to use. If this is specified, Bazel will use the specifed " +
-              "patch tool instead of the Bazel-native patch implementation.",
+        default = "patch",
+        doc = "The patch(1) utility to use.",
+    ),
+    "use_patch_tool": attr.bool(
+        default = False,
+        doc = "If this is true, `patch_tool` will be used to apply the patch files instead of " +
+              "the Bazel-native patch implementation.",
     ),
     "patch_args": attr.string_list(
         default = ["-p0"],

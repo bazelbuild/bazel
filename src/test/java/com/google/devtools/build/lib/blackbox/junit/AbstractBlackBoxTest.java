@@ -130,7 +130,7 @@ public abstract class AbstractBlackBoxTest {
    * @return True, if we are running tests on Windows,
    *         False, if we are running tests on other platforms.
    */
-  protected boolean isWindows() {
+  protected static boolean isWindows() {
     return OS.WINDOWS.equals(OS.getCurrent());
   }
 }
