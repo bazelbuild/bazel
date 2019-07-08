@@ -18,13 +18,12 @@ import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * Info object representing data about a specific toolchain.
- */
+/** Info object representing data about a specific toolchain. */
 @SkylarkModule(
     name = "ToolchainInfo",
-    doc = "Provides access to data about a specific toolchain.",
-    category = SkylarkModuleCategory.PROVIDER
-)
-public interface ToolchainInfoApi extends StructApi {
-}
+    doc =
+        "Provider which allows rule-specific toolchains to communicate data back to the actual"
+            + " rule implementation. Read more about <a"
+            + " href='../../toolchains.$DOC_EXT'>toolchains</a> for more information.",
+    category = SkylarkModuleCategory.PROVIDER)
+public interface ToolchainInfoApi extends StructApi {}
