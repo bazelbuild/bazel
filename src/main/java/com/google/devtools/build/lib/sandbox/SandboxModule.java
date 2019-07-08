@@ -363,7 +363,22 @@ public final class SandboxModule extends BlazeModule {
       builder.addActionContext(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
-    if (processWrapperSupported || linuxSandboxSupported || darwinSandboxSupported) {
+    if (useWindowsSandbox) {
+      SpawnRunner spawnRunner =
+          withFallback(
+              cmdEnv,
+              new WindowsSandboxedSpawnRunner(
+                  cmdEnv,
+                  sandboxBase,
+                  timeoutKillDelay,
+                  windowsSandboxPath,
+                  options.sandboxfsMapSymlinkTargets,
+                  treeDeleter));
+      spawnRunners.add(spawnRunner);
+      builder.addActionContext(new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+    }
+
+    if (processWrapperSupported || linuxSandboxSupported || darwinSandboxSupported || useWindowsSandbox) {
       // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
       // but it is not necessarily the default.
       builder.addStrategyByContext(SpawnActionContext.class, "sandboxed");
