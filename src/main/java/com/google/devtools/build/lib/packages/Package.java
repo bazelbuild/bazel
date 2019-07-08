@@ -978,6 +978,21 @@ public class Package {
       return buildFileLabel;
     }
 
+    /**
+     * Return a read-only copy of the name mapping of external repositories for a given repository.
+     * Reading that mapping directly from the builder allows to also take mappings into account that
+     * are only discovered while constructing the external package (e.g., the mapping of the name of
+     * the main workspace to the canonical main name '@').
+     */
+    ImmutableMap<RepositoryName, RepositoryName> getRepositoryMappingFor(RepositoryName name) {
+      Map<RepositoryName, RepositoryName> mapping = externalPackageRepositoryMappings.get(name);
+      if (mapping == null) {
+        return ImmutableMap.<RepositoryName, RepositoryName>of();
+      } else {
+        return ImmutableMap.<RepositoryName, RepositoryName>copyOf(mapping);
+      }
+    }
+
     RootedPath getFilename() {
       return filename;
     }
