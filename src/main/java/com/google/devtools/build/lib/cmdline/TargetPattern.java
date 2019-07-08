@@ -34,6 +34,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import javax.annotation.concurrent.Immutable;
@@ -640,6 +641,36 @@ public abstract class TargetPattern implements Serializable {
     public int hashCode() {
       return Objects.hash(getType(), getOriginalPattern(), directory, rulesOnly);
     }
+  }
+
+  /**
+   * Apply a renaming to the repository part of a pattern string, returning the renamed pattern
+   * string. This function only looks at the repository part of the pattern string, not the rest; so
+   * any syntactic errors will not be handled here, but simply remain. Similarly, if the repository
+   * part of the pattern is not syntactically valid, the renaming simply does not match and the
+   * string is returned unchanged.
+   */
+  public static String renameRepository(
+      String pattern, Map<RepositoryName, RepositoryName> renaming) {
+    if (!pattern.startsWith("@")) {
+      return pattern;
+    }
+    int pkgStart = pattern.indexOf("//");
+    if (pkgStart < 0) {
+      return pattern;
+    }
+    RepositoryName repository;
+    try {
+      repository = RepositoryName.create(pattern.substring(0, pkgStart));
+    } catch (LabelSyntaxException e) {
+      return pattern;
+    }
+    RepositoryName newRepository = renaming.get(repository);
+    if (newRepository == null) {
+      // No renaming required
+      return pattern;
+    }
+    return newRepository.getName() + pattern.substring(pkgStart);
   }
 
   @Immutable
