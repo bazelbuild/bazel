@@ -198,6 +198,7 @@ def _darwin_build_file(repository_ctx):
         return VERSION_CONFIG_STUB + "\n# Error: " + xcodeloc_err + "\n"
 
     default_xcode_version = _search_string(xcodebuild_result.stdout, "Xcode ", "\n")
+    default_xcode_build_version = _search_string(xcodebuild_result.stdout, "Build version ", "\n")
     default_xcode_target = ""
     target_names = []
     buildcontents = ""
@@ -209,7 +210,7 @@ def _darwin_build_file(repository_ctx):
         target_name = "version%s" % version.replace(".", "_")
         buildcontents += _xcode_version_output(repository_ctx, target_name, version, aliases, developer_dir)
         target_names.append("':%s'" % target_name)
-        if (version == default_xcode_version or default_xcode_version in aliases):
+        if (version.startswith(default_xcode_version) and version.endswith(default_xcode_build_version)):
             default_xcode_target = target_name
     buildcontents += "xcode_config(name = 'host_xcodes',"
     if target_names:
