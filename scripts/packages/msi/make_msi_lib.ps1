@@ -26,8 +26,8 @@ function Log-Info {
       [string]$msg
     )
     $basename = $PSCommandPath.Substring($PSCommandPath.LastIndexOfAny('/\') + 1)
-    $time = (Get-Date).ToString(.HH:mm:ss.)
-    Write-Host 'INFO[$basename $time] $msg'
+    $time = (Get-Date).ToString('HH:mm:ss')
+    Write-Host "INFO[$basename $time] $msg"
 }
 
 function Replace-Slashes {
@@ -66,26 +66,29 @@ function Get-UpgradeGuid {
     $d = @{}
     $result = $null
     foreach ($line in Get-Content -Path $Guids) {
-        $line = '$line'.Split('#')[0]
+        $line = "$line".Split('#')[0]
         if ($line) {
             $k, $v = $line.Split(' ', 2)
             # Ensure all version prefixes in the file are unique.
             if ($d.ContainsKey($k)) {
-                throw 'Duplicate relase prefix $k in $Guids'
+                throw "Duplicate relase prefix $k in $Guids"
             }
             else {
                 $d[$k] = $null
             }
+            if (! $v) {
+                throw "Null key '$v' in line '$line'"
+            }
             # Ensure all GUIDs in the file are unique. We can use the same
             # hashtable because the value domains are distinct.
             if ($d.ContainsKey($v)) {
-                throw 'Duplicate GUID $v in $Guids'
+                throw "Duplicate GUID $v in $Guids"
             }
             else {
                 $d[$v] = $null
             }
             if (! $result -and $release_name.StartsWith($k)) {
-                $result = '$v'
+                $result = "$v"
                 # Do not return yet, so we check that all GUIDs are unique.
             }
         }

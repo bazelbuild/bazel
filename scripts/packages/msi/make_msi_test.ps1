@@ -43,4 +43,4 @@ Assert-NotEqual $(Get-UpgradeGuid 0.28.0) $(Get-UpgradeGuid 0.29.0)
 Assert-NotEqual $(Get-UpgradeGuid 1.5.0) $(Get-UpgradeGuid 2.0.3rc1)
 
 
-Write-Host 'PASSED'
+Log-Info 'PASSED'
