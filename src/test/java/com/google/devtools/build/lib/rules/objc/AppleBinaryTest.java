@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
@@ -234,8 +235,12 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
    *     this deduping test is applicable for either
    */
   private void checkProtoDedupingDeps(BinaryType depBinaryType) throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter_a.pbascii");
+    scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_1',",
         "    srcs = ['data_a.proto', 'data_b.proto'],",
@@ -359,8 +364,12 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
    *     this deduping test is applicable for either
    */
   private void checkProtoDedupingDepsPartial(BinaryType depBinaryType) throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter_a.pbascii");
+    scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_1',",
         "    srcs = ['data_a.proto', 'data_b.proto'],",
@@ -490,8 +499,12 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
    *     this deduping test is applicable for either
    */
   private void checkProtoDisjointDeps(BinaryType depBinaryType) throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter_a.pbascii");
+    scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_main',",
         "    srcs = ['data_a.proto', 'data_b.proto'],",
@@ -1039,8 +1052,11 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testGenfilesProtoGetsCorrectPath() throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter.pbascii");
     scratch.file(
         "examples/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "package(default_visibility = ['//visibility:public'])",
         "apple_binary(",
         "    name = 'bin',",
@@ -1095,8 +1111,11 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testDifferingProtoDepsPerArchitecture() throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter.pbascii");
     scratch.file(
         "examples/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "package(default_visibility = ['//visibility:public'])",
         "apple_binary(",
         "    name = 'bin',",

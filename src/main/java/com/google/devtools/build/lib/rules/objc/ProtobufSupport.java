@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -70,7 +69,6 @@ final class ProtobufSupport {
   private final RuleContext ruleContext;
   private final BuildConfiguration buildConfiguration;
   private final ProtoAttributes attributes;
-  private final IntermediateArtifacts intermediateArtifacts;
   private final Set<PathFragment> dylibHandledProtoPaths;
   private final Iterable<ObjcProtoProvider> objcProtoProviders;
   private final NestedSet<Artifact> portableProtoFilters;
@@ -151,8 +149,6 @@ final class ProtobufSupport {
     this.dylibHandledProtoPaths = runfilesPaths(dylibHandledProtos.toSet());
     this.objcProtoProviders = objcProtoProviders;
     this.portableProtoFilters = portableProtoFilters;
-    this.intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
     this.inputsToOutputsMap = getInputsToOutputsMap(attributes, protoInfos, objcProtoProviders);
     this.toolchain = toolchain;
   }
@@ -170,29 +166,7 @@ final class ProtobufSupport {
       actionId++;
     }
 
-    if (!isLinkingTarget()) {
-      registerModuleMapGenerationAction();
-    }
-
     return this;
-  }
-
-  private void registerModuleMapGenerationAction() throws InterruptedException {
-    CompilationArtifacts.Builder moduleMapCompilationArtifacts =
-        new CompilationArtifacts.Builder()
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .addAdditionalHdrs(getProtobufHeaders())
-            .addAdditionalHdrs(
-                getGeneratedProtoOutputs(inputsToOutputsMap.values(), HEADER_SUFFIX));
-
-    CompilationSupport compilationSupport =
-        new CompilationSupport.Builder()
-            .setRuleContext(ruleContext)
-            .setCompilationAttributes(new CompilationAttributes.Builder().build())
-            .doNotUsePch()
-            .build();
-
-    compilationSupport.registerGenerateModuleMapAction(moduleMapCompilationArtifacts.build());
   }
 
   /**
@@ -255,10 +229,6 @@ final class ProtobufSupport {
     Iterable<PathFragment> includes = ImmutableList.of(getWorkspaceRelativeOutputDir());
     ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext);
 
-    if (!isLinkingTarget()) {
-      commonBuilder.setIntermediateArtifacts(intermediateArtifacts).setHasModuleMap();
-    }
-
     CompilationArtifacts.Builder compilationArtifacts =
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(getUniqueIntermediateArtifactsForSourceCompile());
@@ -271,12 +241,7 @@ final class ProtobufSupport {
     ObjcCommon common =
         getCommon(getUniqueIntermediateArtifactsForSourceCompile(), compilationArtifacts.build());
     commonBuilder.addDepObjcProviders(ImmutableSet.of(common.getObjcProvider()));
-
-    if (isLinkingTarget()) {
-      commonBuilder.addIncludes(includes);
-    } else {
-      commonBuilder.addDirectDependencyIncludes(includes);
-    }
+    commonBuilder.addIncludes(includes);
 
     return Optional.of(commonBuilder.build().getObjcProvider());
   }
@@ -391,18 +356,11 @@ final class ProtobufSupport {
   private ObjcCommon getCommon(
       IntermediateArtifacts intermediateArtifacts, CompilationArtifacts compilationArtifacts)
       throws InterruptedException {
-    ObjcCommon.Builder commonBuilder =
-        new ObjcCommon.Builder(ruleContext)
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setCompilationArtifacts(compilationArtifacts);
-    if (isLinkingTarget()) {
-      commonBuilder.addIncludes(getProtobufHeaderSearchPaths());
-    } else {
-      commonBuilder.addDepObjcProviders(
-          ruleContext.getPrerequisites(
-              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR));
-    }
-    return commonBuilder.build();
+    return new ObjcCommon.Builder(ruleContext)
+        .setIntermediateArtifacts(intermediateArtifacts)
+        .setCompilationArtifacts(compilationArtifacts)
+        .addIncludes(getProtobufHeaderSearchPaths())
+        .build();
   }
 
   private void addCompilationArtifacts(
@@ -415,12 +373,8 @@ final class ProtobufSupport {
 
     compilationArtifactsBuilder
         .addAdditionalHdrs(getGeneratedProtoOutputs(filteredInputProtos, HEADER_SUFFIX))
-        .addAdditionalHdrs(getProtobufHeaders());
-
-    if (isLinkingTarget()) {
-      compilationArtifactsBuilder.addNonArcSrcs(
-          getProtoSourceFilesForCompilation(outputProtoFiles));
-    }
+        .addAdditionalHdrs(getProtobufHeaders())
+        .addNonArcSrcs(getProtoSourceFilesForCompilation(outputProtoFiles));
   }
 
   private Iterable<Artifact> getProtoSourceFilesForCompilation(
@@ -521,12 +475,6 @@ final class ProtobufSupport {
       }
     }
     return builder.build();
-  }
-
-  private boolean isLinkingTarget() {
-    // Since this is the ProtobufSupport helper class, check whether the current target is
-    // an objc_proto_library. If not, it must be a linking rule (e.g. apple_binary).
-    return !attributes.isObjcProtoLibrary();
   }
 
   /**

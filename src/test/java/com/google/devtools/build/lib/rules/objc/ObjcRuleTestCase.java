@@ -591,8 +591,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   // data_a.proto, data_c.proto and data_d.proto. The same applies for the compilation actions,
   // where the inputs are interpreted as .pbobjc.h files, and the output is a .pbobjc.o file.
   protected void checkProtoBundlingAndLinking(RuleType ruleType) throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter_a.pbascii");
+    scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_1',",
         "    srcs = ['data_a.proto', 'data_b.proto'],",
@@ -783,8 +787,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkProtoBundlingDoesNotHappen(RuleType ruleType) throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos',",
         "    srcs = ['data_a.proto'],",
@@ -813,8 +820,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkProtoBundlingWithTargetsWithNoDeps(RuleType ruleType) throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter_a.pbascii");
     scratch.file(
         "protos/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_a',",
         "    srcs = ['data_a.proto'],",

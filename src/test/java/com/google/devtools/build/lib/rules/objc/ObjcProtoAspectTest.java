@@ -46,8 +46,11 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcProtoAspectPropagatesProvider() throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/data_filter.pbascii");
     scratch.file(
         "x/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "  name = 'protos',",
         "  srcs = ['data.proto'],",
@@ -64,8 +67,11 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcProtoAspectPropagatesProtobufProvider() throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/data_filter.pbascii");
     scratch.file(
         "x/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "  name = 'protos',",
         "  srcs = ['data.proto'],",
@@ -106,8 +112,11 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcProtoAspectBundlesDuplicateSymbols() throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/data_filter.pbascii");
     scratch.file(
         "x/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "objc_library(",
         "  name = 'x',",
         "  srcs = ['A.m'],",
@@ -142,8 +151,10 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcProtoAspectPropagatesGeneratedFilter() throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file(
         "x/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "objc_library(",
         "  name = 'x',",
         "  srcs = ['A.m'],",
@@ -172,8 +183,11 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
   @Test
   public void testObjcProtoAspectPropagatesFiltersFromDependenciesOfObjcProtoLibrary()
       throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter.pbascii");
     scratch.file(
         "x/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "objc_library(",
         "  name = 'x',",
         "  srcs = ['A.m'],",
@@ -211,6 +225,8 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcProtoAspectPropagatesProviderThroughSkylarkRule() throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/data_filter.pbascii");
     scratch.file("test_skylark/BUILD");
     scratch.file(
         "test_skylark/top_level_stub.bzl",
@@ -230,6 +246,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
     scratch.file(
         "x/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "  name = 'protos',",
         "  srcs = ['data.proto'],",

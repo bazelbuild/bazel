@@ -2548,7 +2548,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   // can be referenced at the top level using the --aspects flag. For ease of testing,
   // apple_common.objc_proto_aspect is used as an example.
   public void testTopLevelSkylarkObjcProtoAspect() throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file("test_skylark/BUILD");
+    scratch.file("x/data_filter.pbascii");
     scratch.file(
         "test_skylark/top_level_stub.bzl",
         "top_level_aspect = apple_common.objc_proto_aspect",
@@ -2565,6 +2567,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
     scratch.file(
         "x/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "  name = 'protos',",
         "  srcs = ['data.proto'],",

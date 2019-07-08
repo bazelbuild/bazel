@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ObjcImportRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcProtoAspect;
-import com.google.devtools.build.lib.rules.objc.ObjcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
 
@@ -68,7 +67,6 @@ public class ObjcRules implements RuleSet {
     builder.addNativeAspectClass(objcProtoAspect);
     builder.addRuleDefinition(new AppleBinaryRule(objcProtoAspect));
     builder.addRuleDefinition(new AppleStaticLibraryRule(objcProtoAspect));
-    builder.addRuleDefinition(new ObjcProtoLibraryRule(objcProtoAspect));
 
     builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));

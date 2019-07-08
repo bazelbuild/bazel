@@ -27,10 +27,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.ArrayList;
 
 /** Common rule attributes used by an objc_proto_library. */
@@ -51,6 +49,8 @@ final class ProtoAttributes {
   static final String NO_PROTOS_ERROR =
       "no protos to compile - a non-empty deps attribute is required";
 
+  static final String PORTABLE_PROTO_FILTERS_ATTR = "portable_proto_filters";
+
   private final RuleContext ruleContext;
 
   /**
@@ -63,58 +63,24 @@ final class ProtoAttributes {
   }
 
   /**
-   * Validates the proto attributes for this target.
-   *
-   * <ul>
-   * <li>Validates that there are protos specified to be compiled.
-   * <li>Validates that, when enabling the open source protobuf library, the options for the PB2 are
-   *     not specified also.
-   * <li>Validates that, when enabling the open source protobuf library, the rule specifies at least
-   *     one portable proto filter file.
-   * </ul>
-   */
-  public void validate() throws RuleErrorException {
-    if (getProtoFiles().isEmpty() && !hasObjcProtoLibraryDependencies()) {
-      ruleContext.throwWithAttributeError("deps", NO_PROTOS_ERROR);
-    }
-    if (hasPortableProtoFilters() && getPortableProtoFilters().isEmpty()) {
-      ruleContext.throwWithAttributeError(
-          ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, PORTABLE_PROTO_FILTERS_EMPTY_ERROR);
-    }
-  }
-
-  /**
    * Returns whether the target is an objc_proto_library. It does so by making sure that the
    * portable_proto_filters attribute exists in this target's attributes (even if it's empty).
    */
   boolean isObjcProtoLibrary() {
-    return ruleContext.attributes().has(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR);
-  }
-
-  private boolean isObjcProtoLibrary(ConfiguredTargetAndData dependency) {
-    try {
-      String targetName = dependency.getTarget().getTargetKind();
-      return targetName.equals("objc_proto_library rule");
-    } catch (Exception e) {
-      return false;
-    }
+    return ruleContext.attributes().has(PORTABLE_PROTO_FILTERS_ATTR);
   }
 
   /** Returns whether to use the protobuf library instead of the PB2 library. */
   boolean hasPortableProtoFilters() {
     return ruleContext
         .attributes()
-        .isAttributeValueExplicitlySpecified(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR);
+        .isAttributeValueExplicitlySpecified(PORTABLE_PROTO_FILTERS_ATTR);
   }
 
   /** Returns the list of portable proto filters. */
   ImmutableList<Artifact> getPortableProtoFilters() {
-    if (ruleContext
-        .attributes()
-        .has(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, LABEL_LIST)) {
-      return ruleContext
-          .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST)
-          .list();
+    if (ruleContext.attributes().has(PORTABLE_PROTO_FILTERS_ATTR, LABEL_LIST)) {
+      return ruleContext.getPrerequisiteArtifacts(PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST).list();
     }
     return ImmutableList.of();
   }
@@ -244,15 +210,5 @@ final class ProtoAttributes {
       artifacts.addTransitive(provider.getTransitiveProtoSources());
     }
     return artifacts.build();
-  }
-
-  private boolean hasObjcProtoLibraryDependencies() {
-    for (ConfiguredTargetAndData dep :
-        ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET)) {
-      if (isObjcProtoLibrary(dep)) {
-        return true;
-      }
-    }
-    return false;
   }
 }

@@ -81,7 +81,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
 
       NestedSet<Artifact> portableProtoFilters =
           PrerequisiteArtifacts.nestedSet(
-              ruleContext, ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST);
+              ruleContext, ProtoAttributes.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST);
 
       // If this target does not provide filters but specifies direct proto_library dependencies,
       // generate a filter file only for those proto files.

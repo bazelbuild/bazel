@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
@@ -552,5 +553,25 @@ public final class MockObjcSupport {
 
   public static String readCcToolchainConfigFile() throws IOException {
     return ResourceLoader.readFromResources(MOCK_OSX_TOOLCHAIN_CONFIG_PATH);
+  }
+
+  /** Creates a mock objc_proto_library rule in the current main workspace. */
+  public static void setupObjcProtoLibrary(Scratch scratch) throws Exception {
+    // Append file instead of creating one in case it already exists.
+    String toolsRepo = TestConstants.TOOLS_REPOSITORY;
+    scratch.file("objc_proto_library/BUILD", "");
+    scratch.file(
+        "objc_proto_library/objc_proto_library.bzl",
+        "def _impl(ctx):",
+        "  return [apple_common.new_objc_provider()]",
+        "",
+        "objc_proto_library = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'portable_proto_filters': attr.label_list(allow_files=True),",
+        "    '_lib_protobuf': attr.label(default = '" + toolsRepo + "//objcproto:protobuf_lib'),",
+        "  }",
+        ")");
   }
 }

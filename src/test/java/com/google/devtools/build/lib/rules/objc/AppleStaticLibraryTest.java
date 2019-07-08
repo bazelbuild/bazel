@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
@@ -234,8 +235,12 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testProtoDeps() throws Exception {
+    MockObjcSupport.setupObjcProtoLibrary(scratch);
+    scratch.file("x/filter_a.pbascii");
+    scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_main',",
         "    srcs = ['data_a.proto', 'data_b.proto'],",

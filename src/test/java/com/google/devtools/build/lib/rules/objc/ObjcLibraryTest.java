@@ -1670,81 +1670,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testDoesNotPropagateProtoIncludes() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-    scratch.file(
-        "x/BUILD",
-        "proto_library(",
-        "   name = 'protos',",
-        "   srcs = ['data.proto'],",
-        ")",
-        "objc_proto_library(",
-        "   name = 'objc_proto_lib',",
-        "   deps = [':protos'],",
-        "   portable_proto_filters = ['data_filter.pbascii'],",
-        ")");
-    createLibraryTargetWriter("//a:lib")
-        .setList("srcs", "a.m")
-        .setList("deps", "//x:objc_proto_lib")
-        .write();
-    createLibraryTargetWriter("//b:lib").setList("srcs", "b.m").setList("deps", "//a:lib").write();
-
-    CommandAction compileAction1 = compileAction("//a:lib", "a.o");
-    CommandAction compileAction2 = compileAction("//b:lib", "b.o");
-
-    assertThat(Joiner.on(" ").join(compileAction1.getArguments())).contains("objc_proto_lib");
-    assertThat(Joiner.on(" ").join(compileAction2.getArguments())).doesNotContain("objc_proto_lib");
-  }
-
-  @Test
   public void testExportsJ2ObjcProviders() throws Exception {
     useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     ConfiguredTarget lib = createLibraryTargetWriter("//a:lib").write();
     assertThat(lib.getProvider(J2ObjcEntryClassProvider.class)).isNotNull();
     assertThat(lib.getProvider(J2ObjcMappingFileProvider.class)).isNotNull();
-  }
-
-  @Test
-  public void testObjcProtoLibraryDoesNotCrash() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-    scratch.file(
-        "x/BUILD",
-        "objc_library(",
-        "   name = 'objc',",
-        "   srcs = ['source.m'],",
-        "   deps = [':objc_proto_lib'],",
-        ")",
-        "proto_library(",
-        "   name = 'protos',",
-        "   srcs = ['data.proto'],",
-        ")",
-        "objc_proto_library(",
-        "   name = 'objc_proto_lib',",
-        "   deps = [':protos'],",
-        "   portable_proto_filters = ['data_filter.pbascii'],",
-        ")");
-    assertThat(getConfiguredTarget("//x:objc")).isNotNull();
-  }
-
-  @Test
-  public void testLegacyObjcProtoLibraryDoesNotCrash() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-    scratch.file(
-        "x/BUILD",
-        "objc_library(",
-        "   name = 'objc',",
-        "   srcs = ['source.m'],",
-        "   deps = [':objc_proto_lib'],",
-        ")",
-        "proto_library(",
-        "   name = 'protos',",
-        "   srcs = ['data.proto'],",
-        ")",
-        "objc_proto_library(",
-        "   name = 'objc_proto_lib',",
-        "   deps = [':protos'],",
-        ")");
-    assertThat(getConfiguredTarget("//x:objc")).isNotNull();
   }
 
   @Test
