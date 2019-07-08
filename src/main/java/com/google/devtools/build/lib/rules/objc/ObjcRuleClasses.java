@@ -547,7 +547,14 @@ public class ObjcRuleClasses {
           .add(
               attr(HEADER_SCANNER_ATTRIBUTE, LABEL)
                   .cfg(HostTransition.createFactory())
-                  .value(headerScannerAttribute(env)))
+                  .value(
+                      LabelLateBoundDefault.fromTargetConfiguration(
+                          ObjcConfiguration.class,
+                          env.getToolsLabel("//tools/objc:header_scanner"),
+                          (Attribute.LateBoundDefault.Resolver<ObjcConfiguration, Label>
+                                  & Serializable)
+                              (rule, attributes, objcConfig) ->
+                                  objcConfig.getObjcHeaderScannerTool())))
           .add(attr(APPLE_SDK_ATTRIBUTE, LABEL).value(SDK_LATE_BOUND_DEFAULT))
           .build();
     }
@@ -565,15 +572,6 @@ public class ObjcRuleClasses {
               CrosstoolRule.class)
           .build();
     }
-  }
-
-  static LabelLateBoundDefault<ObjcConfiguration> headerScannerAttribute(
-      RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        ObjcConfiguration.class,
-        env.getToolsLabel("//tools/objc:header_scanner"),
-        (Attribute.LateBoundDefault.Resolver<ObjcConfiguration, Label> & Serializable)
-            (rule, attributes, objcConfig) -> objcConfig.getObjcHeaderScannerTool());
   }
 
   /**
