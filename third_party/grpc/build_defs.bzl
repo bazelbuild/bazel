@@ -7,9 +7,13 @@ def _path_ignoring_repository(f):
     if (len(f.owner.workspace_root) == 0):
         return f.short_path
 
-    # If |f| is a generated file, it will have "bazel-out/*/genfiles" prefix
-    # before "external/workspace", so we need to add the starting index of "external/workspace"
-    return f.path[f.path.find(f.owner.workspace_root) + len(f.owner.workspace_root) + 1:]
+    virtual_imports = "/_virtual_imports/"
+    if virtual_imports in f.path:
+        return f.path.split(virtual_imports)[1].split("/", 1)[1]
+    else:
+        # If |f| is a generated file, it will have "bazel-out/*/genfiles" prefix
+        # before "external/workspace", so we need to add the starting index of "external/workspace"
+        return f.path[f.path.find(f.owner.workspace_root) + len(f.owner.workspace_root) + 1:]
 
 def _gensource_impl(ctx):
     if len(ctx.attr.srcs) > 1:
