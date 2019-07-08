@@ -179,7 +179,7 @@ function test_java_tools_toolchain_builds() {
   if "$is_windows"; then
         java_tools_zip_file_url="file:///${java_tools_rlocation}"
   fi
-  cat >WORKSPACE <<EOF
+  cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "local_java_tools",

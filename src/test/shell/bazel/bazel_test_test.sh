@@ -122,6 +122,7 @@ function test_env_vars() {
   cat > WORKSPACE <<EOF
 workspace(name = "bar")
 EOF
+  add_rules_cc_to_workspace WORKSPACE
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
@@ -525,9 +526,7 @@ EOF
 
 function test_detailed_test_summary() {
   copy_examples
-  cat > WORKSPACE <<EOF
-workspace(name = "io_bazel")
-EOF
+  create_workspace_with_default_repos WORKSPACE
   setup_javatest_support
 
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject

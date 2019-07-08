@@ -50,7 +50,7 @@ EOF
 function test_cc_library_include_prefix_external_repository() {
   r="$TEST_TMPDIR/r"
   mkdir -p "$TEST_TMPDIR/r/foo/v1"
-  touch "$TEST_TMPDIR/r/WORKSPACE"
+  create_workspace_with_default_repos "$TEST_TMPDIR/r/WORKSPACE"
   echo "#define FOO 42" > "$TEST_TMPDIR/r/foo/v1/foo.h"
   cat > "$TEST_TMPDIR/r/foo/BUILD" <<EOF
 cc_library(
@@ -61,8 +61,7 @@ cc_library(
   visibility = ["//visibility:public"],
 )
 EOF
-
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(
   name = "foo",
   path = "$TEST_TMPDIR/r",
@@ -281,7 +280,7 @@ EOF
 function setup_cc_starlark_api_test() {
   local pkg="$1"
 
-  touch "$pkg"/WORKSPACE
+  create_workspace_with_default_repos "$pkg"/WORKSPACE
 
   mkdir "$pkg"/include_dir
   touch "$pkg"/include_dir/include.h
@@ -599,7 +598,5 @@ EOF
 
   bazel-bin/"$pkg"/g | grep a1a2bcddcb2a1a || fail "output is incorrect"
 }
-
-
 
 run_suite "cc_integration_test"

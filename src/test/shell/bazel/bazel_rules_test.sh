@@ -324,7 +324,7 @@ EOF
 }
 
 function test_genrule_remote() {
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(
     name = "r",
     path = __workspace_dir__,
@@ -355,7 +355,7 @@ EOF
 }
 
 function test_genrule_remote_d() {
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(
     name = "r",
     path = __workspace_dir__,
@@ -429,8 +429,8 @@ EOF
 
  cd ${WORKSPACE_DIR}
  mkdir -p {module1,module2}
- cat > WORKSPACE <<EOF
-workspace(name = "foobar")
+ rm WORKSPACE
+ cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(name="remote", path="${remote_path}")
 EOF
  cat > module1/BUILD <<EOF

@@ -77,6 +77,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         '  srcs = ["six.py"],',
         ')',
     ]
+    rule_definition.extend(self.GetDefaultRepoRules())
     self.ScratchFile('WORKSPACE', rule_definition)
     self.ScratchFile('BUILD')
     self.ScratchFile('third_party/BUILD')
@@ -109,14 +110,16 @@ class BazelExternalRepositoryTest(test_base.TestBase):
 
   def testNewHttpArchiveWithSymlinks(self):
     ip, port = self._http_server.server_address
-    self.ScratchFile('WORKSPACE', [
+    rule_definition = [
         'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
         'http_archive(',
         '    name = "archive_with_symlink",',
         '    urls = ["http://%s:%s/archive_with_symlink.zip"],' % (ip, port),
         '    build_file = "@//:archive_with_symlink.BUILD",',
         ')',
-    ])
+    ]
+    rule_definition.extend(self.GetDefaultRepoRules())
+    self.ScratchFile('WORKSPACE', rule_definition)
     # In the archive, A is a symlink pointing to B
     self.ScratchFile('archive_with_symlink.BUILD', [
         'filegroup(',
@@ -149,14 +152,17 @@ class BazelExternalRepositoryTest(test_base.TestBase):
 
   def testNewLocalRepositoryNoticesFileChangeInRepoRoot(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/7063."""
-    self.ScratchFile('WORKSPACE', [
+    rule_definition = [
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
         'new_local_repository(',
         '    name = "r",',
         '    path = "./repo",',
         '    build_file_content = "exports_files([\'foo.bzl\'])",',
         ')',
-    ])
-    self.ScratchFile('repo/WORKSPACE')
+    ]
+    rule_definition.extend(self.GetDefaultRepoRules())
+    self.ScratchFile('WORKSPACE', rule_definition)
+    self.CreateWorkspaceWithDefaultRepos('repo/WORKSPACE')
     self._CreatePyWritingStarlarkRule('hello!')
     self.ScratchFile('BUILD', [
         'load("@r//:foo.bzl", "gen_py")',

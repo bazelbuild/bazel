@@ -8,6 +8,7 @@ package_group(
 )
 
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
     name = "util",

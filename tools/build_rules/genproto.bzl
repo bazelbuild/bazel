@@ -1,22 +1,34 @@
-# Copyright 2014 The Bazel Authors. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+"""
+Copyright 2014 The Bazel Authors. All rights reserved.
 
-# This is a quick and dirty rule to make Bazel compile itself. Do not use.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+This is a quick and dirty rule to make Bazel compile itself. Do not use.
+"""
+
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
 proto_filetype = [".proto"]
 
 def cc_grpc_library(name, src):
+    """Creates a cc_library for grpc.
+
+    A genrule is created as well to generate protobuf headers.
+
+    Args:
+      name: used for the cc_library
+      src: source input for the cc_library
+    """
     basename = src[:-len(".proto")]
     protoc_label = str(Label("//third_party/protobuf:protoc"))
     protobuf_lib_label = str(Label("//third_party/protobuf"))
@@ -35,7 +47,7 @@ def cc_grpc_library(name, src):
         outs = [basename + ".grpc.pb.h", basename + ".grpc.pb.cc", basename + ".pb.cc", basename + ".pb.h"],
     )
 
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = [basename + ".grpc.pb.cc", basename + ".pb.cc"],
         hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],

@@ -506,7 +506,7 @@ broken_rule = repository_rule(
 )
 EOF
   touch BUILD
-  cat > WORKSPACE <<'EOF'
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:rule.bzl", "broken_rule")
 
 broken_rule(name = "broken")
@@ -647,7 +647,8 @@ genrule(
 EOF
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
-  rm WORKSPACE; touch WORKSPACE
+  rm WORKSPACE
+  touch WORKSPACE
   echo; cat resolved.bzl; echo
 
   bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
@@ -812,7 +813,7 @@ time_rule = repository_rule(
   attrs = {},
 )
 EOF
-    cat > WORKSPACE <<'EOF'
+  cat > WORKSPACE <<'EOF'
 load("//:rule.bzl", "time_rule")
 
 time_rule(name="timestamprepo")
@@ -1095,7 +1096,7 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",

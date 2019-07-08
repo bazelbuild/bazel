@@ -1,4 +1,5 @@
 load("//examples/windows/dll:windows_dll_library.bzl", "windows_dll_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 filegroup(
     name = "srcs",

@@ -18,6 +18,7 @@ load(
     "remote_java_tools_filegroup",
     "remote_java_tools_java_import",
 )
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 package(default_visibility = ["//visibility:public"])
 

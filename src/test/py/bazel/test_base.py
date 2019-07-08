@@ -115,6 +115,27 @@ class TestBase(unittest.TestCase):
         actual_exit_code, lambda x: x != not_expected_exit_code,
         '(against expectations)', stderr_lines, stdout_lines)
 
+  def CreateWorkspaceWithDefaultRepos(self, path):
+    rule_definition = [
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
+    ]
+    rule_definition.extend(self.GetDefaultRepoRules())
+    self.ScratchFile(path, rule_definition)
+
+  def GetDefaultRepoRules(self):
+    return self.GetCcRulesRepoRule()
+
+  def GetCcRulesRepoRule(self):
+    return [
+        'http_archive(', '    name = "rules_cc",', '    sha256 = '
+        '"36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",',
+        '    strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",',
+        '    urls = [',
+        '        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",',
+        '        "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",',
+        '    ],', ')'
+    ]
+
   @staticmethod
   def GetEnv(name, default=None):
     """Returns environment variable `name`.

@@ -56,7 +56,7 @@ function test_maven_jar() {
   setup_zoo
   serve_artifact com.example.carnivore carnivore 1.23
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
@@ -74,7 +74,7 @@ function test_maven_jar_no_sha1_src() {
   setup_zoo
   serve_artifact com.example.carnivore carnivore 1.23
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
@@ -92,7 +92,7 @@ function test_maven_jar_no_sha1() {
   setup_zoo
   serve_artifact com.example.carnivore carnivore 1.23
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
@@ -109,7 +109,7 @@ function test_maven_jar_downloads() {
   setup_zoo
   serve_artifact com.example.carnivore carnivore 1.23
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
@@ -129,7 +129,7 @@ function test_maven_jar_404() {
   setup_zoo
   serve_not_found
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
@@ -148,7 +148,7 @@ function test_maven_jar_mismatched_sha1() {
   serve_artifact com.example.carnivore carnivore 1.23
 
   wrong_sha1="0123456789012345678901234567890123456789"
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
@@ -163,7 +163,7 @@ EOF
 
 function test_default_repository() {
   serve_artifact thing amabop 1.9
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_server(
     name = "default",
     url = "http://127.0.0.1:$fileserver_port/",
@@ -181,7 +181,7 @@ EOF
 
 function test_settings() {
   serve_artifact thing amabop 1.9
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_server(
     name = "x",
     url = "http://127.0.0.1:$fileserver_port/",
@@ -251,7 +251,7 @@ EOF
 function test_auth() {
   startup_auth_server
   create_artifact thing amabop 1.9
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_server(
     name = "x",
     url = "http://127.0.0.1:$fileserver_port/",

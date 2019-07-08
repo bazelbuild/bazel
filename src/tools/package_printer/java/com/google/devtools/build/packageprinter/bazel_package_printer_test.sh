@@ -27,7 +27,7 @@ function test_basic() {
 sh_library(name='brighton', deps=[':harken'])
 sh_library(name='harken')
 EOF
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
 
   bazel info > /dev/null # unpack and create install and output roots.
   ${BAZEL_RUNFILES}/src/tools/package_printer/java/com/google/devtools/build/packageprinter/BazelPackagePrinter --workspace_root=. --install_base=$(bazel info install_base) --output_base=$(bazel info output_base) peach > $TEST_log

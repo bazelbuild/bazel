@@ -29,8 +29,8 @@ function test_runfiles() {
   name=blorp_malorp
   cat > WORKSPACE <<EOF
 workspace(name = "$name")
-
 EOF
+  create_workspace_with_default_repos WORKSPACE
 
   mkdir foo
   cat > foo/BUILD <<EOF
@@ -64,7 +64,7 @@ new_local_repository(
     build_file = "BUILD",
 )
 EOF
-
+  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<EOF
 exports_files(glob(["*"]))
 

@@ -24,7 +24,7 @@ class FirstTimeUseTest(test_base.TestBase):
 
   def testNoPythonRequirement(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/6463."""
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     exit_code, stdout, stderr = self.RunBazel(['info', 'release'])
     self.AssertExitCode(exit_code, 0, stderr)
     for line in stdout + stderr:
@@ -49,7 +49,7 @@ class FirstTimeUseTest(test_base.TestBase):
 
   def testNoBashRequiredForSimpleBazelRun(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/8229."""
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_binary(',
         '    name = "x",'

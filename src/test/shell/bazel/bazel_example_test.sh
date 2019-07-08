@@ -54,6 +54,7 @@ function set_up() {
   cat > WORKSPACE <<EOF
 workspace(name = "io_bazel")
 EOF
+  add_rules_cc_to_workspace WORKSPACE
 }
 
 #

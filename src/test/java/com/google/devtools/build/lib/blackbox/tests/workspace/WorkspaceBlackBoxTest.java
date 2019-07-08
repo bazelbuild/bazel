@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.blackbox.tests.workspace;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestEnvironment;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
@@ -241,6 +242,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     PathUtils.writeFile(
         tempWorkspace,
         "workspace(name = 'abc')",
+        BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos(),
         String.format(
             "local_repository(name = 'ext', path = '%s',)", PathUtils.pathForStarlarkFile(repo)));
     Files.createSymbolicLink(workspaceFile, tempWorkspace);

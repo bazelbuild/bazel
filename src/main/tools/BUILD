@@ -1,5 +1,7 @@
 package(default_visibility = ["//src:__subpackages__"])
 
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
 cc_binary(
     name = "daemonize",
     srcs = ["daemonize.c"],

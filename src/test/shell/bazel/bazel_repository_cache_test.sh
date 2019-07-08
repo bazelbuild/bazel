@@ -38,7 +38,8 @@ function setup_repository() {
 
   # Test with the extension
   serve_file $repo2_zip
-  cat > WORKSPACE <<EOF
+  rm WORKSPACE
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -57,7 +58,7 @@ function setup_skylark_repository() {
 
   zip_file="${server_dir}/zip_file.zip"
 
-  touch "${server_dir}"/WORKSPACE
+  create_workspace_with_default_repos "${server_dir}"/WORKSPACE
   echo "some content" > "${server_dir}"/file
   zip -0 -ry $zip_file "${server_dir}"/WORKSPACE "${server_dir}"/file >& $TEST_log
 
@@ -66,7 +67,7 @@ function setup_skylark_repository() {
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
@@ -96,7 +97,7 @@ EOF
 
   serve_artifact com.example.carnivore carnivore 1.23
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
@@ -166,7 +167,7 @@ EOF
   mkdir -p zoo
 
   if [[ $write_workspace = 0 ]]; then
-    cat > WORKSPACE <<EOF
+    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -286,7 +287,8 @@ function test_write_cache_without_hash() {
   setup_repository
 
   # Have a WORKSPACE file without the specified sha256
-  cat > WORKSPACE <<EOF
+  rm WORKSPACE
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -312,7 +314,8 @@ EOF
     && fail "expected failure" || :
 
   # However, if we add the hash, the value is taken from cache
-  cat > WORKSPACE <<EOF
+  rm WORKSPACE
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(

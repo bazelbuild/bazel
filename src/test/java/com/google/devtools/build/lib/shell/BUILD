@@ -7,6 +7,8 @@ package(
 
 licenses(["notice"])  # Apache 2.0
 
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
 filegroup(
     name = "srcs",
     testonly = 0,

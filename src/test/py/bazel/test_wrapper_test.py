@@ -33,7 +33,7 @@ class TestWrapperTest(test_base.TestBase):
     self.fail('FAIL:\n | %s\n---' % '\n | '.join(output))
 
   def _CreateMockWorkspace(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'load(":native_test.bzl", "bat_test", "exe_test")',
         'bat_test(',
@@ -538,8 +538,13 @@ class TestWrapperTest(test_base.TestBase):
   # has this bug, but I (@laszlocsomor) work on enabling the native test wrapper
   # by default so fixing the legacy one seems to make little sense.
   def testRunningTestFromExternalRepo(self):
-    self.ScratchFile('WORKSPACE', ['local_repository(name = "a", path = "a")'])
-    self.ScratchFile('a/WORKSPACE')
+    rule_definition = [
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        'local_repository(name = "a", path = "a")'
+    ]
+    rule_definition.extend(self.GetDefaultRepoRules())
+    self.ScratchFile('WORKSPACE', rule_definition)
+    self.CreateWorkspaceWithDefaultRepos('a/WORKSPACE')
     self.ScratchFile('BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
     self.ScratchFile('a/BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
     self.ScratchFile('x.py')
