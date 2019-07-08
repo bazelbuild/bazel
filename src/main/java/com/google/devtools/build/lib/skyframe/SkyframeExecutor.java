@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -180,6 +181,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
@@ -2948,6 +2950,48 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   }
 
   public abstract ExecutionFinishedEvent createExecutionFinishedEvent();
+
+  protected Iterable<ActionLookupValue> getActionLookupValuesInBuild(
+      List<ConfiguredTargetKey> topLevelCtKeys, List<AspectValueKey> aspectKeys)
+      throws InterruptedException {
+    if (!tracksStateForIncrementality()) {
+      // If we do not track incremental state we do not have graph edges, so we cannot traverse the
+      // graph and find only actions in the current build. In this case we can simply return all
+      // ActionLookupValues in the graph, since the graph's lifetime is a single build anyway.
+      return Iterables.filter(memoizingEvaluator.getDoneValues().values(), ActionLookupValue.class);
+    }
+    WalkableGraph walkableGraph = SkyframeExecutorWrappingWalkableGraph.of(this);
+    Set<SkyKey> seen = CompactHashSet.create();
+    List<ActionLookupValue> result = new ArrayList<>();
+    for (ConfiguredTargetKey key : topLevelCtKeys) {
+      findActionsRecursively(walkableGraph, key, seen, result);
+    }
+    for (AspectValueKey key : aspectKeys) {
+      findActionsRecursively(walkableGraph, key, seen, result);
+    }
+    return result;
+  }
+
+  private static void findActionsRecursively(
+      WalkableGraph walkableGraph, SkyKey key, Set<SkyKey> seen, List<ActionLookupValue> result)
+      throws InterruptedException {
+    if (!(key instanceof ActionLookupValue.ActionLookupKey) || !seen.add(key)) {
+      // The subgraph of dependencies of ActionLookupValues never has a non-ActionLookupValue
+      // depending on an ActionLookupValue. So we can skip any non-ActionLookupValues in the
+      // traversal as an optimization.
+      return;
+    }
+    SkyValue value = walkableGraph.getValue(key);
+    if (value == null) {
+      return; // The value failed to evaluate.
+    }
+    if (value instanceof ActionLookupValue) {
+      result.add((ActionLookupValue) value);
+    }
+    for (SkyKey dep : walkableGraph.getDirectDeps(key)) {
+      findActionsRecursively(walkableGraph, dep, seen, result);
+    }
+  }
 
   private <T extends SkyValue> EvaluationResult<T> evaluate(
       Iterable<? extends SkyKey> roots,
