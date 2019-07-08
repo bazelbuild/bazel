@@ -92,12 +92,12 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // so we have to prefix our name to turn it into a globally unique value.
     Path sandboxPath =
         sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
-    sandboxPath.createDirectoryAndParents()
+    sandboxPath.createDirectoryAndParents();
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
     // the normal execroot does.
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
-    sandboxExecRoot.createDirectoryAndParents()
+    sandboxExecRoot.createDirectoryAndParents();
 
     Path tmpDir = createActionTemp(execRoot);
     Path commandTmpDir = tmpDir.getRelative("work");
