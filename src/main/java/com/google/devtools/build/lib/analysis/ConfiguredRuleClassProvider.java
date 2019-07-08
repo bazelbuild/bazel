@@ -269,6 +269,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
+    private boolean enableExecutionTransition = false;
 
     public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
@@ -453,6 +454,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           this.shouldInvalidateCacheForOptionDiff.equals(OptionsDiffPredicate.ALWAYS_INVALIDATE),
           "Cache invalidation function was already set");
       this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
+      return this;
+    }
+
+    @Override
+    public boolean enableExecutionTransition() {
+      return enableExecutionTransition;
+    }
+
+    public Builder enableExecutionTransition(boolean flag) {
+      this.enableExecutionTransition = flag;
       return this;
     }
 

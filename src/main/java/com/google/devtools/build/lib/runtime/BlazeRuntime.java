@@ -1488,6 +1488,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       ConfiguredRuleClassProvider.Builder ruleClassBuilder =
           new ConfiguredRuleClassProvider.Builder();
+      BlazeServerStartupOptions blazeServerStartupOptions =
+          startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
+      if (blazeServerStartupOptions != null) {
+        ruleClassBuilder.enableExecutionTransition(
+            blazeServerStartupOptions.enableExecutionTransition);
+      }
       for (BlazeModule module : blazeModules) {
         module.initializeRuleClasses(ruleClassBuilder);
       }

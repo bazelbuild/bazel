@@ -30,6 +30,19 @@ import javax.annotation.Nullable;
  */
 public class ExecutionTransitionFactory implements TransitionFactory<AttributeTransitionData> {
 
+  /**
+   * Returns either a new {@link ExecutionTransitionFactory} or a factory for the {@link
+   * HostTransition}, depending on the value of {@code enableExecutionTransition}.
+   */
+  public static TransitionFactory<AttributeTransitionData> create(
+      boolean enableExecutionTransition) {
+    if (enableExecutionTransition) {
+      return new ExecutionTransitionFactory();
+    } else {
+      return HostTransition.createFactory();
+    }
+  }
+
   @Override
   public PatchTransition create(AttributeTransitionData data) {
     return new ExecutionTransition(data.executionPlatform());
