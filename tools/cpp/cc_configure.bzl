@@ -154,6 +154,10 @@ cc_autoconf = repository_rule(
         "VS110COMNTOOLS",
         "VS120COMNTOOLS",
         "VS140COMNTOOLS",
+        "VS150COMNTOOLS",
+        "VS160COMNTOOLS",
+        "TMP",
+        "TEMP",
     ],
     implementation = cc_autoconf_impl,
 )
