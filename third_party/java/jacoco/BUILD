@@ -31,7 +31,10 @@ genrule(
 
 filegroup(
     name = "transitive_sources",
-    srcs = glob(["*-src.jar"]) + ["LICENSE"] + [
+    srcs = glob(
+        ["*-src.jar"],
+        allow_empty = True,
+    ) + ["LICENSE"] + [
         "//third_party:asm/asm-7.0-sources.jar",
         "//third_party:asm/asm-analysis-7.0-sources.jar",
         "//third_party:asm/asm-commons-7.0-sources.jar",
@@ -114,12 +117,12 @@ java_import(
 
 java_import(
     name = "blaze-agent-neverlink",
-    jars = ["jacocoagent-%s.jar"  % VERSION],
+    jars = ["jacocoagent-%s.jar" % VERSION],
     neverlink = 1,
 )
 
 java_import(
     name = "blaze-agent-neverlink-%s" % VERSION,
-    jars = ["jacocoagent-%s.jar"  % VERSION],
+    jars = ["jacocoagent-%s.jar" % VERSION],
     neverlink = 1,
 )
