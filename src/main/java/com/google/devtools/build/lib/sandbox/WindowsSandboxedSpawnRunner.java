@@ -58,26 +58,20 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
-  private final @Nullable SandboxfsProcess sandboxfsProcess;
-  private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
 
   /**
-   * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
+   * Creates a sandboxed spawn runner that uses the {@code windows-sandbox} tool.
    *
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param timeoutKillDelay an additional grace period before killing timing out commands
-   * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
-   *     which case the runner uses a symlinked sandbox
-   * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
    */
   WindowsSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
       PathFragment windowsSandboxPath,
-      boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
@@ -86,8 +80,6 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.windowsSandbox = windowsSandboxPath;
     this.sandboxBase = sandboxBase;
     this.timeoutKillDelay = timeoutKillDelay;
-    this.sandboxfsProcess = null;
-    this.sandboxfsMapSymlinkTargets = sandboxfsMapSymlinkTargets;
     this.localEnvProvider = new WindowsLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
   }

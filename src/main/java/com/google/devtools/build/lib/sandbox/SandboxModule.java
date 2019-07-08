@@ -272,9 +272,9 @@ public final class SandboxModule extends BlazeModule {
     }
 
     PathFragment windowsSandboxPath = PathFragment.create(options.windowsSandboxPath);
-    boolean useWindowsSandbox;
+    boolean windowsSandboxSupported;
     try (SilentCloseable c = Profiler.instance().profile("shouldUseWindowsSandbox")) {
-      useWindowsSandbox = shouldUseWindowsSandbox(options.useWindowsSandbox, windowsSandboxPath);
+      windowsSandboxSupported = shouldUseWindowsSandbox(options.useWindowsSandbox, windowsSandboxPath);
     }
 
     Duration timeoutKillDelay =
@@ -363,7 +363,7 @@ public final class SandboxModule extends BlazeModule {
       builder.addActionContext(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
-    if (useWindowsSandbox) {
+    if (windowsSandboxSupported) {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
@@ -372,13 +372,12 @@ public final class SandboxModule extends BlazeModule {
                   sandboxBase,
                   timeoutKillDelay,
                   windowsSandboxPath,
-                  options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.addActionContext(new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
-    if (processWrapperSupported || linuxSandboxSupported || darwinSandboxSupported || useWindowsSandbox) {
+    if (processWrapperSupported || linuxSandboxSupported || darwinSandboxSupported || windowsSandboxSupported) {
       // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
       // but it is not necessarily the default.
       builder.addStrategyByContext(SpawnActionContext.class, "sandboxed");

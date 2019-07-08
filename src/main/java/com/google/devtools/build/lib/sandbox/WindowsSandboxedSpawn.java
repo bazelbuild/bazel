@@ -27,8 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Creates an execRoot for a Spawn that contains input files as symlinks to their original
- * destination.
+ * Creates an execRoot for a Spawn by copying input files.
  */
 public class WindowsSandboxedSpawn extends AbstractContainerizingSandboxedSpawn {
 
