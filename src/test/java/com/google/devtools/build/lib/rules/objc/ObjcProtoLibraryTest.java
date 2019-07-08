@@ -250,10 +250,8 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testOutputsGenfile() throws Exception {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(getConfiguredTarget("//package:gen_opl"));
-    assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAtLeast(
-            "package/_generated_protos/gen_opl/package/FileAGenfile.pbobjc.h",
-            "package/_generated_protos/gen_opl/package/FileAGenfile.pbobjc.m");
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild))
+        .containsAtLeast("FileAGenfile.pbobjc.h", "FileAGenfile.pbobjc.m");
   }
 
   @Test
