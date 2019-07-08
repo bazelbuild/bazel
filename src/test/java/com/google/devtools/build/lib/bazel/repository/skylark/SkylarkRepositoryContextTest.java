@@ -298,7 +298,7 @@ public class SkylarkRepositoryContextTest {
   }
 
   @Test
-  public void testPatchFailed() throws Exception {
+  public void testCannotFindFileToPatch() throws Exception {
     setUpContexForRule("test");
     SkylarkPath patchFile = context.path("my.patch");
     context.createFile(context.path("my.patch"),
@@ -316,6 +316,53 @@ public class SkylarkRepositoryContextTest {
           .isEqualTo(
               "Error applying patch /outputDir/my.patch: Cannot find file to patch (near line 1)"
                   + ", old file name (foo) doesn't exist, new file name (foo) doesn't exist.");
+    }
+  }
+
+  @Test
+  public void testPatchOutsideOfExternalRepository() throws Exception {
+    setUpContexForRule("test");
+    SkylarkPath patchFile = context.path("my.patch");
+    context.createFile(context.path("my.patch"),
+        "--- ../other_root/foo\n" +
+            "+++ ../other_root/foo\n" +
+            "@@ -1,1 +1,2 @@\n" +
+            " line one\n" +
+            "+line two\n", false, true, null);
+    try {
+      context.patch(patchFile, 0, null);
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo(
+              "Error applying patch /outputDir/my.patch: Cannot patch file outside of external "
+                  + "repository (/outputDir), file path = \"../other_root/foo\" at line 1");
+    }
+  }
+
+  @Test
+  public void testPatchErrorWasThrown() throws Exception {
+    setUpContexForRule("test");
+    SkylarkPath foo = context.path("foo");
+    SkylarkPath patchFile = context.path("my.patch");
+    context.createFile(foo, "line one\n", false, true, null);
+    context.createFile(context.path("my.patch"),
+        "--- foo\n" +
+            "+++ foo\n" +
+            "@@ -1,1 +1,2 @@\n" +
+            " line three\n" +
+            "+line two\n", false, true, null);
+    try {
+      context.patch(patchFile, 0, null);
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo(
+              "Error applying patch /outputDir/my.patch: Incorrect Chunk: the chunk content "
+                  + "doesn't match the target\nFailed to apply delta:\n    "
+                  + "[ChangeDelta, position: 0, lines: [line three] to [line three, line two]]");
     }
   }
 

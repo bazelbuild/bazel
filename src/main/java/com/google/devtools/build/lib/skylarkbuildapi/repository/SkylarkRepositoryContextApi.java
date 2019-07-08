@@ -312,7 +312,8 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                   @ParamType(type = RepositoryPathApi.class)
               },
               doc =
-                  "Path of the patch file to apply."),
+                  "The patch file to apply, it can be label, relative path or absolute path. "
+                      + "If it's a relative path, it will resolve to the repository directory."),
           @Param(
               name = "strip",
               type = Integer.class,
