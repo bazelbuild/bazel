@@ -267,6 +267,11 @@ class StartupOptions {
   // Whether to raise the soft coredump limit to the hard one or not.
   bool unlimit_coredumps;
 
+  // Whether the execution transition is enabled, or behaves like a host
+  // transition. This must be set before rule classes are constructed.
+  // See https://github.com/bazelbuild/bazel/issues/7935
+  bool incompatible_enable_execution_transition;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the

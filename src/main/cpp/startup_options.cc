@@ -100,7 +100,8 @@ StartupOptions::StartupOptions(const string &product_name,
 #if defined(__APPLE__)
       macos_qos_class(QOS_CLASS_DEFAULT),
 #endif
-      unlimit_coredumps(false) {
+      unlimit_coredumps(false),
+      incompatible_enable_execution_transition(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
@@ -140,6 +141,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions");
   RegisterNullaryStartupFlag("host_jvm_debug");
   RegisterNullaryStartupFlag("idle_server_tasks");
+  RegisterNullaryStartupFlag("incompatible_enable_execution_transition");
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem");
   RegisterNullaryStartupFlag("ignore_all_rc_files");
   RegisterNullaryStartupFlag("unlimit_coredumps");
@@ -188,7 +190,13 @@ bool StartupOptions::IsUnary(const string& arg) const {
   return false;
 }
 
-void StartupOptions::AddExtraOptions(vector<string> *result) const {}
+void StartupOptions::AddExtraOptions(vector<string> *result) const {
+  if (incompatible_enable_execution_transition) {
+    result->push_back("--incompatible_enable_execution_transition");
+  } else {
+    result->push_back("--noincompatible_enable_execution_transition");
+  }
+}
 
 blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       const string &argstr, const string &next_argstr, const string &rcfile,
@@ -423,6 +431,14 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nounlimit_coredumps")) {
     unlimit_coredumps = false;
     option_sources["unlimit_coredumps"] = rcfile;
+  } else if (GetNullaryOption(arg,
+                              "--incompatible_enable_execution_transition")) {
+    incompatible_enable_execution_transition = true;
+    option_sources["incompatible_enable_execution_transition"] = rcfile;
+  } else if (GetNullaryOption(arg,
+                              "--noincompatible_enable_execution_transition")) {
+    incompatible_enable_execution_transition = false;
+    option_sources["incompatible_enable_execution_transition"] = rcfile;
   } else {
     bool extra_argument_processed;
     blaze_exit_code::ExitCode process_extra_arg_exit_code = ProcessArgExtra(

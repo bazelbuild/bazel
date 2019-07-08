@@ -87,9 +87,10 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsNullaryOption(options, "fatal_event_bus_exceptions");
   ExpectIsNullaryOption(options, "home_rc");
   ExpectIsNullaryOption(options, "host_jvm_debug");
-  ExpectIsNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectIsNullaryOption(options, "ignore_all_rc_files");
+  ExpectIsNullaryOption(options, "incompatible_enable_execution_transition");
   ExpectIsNullaryOption(options, "master_bazelrc");
+  ExpectIsNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectIsNullaryOption(options, "system_rc");
   ExpectIsNullaryOption(options, "watchfs");
   ExpectIsNullaryOption(options, "workspace_rc");
@@ -99,16 +100,16 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "connect_timeout_secs");
   ExpectIsUnaryOption(options, "digest_function");
   ExpectIsUnaryOption(options, "experimental_oom_more_eagerly_threshold");
-  ExpectIsUnaryOption(options, "server_javabase");
   ExpectIsUnaryOption(options, "host_jvm_args");
   ExpectIsUnaryOption(options, "host_jvm_profile");
+  ExpectIsUnaryOption(options, "install_base");
   ExpectIsUnaryOption(options, "invocation_policy");
   ExpectIsUnaryOption(options, "io_nice_level");
-  ExpectIsUnaryOption(options, "install_base");
   ExpectIsUnaryOption(options, "macos_qos_class");
   ExpectIsUnaryOption(options, "max_idle_secs");
   ExpectIsUnaryOption(options, "output_base");
   ExpectIsUnaryOption(options, "output_user_root");
+  ExpectIsUnaryOption(options, "server_javabase");
 }
 
 TEST_F(BazelStartupOptionsTest, BlazercFlagsAreNotAccepted) {

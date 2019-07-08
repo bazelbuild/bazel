@@ -137,4 +137,9 @@ void BazelStartupOptions::MaybeLogStartupOptionWarnings() const {
   }
 }
 
+void BazelStartupOptions::AddExtraOptions(
+    std::vector<std::string> *result) const {
+  StartupOptions::AddExtraOptions(result);
+}
+
 }  // namespace blaze
