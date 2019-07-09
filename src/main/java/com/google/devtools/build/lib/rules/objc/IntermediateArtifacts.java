@@ -193,7 +193,12 @@ public final class IntermediateArtifacts {
 
   /** The artifact for the .headers file output by the header thinning action for this source. */
   public Artifact headersListFile(Artifact objectFile) {
-    return ruleContext.getRelatedArtifact(objectFile.getRootRelativePath(), ".headers_list");
+    PathFragment headersListArtifactPath =
+        FileSystemUtils.replaceExtension(objectFile.getRootRelativePath(), ".headers_list");
+    return ruleContext.getUniqueDirectoryArtifact(
+        "_header_lists",
+        headersListArtifactPath,
+        buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
   /**
