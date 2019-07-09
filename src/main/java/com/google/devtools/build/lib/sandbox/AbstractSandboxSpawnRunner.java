@@ -265,8 +265,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     for (String writablePath : sandboxOptions.sandboxWritablePath) {
       Path path = fileSystem.getPath(writablePath);
       writablePaths.add(path);
-      // TODO(laszlocsomor) Remove if guard when path.resolveSymbolicLinks supports non-symlink
-      if (path.isSymbolicLink()) {
+      // TODO(laszlocsomor): Remove if guard when path.resolveSymbolicLinks supports non-symlink
+      // TODO(laszlocsomor): Figure out why OS.getCurrent() != OS.WINDOWS is required, and remove it
+      if (OS.getCurrent() != OS.WINDOWS || path.isSymbolicLink()) {
         writablePaths.add(path.resolveSymbolicLinks());
       }
     }
@@ -291,8 +292,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       // the symlink itself writable, not what it points to. Therefore we need to resolve symlinks
       // in `path`, however for that we need `path` to exist.
       //
-      // TODO(laszlocsomor) Remove if guard when path.resolveSymbolicLinks supports non-symlink
-      if (path.isSymbolicLink()) {
+      // TODO(laszlocsomor): Remove if guard when path.resolveSymbolicLinks supports non-symlink
+      // TODO(laszlocsomor): Figure out why OS.getCurrent() != OS.WINDOWS is required, and remove it
+      if (OS.getCurrent() != OS.WINDOWS || path.isSymbolicLink()) {
         writablePaths.add(path.resolveSymbolicLinks());
       } else {
         writablePaths.add(path);
