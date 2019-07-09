@@ -329,6 +329,9 @@ public final class StringModule {
   public MutableList<String> split(
       String self, String sep, Object maxSplitO, Location loc, Environment env)
       throws EvalException {
+    if (sep.isEmpty()) {
+      throw new EvalException(loc, "Empty separator");
+    }
     int maxSplit =
         Type.INTEGER.convertOptional(maxSplitO, "'split' argument of 'split'", /*label*/ null, -2);
     // + 1 because the last result is the remainder. The default is -2 so that after +1,
