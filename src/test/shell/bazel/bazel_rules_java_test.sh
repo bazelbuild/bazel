@@ -80,7 +80,7 @@ EOF
 
 function test_rules_java_repository_builds_itself() {
   # We test that a built-in @rules_java repository is buildable.
-  bazel build @rules_java//... &> $TEST_log \
+  bazel build --experimental_use_windows_sandbox=yes @rules_java//... &> $TEST_log \
       || fail "Build failed unexpectedly"
 }
 
