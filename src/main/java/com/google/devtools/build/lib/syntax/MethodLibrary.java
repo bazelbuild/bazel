@@ -543,11 +543,18 @@ public class MethodLibrary {
       parameters = {
         // Note Python uses 'sequence' keyword instead of 'list'. We may want to change tihs
         // some day.
-        @Param(name = "list", type = SkylarkList.class, doc = "input list.", named = true)
+        @Param(name = "list", type = SkylarkList.class, doc = "input list.", named = true),
+        @Param(
+            name = "start",
+            type = Integer.class,
+            doc = "start index.",
+            defaultValue = "0",
+            named = true)
       },
       useEnvironment = true)
-  public MutableList<?> enumerate(SkylarkList<?> input, Environment env) throws EvalException {
-    int count = 0;
+  public MutableList<?> enumerate(SkylarkList<?> input, Integer start, Environment env)
+      throws EvalException {
+    int count = start;
     ArrayList<SkylarkList<?>> result = new ArrayList<>(input.size());
     for (Object obj : input) {
       result.add(Tuple.of(count, obj));

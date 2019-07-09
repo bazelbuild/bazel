@@ -56,6 +56,39 @@ assert_eq([0, 1, 2][-2], 1)
 assert_eq([0, 1, 2][-1], 2)
 assert_eq([0, 1, 2][0], 0)
 
+
+# list.index
+bananas = ["b", "a", "n", "a", "n", "a", "s"]
+assert_eq(bananas.index("a"), 1)  # bAnanas
+bananas.index("d") ### not found in list
+---
+bananas = ["b", "a", "n", "a", "n", "a", "s"]
+
+# start
+assert_eq(bananas.index("a", -1000), 1)  # bAnanas
+assert_eq(bananas.index("a", 0), 1)  # bAnanas
+assert_eq(bananas.index("a", 1), 1)  # bAnanas
+assert_eq(bananas.index("a", 2), 3)  # banAnas
+assert_eq(bananas.index("a", 3), 3)  # banAnas
+assert_eq(bananas.index("b", 0), 0)  # Bananas
+assert_eq(bananas.index("n", -3), 4)  # banaNas
+assert_eq(bananas.index("s", -2), 6)  # bananaS
+
+bananas.index("n", -2) ### not found in list
+---
+bananas = ["b", "a", "n", "a", "n", "a", "s"]
+bananas.index("b", 1) ### not found in list
+---
+bananas = ["b", "a", "n", "a", "n", "a", "s"]
+
+# start, end
+assert_eq(bananas.index("s", -1000, 7), 6)  # bananaS
+bananas.index("s", -1000, 6) ### not found in list
+---
+bananas = ["b", "a", "n", "a", "n", "a", "s"]
+bananas.index("d", -1000, 1000) ### not found in list
+
+
 ---
 '123'['a'::] ### slice start must be an integer, not 'a'
 ---

@@ -535,7 +535,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains(
             "expected value of type 'sequence' for parameter 'list', "
-                + "for call to function enumerate(list)",
+                + "for call to function enumerate(list, start = 0)",
             "enumerate('a')");
   }
 
