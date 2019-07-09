@@ -186,7 +186,7 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
 
     `CcToolchainConfigInfo` is a provider that we use to configure our C++
     toolchains. We are going to create a Starlark rule that will provide
-    `CcToolchainConfigInfo`. Create a `toolchains/cc_toolchain_config.bzl`
+    `CcToolchainConfigInfo`. Create a `toolchain/cc_toolchain_config.bzl`
     file with the following content:
     ```
     def _impl(ctx):
