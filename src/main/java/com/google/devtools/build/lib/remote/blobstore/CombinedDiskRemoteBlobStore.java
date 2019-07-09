@@ -37,13 +37,13 @@ import java.util.logging.Logger;
  * remote blob store. If a blob isn't found in the first store, the second store is used, and the
  * blob added to the first. Put puts the blob on both stores.
  */
-public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
-  private static final Logger logger = Logger.getLogger(CombinedDiskHttpBlobStore.class.getName());
+public final class CombinedDiskRemoteBlobStore implements SimpleBlobStore {
+  private static final Logger logger = Logger.getLogger(CombinedDiskRemoteBlobStore.class.getName());
 
   private final SimpleBlobStore remoteCache;
   private final OnDiskBlobStore diskCache;
 
-  public CombinedDiskHttpBlobStore(OnDiskBlobStore diskCache, SimpleBlobStore remoteCache) {
+  public CombinedDiskRemoteBlobStore(OnDiskBlobStore diskCache, SimpleBlobStore remoteCache) {
     this.diskCache = Preconditions.checkNotNull(diskCache);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
   }
@@ -155,13 +155,14 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
 
   @Override
   public void ensureInputsPresent(
-      MerkleTree merkleTree, Map<Digest, Message> additionalInputs, Path execRoot) {
-    throw new UnsupportedOperationException("Combined Disk HTTP Caching does not use this method.");
+      MerkleTree merkleTree, Map<Digest, Message> additionalInputs, Path execRoot)
+    throws IOException, InterruptedException {
+    remoteCache.ensureInputsPresent(merkleTree, additionalInputs, execRoot);
   }
 
   @Override
   public ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
       throws IOException, InterruptedException {
-    throw new UnsupportedOperationException("Combined Disk HTTP Caching does not use this method.");
+    return remoteCache.getMissingDigests(digests);
   }
 }

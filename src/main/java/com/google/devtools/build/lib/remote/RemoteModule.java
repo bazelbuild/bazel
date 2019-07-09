@@ -259,6 +259,7 @@ public final class RemoteModule extends BlazeModule {
             new SimpleBlobStoreActionCache(
                 remoteOptions,
                 SimpleBlobStoreFactory.create(
+                    Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
                     remoteOptions,
                     cacheChannel.retain(),
                     credentials,

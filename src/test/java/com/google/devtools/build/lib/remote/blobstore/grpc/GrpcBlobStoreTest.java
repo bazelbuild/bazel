@@ -227,9 +227,11 @@ public class GrpcBlobStoreTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
             remoteOptions.remoteTimeout, retrier);
+    remoteOptions.remoteCache = "grpc://doesnotexist:90";
     return new SimpleBlobStoreActionCache(
         remoteOptions,
         SimpleBlobStoreFactory.create(
+            null,
             remoteOptions,
             channel.retain(),
             creds,

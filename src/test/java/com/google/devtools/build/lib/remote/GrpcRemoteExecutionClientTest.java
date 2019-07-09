@@ -201,6 +201,7 @@ public class GrpcRemoteExecutionClientTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteCache = "grpc://doesnotexist:90";
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
@@ -219,6 +220,7 @@ public class GrpcRemoteExecutionClientTest {
         new SimpleBlobStoreActionCache(
             remoteOptions,
             SimpleBlobStoreFactory.create(
+                null,
                 remoteOptions,
                 channel.retain(),
                 creds,

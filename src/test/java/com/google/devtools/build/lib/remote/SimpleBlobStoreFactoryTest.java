@@ -24,7 +24,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.blobstore.CombinedDiskHttpBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.CombinedDiskRemoteBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
@@ -100,7 +100,7 @@ public class SimpleBlobStoreFactoryTest {
     SimpleBlobStore blobStore =
         SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
 
-    assertThat(blobStore).isInstanceOf(CombinedDiskHttpBlobStore.class);
+    assertThat(blobStore).isInstanceOf(CombinedDiskRemoteBlobStore.class);
   }
 
   @Test
@@ -112,7 +112,7 @@ public class SimpleBlobStoreFactoryTest {
     SimpleBlobStore blobStore =
         SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
 
-    assertThat(blobStore).isInstanceOf(CombinedDiskHttpBlobStore.class);
+    assertThat(blobStore).isInstanceOf(CombinedDiskRemoteBlobStore.class);
     assertThat(workingDirectory.exists()).isTrue();
   }
 

@@ -19,7 +19,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.remote.blobstore.CombinedDiskHttpBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.CombinedDiskRemoteBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
@@ -49,7 +49,7 @@ public final class SimpleBlobStoreFactory {
 
   public static SimpleBlobStore create(RemoteOptions remoteOptions, @Nullable Path casPath) {
     if (isHttpCache(remoteOptions)) {
-      return createHttp(remoteOptions, /* creds= */ null);
+      return createHttpCache(remoteOptions, /* creds= */ null);
     } else if (casPath != null) {
       return new OnDiskBlobStore(casPath);
     } else {
@@ -63,10 +63,10 @@ public final class SimpleBlobStoreFactory {
 
     Preconditions.checkNotNull(workingDirectory, "workingDirectory");
     if (isHttpCache(options) && isDiskCache(options)) {
-      return createCombinedCache(workingDirectory, options.diskCache, options, creds);
+      return createCombinedHttpDiskCache(workingDirectory, options.diskCache, options, creds);
     }
     if (isHttpCache(options)) {
-      return createHttp(options, creds);
+      return createHttpCache(options, creds);
     }
     if (isDiskCache(options)) {
       return createDiskCache(workingDirectory, options.diskCache);
@@ -78,6 +78,7 @@ public final class SimpleBlobStoreFactory {
 
   // TODO: This function can be expanded to combine disk cache and gRPC cache
   public static SimpleBlobStore create(
+      Path workingDirectory,
       RemoteOptions options,
       ReferenceCountedChannel channel,
       CallCredentials credentials,
@@ -85,10 +86,18 @@ public final class SimpleBlobStoreFactory {
       ByteStreamUploader uploader,
       DigestUtil digestUtil)
       throws IOException {
-    return createGrpcCache(channel, credentials, options, retrier, digestUtil, uploader);
+    if (isGrpcCache(options) && isDiskCache(options)) {
+      return createCombinedGrpcDiskCache(workingDirectory, options.diskCache, options, channel, credentials, retrier, uploader, digestUtil);
+    }
+    if (isGrpcCache(options)) {
+      return createGrpcCache(channel, credentials, options, retrier, digestUtil, uploader);
+    }
+    throw new IllegalArgumentException(
+        "Unrecognized RemoteOptions configuration: remote gRPC cache and/or local disk cache"
+            + " options expected.");
   }
 
-  private static SimpleBlobStore createHttp(RemoteOptions options, Credentials creds) {
+  private static SimpleBlobStore createHttpCache(RemoteOptions options, Credentials creds) {
     Preconditions.checkNotNull(options.remoteCache, "remoteCache");
 
     try {
@@ -137,7 +146,7 @@ public final class SimpleBlobStoreFactory {
     return new GrpcBlobStore(channel, credentials, options, retrier, digestUtil, uploader);
   }
 
-  private static SimpleBlobStore createCombinedCache(
+  private static SimpleBlobStore createCombinedHttpDiskCache(
       Path workingDirectory, PathFragment diskCachePath, RemoteOptions options, Credentials cred)
       throws IOException {
 
@@ -148,8 +157,36 @@ public final class SimpleBlobStoreFactory {
     }
 
     OnDiskBlobStore diskCache = new OnDiskBlobStore(cacheDir);
-    SimpleBlobStore httpCache = createHttp(options, cred);
-    return new CombinedDiskHttpBlobStore(diskCache, httpCache);
+    SimpleBlobStore httpCache = createHttpCache(options, cred);
+    return new CombinedDiskRemoteBlobStore(diskCache, httpCache);
+  }
+
+  private static SimpleBlobStore createCombinedGrpcDiskCache(
+      Path workingDirectory,
+      PathFragment diskCachePath,
+      RemoteOptions options,
+      ReferenceCountedChannel channel,
+      CallCredentials credentials,
+      RemoteRetrier retrier,
+      ByteStreamUploader uploader,
+      DigestUtil digestUtil)
+      throws IOException {
+
+    Path cacheDir =
+        workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
+    if (!cacheDir.exists()) {
+      cacheDir.createDirectoryAndParents();
+    }
+
+    OnDiskBlobStore diskCache = new OnDiskBlobStore(cacheDir);
+    SimpleBlobStore grpcCache = createGrpcCache(
+      channel.retain(),
+      credentials,
+      options,
+      retrier,
+      digestUtil,
+      uploader.retain());
+    return new CombinedDiskRemoteBlobStore(diskCache, grpcCache);
   }
 
   public static boolean isDiskCache(RemoteOptions options) {
