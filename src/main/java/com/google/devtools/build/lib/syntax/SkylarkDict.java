@@ -90,8 +90,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
           doc = "The default value to use (instead of None) if the key is not found.")},
     allowReturnNones = true
   )
-  public Object get(Object key, Object defaultValue) {
-    if (this.containsKey(key)) {
+  public Object get(Object key, Object defaultValue) throws EvalException {
+    if (containsKey(key, null, null)) {
       return this.get(key);
     }
     return defaultValue;

@@ -90,8 +90,17 @@ assert_eq(1 in {1: 0}, True)
 assert_eq(() in {}, False)
 assert_eq("a" in dict(a=1), True)
 ---
+
+# unhashable types
+
 {} in {} ### unhashable type: 'dict'
 ---
 [] in {} ### unhashable type: 'list'
 ---
 len in {} ### unhashable type: 'function'
+---
+{}.get([]) ### unhashable type: 'list'
+---
+dict().get({}) ### unhashable type: 'dict'
+---
+{1: 2}.get(len) ### unhashable type: 'function'
