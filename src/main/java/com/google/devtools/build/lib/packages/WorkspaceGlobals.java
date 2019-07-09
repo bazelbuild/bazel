@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -39,6 +41,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** A collection of global skylark build API functions that apply to WORKSPACE files. */
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
@@ -136,7 +139,8 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
   }
 
-  private RepositoryName createRepositoryName(String key, Location location) throws EvalException {
+  private static RepositoryName createRepositoryName(String key, Location location)
+      throws EvalException {
     if (!key.startsWith("@")) {
       throw new EvalException(
           location,
@@ -150,7 +154,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
   }
 
-  private List<PathFragment> getManagedDirectoriesPaths(
+  private static List<PathFragment> getManagedDirectoriesPaths(
       Object directoriesList, Location location, Map<PathFragment, String> nonNormalizedPathsMap)
       throws EvalException {
     if (!(directoriesList instanceof SkylarkList)) {
@@ -195,15 +199,33 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     return managedDirectoriesMap;
   }
 
+  private static RepositoryName getRepositoryName(@Nullable Label label) {
+    if (label == null) {
+      // registration happened directly in the main WORKSPACE
+      return RepositoryName.MAIN;
+    }
+
+    // registeration happened in a loaded bzl file
+    return label.getPackageIdentifier().getRepository();
+  }
+
+  private static List<String> renamePatterns(
+      List<String> patterns, Package.Builder builder, Environment env) {
+    RepositoryName myName = getRepositoryName(env.getGlobals().getLabel());
+    Map<RepositoryName, RepositoryName> renaming = builder.getRepositoryMappingFor(myName);
+    return patterns.stream()
+        .map(patternEntry -> TargetPattern.renameRepository(patternEntry, renaming))
+        .collect(ImmutableList.toImmutableList());
+  }
+
   @Override
   public NoneType registerExecutionPlatforms(
       SkylarkList<?> platformLabels, Location location, Environment env)
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
-    builder.addRegisteredExecutionPlatforms(
-        platformLabels.getContents(String.class, "platform_labels"));
-
+    List<String> patterns = platformLabels.getContents(String.class, "platform_labels");
+    builder.addRegisteredExecutionPlatforms(renamePatterns(patterns, builder, env));
     return NONE;
   }
 
@@ -213,8 +235,8 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
-    builder.addRegisteredToolchains(toolchainLabels.getContents(String.class, "toolchain_labels"));
-
+    List<String> patterns = toolchainLabels.getContents(String.class, "toolchain_labels");
+    builder.addRegisteredToolchains(renamePatterns(patterns, builder, env));
     return NONE;
   }
 

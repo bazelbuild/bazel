@@ -830,4 +830,44 @@ EOF
   expect_log '//external:true.*build rule.*expected'
 }
 
+function test_remap_execution_platform() {
+    # Regression test for issue https://github.com/bazelbuild/bazel/issues/7773,
+    # using the reproduction case as reported
+    cat > WORKSPACE <<'EOF'
+workspace(name = "my_ws")
+
+register_execution_platforms("@my_ws//platforms:my_host_platform")
+EOF
+    mkdir platforms
+    cat > platforms/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+constraint_setting(name = "machine_size")
+constraint_value(name = "large_machine", constraint_setting = ":machine_size")
+constraint_value(name = "small_machine", constraint_setting = ":machine_size")
+
+platform(
+    name = "my_host_platform",
+    parents = ["@bazel_tools//platforms:host_platform"],
+    constraint_values = [
+        ":large_machine"
+    ]
+)
+EOF
+    mkdir code
+    cat > code/BUILD <<'EOF'
+sh_library(
+	name = "foo",
+	srcs = ["foo.sh"],
+	exec_compatible_with = ["@my_ws//platforms:large_machine"]
+)
+EOF
+    echo exit 0 > code/foo.sh
+    chmod u+x code/foo.sh
+
+
+    bazel build --incompatible_remap_main_repo=true //code/... \
+          > "${TEST_log}" 2>&1 || fail "expected success"
+}
+
 run_suite "workspace tests"
