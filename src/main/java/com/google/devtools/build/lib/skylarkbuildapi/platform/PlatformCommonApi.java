@@ -27,8 +27,8 @@ public interface PlatformCommonApi {
   @SkylarkCallable(
       name = "TemplateVariableInfo",
       doc =
-          "The provider used to retrieve the provider that contains the template variables "
-              + "defined by a particular toolchain, for example by calling "
+          "The provider used to retrieve the provider that contains the template variables defined"
+              + " by a particular toolchain, for example by calling "
               + "ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo].make_variables[<name>]",
       structField = true)
   ProviderApi getMakeVariableProvider();
@@ -36,8 +36,8 @@ public interface PlatformCommonApi {
   @SkylarkCallable(
       name = "ToolchainInfo",
       doc =
-          "The provider constructor for ToolchainInfo. The constructor takes the type of the "
-              + "toolchain, and a map of the toolchain's data.",
+          "The provider constructor for ToolchainInfo. The constructor takes a map of the "
+              + "toolchain's data.",
       structField = true)
   ProviderApi getToolchainInfoConstructor();
 
