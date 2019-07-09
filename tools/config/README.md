@@ -16,7 +16,6 @@ load("//tools/config:common_settings.bzl", "bool_flag")
 bool_flag(
     name = "experimental_new_behavior",
     build_setting_default = False,
-    visibility = ["//visibility:public"],
 )
 ```
 
