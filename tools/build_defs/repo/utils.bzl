@@ -67,8 +67,8 @@ def _is_windows(ctx):
     return ctx.os.name.lower().find("windows") != -1
 
 def _use_native_patch(ctx):
-    """If use_patch_tool is False and patch_args only contains -p<NUM> options, we use the native patch implementation."""
-    if hasattr(ctx.attr, "use_patch_tool") and ctx.attr.use_patch_tool:
+    """If patch_tool is empty and patch_args only contains -p<NUM> options, we use the native patch implementation."""
+    if ctx.attr.patch_tool:
         return False
     for arg in ctx.attr.patch_args:
         if not arg.startswith("-p"):
@@ -79,7 +79,7 @@ def patch(ctx):
     """Implementation of patching an already extracted repository.
 
     This rule is inteded to be used in the implementation function of a
-    repository rule. It assuumes that the parameters `patches`, `patch_tool`, `use_patch_tool`,
+    repository rule. It assuumes that the parameters `patches`, `patch_tool`,
     `patch_args`, `patch_cmds` and `patch_cmds_win` are present in `ctx.attr`.
 
     Args:
