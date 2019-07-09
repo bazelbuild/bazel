@@ -2147,3 +2147,16 @@ test_suite(
     ],
     visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )
+
+java_test(
+    name = "ClassSignatureParserTest",
+    size = "small",
+    srcs = ["ClassSignatureParserTest.java"],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.ClassSignatureParserTest",
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
