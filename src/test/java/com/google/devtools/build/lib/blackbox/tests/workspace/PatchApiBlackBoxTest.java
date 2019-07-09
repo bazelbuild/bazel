@@ -20,7 +20,7 @@ import java.nio.file.Path;
  * */
 public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
 
-  private void setUpPatchTestRepo(ImmutableList<String> patchArgs, boolean usePatchTool, boolean hasPatchCmdsWin)
+  private void setUpPatchTestRepo(ImmutableList<String> patchArgs, String patchTool, boolean hasPatchCmdsWin)
       throws IOException {
     StringBuilder patchArgsStr = new StringBuilder("\"-p1\"");
     if (patchArgs != null) {
@@ -40,7 +40,6 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
         "    \"files\": attr.string_dict(default = {}),",
         "    \"patches\": attr.label_list(default = []),",
         "    \"patch_tool\": attr.string(default = \"\"),",
-        "    \"use_patch_tool\": attr.bool(default = False),",
         "    \"patch_args\": attr.string_list(default = []),",
         "    \"patch_cmds\": attr.string_list(default = []),",
         "    \"patch_cmds_win\": attr.string_list(default = []),",
@@ -69,7 +68,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
         "    files = {\"foo.sh\" : \"//:foo.sh\"},",
         "    patches = [\"//:remove-dragons.patch\"],",
         String.format("    patch_args = [%s],", patchArgsStr.toString()),
-        (usePatchTool ? "    use_patch_tool = True," : ""),
+        (patchTool == null ? "" : String.format("    patch_tool = \"%s\",", patchTool)),
         "    patch_cmds = [",
         "      \"find . -name '*.sh' -exec sed -i.bak '1s|/usr/bin/env sh|/bin/sh|' {} +\",",
         "      \"chmod u+x ./foo.sh\",",
@@ -105,7 +104,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testPatchApiUsingNativePatch() throws Exception {
-    setUpPatchTestRepo(null, false, true);
+    setUpPatchTestRepo(null, null, true);
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context()).withFlags("--incompatible_use_native_patch");
     bazel.build("@test//:foo");
     assertFooIsPatched(bazel);
@@ -114,7 +113,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
   @Test
   public void testPatchApiUsingNativePatchFailed() throws Exception {
     // Using -p2 should cause an error
-    setUpPatchTestRepo(ImmutableList.of("-p2"), false, true);
+    setUpPatchTestRepo(ImmutableList.of("-p2"), null, true);
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context()).withFlags("--incompatible_use_native_patch").shouldFail();
     ProcessResult result = bazel.build("@test//:foo");
     assertThat(result.errString()).contains("Cannot determine file name with strip = 2 at line 4:\n--- a/foo.sh");
@@ -122,7 +121,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testPatchApiUsingPatchTool() throws Exception {
-    setUpPatchTestRepo(null, false, true);
+    setUpPatchTestRepo(null, null, true);
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context()).withFlags("--noincompatible_use_native_patch");
     if (isWindows()) {
       // On Windows, we expect no patch tool in PATH after removing MSYS paths from PATH env var.
@@ -140,7 +139,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
   @Test
   public void testFallBackToPatchToolDueToPatchArgs() throws Exception {
     // Native patch doesn't support -b argument, should fallback to patch command line tool.
-    setUpPatchTestRepo(ImmutableList.of("-p1", "-b"), false, true);
+    setUpPatchTestRepo(ImmutableList.of("-p1", "-b"), null, true);
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context()).withFlags("--incompatible_use_native_patch");
     if (isWindows()) {
       // On Windows, we expect no patch tool in PATH after removing MSYS paths from PATH env var.
@@ -159,9 +158,9 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   @Test
-  public void testUsePatchTool() throws Exception {
+  public void testFallBackToPatchToolWhenItIsSpecified() throws Exception {
     // Should fallback to the specified patch tool.
-    setUpPatchTestRepo(null, true, true);
+    setUpPatchTestRepo(null, "patch", true);
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context()).withFlags("--incompatible_use_native_patch");
     if (isWindows()) {
       // On Windows, we expect no patch tool in PATH after removing MSYS paths from PATH env var.
@@ -178,7 +177,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testFallBackToPatchCmdsWhenPatchCmdsWinNotSpecified() throws Exception {
-    setUpPatchTestRepo(null, false, false);
+    setUpPatchTestRepo(null, null, false);
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context()).withFlags("--incompatible_use_native_patch");
     if (isWindows()) {
       // On Windows, we expect no bash tool in PATH after removing MSYS paths from PATH env var.
