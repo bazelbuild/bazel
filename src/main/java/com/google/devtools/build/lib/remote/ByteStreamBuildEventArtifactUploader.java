@@ -117,6 +117,11 @@ class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader
   }
 
   @Override
+  public boolean mayBeSlow() {
+    return true;
+  }
+
+  @Override
   public void shutdown() {
     if (shutdown.getAndSet(true)) {
       return;

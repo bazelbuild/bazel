@@ -48,11 +48,11 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import org.junit.After;
 import org.junit.Before;
@@ -140,6 +140,11 @@ public class BinaryFormatFileTransportTest {
               @Override
               public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
                 return Futures.immediateCancelledFuture();
+              }
+
+              @Override
+              public boolean mayBeSlow() {
+                return false;
               }
 
               @Override
@@ -240,20 +245,27 @@ public class BinaryFormatFileTransportTest {
     BuildEvent event1 = new WithLocalFilesEvent(ImmutableList.of(file1));
     BuildEvent event2 = new WithLocalFilesEvent(ImmutableList.of(file2));
 
-    BuildEventArtifactUploader uploader = Mockito.spy(new BuildEventArtifactUploader() {
-      @Override
-      public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
-        if (files.containsKey(file1)) {
-          LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(200));
-        }
-        return Futures.immediateFuture(new FileUriPathConverter());
-      }
+    BuildEventArtifactUploader uploader =
+        Mockito.spy(
+            new BuildEventArtifactUploader() {
+              @Override
+              public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+                if (files.containsKey(file1)) {
+                  LockSupport.parkNanos(Duration.ofMillis(200).toNanos());
+                }
+                return Futures.immediateFuture(new FileUriPathConverter());
+              }
 
-      @Override
-      public void shutdown() {
-        // Intentionally left empty.
-      }
-    });
+              @Override
+              public boolean mayBeSlow() {
+                return true;
+              }
+
+              @Override
+              public void shutdown() {
+                // Intentionally left empty.
+              }
+            });
     File output = tmp.newFile();
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
@@ -290,6 +302,11 @@ public class BinaryFormatFileTransportTest {
               }
 
               @Override
+              public boolean mayBeSlow() {
+                return false;
+              }
+
+              @Override
               public void shutdown() {
                 // Intentionally left empty.
               }
@@ -318,17 +335,24 @@ public class BinaryFormatFileTransportTest {
     BuildEvent event = new WithLocalFilesEvent(ImmutableList.of(file1));
 
     SettableFuture<PathConverter> upload = SettableFuture.create();
-    BuildEventArtifactUploader uploader = Mockito.spy(new BuildEventArtifactUploader() {
-      @Override
-      public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
-        return upload;
-      }
+    BuildEventArtifactUploader uploader =
+        Mockito.spy(
+            new BuildEventArtifactUploader() {
+              @Override
+              public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+                return upload;
+              }
 
-      @Override
-      public void shutdown() {
-        // Intentionally left empty.
-      }
-    });
+              @Override
+              public boolean mayBeSlow() {
+                return false;
+              }
+
+              @Override
+              public void shutdown() {
+                // Intentionally left empty.
+              }
+            });
 
     File output = tmp.newFile();
     BufferedOutputStream outputStream =

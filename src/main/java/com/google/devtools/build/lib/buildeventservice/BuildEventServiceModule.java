@@ -69,6 +69,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -422,7 +424,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     }
   }
 
-  private void waitForBuildEventTransportsToClose() throws AbruptExitException {
+  private void waitForBuildEventTransportsToClose(
+      Map<BuildEventTransport, ListenableFuture<Void>> transportFutures)
+      throws AbruptExitException {
     final ScheduledExecutorService executor =
         Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder().setNameFormat("bes-notify-ui-%d").build());
@@ -430,7 +434,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
     try {
       // Notify the UI handler when a transport finished closing.
-      closeFuturesWithTimeoutsMap.forEach(
+      transportFutures.forEach(
           (bepTransport, closeFuture) ->
               closeFuture.addListener(
                   () -> {
@@ -439,8 +443,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                   executor));
 
       try (AutoProfiler p = AutoProfiler.logged("waiting for BES close", logger)) {
-        Uninterruptibles.getUninterruptibly(
-            Futures.allAsList(closeFuturesWithTimeoutsMap.values()));
+        Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
       }
     } catch (ExecutionException e) {
       // Futures.withTimeout wraps the TimeoutException in an ExecutionException when the future
@@ -511,21 +514,24 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         constructCloseFuturesMapWithTimeouts(streamer.getCloseFuturesMap());
     halfCloseFuturesWithTimeoutsMap =
         constructCloseFuturesMapWithTimeouts(streamer.getHalfClosedMap());
-    switch (besOptions.besUploadMode) {
-      case WAIT_FOR_UPLOAD_COMPLETE:
-        waitForBuildEventTransportsToClose();
-        return;
 
-      case NOWAIT_FOR_UPLOAD_COMPLETE:
-      case FULLY_ASYNC:
+    Map<BuildEventTransport, ListenableFuture<Void>> blockingTransportFutures = new HashMap<>();
+    for (Map.Entry<BuildEventTransport, ListenableFuture<Void>> entry :
+        closeFuturesWithTimeoutsMap.entrySet()) {
+      BuildEventTransport bepTransport = entry.getKey();
+      if (!bepTransport.mayBeSlow()
+          || besOptions.besUploadMode
+              == BuildEventServiceOptions.BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE) {
+        blockingTransportFutures.put(bepTransport, entry.getValue());
+      } else {
         // When running asynchronously notify the UI immediately since we won't wait for the
         // uploads to close.
-        for (BuildEventTransport bepTransport : bepTransports) {
-          reporter.post(new BuildEventTransportClosedEvent(bepTransport));
-        }
-        return;
+        reporter.post(new BuildEventTransportClosedEvent(bepTransport));
+      }
     }
-    throw new IllegalStateException("Unknown BesUploadMode found: " + besOptions.besUploadMode);
+    if (!blockingTransportFutures.isEmpty()) {
+      waitForBuildEventTransportsToClose(blockingTransportFutures);
+    }
   }
 
   @Override
