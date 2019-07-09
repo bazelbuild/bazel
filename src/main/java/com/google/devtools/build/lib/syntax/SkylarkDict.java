@@ -88,10 +88,11 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       @Param(name = "key", noneable = true, doc = "The key to look for."),
       @Param(name = "default", defaultValue = "None", noneable = true, named = true,
           doc = "The default value to use (instead of None) if the key is not found.")},
-    allowReturnNones = true
+    allowReturnNones = true,
+    useEnvironment = true
   )
-  public Object get(Object key, Object defaultValue) throws EvalException {
-    if (containsKey(key, null, null)) {
+  public Object get(Object key, Object defaultValue, Environment env) throws EvalException {
+    if (containsKey(key, null, env)) {
       return this.get(key);
     }
     return defaultValue;
@@ -494,8 +495,15 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
 
   @Override
   public final boolean containsKey(Object key, Location loc, StarlarkContext context)
-      throws EvalException {
-    EvalUtils.checkValidDictKey(key);
+          throws EvalException {
+    return this.containsKey(key);
+  }
+
+  @Override
+  public final boolean containsKey(Object key, Location loc, Environment env)
+          throws EvalException {
+    if (env.getSemantics().incompatibleDisallowDictLookupUnhashableKeys())
+      EvalUtils.checkValidDictKey(key);
     return this.containsKey(key);
   }
 
