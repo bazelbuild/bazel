@@ -156,7 +156,6 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
         toolchain_config = ":asmjs_toolchain_config",
         all_files = ":empty",
         compiler_files = ":empty",
-        cpu = "asmjs",
         dwp_files = ":empty",
         linker_files = ":empty",
         objcopy_files = ":empty",
