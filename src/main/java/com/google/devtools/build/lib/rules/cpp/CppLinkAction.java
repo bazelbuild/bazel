@@ -438,6 +438,7 @@ public final class CppLinkAction extends AbstractAction
     fp.addString(fake ? FAKE_LINK_GUID : LINK_GUID);
     fp.addString(ldExecutable.getPathString());
     fp.addStrings(linkCommandLine.arguments());
+    fp.addStringMap(toolchainEnv);
     fp.addStrings(getExecutionInfo().keySet());
 
     // TODO(bazel-team): For correctness, we need to ensure the invariant that all values accessed
