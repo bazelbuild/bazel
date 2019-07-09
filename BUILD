@@ -154,14 +154,30 @@ platform(
     parents = ["@bazel_tools//platforms:host_platform"],
 )
 
+platform(
+    name = "rbe_ubuntu1804_java11_platform",
+    parents = ["@rbe_ubuntu1804_java11//config:platform"],
+    remote_execution_properties = """
+        {PARENT_REMOTE_EXECUTION_PROPERTIES}
+        properties: {
+          name: "dockerNetwork"
+          value: "standard"
+        }
+        properties: {
+          name: "dockerPrivileged"
+          value: "true"
+        }
+        """,
+)
+
 # The highcpu RBE platform where heavy actions run on. In order to
 # use this platform add the highcpu_machine constraint to your target.
 platform(
-    name = "rbe_highcpu_platform",
+    name = "rbe_ubuntu1804_java11_highcpu_platform",
     constraint_values = [
         "//:highcpu_machine",
     ],
-    parents = ["@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform"],
+    parents = ["//:rbe_ubuntu1804_java11_platform"],
     remote_execution_properties = """
         {PARENT_REMOTE_EXECUTION_PROPERTIES}
         properties: {

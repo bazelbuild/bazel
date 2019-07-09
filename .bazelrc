@@ -1,30 +1,30 @@
 # Configuration to build and test Bazel itself on RBE.
-build:remote --host_javabase=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804/java:jdk
-build:remote --javabase=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804/java:jdk
-build:remote --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
-build:remote --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
-build:remote --crosstool_top=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804/cc:toolchain
+build:ubuntu1804_java11 --host_javabase=@rbe_ubuntu1804_java11//java:jdk
+build:ubuntu1804_java11 --javabase=@rbe_ubuntu1804_java11//java:jdk
+build:ubuntu1804_java11 --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_java9
+build:ubuntu1804_java11 --java_toolchain=@bazel_tools//tools/jdk:toolchain_java9
+build:ubuntu1804_java11 --crosstool_top=@rbe_ubuntu1804_java11//cc:toolchain
 
-build:remote --extra_toolchains=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804/config:cc-toolchain
-build:remote --extra_execution_platforms=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804:default_platform
-build:remote --extra_execution_platforms=//:rbe_highcpu_platform
-build:remote --host_platform=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804:default_platform
-build:remote --platforms=@bazel_rbe_toolchains//configs/bazel_0.26.0/bazel-ubuntu1804:default_platform
+build:ubuntu1804_java11 --extra_toolchains=@rbe_ubuntu1804_java11//config:cc-toolchain
+build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_platform
+build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_highcpu_platform
+build:ubuntu1804_java11 --host_platform=//:rbe_ubuntu1804_java11_platform
+build:ubuntu1804_java11 --platforms=//:rbe_ubuntu1804_java11_platform
 
- # TODO(ishikhman): Remove this flag after upgrading Bazel to 0.27.0
-build:remote --incompatible_list_based_execution_strategy_selection
+build:ubuntu1804_java11 --define=EXECUTOR=remote
 
-build:remote --define=EXECUTOR=remote
+build:ubuntu1804_java11 --remote_instance_name=projects/bazel-untrusted/instances/default_instance
+build:ubuntu1804_java11 --remote_executor=grpcs://remotebuildexecution.googleapis.com
+build:ubuntu1804_java11 --remote_timeout=600
+build:ubuntu1804_java11 --google_default_credentials
 
-build:remote --remote_instance_name=projects/bazel-untrusted/instances/default_instance
-build:remote --remote_executor=grpcs://remotebuildexecution.googleapis.com
-build:remote --remote_timeout=600
-build:remote --google_default_credentials
+build:ubuntu1804_java11 --jobs=100
+build:ubuntu1804_java11 --action_env=PATH=/bin:/usr/bin:/usr/local/bin
+build:ubuntu1804_java11 --disk_cache=
+# Workaround for singlejar incompatibility with RBE
+build:ubuntu1804_java11 --noexperimental_check_desugar_deps
 
-build:remote --jobs=100
-build:remote --action_env=PATH=/bin:/usr/bin:/usr/local/bin
-build:remote --disk_cache=
+build:remote --config=ubuntu1804_java11
 
 # Flags for Android
-build:remote --noexperimental_check_desugar_deps # Workaround for singlejar incompatibility with RBE
 build --android_aapt=aapt2 # Turn aapt2 on by default for Bazel's own Android builds and tests.

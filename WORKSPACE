@@ -123,6 +123,8 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
+        # bazelbuild/bazel-toolchains
+        "0.27.1.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -135,13 +137,15 @@ distdir_tar(
         "1ca560df1cf6e280f987af2f8d08a5edc7ac6b54.tar.gz": "3ca1b3d453a977aeda60dd335feb812771addfd0d0c61751b34b9681aa4d6534",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
-        "android_tools_pkg-0.7.tar.gz": "a8e48f2fdee2c34b31f45bd47ce050a75ac774f19e0a1f6694fa49fc11d88718", # built at 6bb5ae2a8353d75867ac9136d374df7916450449
+        "android_tools_pkg-0.7.tar.gz": "a8e48f2fdee2c34b31f45bd47ce050a75ac774f19e0a1f6694fa49fc11d88718",  # built at 6bb5ae2a8353d75867ac9136d374df7916450449
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
+        # bazelbuild/bazel-toolchains
+        "0.27.1.tar.gz": "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -193,6 +197,11 @@ distdir_tar(
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
             "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
+        ],
+        # bazelbuild/bazel-toolchains
+        "0.27.1.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
         ],
     },
 )
@@ -349,22 +358,22 @@ http_archive(
 
 http_archive(
     name = "bazel_toolchains",
-    sha256 = "67335b3563d9b67dc2550b8f27cc689b64fadac491e69ce78763d9ba894cc5cc",
-    strip_prefix = "bazel-toolchains-cddc376d428ada2927ad359211c3e356bd9c9fbb",
+    sha256 = "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
+    strip_prefix = "bazel-toolchains-0.27.1",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/cddc376d428ada2927ad359211c3e356bd9c9fbb.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/cddc376d428ada2927ad359211c3e356bd9c9fbb.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
     ],
 )
 
-http_archive(
-    name = "bazel_rbe_toolchains",
-    sha256 = "e2b8644caa15235a488e831264e5dcb014e2cdf3b697319bc1e9d6b0fff0b4b9",
-    strip_prefix = "bazel_rbe_toolchains-01529a65d21abdf71635ff0c2472043a567ecded",
-    urls = [
-        "https://mirror.bazel.build/github.com/buchgr/bazel_rbe_toolchains/archive/01529a65d21abdf71635ff0c2472043a567ecded.tar.gz",
-        "https://github.com/buchgr/bazel_rbe_toolchains/archive/01529a65d21abdf71635ff0c2472043a567ecded.tar.gz",
-    ],
+load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
+
+rbe_autoconfig(
+    name = "rbe_ubuntu1804_java11",
+    detect_java_home = True,
+    registry = "gcr.io",
+    repository = "bazel-untrusted/bazel_rbe/ubuntu1804",
+    tag = "java11",
 )
 
 # Creates toolchain configuration for remote execution with BuildKite CI
@@ -472,7 +481,7 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": "f3f44b6235508e87b760bf37a49e186cc1fa4e9cd28384c4dbf5a33991921e08",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": "059f8e3484bf07b63a8f2820d5f528f473eff1befdb1896ee4f8ff06be3b8d8f",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": "e1f5b4ce1b9148140fae2fcfb8a96d1c9b7eac5b8df0e13fbcad9b8561284880",
-        "android_tools_pkg-0.7.tar.gz": "a8e48f2fdee2c34b31f45bd47ce050a75ac774f19e0a1f6694fa49fc11d88718", # built at 6bb5ae2a8353d75867ac9136d374df7916450449
+        "android_tools_pkg-0.7.tar.gz": "a8e48f2fdee2c34b31f45bd47ce050a75ac774f19e0a1f6694fa49fc11d88718",  # built at 6bb5ae2a8353d75867ac9136d374df7916450449
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
         # bazelbuild/rules_java
@@ -511,7 +520,7 @@ distdir_tar(
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip"
+            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         ],
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": [
@@ -581,11 +590,11 @@ http_archive(
 http_archive(
     name = "platforms",
     sha256 = "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
+    strip_prefix = "platforms-441afe1bfdadd6236988e9cac159df6b5a9f5a98",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         "https://github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
     ],
-    strip_prefix = "platforms-441afe1bfdadd6236988e9cac159df6b5a9f5a98"
 )
 
 http_archive(
