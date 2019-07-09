@@ -72,8 +72,6 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       PathFragment windowsSandboxPath,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
-    this.fileSystem = cmdEnv.getRuntime().getFileSystem();
-    this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();
     this.windowsSandbox = windowsSandboxPath;
     this.sandboxBase = sandboxBase;
