@@ -144,7 +144,12 @@ public final class StarlarkAction extends SpawnAction {
     }
     try (BufferedReader br =
         new BufferedReader(
-            new InputStreamReader(unusedInputsList.get().getPath().getInputStream(), UTF_8))) {
+            new InputStreamReader(
+                actionExecutionContext
+                    .getPathResolver()
+                    .toPath(unusedInputsList.get())
+                    .getInputStream(),
+                UTF_8))) {
       String line;
       while ((line = br.readLine()) != null) {
         line = line.trim();
