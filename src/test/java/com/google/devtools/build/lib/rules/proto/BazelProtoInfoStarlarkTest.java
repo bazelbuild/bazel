@@ -164,7 +164,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
   public void testProtoSourceRootExportedInStarlark() throws Exception {
 
     scratch.file(
-        "foo/myTestRule.bzl",
+        "foo/myTsetRule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "",
         "def _my_test_rule_impl(ctx):",
@@ -180,7 +180,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
     scratch.file(
         "foo/BUILD",
         "",
-        "load(':myTestRule.bzl', 'my_test_rule')",
+        "load(':myTsetRule.bzl', 'my_test_rule')",
         "my_test_rule(",
         "  name = 'myRule',",
         "  protodep = ':myProto',",
@@ -193,8 +193,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     ConfiguredTarget ct = getConfiguredTarget("//foo:myRule");
     String protoSourceRoot = (String) getMyInfoFromTarget(ct).getValue("fetched_proto_source_root");
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
 
-    assertThat(protoSourceRoot).isEqualTo(genfiles + "/foo/_virtual_imports/myProto");
+    assertThat(protoSourceRoot).isEqualTo("foo");
   }
 }

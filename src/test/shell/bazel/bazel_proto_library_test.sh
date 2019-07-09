@@ -121,7 +121,6 @@ $proto_library_name(
 $proto_library_name(
   name = "phonenumber_proto",
   srcs = ["phonenumber/phonenumber.proto"],
-  $proto_source_root
 )
 EOF
 
@@ -382,7 +381,7 @@ EOF
 function test_proto_source_root() {
   write_workspace ""
   write_setup "proto_library" "proto_source_root = 'x/person'" ""
-  bazel build --verbose_failures //x/person:person_proto > "$TEST_log" || fail "Expected success"
+  bazel build //x/person:person_proto > "$TEST_log" || fail "Expected success"
 }
 
 function test_proto_source_root_fails() {
@@ -414,6 +413,13 @@ function test_proto_source_root_glob() {
   write_workspace ""
   write_regression_setup
   bazel build //proto_library/src:all >& "$TEST_log" || fail "Expected success"
+}
+
+function test_proto_source_root_glob() {
+  write_workspace ""
+  write_regression_setup
+  bazel build //proto_library/src:all --strict_proto_deps=off >& "$TEST_log" \
+      || fail "Expected success"
 }
 
 function test_proto_source_root_multiple_workspaces() {
