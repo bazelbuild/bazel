@@ -264,6 +264,18 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowDictPlus;
 
   @Option(
+      name = "incompatible_disallow_empty_separator",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, `string.split` will fail if `sep` is the empty string.")
+    public boolean incompatibleDisallowEmptySeparator;
+
+  @Option(
       name = "incompatible_disallow_empty_glob",
       defaultValue = "false",
       category = "incompatible changes",
@@ -654,6 +666,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
             .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
+            .incompatibleDisallowEmptySeparator(incompatibleDisallowEmptySeparator)
             .build();
     return INTERNER.intern(semantics);
   }

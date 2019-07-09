@@ -16,6 +16,7 @@ General Starlark
 
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [String escapes](#string-escapes)
+*   [String.split empty separator](#string.split-empty-separator)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
@@ -84,6 +85,15 @@ Starlark will result in a syntax error.
 *   Flag: `--incompatible_restrict_escape_sequences`
 *   Default: `false`
 *   Tracking issue: [#8380](https://github.com/bazelbuild/bazel/issues/8380)
+
+### String.split empty separator
+
+We are disallowing empty strings as separators to `string.split`. If `sep` is
+the empty string, `split` will fail.
+
+*   Flag: `--incompatible_disallow_empty_separator`
+*   Default: `false`
+*   Tracking issue: [#7355](https://github.com/bazelbuild/bazel/issues/7355)
 
 ### Load must appear at top of file
 
