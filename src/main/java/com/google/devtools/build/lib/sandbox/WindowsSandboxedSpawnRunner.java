@@ -51,8 +51,6 @@ import javax.annotation.Nullable;
 /** Spawn runner that uses BuildXL Sandbox APIs to execute a local subprocess. */
 final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
-  private final FileSystem fileSystem;
-  private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final PathFragment windowsSandbox;
   private final Path sandboxBase;
