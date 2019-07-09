@@ -638,6 +638,7 @@ java_library(
             "analysis/util/*.java",
             "exec/util/*.java",
         ],
+        allow_empty = True,
         exclude = ["analysis/util/DefaultBuildOptionsForTesting.java"],
     ),
     data = [

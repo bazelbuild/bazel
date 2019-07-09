@@ -13,7 +13,10 @@ java_binary(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**/*.java"]) + [
+    srcs = glob(
+        ["**/*.java"],
+        allow_empty = True,
+    ) + [
         "BUILD",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:srcs",
     ],

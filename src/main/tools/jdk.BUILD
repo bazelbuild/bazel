@@ -133,7 +133,10 @@ filegroup(
             allow_empty = True,
             exclude = ["jre/bin/plugin2/**"],
         ),
-        "//conditions:default": glob(["jre/bin/**"]),
+        "//conditions:default": glob(
+            ["jre/bin/**"],
+            allow_empty = True,
+        ),
     }),
     deprecation = DEPRECATION_MESSAGE,
 )
