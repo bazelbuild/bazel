@@ -16,7 +16,7 @@
 Warning: The content of this file is copied from
 https://github.com/bazelbuild/bazel-skylib/rules/common_settings.bzl
 Please do not innovate here. Keep the concepts in sync. We have a private
-copy only to prevent a looping dependency on skylib.
+copy only to prevent taking a dependency on skylib.
 
 These rules return a BuildSettingInfo with the value of the build setting.
 For label-typed settings, use the native label_flag and label_setting rules.
