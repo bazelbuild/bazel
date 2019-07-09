@@ -67,3 +67,7 @@ assert_eq(('a', 'b') <= ('a', 'b'), True)
 
 assert_eq([[1, 1]] > [[1, 1], []], False)
 assert_eq([[1, 1]] < [[1, 1], []], True)
+
+assert_eq(tuple(), ())
+assert_eq(list(), [])
+assert_eq(bool(), False)

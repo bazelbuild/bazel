@@ -223,6 +223,7 @@ public class MethodLibrary {
       parameters = {
         @Param(
             name = "x",
+            defaultValue = "()",
             doc = "The object to convert.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
@@ -243,6 +244,7 @@ public class MethodLibrary {
       parameters = {
         @Param(
             name = "x",
+            defaultValue = "[]",
             doc = "The object to convert.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
@@ -336,6 +338,7 @@ public class MethodLibrary {
       parameters = {
         @Param(
             name = "x",
+            defaultValue = "False",
             doc = "The variable to convert.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
