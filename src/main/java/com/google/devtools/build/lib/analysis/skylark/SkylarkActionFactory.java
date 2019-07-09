@@ -560,7 +560,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     }
 
     ImmutableMap<String, String> executionInfo =
-        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, ruleContext.getRule());
+        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, ruleContext.getRule(), starlarkSemantics.incompatibleAllowTagsPropagation());
     builder.setExecutionInfo(executionInfo);
 
     if (inputManifestsUnchecked != Runtime.NONE) {

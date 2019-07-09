@@ -196,12 +196,14 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     Rule noTag = (Rule) getTarget("//tests:no-tag");
 
     Map<String, String> execInfo =
-        TargetUtils.getFilteredExecutionInfo(SkylarkDict.of(null, "supports-worker", "1"), noTag);
+        TargetUtils.getFilteredExecutionInfo(SkylarkDict.of(null, "supports-worker", "1"), noTag,
+            /* allowTagsPropagation */ true);
     assertThat(execInfo).containsExactly("supports-worker", "1");
 
     execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            SkylarkDict.of(null, "some-custom-tag", "1", "no-cache", "1"), noTag);
+            SkylarkDict.of(null, "some-custom-tag", "1", "no-cache", "1"), noTag,
+            /* allowTagsPropagation */ true);
     assertThat(execInfo).containsExactly("no-cache", "1");
   }
 
@@ -215,7 +217,8 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         SkylarkDict.of(null, "no-remote", "1");
 
     Map<String, String> execInfo =
-        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, tag1);
+        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, tag1,
+            /* allowTagsPropagation */ true);
 
     assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "", "no-remote", "1");
   }
@@ -230,7 +233,8 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         SkylarkDict.of(null, "no-cache", "1");
 
     Map<String, String> execInfo =
-        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, tag1);
+        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, tag1,
+            /* allowTagsPropagation */ true);
 
     assertThat(execInfo).containsExactly("no-cache", "1", "supports-workers", "");
   }
@@ -242,10 +246,29 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
 
-    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(null, tag1);
+    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(null, tag1,
+        /* allowTagsPropagation */ true);
     assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "");
 
-    execInfo = TargetUtils.getFilteredExecutionInfo(Runtime.NONE, tag1);
+    execInfo = TargetUtils.getFilteredExecutionInfo(Runtime.NONE, tag1,
+        /* allowTagsPropagation */ true);
     assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "");
+  }
+
+  @Test
+  public void testFilteredExecutionInfoWhenIncompatibleFlagDisabled() throws Exception {
+    // when --incompatible_allow_tags_propagation=false
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
+    Rule tag1 = (Rule) getTarget("//tests:tag1");
+    SkylarkDict<String, String> executionRequirementsUnchecked =
+        SkylarkDict.of(null, "no-remote", "1");
+
+    Map<String, String> execInfo =
+        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, tag1,
+            /* allowTagsPropagation */ false);
+
+    assertThat(execInfo).containsExactly("no-remote", "1");
   }
 }

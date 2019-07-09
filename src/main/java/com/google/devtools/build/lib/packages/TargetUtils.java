@@ -220,7 +220,7 @@ public final class TargetUtils {
 
   /**
    * Returns the execution info from the tags declared on the target. These include only some tags
-   * {@link #LEGAL_EXEC_INFO_KEYS} as keys with empty values.
+   * {@link #legalExecInfoKeys} as keys with empty values.
    */
   public static Map<String, String> getExecutionInfo(Rule rule) {
     // tags may contain duplicate values.
@@ -237,15 +237,15 @@ public final class TargetUtils {
   /**
    * Returns the execution info, obtained from the rule's tags and the execution requirements
    * provided. Only supported tags are included into the execution info, see {@link
-   * #LEGAL_EXEC_INFO_KEYS}.
-   *
-   * @param executionRequirementsUnchecked execution_requirements of a rule, expected to be of a
+   * #legalExecInfoKeys}.
+   *  @param executionRequirementsUnchecked execution_requirements of a rule, expected to be of a
    *     {@code SkylarkDict<String, String>} type, null or {@link
    *     com.google.devtools.build.lib.syntax.Runtime#NONE}
    * @param rule a rule instance to get tags from
+   * @param incompatibleAllowTagsPropagation a boolean value of the incompatible_allow_tags_propagation flag
    */
   public static ImmutableMap<String, String> getFilteredExecutionInfo(
-      Object executionRequirementsUnchecked, Rule rule) throws EvalException {
+      Object executionRequirementsUnchecked, Rule rule, boolean incompatibleAllowTagsPropagation) throws EvalException {
     Map<String, String> checkedExecutionRequirements =
         TargetUtils.filter(
             SkylarkDict.castSkylarkDictOrNoneToDict(
@@ -253,13 +253,16 @@ public final class TargetUtils {
                 String.class,
                 String.class,
                 "execution_requirements"));
-    Map<String, String> checkedTags = getExecutionInfo(rule);
 
     Map<String, String> executionInfoBuilder = new HashMap<>();
     // adding filtered execution requirements to the execution info map
     executionInfoBuilder.putAll(checkedExecutionRequirements);
-    // merging filtered tags to the execution info map avoiding duplicates
-    checkedTags.forEach(executionInfoBuilder::putIfAbsent);
+
+    if (incompatibleAllowTagsPropagation) {
+      Map<String, String> checkedTags = getExecutionInfo(rule);
+      // merging filtered tags to the execution info map avoiding duplicates
+      checkedTags.forEach(executionInfoBuilder::putIfAbsent);
+    }
 
     return ImmutableMap.copyOf(executionInfoBuilder);
   }

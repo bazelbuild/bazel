@@ -52,7 +52,7 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery '//test:test' > output1 2> $TEST_log \
+  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
@@ -89,7 +89,7 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery '//test:test' > output1 2> $TEST_log \
+  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: '', no-sandbox: '', requires-network: ''}" output1
@@ -128,10 +128,48 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery '//test:test' > output1 2> $TEST_log \
+  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: 1, no-remote: '', requires-network: '', requires-x: ''}" output1
+}
+
+# Test a basic skylark ctx.actions.run rule which has tags, that should not be propagated
+# as --incompatible_allow_tags_propagation flag set to false
+function test_tags_not_propagated_to_run_when_incompatible_flag_off() {
+  mkdir -p test
+  cat << EOF >> test/BUILD
+load(":skylark.bzl", "test_rule")
+
+test_rule(
+    name = "test",
+    out = "output.txt",
+    tags = ["no-cache", "no-remote", "no-sandbox", "requires-network", "local"]
+)
+EOF
+
+  cat << 'EOF' >> test/skylark.bzl
+def _test_impl(ctx):
+  ctx.actions.run(
+      outputs = [ctx.outputs.out],
+      executable = 'dummy')
+  files_to_build = depset([ctx.outputs.out])
+  return DefaultInfo(
+      files = files_to_build,
+  )
+
+test_rule = rule(
+    implementation=_test_impl,
+    attrs = {
+        "out": attr.output(mandatory = True),
+    },
+)
+EOF
+
+  bazel aquery --incompatible_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
+      || fail "should have generated output successfully"
+
+  assert_not_contains "ExecutionInfo: {}" output1
 }
 
 run_suite "tags propagation: skylark rule tests"
