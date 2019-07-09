@@ -70,9 +70,10 @@ fi
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
 # because ':' is used as both path separator and in C:/msys64/...
-if [[ $PLATFORM =~ msys ]]; then
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
   PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
-fi
+esac
 [ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ] \
   && log_fatal "Unable to find the Bazel binary at $PATH_TO_BAZEL_WRAPPER/bazel"
 export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
