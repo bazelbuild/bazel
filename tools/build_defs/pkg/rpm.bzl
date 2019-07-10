@@ -13,7 +13,7 @@
 # limitations under the License.
 """Rules to create RPM archives."""
 
-load("//tools/flags:flags.bzl", "BoolProvider")
+load("//tools/config:common_settings.bzl", "BuildSettingInfo")
 
 rpm_filetype = [".rpm"]
 
@@ -22,7 +22,7 @@ spec_filetype = [".spec"]
 def _pkg_rpm_impl(ctx):
     """Implements to pkg_rpm rule."""
 
-    if ctx.attr._no_build_defs_pkg_flag[BoolProvider].value:
+    if ctx.attr._no_build_defs_pkg_flag[BuildSettingInfo].value:
         fail("The built-in version of pkg_rpm has been removed. Please use"
              + " https://github.com/bazelbuild/rules_pkg/blob/master/pkg.")
 
