@@ -332,6 +332,13 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     In the workspace directory root, create the `emscripten-toolchain.BUILD` and
     `emscripten-clang.BUILD` files that expose these repositories as filegroups
     and establish their visibility across the build.
+    
+    Make sure that in the workspace directory root `BUILD` file is present, if it's
+    missing create it empty:
+    
+    ```
+    touch BUILD
+    ```
 
     First create the `emscripten-toolchain.BUILD` file with the following
     contents:
