@@ -134,6 +134,19 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       mergedRunfiles = mergedRunfiles == Runfiles.EMPTY ? runfiles : mergedRunfiles.merge(runfiles);
     }
 
+    ImmutableList.Builder<Artifact> runtimeJars = ImmutableList.builder();
+    ImmutableList.Builder<String> javaConstraints = ImmutableList.builder();
+    for (JavaInfo javaInfo : providers) {
+      runtimeJars.addAll(javaInfo.getDirectRuntimeJars());
+      javaConstraints.addAll(javaInfo.getJavaConstraints());
+    }
+
+
+    // JavaCompilationInfoProvider
+
+    // JavaSourceInfoProvider
+
+
     return JavaInfo.Builder.create()
         .addProvider(
             JavaCompilationArgsProvider.class,
@@ -151,6 +164,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
         // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
+        .setRuntimeJars(runtimeJars.build())
+        .setJavaConstraints(javaConstraints.build())
         .build();
   }
 
