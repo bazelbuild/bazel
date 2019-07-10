@@ -1,3 +1,100 @@
+## Release 0.27.2 (2019-07-10)
+
+```
+Baseline: 8c3b3fba3f68833bd97d3df2db9c48f0539efc3b
+
+Cherry picks:
+
+   + 123c68daed17b19927372e4df7f7a2256db6b80e:
+     Warn in more cases of possible Python version mismatch in host
+     config
+   + 052167e907373ac7ea43238c3049739f6e94a9d1:
+     Add a non-strict autodetecting Python toolchain
+   + 6ef6d879ab69225d54ecab3db847fb4eff33bbeb:
+     Default java toolchain target
+   + 50fa3ec27efdd95771c70faa38a4543d4fed44f2:
+     Fix problems with the non-strict Python toolchain
+   + e2a626c4f61fe4ceb79a5675d09a6f25ca7b5b22:
+     Automated rollback of commit
+     bc6f7cb330bb531f062bb301f3703876051191f5.
+   + 6efc5b787ad3164cc2fb779c73377695032b4524:
+     Treat existence of managed directories as a part of repository
+     dirtiness.
+   + 3a4be3c93813987a27a97dade3f9ebbc5770e349:
+     Add /usr/local/bin to default PATH under strict action env
+   + 5c1005c0947b010ee36ca851b8ba07c9479cf682:
+     Automated rollback of commit
+     536a166270590a8dbc701718550383f3a07cc763.
+   + c82eb4878c7dc829455caeb915affe36c89df06f:
+     Release 0.27.0 (2019-06-17)
+   + d4589630428c1c1bc08a9baf36257e636fe9d746:
+     Check for both :lcov_merger and $lcov_merger  attributes in
+     TestActionBuilder.
+   + 6d0b14b95a71175362030b4811ca74512b00a890:
+     rule_test: apply "tags" to all rules in the macro
+```
+
+Important changes:
+
+  - When `--incompatible_strict_action_env` is enabled, the default
+    `PATH` now includes `/usr/local/bin`.
+  - Turn on --experimental_build_setting_api by default for starlark
+    build settings (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-build-settings for more info)
+  - rule_test: fix Bazel 0.27 regression ("tags" attribute was
+    ingored, https://github.com/bazelbuild/bazel/issues/8723
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 0.27.1 (2019-07-02)
+
+```
+Baseline: 8c3b3fba3f68833bd97d3df2db9c48f0539efc3b
+
+Cherry picks:
+
+   + 123c68daed17b19927372e4df7f7a2256db6b80e:
+     Warn in more cases of possible Python version mismatch in host
+     config
+   + 052167e907373ac7ea43238c3049739f6e94a9d1:
+     Add a non-strict autodetecting Python toolchain
+   + 6ef6d879ab69225d54ecab3db847fb4eff33bbeb:
+     Default java toolchain target
+   + 50fa3ec27efdd95771c70faa38a4543d4fed44f2:
+     Fix problems with the non-strict Python toolchain
+   + e2a626c4f61fe4ceb79a5675d09a6f25ca7b5b22:
+     Automated rollback of commit
+     bc6f7cb330bb531f062bb301f3703876051191f5.
+   + 6efc5b787ad3164cc2fb779c73377695032b4524:
+     Treat existence of managed directories as a part of repository
+     dirtiness.
+   + 3a4be3c93813987a27a97dade3f9ebbc5770e349:
+     Add /usr/local/bin to default PATH under strict action env
+   + 5c1005c0947b010ee36ca851b8ba07c9479cf682:
+     Automated rollback of commit
+     536a166270590a8dbc701718550383f3a07cc763.
+   + c82eb4878c7dc829455caeb915affe36c89df06f:
+     Release 0.27.0 (2019-06-17)
+   + d4589630428c1c1bc08a9baf36257e636fe9d746:
+     Check for both :lcov_merger and $lcov_merger  attributes in
+     TestActionBuilder.
+```
+
+Important changes:
+
+  - Add new options --cs_fdo_absolute_path= to support the absolute
+    path
+    profile for LLVM's context-sensitive FDO.
+  - When `--incompatible_strict_action_env` is enabled, the default
+    `PATH` now includes `/usr/local/bin`.
+  - Turn on --experimental_build_setting_api by default for starlark
+    build settings (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-build-settings for more info)
+
+This release contains contributions from many people at Google, as well as Ricky Pai.
+
 ## Release 0.27.0 (2019-06-17)
 
 ```
@@ -196,6 +293,27 @@ Important changes:
     defined-build-settings for more info)
 
 This release contains contributions from many people at Google, as well as Alex Thompson, Andy Scott, Benjamin Peterson, David McNett, Drew Gassaway, Ira Shikhman, James deBoer, Jay Vercellone, Jingwen Chen, Josh Rosen, Keith Smiley, Laurent Le Brun, Lee Mracek, Marwan Tammam, Matt Passell, Michael Hackner, Michal Majcherski, Patrick Niklaus, Peter Mounce, Ricky Pai, Steeve Morin, szakmary, Takuto Ikuta, Vladimir Chebotarev, Yen-Chi Chen.
+
+## Release 0.26.1 (2019-06-06)
+
+```
+Baseline: cb82ed84d44db0169a8fbf15f9cee434b77002bb
+
+Cherry picks:
+
+   + d1c0d205945f5a765efb0a48593b1cd82699ce32:
+     Allow WORKSPACE file to be a symlink if no managed directories
+     is used.
+   + c3d2aa74ccd23dfb8a8173c2b3e2955f0c5892cb:
+     Fix ios, tvos and watchos arm64 constraints
+   + 55e42052a22a60b68d88a89932b2a068311b1a95:
+     Bump java_tools_javac10 from 3.1 to 3.2
+```
+
+Patch release on top of 0.26.0, fixing
+- https://github.com/bazelbuild/bazel/issues/8475
+- https://github.com/bazelbuild/bazel/issues/8520
+- https://github.com/bazelbuild/intellij/issues/845
 
 ## Release 0.26.0 (2019-05-28)
 
