@@ -29,7 +29,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.logging.Logger;
 
 /** Utility functions for the {@code windows-sandbox}. */
@@ -105,6 +107,8 @@ public final class WindowsSandboxUtil {
     private Path stdoutPath;
     private Path stderrPath;
     private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
+    private Map<PathFragment, Path> readableFilesAndDirectories = new TreeMap<>();
+    private Set<Path> inaccessiblePaths = ImmutableSet.of();
     private boolean useDebugMode = false;
     private List<String> commandArguments = ImmutableList.of();
 
@@ -153,6 +157,20 @@ public final class WindowsSandboxUtil {
       return this;
     }
 
+    /** Sets the files or directories to make readable for the sandboxed process, if any. */
+    public CommandLineBuilder setReadableFilesAndDirectories(
+        Map<PathFragment, Path> readableFilesAndDirectories) {
+      this.readableFilesAndDirectories = readableFilesAndDirectories;
+      return this;
+    }
+
+    /** Sets the files or directories to make inaccessible for the sandboxed process, if any. */
+    public CommandLineBuilder setInaccessiblePaths(
+        Set<Path> inaccessiblePaths) {
+      this.inaccessiblePaths = inaccessiblePaths;
+      return this;
+    }
+
     /** Sets whether to enable debug mode (e.g. to print debugging messages). */
     public CommandLineBuilder setUseDebugMode(boolean useDebugMode) {
       this.useDebugMode = useDebugMode;
@@ -186,6 +204,12 @@ public final class WindowsSandboxUtil {
       }
       for (Path writablePath : writableFilesAndDirectories) {
         commandLineBuilder.add("-w", writablePath.getPathString());
+      }
+      for (Path readablePath : readableFilesAndDirectories.values()) {
+        commandLineBuilder.add("-r", readablePath.getPathString());
+      }
+      for (Path writablePath : inaccessiblePaths) {
+        commandLineBuilder.add("-b", writablePath.getPathString());
       }
       if (useDebugMode) {
         commandLineBuilder.add("-D");
