@@ -372,7 +372,7 @@ rbe_autoconfig(
     name = "rbe_ubuntu1804_java11",
     detect_java_home = True,
     registry = "gcr.io",
-    repository = "bazel-untrusted/bazel_rbe/ubuntu1804",
+    repository = "bazel-public/ubuntu1804/bazel",
     tag = "java11",
 )
 
