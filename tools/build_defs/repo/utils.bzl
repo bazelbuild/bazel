@@ -92,8 +92,10 @@ def patch(ctx):
         ctx.report_progress("Patching repository")
 
     if _use_native_patch(ctx):
-        for arg in ctx.attr.patch_args:
-            strip = int(arg[2:])
+        if ctx.attr.patch_args:
+            strip = int(ctx.attr.patch_args[-1][2:])
+        else:
+            strip = 0
         for patchfile in ctx.attr.patches:
             ctx.patch(patchfile, strip)
     else:
