@@ -368,8 +368,7 @@ public final class SandboxModule extends BlazeModule {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              new WindowsSandboxedSpawnRunner(
-                  cmdEnv, sandboxBase, timeoutKillDelay, windowsSandboxPath, treeDeleter));
+              new WindowsSandboxedSpawnRunner(cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
       builder.addActionContext(new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
