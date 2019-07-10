@@ -34,6 +34,10 @@ def _quote(filename, protect = "="):
 def _pkg_tar_impl(ctx):
     """Implementation of the pkg_tar rule."""
 
+    if ctx.attr._no_build_defs_pkg_flag[BuildSettingInfo].value:
+        fail("The built-in version of pkg_deb has been removed. Please use"
+             + " https://github.com/bazelbuild/rules_pkg/blob/master/pkg.")
+
     # Compute the relative path
     data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
 
