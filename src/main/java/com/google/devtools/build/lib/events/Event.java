@@ -46,7 +46,7 @@ public final class Event implements Serializable {
   @Nullable
   private final String tag;
 
-  private final int hashCode;
+  private int hashCode;
 
   private Event(
       EventKind kind,
@@ -62,8 +62,6 @@ public final class Event implements Serializable {
     this.tag = tag;
     this.stdout = stdout;
     this.stderr = stderr;
-    this.hashCode =
-        Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes), stdout, stderr);
   }
 
   private Event(
@@ -80,8 +78,6 @@ public final class Event implements Serializable {
     this.tag = tag;
     this.stdout = stdout;
     this.stderr = stderr;
-    this.hashCode =
-        Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes), stdout, stderr);
   }
 
   public Event withTag(String tag) {
@@ -162,7 +158,21 @@ public final class Event implements Serializable {
 
   @Override
   public int hashCode() {
-    return hashCode;
+    // We defer the computation of hashCode until it is needed to avoid the overhead of computing it
+    // and then never using it. In particular, we use Event for streaming stdout and stderr, which
+    // are both large and the hashCode is never used.
+    //
+    // This uses the same construction as String.hashCode. We don't lock, so reads and writes to the
+    // field can race. However, integer reads and writes are atomic, and this code guarantees that
+    // all writes have the same value, so the memory location can only be either 0 or the final
+    // value. Note that a reader could see the final value on the first read and 0 on the second
+    // read, so we must take care to only read the field once.
+    int h = hashCode;
+    if (h == 0) {
+      h = Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes), stdout, stderr);
+      hashCode = h;
+    }
+    return h;
   }
 
   @Override
