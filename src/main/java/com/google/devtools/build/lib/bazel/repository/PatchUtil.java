@@ -130,7 +130,14 @@ public class PatchUtil {
         delta.applyTo(result);
         return null;
       } catch (PatchFailedException e) {
-        return new PatchFailedException(e.getMessage() + "\nFailed to apply delta:\n    " + delta);
+        String msg = String.join("\n",
+            "**Original Position**: " + (delta.getOriginal().getPosition() + 1) + "\n",
+            "**Original Content**:",
+            String.join("\n", delta.getOriginal().getLines()) + "\n",
+            "**Revised Content**:",
+            String.join("\n", delta.getRevised().getLines()) + "\n"
+        );
+        return new PatchFailedException(e.getMessage() + "\n" + msg);
       }
     }
   }

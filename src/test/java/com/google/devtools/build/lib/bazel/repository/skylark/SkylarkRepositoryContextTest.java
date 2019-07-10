@@ -349,8 +349,15 @@ public class SkylarkRepositoryContextTest {
           .hasMessageThat()
           .isEqualTo(
               "Error applying patch /outputDir/my.patch: Incorrect Chunk: the chunk content "
-                  + "doesn't match the target\nFailed to apply delta:\n    "
-                  + "[ChangeDelta, position: 0, lines: [line one] to [line one, line two]]");
+                  + "doesn't match the target\n"
+                  + "**Original Position**: 1\n"
+                  + "\n"
+                  + "**Original Content**:\n"
+                  + "line one\n"
+                  + "\n"
+                  + "**Revised Content**:\n"
+                  + "line one\n"
+                  + "line two\n");
     }
   }
 
