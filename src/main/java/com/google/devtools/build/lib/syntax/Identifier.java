@@ -57,22 +57,6 @@ public final class Identifier extends Expression {
     buffer.append(name);
   }
 
-  @Override
-  public boolean equals(@Nullable Object object) {
-    // TODO(laurentlb): Remove this. AST nodes should probably not be comparable.
-    if (object instanceof Identifier) {
-      Identifier that = (Identifier) object;
-      return this.name.equals(that.name);
-    }
-    return false;
-  }
-
-  @Override
-  public int hashCode() {
-    // TODO(laurentlb): Remove this.
-    return name.hashCode();
-  }
-
   void setScope(ValidationEnvironment.Scope scope) {
     Preconditions.checkState(this.scope == null);
     this.scope = scope;

@@ -31,7 +31,10 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
-    ProtoInfo protoInfo = ProtoCommon.createProtoInfo(ruleContext);
+    ProtoInfo protoInfo =
+        ProtoCommon.createProtoInfo(
+            ruleContext,
+            ruleContext.getFragment(ProtoConfiguration.class).generatedProtosInVirtualImports());
     if (ruleContext.hasErrors()) {
       return null;
     }

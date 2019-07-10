@@ -651,24 +651,12 @@ public class ProtoCompileActionBuilder {
      */
     @Override
     public void expandToCommandLine(Artifact proto, Consumer<String> args) {
-      boolean repositoryPathAdded = false;
-      String pathIgnoringRepository = getPathIgnoringRepository(proto);
-
       for (String directProtoSourceRoot : directProtoSourceRoots) {
         PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
         String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto);
         if (arg != null) {
-          if (arg.equals(pathIgnoringRepository)) {
-            repositoryPathAdded = true;
-          }
-
           args.accept("-I" + arg + "=" + proto.getExecPathString());
         }
-      }
-
-      // TODO(lberki): This should really be removed. It's only there for backward compatibility.
-      if (!repositoryPathAdded) {
-        args.accept("-I" + getPathIgnoringRepository(proto) + "=" + proto.getExecPathString());
       }
     }
   }
@@ -690,41 +678,15 @@ public class ProtoCompileActionBuilder {
       if (proto.second != null) {
         args.accept(proto.second);
       } else {
-        boolean repositoryPathAdded = false;
-        String pathIgnoringRepository = getPathIgnoringRepository(proto.first);
-
         for (String directProtoSourceRoot : directProtoSourceRoots) {
           PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
           String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto.first);
           if (arg != null) {
-            if (arg.equals(pathIgnoringRepository)) {
-              repositoryPathAdded = true;
-            }
             args.accept(arg);
           }
         }
-
-        // TODO(lberki): This should really be removed. It's only there for backward compatibility.
-        if (!repositoryPathAdded) {
-          args.accept(pathIgnoringRepository);
-        }
       }
     }
-  }
-
-  /**
-   * Gets the artifact's path relative to the root, ignoring the external repository the artifact is
-   * at. For example, <code>
-   * //a:b.proto --> a/b.proto
-   * {@literal @}foo//a:b.proto --> a/b.proto
-   * </code>
-   */
-  private static String getPathIgnoringRepository(Artifact artifact) {
-    return artifact
-        .getRootRelativePath()
-        .relativeTo(
-            artifact.getOwnerLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot())
-        .toString();
   }
 
   /**

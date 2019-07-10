@@ -15,9 +15,8 @@
 package com.google.testing.junit.runner.model;
 
 import com.google.testing.junit.runner.util.TestClock.TestInstant;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.TimeZone;
 
 /**
@@ -26,6 +25,9 @@ import java.util.TimeZone;
  * <p>This class is thread-safe and immutable.
  */
 public final class TestInterval {
+
+  private static final DateTimeFormatter ISO8601_WITH_MILLIS_FORMATTER =
+      DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSXXX");
   private final TestInstant startInstant;
   private final TestInstant endInstant;
 
@@ -55,15 +57,16 @@ public final class TestInterval {
 
   public String startInstantToString() {
     // Format as ISO8601 string
-    return startInstantToString(TimeZone.getDefault());
+    return startInstantToString(TimeZone.getDefault(), Locale.getDefault());
   }
 
-  /** Exposed for testing because java Date does not allow setting of timezones. */
+  /** Exposed for testing because java Date does not allow setting of timezones and locale. */
   // VisibleForTesting
-  String startInstantToString(TimeZone tz) {
-    DateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-    format.setTimeZone(tz);
-    return format.format(Date.from(startInstant.wallTime()));
+  String startInstantToString(TimeZone tz, Locale locale) {
+    return ISO8601_WITH_MILLIS_FORMATTER
+        .withZone(tz.toZoneId())
+        .withLocale(locale)
+        .format(startInstant.wallTime());
   }
 
   /** Returns a TestInterval that contains both TestIntervals passed as parameter. */

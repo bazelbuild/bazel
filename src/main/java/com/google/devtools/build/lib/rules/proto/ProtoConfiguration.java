@@ -57,6 +57,14 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean doNotUseBuggyImportPath;
 
     @Option(
+        name = "experimental_generated_protos_in_virtual_imports",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "If set, generated .proto files are put into a virtual import directory.")
+    public boolean generatedProtosInVirtualImports;
+
+    @Option(
       name = "protocopt",
       allowMultiple = true,
       defaultValue = "",
@@ -306,5 +314,9 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public boolean doNotUseBuggyImportPath() {
     return options.doNotUseBuggyImportPath;
+  }
+
+  public boolean generatedProtosInVirtualImports() {
+    return options.generatedProtosInVirtualImports;
   }
 }

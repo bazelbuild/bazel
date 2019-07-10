@@ -470,10 +470,20 @@ public class PatchUtilTest {
         .hasMessageThat()
         .contains(
             "Incorrect Chunk: the chunk content doesn't match the target\n"
-                + "Failed to apply delta:\n"
-                + "    [ChangeDelta, position: 1, lines: [, void main(){,   printf(\"Hello"
-                + " bar\");, }] to [, void main(){,   printf(\"Hello bar\");,   printf(\"Hello"
-                + " from patch\");, }]]");
+                + "**Original Position**: 2\n"
+                + "\n"
+                + "**Original Content**:\n"
+                + "\n"
+                + "void main(){\n"
+                + "  printf(\"Hello bar\");\n"
+                + "}\n"
+                + "\n"
+                + "**Revised Content**:\n"
+                + "\n"
+                + "void main(){\n"
+                + "  printf(\"Hello bar\");\n"
+                + "  printf(\"Hello from patch\");\n"
+                + "}\n");
   }
 
   @Test
