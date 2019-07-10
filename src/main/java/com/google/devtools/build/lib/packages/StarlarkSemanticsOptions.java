@@ -187,7 +187,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       },
       help =
           "If set to true, tags will be propagated from a target to the actions' execution requirements;"
-              + " otherwise tags are not propagated")
+              + " otherwise tags are not propagated. See https://github.com/bazelbuild/bazel/issues/8830 for details.")
   public boolean incompatibleAllowTagsPropagation;
 
   @Option(
