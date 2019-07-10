@@ -156,7 +156,6 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
         toolchain_config = ":asmjs_toolchain_config",
         all_files = ":empty",
         compiler_files = ":empty",
-        cpu = "asmjs",
         dwp_files = ":empty",
         linker_files = ":empty",
         objcopy_files = ":empty",
@@ -186,7 +185,7 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
 
     `CcToolchainConfigInfo` is a provider that we use to configure our C++
     toolchains. We are going to create a Starlark rule that will provide
-    `CcToolchainConfigInfo`. Create a `toolchains/cc_toolchain_config.bzl`
+    `CcToolchainConfigInfo`. Create a `toolchain/cc_toolchain_config.bzl`
     file with the following content:
     ```
     def _impl(ctx):
