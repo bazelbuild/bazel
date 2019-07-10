@@ -13,6 +13,7 @@ filegroup(
         "//tools/buildstamp:srcs",
         "//tools/build_defs:srcs",
         "//tools/build_rules:srcs",
+        "//tools/config:srcs",
         "//tools/coverage:srcs",
         "//tools/java:srcs",
         "//tools/jdk:srcs",
