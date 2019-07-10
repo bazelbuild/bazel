@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -60,9 +62,10 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path tmpDir = createActionTemp(execRoot);
     Path commandTmpDir = tmpDir.getRelative("work");
     commandTmpDir.createDirectory();
-    Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(
-            spawn.getEnvironment(), binTools, commandTmpDir.getPathString());
+    ImmutableMap<String, String> environment =
+        ImmutableMap.copyOf(
+            localEnvProvider.rewriteLocalEnv(
+                spawn.getEnvironment(), binTools, commandTmpDir.getPathString()));
 
     Map<PathFragment, Path> readablePaths =
         SandboxHelpers.processInputFiles(
@@ -93,7 +96,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Path statisticsPath = null;
 
-    SandboxedSpawn sandbox = new DummySandboxedSpawn(execRoot, environment, commandLineBuilder.build());
+    SandboxedSpawn sandbox = new WindowsSandboxedSpawn(execRoot, environment, commandLineBuilder.build());
 
     return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
   }

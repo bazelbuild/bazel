@@ -14,35 +14,24 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.exec.TreeDeleter;
-import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 
 /**
  * Implements detour-based sandboxed spawn.
  */
-public class DummySandboxedSpawn implements SandboxedSpawn {
+public class WindowsSandboxedSpawn implements SandboxedSpawn {
 
   private final Path execRoot;
-  private final Map<String, String> environment;
-  private final List<String> arguments;
+  private final ImmutableMap<String, String> environment;
+  private final ImmutableList<String> arguments;
 
-  public DummySandboxedSpawn(
+  public WindowsSandboxedSpawn(
       Path execRoot,
-      Map<String, String> environment,
-      List<String> arguments) {
+      ImmutableMap<String, String> environment,
+      ImmutableList<String> arguments) {
     this.execRoot = execRoot;
     this.environment = environment;
     this.arguments = arguments;
@@ -54,12 +43,12 @@ public class DummySandboxedSpawn implements SandboxedSpawn {
   }
 
   @Override
-  public List<String> getArguments() {
+  public ImmutableList<String> getArguments() {
     return arguments;
   }
 
   @Override
-  public Map<String, String> getEnvironment() {
+  public ImmutableMap<String, String> getEnvironment() {
     return environment;
   }
 
