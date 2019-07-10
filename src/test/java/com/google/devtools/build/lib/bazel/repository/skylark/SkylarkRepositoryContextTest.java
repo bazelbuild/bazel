@@ -71,6 +71,8 @@ public class SkylarkRepositoryContextTest {
   private Path workspaceFile;
   private SkylarkRepositoryContext context;
 
+  private static String ONE_LINE_PATCH = "@@ -1,1 +1,2 @@\n line one\n+line two\n";
+
   @Before
   public void setUp() throws Exception {
     scratch = new Scratch("/");
@@ -131,7 +133,8 @@ public class SkylarkRepositoryContextTest {
             ImmutableMap.of("FOO", "BAR"),
             downloader,
             1.0,
-            new HashMap<>());
+            new HashMap<>(),
+            true);
   }
 
   protected void setUpContexForRule(String name) throws Exception {
@@ -275,6 +278,79 @@ public class SkylarkRepositoryContextTest {
           .hasCauseThat()
           .hasMessageThat()
           .isEqualTo("Cannot read outside of the repository directory for path /somepath");
+    }
+  }
+
+  @Test
+  public void testPatch() throws Exception {
+    setUpContexForRule("test");
+    SkylarkPath foo = context.path("foo");
+    context.createFile(foo, "line one\n", false, true, null);
+    SkylarkPath patchFile = context.path("my.patch");
+    context.createFile(
+        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, null);
+    context.patch(patchFile, 0, null);
+    testOutputFile(foo.getPath(), String.format("line one%nline two%n"));
+  }
+
+  @Test
+  public void testCannotFindFileToPatch() throws Exception {
+    setUpContexForRule("test");
+    SkylarkPath patchFile = context.path("my.patch");
+    context.createFile(
+        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, null);
+    try {
+      context.patch(patchFile, 0, null);
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo(
+              "Error applying patch /outputDir/my.patch: Cannot find file to patch (near line 1)"
+                  + ", old file name (foo) doesn't exist, new file name (foo) doesn't exist.");
+    }
+  }
+
+  @Test
+  public void testPatchOutsideOfExternalRepository() throws Exception {
+    setUpContexForRule("test");
+    SkylarkPath patchFile = context.path("my.patch");
+    context.createFile(
+        context.path("my.patch"),
+        "--- ../other_root/foo\n" + "+++ ../other_root/foo\n" + ONE_LINE_PATCH,
+        false,
+        true,
+        null);
+    try {
+      context.patch(patchFile, 0, null);
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo(
+              "Error applying patch /outputDir/my.patch: Cannot patch file outside of external "
+                  + "repository (/outputDir), file path = \"../other_root/foo\" at line 1");
+    }
+  }
+
+  @Test
+  public void testPatchErrorWasThrown() throws Exception {
+    setUpContexForRule("test");
+    SkylarkPath foo = context.path("foo");
+    SkylarkPath patchFile = context.path("my.patch");
+    context.createFile(foo, "line three\n", false, true, null);
+    context.createFile(
+        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, null);
+    try {
+      context.patch(patchFile, 0, null);
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo(
+              "Error applying patch /outputDir/my.patch: Incorrect Chunk: the chunk content "
+                  + "doesn't match the target\nFailed to apply delta:\n    "
+                  + "[ChangeDelta, position: 0, lines: [line one] to [line one, line two]]");
     }
   }
 

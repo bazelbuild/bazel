@@ -94,6 +94,14 @@ message DeleteEvent {
   string path = 1;
 }
 
+// Information on "patch" event in repository_ctx.
+message PatchEvent {
+  // Path to the patch file
+  string patch_file = 1;
+  // Number of leading components to strip from file names
+  int32 strip = 2;
+}
+
 // Information on "os" event in repository_ctx.
 message OsEvent {
   // Takes no inputs
@@ -144,5 +152,6 @@ message WorkspaceEvent {
     ExtractEvent extract_event = 11;
     ReadEvent read_event = 12;
     DeleteEvent delete_event = 13;
+    PatchEvent patch_event = 14;
   }
 }
