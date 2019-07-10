@@ -1,3 +1,153 @@
+## Release 0.28.0 (2019-07-10)
+
+```
+Baseline: 2e374a9c6e3d4ed71f0145de287c4b2fe43c76d6
+
+Cherry picks:
+
+   + 6d0b14b95a71175362030b4811ca74512b00a890:
+     rule_test: apply "tags" to all rules in the macro
+```
+
+Incompatible changes:
+
+  - Add --incompatible_enable_profile_by_default to enable the JSON
+    profile by default.
+  - The --incompatible_windows_style_arg_escaping flag is flipped to
+    "true", and the "false" case unsupported. Bazel no longer accepts
+    this flag.
+
+Important changes:
+
+  - Bazel now supports hiding compiler warnings for targets that
+    you're not explicitly building (see
+    https://docs.bazel.build/versions/master/user-manual.html#flag--au
+    to_output_filter).
+  - Flag `--incompatible_restrict_escape_sequences` is added. See
+    https://github.com/bazelbuild/bazel/issues/8380
+  - The "info" command now supports the "starlark-semantics"
+    argument, which outputs a representation of the effective Starlark
+    semantics option values.
+  - The `outputs` parameter of the `rule()` function is deprecated
+    and attached to flag `--incompatible_no_rule_outputs_param`.
+    Migrate rules to use `OutputGroupInfo` or `attr.output` instead.
+    See https://github.com/bazelbuild/bazel/issues/7977 for more info.
+  - When `--incompatible_strict_action_env` is enabled, the default
+    `PATH` now includes `/usr/local/bin`.
+  - Turn on --experimental_build_setting_api by default for starlark
+    build settings (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-build-settings for more info)
+  - `@bazel_tools//tools/jdk:toolchain_java10` and
+    `@bazel_tools//tools/jdk:toolchain_java11` are now available to
+    enable java 10, respectively java 11 language level support.
+  - The `command` parameter of the `actions.run_shell()` function
+    will be restricted to only accept strings (and not string
+    sequences). This check is attached to flag
+    `--incompatible_run_shell_command_string`. One may migrate by
+    using the `arguments` parameter of `actions.run()` instead. See
+    https://github.com/bazelbuild/bazel/issues/5903 for more info.
+  - Incompatible change
+    `--incompatible_use_platforms_repo_for_constraints` has been
+    added. See https://github.com/bazelbuild/bazel/issues/8622 for
+    details.
+  - Incompatible change
+    `--incompatible_use_platforms_repo_for_constraints` has been
+    added. See https://github.com/bazelbuild/bazel/issues/8622 f...
+  - Bazel's C++ autoconfiguration now understands `BAZEL_LINKLIBS`
+    environment variable to specify system libraries that should be
+    appended to the link command line.
+  - paths under the execution root starting with "." or "_" will be
+    re-linked across builds
+  - execution_log_json_file now allows actions without outputs.
+  - Labels aapt as deprecated for aapt_version, and heavily endorses
+    aapt2.
+  - Update doc links still pointing to cc_binary.features to point to
+    common features
+  - Incompatible change
+    `--incompatible_use_platforms_repo_for_constraints` has been
+    added. See https://github.com/bazelbuild/bazel/issues/8622 for
+    details.
+    RELNOTES:
+  - --incompatible_disable_nocopts flag has been added. See
+    https://github.com/bazelbuild/bazel/issues/8706 for details.
+  - Fixed treatment of <dist:module /> tags in AndroidManifest.xml
+  - Fixed asset precedence for android_binary rules with aapt2.
+  - Bazel now officially supports running on CentOS 7.
+  - The runtime dynamic libraries are no longer in default output
+    group of cc_binary.
+  - set the FDOBuildType as CSFDO for binaries built with
+    --cs_fdo_absolute_path.
+  - Bazel can now be bootstrapped and built on arm64 platforms
+    without requiring any flags or patches.
+  - Fixed treatment of AndroidManifest.xml attributes which contained
+    XML escaping
+  - Retire experimental blaze flag
+    experimental_link_compile_output_separately. The same behavior is
+    available through the feature dynamic_link_test_srcs.
+  - --incompatible_load_java_rules_from_bzl was added to forbid
+    loading the native java rules directly. See more on tracking
+    issue #8746
+  - Turn on --experimental_build_setting_api by default for starlark
+    build settings (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-build-settings for more info)
+  - Attribute names are going to be restricted and must be
+    syntactically valid identifiers.
+    https://github.com/bazelbuild/bazel/issues/6437
+  - rule_test: fix Bazel 0.27 regression ("tags" attribute was
+    ingored, https://github.com/bazelbuild/bazel/issues/8723
+
+This release contains contributions from many people at Google, as well as Ben Diuguid, Benjamin Peterson, Dave Lee, Loo Rong Jie, Mark Butcher, Marwan Tammam, Pedro Alvarez.
+
+## Release 0.27.1 (2019-07-02)
+
+```
+Baseline: 8c3b3fba3f68833bd97d3df2db9c48f0539efc3b
+
+Cherry picks:
+
+   + 123c68daed17b19927372e4df7f7a2256db6b80e:
+     Warn in more cases of possible Python version mismatch in host
+     config
+   + 052167e907373ac7ea43238c3049739f6e94a9d1:
+     Add a non-strict autodetecting Python toolchain
+   + 6ef6d879ab69225d54ecab3db847fb4eff33bbeb:
+     Default java toolchain target
+   + 50fa3ec27efdd95771c70faa38a4543d4fed44f2:
+     Fix problems with the non-strict Python toolchain
+   + e2a626c4f61fe4ceb79a5675d09a6f25ca7b5b22:
+     Automated rollback of commit
+     bc6f7cb330bb531f062bb301f3703876051191f5.
+   + 6efc5b787ad3164cc2fb779c73377695032b4524:
+     Treat existence of managed directories as a part of repository
+     dirtiness.
+   + 3a4be3c93813987a27a97dade3f9ebbc5770e349:
+     Add /usr/local/bin to default PATH under strict action env
+   + 5c1005c0947b010ee36ca851b8ba07c9479cf682:
+     Automated rollback of commit
+     536a166270590a8dbc701718550383f3a07cc763.
+   + c82eb4878c7dc829455caeb915affe36c89df06f:
+     Release 0.27.0 (2019-06-17)
+   + d4589630428c1c1bc08a9baf36257e636fe9d746:
+     Check for both :lcov_merger and $lcov_merger  attributes in
+     TestActionBuilder.
+```
+
+Important changes:
+
+  - Add new options --cs_fdo_absolute_path= to support the absolute
+    path
+    profile for LLVM's context-sensitive FDO.
+  - When `--incompatible_strict_action_env` is enabled, the default
+    `PATH` now includes `/usr/local/bin`.
+  - Turn on --experimental_build_setting_api by default for starlark
+    build settings (see
+    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    defined-build-settings for more info)
+
+This release contains contributions from many people at Google, as well as Ricky Pai.
+
 ## Release 0.27.0 (2019-06-17)
 
 ```
