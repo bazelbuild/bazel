@@ -99,38 +99,9 @@ final class ProtobufSupport {
    * @param ruleContext context this proto library is constructed in
    * @param buildConfiguration the configuration from which to get prerequisites when building proto
    *     targets in a split configuration
-   * @param protoInfos the list of ProtoInfos that this proto support should process
-   * @param objcProtoProviders the list of ObjcProtoProviders that this proto support should process
-   */
-  public ProtobufSupport(
-      RuleContext ruleContext,
-      BuildConfiguration buildConfiguration,
-      Iterable<ProtoInfo> protoInfos,
-      Iterable<ObjcProtoProvider> objcProtoProviders,
-      NestedSet<Artifact> portableProtoFilters) {
-    this(
-        ruleContext,
-        buildConfiguration,
-        NestedSetBuilder.<Artifact>stableOrder().build(),
-        protoInfos,
-        objcProtoProviders,
-        portableProtoFilters,
-        null);
-  }
-
-  /**
-   * Creates a new proto support for the protobuf library. This support code bundles up all the
-   * transitive protos within the groups in which they were defined. We use that information to
-   * minimize the number of inputs per generation/compilation actions by only providing what is
-   * really needed to the actions.
-   *
-   * @param ruleContext context this proto library is constructed in
-   * @param buildConfiguration the configuration from which to get prerequisites when building proto
-   *     targets in a split configuration
    * @param dylibHandledProtos a set of protos linked into dynamic libraries that the current rule
    *     depends on; these protos will not be output by this support, thus avoiding duplicate
    *     symbols
-   * @param protoInfos the list of ProtoInfos that this proto support should process
    * @param objcProtoProviders the list of ObjcProtoProviders that this proto support should process
    * @param toolchain if not null, the toolchain to override the default toolchain for the rule
    *     context.
@@ -139,7 +110,6 @@ final class ProtobufSupport {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       NestedSet<Artifact> dylibHandledProtos,
-      Iterable<ProtoInfo> protoInfos,
       Iterable<ObjcProtoProvider> objcProtoProviders,
       NestedSet<Artifact> portableProtoFilters,
       CcToolchainProvider toolchain) {
@@ -149,7 +119,7 @@ final class ProtobufSupport {
     this.dylibHandledProtoPaths = runfilesPaths(dylibHandledProtos.toSet());
     this.objcProtoProviders = objcProtoProviders;
     this.portableProtoFilters = portableProtoFilters;
-    this.inputsToOutputsMap = getInputsToOutputsMap(attributes, protoInfos, objcProtoProviders);
+    this.inputsToOutputsMap = getInputsToOutputsMap(attributes, objcProtoProviders);
     this.toolchain = toolchain;
   }
 
@@ -271,9 +241,7 @@ final class ProtobufSupport {
   }
 
   private static ImmutableSetMultimap<ImmutableSet<Artifact>, Artifact> getInputsToOutputsMap(
-      ProtoAttributes attributes,
-      Iterable<ProtoInfo> protoInfos,
-      Iterable<ObjcProtoProvider> objcProtoProviders) {
+      ProtoAttributes attributes, Iterable<ObjcProtoProvider> objcProtoProviders) {
     ImmutableList.Builder<NestedSet<Artifact>> protoSets =
         new ImmutableList.Builder<NestedSet<Artifact>>();
 
@@ -281,9 +249,6 @@ final class ProtobufSupport {
     // all the transitive groups of proto.
     for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
       protoSets.addAll(objcProtoProvider.getProtoGroups());
-    }
-    for (ProtoInfo protoInfo : protoInfos) {
-      protoSets.add(protoInfo.getTransitiveProtoSources());
     }
 
     HashMap<Artifact, Set<Artifact>> protoToGroupMap = new HashMap<>();
