@@ -709,20 +709,6 @@ public final class CcCompilationHelper {
     return outputGroups;
   }
 
-  public static CppDebugFileProvider buildCppDebugFileProvider(
-      CcCompilationOutputs ccCompilationOutputs, Iterable<TransitiveInfoCollection> deps) {
-    DwoArtifactsCollector dwoArtifacts =
-        DwoArtifactsCollector.transitiveCollector(
-            ccCompilationOutputs,
-            deps,
-            /*generateDwo=*/ false,
-            /*ltoBackendArtifactsUsePic=*/ false,
-            /*ltoBackendArtifacts=*/ ImmutableList.of());
-    CppDebugFileProvider cppDebugFileProvider =
-        new CppDebugFileProvider(dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts());
-    return cppDebugFileProvider;
-  }
-
   public static Map<String, NestedSet<Artifact>> buildOutputGroupsForEmittingCompileProviders(
       CcCompilationOutputs ccCompilationOutputs,
       CcCompilationContext ccCompilationContext,
@@ -1259,8 +1245,7 @@ public final class CcCompilationHelper {
       }
     }
 
-    ImmutableMap<Artifact, String> outputNameMap = null;
-
+    ImmutableMap<Artifact, String> outputNameMap;
     String outputNamePrefixDir = null;
     // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
     // Here we use it to distinguish arc and non-arc compilation.

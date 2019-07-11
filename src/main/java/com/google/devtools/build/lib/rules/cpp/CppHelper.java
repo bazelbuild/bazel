@@ -961,10 +961,27 @@ public class CppHelper {
         .collect(ImmutableList.toImmutableList());
   }
 
+  public static CcDebugInfoContext mergeCcDebugInfoContexts(
+      CcCompilationOutputs compilationOutputs, Iterable<CcInfo> deps) {
+    ImmutableList.Builder<CcDebugInfoContext> contexts = ImmutableList.builder();
+    for (CcInfo ccInfo : deps) {
+      contexts.add(ccInfo.getCcDebugInfoContext());
+    }
+    contexts.add(CcDebugInfoContext.from(compilationOutputs));
+    return CcDebugInfoContext.merge(contexts.build());
+  }
+
   public static ImmutableList<CcLinkingContext> getLinkingContextsFromDeps(
       ImmutableList<TransitiveInfoCollection> deps) {
     return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
         .map(CcInfo::getCcLinkingContext)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  public static ImmutableList<CcDebugInfoContext> getDebugInfoContextsFromDeps(
+      List<TransitiveInfoCollection> deps) {
+    return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+        .map(CcInfo::getCcDebugInfoContext)
         .collect(ImmutableList.toImmutableList());
   }
 

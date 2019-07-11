@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppDebugFileProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
@@ -225,16 +225,16 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           ccLinkingHelper.buildCcLinkingContextFromLibrariesToLink(
               libraryToLink, compilationInfo.getCcCompilationContext());
 
-      CppDebugFileProvider cppDebugFileProvider =
-          CcCompilationHelper.buildCppDebugFileProvider(
-              compilationInfo.getCcCompilationOutputs(), deps);
       ccLibraryProviders =
           new TransitiveInfoProviderMapBuilder()
-              .add(cppDebugFileProvider)
               .put(
                   CcInfo.builder()
                       .setCcCompilationContext(compilationInfo.getCcCompilationContext())
                       .setCcLinkingContext(ccLinkingContext)
+                      .setCcDebugInfoContext(
+                          CppHelper.mergeCcDebugInfoContexts(
+                              compilationInfo.getCcCompilationOutputs(),
+                              AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)))
                       .build())
               .add(ccNativeLibraryProvider)
               .build();
