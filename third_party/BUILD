@@ -28,7 +28,7 @@ filegroup(
         "//third_party/javascript/bootstrap:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
-        "//third_party/jformatstring:srcs",
+        #"//third_party/jformatstring:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
@@ -50,7 +50,7 @@ filegroup(
 filegroup(
     name = "gpl-srcs",
     srcs = [
-        "//third_party/jformatstring:srcs",
+        #"//third_party/jformatstring:srcs",
     ],
 )
 
@@ -374,16 +374,16 @@ java_import(
     exports = [
         ":error_prone_annotations",
     ],
-    deps = [
-        ":auto_common",
-        ":guava",
-        ":hungarian_algorithm",
-        ":jcip_annotations",
-        ":jsr305",
-        ":pcollections",
-        "//third_party/checker_framework_dataflow",
-        "//third_party/jformatstring",
-    ],
+#    deps = [
+#        ":auto_common",
+#        ":guava",
+#        ":hungarian_algorithm",
+#        ":jcip_annotations",
+#        ":jsr305",
+#        ":pcollections",
+#        "//third_party/checker_framework_dataflow",
+#        "//third_party/jformatstring",
+#    ],
 )
 
 java_import(
