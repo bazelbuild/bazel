@@ -17,12 +17,55 @@
 # Test C++ builds with the sandboxing spawn strategy.
 #
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+set -euo pipefail
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source ${CURRENT_DIR}/../sandboxing_test_utils.sh \
+source "$(rlocation "io_bazel/src/test/shell/sandboxing_test_utils.sh")" \
   || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
+
+IS_WINDOWS=false
+case "$(uname | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  IS_WINDOWS=true
+esac
+
+# TODO(rongjiecomputer): Individual marking external tools as readable with
+# --sandbox_writable_path flag is only a temporary solution. Eventually Bazel
+# should add those external tools it needs as readable automatically.
+sandbox_flags=""
+if "${IS_WINDOWS}"; then
+  sandbox_flags="--experimental_use_windows_sandbox=yes"
+  if [[ -n "${WINDOWS_SANDBOX+x}" ]]; then
+    sandbox_flags="${sandbox_flags} --experimental_windows_sandbox_path=${WINDOWS_SANDBOX}"
+  fi
+  if [[ -n "${BAZEL_VC+x}" ]]; then
+    sandbox_flags="${sandbox_flags} --sandbox_writable_path=${BAZEL_VC}"
+  fi
+  if [[ -n "${WIN10_SDK+x}" ]]; then
+    sandbox_flags="${sandbox_flags} --sandbox_writable_path=${WIN10_SDK}"
+  fi
+fi
 
 function set_up {
   mkdir -p examples/cpp/{bin,lib}
@@ -75,7 +118,7 @@ EOF
 
 # Tests for #473: Sandboxing for C++ compilation was accidentally disabled.
 function test_sandboxed_cpp_build_rebuilds_on_change() {
-  bazel build --spawn_strategy=sandboxed //examples/cpp:hello-world &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=sandboxed //examples/cpp:hello-world &> $TEST_log \
     || fail "Building hello-world failed"
 
   bazel-bin/examples/cpp/hello-world | fgrep "greetings from the header" \
@@ -87,7 +130,7 @@ function test_sandboxed_cpp_build_rebuilds_on_change() {
   mv tmp examples/cpp/lib/hello-lib.h \
     || fail "moving modified header file back to examples/cpp/lib/hello-lib.h failed"
 
-  bazel build --spawn_strategy=sandboxed //examples/cpp:hello-world &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=sandboxed //examples/cpp:hello-world &> $TEST_log \
     || fail "Building modified hello-world failed"
 
   bazel-bin/examples/cpp/hello-world | fgrep "greetings from the modified header" \
@@ -102,11 +145,12 @@ cc_library(
 )
 EOF
 
-  bazel build --spawn_strategy=sandboxed //examples/cpp:hello-lib &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=sandboxed //examples/cpp:hello-lib &> $TEST_log \
     && fail "build should not have succeeded with missing header file"
 
   fgrep "fatal error: examples/cpp/lib/hello-lib.h: No such file or directory" $TEST_log \
     || fgrep "fatal error: 'examples/cpp/lib/hello-lib.h' file not found" $TEST_log \
+    || fgrep "examples/cpp/lib/hello-lib.c(1): fatal error C1083: Cannot open include file: 'examples/cpp/lib/hello-lib.h': No such file or directory" $TEST_log \
     || fail "could not find 'No such file or directory' error message in bazel output"
 }
 
@@ -127,10 +171,10 @@ cc_binary(
 )
 EOF
 
-  bazel build --spawn_strategy=sandboxed //examples/cpp:hello-lib &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=sandboxed //examples/cpp:hello-lib &> $TEST_log \
     || fail "building hello-lib should have succeeded with header file in srcs"
 
-  bazel build --spawn_strategy=sandboxed //examples/cpp:hello-world &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=sandboxed //examples/cpp:hello-world &> $TEST_log \
     && fail "building hello-world should not have succeeded with library header file in srcs"
 
   fgrep "undeclared inclusion(s) in rule '//examples/cpp:hello-world'" $TEST_log \
@@ -138,7 +182,7 @@ EOF
 }
 
 function test_standalone_cpp_build_rebuilds_on_change() {
-  bazel build --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
     || fail "Building hello-world failed"
 
   bazel-bin/examples/cpp/hello-world | fgrep "greetings from the header" \
@@ -150,7 +194,7 @@ function test_standalone_cpp_build_rebuilds_on_change() {
   mv tmp examples/cpp/lib/hello-lib.h \
     || fail "moving modified header file back to examples/cpp/lib/hello-lib.h failed"
 
-  bazel build --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
     || fail "Building modified hello-world failed"
 
   bazel-bin/examples/cpp/hello-world | fgrep "greetings from the modified header" \
@@ -165,7 +209,7 @@ cc_library(
 )
 EOF
 
-  bazel build --spawn_strategy=standalone //examples/cpp:hello-lib &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=standalone //examples/cpp:hello-lib &> $TEST_log \
     && fail "build should not have succeeded with missing header file"
 
   fgrep "undeclared inclusion(s) in rule '//examples/cpp:hello-lib'" $TEST_log \
@@ -188,10 +232,10 @@ cc_binary(
 )
 EOF
 
-  bazel build --spawn_strategy=standalone //examples/cpp:hello-lib &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=standalone //examples/cpp:hello-lib &> $TEST_log \
     || fail "building hello-lib should have succeeded with header file in srcs"
 
-  bazel build --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
+  bazel build $sandbox_flags --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
     && fail "building hello-world should not have succeeded with library header file in srcs"
 
   fgrep "undeclared inclusion(s) in rule '//examples/cpp:hello-world'" $TEST_log \
@@ -200,6 +244,6 @@ EOF
 
 # The test shouldn't fail if the environment doesn't support running it.
 check_supported_platform || exit 0
-check_sandbox_allowed || exit 0
+check_sandbox_allowed || "${IS_WINDOWS}" || exit 0
 
 run_suite "sandbox"
