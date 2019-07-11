@@ -104,7 +104,7 @@ public class SimpleBlobStoreFactoryTest {
   }
 
   @Test
-  public void createCombinedCacheWithNotExistingWorkingDirectory() throws IOException {
+  public void createCombinedHttpCacheWithNotExistingWorkingDirectory() throws IOException {
     remoteOptions.remoteCache = "http://doesnotexist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     assertThat(workingDirectory.exists()).isFalse();
@@ -117,7 +117,7 @@ public class SimpleBlobStoreFactoryTest {
   }
 
   @Test
-  public void createCombinedCacheWithMissingWorkingDirectoryShouldThrowException() {
+  public void createCombinedHttpCacheWithMissingWorkingDirectoryShouldThrowException() {
     // interesting case: workingDirectory = null -> NPE.
     remoteOptions.remoteCache = "http://doesnotexist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
@@ -127,6 +127,33 @@ public class SimpleBlobStoreFactoryTest {
         () ->
             SimpleBlobStoreFactory.create(
                 remoteOptions, /* creds= */ null, /* workingDirectory= */ null));
+  }
+
+  @Test
+  public void createCombinedHttpCacheWithUnsupportedOperationException() throws IOException {
+    remoteOptions.remoteCache = "http://doesnotexist.com";
+    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    fs.getPath("/etc/something/cache/here").createDirectoryAndParents();
+
+    SimpleBlobStore blobStore =
+        SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
+
+    assertThat(
+            assertThrows(
+                UnsupportedOperationException.class,
+                () ->
+                    blobStore.ensureInputsPresent(
+                        /* merkleTree= */ null, /* additionalInputs= */ null, /* execRoot= */ null)))
+        .hasMessageThat()
+        .contains("HTTP Caching does not use this method.");
+    assertThat(
+            assertThrows(
+                UnsupportedOperationException.class,
+                () ->
+                    blobStore.getMissingDigests(
+                        /* digests= */ null)))
+        .hasMessageThat()
+        .contains("HTTP Caching does not use this method.");
   }
 
   @Test
