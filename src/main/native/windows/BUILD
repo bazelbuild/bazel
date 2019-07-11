@@ -12,7 +12,6 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        ":windows_jni.dll",
     ],
     visibility = ["//src/main/native:__pkg__"],
 )
