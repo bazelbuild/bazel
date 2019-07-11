@@ -133,11 +133,6 @@ public final class RemoteModule extends BlazeModule {
         return true; // if *all* > 0 violations have type MISSING
       };
 
-  /** Returns whether remote execution should be available. */
-  public static boolean shouldEnableRemoteExecution(RemoteOptions options) {
-    return !Strings.isNullOrEmpty(options.remoteExecutor);
-  }
-
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
@@ -159,7 +154,7 @@ public final class RemoteModule extends BlazeModule {
     boolean enableDiskCache = SimpleBlobStoreFactory.isDiskCache(remoteOptions);
     boolean enableHttpCache = SimpleBlobStoreFactory.isHttpCache(remoteOptions);
     boolean enableGrpcCache = SimpleBlobStoreFactory.isGrpcCache(remoteOptions);
-    boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
+    boolean enableRemoteExecution = SimpleBlobStoreFactory.shouldEnableRemoteExecution(remoteOptions);
     if ((enableDiskCache || enableHttpCache) && enableRemoteExecution) {
       throw new AbruptExitException(
           "Cannot combine gRPC based remote execution with local disk or HTTP-based caching",

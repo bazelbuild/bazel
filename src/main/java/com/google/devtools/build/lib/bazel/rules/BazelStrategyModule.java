@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.SpawnCache;
-import com.google.devtools.build.lib.remote.RemoteModule;
+import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
@@ -55,7 +55,7 @@ public class BazelStrategyModule extends BlazeModule {
 
     if (options.incompatibleListBasedExecutionStrategySelection) {
       if (spawnStrategies.isEmpty()) {
-        if (RemoteModule.shouldEnableRemoteExecution(remoteOptions)) {
+        if (SimpleBlobStoreFactory.shouldEnableRemoteExecution(remoteOptions)) {
           spawnStrategies.add("remote");
         }
         spawnStrategies.add("worker");

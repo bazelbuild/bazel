@@ -19,6 +19,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.devtools.build.lib.remote.blobstore.CombinedDiskRemoteBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
@@ -86,10 +87,10 @@ public final class SimpleBlobStoreFactory {
       ByteStreamUploader uploader,
       DigestUtil digestUtil)
       throws IOException {
-    if (isGrpcCache(options) && isDiskCache(options)) {
+    if ((isGrpcCache(options) || shouldEnableRemoteExecution(options)) && isDiskCache(options)) {
       return createCombinedGrpcDiskCache(workingDirectory, options.diskCache, options, channel, credentials, retrier, uploader, digestUtil);
     }
-    if (isGrpcCache(options)) {
+    if (isGrpcCache(options) || shouldEnableRemoteExecution(options)) {
       return createGrpcCache(channel, credentials, options, retrier, digestUtil, uploader);
     }
     throw new IllegalArgumentException(
@@ -207,5 +208,10 @@ public final class SimpleBlobStoreFactory {
     // TODO(ishikhman): add proper URI validation/parsing for remote options
     return !(Ascii.toLowerCase(options.remoteCache).startsWith("http://")
         || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
+  }
+
+  /** Returns whether remote execution should be available. */
+  public static boolean shouldEnableRemoteExecution(RemoteOptions options) {
+    return !Strings.isNullOrEmpty(options.remoteExecutor);
   }
 }
