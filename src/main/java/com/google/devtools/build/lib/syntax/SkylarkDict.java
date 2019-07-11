@@ -80,18 +80,25 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     this.mutability = env == null ? Mutability.IMMUTABLE : env.mutability();
   }
 
-  @SkylarkCallable(name = "get",
-    doc = "Returns the value for <code>key</code> if <code>key</code> is in the dictionary, "
-        + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
-        + "<code>None</code>, so that this method never throws an error.",
-    parameters = {
-      @Param(name = "key", noneable = true, doc = "The key to look for."),
-      @Param(name = "default", defaultValue = "None", noneable = true, named = true,
-          doc = "The default value to use (instead of None) if the key is not found.")},
-    allowReturnNones = true
-  )
-  public Object get(Object key, Object defaultValue) {
-    if (this.containsKey(key)) {
+  @SkylarkCallable(
+      name = "get",
+      doc =
+          "Returns the value for <code>key</code> if <code>key</code> is in the dictionary, "
+              + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
+              + "<code>None</code>, so that this method never throws an error.",
+      parameters = {
+        @Param(name = "key", noneable = true, doc = "The key to look for."),
+        @Param(
+            name = "default",
+            defaultValue = "None",
+            noneable = true,
+            named = true,
+            doc = "The default value to use (instead of None) if the key is not found.")
+      },
+      allowReturnNones = true,
+      useEnvironment = true)
+  public Object get(Object key, Object defaultValue, Environment env) throws EvalException {
+    if (containsKey(key, null, env)) {
       return this.get(key);
     }
     return defaultValue;
@@ -495,7 +502,14 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   @Override
   public final boolean containsKey(Object key, Location loc, StarlarkContext context)
       throws EvalException {
-    EvalUtils.checkValidDictKey(key);
+    return this.containsKey(key);
+  }
+
+  @Override
+  public final boolean containsKey(Object key, Location loc, Environment env) throws EvalException {
+    if (env.getSemantics().incompatibleDisallowDictLookupUnhashableKeys()) {
+      EvalUtils.checkValidDictKey(key);
+    }
     return this.containsKey(key);
   }
 
