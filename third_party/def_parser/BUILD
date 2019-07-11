@@ -11,8 +11,10 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        ":def_parser",
-    ],
+    ] + select({
+        "//src/conditions:windows": [":def_parser"],
+        "//conditions:default": [],
+    }),
     visibility = ["//src:__pkg__"],
 )
 

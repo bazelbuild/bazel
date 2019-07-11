@@ -1,1 +1,4 @@
+# On Linux/macOS: zipper
+# On Windows: zipper.exe
+# Use glob() so it matches whichever file is present.
 exports_files(glob(["zipper*"]))

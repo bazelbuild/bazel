@@ -1,5 +1,5 @@
 package(default_visibility = ["//visibility:private"])
 
-# Only present on Windows.
-# Use glob() so it silently matches zero files on Linux/macOS.
+# On Windows: windows_jni.dll
+# Use glob() so it matches no file on Linux/macOS.
 exports_files(["windows_jni*"])

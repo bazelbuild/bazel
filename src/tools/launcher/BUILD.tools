@@ -1,1 +1,3 @@
-exports_files(["launcher.exe"])
+# On Windows: launcher.exe
+# Use glob() so it matches no file on Linux/macOS.
+exports_files(glob(["launcher.*"]))

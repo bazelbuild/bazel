@@ -1,1 +1,4 @@
+# On Linux: libunix.so
+# On macOS: libunix.dylib
+# Use glob() so it matches the right files (or no file on Windows).
 exports_files(glob(["libunix.*"]))
