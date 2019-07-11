@@ -384,6 +384,23 @@ public class SimpleBlobStoreFactoryTest {
   }
 
   @Test
+  public void isDiskCache_isGrpcCache_grpcAndDiskCacheEnabled() {
+    remoteOptions.remoteCache = "grpc://some-host.com";
+    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+
+    assertThat(SimpleBlobStoreFactory.isDiskCache(remoteOptions) && SimpleBlobStoreFactory.isGrpcCache(remoteOptions)).isTrue();
+  }
+
+  @Test
+  public void isDiskCache_isGrpcCache_grpcWhenUnknownSchemeAndDiskCacheEnabled() {
+    remoteOptions.remoteCache = "grp://some-host.com";
+    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+
+    // TODO(ishikhman): add proper vaildation and flip to false
+    assertThat(SimpleBlobStoreFactory.isDiskCache(remoteOptions) && SimpleBlobStoreFactory.isGrpcCache(remoteOptions)).isTrue();
+  }
+
+  @Test
   public void create_httpCacheWhenHttpAndDiskCacheEnabled() {
     remoteOptions.remoteCache = "http://doesnotexist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
