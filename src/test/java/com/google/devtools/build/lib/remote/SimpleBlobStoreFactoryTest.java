@@ -92,7 +92,7 @@ public class SimpleBlobStoreFactoryTest {
   }
 
   @Test
-  public void createCombinedCacheWithExistingWorkingDirectory() throws IOException {
+  public void createCombinedHttpCacheWithExistingWorkingDirectory() throws IOException {
     remoteOptions.remoteCache = "http://doesnotexist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     fs.getPath("/etc/something/cache/here").createDirectoryAndParents();
@@ -161,6 +161,7 @@ public class SimpleBlobStoreFactoryTest {
             remoteOptions.remoteTimeout, retrier);
 
     SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(
+        null,
         remoteOptions,
         channel.retain(),
         creds,
@@ -169,6 +170,51 @@ public class SimpleBlobStoreFactoryTest {
         DIGEST_UTIL);
 
     assertThat(blobStore).isInstanceOf(GrpcBlobStore.class);
+  }
+
+  @Test
+  public void createCombinedGrpcCacheWithExistingWorkingDirectory() throws IOException {
+    remoteOptions.remoteCache = "grpc://doesnotexist:90";
+    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    fs.getPath("/etc/something/cache/here").createDirectoryAndParents();
+
+    AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    authTlsOptions.useGoogleDefaultCredentials = true;
+    authTlsOptions.googleCredentials = "/exec/root/creds.json";
+    authTlsOptions.googleAuthScopes = ImmutableList.of("dummy.scope");
+
+    GenericJson json = new GenericJson();
+    json.put("type", "authorized_user");
+    json.put("client_id", "some_client");
+    json.put("client_secret", "foo");
+    json.put("refresh_token", "bar");
+    Scratch scratch = new Scratch();
+    scratch.file(authTlsOptions.googleCredentials, new JacksonFactory().toString(json));
+
+    CallCredentials creds;
+    try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
+      creds = GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
+    }
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new ExponentialBackoff(remoteOptions), RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
+    ReferenceCountedChannel channel =
+        new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor()
+            .intercept(new CallCredentialsInterceptor(creds)).build());
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
+            remoteOptions.remoteTimeout, retrier);
+
+    SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(
+        workingDirectory,
+        remoteOptions,
+        channel.retain(),
+        creds,
+        retrier,
+        uploader,
+        DIGEST_UTIL);
+
+    assertThat(blobStore).isInstanceOf(CombinedDiskRemoteBlobStore.class);
   }
 
   @Test
