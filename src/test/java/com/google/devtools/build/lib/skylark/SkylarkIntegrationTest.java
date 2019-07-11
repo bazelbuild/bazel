@@ -3100,6 +3100,30 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSplitEmptySeparatorForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_split_empty_separator=true");
+
+    scratch.file("test/extension.bzl", "y = 'abc'.split('')");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("Empty separator");
+  }
+
+  @Test
+  public void testSplitEmptySeparator() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_split_empty_separator=false");
+
+    scratch.file("test/extension.bzl", "y = 'abc'.split('')");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
   public void testNoOutputsError() throws Exception {
     scratch.file(
         "test/skylark/test_rule.bzl",

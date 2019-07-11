@@ -4,9 +4,14 @@ assert_eq('h i p'.split(' '), ['h', 'i', 'p'])
 assert_eq('a,e,i,o,u'.split(',', 2), ['a', 'e', 'i,o,u'])
 assert_eq('  1  2  3  '.split(' '), ['', '', '1', '', '2', '', '3', '', ''])
 
+---
+
 # rsplit
 assert_eq('abcdabef'.rsplit('ab'), ['', 'cd', 'ef'])
 assert_eq('google_or_gogol'.rsplit('go'), ['', 'ogle_or_', '', 'l'])
+
+'abc'.rsplit("") ### Empty separator
+---
 
 # rsplit regex
 assert_eq('foo/bar.lisp'.rsplit('.'), ['foo/bar', 'lisp'])
