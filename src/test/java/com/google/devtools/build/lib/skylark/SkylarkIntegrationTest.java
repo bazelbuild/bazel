@@ -3064,7 +3064,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testEmptySeparatorForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_empty_separator=true");
+    setSkylarkSemanticsOptions("--incompatible_disallow_split_empty_separator=true");
 
     scratch.file("test/extension.bzl", "y = 'abc'.split('')");
 
@@ -3077,7 +3077,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testEmptySeparator() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_empty_separator=false");
+    setSkylarkSemanticsOptions("--incompatible_disallow_split_empty_separator=false");
 
     scratch.file("test/extension.bzl", "y = 'abc'.split('')");
 

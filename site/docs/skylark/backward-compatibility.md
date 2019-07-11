@@ -91,7 +91,7 @@ Starlark will result in a syntax error.
 We are disallowing empty strings as separators to `string.split`. If `sep` is
 the empty string, `split` will fail.
 
-*   Flag: `--incompatible_disallow_empty_separator`
+*   Flag: `--incompatible_disallow_split_empty_separator`
 *   Default: `false`
 *   Tracking issue: [#7355](https://github.com/bazelbuild/bazel/issues/7355)
 

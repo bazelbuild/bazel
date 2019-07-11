@@ -204,7 +204,7 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRestrictStringEscapes();
 
-  public abstract boolean incompatibleDisallowEmptySeparator();
+  public abstract boolean incompatibleDisallowSplitEmptySeparator();
 
   @Memoized
   @Override
@@ -280,7 +280,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
-          .incompatibleDisallowEmptySeparator(false)
+          .incompatibleDisallowSplitEmptySeparator(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -371,7 +371,7 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
-    public abstract Builder incompatibleDisallowEmptySeparator(boolean value);
+    public abstract Builder incompatibleDisallowSplitEmptySeparator(boolean value);
 
     public abstract StarlarkSemantics build();
   }
