@@ -50,16 +50,19 @@ msys*|mingw*|cygwin*)
   IS_WINDOWS=true
 esac
 
+# TODO(rongjiecomputer): Individual marking external tools as readable with
+# --sandbox_writable_path flag is only a temporary solution. Eventually Bazel
+# should add those external tools it needs as readable automatically.
 sandbox_flags=""
 if "${IS_WINDOWS}"; then
   sandbox_flags="--experimental_use_windows_sandbox=yes"
-  if [[ $WINDOWS_SANDBOX ]]; then
+  if [[ -n "${WINDOWS_SANDBOX+x}" ]]; then
     sandbox_flags="${sandbox_flags} --experimental_windows_sandbox_path=${WINDOWS_SANDBOX}"
   fi
-  if [[ $BAZEL_VC ]]; then
+  if [[ -n "${BAZEL_VC+x}" ]]; then
     sandbox_flags="${sandbox_flags} --sandbox_writable_path=${BAZEL_VC}"
   fi
-  if [[ $WIN10_SDK ]]; then
+  if [[ -n "${WIN10_SDK+x}" ]]; then
     sandbox_flags="${sandbox_flags} --sandbox_writable_path=${WIN10_SDK}"
   fi
 fi
