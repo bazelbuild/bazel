@@ -10,11 +10,9 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = glob([
-        "*.cc",
-        "*.h",
-    ]) + [
-        "BUILD",
+    srcs = [
+        "BUILD.tools",
+        ":windows_jni.dll",
     ],
     visibility = ["//src/main/native:__pkg__"],
 )

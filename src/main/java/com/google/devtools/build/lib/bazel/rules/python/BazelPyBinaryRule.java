@@ -49,7 +49,7 @@ public final class BazelPyBinaryRule implements RuleDefinition {
         .add(
             attr("$launcher", LABEL)
                 .cfg(HostTransition.createFactory())
-                .value(env.getToolsLabel("//tools/launcher:launcher")))
+                .value(env.getToolsLabel("//tools/launcher:launcher.exe")))
         .build();
   }
 

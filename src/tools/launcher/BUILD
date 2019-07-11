@@ -6,6 +6,15 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "//src/tools/launcher/util:embedded_tools",
+    ],
+    visibility = ["//src:__pkg__"],
+)
+
 cc_binary(
     name = "launcher",
     srcs = ["launcher_main.cc"],

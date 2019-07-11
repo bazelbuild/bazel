@@ -101,7 +101,7 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = [
-        "BUILD",
+        "BUILD.tools",
         "//src/main/native/windows:embedded_tools",
     ],
     visibility = ["//visibility:public"],

@@ -7,6 +7,15 @@ package(
 
 licenses(["notice"])  # Apache 2.0
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":zipper",
+    ],
+    visibility = ["//src:__pkg__"],
+)
+
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 cc_library(
@@ -72,7 +81,7 @@ cc_library(
 )
 
 cc_binary(
-    name = "zipper",
+    name = "zipper", # x
     srcs = ["zip_main.cc"],
     visibility = ["//visibility:public"],
     deps = [":zip"],

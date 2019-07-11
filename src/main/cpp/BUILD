@@ -4,6 +4,12 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = ["//src/main/cpp/util:embedded_tools"],
+    visibility = ["//src:__pkg__"],
+)
+
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
 WIN_LINK_OPTS = [

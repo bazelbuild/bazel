@@ -8,6 +8,12 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [],  # no files from util should be in @bazel_tools
+    visibility = ["//src/tools/launcher:__pkg__"],
+)
+
 cc_library(
     name = "data_parser",
     srcs = ["data_parser.cc"],

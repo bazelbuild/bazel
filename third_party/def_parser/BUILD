@@ -7,6 +7,15 @@ package(
     ],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":def_parser",
+    ],
+    visibility = ["//src:__pkg__"],
+)
+
 cc_library(
     name = "def_parser_lib",
     srcs = ["def_parser.cc"],

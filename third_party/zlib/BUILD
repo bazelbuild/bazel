@@ -8,7 +8,7 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = glob(["*.c"]) + glob(["*.h"]) + ["BUILD"] + ["LICENSE.txt"],
+    srcs = [],
     visibility = ["//visibility:public"],
 )
 
