@@ -32,6 +32,11 @@ genrule(
     cmd = "cp $< $@",
 )
 
+filegroup(
+    name = "jre_emul_module",
+    srcs = ["@bazel_j2objc//:jre_emul_module"],
+)
+
 objc_library(
     name = "jre_core_lib",
     deps = ["@bazel_j2objc//:jre_core_lib"],
