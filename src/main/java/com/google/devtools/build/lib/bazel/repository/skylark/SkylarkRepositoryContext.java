@@ -450,16 +450,21 @@ public class SkylarkRepositoryContext
     } catch (PatchFailedException e) {
       throw new RepositoryFunctionException(
           new EvalException(
-              Location.BUILTIN,
-              "Error applying patch " + skylarkPath.toString() + ": " + e.getLocalizedMessage()),
+              Location.BUILTIN, "Error applying patch " + skylarkPath + ": " + e.getMessage()),
           Transience.TRANSIENT);
     } catch (CommandException e) {
       String msg = "";
       if (e instanceof BadExitStatusException) {
         CommandResult result = ((BadExitStatusException) e).getResult();
-        msg = "\nCommand:\n" + String.join(" ", e.getCommand().getCommandLineElements()) + "\n";
-        msg += "\nSTDOUT:\n" + result.getStdoutStream().toString();
-        msg += "\nSTDERR:\n" + result.getStderrStream().toString();
+        msg =
+            String.join(
+                "\n",
+                "Command:",
+                String.join(" ", e.getCommand().getCommandLineElements()) + "\n",
+                "STDOUT:",
+                result.getStdoutStream().toString(),
+                "STDERR:",
+                result.getStderrStream().toString());
       }
       throw new RepositoryFunctionException(
           new EvalException(
@@ -467,7 +472,7 @@ public class SkylarkRepositoryContext
               "Error applying patch "
                   + skylarkPath.toString()
                   + ": "
-                  + e.getLocalizedMessage()
+                  + e.getMessage()
                   + "\n"
                   + msg),
           Transience.TRANSIENT);

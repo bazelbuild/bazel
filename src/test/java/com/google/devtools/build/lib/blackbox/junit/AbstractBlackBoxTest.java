@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestEnvironment;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
+import com.google.devtools.build.lib.util.OS;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.After;
@@ -121,5 +122,15 @@ public abstract class AbstractBlackBoxTest {
    */
   protected ImmutableList<ToolsSetup> getAdditionalTools() {
     return ImmutableList.of();
+  }
+
+  /**
+   * Check if we are running tests on Windows
+   *
+   * @return True, if we are running tests on Windows; False, if we are running tests on other
+   *     platforms.
+   */
+  protected static boolean isWindows() {
+    return OS.WINDOWS.equals(OS.getCurrent());
   }
 }
