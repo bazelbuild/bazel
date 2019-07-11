@@ -427,7 +427,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         builder.addTransitiveArtifacts(
             ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
       } catch (EvalException e) {
-        e.printStackTrace();
+        throw ruleContext.throwWithRuleError(e.getMessage());
       }
     }
     Runfiles runfiles = builder.build();
