@@ -65,6 +65,7 @@ public class ProtoCompileActionBuilderTest {
       NestedSet<Pair<Artifact, String>> exportedProtos) {
     return new ProtoInfo(
         directProtos,
+        directProtos,
         "",
         transitiveProtos,
         transitiveProtoSourceRoots,
