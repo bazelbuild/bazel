@@ -63,6 +63,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       Object attrs,
       Boolean local,
       SkylarkList<String> environ,
+      Boolean configure,
       String doc,
       FuncallExpression ast,
       com.google.devtools.build.lib.syntax.Environment funcallEnv)
@@ -72,6 +73,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
     builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
+    builder.addOrOverrideAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
     builder.addOrOverrideAttribute(
         attr("$environ", STRING_LIST).defaultValue(environ).build());
     BaseRuleClasses.nameAttribute(builder);

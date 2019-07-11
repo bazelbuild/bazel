@@ -52,6 +52,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       Object attrs,
       Boolean local,
       SkylarkList<String> environ,
+      Boolean configure,
       String doc,
       FuncallExpression ast,
       Environment env)

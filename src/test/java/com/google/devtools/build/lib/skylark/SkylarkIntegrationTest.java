@@ -3039,6 +3039,43 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testUnhashableInDictForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_dict_lookup_unhashable_keys=true");
+
+    scratch.file("test/extension.bzl", "y = [] in {}");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("unhashable type: 'list'");
+  }
+
+  @Test
+  public void testDictGetUnhashableForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_dict_lookup_unhashable_keys=true");
+
+    scratch.file("test/extension.bzl", "y = {}.get({})");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("unhashable type: 'dict'");
+  }
+
+  @Test
+  public void testUnhashableLookupDict() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_dict_lookup_unhashable_keys=false");
+
+    scratch.file("test/extension.bzl", "y = [[] in {}, {}.get({})]");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
   public void testUnknownStringEscapesForbidden() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=true");
 
@@ -3056,6 +3093,30 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=false");
 
     scratch.file("test/extension.bzl", "y = \"\\z\"");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testSplitEmptySeparatorForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_split_empty_separator=true");
+
+    scratch.file("test/extension.bzl", "y = 'abc'.split('')");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("Empty separator");
+  }
+
+  @Test
+  public void testSplitEmptySeparator() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_split_empty_separator=false");
+
+    scratch.file("test/extension.bzl", "y = 'abc'.split('')");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
 

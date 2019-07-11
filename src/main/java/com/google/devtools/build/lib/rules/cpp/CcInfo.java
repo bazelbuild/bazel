@@ -37,11 +37,16 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
 
   private final CcCompilationContext ccCompilationContext;
   private final CcLinkingContext ccLinkingContext;
+  private final CcDebugInfoContext ccDebugInfoContext;
 
-  public CcInfo(CcCompilationContext ccCompilationContext, CcLinkingContext ccLinkingContext) {
+  public CcInfo(
+      CcCompilationContext ccCompilationContext,
+      CcLinkingContext ccLinkingContext,
+      CcDebugInfoContext ccDebugInfoContext) {
     super(PROVIDER);
     this.ccCompilationContext = ccCompilationContext;
     this.ccLinkingContext = ccLinkingContext;
+    this.ccDebugInfoContext = ccDebugInfoContext;
   }
 
   @Override
@@ -54,12 +59,19 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
     return ccLinkingContext;
   }
 
+  public CcDebugInfoContext getCcDebugInfoContext() {
+    return ccDebugInfoContext;
+  }
+
   public static CcInfo merge(Collection<CcInfo> ccInfos) {
     ImmutableList.Builder<CcCompilationContext> ccCompilationContexts = ImmutableList.builder();
     ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
+    ImmutableList.Builder<CcDebugInfoContext> ccDebugInfoContexts = ImmutableList.builder();
+
     for (CcInfo ccInfo : ccInfos) {
       ccCompilationContexts.add(ccInfo.getCcCompilationContext());
       ccLinkingContexts.add(ccInfo.getCcLinkingContext());
+      ccDebugInfoContexts.add(ccInfo.getCcDebugInfoContext());
     }
     CcCompilationContext.Builder builder =
         CcCompilationContext.builder(
@@ -67,7 +79,8 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
 
     return new CcInfo(
         builder.mergeDependentCcCompilationContexts(ccCompilationContexts.build()).build(),
-        CcLinkingContext.merge(ccLinkingContexts.build()));
+        CcLinkingContext.merge(ccLinkingContexts.build()),
+        CcDebugInfoContext.merge(ccDebugInfoContexts.build()));
   }
 
   @Override
@@ -80,6 +93,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       return true;
     }
     if (!this.ccCompilationContext.equals(other.ccCompilationContext)
+        || !this.ccDebugInfoContext.equals(other.ccDebugInfoContext)
         || !this.getCcLinkingContext().equals(other.getCcLinkingContext())) {
       return false;
     }
@@ -88,7 +102,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(ccCompilationContext, ccLinkingContext);
+    return Objects.hashCode(ccCompilationContext, ccLinkingContext, ccDebugInfoContext);
   }
 
   public static Builder builder() {
@@ -100,6 +114,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
   public static class Builder {
     private CcCompilationContext ccCompilationContext;
     private CcLinkingContext ccLinkingContext;
+    private CcDebugInfoContext ccDebugInfoContext;
 
     private Builder() {}
 
@@ -115,6 +130,12 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       return this;
     }
 
+    public CcInfo.Builder setCcDebugInfoContext(CcDebugInfoContext ccDebugInfoContext) {
+      Preconditions.checkState(this.ccDebugInfoContext == null);
+      this.ccDebugInfoContext = ccDebugInfoContext;
+      return this;
+    }
+
     public CcInfo build() {
       if (ccCompilationContext == null) {
         ccCompilationContext = CcCompilationContext.EMPTY;
@@ -122,7 +143,10 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       if (ccLinkingContext == null) {
         ccLinkingContext = CcLinkingContext.EMPTY;
       }
-      return new CcInfo(ccCompilationContext, ccLinkingContext);
+      if (ccDebugInfoContext == null) {
+        ccDebugInfoContext = CcDebugInfoContext.EMPTY;
+      }
+      return new CcInfo(ccCompilationContext, ccLinkingContext, ccDebugInfoContext);
     }
   }
 

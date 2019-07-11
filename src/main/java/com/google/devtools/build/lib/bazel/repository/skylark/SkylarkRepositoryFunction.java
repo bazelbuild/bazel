@@ -245,6 +245,16 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
+  protected boolean isConfigure(Rule rule) {
+    return (Boolean) rule.getAttributeContainer().getAttr("$configure");
+  }
+
+  public static boolean isConfigurelikeRule(Rule rule) {
+    return rule.getRuleClassObject().isSkylark()
+        && ((Boolean) rule.getAttributeContainer().getAttr("$configure"));
+  }
+
+  @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return null; // unused so safe to return null
   }

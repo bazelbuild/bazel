@@ -204,6 +204,10 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRestrictStringEscapes();
 
+  public abstract boolean incompatibleDisallowSplitEmptySeparator();
+
+  public abstract boolean incompatibleDisallowDictLookupUnhashableKeys();
+
   @Memoized
   @Override
   public abstract int hashCode();
@@ -278,6 +282,8 @@ public abstract class StarlarkSemantics {
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
+          .incompatibleDisallowSplitEmptySeparator(false)
+          .incompatibleDisallowDictLookupUnhashableKeys(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -367,6 +373,10 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDepsetForLibrariesToLinkGetter(boolean value);
 
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
+
+    public abstract Builder incompatibleDisallowSplitEmptySeparator(boolean value);
+
+    public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
 
     public abstract StarlarkSemantics build();
   }

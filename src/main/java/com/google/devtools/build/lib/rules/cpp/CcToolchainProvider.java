@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -244,7 +243,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.ccInfo =
         CcInfo.builder()
             .setCcCompilationContext(Preconditions.checkNotNull(ccCompilationContext))
-            .setCcLinkingContext(CcLinkingContext.EMPTY)
             .build();
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;

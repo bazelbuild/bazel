@@ -193,6 +193,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    exec_compatible_with = ["//:highcpu_machine"],
 )
 
 sh_test(
@@ -220,6 +221,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    exec_compatible_with = ["//:highcpu_machine"],
 )
 
 JAVA_VERSIONS = ("9", "10", "11", "12")
@@ -248,6 +250,7 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "@bazel_tools//tools/bash/runfiles",
         ],
+        exec_compatible_with = ["//:highcpu_machine"],
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -855,6 +858,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils.sh",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     tags = [
         "no-sandbox",

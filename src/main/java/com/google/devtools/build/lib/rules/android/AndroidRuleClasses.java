@@ -628,7 +628,7 @@ public final class AndroidRuleClasses {
             <li>resources in <code>values/</code> will be removed as well as file based
                 resources</li>
             <li>uses <code>strict mode</code> by default</li>
-            <li>removing unused ID resources is not supported</li>
+            <li>removing unused ID resources is only supported with aapt2</li>
           </ul>
           If resource shrinking is enabled, <code><var>name</var>_files/resource_shrinker.log</code>
           will also be generated, detailing the analysis and deletions performed.

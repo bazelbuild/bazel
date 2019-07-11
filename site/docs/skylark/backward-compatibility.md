@@ -14,8 +14,10 @@ Full, authorative list of incompatible changes is [GitHub issues with
 
 General Starlark
 
+*   [Dictionary lookup of unhashable types](#dictionary-lookup-of-unhashable-types)
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [String escapes](#string-escapes)
+*   [String.split empty separator](#string.split-empty-separator)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
@@ -65,6 +67,17 @@ C++
 *   [Disable legacy C++ toolchain API](#disable-legacy-c-toolchain-api)
 
 
+### Dictionary lookup of unhashable types
+
+We are restricting the lookup of keys in dictionaries to hashable
+types only. Trying to search or retrieve a key (for example by
+using the `in` operator or `dict.get`) of an unhashable type from
+a dict will fail.
+
+*   Flag: `--incompatible_disallow_dict_lookup_unhashable_keys`
+*   Default: `false`
+*   Tracking issue: [#8730](https://github.com/bazelbuild/bazel/issues/8730)
+
 ### Dictionary concatenation
 
 We are removing the `+` operator on dictionaries. This includes the `+=` form
@@ -84,6 +97,15 @@ Starlark will result in a syntax error.
 *   Flag: `--incompatible_restrict_escape_sequences`
 *   Default: `false`
 *   Tracking issue: [#8380](https://github.com/bazelbuild/bazel/issues/8380)
+
+### String.split empty separator
+
+We are disallowing empty strings as separators to `string.split`. If `sep` is
+the empty string, `split` will fail.
+
+*   Flag: `--incompatible_disallow_split_empty_separator`
+*   Default: `false`
+*   Tracking issue: [#7355](https://github.com/bazelbuild/bazel/issues/7355)
 
 ### Load must appear at top of file
 
