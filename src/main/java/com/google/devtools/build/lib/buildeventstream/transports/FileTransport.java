@@ -81,7 +81,9 @@ abstract class FileTransport implements BuildEventTransport {
         Futures.immediateFailedFuture(
             new IllegalStateException(
                 "A FileTransport is trying to write CLOSE_EVENT_FUTURE, this is a bug."));
-    private static final Duration FLUSH_INTERVAL = Duration.ofMillis(250);
+    private static final Duration FLUSH_INTERVAL =
+        Duration.ofMillis(
+            Long.parseLong(System.getProperty("EXPERIMENTAL_BEP_FILE_FLUSH_MILLIS", "250")));
 
     private final Thread writerThread;
     private final BufferedOutputStream out;
@@ -258,6 +260,11 @@ abstract class FileTransport implements BuildEventTransport {
           return event.asStreamProto(context);
         },
         MoreExecutors.directExecutor());
+  }
+
+  @Override
+  public boolean mayBeSlow() {
+    return uploader.mayBeSlow();
   }
 
   @Override

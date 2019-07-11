@@ -261,11 +261,13 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:nodeps");
     ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
-    assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo");
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
 
-    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:nodeps"))
-        .getRemainingArguments())
-        .contains("--proto_path=x/foo");
+    assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
+        .containsExactly(genfiles + "/x/foo/_virtual_imports/nodeps");
+    assertThat(
+            getGeneratingSpawnAction(getDescriptorOutput("//x/foo:nodeps")).getRemainingArguments())
+        .contains("--proto_path=" + genfiles + "/x/foo/_virtual_imports/nodeps");
   }
 
   @Test
@@ -308,11 +310,18 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
     ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
-    assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo");
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
+        .containsExactly(
+            genfiles + "/x/foo/_virtual_imports/dep",
+            genfiles + "/x/foo/_virtual_imports/withdeps");
 
-    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
-        .getRemainingArguments())
-        .contains("--proto_path=x/foo");
+    assertThat(
+            getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
+                .getRemainingArguments())
+        .containsAtLeast(
+            "--proto_path=" + genfiles + "/x/foo/_virtual_imports/withdeps",
+            "--proto_path=" + genfiles + "/x/foo/_virtual_imports/dep");
   }
 
   @Test
@@ -340,8 +349,42 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
     ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
-        .containsExactly("x/foo", "x/bar", ".");
+        .containsExactly(
+            genfiles + "/x/foo/_virtual_imports/withdeps",
+            genfiles + "/x/bar/_virtual_imports/dep",
+            ".");
+  }
+
+  @Test
+  public void testExternalRepoWithGeneratedProto() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/foo')");
+    invalidatePackages();
+
+    scratch.file("/foo/WORKSPACE");
+    scratch.file(
+        "/foo/x/BUILD",
+        "proto_library(name='x', srcs=['generated.proto'])",
+        "genrule(name='g', srcs=[], outs=['generated.proto'], cmd='')");
+
+    scratch.file("a/BUILD", "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x:x'])");
+
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    ProtoInfo aInfo = a.get(ProtoInfo.PROVIDER);
+    assertThat(aInfo.getTransitiveProtoSourceRoots())
+        .containsExactly(".", genfiles + "/external/foo/x/_virtual_imports/x");
+
+    ConfiguredTarget x = getConfiguredTarget("@foo//x:x");
+    ProtoInfo xInfo = x.get(ProtoInfo.PROVIDER);
+    assertThat(xInfo.getTransitiveProtoSourceRoots())
+        .containsExactly(genfiles + "/external/foo/x/_virtual_imports/x");
   }
 
   @Test
@@ -380,7 +423,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // exported proto source roots should be the source root of the rule and the direct source roots
     // of its exports and nothing else (not the exports of its exports or the deps of its exports
     // or the exports of its deps)
-    assertThat(c.get(ProtoInfo.PROVIDER).getExportedProtoSourceRoots()).containsExactly("a", "c");
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    assertThat(c.get(ProtoInfo.PROVIDER).getExportedProtoSourceRoots())
+        .containsExactly(genfiles + "/a/_virtual_imports/a", genfiles + "/c/_virtual_imports/c");
   }
 
   @Test
@@ -396,7 +441,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:banana");
     ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
 
-    assertThat(sourcesProvider.getDirectProtoSourceRoot()).isEqualTo("x/foo");
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+
+    assertThat(sourcesProvider.getDirectProtoSourceRoot())
+        .isEqualTo(genfiles + "/x/foo/_virtual_imports/banana");
   }
 
   @Test

@@ -25,4 +25,8 @@ public interface SkylarkQueryable {
 
   /** Returns whether the key is in the object. */
   boolean containsKey(Object key, Location loc, StarlarkContext context) throws EvalException;
+
+  default boolean containsKey(Object key, Location loc, Environment env) throws EvalException {
+    return this.containsKey(key, loc, env.getStarlarkContext());
+  }
 }

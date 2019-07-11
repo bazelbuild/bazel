@@ -166,6 +166,9 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_restrict_string_escapes=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean(),
         "--incompatible_disallow_split_empty_separator=" + rand.nextBoolean());
+        "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
+        "--incompatible_disallow_dict_lookup_unhashable_keys=" + rand.nextBoolean(),
+        "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
   }
 
   /**
@@ -217,6 +220,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleRunShellCommandString(rand.nextBoolean())
         .incompatibleStringJoinRequiresStrings(rand.nextBoolean())
         .incompatibleRestrictStringEscapes(rand.nextBoolean())
+        .incompatibleDisallowDictLookupUnhashableKeys(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
         .incompatibleDisallowSplitEmptySeparator(rand.nextBoolean())
         .build();

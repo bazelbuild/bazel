@@ -798,21 +798,29 @@ class ExperimentalStateTracker {
   }
 
   private void sampleOldestActions(AnsiTerminalWriter terminalWriter) throws IOException {
-    int count = 0;
-    int totalCount = 0;
-    long nanoTime = clock.nanoTime();
-    int actionCount = activeActions.size();
-    Set<Artifact> toSkip = new HashSet<>();
-
+    // This method can only be called if 'activeActions.size()' was observed to be larger than 1 at
+    // some point in the past. But the 'activeActions' map can grow and shrink concurrent with this
+    // code here so we need to be very careful lest we fall victim to a check-then-act race.
+    int racyActiveActionsCount = activeActions.size();
     PriorityQueue<Map.Entry<Artifact, ActionState>> priorityHeap =
         new PriorityQueue<>(
-            activeActions.size(),
+            // The 'initialCapacity' parameter must be positive.
+            /*initialCapacity=*/ Math.max(racyActiveActionsCount, 1),
             Comparator.comparing(
                     (Map.Entry<Artifact, ActionState> entry) ->
                         entry.getValue().runningStrategiesBitmap == 0)
                 .thenComparingLong(entry -> entry.getValue().nanoStartTime)
                 .thenComparingInt(entry -> entry.getValue().hashCode()));
     priorityHeap.addAll(activeActions.entrySet());
+    // From this point on, we no longer consume 'activeActions'. So now it's sound to look at how
+    // many entries were added to 'priorityHeap' and act appropriately based on that count.
+    int actualObservedActiveActionsCount = priorityHeap.size();
+
+    int count = 0;
+    int totalCount = 0;
+    long nanoTime = clock.nanoTime();
+    Set<Artifact> toSkip = new HashSet<>();
+
     while (!priorityHeap.isEmpty()) {
       Map.Entry<Artifact, ActionState> entry = priorityHeap.poll();
       totalCount++;
@@ -825,12 +833,16 @@ class ExperimentalStateTracker {
         break;
       }
       int width =
-          targetWidth - 4 - ((count >= sampleSize && count < actionCount) ? AND_MORE.length() : 0);
+          targetWidth
+              - 4
+              - ((count >= sampleSize && count < actualObservedActiveActionsCount)
+                  ? AND_MORE.length()
+                  : 0);
       terminalWriter
           .newline()
           .append("    " + describeAction(entry.getValue(), nanoTime, width, toSkip));
     }
-    if (totalCount < actionCount) {
+    if (totalCount < actualObservedActiveActionsCount) {
       terminalWriter.append(AND_MORE);
     }
   }

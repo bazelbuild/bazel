@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.BigIntegerFingerprint;
@@ -44,7 +45,7 @@ import javax.annotation.Nullable;
  * {@link TreeFileArtifact}s.
  */
 @AutoCodec
-public class TreeArtifactValue implements SkyValue {
+public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
@@ -106,7 +107,8 @@ public class TreeArtifactValue implements SkyValue {
   }
 
   @Nullable
-  byte[] getDigest() {
+  @Override
+  public byte[] getDigest() {
     return digest.clone();
   }
 
@@ -197,7 +199,7 @@ public class TreeArtifactValue implements SkyValue {
 
         @Nullable
         @Override
-        byte[] getDigest() {
+        public byte[] getDigest() {
           throw new UnsupportedOperationException();
         }
 

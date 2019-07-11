@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -140,6 +141,13 @@ public class AppleBinaryRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("defines an aspect of configuration")
                 .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
+        .add(
+            attr(ObjcRuleClasses.HEADER_SCANNER_ATTRIBUTE, LABEL)
+                .cfg(HostTransition.createFactory())
+                .value(ObjcRuleClasses.headerScannerAttribute(env)))
+        .add(
+            attr(ObjcRuleClasses.APPLE_SDK_ATTRIBUTE, LABEL)
+                .value(ObjcRuleClasses.CompilingRule.SDK_LATE_BOUND_DEFAULT))
         /*<!-- #BLAZE_RULE(apple_binary).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>_lipobin</code>: the 'lipo'ed potentially multi-architecture

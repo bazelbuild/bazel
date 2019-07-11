@@ -45,6 +45,11 @@ public final class BuildEventArtifactUploaderFactoryMapTest {
               }
 
               @Override
+              public boolean mayBeSlow() {
+                return false;
+              }
+
+              @Override
               public void shutdown() {
                 // Intentionally left empty.
               }

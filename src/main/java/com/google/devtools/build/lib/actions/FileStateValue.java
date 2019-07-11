@@ -45,22 +45,21 @@ import javax.annotation.Nullable;
 /**
  * Encapsulates the filesystem operations needed to get state for a path. This is equivalent to an
  * 'lstat' that does not follow symlinks to determine what type of file the path is.
- * <ul>
- *   <li> For a non-existent file, the non-existence is noted.
- *   <li> For a symlink, the symlink target is noted.
- *   <li> For a directory, the existence is noted.
- *   <li> For a file, the existence is noted, along with metadata about the file (e.g.
- *        file digest). See {@link RegularFileStateValue}.
- * <ul>
  *
- * <p>This class is an implementation detail of {@link FileValue} and should not be used by
- * {@link com.google.devtools.build.skyframe.SkyFunction}s other than {@link FileFunction}. Instead,
- * {@link FileValue} should be used by {@link com.google.devtools.build.skyframe.SkyFunction}
- * consumers that care about files.
- *
- * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
+ * <ul>
+ *   <li>For a non-existent file, the non-existence is noted.
+ *   <li>For a symlink, the symlink target is noted.
+ *   <li>For a directory, the existence is noted.
+ *   <li>For a file, the existence is noted, along with metadata about the file (e.g. file digest).
+ *       See {@link RegularFileStateValue}.
+ *       <ul>
+ *         <p>This class is an implementation detail of {@link FileValue} and should not be used by
+ *         {@link com.google.devtools.build.skyframe.SkyFunction}s other than {@link FileFunction}.
+ *         Instead, {@link FileValue} should be used by {@link
+ *         com.google.devtools.build.skyframe.SkyFunction} consumers that care about files.
+ *         <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */
-public abstract class FileStateValue implements SkyValue {
+public abstract class FileStateValue implements HasDigest, SkyValue {
   public static final SkyFunctionName FILE_STATE = SkyFunctionName.createNonHermetic("FILE_STATE");
 
   @AutoCodec
@@ -173,7 +172,8 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   @Nullable
-  byte[] getDigest() {
+  @Override
+  public byte[] getDigest() {
     throw new IllegalStateException();
   }
 
@@ -296,7 +296,10 @@ public abstract class FileStateValue implements SkyValue {
 
     @Override
     public BigInteger getValueFingerprint() {
-      BigIntegerFingerprint fp = new BigIntegerFingerprint().addDigestedBytes(digest).addLong(size);
+      BigIntegerFingerprint fp = new BigIntegerFingerprint().addLong(size);
+      if (digest != null) {
+        fp.addDigestedBytes(digest);
+      }
       if (contentsProxy != null) {
         contentsProxy.addToFingerprint(fp);
       }
@@ -350,7 +353,7 @@ public abstract class FileStateValue implements SkyValue {
 
     @Override
     @Nullable
-    byte[] getDigest() {
+    public byte[] getDigest() {
       return null;
     }
 

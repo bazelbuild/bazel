@@ -336,8 +336,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     Artifact proguardMapping =
         ruleContext.getPrerequisiteArtifact("proguard_apply_mapping", Mode.TARGET);
+    if (proguardMapping != null && dataContext.throwOnProguardApplyMapping()) {
+      throw ruleContext.throwWithAttributeError(
+          "proguard_apply_mapping", "This attribute is not supported");
+    }
     Artifact proguardDictionary =
         ruleContext.getPrerequisiteArtifact("proguard_apply_dictionary", Mode.TARGET);
+    if (proguardDictionary != null && dataContext.throwOnProguardApplyDictionary()) {
+      throw ruleContext.throwWithAttributeError(
+          "proguard_apply_dictionary", "This attribute is not supported");
+    }
 
     MobileInstallResourceApks mobileInstallResourceApks =
         AndroidBinaryMobileInstall.createMobileInstallResourceApks(

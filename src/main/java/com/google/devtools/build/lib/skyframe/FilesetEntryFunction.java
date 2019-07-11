@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
+import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
@@ -198,7 +199,7 @@ public final class FilesetEntryFunction implements SkyFunction {
   private void maybeStoreSymlink(
       PathFragment linkName,
       PathFragment linkTarget,
-      Object metadata,
+      HasDigest metadata,
       PathFragment destPath,
       boolean isGenerated,
       Map<PathFragment, FilesetOutputSymlink> result,

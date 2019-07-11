@@ -230,7 +230,13 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       throws IOException {
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
-    writablePaths.add(sandboxExecRoot);
+
+    // On Windows, sandboxExecRoot is actually the main execroot. We will specify
+    // exactly which output path is writable.
+    if (OS.getCurrent() != OS.WINDOWS) {
+      writablePaths.add(sandboxExecRoot);
+    }
+
     String testTmpdir = env.get("TEST_TMPDIR");
     if (testTmpdir != null) {
       addWritablePath(

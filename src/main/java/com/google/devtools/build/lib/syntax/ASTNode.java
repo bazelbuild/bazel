@@ -20,15 +20,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 
-/**
- * Root class for nodes in the Abstract Syntax Tree of the Build language.
- *
- * The standard {@link Object#equals} and {@link Object#hashCode} methods are not supported. This is
- * because their implementation would require traversing the entire tree in the worst case, and we
- * don't want this kind of cost to occur implicitly. An incomplete way to compare for equality is to
- * test whether two ASTs have the same string representation under {@link #prettyPrint()}. This
- * might miss some metadata, but it's useful in test assertions.
- */
+/** An ASTNode is a node in a Starlark syntax tree. */
 public abstract class ASTNode implements Serializable {
 
   private Location location;
@@ -152,16 +144,6 @@ public abstract class ASTNode implements Serializable {
   @Override
   public String toString() {
     return prettyPrint();
-  }
-
-  @Override
-  public int hashCode() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public boolean equals(Object that) {
-    throw new UnsupportedOperationException();
   }
 
   /**

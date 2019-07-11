@@ -158,3 +158,10 @@ assert_eq("\"", '"')
 ---
 """ ### unterminated string literal at eof
 ---
+
+# enumerate
+
+assert_eq(enumerate("abc".elems()), [(0, "a"), (1, "b"), (2, "c")])
+assert_eq(enumerate([False, True, None], 42), [(42, False), (43, True), (44, None)])
+---
+enumerate("ab") ### expected value of type 'sequence'

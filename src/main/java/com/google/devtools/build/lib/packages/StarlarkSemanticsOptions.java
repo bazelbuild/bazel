@@ -252,6 +252,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisableThirdPartyLicenseChecking;
 
   @Option(
+      name = "incompatible_disallow_dict_lookup_unhashable_keys",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, dict key lookups using `in` or `dict.get` will fail with unhashable"
+              + " types.")
+  public boolean incompatibleDisallowDictLookupUnhashableKeys;
+
+  @Option(
       name = "incompatible_disallow_dict_plus",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -262,18 +276,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       },
       help = "If set to true, the `+` becomes disabled for dicts.")
   public boolean incompatibleDisallowDictPlus;
-
-  @Option(
-      name = "incompatible_disallow_split_empty_separator",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If set to true, `string.split` will fail if `sep` is the empty string.")
-    public boolean incompatibleDisallowSplitEmptySeparator;
 
   @Option(
       name = "incompatible_disallow_empty_glob",
@@ -325,6 +327,18 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
           "If set to true, disallow the use of the execution_platform_constraints_allowed "
               + "attribute on rule().")
   public boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed;
+
+  @Option(
+      name = "incompatible_disallow_split_empty_separator",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, `string.split` will fail if `sep` is the empty string.")
+  public boolean incompatibleDisallowSplitEmptySeparator;
 
   @Option(
       name = "incompatible_string_join_requires_strings",
@@ -667,6 +681,8 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
             .incompatibleDisallowSplitEmptySeparator(incompatibleDisallowSplitEmptySeparator)
+            .incompatibleDisallowDictLookupUnhashableKeys(
+                incompatibleDisallowDictLookupUnhashableKeys)
             .build();
     return INTERNER.intern(semantics);
   }

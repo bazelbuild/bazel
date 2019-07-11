@@ -264,7 +264,7 @@ class ArtifactFunction implements SkyFunction {
       Fingerprint fp = new Fingerprint();
       for (ResolvedFile file : value.getTransitiveFiles()) {
         fp.addString(file.getNameInSymlinkTree().getPathString());
-        fp.addInt(file.getMetadata().hashCode());
+        fp.addBytes(file.getMetadata().getDigest());
       }
       return FileArtifactValue.createDirectoryWithHash(fp.digestAndReset());
     }
