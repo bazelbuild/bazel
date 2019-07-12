@@ -123,7 +123,7 @@ import javax.annotation.Nullable;
  * A SkyframeExecutor that implicitly assumes that builds can be done incrementally from the most
  * recent build. In other words, builds are "sequenced".
  */
-public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDriver> {
+public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private static final Logger logger = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
 
@@ -204,7 +204,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
   }
 
   @Override
-  protected BuildDriver getBuildDriver() {
+  protected BuildDriver createBuildDriver() {
     return new SequentialBuildDriver(memoizingEvaluator);
   }
 
@@ -470,7 +470,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
             .setNumThreads(DEFAULT_THREAD_COUNT)
             .setEventHander(eventHandler)
             .build();
-    buildDriver.evaluate(ImmutableList.<SkyKey>of(), evaluationContext);
+    getDriver().evaluate(ImmutableList.of(), evaluationContext);
 
     FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, null);
     // We need to manually check for changes to known files. This entails finding all dirty file
@@ -843,7 +843,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
                       .setNumThreads(ResourceUsage.getAvailableProcessors())
                       .setEventHander(eventHandler)
                       .build();
-              buildDriver.evaluate(ImmutableList.<SkyKey>of(), evaluationContext);
+              getDriver().evaluate(ImmutableList.of(), evaluationContext);
               return null;
             }
           });
@@ -940,7 +940,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
             .setNumThreads(DEFAULT_THREAD_COUNT)
             .setEventHander(eventHandler)
             .build();
-    return buildDriver.evaluate(ImmutableSet.of(key), evaluationContext).get(key);
+    return getDriver().evaluate(ImmutableSet.of(key), evaluationContext).get(key);
   }
 
   public static Builder builder() {

@@ -44,9 +44,9 @@ import javax.annotation.Nullable;
 
 /** Skyframe-based target pattern parsing. */
 final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
-  private final SkyframeExecutor<?> skyframeExecutor;
+  private final SkyframeExecutor skyframeExecutor;
 
-  SkyframeTargetPatternEvaluator(SkyframeExecutor<?> skyframeExecutor) {
+  SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
     this.skyframeExecutor = skyframeExecutor;
   }
 

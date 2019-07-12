@@ -185,6 +185,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -218,7 +219,7 @@ import javax.annotation.Nullable;
  * additional artifacts (workspace status and build info artifacts) into SkyFunctions for use during
  * the build.
  */
-public abstract class SkyframeExecutor<T extends BuildDriver> implements WalkableGraphFactory {
+public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final Logger logger = Logger.getLogger(SkyframeExecutor.class.getName());
 
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
@@ -266,7 +267,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
-  protected T buildDriver;
+  private BuildDriver buildDriver;
 
   private final Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit;
 
@@ -705,8 +706,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     incrementalBuildMonitor = null;
   }
 
-  @VisibleForTesting
-  public BuildDriver getDriverForTesting() {
+  public final BuildDriver getDriver() {
     return buildDriver;
   }
 
@@ -769,7 +769,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
             DEFAULT_FILTER_WITH_ACTIONS,
             emittedEventState,
             tracksStateForIncrementality());
-    buildDriver = getBuildDriver();
+    buildDriver = createBuildDriver();
     skyframeExecutorConsumerOnInit.accept(this);
   }
 
@@ -837,7 +837,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
   protected abstract Differencer evaluatorDiffer();
 
-  protected abstract T getBuildDriver();
+  @ForOverride
+  protected abstract BuildDriver createBuildDriver();
 
   /** Clear any configured target data stored outside Skyframe. */
   public void handleAnalysisInvalidatingChange() {

@@ -607,7 +607,7 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
       StarlarkSemanticsOptions starlarkSemanticsOptions =
           commandOptions.getOptions(StarlarkSemanticsOptions.class);
-      SkyframeExecutor<?> skyframeExecutor = env.getBlazeWorkspace().getSkyframeExecutor();
+      SkyframeExecutor skyframeExecutor = env.getBlazeWorkspace().getSkyframeExecutor();
       StarlarkSemantics effectiveSkylarkSemantics =
           skyframeExecutor.getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
       return print(effectiveSkylarkSemantics.toDeterministicString());
