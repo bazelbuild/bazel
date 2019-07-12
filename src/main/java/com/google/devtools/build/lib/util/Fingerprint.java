@@ -18,6 +18,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -97,6 +98,19 @@ public final class Fingerprint implements Consumer<String> {
   /** Same as {@link #digestAndReset()}, except returns the digest in hex string form. */
   public String hexDigestAndReset() {
     return hexDigest(digestAndReset());
+  }
+
+  /**
+   * Updates the digest with 0 or more bytes. Same as {@link #addBytes(byte[])}, but potentially
+   * more performant when only a {@link ByteString} is available.
+   */
+  public Fingerprint addBytes(ByteString bytes) {
+    try {
+      codedOut.writeRawBytes(bytes);
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to write bytes", e);
+    }
+    return this;
   }
 
   /** Updates the digest with 0 or more bytes. */

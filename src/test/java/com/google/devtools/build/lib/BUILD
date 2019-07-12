@@ -371,6 +371,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:mockito",
         "//third_party:truth8",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 

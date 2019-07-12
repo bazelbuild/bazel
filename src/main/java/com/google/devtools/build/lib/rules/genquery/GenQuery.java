@@ -402,7 +402,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     @Override
     protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
-      fp.addBytes(result.toByteArray());
+      fp.addBytes(result);
     }
   }
 
