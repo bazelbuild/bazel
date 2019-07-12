@@ -136,7 +136,7 @@ distdir_tar(
         "java_tools_javac11_windows-v3.0.zip": "b688155d81245b4d1ee52cac447aae5444b1c59dc77158fcbde05554a6bab48b",
         "java_tools_javac11_darwin-v3.0.zip": "28989f78b1ce437c92dd27bb4943b2211ba4db916ccbb3aef83696a8f9b43724",
         "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
-        "1ca560df1cf6e280f987af2f8d08a5edc7ac6b54.tar.gz": "3ca1b3d453a977aeda60dd335feb812771addfd0d0c61751b34b9681aa4d6534",
+        "1ca560df1cf6e280f987af2f8d08a5edc7ac6b54.tar.gz": "561b4a893a333da3787c84a11be5a3b1239fb455754f06b4563698d6f60be221",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
         "android_tools_pkg-0.8.tar.gz": "a9eac6e1b27d5549edaaa724b20eb1cdae6253b84f44d5744c30372bd523cfcd", # built at 5dd956930fba6201a820f82a738dbb72f6cfab52
@@ -174,7 +174,7 @@ distdir_tar(
         ],
         "1ca560df1cf6e280f987af2f8d08a5edc7ac6b54.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/1ca560df1cf6e280f987af2f8d08a5edc7ac6b54.tar.gz",
-            "https://github.com/bazelbuild/skydoc/archive/1ca560df1cf6e280f987af2f8d08a5edc7ac6b54.tar.gz",
+            "https://github.com/bazelbuild/skydoc/archive/9283f6a44811423756ab898e98ce410029c12f7b.tar.gz",
         ],
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
@@ -426,11 +426,11 @@ http_archive(
 # to work without being patched, as it hard-codes this name in its sources.
 http_archive(
     name = "io_bazel_skydoc",
-    sha256 = "3ca1b3d453a977aeda60dd335feb812771addfd0d0c61751b34b9681aa4d6534",
+    sha256 = "561b4a893a333da3787c84a11be5a3b1239fb455754f06b4563698d6f60be221",
     strip_prefix = "skydoc-1ca560df1cf6e280f987af2f8d08a5edc7ac6b54",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/1ca560df1cf6e280f987af2f8d08a5edc7ac6b54.tar.gz",
-        "https://github.com/bazelbuild/skydoc/archive/1ca560df1cf6e280f987af2f8d08a5edc7ac6b54.tar.gz",
+        "https://github.com/bazelbuild/skydoc/archive/9283f6a44811423756ab898e98ce410029c12f7b.tar.gz",
     ],
 )
 
