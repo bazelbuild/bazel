@@ -166,6 +166,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowStructProviderSyntax();
 
+  public abstract boolean incompatibleDisallowUnverifiedHttpDownloads();
+
   public abstract boolean incompatibleExpandDirectories();
 
   public abstract boolean incompatibleNewActionsApi();
@@ -263,6 +265,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
           .incompatibleDisallowStructProviderSyntax(false)
+          .incompatibleDisallowUnverifiedHttpDownloads(false)
           .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
@@ -335,6 +338,8 @@ public abstract class StarlarkSemantics {
         boolean value);
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
+
+    public abstract Builder incompatibleDisallowUnverifiedHttpDownloads(boolean value);
 
     public abstract Builder incompatibleExpandDirectories(boolean value);
 

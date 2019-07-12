@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -55,6 +57,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -548,7 +551,8 @@ public class SkylarkRepositoryContext
       throws RepositoryFunctionException, EvalException, InterruptedException {
     Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
 
-    List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
+    List<URL> urls =
+        getUrls(url, /* ensureNonEmpty= */ !allowFail, env, !Strings.isNullOrEmpty(sha256));
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
       warnAboutSha256Error(urls, sha256);
@@ -659,7 +663,8 @@ public class SkylarkRepositoryContext
       throws RepositoryFunctionException, InterruptedException, EvalException {
     Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
 
-    List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
+    List<URL> urls =
+        getUrls(url, /* ensureNonEmpty= */ !allowFail, env, !Strings.isNullOrEmpty(sha256));
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
       warnAboutSha256Error(urls, sha256);
@@ -791,8 +796,9 @@ public class SkylarkRepositoryContext
     return result.build();
   }
 
-  private static List<URL> getUrls(Object urlOrList, boolean ensureNonEmpty)
-      throws RepositoryFunctionException, EvalException {
+  private static List<URL> getUrls(
+      Object urlOrList, boolean ensureNonEmpty, Environment env, boolean checksumGiven)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     List<String> urlStrings;
     if (urlOrList instanceof String) {
       urlStrings = ImmutableList.of((String) urlOrList);
@@ -802,6 +808,7 @@ public class SkylarkRepositoryContext
     if (ensureNonEmpty && urlStrings.isEmpty()) {
       throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
     }
+    StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     List<URL> urls = new ArrayList<>();
     for (String urlString : urlStrings) {
       URL url;
@@ -815,7 +822,20 @@ public class SkylarkRepositoryContext
         throw new RepositoryFunctionException(
             new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
       }
-      urls.add(url);
+      if (semantics.incompatibleDisallowUnverifiedHttpDownloads() && !checksumGiven) {
+        if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
+          urls.add(url);
+        }
+      } else {
+        urls.add(url);
+      }
+    }
+    if (ensureNonEmpty && urls.isEmpty()) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "No URLs left after removing plain http URLs due to missing checksum."
+                  + " Please provde either a checksum or an https download location."),
+          Transience.PERSISTENT);
     }
     return urls;
   }

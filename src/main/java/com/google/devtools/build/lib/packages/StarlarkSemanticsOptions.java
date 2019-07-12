@@ -384,6 +384,18 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowOldStyleArgsAdd;
 
   @Option(
+      name = "incompatible_disallow_unverified_http_downloads",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set, disallow downloads via plain http if no checksum is given")
+  public boolean incompatibleDisallowUnverifiedHttpDownloads;
+
+  @Option(
       name = "incompatible_expand_directories",
       defaultValue = "true",
       category = "incompatible changes",
@@ -661,6 +673,8 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)
             .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
                 incompatibleDisallowRuleExecutionPlatformConstraintsAllowed)
+            .incompatibleDisallowUnverifiedHttpDownloads(
+                incompatibleDisallowUnverifiedHttpDownloads)
             .incompatibleExpandDirectories(incompatibleExpandDirectories)
             .incompatibleNewActionsApi(incompatibleNewActionsApi)
             .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
