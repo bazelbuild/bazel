@@ -630,3 +630,12 @@ load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 sass_repositories()
 
 register_execution_platforms("//:default_host_platform")  # buildozer: disable=positional-args
+
+register_toolchains(
+    "//src/main/res:win_local_rc_toolchain",
+    "//src/main/res:empty_rc_toolchain",
+)
+
+load("//src/main/res:local_config_winsdk.bzl", "local_config_winsdk")
+
+local_config_winsdk(name = "local_config_winsdk")

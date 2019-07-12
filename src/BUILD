@@ -520,6 +520,7 @@ test_suite(
     tests = [
         ":windows_tests",
         "//src/test/cpp:all_windows_tests",
+        "//src/test/res:all_windows_tests",
         "//src/test/java/com/google/devtools/build/android:all_windows_tests",
         "//src/test/java/com/google/devtools/build/docgen:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib:all_windows_tests",
