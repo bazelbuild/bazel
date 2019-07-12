@@ -16,8 +16,7 @@ package com.google.testing.junit.runner.model;
 
 import com.google.testing.junit.runner.util.TestClock.TestInstant;
 import java.time.format.DateTimeFormatter;
-import java.util.Locale;
-import java.util.TimeZone;
+import java.time.format.DateTimeFormatterBuilder;
 
 /**
  * Implementation of an immutable time interval, representing a period of time between two instants.
@@ -27,7 +26,7 @@ import java.util.TimeZone;
 public final class TestInterval {
 
   private static final DateTimeFormatter ISO8601_WITH_MILLIS_FORMATTER =
-      DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSXXX");
+      new DateTimeFormatterBuilder().appendInstant(3).toFormatter();
   private final TestInstant startInstant;
   private final TestInstant endInstant;
 
@@ -56,17 +55,9 @@ public final class TestInterval {
   }
 
   public String startInstantToString() {
-    // Format as ISO8601 string
-    return startInstantToString(TimeZone.getDefault(), Locale.getDefault());
-  }
-
-  /** Exposed for testing because java Date does not allow setting of timezones and locale. */
-  // VisibleForTesting
-  String startInstantToString(TimeZone tz, Locale locale) {
-    return ISO8601_WITH_MILLIS_FORMATTER
-        .withZone(tz.toZoneId())
-        .withLocale(locale)
-        .format(startInstant.wallTime());
+    // Format as ISO8601 with 3 fractional digits on seconds
+    // This format is not affected by timezones and locale which improves interoperability
+    return ISO8601_WITH_MILLIS_FORMATTER.format(startInstant.wallTime());
   }
 
   /** Returns a TestInterval that contains both TestIntervals passed as parameter. */

@@ -20,9 +20,6 @@ import static com.google.testing.junit.runner.model.TestInstantUtil.testInstant;
 import com.google.testing.junit.runner.util.TestClock.TestInstant;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Date;
-import java.util.Locale;
-import java.util.TimeZone;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -83,17 +80,9 @@ public class TestIntervalTest {
 
   @Test
   public void testDateFormat() {
-    Date date = new Date(1471709734000L);
-    TestInterval interval =
-        new TestInterval(
-            testInstant(date.toInstant()), testInstant(date.toInstant().plusMillis(100)));
-    assertThat(interval.startInstantToString(TimeZone.getTimeZone("America/New_York"), Locale.US))
-        .isEqualTo("2016-08-20T12:15:34.000-04:00");
-    assertThat(interval.startInstantToString(TimeZone.getTimeZone("GMT"), Locale.UK))
-        .isEqualTo("2016-08-20T16:15:34.000Z");
-    assertThat(
-            interval.startInstantToString(
-                TimeZone.getTimeZone("Asia/Bangkok"), new Locale("th", "TH")))
-        .isEqualTo("2016-08-20T23:15:34.000+07:00");
+    Instant start = Instant.ofEpochMilli(1471709734000L);
+    Instant end = start.plusMillis(100);
+    TestInterval interval = new TestInterval(testInstant(start), testInstant(end));
+    assertThat(interval.startInstantToString()).isEqualTo("2016-08-20T16:15:34.000Z");
   }
 }
