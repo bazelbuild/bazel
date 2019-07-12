@@ -107,7 +107,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
     try {
       ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, parameters, ruleContext);
-      new Impl(ruleContext, protoInfo, cppSemantics).addProviders(result);
+      new Impl(ruleContext, protoInfo, cppSemantics, ccToolchainType).addProviders(result);
       return result.build();
     } catch (RuleErrorException e) {
       ruleContext.ruleError(e.getMessage());
@@ -145,12 +145,18 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     private final ProtoInfo protoInfo;
     private final CppSemantics cppSemantics;
     private final NestedSetBuilder<Artifact> filesBuilder;
+    private final Label ccToolchainType;
 
-    Impl(RuleContext ruleContext, ProtoInfo protoInfo, CppSemantics cppSemantics)
+    Impl(
+        RuleContext ruleContext,
+        ProtoInfo protoInfo,
+        CppSemantics cppSemantics,
+        Label ccToolchainType)
         throws RuleErrorException, InterruptedException {
       this.ruleContext = ruleContext;
       this.protoInfo = protoInfo;
       this.cppSemantics = cppSemantics;
+      this.ccToolchainType = ccToolchainType;
       FeatureConfiguration featureConfiguration = getFeatureConfiguration();
       ProtoConfiguration protoConfiguration = ruleContext.getFragment(ProtoConfiguration.class);
 
@@ -364,10 +370,11 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       return helper;
     }
 
-    private static CcToolchainProvider ccToolchain(RuleContext ruleContext) {
+    private CcToolchainProvider ccToolchain(RuleContext ruleContext) {
       return CppHelper.getToolchain(
           ruleContext,
-          ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, TARGET));
+          ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, TARGET),
+          ccToolchainType);
     }
 
     private ImmutableSet<Artifact> getOutputFiles(Iterable<String> suffixes) {
