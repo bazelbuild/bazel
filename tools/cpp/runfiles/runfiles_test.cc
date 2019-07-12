@@ -129,6 +129,7 @@ RunfilesTest::MockFile* RunfilesTest::MockFile::Create(
   string path(tmp + "/" + name);
 
   string::size_type i = 0;
+#ifdef _WIN32
   while ((i = name.find_first_of("/\\", i + 1)) != string::npos) {
     string d = tmp + "\\" + name.substr(0, i);
     if (!CreateDirectoryA(d.c_str(), NULL)) {
@@ -137,6 +138,16 @@ RunfilesTest::MockFile* RunfilesTest::MockFile::Create(
       return nullptr;
     }
   }
+#else
+  while ((i = name.find_first_of('/', i + 1)) != string::npos) {
+    string d = tmp + "/" + name.substr(0, i);
+    if (mkdir(d.c_str(), 0777)) {
+      cerr << "ERROR: " << __FILE__ << "(" << __LINE__
+           << "): failed to create directory \"" << d << "\"" << endl;
+      return nullptr;
+    }
+  }
+#endif
 
   auto stm = std::ofstream(path);
   for (auto i : lines) {
