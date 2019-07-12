@@ -31,7 +31,7 @@
 set -euo pipefail
 
 # The version of android_tools.tar.gz
-VERSION="0.7"
+VERSION="0.8"
 VERSIONED_FILENAME="android_tools_pkg-$VERSION.tar.gz"
 
 # Create a temp directory to hold the versioned tarball, and clean it up when the script exits.
@@ -52,8 +52,7 @@ gsutil cp -n $versioned_android_tools_archive \
   gs://bazel-mirror/bazel_android_tools/$VERSIONED_FILENAME
 
 checksum=$(sha256sum $versioned_android_tools_archive | cut -f 1 -d ' ')
-
-commit=$(git rev-parse HEAD)
+commit=$(cd $BUILD_WORKSPACE_DIRECTORY && git rev-parse HEAD)
 
 echo
 echo "Run this command to update Bazel to use the new version:"
