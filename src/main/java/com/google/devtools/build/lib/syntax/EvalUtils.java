@@ -49,6 +49,16 @@ public final class EvalUtils {
     }
   }
 
+  public static class SortPair {
+    public Object key;
+    public Object value;
+
+    public SortPair(Object key, Object value){
+      this.key = key;
+      this.value = value;
+    }
+  }
+
   /**
    * Compare two Skylark objects.
    *
@@ -77,6 +87,10 @@ public final class EvalUtils {
           o1 = SkylarkType.convertToSkylark(o1, (Environment) null);
           o2 = SkylarkType.convertToSkylark(o2, (Environment) null);
 
+          if (o1 instanceof SortPair && o2 instanceof SortPair) {
+            o1 = ((SortPair) o1).key;
+            o2 = ((SortPair) o2).key;
+          }
           if (o1 instanceof SkylarkList
               && o2 instanceof SkylarkList
               && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {

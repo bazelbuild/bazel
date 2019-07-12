@@ -42,6 +42,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Collections;
 import javax.annotation.Nullable;
 
 /** A helper class containing built in functions for the Skylark language. */
@@ -100,6 +103,19 @@ public class MethodLibrary {
     } catch (NoSuchElementException ex) {
       throw new EvalException(loc, "expected at least one item", ex);
     }
+  }
+
+  private static Object evalKey(Object obj, Object key, Location loc, Environment env) throws EvalException, InterruptedException {
+    if (key == Runtime.NONE) {
+      return obj;
+    } else if (key instanceof BuiltinCallable) {
+      return ((BuiltinCallable) key).call(new ArrayList<>(Arrays.asList(obj)),
+              new HashMap<>(), new FuncallExpression(Identifier.of(""), ImmutableList.of()), env);
+    } else if (key instanceof BaseFunction) {
+      return ((BaseFunction) key).call(new ArrayList<>(Arrays.asList(obj)), null, null, env);
+    }
+
+    throw new EvalException(loc, Printer.format("%r object is not callable", EvalUtils.getDataTypeName(key)));
   }
 
   @SkylarkCallable(
@@ -170,14 +186,45 @@ public class MethodLibrary {
             type = Object.class,
             doc = "This collection.",
             // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
+            legacyNamed = true),
+        @Param(
+            name = "key",
+            doc = "The key to sort with.",
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            noneable = true),
+        @Param(
+            name = "reverse",
+            type = Boolean.class,
+            doc = "Whether to sort asc or desc.",
+            named = true,
+            defaultValue = "False",
+            positional = false,
+            noneable = true)
       },
       useLocation = true,
       useEnvironment = true)
-  public MutableList<?> sorted(Object self, Location loc, Environment env) throws EvalException {
+  public MutableList<?> sorted(Object self, Object key, Boolean reverse,
+      Location loc, Environment env) throws EvalException, InterruptedException {
+    Iterator<?> iterator = EvalUtils.toCollection(self, loc, env).iterator();
+    List<Object> list = new ArrayList<>();
+
+    while (iterator.hasNext()) {
+      Object val = iterator.next();
+      list.add(new EvalUtils.SortPair(evalKey(val, key, loc, env), val));
+    }
+
     try {
-      return MutableList.copyOf(
-          env, EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)));
+      list = EvalUtils.SKYLARK_COMPARATOR.sortedCopy(list);
+      for (int i = 0; i < list.size(); i++) {
+        if (reverse && i < list.size() / 2) {
+          Collections.swap(list, i, list.size() - i - 1);
+        }
+        list.set(i, ((EvalUtils.SortPair) list.get(i)).value);
+
+      }
+      return MutableList.copyOf(env, list);
     } catch (EvalUtils.ComparisonException e) {
       throw new EvalException(loc, e);
     }
