@@ -44,7 +44,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
     final String runUnderCommand = runUnderList.get(0);
     ImmutableList<String> runUnderSuffix =
         ImmutableList.copyOf(runUnderList.subList(1, runUnderList.size()));
-    if (runUnderCommand.startsWith("//")) {
+    if (runUnderCommand.startsWith("//") || runUnderCommand.startsWith("@")) {
       try {
         final Label runUnderLabel = Label.parseAbsolute(runUnderCommand, ImmutableMap.of());
         return new RunUnderLabel(input, runUnderLabel, runUnderSuffix);
