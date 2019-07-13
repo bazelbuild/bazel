@@ -42,9 +42,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.HashMap;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /** A helper class containing built in functions for the Skylark language. */
@@ -105,17 +105,49 @@ public class MethodLibrary {
     }
   }
 
-  private static Object evalKey(Object obj, Object key, Location loc, Environment env) throws EvalException, InterruptedException {
+  private static Object evalKey(
+      Object obj, Object key, Location loc, Environment env, FuncallExpression ast)
+      throws EvalException, InterruptedException {
     if (key == Runtime.NONE) {
       return obj;
     } else if (key instanceof BuiltinCallable) {
-      return ((BuiltinCallable) key).call(new ArrayList<>(Arrays.asList(obj)),
-              new HashMap<>(), new FuncallExpression(Identifier.of(""), ImmutableList.of()), env);
+      return ((BuiltinCallable) key).call(Arrays.asList(obj), Collections.emptyMap(), ast, env);
     } else if (key instanceof BaseFunction) {
-      return ((BaseFunction) key).call(new ArrayList<>(Arrays.asList(obj)), null, null, env);
+      return ((BaseFunction) key).call(Arrays.asList(obj), null, null, env);
     }
 
     throw new EvalException(loc, Printer.format("%r object is not callable", EvalUtils.getDataTypeName(key)));
+  }
+
+  private static class KeyComparator implements Comparator<Object> {
+    private final Object key;
+    private final Location loc;
+    private final Environment env;
+    private FuncallExpression ast;
+    private Exception e;
+
+
+    public KeyComparator(Object key, Location loc, Environment env) {
+      this.key = key;
+      this.loc = loc;
+      this.env = env;
+      this.ast = new FuncallExpression(Identifier.of(""), ImmutableList.of());
+    }
+
+    public Exception getException() {
+      return this.e;
+    }
+
+    @Override
+    public int compare(Object o1, Object o2) {
+      try {
+        return EvalUtils.SKYLARK_COMPARATOR.compare(
+          evalKey(o1, key, loc, env, ast), evalKey(o2, key, loc, env, ast));
+      } catch (Exception e) {
+        this.e = this.e == null ? e : this.e;
+      }
+      return 0;
+    }
   }
 
   @SkylarkCallable(
@@ -189,7 +221,7 @@ public class MethodLibrary {
             legacyNamed = true),
         @Param(
             name = "key",
-            doc = "The key to sort with.",
+            doc = "An optional function applied to each element before comparison.",
             named = true,
             defaultValue = "None",
             positional = false,
@@ -197,7 +229,7 @@ public class MethodLibrary {
         @Param(
             name = "reverse",
             type = Boolean.class,
-            doc = "Whether to sort asc or desc.",
+            doc = "Return results in descending order.",
             named = true,
             defaultValue = "False",
             positional = false,
@@ -206,28 +238,27 @@ public class MethodLibrary {
       useLocation = true,
       useEnvironment = true)
   public MutableList<?> sorted(Object self, Object key, Boolean reverse,
-      Location loc, Environment env) throws EvalException, InterruptedException {
-    Iterator<?> iterator = EvalUtils.toCollection(self, loc, env).iterator();
-    List<Object> list = new ArrayList<>();
+      Location loc, Environment env)
+      throws EvalException, InterruptedException {
 
-    while (iterator.hasNext()) {
-      Object val = iterator.next();
-      list.add(new EvalUtils.SortPair(evalKey(val, key, loc, env), val));
-    }
+    List list = new ArrayList(EvalUtils.toCollection(self, loc, env));
+    KeyComparator comparator = new KeyComparator(key, loc, env);
+    Collections.sort(list, comparator);
 
-    try {
-      list = EvalUtils.SKYLARK_COMPARATOR.sortedCopy(list);
-      for (int i = 0; i < list.size(); i++) {
-        if (reverse && i < list.size() / 2) {
-          Collections.swap(list, i, list.size() - i - 1);
-        }
-        list.set(i, ((EvalUtils.SortPair) list.get(i)).value);
-
+    Exception e = comparator.getException();
+    if (e != null) {
+      if (e instanceof InterruptedException) {
+        throw (InterruptedException) e;
+      } else if (e instanceof EvalUtils.ComparisonException) {
+        throw new EvalException(loc, e);
       }
-      return MutableList.copyOf(env, list);
-    } catch (EvalUtils.ComparisonException e) {
-      throw new EvalException(loc, e);
+      throw (EvalException) e;
     }
+
+    if (reverse) {
+      Collections.reverse(list);
+    }
+    return MutableList.copyOf(env, list);
   }
 
   @SkylarkCallable(
