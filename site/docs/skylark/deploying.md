@@ -76,6 +76,10 @@ if you feel like your rules should follow the convention for rules in the
 In the following sections, we will assume the repository belongs to the
 [bazelbuild](https://github.com/bazelbuild) organization.
 
+```
+workspace(name = "rules_mockascript")
+```
+
 ### README
 
 At the top level, there should be a `README` that contains (at least) what
