@@ -105,50 +105,23 @@ public class MethodLibrary {
     }
   }
 
-  private static Object evalKey(
+  private static Object evalKeyFunc(
       Object obj, Object key, Location loc, Environment env, FuncallExpression ast)
       throws EvalException, InterruptedException {
-    if (key == Runtime.NONE) {
-      return obj;
-    } else if (key instanceof BuiltinCallable) {
-      return ((BuiltinCallable) key).call(Arrays.asList(obj), Collections.emptyMap(), ast, env);
-    } else if (key instanceof BaseFunction) {
-      return ((BaseFunction) key).call(Arrays.asList(obj), null, null, env);
+    checkValidKeyFunc(key, loc);
+    if (key instanceof BuiltinCallable) {
+      return ((BuiltinCallable) key).call(Collections.singletonList(obj), Collections.emptyMap(), ast, env);
     }
+    return ((BaseFunction) key).call(Collections.singletonList(obj), null, null, env);
+  }
 
+  private static void checkValidKeyFunc(Object key, Location loc) throws EvalException {
+    if (key instanceof BuiltinCallable || key instanceof BaseFunction) {
+      return;
+    }
     throw new EvalException(loc, Printer.format("%r object is not callable", EvalUtils.getDataTypeName(key)));
   }
 
-  private static class KeyComparator implements Comparator<Object> {
-    private final Object key;
-    private final Location loc;
-    private final Environment env;
-    private FuncallExpression ast;
-    private Exception e;
-
-
-    public KeyComparator(Object key, Location loc, Environment env) {
-      this.key = key;
-      this.loc = loc;
-      this.env = env;
-      this.ast = new FuncallExpression(Identifier.of(""), ImmutableList.of());
-    }
-
-    public Exception getException() {
-      return this.e;
-    }
-
-    @Override
-    public int compare(Object o1, Object o2) {
-      try {
-        return EvalUtils.SKYLARK_COMPARATOR.compare(
-          evalKey(o1, key, loc, env, ast), evalKey(o2, key, loc, env, ast));
-      } catch (Exception e) {
-        this.e = this.e == null ? e : this.e;
-      }
-      return 0;
-    }
-  }
 
   @SkylarkCallable(
       name = "all",
@@ -241,24 +214,58 @@ public class MethodLibrary {
       Location loc, Environment env)
       throws EvalException, InterruptedException {
 
-    List list = new ArrayList(EvalUtils.toCollection(self, loc, env));
-    KeyComparator comparator = new KeyComparator(key, loc, env);
-    Collections.sort(list, comparator);
-
-    Exception e = comparator.getException();
-    if (e != null) {
-      if (e instanceof InterruptedException) {
-        throw (InterruptedException) e;
-      } else if (e instanceof EvalUtils.ComparisonException) {
+    ArrayList list = new ArrayList(EvalUtils.toCollection(self, loc, env));
+    if (key == Runtime.NONE) {
+      try {
+        Collections.sort(list, EvalUtils.SKYLARK_COMPARATOR);
+      } catch (EvalUtils.ComparisonException e) {
         throw new EvalException(loc, e);
       }
-      throw (EvalException) e;
+    } else {
+      checkValidKeyFunc(key, loc);
+
+      final Object KEY = key;
+      final Location LOC = loc;
+      final Environment ENV = env;
+      final FuncallExpression AST = new FuncallExpression(Identifier.of(""), ImmutableList.of());
+
+      class KeyComparator implements Comparator<Object> {
+        private Exception e;
+
+        public Exception getException() {
+          return this.e;
+        }
+
+        @Override
+        public int compare(Object o1, Object o2) {
+          try {
+            return EvalUtils.SKYLARK_COMPARATOR.compare(
+                    evalKeyFunc(o1, KEY, LOC, ENV, AST), evalKeyFunc(o2, KEY, LOC, ENV, AST));
+          } catch (Exception e) {
+            this.e = this.e == null ? e : this.e;
+          }
+          return 0;
+        }
+      }
+
+      KeyComparator comparator = new KeyComparator();
+      Collections.sort(list, comparator);
+
+      Exception e = comparator.getException();
+      if (e != null) {
+        if (e instanceof InterruptedException) {
+          throw (InterruptedException) e;
+        } else if (e instanceof EvalUtils.ComparisonException) {
+          throw new EvalException(loc, e);
+        }
+        throw (EvalException) e;
+      }
     }
 
     if (reverse) {
       Collections.reverse(list);
     }
-    return MutableList.copyOf(env, list);
+    return MutableList.wrapUnsafe(env, list);
   }
 
   @SkylarkCallable(
