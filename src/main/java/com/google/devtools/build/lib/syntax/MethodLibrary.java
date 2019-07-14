@@ -109,14 +109,11 @@ public class MethodLibrary {
       Object obj, Object key, Location loc, Environment env, FuncallExpression ast)
       throws EvalException, InterruptedException {
     checkValidKeyFunc(key, loc);
-    if (key instanceof BuiltinCallable) {
-      return ((BuiltinCallable) key).call(Collections.singletonList(obj), Collections.emptyMap(), ast, env);
-    }
-    return ((BaseFunction) key).call(Collections.singletonList(obj), null, null, env);
+    return ((StarlarkFunction) key).call(Collections.singletonList(obj), Collections.emptyMap(), ast, env);
   }
 
   private static void checkValidKeyFunc(Object key, Location loc) throws EvalException {
-    if (key instanceof BuiltinCallable || key instanceof BaseFunction) {
+    if (key instanceof StarlarkFunction) {
       return;
     }
     throw new EvalException(loc, Printer.format("%r object is not callable", EvalUtils.getDataTypeName(key)));
