@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -117,7 +116,6 @@ public final class TargetCompleteEvent
   private final BuildEventId configEventId;
   private final Iterable<String> tags;
   private final ExecutableTargetData executableTargetData;
-  private final boolean bepReportOnlyImportantArtifacts;
 
   private TargetCompleteEvent(
       ConfiguredTargetAndData targetAndData,
@@ -156,11 +154,6 @@ public final class TargetCompleteEvent
         isTest
             ? targetAndData.getConfiguredTarget().getProvider(TestProvider.class).getTestParams()
             : null;
-    // It should be safe to set this to true for targets that don't have a configuration - they
-    // should not have any output files either.
-    this.bepReportOnlyImportantArtifacts =
-        configuration == null
-            || configuration.getOptions().get(CoreOptions.class).bepReportOnlyImportantArtifacts;
     InstrumentedFilesInfo instrumentedFilesProvider =
         targetAndData.getConfiguredTarget().get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
     if (instrumentedFilesProvider == null) {
@@ -395,7 +388,7 @@ public final class TargetCompleteEvent
   public ReportedArtifacts reportedArtifacts() {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     for (ArtifactsInOutputGroup artifactsInGroup : outputs) {
-      if (!bepReportOnlyImportantArtifacts || artifactsInGroup.areImportant()) {
+      if (artifactsInGroup.areImportant()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
     }
@@ -417,7 +410,7 @@ public final class TargetCompleteEvent
   private Iterable<OutputGroup> getOutputFilesByGroup(ArtifactGroupNamer namer) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
     for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs) {
-      if (bepReportOnlyImportantArtifacts && !artifactsInOutputGroup.areImportant()) {
+      if (!artifactsInOutputGroup.areImportant()) {
         continue;
       }
       OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();

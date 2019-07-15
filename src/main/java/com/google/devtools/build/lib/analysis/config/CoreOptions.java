@@ -568,15 +568,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "target_environment values.")
   public Label autoCpuEnvironmentGroup;
 
-  @Option(
-      name = "experimental_bep_report_only_important_artifacts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If false, the BEP no longer contains information about hidden output groups.")
-  public boolean bepReportOnlyImportantArtifacts;
-
   /** Values for --experimental_dynamic_configs. */
   public enum ConfigsMode {
     /**
