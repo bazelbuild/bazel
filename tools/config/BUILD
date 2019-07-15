@@ -9,12 +9,12 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = [
-        "//tools:__pkg__",
-        "//tools/build_defs:__pkg__",
+        "@bazel_tools//tools:__pkg__",
+        "@bazel_tools//tools/build_defs:__pkg__",
     ],
 )
 
 exports_files(
     ["common_settings.bzl"],
-    visibility = ["//tools:__subpackages__"],
+    visibility = ["@bazel_tools//tools:__subpackages__"],
 )
