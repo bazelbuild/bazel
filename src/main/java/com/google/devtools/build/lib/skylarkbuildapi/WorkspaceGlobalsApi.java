@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
@@ -52,9 +53,7 @@ public interface WorkspaceGlobalsApi {
             noneable = true,
             named = true,
             positional = false,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES,
             defaultValue = "{}",
-            valueWhenDisabled = "{}",
             doc =
                 "Dict (strings to list of strings) for defining the mappings between external"
                     + " repositories and relative (to the workspace root) paths to directories"
