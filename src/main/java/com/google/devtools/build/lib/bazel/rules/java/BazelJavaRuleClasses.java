@@ -436,7 +436,7 @@ public class BazelJavaRuleClasses {
           .add(
               attr("$launcher", LABEL)
                   .cfg(HostTransition.createFactory())
-                  .value(env.getToolsLabel("//tools/launcher:launcher.exe")))
+                  .value(env.getToolsLabel("//tools/launcher:launcher")))
           .build();
     }
     @Override
