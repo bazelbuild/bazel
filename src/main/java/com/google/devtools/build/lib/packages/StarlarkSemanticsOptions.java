@@ -65,7 +65,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "experimental_allow_incremental_repository_updates",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
