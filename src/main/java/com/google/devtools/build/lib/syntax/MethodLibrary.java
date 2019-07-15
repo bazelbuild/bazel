@@ -207,8 +207,8 @@ public class MethodLibrary {
       },
       useLocation = true,
       useEnvironment = true)
-  public MutableList<?> sorted(Object self, Object key, Boolean reverse,
-      Location loc, Environment env)
+  public MutableList<?> sorted(Object self, final Object key, Boolean reverse,
+      final Location loc, final Environment env)
       throws EvalException, InterruptedException {
 
     ArrayList list = new ArrayList(EvalUtils.toCollection(self, loc, env));
@@ -221,41 +221,38 @@ public class MethodLibrary {
     } else {
       checkValidKeyFunc(key, loc);
 
-      final Object KEY = key;
-      final Location LOC = loc;
-      final Environment ENV = env;
-      final FuncallExpression AST = new FuncallExpression(Identifier.of(""), ImmutableList.of());
+      final FuncallExpression ast = new FuncallExpression(Identifier.of(""), ImmutableList.of());
 
       class KeyComparator implements Comparator<Object> {
-        private Exception e;
-
-        public Exception getException() {
-          return this.e;
-        }
+        public Exception e;
 
         @Override
         public int compare(Object o1, Object o2) {
           try {
             return EvalUtils.SKYLARK_COMPARATOR.compare(
-                    evalKeyFunc(o1, KEY, LOC, ENV, AST), evalKeyFunc(o2, KEY, LOC, ENV, AST));
-          } catch (Exception e) {
-            this.e = this.e == null ? e : this.e;
+                    evalKeyFunc(o1, key, loc, env, ast),
+                    evalKeyFunc(o2, key, loc, env, ast));
+          } catch (InterruptedException | EvalException e) {
+            if (this.e == null) {
+              this.e = (Exception) e;
+            }
+            return 0;
           }
-          return 0;
         }
       }
 
-      KeyComparator comparator = new KeyComparator();
-      Collections.sort(list, comparator);
+      KeyComparator comp= new KeyComparator();
+      try {
+        Collections.sort(list, comp);
+      } catch (EvalUtils.ComparisonException e) {
+        throw new EvalException(loc, e);
+      }
 
-      Exception e = comparator.getException();
-      if (e != null) {
-        if (e instanceof InterruptedException) {
-          throw (InterruptedException) e;
-        } else if (e instanceof EvalUtils.ComparisonException) {
-          throw new EvalException(loc, e);
+      if (comp.e != null) {
+        if (comp.e instanceof InterruptedException) {
+          throw (InterruptedException) comp.e;
         }
-        throw (EvalException) e;
+        throw (EvalException) comp.e;
       }
     }
 
