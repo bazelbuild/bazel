@@ -145,8 +145,10 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disallow_legacy_javainfo=" + rand.nextBoolean(),
         "--incompatible_disallow_legacy_java_provider=" + rand.nextBoolean(),
         "--incompatible_disallow_old_style_args_add=" + rand.nextBoolean(),
-        "--incompatible_disallow_struct_provider_syntax=" + rand.nextBoolean(),
         "--incompatible_disallow_rule_execution_platform_constraints_allowed=" + rand.nextBoolean(),
+        "--incompatible_disallow_split_empty_separator=" + rand.nextBoolean(),
+        "--incompatible_disallow_struct_provider_syntax=" + rand.nextBoolean(),
+        "--incompatible_disallow_unverified_http_downloads=" + rand.nextBoolean(),
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
         "--incompatible_expand_directories=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
@@ -198,8 +200,10 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisallowLegacyJavaInfo(rand.nextBoolean())
         .incompatibleDisallowLegacyJavaProvider(rand.nextBoolean())
         .incompatibleDisallowOldStyleArgsAdd(rand.nextBoolean())
-        .incompatibleDisallowStructProviderSyntax(rand.nextBoolean())
         .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(rand.nextBoolean())
+        .incompatibleDisallowSplitEmptySeparator(rand.nextBoolean())
+        .incompatibleDisallowStructProviderSyntax(rand.nextBoolean())
+        .incompatibleDisallowUnverifiedHttpDownloads(rand.nextBoolean())
         .incompatibleDoNotSplitLinkingCmdline(rand.nextBoolean())
         .incompatibleExpandDirectories(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())

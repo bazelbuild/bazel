@@ -329,6 +329,18 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed;
 
   @Option(
+      name = "incompatible_disallow_split_empty_separator",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, `string.split` will fail if `sep` is the empty string.")
+  public boolean incompatibleDisallowSplitEmptySeparator;
+
+  @Option(
       name = "incompatible_string_join_requires_strings",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -370,6 +382,18 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       },
       help = "If set to true, vectorized calls to Args#add are disallowed.")
   public boolean incompatibleDisallowOldStyleArgsAdd;
+
+  @Option(
+      name = "incompatible_disallow_unverified_http_downloads",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set, disallow downloads via plain http if no checksum is given")
+  public boolean incompatibleDisallowUnverifiedHttpDownloads;
 
   @Option(
       name = "incompatible_expand_directories",
@@ -649,6 +673,8 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)
             .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
                 incompatibleDisallowRuleExecutionPlatformConstraintsAllowed)
+            .incompatibleDisallowUnverifiedHttpDownloads(
+                incompatibleDisallowUnverifiedHttpDownloads)
             .incompatibleExpandDirectories(incompatibleExpandDirectories)
             .incompatibleNewActionsApi(incompatibleNewActionsApi)
             .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
@@ -668,6 +694,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
             .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
+            .incompatibleDisallowSplitEmptySeparator(incompatibleDisallowSplitEmptySeparator)
             .incompatibleDisallowDictLookupUnhashableKeys(
                 incompatibleDisallowDictLookupUnhashableKeys)
             .build();

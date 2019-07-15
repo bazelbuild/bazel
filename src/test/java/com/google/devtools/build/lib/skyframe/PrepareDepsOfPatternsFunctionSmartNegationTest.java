@@ -226,7 +226,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setEventHander(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =
-        skyframeExecutor.getDriverForTesting().evaluate(singletonTargetPattern, evaluationContext);
+        skyframeExecutor.getDriver().evaluate(singletonTargetPattern, evaluationContext);
     // The evaluation has no errors if success was expected.
     assertThat(evaluationResult.hasError()).isNotEqualTo(successExpected);
     return Preconditions.checkNotNull(evaluationResult.getWalkableGraph());

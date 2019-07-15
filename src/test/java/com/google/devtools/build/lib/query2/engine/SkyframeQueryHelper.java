@@ -71,7 +71,7 @@ import java.util.UUID;
 
 /** An implementation of AbstractQueryHelper to support testing bazel query. */
 public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
-  protected SkyframeExecutor<?> skyframeExecutor;
+  protected SkyframeExecutor skyframeExecutor;
   protected FileSystem fileSystem = new InMemoryFileSystem(BlazeClock.instance());
   protected Path rootDirectory;
   protected BlazeDirectories directories;

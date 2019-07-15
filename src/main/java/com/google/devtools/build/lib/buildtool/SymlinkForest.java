@@ -110,8 +110,10 @@ class SymlinkForest {
     for (Path target : mainRepoRoot.getDirectoryEntries()) {
       String baseName = target.getBaseName();
       Path execPath = execroot.getRelative(baseName);
-      // Create any links that don't start with bazel-.
-      if (!baseName.startsWith(prefix)) {
+      // Create any links that don't start with bazel-, and ignore external/ directory if
+      // user has it in the source tree because it conflicts with external repository location.
+      if (!baseName.startsWith(prefix)
+          && !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
         execPath.createSymbolicLink(target);
       }
     }
@@ -284,7 +286,13 @@ class SymlinkForest {
         if (pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
           shouldLinkAllTopLevelItems = true;
         } else {
-          Path execrootLink = execroot.getRelative(pkgId.getPackageFragment().getSegment(0));
+          String baseName = pkgId.getPackageFragment().getSegment(0);
+          // ignore external/ directory if user has it in the source tree
+          // because it conflicts with external repository location.
+          if (baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
+            continue;
+          }
+          Path execrootLink = execroot.getRelative(baseName);
           Path sourcePath = entry.getValue().getRelative(pkgId.getSourceRoot().getSegment(0));
           mainRepoLinks.putIfAbsent(execrootLink, sourcePath);
         }

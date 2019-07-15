@@ -135,6 +135,8 @@ def create_android_sdk_rules(
                 ":windows": "build-tools/%s/zipalign.exe" % build_tools_directory,
                 "//conditions:default": ":zipalign_binary",
             }),
+            # See https://github.com/bazelbuild/bazel/issues/8757
+            tags = ["__ANDROID_RULES_MIGRATION__"],
         )
 
     native.alias(

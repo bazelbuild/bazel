@@ -105,7 +105,7 @@ import javax.annotation.Nullable;
 public final class SkyframeBuildView {
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
-  private final SkyframeExecutor<?> skyframeExecutor;
+  private final SkyframeExecutor skyframeExecutor;
   private final SkyframeActionExecutor skyframeActionExecutor;
   private boolean enableAnalysis = false;
 
@@ -146,7 +146,7 @@ public final class SkyframeBuildView {
 
   public SkyframeBuildView(
       BlazeDirectories directories,
-      SkyframeExecutor<?> skyframeExecutor,
+      SkyframeExecutor skyframeExecutor,
       ConfiguredRuleClassProvider ruleClassProvider,
       SkyframeActionExecutor skyframeActionExecutor) {
     this.skyframeActionExecutor = skyframeActionExecutor;

@@ -166,6 +166,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowStructProviderSyntax();
 
+  public abstract boolean incompatibleDisallowUnverifiedHttpDownloads();
+
   public abstract boolean incompatibleExpandDirectories();
 
   public abstract boolean incompatibleNewActionsApi();
@@ -203,6 +205,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleDepsetForLibrariesToLinkGetter();
 
   public abstract boolean incompatibleRestrictStringEscapes();
+
+  public abstract boolean incompatibleDisallowSplitEmptySeparator();
 
   public abstract boolean incompatibleDisallowDictLookupUnhashableKeys();
 
@@ -261,6 +265,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
           .incompatibleDisallowStructProviderSyntax(false)
+          .incompatibleDisallowUnverifiedHttpDownloads(false)
           .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
@@ -280,6 +285,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
+          .incompatibleDisallowSplitEmptySeparator(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
           .build();
 
@@ -333,6 +339,8 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
 
+    public abstract Builder incompatibleDisallowUnverifiedHttpDownloads(boolean value);
+
     public abstract Builder incompatibleExpandDirectories(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
@@ -370,6 +378,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDepsetForLibrariesToLinkGetter(boolean value);
 
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
+
+    public abstract Builder incompatibleDisallowSplitEmptySeparator(boolean value);
 
     public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
 

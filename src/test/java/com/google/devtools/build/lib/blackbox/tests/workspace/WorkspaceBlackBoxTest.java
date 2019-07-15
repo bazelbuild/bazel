@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
-import com.google.devtools.build.lib.util.OS;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -252,10 +251,6 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     PathUtils.append(workspaceFile, "# comment");
     // At this point, there is already some cache workspace file/file state value.
     bazel.build("@ext//:all");
-  }
-
-  private boolean isWindows() {
-    return OS.WINDOWS.equals(OS.getCurrent());
   }
   // TODO(ichern) move other tests from workspace_test.sh here.
 

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.protobuf.ByteString;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,14 +53,19 @@ public class FingerprintTest {
     assertThat(f1Latin1.hexDigestAndReset()).isNotEqualTo(f2Latin1.hexDigestAndReset());
   }
 
-  // You can validate the md5 of the simple string against
-  // echo -n 'Hello World!'| md5sum
   @Test
-  public void bytesFingerprint() {
-    assertThat(new Fingerprint().addBytes("Hello World!".getBytes(UTF_8)).hexDigestAndReset())
-        .isEqualTo("ed076287532e86365e841e92bfc50d8c");
-    assertThat(Fingerprint.getHexDigest("Hello World!"))
-        .isEqualTo("ed076287532e86365e841e92bfc50d8c");
+  public void equivalentBytesAndStringsFingerprintsMatch() {
+    String helloWorld = "Hello World!";
+    // $ echo -n "Hello World!" | md5sum
+    String helloWorldMd5 = "ed076287532e86365e841e92bfc50d8c";
+
+    assertThat(new Fingerprint().addBytes(helloWorld.getBytes(UTF_8)).hexDigestAndReset())
+        .isEqualTo(helloWorldMd5);
+
+    assertThat(Fingerprint.getHexDigest(helloWorld)).isEqualTo(helloWorldMd5);
+
+    assertThat(new Fingerprint().addBytes(ByteString.copyFromUtf8(helloWorld)).hexDigestAndReset())
+        .isEqualTo(helloWorldMd5);
   }
 
   @Test

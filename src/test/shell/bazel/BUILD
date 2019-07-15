@@ -858,6 +858,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils.sh",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     tags = [
         "no-sandbox",

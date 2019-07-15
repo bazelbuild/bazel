@@ -276,30 +276,6 @@ public final class CcCommon {
     return ruleContext.attributes().has(name, type);
   }
 
-  /** Collects all .dwo artifacts in this target's transitive closure. */
-  public static DwoArtifactsCollector collectTransitiveDwoArtifacts(
-      RuleContext ruleContext,
-      CcCompilationOutputs compilationOutputs,
-      boolean generateDwo,
-      boolean ltoBackendArtifactsUsePic,
-      Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
-    ImmutableList.Builder<TransitiveInfoCollection> deps =
-        ImmutableList.<TransitiveInfoCollection>builder();
-
-    deps.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
-
-    if (ruleContext.attributes().has("malloc", BuildType.LABEL)) {
-      deps.add(CppHelper.mallocForTarget(ruleContext));
-    }
-
-    return DwoArtifactsCollector.transitiveCollector(
-        compilationOutputs,
-        deps.build(),
-        generateDwo,
-        ltoBackendArtifactsUsePic,
-        ltoBackendArtifacts);
-  }
-
   /**
    * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input source
    * file and the label of the rule that generates it (or the label of the source file itself if it

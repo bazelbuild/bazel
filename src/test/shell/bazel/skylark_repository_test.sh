@@ -1653,6 +1653,46 @@ EOF
        || fail "Authentication merged incorrectly"
 }
 
+function test_disallow_unverified_http() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256="$(sha256sum x.tar | head -c 64)"
+  serve_file x.tar
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build --incompatible_disallow_unverified_http_downloads //:it \
+        > "${TEST_log}" 2>&1 && fail "Expeceted failure" || :
+  expect_log 'plain http.*missing checksum'
+
+  # After adding a good checksum, we expect success
+  ed WORKSPACE <<EOF
+/url
+a
+sha256 = "$sha256",
+.
+w
+q
+EOF
+  bazel build --incompatible_disallow_unverified_http_downloads //:it \
+        || fail "Expected success one the checksum is given"
+
+}
+
 function tear_down() {
   shutdown_server
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then

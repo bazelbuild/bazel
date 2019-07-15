@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -167,18 +166,16 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
             .compile();
 
-    CppDebugFileProvider cppDebugFileProvider =
-        CcCompilationHelper.buildCppDebugFileProvider(
-            compilationInfo.getCcCompilationOutputs(), ImmutableList.of());
     Map<String, NestedSet<Artifact>> outputGroups =
         CcCompilationHelper.buildOutputGroups(compilationInfo.getCcCompilationOutputs());
     RuleConfiguredTargetBuilder result =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .addProvider(cppDebugFileProvider)
             .addNativeDeclaredProvider(
                 CcInfo.builder()
                     .setCcCompilationContext(compilationInfo.getCcCompilationContext())
                     .setCcLinkingContext(ccLinkingContext)
+                    .setCcDebugInfoContext(
+                        CcDebugInfoContext.from(compilationInfo.getCcCompilationOutputs()))
                     .build())
             .addOutputGroups(outputGroups)
             .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
