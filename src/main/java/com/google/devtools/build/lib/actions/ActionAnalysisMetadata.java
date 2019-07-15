@@ -15,13 +15,20 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
 /**
  * An Analysis phase interface for an {@link Action} or Action-like object, containing only
  * side-effect-free query methods for information needed during action analysis.
+ *
+ * <p>This interface extends {@link SkyKey} for use in the Google-internal {@link
+ * #ACTION_ANNOTATION_FUNCTION}.
  */
-public interface ActionAnalysisMetadata {
+public interface ActionAnalysisMetadata extends SkyKey {
+
+  SkyFunctionName ACTION_ANNOTATION_FUNCTION = SkyFunctionName.createHermetic("ANNOTATE_ACTION");
 
   /**
    * Return this key from {@link #getKey} to signify a failed key computation.
@@ -32,6 +39,11 @@ public interface ActionAnalysisMetadata {
    * (recommended), or check against this value explicitly.
    */
   String KEY_ERROR = "1ea50e01-0349-4552-80cf-76cf520e8592";
+
+  @Override
+  default SkyFunctionName functionName() {
+    return ACTION_ANNOTATION_FUNCTION;
+  }
 
   /**
    * Returns the owner of this executable if this executable can supply verbose information. This is
@@ -205,7 +217,7 @@ public interface ActionAnalysisMetadata {
   MiddlemanType getActionType();
 
   /** The action type. */
-  public enum MiddlemanType {
+  enum MiddlemanType {
 
     /** A normal action. */
     NORMAL,
