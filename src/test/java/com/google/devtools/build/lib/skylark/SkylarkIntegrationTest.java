@@ -3076,6 +3076,30 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPartitionDefaultParameter() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=false");
+
+    scratch.file("test/extension.bzl", "y = 'abc'.partition()");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testDisabledPartitionDefaultParameter() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=true");
+
+    scratch.file("test/extension.bzl", "y = 'abc'.partition()");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("parameter 'sep' has no default value");
+  }
+
+  @Test
   public void testUnknownStringEscapesForbidden() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=true");
 

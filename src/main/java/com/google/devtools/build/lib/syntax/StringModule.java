@@ -432,17 +432,29 @@ public final class StringModule {
         @Param(name = "self", type = String.class),
         @Param(
             name = "sep",
-            type = String.class,
+            type = Object.class,
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
-            defaultValue = "\" \"",
+            defaultValue = "unbound",
             doc = "The string to split on, default is space (\" \").")
       },
       useEnvironment = true,
       useLocation = true)
-  public Tuple<String> partition(String self, String sep, Location loc, Environment env)
+  public Tuple<String> partition(String self, Object sep, Location loc, Environment env)
       throws EvalException {
-    return partitionWrapper(self, sep, true, loc);
+    if (sep == Runtime.UNBOUND) {
+      if (env.getSemantics().incompatibleDisablePartitionDefaultParameter()) {
+        throw new EvalException(loc, "parameter 'sep' has no default value, " +
+            "for call to method partition(sep) of 'string'");
+      } else {
+        sep = " ";
+      }
+    } else if (!(sep instanceof String)) {
+      throw new EvalException(loc, "expected value of type 'string' for parameter" +
+          " 'sep', for call to method partition(sep = unbound) of 'string'");
+    }
+
+    return partitionWrapper(self, (String) sep, true, loc);
   }
 
   @SkylarkCallable(
