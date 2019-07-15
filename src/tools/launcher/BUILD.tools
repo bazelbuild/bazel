@@ -2,6 +2,6 @@ filegroup(
     name = "launcher",
     # On Windows: launcher.exe
     # Use glob() so it matches no file on Linux/macOS.
-    srcs = glob(["launcher*"]),
+    srcs = glob(["launcher*"], allow_empty = True),
     visibility = ["//visibility:public"],
 )

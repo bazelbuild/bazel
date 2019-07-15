@@ -2,6 +2,6 @@ filegroup(
     name = "def_parser",
     # On Windows: def_parser.exe
     # Use glob() so it matches no file on Linux/macOS.
-    srcs = glob(["def_parser*"]),
+    srcs = glob(["def_parser*"], allow_empty = True),
     visibility = ["//visibility:public"],
 )

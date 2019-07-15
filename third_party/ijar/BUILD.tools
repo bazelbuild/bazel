@@ -3,6 +3,6 @@ filegroup(
     # On Linux/macOS: zipper
     # On Windows: zipper.exe
     # Use glob() so it matches whichever file is present.
-    srcs = glob(["zipper*"]),
+    srcs = glob(["zipper*"], allow_empty = True),
     visibility = ["//visibility:public"],
 )
