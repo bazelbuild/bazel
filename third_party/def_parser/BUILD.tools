@@ -1,3 +1,7 @@
-# On Windows: def_parser.exe
-# Use glob() so it matches no file on Linux/macOS.
-exports_files(glob(["def_parser*"]))
+filegroup(
+    name = "def_parser",
+    # On Windows: def_parser.exe
+    # Use glob() so it matches no file on Linux/macOS.
+    srcs = glob(["def_parser*"]),
+    visibility = ["//visibility:public"],
+)
