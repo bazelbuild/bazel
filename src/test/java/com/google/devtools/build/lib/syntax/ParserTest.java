@@ -847,13 +847,13 @@ public class ParserTest extends EvaluationTestCase {
         "",
         "def bar():",
         "  a = [3, 4]",
-        "  b = 2 + + 5",  // parse error
+        "  b = 2 * * 5",  // parse error
         "");
 
     assertThat(getEventCollector()).hasSize(3);
     assertContainsError("syntax error at 'for': expected newline");
     assertContainsError("syntax error at 'ada': expected newline");
-    assertContainsError("syntax error at '+': expected expression");
+    assertContainsError("syntax error at '*': expected expression");
     assertThat(statements).hasSize(3);
   }
 
@@ -872,8 +872,8 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testParserContainsErrors() throws Exception {
     setFailFast(false);
-    parseFile("+");
-    assertContainsError("syntax error at '+'");
+    parseFile("*");
+    assertContainsError("syntax error at '*'");
   }
 
   @Test

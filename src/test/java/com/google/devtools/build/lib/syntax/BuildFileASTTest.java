@@ -137,7 +137,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "           srcs = libs,",
         "           includes = [ abi + opt_level + '/include' ])");
     assertThat(buildFile.containsErrors()).isTrue();
-    assertContainsError("syntax error at '+': expected expression");
+    assertContainsError("syntax error at '*': expected expression");
     assertThat(buildFile.exec(env, getEventHandler())).isFalse();
     MoreAsserts.assertDoesNotContainEvent(getEventCollector(), "$error$");
     // This message should not be printed anymore.

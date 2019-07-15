@@ -60,6 +60,15 @@ def compound():
 
 compound()
 
+
+# unary operators
+
+assert_eq(+4, 4)
+assert_eq(-4, -4)
+assert_eq(++4, 4)
+assert_eq(+-4, -4)
+assert_eq(-+-4, 4)
+
 ---
 1 // 0  ### integer division by zero
 ---

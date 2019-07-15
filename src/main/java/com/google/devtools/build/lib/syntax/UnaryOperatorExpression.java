@@ -19,7 +19,7 @@ import java.io.IOException;
 /** A UnaryOperatorExpression represents a unary operator expression, 'op x'. */
 public final class UnaryOperatorExpression extends Expression {
 
-  private final TokenKind op; // NOT or MINUS
+  private final TokenKind op; // NOT, MINUS or PLUS
   private final Expression x;
 
   public UnaryOperatorExpression(TokenKind op, Expression x) {
@@ -75,6 +75,14 @@ public final class UnaryOperatorExpression extends Expression {
           // Fails for -MIN_INT.
           throw new EvalException(loc, e.getMessage());
         }
+      case PLUS:
+        if (!(value instanceof Integer)) {
+          throw new EvalException(
+                  loc,
+                  String.format(
+                          "unsupported operand type for +: '%s'", EvalUtils.getDataTypeName(value)));
+        }
+        return value;
 
       default:
         throw new AssertionError("Unsupported unary operator: " + op);
