@@ -331,7 +331,6 @@ public class SkylarkRepositoryContext
         WorkspaceRuleEvent.newReadEvent(p.toString(), rule.getLabel().toString(), location);
     env.getListener().post(w);
     try {
-      checkInOutputDirectory("read", p);
       return FileSystemUtils.readContent(p.getPath(), StandardCharsets.ISO_8859_1);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);

@@ -251,34 +251,6 @@ public class SkylarkRepositoryContextTest {
 
     String content = context.readFile(context.path("foo/bar"), null);
     assertThat(content).isEqualTo("foobar");
-
-    try {
-      context.readFile(context.path("/absolute"), null);
-      fail("Expected error on reading path outside of the repository directory");
-    } catch (RepositoryFunctionException ex) {
-      assertThat(ex)
-          .hasCauseThat()
-          .hasMessageThat()
-          .isEqualTo("Cannot read outside of the repository directory for path /absolute");
-    }
-    try {
-      context.readFile(context.path("../somepath"), null);
-      fail("Expected error on reading path outside of the repository directory");
-    } catch (RepositoryFunctionException ex) {
-      assertThat(ex)
-          .hasCauseThat()
-          .hasMessageThat()
-          .isEqualTo("Cannot read outside of the repository directory for path /somepath");
-    }
-    try {
-      context.readFile(context.path("foo/../../somepath"), null);
-      fail("Expected error on reading path outside of the repository directory");
-    } catch (RepositoryFunctionException ex) {
-      assertThat(ex)
-          .hasCauseThat()
-          .hasMessageThat()
-          .isEqualTo("Cannot read outside of the repository directory for path /somepath");
-    }
   }
 
   @Test
