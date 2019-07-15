@@ -127,6 +127,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
     return format(
         ImmutableList.of(
             "# DO NOT EDIT: automatically generated BUILD file for local_config_platform",
+            "package(default_visibility = ['//visibility:public'])",
             "load(':constraints.bzl', 'HOST_CONSTRAINTS')",
             "platform(name = 'host',",
             "  # Auto-detected host platform constraints.",
