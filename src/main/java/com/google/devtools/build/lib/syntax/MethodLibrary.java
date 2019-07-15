@@ -224,24 +224,24 @@ public class MethodLibrary {
       final FuncallExpression ast = new FuncallExpression(Identifier.of(""), ImmutableList.of());
 
       class KeyComparator implements Comparator<Object> {
-        public Exception e;
+        Exception e;
 
         @Override
-        public int compare(Object o1, Object o2) {
+        public int compare(Object x, Object y) {
           try {
             return EvalUtils.SKYLARK_COMPARATOR.compare(
-                    evalKeyFunc(o1, key, loc, env, ast),
-                    evalKeyFunc(o2, key, loc, env, ast));
+                    evalKeyFunc(x, key, loc, env, ast),
+                    evalKeyFunc(y, key, loc, env, ast));
           } catch (InterruptedException | EvalException e) {
             if (this.e == null) {
-              this.e = (Exception) e;
+              this.e = e;
             }
             return 0;
           }
         }
       }
 
-      KeyComparator comp= new KeyComparator();
+      KeyComparator comp = new KeyComparator();
       try {
         Collections.sort(list, comp);
       } catch (EvalUtils.ComparisonException e) {
