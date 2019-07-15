@@ -1,4 +1,4 @@
-load(":win_rules.bzl", "cc_binary", "cc_library")
+load(":win_rules.bzl", "win_cc_binary", "win_cc_library")
 
 filegroup(
     name = "srcs",
@@ -6,7 +6,7 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-cc_binary(
+win_cc_binary(
     name = "launcher",
     srcs = ["launcher_main.cc"],
     visibility = [
@@ -23,7 +23,7 @@ cc_binary(
     ],
 )
 
-cc_library(
+win_cc_library(
     name = "launcher_base",
     srcs = ["launcher.cc"],
     hdrs = ["launcher.h"],
@@ -34,21 +34,21 @@ cc_library(
     ],
 )
 
-cc_library(
+win_cc_library(
     name = "java_launcher",
     srcs = ["java_launcher.cc"],
     hdrs = ["java_launcher.h"],
     deps = [":launcher_base"],
 )
 
-cc_library(
+win_cc_library(
     name = "python_launcher",
     srcs = ["python_launcher.cc"],
     hdrs = ["python_launcher.h"],
     deps = [":launcher_base"],
 )
 
-cc_library(
+win_cc_library(
     name = "bash_launcher",
     srcs = ["bash_launcher.cc"],
     hdrs = ["bash_launcher.h"],

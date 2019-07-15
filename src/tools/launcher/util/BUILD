@@ -1,6 +1,6 @@
 package(default_visibility = ["//src/tools/launcher:__subpackages__"])
 
-load("//src/tools/launcher:win_rules.bzl", "cc_binary", "cc_library", "cc_test")
+load("//src/tools/launcher:win_rules.bzl", "win_cc_binary", "win_cc_library", "win_cc_test")
 
 filegroup(
     name = "srcs",
@@ -8,14 +8,14 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-cc_library(
+win_cc_library(
     name = "data_parser",
     srcs = ["data_parser.cc"],
     hdrs = ["data_parser.h"],
     deps = [":util"],
 )
 
-cc_library(
+win_cc_library(
     name = "util",
     srcs = ["launcher_util.cc"],
     hdrs = ["launcher_util.h"],
@@ -26,7 +26,7 @@ cc_library(
     deps = ["//src/main/cpp/util:filesystem"],
 )
 
-cc_test(
+win_cc_test(
     name = "util_test",
     srcs = ["launcher_util_test.cc"],
     data = [
@@ -40,7 +40,7 @@ cc_test(
     ],
 )
 
-cc_test(
+win_cc_test(
     name = "data_parser_test",
     srcs = ["data_parser_test.cc"],
     deps = [
@@ -49,7 +49,7 @@ cc_test(
     ],
 )
 
-cc_binary(
+win_cc_binary(
     name = "printarg",
     testonly = 1,
     srcs = ["printarg.cc"],
