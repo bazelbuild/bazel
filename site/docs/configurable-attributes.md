@@ -544,12 +544,15 @@ config_setting(
 )
 selects.config_setting_group(
     name = "config1_or_2",
-    match_any = [":cond1", ":cond2"],
+    match_any = [":config1", ":config2"],
 )
 sh_binary(
     name = "my_target",
     srcs = ["always_include.sh"],
-    deps = select({":config1_or_2": [":standard_lib"]}),
+    deps = select({
+        ":config1_or_2": [":standard_lib"],
+        "//conditions:default": [":other_lib"],
+    }),
 )
 ```
 
@@ -581,7 +584,7 @@ config_setting(
 )
 selects.config_setting_group(
     name = "config1_and_2",
-    match_all = [":cond1", ":cond2"],
+    match_all = [":config1", ":config2"],
 )
 sh_binary(
     name = "my_target",
