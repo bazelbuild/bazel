@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -135,7 +136,7 @@ public class RemoteOutputService implements OutputService {
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
-      Iterable<Artifact> filesets) {
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
     FileSystem remoteFileSystem =
         new RemoteActionFileSystem(
             fileSystem, execRoot, relativeOutputPath, actionInputMap, actionInputFetcher);
