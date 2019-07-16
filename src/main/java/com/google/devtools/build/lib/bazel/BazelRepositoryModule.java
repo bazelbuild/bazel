@@ -350,6 +350,9 @@ public class BazelRepositoryModule extends BlazeModule {
         // Nevertheless, we need to provide a default value for other commands.
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+            RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
             RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
   }
 

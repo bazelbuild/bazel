@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOrderEvent;
+import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -57,7 +58,12 @@ import java.util.stream.Collectors;
 /** Syncs all repositories specified in the workspace file */
 @Command(
     name = SyncCommand.NAME,
-    options = {PackageCacheOptions.class, KeepGoingOption.class, LoadingPhaseThreadsOption.class},
+    options = {
+      PackageCacheOptions.class,
+      KeepGoingOption.class,
+      LoadingPhaseThreadsOption.class,
+      SyncOptions.class
+    },
     help = "resource:sync.txt",
     shortDescription = "Syncs all repositories specified in the workspace file",
     allowResidue = false)
@@ -93,11 +99,21 @@ public final class SyncCommand implements BlazeCommand {
                   env.getCommandId().toString()));
       env.setupPackageCache(options);
       SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-      skyframeExecutor.injectExtraPrecomputedValues(
-          ImmutableList.of(
-              PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                  env.getCommandId().toString())));
+
+      SyncOptions syncOptions = options.getOptions(SyncOptions.class);
+      if (syncOptions.configure) {
+        skyframeExecutor.injectExtraPrecomputedValues(
+            ImmutableList.of(
+                PrecomputedValue.injected(
+                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
+                    env.getCommandId().toString())));
+      } else {
+        skyframeExecutor.injectExtraPrecomputedValues(
+            ImmutableList.of(
+                PrecomputedValue.injected(
+                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+                    env.getCommandId().toString())));
+      }
 
       // Obtain the key for the top-level WORKSPACE file
       SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
@@ -167,7 +183,7 @@ public final class SyncCommand implements BlazeCommand {
           // fetch anyway. So the only task remaining is to record the use of "bind" for whoever
           // collects resolved information.
           env.getReporter().post(resolveBind(rule));
-        } else if (shouldSync(rule)) {
+        } else if (shouldSync(rule, syncOptions.configure)) {
           // TODO(aehlig): avoid the detour of serializing and then parsing the repository name
           try {
             repositoriesToFetch.add(
@@ -208,10 +224,15 @@ public final class SyncCommand implements BlazeCommand {
     return BlazeCommandResult.exitCode(exitCode);
   }
 
-  private static boolean shouldSync(Rule rule) {
+  private static boolean shouldSync(Rule rule, boolean configure) {
     if (!rule.getRuleClassObject().getWorkspaceOnly()) {
       // We should only sync workspace rules
       return false;
+    }
+    if (configure) {
+      // If this is only a configure run, only sync Starlark rules that
+      // declare themselves as configure-like.
+      return SkylarkRepositoryFunction.isConfigureRule(rule);
     }
     if (rule.getRuleClassObject().isSkylark()) {
       // Skylark rules are all whitelisted
