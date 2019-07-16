@@ -630,3 +630,12 @@ load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 sass_repositories()
 
 register_execution_platforms("//:default_host_platform")  # buildozer: disable=positional-args
+
+# Tools for packaging 
+http_archive(
+    name = "rules_pkg",
+    url = "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
+    sha256 = "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
+)
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+rules_pkg_dependencies()
