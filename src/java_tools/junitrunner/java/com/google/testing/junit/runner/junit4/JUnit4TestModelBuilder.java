@@ -15,7 +15,7 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.runner.model.TestSuiteModel;
-import com.google.testing.junit.runner.util.Supplier;
+import java.util.function.Supplier;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.junit.runner.Description;
