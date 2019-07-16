@@ -19,7 +19,7 @@ def _java_runtime_alias(ctx):
     if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
         toolchain = ctx.toolchains["@rules_java//java/toolchains:java_runtime_toolchain_type"]
     else:
-        toolchain = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+        toolchain = ctx.attr._legacy_java_runtime[java_common.JavaRuntimeInfo]
     return [
         toolchain,
         platform_common.TemplateVariableInfo({
@@ -37,7 +37,7 @@ java_runtime_alias = rule(
     implementation = _java_runtime_alias,
     toolchains = ["@rules_java//java/toolchains:java_runtime_toolchain_type"],
     attrs = {
-        "_java_runtime": attr.label(
+        "_legacy_java_runtime": attr.label(
             default = Label("@bazel_tools//tools/jdk:legacy_current_java_runtime"),
         ),
     },
@@ -45,17 +45,35 @@ java_runtime_alias = rule(
 
 def _java_host_runtime_alias(ctx):
     """An experimental implementation of java_host_runtime_alias using toolchain resolution."""
-    runtime = ctx.attr._runtime
+#    runtime = ctx.attr._runtime
+#    return [
+#        runtime[java_common.JavaRuntimeInfo],
+#        runtime[platform_common.TemplateVariableInfo],
+#        runtime[DefaultInfo],
+#    ]
+    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
+        toolchain = ctx.toolchains["@rules_java//java/toolchains:host_java_runtime_toolchain_type"]
+    else:
+        toolchain = ctx.attr._legacy_java_runtime[java_common.JavaRuntimeInfo]
     return [
-        runtime[java_common.JavaRuntimeInfo],
-        runtime[platform_common.TemplateVariableInfo],
-        runtime[DefaultInfo],
+        toolchain,
+        platform_common.TemplateVariableInfo({
+            "JAVA": str(toolchain.java_executable_exec_path),
+            "JAVABASE": str(toolchain.java_home),
+        }),
+        # See b/65239471 for related discussion of handling toolchain runfiles/data.
+        DefaultInfo(
+            runfiles = ctx.runfiles(transitive_files = toolchain.files),
+            files = toolchain.files,
+        ),
     ]
+
 
 java_host_runtime_alias = rule(
     implementation = _java_host_runtime_alias,
+    toolchains = ["@rules_java//java/toolchains:host_java_runtime_toolchain_type"],
     attrs = {
-        "_runtime": attr.label(
+        "_legacy_java_runtime": attr.label(
             default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
             providers = [
                 java_common.JavaRuntimeInfo,
