@@ -134,6 +134,11 @@ public class Parser {
           .put(TokenKind.SLASH_EQUALS, TokenKind.SLASH)
           .put(TokenKind.SLASH_SLASH_EQUALS, TokenKind.SLASH_SLASH)
           .put(TokenKind.PERCENT_EQUALS, TokenKind.PERCENT)
+          .put(TokenKind.AMPERSAND_EQUALS, TokenKind.AMPERSAND)
+          .put(TokenKind.CARET_EQUALS, TokenKind.CARET)
+          .put(TokenKind.PIPE_EQUALS, TokenKind.PIPE)
+          .put(TokenKind.GREATER_GREATER_EQUALS, TokenKind.GREATER_GREATER)
+          .put(TokenKind.LESS_LESS_EQUALS, TokenKind.LESS_LESS)
           .build();
 
   /**
@@ -155,6 +160,9 @@ public class Parser {
               TokenKind.IN,
               TokenKind.NOT_IN),
           EnumSet.of(TokenKind.PIPE),
+          EnumSet.of(TokenKind.CARET),
+          EnumSet.of(TokenKind.AMPERSAND),
+          EnumSet.of(TokenKind.GREATER_GREATER, TokenKind.LESS_LESS),
           EnumSet.of(TokenKind.MINUS, TokenKind.PLUS),
           EnumSet.of(TokenKind.SLASH, TokenKind.SLASH_SLASH, TokenKind.STAR, TokenKind.PERCENT));
 
@@ -672,6 +680,13 @@ public class Parser {
           Expression expr = parsePrimaryWithSuffix();
           UnaryOperatorExpression minus = new UnaryOperatorExpression(TokenKind.MINUS, expr);
           return setLocation(minus, start, expr);
+        }
+      case TILDE:
+        {
+          nextToken();
+          Expression expr = parsePrimaryWithSuffix();
+          UnaryOperatorExpression tilde = new UnaryOperatorExpression(TokenKind.TILDE, expr);
+          return setLocation(tilde, start, expr);
         }
       default:
         {

@@ -189,6 +189,18 @@ public final class BinaryOperatorExpression extends Expression {
         case PIPE:
           return pipe(x, y, env, location);
 
+        case AMPERSAND:
+          return (Integer) x & (Integer) y;
+
+        case CARET:
+          return (Integer) x ^ (Integer) y;
+
+        case GREATER_GREATER:
+          return (Integer) x >> (Integer) y;
+
+        case LESS_LESS:
+          return (Integer) x << (Integer) y;
+
         case MINUS:
           return minus(x, y, location);
 
@@ -346,7 +358,9 @@ public final class BinaryOperatorExpression extends Expression {
   /** Implements 'x | y'. */
   private static Object pipe(Object x, Object y, Environment env, Location location)
       throws EvalException {
-    if (x instanceof SkylarkNestedSet) {
+    if (x instanceof Integer && y instanceof Integer) {
+      return ((Integer) x) | ((Integer) y);
+    } else if (x instanceof SkylarkNestedSet) {
       if (env.getSemantics().incompatibleDepsetUnion()) {
         throw new EvalException(
             location,

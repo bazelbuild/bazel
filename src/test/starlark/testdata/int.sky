@@ -64,3 +64,34 @@ compound()
 1 // 0  ### integer division by zero
 ---
 1 % 0  ### integer modulo by zero
+---
+
+# bitwise
+
+def f():
+  x = 2
+  x &= 1
+  assert_eq(x, 0)
+  x = 0
+  x |= 2
+  assert_eq(x, 2)
+  x ^= 3
+  assert_eq(x, 1)
+  x <<= 2
+  assert_eq(x, 4)
+  x >>=2
+  assert_eq(x, 1)
+
+f()
+---
+assert_eq(1|2, 3)
+assert_eq(3|6, 7)
+assert_eq((1|2) & (2|4), 2)
+assert_eq(1 ^ 2, 3)
+assert_eq(2 ^ 2, 0)
+assert_eq(1 | 0 ^ 1, 1) # check | and ^ operators precedence
+assert_eq(~1, -2)
+assert_eq(~-2, 1)
+assert_eq(~0, -1)
+assert_eq(1 << 2, 4)
+assert_eq(2 >> 1, 1)
