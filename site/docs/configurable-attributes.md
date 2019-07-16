@@ -1,188 +1,241 @@
+---
+layout: documentation
+title: Configurable Build Attributes
+---
+
 # Configurable Build Attributes
 
-go/configurable-build-attributes
+### Contents
+* [Example](#example)
+* [Configuration Conditions](#configuration-conditions)
+* [Defaults](#defaults)
+* [Custom Keys](#custom-keys)
+* [Platforms](#platforms)
+* [Short Keys](#short-keys)
+* [Multiple Selects](#multiple-selects)
+* [OR Chaining](#or-chaining)
+  * [selects.with_or](#selects-with-or)
+  * [selects.config_setting_group](#selects-config-setting-or-group)
+* [AND Chaining](#and-chaining)
+* [Custom Error Messages](#custom-error-messages)
+* [Rules Compatibility](#rules)
+* [Bazel Query and Cquery](#query)
+* [FAQ](#faq)
+  * [Why doesn't select() work in macros?](#macros-select)
+  * [Why does select() always return true?](#boolean-select)
+  * [Can I read select() like a dict?](#inspectable-select)
+  * [Why doesn't select() work with bind()?](#bind-select)
 
-[TOC]
+&nbsp;
 
-**Configurable attributes** is a Blaze feature that lets BUILD rule attributes
-determine their values from command-line flags.
+**_Configurable attributes_**, commonly known as [`select()`](
+be/functions.html#select), is a Bazel feature that lets users toggle the values
+of BUILD rule attributes at the command line.
 
-This can be used, for example, to declare custom deps controllable at the
-command line.
-
+This can be used, for example, for a multiplatform library that automatically
+chooses the appropriate implementation for the architecture, or for a
+feature-configurable binary that can be customized at build time.
 
 ## Example
 
-```
-//myapp/BUILD:
-sh_binary(
-    name = "my_rule",
-    srcs = select({
-        ":armeabi_mode": ["armeabi_src.sh"],
-        ":x86_opt_mode": ["x86_opt_src.sh"],
-        "//conditions:default": ["generic_src.sh"]
-    })
+```python
+# myapp/BUILD
+
+cc_binary(
+    name = "mybinary",
+    srcs = ["main.cc"],
+    deps = select({
+        ":arm_build": [":arm_lib"],
+        ":x86_debug_build": [":x86_dev_lib"],
+        "//conditions:default": [":generic_lib"],
+    }),
 )
 
 config_setting(
-    name = "armeabi_mode",
-    values = { "cpu": "armeabi" }
+    name = "arm_build",
+    values = {"cpu": "arm"},
 )
 
 config_setting(
-    name = "x86_opt_mode",
+    name = "x86_debug_build",
     values = {
-      "cpu": "x86",
-      "compilation_mode" : "opt",
-    }
+        "cpu": "x86",
+        "compilation_mode": "dbg",
+    },
 )
 ```
 
-This declares an `sh_binary` that "chooses" its source based on the flags at the
-command line. Specficially, `srcs` becomes:
+This declares a `cc_binary` that "chooses" its deps based on the flags at the
+command line. Specficially, `deps` becomes:
 
+<table>
+  <tr style="background: #E9E9E9; font-weight: bold">
+    <td>Command</td>
+    <td>deps =</td>
+  </tr>
+  <tr>
+    <td><code>bazel build //myapp:mybinary --cpu=arm</code></td>
+    <td><code>[":arm_lib"]</code></td>
+  </tr>
+  <tr>
+    <td><code>bazel build //myapp:mybinary -c dbg --cpu=x86</code></td>
+    <td><code>[":x86_dev_lib"]</code></td>
+  </tr>
+  <tr>
+    <td><code>bazel build //myapp:mybinary --cpu=ppc</code></td>
+    <td><code>[":generic_lib"]</code></td>
+  </tr>
+  <tr>
+    <td><code>bazel build //myapp:mybinary -c dbg --cpu=ppc</code></td>
+    <td><code>[":generic_lib"]</code></td>
+  </tr>
+</table>
+`select()` serves as a placeholder for a value that will be chosen based on
+*configuration conditions*. These conditions are labels that refer to
+[`config_setting`](be/general.html#config_setting) targets. By using `select()`
+in a configurable attribute, the attribute effectively takes on different values
+when different conditions hold.
 
-Command | `srcs =`
-------- | --------
-`blaze build //myapp:my_rule --cpu=armeabi` | `["armeabi_src.sh"]`
-`blaze build //myapp:my_rule --c opt --cpu=x86` | `["x86_opt_src.sh"]`
-`blaze build //myapp:my_rule` | `["generic_src.sh"]`
-`blaze build //myapp:my_rule -c opt` | `["generic_src.sh"]`
+Matches must be unambiguous: either exactly one condition must match or, if
+multiple conditions match, one's `values` must be a strict superset of all
+others'. For example, `values = {"cpu": "x86", "compilation_mode": "dbg"}` is an
+unambiguous specialization of `values = {"cpu": "x86"}`. The built-in condition
+[`//conditions:default`](#defaults) automatically matches when nothing else
+does.
 
-In essence, `select()` turns any attribute into a dictionary that maps
-configuration conditions to desired values. Configuration conditions are label
-references to `config_setting` rules. Values are any valid value the attribute
-can normally take. The match must be unambiguous: either exactly one condition
-must match, or else one condition must be a refinement of all other matches. The
-built-in condition `//conditions:default` automatically matches when nothing
-else matches.
+This example uses `deps`. But `select()` works just as well on `srcs`,
+`resources`, `cmd`, or practically any other attribute. Only a small number of
+attributes are *non-configurable*, and those are clearly annotated; for
+instance, `config_setting`'s own
+[`values`](be/general.html#config_setting.values) attribute is non-configurable.
 
-This example uses `srcs`, but this works just as well for `deps`, `resources`,
-`proguard_specs`, `cmd`, or almost any other attribute. Only a small number of
-attributes are *non-configurable*;
-see [here](http://go/nonconfigurable-blaze-attributes) for the complete list.
+Certain attributes, like the `tools` of a `genrule`, have the effect of changing
+the build parameters (such as the cpu) for all targets that transitively appear
+beneath them. This will affect how conditions are matched within those targets
+but not within the attribute that causes the change. That is, a `select` in the
+`tools` attribute of a `genrule` will work the same as a `select` in the `srcs`.
 
 ## Configuration Conditions
 
 Each key in a configurable attribute is a label reference to a
-[`config_setting`](be/general.html#config_setting) rule. This provides a
-*named*, *structured* reference point for expected conditions and the ability to
-define the exact flags that fulfill them. This facilitates *domain-wide*
-definitions that can be shared across multiple rules and BUILD files.
+[`config_setting`](be/general.html#config_setting) target. This is just a
+collection of expected command line flag settings. By encapsulating these in a
+target, it's easy to maintain "standard" conditions that can be referenced
+across targets and BUILD files.
 
 The core `config_setting` syntax is:
 
-```
+```python
 config_setting(
     name = "meaningful_condition_name",
     values = {
-        "flag1": "value1",
-        "flag2": "value2",
+        "flag1": "expected_value1",
+        "flag2": "expected_value2",
         ...
-    }
+    },
 )
 ```
 
-`flagN` is an arbitrary Blaze command-line flag (most flags are supported, but
-[not all](http://goto.corp.google.com/configurable-blaze-flags)). `value` is the
-expected value for that flag. A `config_setting` matches a build when *all* of
-its flag expectations match.
+`flagN` is an arbitrary Bazel command line flag. `value` is the expected value
+for that flag. A `config_setting` matches when *all* of its flags match (order
+is irrelevant).
 
-`values` entries use the same parsing logic as command-line flags This means:
+`values` entries use the same parsing logic as at the actual command line. This
+means:
 
-*  `values = { "compilation_mode": "opt" }` matches `blaze build -c opt ...`
-*  `values = { "java_header_compilation": "true" }` matches `blaze build
+*  `values = { "compilation_mode": "opt" }` matches `bazel build -c opt ...`
+*  `values = { "java_header_compilation": "true" }` matches `bazel build
 --java_header_compilation=1 ...`
-*  `values = { "translations": "0" }` matches `blaze build --notranslations
-   ...`
+*  `values = { "java_header_compilation": "0" }` matches `bazel build
+--nojava_header_compilation ...`
 
-If you want to trigger on generic conditions like *Android* or *Windows*, use
-a [predefined condition](#predefined-conditions). As a general principle it's
-better to have one `config_setting` shared across projects vs. redefining the
-same setting over and over again.
+`config_setting` only works with flags that affect build rule output. For
+example, [`--show_progress`](user-manual.html#flag--show_progress) isn't allowed
+because this only affects how Bazel reports progress to the user.
 
-`config_setting` semantics are intentionally simple. For example, there is no
+`config_setting` semantics are intentionally simple. For example, there's no
 direct support for `OR` chaining (although a
-[Skylark convenience function](#or-chaining) provides this).  Consider writing
-Skylark macros for complicated flag logic.
+[convenience function](#or-chaining) provides this).  Consider writing
+macros for complicated flag logic.
 
 ## Defaults
 
-The built-in condition `//conditions:default` matches any configurable attribute
-when nothing else matches.
+The built-in condition `//conditions:default` matches when no other condition
+matches.
 
 Because of the "exactly one match" rule, a configurable attribute with no match
-and no default condition triggers a `"no matching conditions"` build error. This
-can protect against silent failures like `blaze build --define
-foo=oopsIDidntMeanThis`:
+and no default condition triggers a `"no matching conditions"` error. This can
+protect against silent failures from unexpected build flags:
 
-```
-//foo:
+```python
+# foo/BUILD
+
 config_setting(
     name = "foobar",
-    values = { "define": "foo=bar" }
+    values = {"define": "foo=bar"},
 )
 
 cc_library(
     name = "my_lib",
     srcs = select({
         ":foobar": ["foobar_lib.cc"],
-    })
+    }),
 )
 ```
 
-```
-$ blaze build //foo:my_lib --define foo=baz
+```sh
+$ bazel build //foo:my_lib --define foo=baz
 ERROR: Configurable attribute "srcs" doesn't match this configuration (would
 a default condition help?).
 Conditions checked:
   //foo:foobar
 ```
 
-## Custom Keys {#custom-keys}
+`select()` can include a [`no_match_error`](#custom-error-messages) for custom
+failure messages.
 
-Since `config_setting` only supports Blaze-recognized flags, this limits support
-for conditions that Blaze doesn't natively understand. This can be a problem for
-users who want to trigger on app-specific criteria like
-`IncludeSpecialAppFeatureX`
+## Custom Keys
 
-Plans for [first-class custom
-flags](http://go/skylark-build-configuration) are in the pipeline, but not ready
-yet. In the meantime,
-[`--define`](http://goto.corp.google.com/bum#flag--define) is the reluctantly
-endorsed method for specifiying arbitrary criteria. `--define` is imperfect and
-will be deprecated once proper custom flags are ready. Therefore, only use it
-when there's no viable alternative. For example, don't use `--define` to specify
-a handful of variants of top-level targets; just create multiple targets
-instead.
+Since `config_setting` currently only supports built-in Bazel flags, the level
+of custom conditioning it can support is limited. For example, there's no Bazel
+flag for `IncludeSpecialProjectFeatureX`.
 
-To trigger an arbitrary value with `--define`, write:
+Plans for [truly custom flags](
+https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
+are underway. In the meantime, [`--define`](user-manual.html#flag--define) is
+the best approach for these purposes.
+`--define` is a bit awkward to use and wasn't originally designed for this
+purpose. We recommend using it sparingly until true custom flags are available.
+For example, don't use `--define` to specify multiple variants of top-level
+binary. Just use multiple targets instead.
 
-```
+To trigger an arbitrary condition with `--define`, write
+
+```python
 config_setting(
     name = "bar",
-    values = { "define": "foo=bar" }
+    values = {"define": "foo=bar"},
 )
 
 config_setting(
     name = "baz",
-    values = { "define": "foo=baz" }
+    values = {"define": "foo=baz"},
 )
 ```
 
-and invoke the desired condition via `blaze build //my:target --define foo=baz`.
+and run `$ bazel build //my:target --define foo=baz`.
 
-`values` cannot contain multiple `define`s. This is because the BUILD language
-doesn't allow duplicate keys in a dictionary. To solve this, use
+The `values` attribute can't contain multiple `define`s. This is
+because each instance has the same dictionary key. To solve this, use
 `define_values`:
 
-```
+```python
 config_setting(
     name = "bar_and_baz",
     define_values = {
-        "foo": "bar", # matches --define foo=bar
-        "baz": "bat", # matches --define baz=bat
-    }
+        "foo": "bar",  # matches --define foo=bar
+        "baz": "bat",  # matches --define baz=bat
+    },
 )
 ```
 
@@ -192,37 +245,40 @@ the `config_setting` to match.
 ## Platforms
 
 While the ability to specify multiple flags on the command line provides
-flexibility, it can also be burdensome to individually set each flag every
-time you want to build a target. The ['--experimental_platforms'] (https://g3doc.corp.google.com/devtools/blaze/g3doc/be/platform.html#constraint_setting)
-flag allows you to define a platform and use that as a basis for select().
+flexibility, it can also be burdensome to individually set each one every time
+you want to build a target.
+   [Platforms](platforms.html)
+allow you to consolidate these into simple bundles.
 
-```
+```python
+# myapp/BUILD
+
 sh_binary(
-    name = "my_rocks_rule",
+    name = "my_rocks",
     srcs = select({
-        ":basalt" : ["pyroxene.sh"],
-        ":marble" : ["calcite.sh"],
-        "//conditions:default": ["feldspar.sh"]
-    })
+        ":basalt": ["pyroxene.sh"],
+        ":marble": ["calcite.sh"],
+        "//conditions:default": ["feldspar.sh"],
+    }),
 )
 
 config_setting(
     name = "basalt",
     constraint_values = [
+        ":black",
         ":igneous",
-        ":black"
-    ]
+    ],
 )
 
 config_setting(
     name = "marble",
     constraint_values = [
         ":white",
-        ":metamorphic"
-        ":smooth"
-    ]
+        ":metamorphic",
+    ],
 )
 
+# constraint_setting acts as an enum type, and constraint_value as an enum value.
 constraint_setting(name = "color")
 constraint_value(name = "black", constraint_setting = "color")
 constraint_value(name = "white", constraint_setting = "color")
@@ -236,274 +292,316 @@ platform(
     name = "basalt_platform",
     constraint_values = [
         ":black",
-        ":igneous"]
+        ":igneous",
+    ],
 )
 
 platform(
     name = "marble_platform",
     constraint_values = [
         ":white",
-        ":smooth"
-        ":metamorphic"
-    ]
+        ":smooth",
+        ":metamorphic",
+    ],
 )
 ```
 
-The `platform` specified on the command line matches a `config_setting` that
-contains the same set (or a superset) of `constraint_values` and triggers
-that `config_setting` as a match in the `select()` statement.
+The platform can be specified on the command line. It activates the
+`config_setting`s that contain a subset of the platform's `constraint_values`,
+allowing those `config_setting`s to match in `select()` expressions.
 
-For example, in order to set the `srcs` attribute of `my_rocks_rule` to
-`calcite.sh`, simply run `blaze build my_app:my_rock_rule
---experimental_platforms=marble_platform` instead of `blaze build my_app:my_rule
---color=light --texture=smooth --define type=metamorphic`.
+For example, in order to set the `srcs` attribute of `my_rocks` to `calcite.sh`,
+we can simply run
+
+```sh
+bazel build //my_app:my_rocks --platforms=//myapp:marble_platform
+```
+
+Without platforms, this might look something like
+
+```sh
+bazel build //my_app:my_rocks --define color=white --define texture=smooth --define type=metamorphic
+```
+
+Platforms are still under development. See the [documentation](platforms.html)
+and [roadmap](https://bazel.build/roadmaps/platforms.html) for details.
 
 ## Short Keys
 
-Since configuration keys are rule labels, they have the potential to get
-unwieldy. This can be mitigated through local variable definitions:
+Since configuration keys are target labels, their names can get long and
+unwieldy. This can be mitigated with local variable definitions:
 
-*Before:*
+Before:
 
-```
+```python
 sh_binary(
-    name = "my_rule",
+    name = "my_target",
     srcs = select({
-        "//my/project/my/team/configs:config1": ["my_rule_1.sh"],
-        "//my/project/my/team/configs:config2": ["my_rule_2.sh"],
-    })
+        "//my/project/my/team/configs:config1": ["my_target_1.sh"],
+        "//my/project/my/team/configs:config2": ["my_target_2.sh"],
+    }),
 )
 ```
 
-*After:*
+After:
 
-```
+```python
 CONFIG1="//my/project/my/team/configs:config1"
 CONFIG2="//my/project/my/team/configs:config2"
 
 sh_binary(
-    name = "my_rule",
+    name = "my_target",
     srcs = select({
-        CONFIG1: ["my_rule_1.sh"],
-        CONFIG2: ["my_rule_2.sh"],
+        CONFIG1: ["my_target_1.sh"],
+        CONFIG2: ["my_target_2.sh"],
     })
 )
 ```
 
-For more complex
-expressions, [Skylark macros](/devtools/blaze/rules/g3doc/macros.md) can
-encapsulate required logic in easier to read form:
 
-*Before:*
+For more complex expressions, you can use [macros](skylark/macros.md):
 
-```
-//foo/BUILD
+Before:
+
+```python
+# foo/BUILD
+
 genrule(
-    name = "my_rule",
+    name = "my_target",
     srcs = [],
-    outs = ["my_rule.out"],
+    outs = ["my_target.out"],
     cmd = select({
         "//my/project/my/team/configs/config1": "echo custom val: this > $@",
         "//my/project/my/team/configs/config2": "echo custom val: that > $@",
-        "//conditions:default": "echo default output > $@"
-    })
+        "//conditions:default": "echo default output > $@",
+    }),
 )
 ```
 
-*After:*
+After:
 
-```
-//foo/genrule_select.bzl:
+```python
+# foo/genrule_select.bzl
+
 def select_echo(input_dict):
-  echo_cmd = "echo %s > $@"
-  out_dict = {"//conditions:default": echo_cmd % "default output" }
-  for (key, val) in input_dict.items():
-    cmd = echo_cmd % ("custom val: " + val)
-    out_dict["//my/project/my/team/configs/config" + key] = cmd
-  return select(out_dict)
+    echo_cmd = "echo %s > $@"
+    out_dict = {"//conditions:default": echo_cmd % "default output"}
+    for (key, val) in input_dict.items():
+        cmd = echo_cmd % ("custom val: " + val)
+        out_dict["//my/project/my/team/configs/config" + key] = cmd
+    return select(out_dict)
 ```
 
-```
-//foo/BUILD:
+```python
+# foo/BUILD
+
 load("//foo:genrule_select.bzl", "select_echo")
+
 genrule(
-    name = "my_rule",
+    name = "my_target",
     srcs = [],
-    outs = ["my_rule.out"],
+    outs = ["my_target.out"],
     cmd = select_echo({
         "1": "this",
         "2": "that",
-    })
+    }),
 )
 ```
 
-## Multiple Selects {#multiple-selects}
+## Multiple Selects
 
-`select` can appear multiple times in the same attribute assignment:
+`select` can appear multiple times in the same attribute:
 
-```
+```python
 sh_binary(
-    name = "my_rule",
-    srcs = ["always_include.sh"]
-    + select({
-          ":armeabi_mode": ["armeabi_src.sh"],
-          ":k8_mode": ["k8_src.sh"],
-      })
-    + select({
-          ":opt_mode": ["opt_extras.sh"],
-          ":dbg_mode": ["dbg_extras.sh"],
-      })
+    name = "my_target",
+    srcs = ["always_include.sh"] +
+           select({
+               ":armeabi_mode": ["armeabi_src.sh"],
+               ":x86_mode": ["x86_src.sh"],
+           }) +
+           select({
+               ":opt_mode": ["opt_extras.sh"],
+               ":dbg_mode": ["dbg_extras.sh"],
+           }),
 )
 ```
 
-`select` cannot appear inside another `select` (i.e. *`AND` chaining*). If you
-need to `AND` selects together, either defer through an intermediate rule:
+`select` cannot appear inside another `select`. If you need to nest `selects`
+use an intermediate target:
 
-```
-sh_binary
-    name = "my_rule",
+```python
+sh_binary(
+    name = "my_target",
     srcs = ["always_include.sh"],
     deps = select({
         ":armeabi_mode": [":armeabi_lib"],
         ...
-    })
+    }),
 )
 
 sh_library(
     name = "armeabi_lib",
     srcs = select({
-        ":opt_mode":  ["armeabi_with_opt.sh"],
+        ":opt_mode": ["armeabi_with_opt.sh"],
         ...
-    })
+    }),
 )
 ```
 
-or write a [Skylark macro](/devtools/blaze/rules/g3doc/macros.md) that
-automatically creates the intermediate rule for the user.
+Note that this approach doesn't work for non-deps attributes (like
+[genrule:cmd](be/general.html#genrule.cmd)).
 
-This approach doesn't work for non-deps attributes (e.g.
-[genrule.cmd](http://go/be#genrule.cmd)). In that case extra `config_settings`
-may be necessary:
+If you just need a `select` to match when multiple conditions match, see [AND
+chaining](#and-chaining).
 
-```
-config_setting(
-    name = "armeabi_and_opt",
-    values = {
-        "cpu": "armeabi",
-        "compilation_mode": "opt"
-    }
-)
-```
-
-
-## OR Chaining {#or-chaining}
+## OR Chaining
 
 Consider the following:
 
-```
-sh_binary
-    name = "my_rule",
+```python
+sh_binary(
+    name = "my_target",
     srcs = ["always_include.sh"],
     deps = select({
         ":config1": [":standard_lib"],
         ":config2": [":standard_lib"],
         ":config3": [":standard_lib"],
         ":config4": [":special_lib"],
-    })
+    }),
 )
 ```
 
-Most conditions evaluate to the same dep. But this syntax is verbose,
-burdensome to maintain, and refactoring-unfriendly. It would be nice not to
-have to repeat `[":standard_lib"]` multiple times.
+Most conditions evaluate to the same dep. But this syntax is verbose, hard to
+maintain, and refactoring-unfriendly. It would be nice to not have to repeat
+`[":standard_lib"]` over and over.
 
 One option is to predefine the declaration as a BUILD variable:
 
 ```python
 STANDARD_DEP = [":standard_lib"]
 
-sh_binary
-    name = "my_rule",
+sh_binary(
+    name = "my_target",
     srcs = ["always_include.sh"],
     deps = select({
         ":config1": STANDARD_DEP,
         ":config2": STANDARD_DEP,
         ":config3": STANDARD_DEP,
         ":config4": [":special_lib"],
-    })
+    }),
 )
 ```
 
-This makes it easier to manage the standard dependency. But it still requires
-unnecessary duplication.
+This makes it easier to manage the dependency. But it still adds unnecessary
+duplication.
 
-`select()` does not support native syntax for `OR`ed conditions. For this, use
-the [Skylib](https://g3doc.corp.google.com/tools/build_defs/lib/README.md)
-utility [selects](https://cs.corp.google.com/piper///depot/google3/tools/build_defs/lib/selects.bzl).
-This adds support for the following syntax:
+For more direct support, use one of the following:
 
+### <a name="selects-with-or"></a>`selects.with_or`
+
+The
+[with_or](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectswith_or)
+macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
+[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md)
+module supports `OR`ing conditions directly inside a `select`:
+
+```python
+load("@bazel_skylib//:lib.bzl", "selects")
 ```
-load("//tools/build_defs/lib:selects.bzl", "selects")
 
-sh_binary
-    name = "my_rule",
+```python
+sh_binary(
+    name = "my_target",
     srcs = ["always_include.sh"],
     deps = selects.with_or({
         (":config1", ":config2", ":config3"): [":standard_lib"],
         ":config4": [":special_lib"],
-    })
+    }),
 )
-
 ```
 
-This automatically expands the `select` to the original syntax shown above.
+### <a name="selects-config-setting-or-group"></a>`selects.config_setting_group`
 
-For `AND` chaining, see [here](#multiple-selects).
+The
+[config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectsconfig_setting_group)
+macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
+[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md)
+module supports `OR`ing multiple `config_setting`s:
 
-## Predefined Conditions {#predefined-conditions}
-
-The following `config_setting`s have been predefined to support common
-conditions likely to be shared across many teams. Use these whenever possible
-instead of rolling your own:
-
-*   [tools/cc_target_os/BUILD](http://cs.corp.google.com/#piper///depot/google3/tools/cc_target_os/BUILD)
-    for "platform" criteria like *iOS* or *Android*
-
-    *   If you need to combine platform information with another config_setting,
-        use "cc_target_os" and not a hardcoded value for "crosstool_top".
-        cc_target_os allows users to change the crosstool_top location with
-        Blaze but still activate all the right conditions.
-
-*   [tools/target_cpu/BUILD](https://cs.corp.google.com/#piper///depot/google3/tools/target_cpu/BUILD)
-    for `--cpu` settings like `k8` or `arm`
-
-*   [tools/compilation_mode/BUILD](https://cs.corp.google.com/#piper///depot/google3/tools/compilation_mode/BUILD)
-    for `--compilation_mode` (`-c`) settings: `fastbuild`, `opt` or `dbg`. See
-    g3doc/devtools/blaze/g3doc/user-manual.html#flag--compilation_mode
-
-*   [tools/android_cpu/BUILD](https://cs.corp.google.com/#piper///depot/google3/tools/android_cpu/BUILD) -
-    for `--android_cpu` settings like `arm64-v8a` or `x86`
-
-Example:
-
+```python
+load("@bazel_skylib//:lib.bzl", "selects"")
 ```
-cc_library(
-    name = "my_lib",
-    srcs = ["my_lib.cc"],
+
+```python
+config_setting(
+    name = "config1",
+    values = {"cpu": "arm"},
+)
+config_setting(
+    name = "config2",
+    values = {"compilation_mode": "dbg"},
+)
+selects.config_setting_group(
+    name = "config1_or_2",
+    match_any = [":cond1", ":cond2"],
+)
+sh_binary(
+    name = "my_target",
+    srcs = ["always_include.sh"],
+    deps = select({":config1_or_2": [":standard_lib"]}),
+)
+```
+
+Unlike `selects.with_or`, different rules can `select` on `:config1_or_2`
+with different values.
+
+Note that it's an error for multiple conditions to match unless one is a
+"specialization" of the other. See [select()](be/functions.html#select)
+documentation for details.
+
+## And Chaining
+
+If you need a `select` path to match when multiple conditions match, use the
+[Skylib](https://github.com/bazelbuild/bazel-skylib) macro
+[config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectsconfig_setting_group):
+
+```python
+load("@bazel_skylib//:lib.bzl", "selects"")
+```
+
+```python
+config_setting(
+    name = "config1",
+    values = {"cpu": "arm"},
+)
+config_setting(
+    name = "config2",
+    values = {"compilation_mode": "dbg"},
+)
+selects.config_setting_group(
+    name = "config1_and_2",
+    match_all = [":cond1", ":cond2"],
+)
+sh_binary(
+    name = "my_target",
+    srcs = ["always_include.sh"],
     deps = select({
-        "//tools/cc_target_os:android": [":android_deps"],
-        "//tools/cc_target_os:darwin": [":ios_deps"],
-        "//tools/cc_target_os:windows": [":windows_deps"],
-        "//conditions:default": [":linux_deps"],
-    })
+        ":config1_and_2": [":standard_lib"],
+        "//conditions:default": [":other_lib"],
+        }),
 )
 ```
+
+Unlike OR chaining, existing `config_setting`s can't be `AND`ed together
+directly inside a `select`: you have to explicitly declare the
+`config_setting_group`.
 
 ## Custom Error Messages
 
-By default, when no condition matches, the owning rule fails with the error:
+By default, when no condition matches, the owning target fails with the error:
 
-```
+```sh
 ERROR: Configurable attribute "deps" doesn't match this configuration (would
 a default condition help?).
 Conditions checked:
@@ -511,274 +609,248 @@ Conditions checked:
   //tools/cc_target_os:android
 ```
 
-This can be customized via `no_match_error`:
+This can be customized with [`no_match_error`](be/functions.html#select):
 
-```
+```python
 cc_library(
     name = "my_lib",
-    deps = select({
-        "//tools/cc_target_os:android": [":android_deps"],
-        "//tools/cc_target_os:windows": [":windows_deps"],
-    }, no_match_error = "Please build with an Android or Windows toolchain"
-    )
+    deps = select(
+        {
+            "//tools/cc_target_os:android": [":android_deps"],
+            "//tools/cc_target_os:windows": [":windows_deps"],
+        },
+        no_match_error = "Please build with an Android or Windows toolchain",
+    ),
 )
 ```
 
-```
-$ blaze build //foo:my_lib
+```sh
+$ bazel build //foo:my_lib
 ERROR: Configurable attribute "deps" doesn't match this configuration: Please
 build with an Android or Windows toolchain
 ```
 
-## Skylark Compatibility {#skylark}
-
-Skylark is compatible with configurable attributes in limited form.
-
-Skylark rule implementations receive the post-resolved outputs of configurable
+## <a name="rules"></a>Rules Compatibility
+Rule implementations receive the *resolved values* of configurable
 attributes. For example, given:
 
-```
-//myproject/BUILD:
-some_skylark_rule(
-    name = "my_rule",
+```python
+# myproject/BUILD
+
+some_rule(
+    name = "my_target",
     some_attr = select({
         ":foo_mode": [":foo"],
         ":bar_mode": [":bar"],
-    })
+    }),
 )
 ```
 
-```
-$ blaze build //myproject/my_rule --define mode=foo
+```sh
+$ bazel build //myproject/my_target --define mode=foo
 ```
 
-Skylark rule implementation code sees `ctx.attr.some_attr` as `[":foo"]`.
+Rule implementation code sees `ctx.attr.some_attr` as `[":foo"]`.
 
-Skylark macros can accept `select()` clauses and pass them through to native
+Macros can accept `select()` clauses and pass them through to native
 rules. But *they cannot directly manipulate them*. For example, there's no way
-for a Skylark macro to convert
+for a macro to convert
 
-```
-`select({"foo": "val"}, ...)`
+```python
+select({"foo": "val"}, ...)
 ```
 
 to
 
-```
-`select({"foo": "val_with_suffix"}, ...)`.
+```python
+select({"foo": "val_with_suffix"}, ...)
 ```
 
 This is for two reasons.
 
 First, macros that need to know which path a `select` will choose *cannot work*
-because macros are evaluated in Blaze's *loading phase*, which occurs before
-flag values are known. This is a core Blaze design restriction that's unlikely
-to change any time soon.
+because macros are evaluated in Bazel's [loading phase](user-manual.html#loading-phase),
+which occurs before flag values are known.
+This is a core Bazel design restriction that's unlikely to change any time soon.
 
-Second, macros that just need to iterate over all `select` paths, while
-technically feasible, lack a coherent
-UI. See [b/23527731](https://b.corp.google.com/issues/23527731) for ongoing
-discussion and proposals.
+Second, macros that just need to iterate over *all* `select` paths, while
+technically feasible, lack a coherent UI. Further design is necessary to change
+this.
 
-## Blaze Query and Cquery {#query}
+## <a name="query"></a>Bazel Query and Cquery
+Bazel `query` operates over Bazel's [loading phase](
+user-manual.html#loading-phase). This means it doesn't know what command line
+flags will be applied to a target since those flags aren't evaluated until later
+in the build (during the [analysis phase](user-manual.html#analysis-phase)). So
+the [`query`](query.html) command can't accurately determine which path a
+configurable attribute will follow.
 
-Blaze `query` operates over Blaze's loading phase. This means it doesn't know
-what command-line flags will be applied to a rule since those flags aren't
-evaluated until later in the build (during the analysis phase). So the `query`
-command cannot accurately determine which path a configurable attribute will
-follow.
-
-[Blaze `cquery`](https://g3doc.corp.google.com/devtools/blaze/subteams/configurability/g3doc/query.md)
-has the advantage of being able to parse build flags and operating post-analysis
-phase so it correctly resolves configurable attributes. It doesn't have full
-feature parity with query but supports most major functionality and is actively
-being worked on.
-
+[Bazel `cquery`](cquery.html) has the advantage of being able to parse build
+flags and operating post-analysis phase so it correctly resolves configurable
+attributes. It doesn't have full feature parity with query but supports most
+major functionality and is actively being worked on.
 Querying the following build file...
 
-```
-//myproject/BUILD:
+```python
+# myproject/BUILD
+
 cc_library(
     name = "my_lib",
     deps = select({
         ":long": [":foo_dep"],
         ":short": [":bar_dep"],
-    })
+    }),
 )
+
 config_setting(
-    name = 'long',
-    values = { "define": "dog=dachshund" }
+    name = "long",
+    values = {"define": "dog=dachshund"},
 )
+
 config_setting(
-    name = 'short',
-    values = { "define": "dog=pug" }
+    name = "short",
+    values = {"define": "dog=pug"},
 )
 ```
+
 ...would return the following results.
 
-```
-$ blaze query 'deps(//myproject:my_lib)'
+```sh
+$ bazel query 'deps(//myproject:my_lib)'
 //myproject:my_lib
 //myproject:foo_dep
 //myproject:bar_dep
 
-$ blaze cquery 'deps(//myproject:my_lib)' --define dog=pug
+$ bazel cquery 'deps(//myproject:my_lib)' --define dog=pug
 //myproject:my_lib
 //myproject:bar_dep
 ```
 
-Since TAP relies on `query` to determine which builds are affected by a given
-change, this means TAP can overschedule tests as a result.`Cquery` is not quite
-ready to take this job over but is actively being improved. See [b/68317885]
-(https://b.corp.google.com/issues/68317885) for updates and feel free to file
-feature requests against the [`cquery` bug hotlist]
-(https://buganizer.corp.google.com/hotlists/842234).
+## FAQ
 
-## Best Practices
-
-In summary, consider the following when using configurable attributes:
-
-1.  Consolidate `config_setting` definitions into common, shareable
-    locations. Use [predefined conditions](#predefined-conditions)
-    positions when possible. [Details](#predefined-conditions).
-1.  Trigger your conditions on explicit Blaze flags whenever possible. If you
-    absolutely must trigger on a custom setting that built-in Blaze flags can't
-    model, use `--define`. This is an imperfect, stopgap measure until proper
-    first-class custom flags are available. [Details](#custom-keys).
-1.  Configurable attributes cause TAP and blaze `query` to overstate build
-    dependencies. So make sure your rules only include conditions you actually
-    use. For example, drop your Android dependencies if you know the Android
-    version of your library is no longer used. This stops low-level Android
-    changes from TAP-triggering Linux binaries. Or use
-    blaze `cquery` for properly resolved configurable attributes but a smaller
-    feature set.  [Details](#query).
-
-## FAQ {#faq}
-
-### Why doesn't select() work in Skylark? {#skylark-macros-select}
-go/skylark-macros-select
-
-select() *does* work in Skylark! See [Skylark compatibility](#skylark) for
+## <a name="macros-select"></a>Why doesn't select() work in macros?
+select() *does* work in rules! See [Rules compatibility](#rules) for
 details.
 
 The key issue this question usually means is that select() doesn't work in
-Skylark *macros*. These are different than Skylark *rules*. See the Skylark
-documentation on [rules](https://g3doc.corp.google.com/devtools/blaze/rules/g3doc/rules.md)
-and [macros](https://g3doc.corp.google.com/devtools/blaze/rules/g3doc/macros.md)
+*macros*. These are different than *rules*. See the
+documentation on [rules](skylark/rules.html) and [macros](skylark/macros.html)
 to understand the difference.
-
 Here's an end-to-end example:
 
-```
-# myproject/defs.bzl:
+Define a rule and macro:
+
+```python
+# myproject/defs.bzl
 
 # Rule implementation: when an attribute is read, all select()s have already
 # been resolved. So it looks like a plain old attribute just like any other.
 def _impl(ctx):
-  name = ctx.attr.name
-  allcaps = ctx.attr.my_config_string.upper()  # This works fine on all values.
-  print("My name is " + name + " with custom message: " + allcaps)
+    name = ctx.attr.name
+    allcaps = ctx.attr.my_config_string.upper()  # This works fine on all values.
+    print("My name is " + name + " with custom message: " + allcaps)
 
-# Skylark rule declaration:
-my_custom_blaze_rule = rule(
+# Rule declaration:
+my_custom_bazel_rule = rule(
     implementation = _impl,
-    attrs = {"my_config_string": attr.string()}
+    attrs = {"my_config_string": attr.string()},
 )
 
-# Skylark macro declaration:
-def my_custom_blaze_macro(name, my_config_string):
-  allcaps = my_config_string.upper() # This line won't work with select(s).
-  print("My name is " + name + " with custom message: " + allcaps)
-
-
+# Macro declaration:
+def my_custom_bazel_macro(name, my_config_string):
+    allcaps = my_config_string.upper()  # This line won't work with select(s).
+    print("My name is " + name + " with custom message: " + allcaps)
 ```
 
-```
-# myproject/BUILD:
-load("//myproject:defx.bzl", "my_custom_blaze_rule")
-load("//myproject:defs.bzl", "my_custom_blaze_macro")
+Instantiate the rule and macro:
 
-my_custom_blaze_rule(
+```python
+# myproject/BUILD
+
+load("//myproject:defs.bzl", "my_custom_bazel_rule")
+load("//myproject:defs.bzl", "my_custom_bazel_macro")
+
+my_custom_bazel_rule(
     name = "happy_rule",
     my_config_string = select({
-        "//tools/target_cpu:k8": "first string",
+        "//tools/target_cpu:x86": "first string",
         "//tools/target_cpu:ppc": "second string",
     }),
 )
 
-my_custom_blaze_macro(
+my_custom_bazel_macro(
     name = "happy_macro",
     my_config_string = "fixed string",
 )
 
-my_custom_blaze_macro(
+my_custom_bazel_macro(
     name = "sad_macro",
     my_config_string = select({
-        "//tools/target_cpu:k8": "first string",
+        "//tools/target_cpu:x86": "first string",
         "//tools/target_cpu:ppc": "other string",
     }),
 )
 ```
 
+Building fails because `sad_macro` can't process the `select()`:
+
 ```sh
-$ blaze build //myproject:all
-ERROR: /google/src/cloud/user/select/google3/myproject/BUILD:17:1: Traceback
+$ bazel build //myproject:all
+ERROR: /myworkspace/myproject/BUILD:17:1: Traceback
   (most recent call last):
-File "/google/src/cloud/user/select/google3/myproject/BUILD", line 17
-my_custom_blaze_macro(name = "sad_macro", my_config_stri..."}))
-File "/google/src/cloud/user/select/google3/myproject/defs.bzl", line 4, in
-  my_custom_blaze_macro
+File "/myworkspace/myproject/BUILD", line 17
+my_custom_bazel_macro(name = "sad_macro", my_config_stri..."}))
+File "/myworkspace/myproject/defs.bzl", line 4, in
+  my_custom_bazel_macro
 my_config_string.upper()
 type 'select' has no method upper().
 ERROR: error loading package 'myproject': Package 'myproject' contains errors.
 ```
 
+Building succeeds when we comment out `sad_macro`:
+
 ```sh
 # Comment out sad_macro so it doesn't mess up the build.
-$ blaze build //myproject:all
-DEBUG: /google/src/cloud/user/select/google3/myproject/defs.bzl:5:3: My name is
-  happy_macro with custom message: FIXED STRING.
-DEBUG: /google/src/cloud/user/select/google3/myproject/hi.bzl:15:3: My name is
-  happy_rule with custom message: FIRST STRING.
+$ bazel build //myproject:all
+DEBUG: /myworkspace/myproject/defs.bzl:5:3: My name is happy_macro with custom message: FIXED STRING.
+DEBUG: /myworkspace/myproject/hi.bzl:15:3: My name is happy_rule with custom message: FIRST STRING.
 ```
 
 This is impossible to change because *by definition* macros are evaluated before
-Blaze reads the build's command line flags. That means there isn't enough
+Bazel reads the build's command line flags. That means there isn't enough
 information to evaluate select()s.
 
-Macros can, however, pass select()s as opaque blobs to rules:
+Macros can, however, pass `select()`s as opaque blobs to rules:
 
-```
-# myproject/defs.bzl:
-def my_custom_blaze_macro(name, my_config_string):
-  print("Invoking macro " + name)
-  my_custom_blaze_rule(
-      name = name + "_as_rule",
-      my_config_string = my_config_string)
+```python
+# myproject/defs.bzl
+
+def my_custom_bazel_macro(name, my_config_string):
+    print("Invoking macro " + name)
+    my_custom_bazel_rule(
+        name = name + "_as_target",
+        my_config_string = my_config_string,
+    )
 ```
 
 ```sh
-$ blaze build //myproject:sad_macro_less_sad
-DEBUG: /google/src/cloud/user/select/google3/testapp/defs.bzl:23:3:
-  Invoking macro sad_macro.
-DEBUG: /google/src/cloud/uer/select/google3/testapp/defs.bzl:15:3: My name is
-  sad_macro_less_sad with custom message: FIRST STRING.
+$ bazel build //myproject:sad_macro_less_sad
+DEBUG: /myworkspace/myproject/defs.bzl:23:3: Invoking macro sad_macro_less_sad.
+DEBUG: /myworkspace/myproject/defs.bzl:15:3: My name is sad_macro_less_sad with custom message: FIRST STRING.
 ```
 
-### Why does select() always return true in Skylark? {#boolean-select}
-go/boolean-select
-
-Because Skylark *macros* (but not rules) by definition
-[can't evaluate select(s)](#skylark-macros-select), any attempt to do so
+## <a name="boolean-select"></a>Why does select() always return true?
+Because *macros* (but not rules) by definition
+[can't evaluate select(s)](#macros-select), any attempt to do so
 usually produces a an error:
 
 ```sh
-ERROR: /google/src/cloud/user/select/google3/myproject/BUILD:17:1: Traceback
+ERROR: /myworkspace/myproject/BUILD:17:1: Traceback
   (most recent call last):
-File "/google/src/cloud/user/select/google3/myproject/BUILD", line 17
-my_custom_blaze_macro(name = "sad_macro", my_config_stri..."}))
-File "/google/src/cloud/user/select/google3/myproject/defs.bzl", line 4, in
-  my_custom_blaze_macro
+File "/myworkspace/myproject/BUILD", line 17
+my_custom_bazel_macro(name = "sad_macro", my_config_stri..."}))
+File "/myworkspace/myproject/defs.bzl", line 4, in
+  my_custom_bazel_macro
 my_config_string.upper()
 type 'select' has no method upper().
 ```
@@ -786,51 +858,42 @@ type 'select' has no method upper().
 Booleans are a special case that fail silently, so you should be particularly
 vigilant with them:
 
-```
-$ cat myproject/defs.bzl:
+```sh
+$ cat myproject/defs.bzl
 def my_boolean_macro(boolval):
   print("TRUE" if boolval else "FALSE")
 
-$ cat myproject/BUILD:
-load("//myproject:defx.bzl", "my_boolean_macro")
+$ cat myproject/BUILD
+load("//myproject:defs.bzl", "my_boolean_macro")
 my_boolean_macro(
     boolval = select({
-        "//tools/target_cpu:k8": True,
+        "//tools/target_cpu:x86": True,
         "//tools/target_cpu:ppc": False,
     }),
 )
 
-$ blaze build //myproject:all --cpu=k8
-DEBUG: /google/src/cloud/user/select/google3/myproject/defs.bzl:4:3: TRUE.
-$ blaze build //myproject:all --cpu=ppc
-DEBUG: /google/src/cloud/user/select/google3/myproject/defs.bzl:4:3: TRUE.
+$ bazel build //myproject:all --cpu=x86
+DEBUG: /myworkspace/myproject/defs.bzl:4:3: TRUE.
+$ bazel build //myproject:all --cpu=ppc
+DEBUG: /myworkspace/myproject/defs.bzl:4:3: TRUE.
 ```
 
-This happens because Skylark macros don't understand the contents of select(),
-so what they're really evaluting is the select() object itself. According to
-[Pythonic](https://docs.python.org/release/2.5.2/lib/truth.html) and [Skylark]
-(https://b.corp.google.com/issues/28019197#comment12) design standards, all
-objects aside from a very small number of exceptions automatically return true.
+This happens because macros don't understand the contents of `select()`.
+So what they're really evaluting is the `select()` object itself. According to
+[Pythonic](https://docs.python.org/release/2.5.2/lib/truth.html) design
+standards, all objects aside from a very small number of exceptions
+automatically return true.
+## <a name="inspectable-select"></a>Can I read select() like a dict?
+Fine. Macros [can't](#macros-select) evaluate select(s) because
+macros are evaluated before Bazel knows what the command line flags are.
 
+Can macros at least read the `select()`'s dictionary, say, to add an extra
+suffix to each branch?
 
-### Can I read select() like a dict in Skylark?
-go/inspectable-select
-
-Fine. Skylark macros [can't](#skylark-macros-select) evaluate select(s) because
-macros are evaluated before Blaze knows what the command line flags are.
-
-Can macros at least read the select()'s dictionary, say, to add an extra suffix
-to each branch?
-
-Conceptually this is possible. But this isn't yet implemented and is not being
-prioritized. Ping b/34460584 if you'd like to request prioritization (state
-the impact as strongly as you can to help us calibrate). But keep in mind the
-Blaze team has to weigh this against other urgent priorities.
-
-Offers to help would be given enthusiastic attention.
-
+Conceptually this is possible. But this isn't yet implemented and is not
+currently prioritized.
 What you *can* do today is prepare a straight dictionary, then feed it into a
-select():
+`select()`:
 
 ```sh
 $ cat myproject/defs.bzl
@@ -849,30 +912,74 @@ $ cat myproject/BUILD
 selecty_genrule(
     name = "selecty",
     select_cmd = {
-        "//tools/target_cpu:k8": "k8 mode",
+        "//tools/target_cpu:x86": "x86 mode",
     },
 )
 
-$ blaze build //testapp:selecty --cpu=k8 && cat blaze-genfiles/testapp/selecty.out
-k8 mode WITH SUFFIX
+$ bazel build //testapp:selecty --cpu=x86 && cat bazel-genfiles/testapp/selecty.out
+x86 mode WITH SUFFIX
 ```
 
-If you'd like to support both select() and native types, you can do this:
+If you'd like to support both `select()` and native types, you can do this:
 
 ```sh
 $ cat myproject/defs.bzl
 def selecty_genrule(name, select_cmd):
-  cmd_suffix = ""
-  if type(select_cmd) == "string":
-    cmd_suffix = select_cmd + " WITH SUFFIX"
-  elif type(select_cmd) == "dict":
-    for key in select_cmd.keys():
-      select_cmd[key] += " WITH SUFFIX"
-    cmd_suffix = select(select_cmd + {"//conditions:default": "default"})
+    cmd_suffix = ""
+    if type(select_cmd) == "string":
+        cmd_suffix = select_cmd + " WITH SUFFIX"
+    elif type(select_cmd) == "dict":
+        for key in select_cmd.keys():
+            select_cmd[key] += " WITH SUFFIX"
+        cmd_suffix = select(select_cmd + {"//conditions:default": "default"})
 
-  native.genrule(
-      name = name,
-      outs = [name + ".out"],
-      srcs = [],
-      cmd = "echo " + cmd_suffix + "> $@")
+    native.genrule(
+        name = name,
+        outs = [name + ".out"],
+        srcs = [],
+        cmd = "echo " + cmd_suffix + "> $@",
+    )
 ```
+
+## <a name="bind-select"></a>Why doesn't select() work with bind()?
+
+Because [`bind()`](be/workspace.html#bind) is a WORKSPACE rule, not a BUILD rule.
+
+Workspace rules do not have a specific configuration, and aren't evaluated in
+the same way as BUILD rules. Therefore, a `select()` in a `bind()` can't
+actually evaluate to any specific branch.
+
+Instead, you should use [`alias()`](be/general.html#alias), with a `select()` in
+the `actual` attribute, to perform this type of run-time determination. This
+works correctly, since `alias()` is a BUILD rule, and is evaluated with a
+specific configuration.
+
+You can even have a `bind()` target point to an `alias()`, if needed.
+
+```sh
+$ cat WORKSPACE
+workspace(name = "myproject")
+bind(name = "openssl", actual = "//:ssl")
+http_archive(name = "alternative", ...)
+http_archive(name = "boringssl", ...)
+
+$ cat BUILD
+config_setting(
+    name = "alt_ssl",
+    define_values = {
+        "ssl_library": "alternative",
+    },
+)
+
+alias(
+    name = "ssl",
+    actual = select({
+        "//:alt_ssl": "@alternative//:ssl",
+        "//conditions:default": "@boringssl//:ssl",
+    }),
+)
+```
+
+With this setup, you can pass `--define ssl_library=alternative`, and any target
+that depends on either `//:ssl` or `//external:ssl` will see the alternative
+located at `@alternative//:ssl`.
