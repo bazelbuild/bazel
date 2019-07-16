@@ -97,7 +97,10 @@ cc_binary(
         "global_variables.cc",
         "global_variables.h",
         "main.cc",
-    ],
+    ] + select({
+        "//src/conditions:windows": ["resources.o"],
+        "//conditions:default": [],
+    }),
     copts = select({
         "//src/conditions:windows": ["/wd4018"],
         "//conditions:default": ["-Wno-sign-compare"],
@@ -133,10 +136,7 @@ cc_binary(
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
-    ] + select({
-        "//src/conditions:windows": ["//src/main/res:bazel-windows-icon"],
-        "//conditions:default": [],
-    }),
+    ],
 )
 
 cc_library(

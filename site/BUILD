@@ -14,7 +14,7 @@ exports_files(
     [
         "images/favicon.ico",
     ],
-    visibility = ["//src/main/res:__pkg__"],
+    visibility = ["//src/main/native/windows:__pkg__"],
 )
 
 DOT_GRAPH_HTML_FILES = [

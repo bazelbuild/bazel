@@ -1,11 +1,10 @@
 load(":win_res.bzl", "windows_resources")
 load(":winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 
-windows_resources(
-    name = "bazel-windows-icon",
-    rc_files = ["bazel-icon.rc"],
-    resources = ["//site:images/favicon.ico"],
-    visibility = ["//src/main/cpp:__pkg__"],
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
 )
 
 toolchain_type(

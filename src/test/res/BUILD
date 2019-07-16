@@ -1,6 +1,12 @@
 load("//src/main/res:win_res.bzl", "windows_resources")
 load("@bazel_tools//tools/build_rules:test_rules.bzl", "file_test")
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
+)
+
 cc_binary(
     name = "app",
     testonly = 1,
