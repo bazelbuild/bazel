@@ -10,13 +10,10 @@ filegroup(
 cc_binary(
     name = "app",
     testonly = 1,
-    srcs = select({
-        "//src/conditions:windows": [
-            "app.cc",
-            "app.h",
-        ],
-        "//conditions:default": ["empty.cc"],
-    }),
+    srcs = [
+        "app.cc",
+        "app.h",
+    ],
     linkopts = select({
         "//src/conditions:windows": ["-DEFAULTLIB:user32.lib"],
         "//conditions:default": [],
@@ -43,7 +40,7 @@ file_test(
     name = "res_test",
     content = select({
         "//src/conditions:windows": "l=12, p=(Hello string)",
-        "//conditions:default": "",
+        "//conditions:default": "not supported",
     }),
     file = ":run_app",
 )

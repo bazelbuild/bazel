@@ -12,15 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stdio.h>
+
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <stdio.h>
 #include "src/test/res/app.h"
+#endif  // _WIN32
 
 int main() {
+#ifdef _WIN32
   WCHAR p[100];
   memset(p, 0, sizeof(p));
 	int l = LoadStringW(GetModuleHandle(NULL), IDS_STRING, p, 100);
 	wprintf(L"l=%d, p=(%s)", l, p);
+#else  // not _WIN32
+  printf("not supported");
+#endif  // _WIN32
   return 0;
 }

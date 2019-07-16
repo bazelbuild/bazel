@@ -27,12 +27,8 @@ def _replace_ext(n, e):
     else:
         return n + e
 
-def _compile_rc(ctx, rc_file, extra_inputs):
+def _compile_rc(ctx, rc_exe, rc_file, extra_inputs):
     """Compiles a single RC file to RES."""
-    rc_toolchain = ctx.toolchains[WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE].win_rc_info
-    if not rc_toolchain.rc_exe:
-        fail("No suitable toolchain found for resource compiler.")
-
     out = ctx.actions.declare_file(_replace_ext(rc_file.basename, ".res"))
     args = ctx.actions.args()
     args.add("/nologo")
@@ -42,7 +38,7 @@ def _compile_rc(ctx, rc_file, extra_inputs):
     ctx.actions.run(
         inputs = [rc_file] + extra_inputs,
         outputs = [out],
-        executable = rc_toolchain.rc_exe,
+        executable = rc_exe,
         arguments = [args],
         mnemonic = "WindowsRc",
         progress_message = "Compiling resources {0} to {1}".format(
@@ -53,9 +49,13 @@ def _compile_rc(ctx, rc_file, extra_inputs):
     return out
 
 def _windows_resources_impl(ctx):
+    rc_toolchain = ctx.toolchains[WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE].win_rc_info
+    if not rc_toolchain.rc_exe:
+        return [CcInfo()]
+
     compiled_resources = [
-        _compile_rc(ctx, rc, ctx.files.resources)
-        for rc in ctx.files.rc_files
+        _compile_rc(ctx, rc_toolchain.rc_exe, rc_file, ctx.files.resources)
+        for rc_file in ctx.files.rc_files
     ]
     link_flags = [res.path for res in compiled_resources]
     linking_context = cc_common.create_linking_context(
