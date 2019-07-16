@@ -1,0 +1,6 @@
+Important changes:
+
+  - rule_test: fix Bazel 0.27 regression ("tags" attribute was
+    ingored, https://github.com/bazelbuild/bazel/issues/8723
+
+This release contains contributions from many people at Google, as well as .
