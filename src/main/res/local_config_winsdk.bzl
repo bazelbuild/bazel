@@ -18,10 +18,28 @@ load("//tools/cpp:cc_configure.bzl", "MSVC_ENVVARS")
 def _find_rc_exe(repository_ctx):
     vc = find_vc_path(repository_ctx)
     if vc:
-        env = setup_vc_env_vars(repository_ctx, vc, envvars = ["WindowsSdkVerBinPath"], escape = False)
+        env = setup_vc_env_vars(
+            repository_ctx,
+            vc,
+            envvars = [
+                "WindowsSdkDir",
+                "WindowsSdkVerBinPath",
+            ],
+            allow_empty = True,
+            escape = False,
+        )
+
+        # Try the versioned directory.
         sdk = env.get("WindowsSdkVerBinPath")
         if sdk:
             exe = repository_ctx.path(sdk).get_child("x64").get_child("rc.exe")
+            if exe.exists:
+                return str(exe)
+
+        # Try the unversioned directory (typically Windows 8.1 SDK).
+        sdk = env.get("WindowsSdkDir")
+        if sdk:
+            exe = repository_ctx.path(sdk).get_child("bin").get_child("x64").get_child("rc.exe")
             if exe.exists:
                 return str(exe)
     return ""
