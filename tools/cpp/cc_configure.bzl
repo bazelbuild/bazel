@@ -118,6 +118,22 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
     else:
         configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools)
 
+MSVC_ENVVARS = [
+    "BAZEL_VC",
+    "BAZEL_VC_FULL_VERSION",
+    "BAZEL_VS",
+    "BAZEL_WINSDK_FULL_VERSION",
+    "VS90COMNTOOLS",
+    "VS100COMNTOOLS",
+    "VS110COMNTOOLS",
+    "VS120COMNTOOLS",
+    "VS140COMNTOOLS",
+    "VS150COMNTOOLS",
+    "VS160COMNTOOLS",
+    "TMP",
+    "TEMP",
+]
+
 cc_autoconf = repository_rule(
     environ = [
         "ABI_LIBC_VERSION",
@@ -136,10 +152,6 @@ cc_autoconf = repository_rule(
         "BAZEL_USE_XCODE_TOOLCHAIN",
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
         "BAZEL_USE_LLVM_NATIVE_COVERAGE",
-        "BAZEL_VC",
-        "BAZEL_VC_FULL_VERSION",
-        "BAZEL_VS",
-        "BAZEL_WINSDK_FULL_VERSION",
         "BAZEL_LLVM",
         "USE_CLANG_CL",
         "CC",
@@ -149,16 +161,7 @@ cc_autoconf = repository_rule(
         "GCOV",
         "HOMEBREW_RUBY_PATH",
         "SYSTEMROOT",
-        "VS90COMNTOOLS",
-        "VS100COMNTOOLS",
-        "VS110COMNTOOLS",
-        "VS120COMNTOOLS",
-        "VS140COMNTOOLS",
-        "VS150COMNTOOLS",
-        "VS160COMNTOOLS",
-        "TMP",
-        "TEMP",
-    ],
+    ] + MSVC_ENVVARS,
     implementation = cc_autoconf_impl,
 )
 
