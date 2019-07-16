@@ -254,8 +254,22 @@ def _is_support_winsdk_selection(repository_ctx, vc_path):
             return True
     return False
 
-def setup_vc_env_vars(repository_ctx, vc_path):
-    """Get environment variables set by VCVARSALL.BAT script. Doesn't %-escape the result!"""
+def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False, escape = True):
+    """Get environment variables set by VCVARSALL.BAT script. Doesn't %-escape the result!
+
+    Args:
+        repository_ctx: the repository_ctx object
+        vc_path: Visual C++ root directory
+        envvars: list of envvars to retrieve; default is ["PATH", "INCLUDE", "LIB", "WINDOWSSDKDIR"]
+        allow_empty: allow unset envvars; if False then report errors for those
+        escape: if True, escape "\" as "\\" and "%" as "%%" in the envvar values
+
+    Returns:
+        dictionary of the envvars
+    """
+    if not envvars:
+        envvars = ["PATH", "INCLUDE", "LIB", "WINDOWSSDKDIR"]
+
     vcvars_script = _find_vcvars_bat_script(repository_ctx, vc_path)
     if not vcvars_script:
         auto_configure_fail("Cannot find VCVARSALL.BAT script under %s" % vc_path)
@@ -277,28 +291,25 @@ def setup_vc_env_vars(repository_ctx, vc_path):
             vcvars_ver = "-vcvars_ver=" + full_version
 
     cmd = "\"%s\" amd64 %s %s" % (vcvars_script, winsdk_version, vcvars_ver)
+    print_envvars = ",".join(["{k}=%{k}%".format(k = k) for k in envvars])
     repository_ctx.file(
         "get_env.bat",
         "@echo off\n" +
-        ("call %s > NUL \n" % cmd) +
-        "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB%,WINDOWSSDKDIR=%WINDOWSSDKDIR% \n",
+        ("call %s > NUL \n" % cmd) + ("echo %s \n" % print_envvars),
         True,
     )
-    env = _add_system_root(
-        repository_ctx,
-        {"PATH": "", "INCLUDE": "", "LIB": "", "WINDOWSSDKDIR": ""},
-    )
+    env = _add_system_root(repository_ctx, {k: "" for k in envvars})
     envs = execute(repository_ctx, ["./get_env.bat"], environment = env).split(",")
     env_map = {}
     for env in envs:
         key, value = env.split("=", 1)
-        env_map[key] = escape_string(value.replace("\\", "\\\\"))
-    _check_env_vars(env_map, cmd)
+        env_map[key] = escape_string(value.replace("\\", "\\\\")) if escape else value
+    if not allow_empty:
+        _check_env_vars(env_map, cmd, expected = envvars)
     return env_map
 
-def _check_env_vars(env_map, cmd):
-    envs = ["PATH", "INCLUDE", "LIB", "WINDOWSSDKDIR"]
-    for env in envs:
+def _check_env_vars(env_map, cmd, expected):
+    for env in expected:
         if not env_map.get(env):
             auto_configure_fail(
                 "Setting up VC environment variables failed, %s is not set by the following command:\n    %s" % (env, cmd),
