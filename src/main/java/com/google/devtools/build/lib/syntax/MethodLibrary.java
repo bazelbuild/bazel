@@ -104,22 +104,6 @@ public class MethodLibrary {
     }
   }
 
-  private static Object evalKeyFunc(
-      Object obj, Object key, Location loc, Environment env, FuncallExpression ast)
-      throws EvalException, InterruptedException {
-    checkValidKeyFunc(key, loc);
-    return ((StarlarkFunction) key)
-        .call(Collections.singletonList(obj), Collections.emptyMap(), ast, env);
-  }
-
-  private static void checkValidKeyFunc(Object key, Location loc) throws EvalException {
-    if (key instanceof StarlarkFunction) {
-      return;
-    }
-    throw new EvalException(
-        loc, Printer.format("%r object is not callable", EvalUtils.getDataTypeName(key)));
-  }
-
   @SkylarkCallable(
       name = "all",
       doc =
@@ -218,9 +202,8 @@ public class MethodLibrary {
       } catch (EvalUtils.ComparisonException e) {
         throw new EvalException(loc, e);
       }
-    } else {
-      checkValidKeyFunc(key, loc);
-
+    } else if (key instanceof StarlarkFunction) {
+      final StarlarkFunction keyfn = (StarlarkFunction) key;
       final FuncallExpression ast = new FuncallExpression(Identifier.of(""), ImmutableList.of());
 
       class KeyComparator implements Comparator<Object> {
@@ -229,14 +212,17 @@ public class MethodLibrary {
         @Override
         public int compare(Object x, Object y) {
           try {
-            return EvalUtils.SKYLARK_COMPARATOR.compare(
-                evalKeyFunc(x, key, loc, env, ast), evalKeyFunc(y, key, loc, env, ast));
+            return EvalUtils.SKYLARK_COMPARATOR.compare(callKeyFunc(x), callKeyFunc(y));
           } catch (InterruptedException | EvalException e) {
             if (this.e == null) {
               this.e = e;
             }
             return 0;
           }
+        }
+
+        Object callKeyFunc(Object x) throws EvalException, InterruptedException {
+          return keyfn.call(Collections.singletonList(x), ImmutableMap.of(), ast, env);
         }
       }
 
@@ -253,6 +239,9 @@ public class MethodLibrary {
         }
         throw (EvalException) comp.e;
       }
+    } else {
+      throw new EvalException(
+          loc, Printer.format("%r object is not callable", EvalUtils.getDataTypeName(key)));
     }
 
     if (reverse) {
