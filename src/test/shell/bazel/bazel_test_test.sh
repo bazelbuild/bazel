@@ -144,6 +144,50 @@ EOF
   expect_log "ws: bar$"
 }
 
+function test_run_under_external_label_with_options() {
+  mkdir -p testing run || fail "mkdir testing run failed"
+  cat <<EOF > run/BUILD
+sh_binary(
+  name='under', srcs=['under.sh'],
+  visibility=["//visibility:public"],
+)
+EOF
+
+touch run/WORKSPACE
+
+  cat <<EOF > run/under.sh
+#!/bin/sh
+echo running under @run//:under "\$*"
+EOF
+  chmod u+x run/under.sh
+
+  cat <<EOF > testing/passing_test.sh
+#!/bin/sh
+exit 0
+EOF
+  chmod u+x testing/passing_test.sh
+
+  cat <<EOF > testing/BUILD
+sh_test(
+  name = "passing_test" ,
+  srcs = [ "passing_test.sh" ])
+EOF
+
+  cat <<EOF > WORKSPACE
+local_repository(
+    name = "run",
+    path = "./run",
+)
+EOF
+
+  bazel test //testing:passing_test --run_under='@run//:under -c' \
+    --test_output=all >& $TEST_log || fail "Expected success"
+
+  expect_log 'running under @run//:under -c testing/passing_test'
+  expect_log 'passing_test *PASSED'
+  expect_log '1 test passes.$'
+}
+
 function test_run_under_label_with_options() {
   mkdir -p testing run || fail "mkdir testing run failed"
   cat <<EOF > run/BUILD
