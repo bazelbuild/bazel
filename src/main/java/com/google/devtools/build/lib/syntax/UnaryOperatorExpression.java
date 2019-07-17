@@ -71,24 +71,25 @@ public final class UnaryOperatorExpression extends Expression {
             throw new EvalException(loc, e.getMessage());
           }
         }
+        break;
 
       case PLUS:
         if (value instanceof Integer) {
           return value;
         }
+        break;
 
       case TILDE:
         if (value instanceof Integer) {
           return ~((Integer) value);
         }
-
-      default:
-        throw new EvalException(
-          loc,
-          String.format(
-            "unsupported unary operation: %s'%s'",
-            op, EvalUtils.getDataTypeName(value)));
+        break;
     }
+    throw new EvalException(
+        loc,
+        String.format(
+            "unsupported unary operation: %s%s",
+            op, EvalUtils.getDataTypeName(value)));
   }
 
   @Override
