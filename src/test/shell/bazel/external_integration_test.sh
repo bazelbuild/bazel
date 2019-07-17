@@ -421,6 +421,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
     urls = ['http://127.0.0.1:$nc_port/toto'],
+    sha256 = "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
 )
 EOF
   date
