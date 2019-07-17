@@ -60,6 +60,7 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP(StarlarkSemantics::incompatibleObjcFrameworkCleanup),
     INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(
         StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
+    INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::incompatibleAllowTagsPropagation),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -210,6 +211,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowDictLookupUnhashableKeys();
 
+  public abstract boolean incompatibleAllowTagsPropagation();
+
   @Memoized
   @Override
   public abstract int hashCode();
@@ -287,6 +290,7 @@ public abstract class StarlarkSemantics {
           .incompatibleRestrictStringEscapes(false)
           .incompatibleDisallowSplitEmptySeparator(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
+          .incompatibleAllowTagsPropagation(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -311,6 +315,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
     public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
+
+    public abstract Builder incompatibleAllowTagsPropagation(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
