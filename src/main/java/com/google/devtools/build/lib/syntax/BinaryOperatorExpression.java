@@ -190,16 +190,16 @@ public final class BinaryOperatorExpression extends Expression {
           return pipe(x, y, env, location);
 
         case AMPERSAND:
-          return (Integer) x & (Integer) y;
+          return and(x, y, location);
 
         case CARET:
-          return (Integer) x ^ (Integer) y;
+          return xor(x, y, location);
 
         case GREATER_GREATER:
-          return (Integer) x >> (Integer) y;
+          return rightShift(x, y, location);
 
         case LESS_LESS:
-          return (Integer) x << (Integer) y;
+          return leftShift(x, y, location);
 
         case MINUS:
           return minus(x, y, location);
@@ -459,6 +459,50 @@ public final class BinaryOperatorExpression extends Expression {
       }
     }
     throw typeException(x, y, TokenKind.PERCENT, location);
+  }
+
+  /** Implements 'x & y'. */
+  private static Object and(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      return (Integer) x & (Integer) y;
+    }
+    throw typeException(x, y, TokenKind.AMPERSAND, location);
+  }
+
+  /** Implements 'x ^ y'. */
+  private static Object xor(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      return (Integer) x ^ (Integer) y;
+    }
+    throw typeException(x, y, TokenKind.CARET, location);
+  }
+
+  /** Implements 'x >> y'. */
+  private static Object rightShift(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      if ((Integer) y < 0) {
+        throw new EvalException(location, "negative shift count: " + y);
+      } else if ((Integer) y >= Integer.SIZE) {
+        return ((Integer) x < 0) ? -1 : 0;
+      }
+      return (Integer) x >> (Integer) y;
+    }
+    throw typeException(x, y, TokenKind.GREATER_GREATER, location);
+  }
+
+  /** Implements 'x << y'. */
+  private static Object leftShift(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      if ((Integer) y < 0) {
+        throw new EvalException(location, "negative shift count: " + y);
+      }
+      Integer result = (Integer) x << (Integer) y;
+      if (!rightShift(result, y, location).equals(x)) {
+        throw new ArithmeticException("integer overflow");
+      }
+      return result;
+    }
+    throw typeException(x, y, TokenKind.LESS_LESS, location);
   }
 
   /** Throws an exception signifying incorrect types for the given operator. */

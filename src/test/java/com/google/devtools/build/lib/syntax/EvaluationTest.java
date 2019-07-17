@@ -62,7 +62,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("8 % 3", 2)
         .testIfErrorContains("unsupported operand type(s) for %: 'int' and 'string'", "3 % 'foo'")
         .testStatement("-5", -5)
-        .testIfErrorContains("unsupported operand type for -: 'string'", "-'foo'");
+        .testIfErrorContains("unsupported unary operation: -'string'", "-'foo'");
   }
 
   @Test
@@ -214,31 +214,6 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testBitwiseOperations() throws Exception {
-    newTest()
-        .testStatement("-6 ^ 0", -6)
-        .testStatement("6 ^ 6", 0)
-        .testStatement("1 ^ 6", 7)
-        .testStatement("7 & 0", 0)
-        .testStatement("7 & 7", 7)
-        .testStatement("7 & 2", 2)
-        .testStatement("7 | 0", 7)
-        .testStatement("7 | 7", 7)
-        .testStatement("5 | 2", 7)
-        .testStatement("2 >> 1", 1)
-        .testStatement("7 >> 1", 3)
-        .testStatement("7 >> 0", 7)
-        .testStatement("0 >> 0", 0)
-        .testStatement("2 << 1", 4)
-        .testStatement("7 << 1", 14)
-        .testStatement("7 << 0", 7)
-        .testStatement("2147483647 << 2147483647", -2147483648)
-        .testStatement("~6", -7)
-        .testStatement("~0", -1)
-        .testStatement("~2147483647", -2147483648);
-  }
-
-  @Test
   public void testCheckedArithmetic() throws Exception {
     new SkylarkTest()
         .testIfErrorContains("integer overflow", "2000000000 + 2000000000")
@@ -255,9 +230,7 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest()
         .testStatement("2 + 3 * 4", 14)
         .testStatement("2 + 3 // 4", 2)
-        .testStatement("2 * 3 + 4 // -2", 4)
-        .testStatement("8 | 3 ^ 4 & -2", 15)
-        .testStatement("~8 >> 1 | 3 ^ 4 & -2 << 2 * 3 + 4 // -2", -5);
+        .testStatement("2 * 3 + 4 // -2", 4);
   }
 
   @Test

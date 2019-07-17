@@ -63,29 +63,26 @@ public final class UnaryOperatorExpression extends Expression {
         return !EvalUtils.toBoolean(value);
 
       case MINUS:
-        if (!(value instanceof Integer)) {
-          throw new EvalException(
-              loc,
-              String.format(
-                  "unsupported operand type for -: '%s'", EvalUtils.getDataTypeName(value)));
+        if (value instanceof Integer) {
+          try {
+            return Math.negateExact((Integer) value);
+          } catch (ArithmeticException e) {
+            // Fails for -MIN_INT.
+            throw new EvalException(loc, e.getMessage());
+          }
         }
-        try {
-          return Math.negateExact((Integer) value);
-        } catch (ArithmeticException e) {
-          // Fails for -MIN_INT.
-          throw new EvalException(loc, e.getMessage());
-        }
+
       case TILDE:
-        if (!(value instanceof Integer)) {
-          throw new EvalException(
-              loc,
-              String.format(
-                  "unsupported operand type for ~: '%s'", EvalUtils.getDataTypeName(value)));
+        if (value instanceof Integer) {
+          return ~((Integer) value);
         }
-        return ~((Integer) value);
 
       default:
-        throw new AssertionError("Unsupported unary operator: " + op);
+        throw new EvalException(
+          loc,
+          String.format(
+            "unsupported unary operation: %s'%s'",
+            op, EvalUtils.getDataTypeName(value)));
     }
   }
 
