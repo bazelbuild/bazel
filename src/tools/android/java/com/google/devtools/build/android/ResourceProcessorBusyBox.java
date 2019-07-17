@@ -78,12 +78,6 @@ public class ResourceProcessorBusyBox {
         RClassGeneratorAction.main(args);
       }
     },
-    GENERATE_LIBRARY_R() {
-      @Override
-      void call(String[] args) throws Exception {
-        LibraryRClassGeneratorAction.main(args);
-      }
-    },
     GENERATE_ROBOLECTRIC_R() {
       @Override
       void call(String[] args) throws Exception {
@@ -187,7 +181,7 @@ public class ResourceProcessorBusyBox {
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "The processing tool to execute. "
-                + "Valid tools: PACKAGE, VALIDATE, GENERATE_BINARY_R, GENERATE_LIBRARY_R, PARSE, "
+                + "Valid tools: PACKAGE, VALIDATE, GENERATE_BINARY_R, PARSE, "
                 + "MERGE, GENERATE_AAR, SHRINK, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
                 + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2, MERGE_COMPILED.")
     public Tool tool;
