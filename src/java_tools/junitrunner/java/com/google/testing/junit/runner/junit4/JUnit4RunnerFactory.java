@@ -17,9 +17,9 @@ package com.google.testing.junit.runner.junit4;
 import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Supplier;
 import java.io.PrintStream;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.junit.runner.Request;
 import org.junit.runner.notification.RunListener;
 

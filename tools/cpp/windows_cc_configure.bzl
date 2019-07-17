@@ -241,6 +241,12 @@ def _find_vcvars_bat_script(repository_ctx, vc_path):
 
     return vcvars_script
 
+def _is_support_vcvars_ver(vc_full_version):
+    """-vcvars_ver option is supported from version 14.11.25503 (VS 2017 version 15.3)."""
+    version = [int(i) for i in vc_full_version.split(".")]
+    min_version = [14, 11, 25503]
+    return version >= min_version
+
 def _is_support_winsdk_selection(repository_ctx, vc_path):
     """Windows SDK selection is supported with VC 2017 / 2019 or with full VS 2015 installation."""
     if _is_vs_2017_or_2019(vc_path):
@@ -287,7 +293,10 @@ def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False
     vcvars_ver = ""
     if _is_vs_2017_or_2019(vc_path):
         full_version = _get_vc_full_version(repository_ctx, vc_path)
-        if full_version:
+
+        # Because VCVARSALL.BAT is from the latest VC installed, so we check if the latest
+        # version supports -vcvars_ver or not.
+        if _is_support_vcvars_ver(_get_latest_subversion(repository_ctx, vc_path)):
             vcvars_ver = "-vcvars_ver=" + full_version
 
     cmd = "\"%s\" amd64 %s %s" % (vcvars_script, winsdk_version, vcvars_ver)

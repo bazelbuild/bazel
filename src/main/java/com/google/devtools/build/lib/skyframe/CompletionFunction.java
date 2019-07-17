@@ -39,14 +39,17 @@ import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifa
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -322,21 +325,27 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
   }
 
-  public static SkyFunction targetCompletionFunction(PathResolverFactory pathResolverFactory) {
-    return new CompletionFunction<>(pathResolverFactory, new TargetCompletor());
+  public static SkyFunction targetCompletionFunction(
+      PathResolverFactory pathResolverFactory, Supplier<Path> execRootSupplier) {
+    return new CompletionFunction<>(pathResolverFactory, new TargetCompletor(), execRootSupplier);
   }
 
-  public static SkyFunction aspectCompletionFunction(PathResolverFactory pathResolverFactory) {
-    return new CompletionFunction<>(pathResolverFactory, new AspectCompletor());
+  public static SkyFunction aspectCompletionFunction(
+      PathResolverFactory pathResolverFactory, Supplier<Path> execRootSupplier) {
+    return new CompletionFunction<>(pathResolverFactory, new AspectCompletor(), execRootSupplier);
   }
 
   private final PathResolverFactory pathResolverFactory;
   private final Completor<TValue, TResult> completor;
+  private final Supplier<Path> execRootSupplier;
 
   private CompletionFunction(
-      PathResolverFactory pathResolverFactory, Completor<TValue, TResult> completor) {
+      PathResolverFactory pathResolverFactory,
+      Completor<TValue, TResult> completor,
+      Supplier<Path> execRootSupplier) {
     this.pathResolverFactory = pathResolverFactory;
     this.completor = completor;
+    this.execRootSupplier = execRootSupplier;
   }
 
   @Nullable
@@ -431,13 +440,20 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       return null;
     }
 
-    CompletionContext ctx =
-        CompletionContext.create(
-            expandedArtifacts,
-            expandedFilesets,
-            inputMap,
-            pathResolverFactory,
-            workspaceNameValue.getName());
+    final CompletionContext ctx;
+    try {
+      ctx =
+          CompletionContext.create(
+              expandedArtifacts,
+              expandedFilesets,
+              topLevelContext.expandFilesets(),
+              inputMap,
+              pathResolverFactory,
+              execRootSupplier.get(),
+              workspaceNameValue.getName());
+    } catch (IOException e) {
+      throw new CompletionFunctionException(e);
+    }
 
     ExtendedEventHandler.Postable postable =
         completor.createSucceeded(skyKey, value, ctx, topLevelContext, env);
@@ -463,6 +479,11 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
 
     public CompletionFunctionException(MissingInputFileException e) {
+      super(e, Transience.TRANSIENT);
+      this.actionException = null;
+    }
+
+    public CompletionFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);
       this.actionException = null;
     }

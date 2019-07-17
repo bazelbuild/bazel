@@ -4492,7 +4492,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     List<String> resourceMergingArgs =
         getGeneratingSpawnActionArgs(getValidatedResources(b).getJavaClassJar());
 
-    assertThat(resourceMergingArgs).contains("MERGE");
+    assertThat(resourceMergingArgs).contains("MERGE_COMPILED");
   }
 
   @Test
