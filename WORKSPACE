@@ -125,6 +125,8 @@ distdir_tar(
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
         # bazelbuild/bazel-toolchains
         "0.27.1.tar.gz",
+	# bazelbuild/rules_pkg
+	"rules_pkg-0.2.0.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -146,6 +148,8 @@ distdir_tar(
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
         # bazelbuild/bazel-toolchains
         "0.27.1.tar.gz": "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
+	# bazelbuild/rules_pkg
+	"rules_pkg-0.2.0.tar.gz": "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -202,6 +206,11 @@ distdir_tar(
         "0.27.1.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
             "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
+        ],
+        # bazelbuild/rules_pkg
+        "rules_pkg-0.2.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
         ],
     },
 )
@@ -640,3 +649,15 @@ load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 sass_repositories()
 
 register_execution_platforms("//:default_host_platform")  # buildozer: disable=positional-args
+
+# Tools for building deb, rpm and tar files.
+http_archive(
+    name = "rules_pkg",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
+    ],
+    sha256 = "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
+)
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+rules_pkg_dependencies()
