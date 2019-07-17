@@ -310,7 +310,8 @@ function test_jar_download() {
 
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
-http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar')
+http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar',
+         sha256='$sha256')
 EOF
 
   mkdir -p zoo
@@ -850,6 +851,7 @@ function test_flip_flopping() {
   create_workspace_with_default_repos WORKSPACE
   touch BUILD foo
   zip -r repo.zip *
+  sha256=$(sha256sum repo.zip | head -c 64)
   startup_server $PWD
   # Make the remote repo and local repo slightly different.
   rm foo
@@ -867,6 +869,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     url = "http://127.0.0.1:$fileserver_port/repo.zip",
+    sha256 = "$sha256",
 )
 EOF
   external_dir=$(bazel info output_base)/external
