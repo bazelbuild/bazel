@@ -573,25 +573,25 @@ http_archive(
 
 http_archive(
     name = "java_tools_langtools_javac9",
-    sha256 = "3b6bbc47256acf2f61883901e2d4e3f9b292f5fe154a6912b928805de24cb864",
+    sha256 = "d94befcfb325a9a62aebc2052e631fde2322b4df5c82a19ed260b38ba12a0ad1",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk9.zip",
+        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk9_v2.zip",
     ],
 )
 
 http_archive(
     name = "java_tools_langtools_javac10",
-    sha256 = "e379c71e051eb83e3fc9a08c9b404712707d8920ffcf1e8fd59c844965f0b0dd",
+    sha256 = "0e9c9ac5ef17869de3cb8c3497c4c0d31836ef7b63efe1690506f53783adb212",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk10.zip",
+        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk10_v2.zip",
     ],
 )
 
 http_archive(
     name = "java_tools_langtools_javac11",
-    sha256 = "128a63f39d3f828a761f6afcfe3c6115279336a72ea77f60d7b3acf1841c9acb",
+    sha256 = "cf0814fa002ef3d794582bb086516d8c9ed0958f83f19799cdb08949019fe4c7",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk11.zip",
+        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk11_v2.zip",
     ],
 )
 
