@@ -241,13 +241,15 @@ std::string GetUserName();
 // Returns true iff the current terminal is running inside an Emacs.
 bool IsEmacsTerminal();
 
-// Returns true if stderr is connected to a terminal that can support color
-// and cursor movement.
-bool IsStderrStandardTerminal();
+// Returns true iff both stdout and stderr support color and cursor movement.
+// This is used to determine whether or not to use stylized output, which relies
+// on both stdout and stderr being standard terminals to avoid confusing UI
+// issues (ie one stream deleting a line the other intended to be displayed).
+bool IsStandardTerminal();
 
-// Returns the number of columns of the terminal to which stderr is
-// connected, or 80 if there is no such terminal.
-int GetStderrTerminalColumns();
+// Returns the number of columns of the terminal to which stdout is connected,
+// or 80 if there is no such terminal.
+int GetTerminalColumns();
 
 // Gets the system-wide explicit limit for the given resource.
 //

@@ -713,11 +713,7 @@ bool IsEmacsTerminal() {
   return emacs == "t" || ExistsEnv("INSIDE_EMACS");
 }
 
-// Returns true if stderr is connected to a terminal, and it can support color
-// and cursor movement (this is computed heuristically based on the values of
-// environment variables).  The only file handle into which Blaze outputs
-// control characters is stderr, so we only care for the stderr descriptor type.
-bool IsStderrStandardTerminal() {
+bool IsStandardTerminal() {
   string term = GetEnv("TERM");
   bool isEmacs = IsEmacsTerminal();
 
@@ -732,16 +728,12 @@ bool IsStderrStandardTerminal() {
       isEmacs) {
     return false;
   }
-  return isatty(STDERR_FILENO);
+  return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
 }
 
-// Returns the number of columns of the terminal to which stderr is connected,
-// or $COLUMNS (default 80) if there is no such terminal.  The only file handle
-// into which Blaze outputs formatted messages is stderr, so we only care for
-// width of a terminal connected to the stderr descriptor.
-int GetStderrTerminalColumns() {
+int GetTerminalColumns() {
   struct winsize ws;
-  if (ioctl(STDERR_FILENO, TIOCGWINSZ, &ws) != -1) {
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
     return ws.ws_col;
   }
   string columns_env = GetEnv("COLUMNS");
