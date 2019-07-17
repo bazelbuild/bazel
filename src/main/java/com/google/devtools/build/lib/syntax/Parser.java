@@ -681,6 +681,13 @@ public class Parser {
           UnaryOperatorExpression minus = new UnaryOperatorExpression(TokenKind.MINUS, expr);
           return setLocation(minus, start, expr);
         }
+      case PLUS:
+        {
+          nextToken();
+          Expression expr = parsePrimaryWithSuffix();
+          UnaryOperatorExpression plus = new UnaryOperatorExpression(TokenKind.PLUS, expr);
+          return setLocation(plus, start, expr);
+        }
       case TILDE:
         {
           nextToken();

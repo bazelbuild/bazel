@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
@@ -138,6 +139,7 @@ public class BlazeRuntimeWrapper {
         new HashSet<>(
             ImmutableList.of(
                 BuildRequestOptions.class,
+                BuildEventProtocolOptions.class,
                 ExecutionOptions.class,
                 LocalExecutionOptions.class,
                 CommonCommandOptions.class,

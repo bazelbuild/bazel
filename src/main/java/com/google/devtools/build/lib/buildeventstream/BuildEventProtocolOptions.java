@@ -40,4 +40,12 @@ public class BuildEventProtocolOptions extends OptionsBase {
     help = "Selects how to upload artifacts referenced in the build event protocol."
   )
   public String buildEventUploadStrategy;
+
+  @Option(
+      name = "experimental_build_event_expand_filesets",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "If true, expand Filesets in the BEP when presenting output files.")
+  public boolean expandFilesets;
 }

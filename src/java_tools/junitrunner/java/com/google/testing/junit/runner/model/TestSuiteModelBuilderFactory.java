@@ -17,8 +17,8 @@ package com.google.testing.junit.runner.model;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Supplier;
 import com.google.testing.junit.runner.util.TestClock;
+import java.util.function.Supplier;
 
 /**
  * A factory that supplies a top level suite {@link TestSuiteModel.Builder}.

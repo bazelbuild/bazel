@@ -1233,6 +1233,67 @@ EOF
   expect_log "non_existing = False,False"
 }
 
+function test_configure_like_repos() {
+  cat > repos.bzl <<'EOF'
+def _impl(ctx):
+  print("Executing %s" % (ctx.attr.name,))
+  ref = ctx.path(ctx.attr.reference)
+  # Here we explicitly copy a file where we constructed the name
+  # completely outside any build interfaces, so it is not registered
+  # as a dependency of the external repository.
+  ctx.execute(["cp", "%s.shadow" % (ref,), ctx.path("it.txt")])
+  ctx.file("BUILD", "exports_files(['it.txt'])")
+
+source = repository_rule(
+ implementation = _impl,
+ attrs = {"reference" : attr.label()},
+)
+
+configure = repository_rule(
+ implementation = _impl,
+ attrs = {"reference" : attr.label()},
+ configure = True,
+)
+
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:repos.bzl", "configure", "source")
+
+configure(name="configure", reference="@//:reference.txt")
+source(name="source", reference="@//:reference.txt")
+EOF
+  cat > BUILD <<'EOF'
+[ genrule(
+    name = name,
+    srcs = ["@%s//:it.txt" % (name,)],
+    outs = ["%s.txt" % (name,)],
+    cmd = "cp $< $@",
+  ) for name in ["source", "configure"] ]
+EOF
+  echo "Just to get the path" > reference.txt
+  echo "initial" > reference.txt.shadow
+
+  bazel build //:source //:configure
+  grep 'initial' `bazel info bazel-genfiles`/source.txt \
+       || fail '//:source not generated properly'
+  grep 'initial' `bazel info bazel-genfiles`/configure.txt \
+       || fail '//:configure not generated properly'
+
+  echo "new value" > reference.txt.shadow
+  bazel sync --configure --experimental_repository_resolved_file=resolved.bzl \
+        2>&1 || fail "Expected sync --configure to succeed"
+  grep -q 'name.*configure' resolved.bzl \
+      || fail "Expected 'configure' to be synced"
+  grep -q 'name.*source' resolved.bzl \
+      && fail "Expected 'source' not to be synced" || :
+
+  bazel build //:source //:configure
+  grep -q 'initial' `bazel info bazel-genfiles`/source.txt \
+       || fail '//:source did not keep its old value'
+  grep -q 'new value' `bazel info bazel-genfiles`/configure.txt \
+       || fail '//:configure not synced properly'
+}
+
 
 function test_timeout_tunable() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'

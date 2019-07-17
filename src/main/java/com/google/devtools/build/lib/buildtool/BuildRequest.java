@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -293,6 +294,7 @@ public class BuildRequest implements OptionsProvider {
   public TopLevelArtifactContext getTopLevelArtifactContext() {
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
+        getOptions(BuildEventProtocolOptions.class).expandFilesets,
         OutputGroupInfo.determineOutputGroups(getBuildOptions().outputGroups));
   }
 

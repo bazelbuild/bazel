@@ -813,6 +813,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         help =
             "Skips resource parsing action for library targets"
                 + " and uses the output of the compile action instead for resource merging.")
+    // TODO(b/136572475): Remove this flag once the usage has been removed from blazerc files.
     public boolean skipParsingAction;
 
     @Option(
@@ -1073,7 +1074,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean useAapt2ForRobolectric;
   private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
-  private final boolean skipParsingAction;
   private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
   private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
@@ -1122,7 +1122,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.useAapt2ForRobolectric = options.useAapt2ForRobolectric;
     this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
-    this.skipParsingAction = options.skipParsingAction;
     this.omitResourcesInfoProviderFromAndroidBinary =
         options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
@@ -1340,11 +1339,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean throwOnResourceConflict() {
     return throwOnResourceConflict;
-  }
-
-  @Override
-  public boolean skipParsingAction() {
-    return this.skipParsingAction;
   }
 
   @Override

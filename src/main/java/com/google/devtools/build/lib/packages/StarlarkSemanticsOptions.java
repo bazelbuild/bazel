@@ -177,6 +177,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleBzlDisallowLoadAfterStatement;
 
   @Option(
+      name = "incompatible_allow_tags_propagation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, tags will be propagated from a target to the actions' execution"
+              + " requirements; otherwise tags are not propagated. See"
+              + " https://github.com/bazelbuild/bazel/issues/8830 for details.")
+  public boolean incompatibleAllowTagsPropagation;
+
+  @Option(
       name = "incompatible_depset_union",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -697,6 +712,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisallowSplitEmptySeparator(incompatibleDisallowSplitEmptySeparator)
             .incompatibleDisallowDictLookupUnhashableKeys(
                 incompatibleDisallowDictLookupUnhashableKeys)
+            .incompatibleAllowTagsPropagation(incompatibleAllowTagsPropagation)
             .build();
     return INTERNER.intern(semantics);
   }

@@ -180,13 +180,7 @@ def read_netrc(ctx, filename):
       dict mapping a machine names to a dict with the information provided
       about them
     """
-
-    # We have to first symlink into the current repository, as ctx.read only
-    # allows read from the output directory. Alternatively, we could use
-    # ctx.execute() to call cat(1).
-    ctx.symlink(filename, ".netrc")
-    contents = ctx.read(".netrc")
-    ctx.delete(".netrc")
+    contents = ctx.read(filename)
 
     # Parse the file. This is mainly a token-based update of a simple state
     # machine, but we need to keep the line structure to correctly determine

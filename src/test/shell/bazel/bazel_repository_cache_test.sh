@@ -300,7 +300,14 @@ EOF
 
   # Fetch; as we did not specify a hash, we expect bazel to tell us the hash
   # in an info message.
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+  #
+  # The intended use case is, of course, downloading from a known-to-be-good
+  # upstream https site. Here we test with plain http, which we have to allow
+  # to do without checksum. But we can safely do so, as the loopback device
+  # is reasonably safe against man-in-the-middle attacks.
+  bazel fetch --repository_cache="$repo_cache_dir" \
+        --noincompatible_disallow_unverified_http_downloads \
+        //zoo:breeding-program >& $TEST_log \
     || fail "expected fetch to succeed"
 
   expect_log "${sha256}"

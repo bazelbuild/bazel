@@ -93,3 +93,12 @@ assert_eq(li3, [2, 4])
 [1, 2].pop(3) ### index out of range (index is 3, but sequence has 2 elements)
 ---
 (1, 2).pop() ### type 'tuple' has no method pop()
+---
+
+# clear
+
+foo = [1, 2, 3, 4]
+foo.clear()
+assert_eq(foo, [])
+
+assert_eq(['a', 'b'].clear(), None)

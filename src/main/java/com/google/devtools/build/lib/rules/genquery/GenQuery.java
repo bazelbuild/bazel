@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.ByteStringDeterministicWriter;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
+import com.google.devtools.build.lib.rules.genquery.GenQueryOutputStream.GenQueryResult;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
@@ -92,6 +93,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -117,6 +119,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // The query string
     final String query = ruleContext.attributes().get("expression", Type.STRING);
 
+    @SuppressWarnings("unchecked")
     OptionsParser optionsParser =
         OptionsParser.builder()
             .optionsClasses(QueryOptions.class, KeepGoingOption.class)
@@ -169,7 +172,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;
 
-    ByteString result;
+    GenQueryResult result;
     try (SilentCloseable c =
         Profiler.instance().profile("GenQuery.executeQuery/" + ruleContext.getLabel())) {
       result =
@@ -193,11 +196,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, outputArtifact);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .add(RunfilesProvider.class, RunfilesProvider.simple(
-            new Runfiles.Builder(
-                ruleContext.getWorkspaceName(),
-                ruleContext.getConfiguration().legacyExternalRunfiles())
-                .addTransitiveArtifacts(filesToBuild).build()))
+        .addProvider(
+            RunfilesProvider.class,
+            RunfilesProvider.simple(
+                new Runfiles.Builder(
+                        ruleContext.getWorkspaceName(),
+                        ruleContext.getConfiguration().legacyExternalRunfiles())
+                    .addTransitiveArtifacts(filesToBuild)
+                    .build()))
         .build();
   }
 
@@ -273,7 +279,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   }
 
   @Nullable
-  private ByteString executeQuery(
+  private GenQueryResult executeQuery(
       RuleContext ruleContext, QueryOptions queryOptions, Collection<Label> scope, String query)
       throws InterruptedException {
     SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
@@ -300,7 +306,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
   @SuppressWarnings("unchecked")
   @Nullable
-  private ByteString doQuery(
+  private GenQueryResult doQuery(
       QueryOptions queryOptions,
       PreloadedMapPackageProvider packageProvider,
       Predicate<Label> labelFilter,
@@ -372,37 +378,39 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       throw new RuntimeException(e);
     }
 
-    ByteString.Output outputStream = ByteString.newOutput();
+    // TODO(b/137379942): Enable compression.
+    GenQueryOutputStream outputStream = new GenQueryOutputStream(/*compressionEnabled=*/ false);
     try {
       QueryOutputUtils
           .output(queryOptions, queryResult, targets.getResult(), formatter, outputStream,
           queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)));
+      outputStream.close();
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
-    return outputStream.toByteString();
+    return outputStream.getResult();
   }
 
   @Immutable // assuming no other reference to result
   private static final class QueryResultAction extends AbstractFileWriteAction {
-    private final ByteString result;
+    private final GenQueryResult result;
 
-    private QueryResultAction(ActionOwner owner, Artifact output, ByteString result) {
+    private QueryResultAction(ActionOwner owner, Artifact output, GenQueryResult result) {
       super(owner, ImmutableList.<Artifact>of(), output, /*makeExecutable=*/false);
       this.result = result;
     }
 
     @Override
     public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-      return new ByteStringDeterministicWriter(result);
+      return new GenQueryResultWriter(result);
     }
 
     @Override
     protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
-      fp.addBytes(result);
+      result.fingerprint(fp);
     }
   }
 
@@ -573,6 +581,24 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   private static class BrokenQueryScopeException extends Exception {
     public BrokenQueryScopeException(String message) {
       super(message);
+    }
+  }
+
+  private static class GenQueryResultWriter implements DeterministicWriter {
+    private final GenQueryResult genQueryResult;
+
+    GenQueryResultWriter(GenQueryResult genQueryResult) {
+      this.genQueryResult = genQueryResult;
+    }
+
+    @Override
+    public void writeOutputFile(OutputStream out) throws IOException {
+      genQueryResult.writeTo(out);
+    }
+
+    @Override
+    public ByteString getBytes() throws IOException {
+      return genQueryResult.getBytes();
     }
   }
 }

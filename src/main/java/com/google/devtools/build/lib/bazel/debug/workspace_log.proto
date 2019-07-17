@@ -44,10 +44,12 @@ message DownloadEvent {
   repeated string url = 1;
   // Output file
   string output = 2;
-  // sha256, if speficied
+  // sha256, if specified
   string sha256 = 3;
   // whether to make the resulting file executable
   bool executable = 4;
+  // checksum in Subresource Integrity format, if specified
+  string integrity = 5;
 }
 
 message ExtractEvent {
@@ -70,6 +72,8 @@ message DownloadAndExtractEvent {
   string type = 4;
   // A directory prefix to strip from extracted files.
   string strip_prefix = 5;
+  // checksum in Subresource Integrity format, if specified
+  string integrity = 6;
 }
 
 // Information on "file" event in repository_ctx.

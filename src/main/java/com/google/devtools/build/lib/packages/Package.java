@@ -806,7 +806,7 @@ public class Package {
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
-    private final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
+    public final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
     // The map of repository reassignments for BUILD packages loaded within external repositories.
     // It contains an entry from "@<main workspace name>" to "@" for packages within
