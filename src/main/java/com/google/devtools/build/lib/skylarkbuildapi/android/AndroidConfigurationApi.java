@@ -177,9 +177,6 @@ public interface AndroidConfigurationApi {
       documented = false)
   boolean throwOnResourceConflict();
 
-  @SkylarkCallable(name = "skip_parsing_action", structField = true, doc = "", documented = false)
-  boolean skipParsingAction();
-
   @SkylarkCallable(
       name = "omit_resources_info_provider_from_android_binary",
       structField = true,
