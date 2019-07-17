@@ -274,9 +274,15 @@ bazel build //my/cc:lib \
   --extra_toolchains=@androidndk//:all
 ```
 
-By passing `--extra_toolchains=@androidndk//:all`, you're telling Bazel to look for
-these additional toolchains (for NDK 20) when resolving architecture and operating system 
-constraints:
+You can also register them directly in the `WORKSPACE` file:
+
+```python
+android_ndk_repository(name = "androidndk")
+register_toolchains("@androidndk//:all")
+```
+
+By registering these toolchains, you're telling Bazel to look for these in the NDK BUILD file 
+(for NDK 20) when resolving architecture and operating system constraints:
 
 ```python
 toolchain(
