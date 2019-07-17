@@ -79,8 +79,11 @@ all_link_actions = [
     ACTION_NAMES.cpp_link_nodeps_dynamic_library,
 ]
 
+def _use_msvc_toolchain(ctx):
+    return ctx.attr.cpu == "x64_windows" and (ctx.attr.compiler == "msvc-cl" or ctx.attr.compiler == "clang-cl")
+
 def _impl(ctx):
-    if ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "msvc-cl":
+    if _use_msvc_toolchain(ctx):
         artifact_name_patterns = [
             artifact_name_pattern(
                 category_name = "object_file",
@@ -122,7 +125,7 @@ def _impl(ctx):
             ),
         ]
 
-    if ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "msvc-cl":
+    if _use_msvc_toolchain(ctx):
         cpp_link_nodeps_dynamic_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
@@ -261,7 +264,7 @@ def _impl(ctx):
     else:
         action_configs = []
 
-    if ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "msvc-cl":
+    if _use_msvc_toolchain(ctx):
         msvc_link_env_feature = feature(
             name = "msvc_link_env",
             env_sets = [
@@ -299,7 +302,7 @@ def _impl(ctx):
                                 "-D__DATE__=\"redacted\"",
                                 "-D__TIMESTAMP__=\"redacted\"",
                                 "-D__TIME__=\"redacted\"",
-                            ],
+                            ] + (["-Wno-builtin-macro-redefined"] if ctx.attr.compiler == "clang-cl" else []),
                         ),
                     ],
                 ),
@@ -508,7 +511,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions,
-                    flag_groups = [flag_group(flags = ["/MACHINE:X64"])],
+                    flag_groups = [flag_group(flags = ctx.attr.default_link_flags)],
                 ),
             ],
         )
@@ -1322,6 +1325,7 @@ cc_toolchain_config = rule(
         "abi_libc_version": attr.string(),
         "tool_paths": attr.string_dict(),
         "cxx_builtin_include_directories": attr.string_list(),
+        "default_link_flags": attr.string_list(default = []),
         "msvc_env_tmp": attr.string(default = "msvc_not_found"),
         "msvc_env_path": attr.string(default = "msvc_not_found"),
         "msvc_env_include": attr.string(default = "msvc_not_found"),
