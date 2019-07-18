@@ -463,29 +463,23 @@ def _get_clang_version(repository_ctx, clang_cl):
     # Stderr should look like "clang version X.X.X ..."
     return result.stderr.strip().split(" ")[2]
 
-def configure_windows_toolchain(repository_ctx):
-    """Configure C++ toolchain on Windows."""
-    paths = resolve_labels(repository_ctx, [
-        "@bazel_tools//tools/cpp:BUILD.windows.tpl",
-        "@bazel_tools//tools/cpp:windows_cc_toolchain_config.bzl",
-        "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
-        "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
-        "@bazel_tools//tools/cpp:msys_gcc_installation_error.bat",
-    ])
+def _get_msys_mingw_vars(repository_ctx):
+    """Get the variables we need to populate the msys/mingw toolchains."""
+    tool_paths, tool_bin_path, inc_dir_msys = _get_escaped_windows_msys_starlark_content(repository_ctx)
+    tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
+    msys_mingw_vars = {
+        "%{cxx_builtin_include_directories}": inc_dir_msys,
+        "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
+        "%{tool_paths}": tool_paths,
+        "%{mingw_tool_paths}": tool_paths_mingw,
+        "%{tool_bin_path}": tool_bin_path,
+        "%{mingw_tool_bin_path}": tool_bin_path_mingw,
+    }
+    return msys_mingw_vars
 
-    repository_ctx.symlink(
-        paths["@bazel_tools//tools/cpp:windows_cc_toolchain_config.bzl"],
-        "windows_cc_toolchain_config.bzl",
-    )
-    repository_ctx.symlink(
-        paths["@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl"],
-        "armeabi_cc_toolchain_config.bzl",
-    )
-    repository_ctx.symlink(
-        paths["@bazel_tools//tools/cpp:msys_gcc_installation_error.bat"],
-        "msys_gcc_installation_error.bat",
-    )
-
+def _get_msvc_vars(repository_ctx, paths):
+    """Get the variables we need to populate the MSVC toolchains."""
+    msvc_vars = dict()
     vc_path = find_vc_path(repository_ctx)
     missing_tools = None
     if not vc_path:
@@ -510,33 +504,21 @@ def configure_windows_toolchain(repository_ctx):
                 {"%{vc_error_message}": message},
             )
 
-    tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
-    tool_paths, tool_bin_path, inc_dir_msys = _get_escaped_windows_msys_starlark_content(repository_ctx)
     if not vc_path or missing_tools:
-        repository_ctx.template(
-            "BUILD",
-            paths["@bazel_tools//tools/cpp:BUILD.windows.tpl"],
-            {
-                "%{msvc_env_tmp}": "msvc_not_found",
-                "%{msvc_env_path}": "msvc_not_found",
-                "%{msvc_env_include}": "msvc_not_found",
-                "%{msvc_env_lib}": "msvc_not_found",
-                "%{msvc_cl_path}": "vc_installation_error.bat",
-                "%{msvc_ml_path}": "vc_installation_error.bat",
-                "%{msvc_link_path}": "vc_installation_error.bat",
-                "%{msvc_lib_path}": "vc_installation_error.bat",
-                "%{dbg_mode_debug_flag}": "/DEBUG",
-                "%{fastbuild_mode_debug_flag}": "/DEBUG",
-                "%{cxx_builtin_include_directories}": inc_dir_msys,
-                "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
-                "%{msvc_cxx_builtin_include_directories}": "",
-                "%{tool_paths}": tool_paths,
-                "%{mingw_tool_paths}": tool_paths_mingw,
-                "%{tool_bin_path}": tool_bin_path,
-                "%{mingw_tool_bin_path}": tool_bin_path_mingw,
-            },
-        )
-        return
+        msvc_vars = {
+            "%{msvc_env_tmp}": "msvc_not_found",
+            "%{msvc_env_path}": "msvc_not_found",
+            "%{msvc_env_include}": "msvc_not_found",
+            "%{msvc_env_lib}": "msvc_not_found",
+            "%{msvc_cl_path}": "vc_installation_error.bat",
+            "%{msvc_ml_path}": "vc_installation_error.bat",
+            "%{msvc_link_path}": "vc_installation_error.bat",
+            "%{msvc_lib_path}": "vc_installation_error.bat",
+            "%{dbg_mode_debug_flag}": "/DEBUG",
+            "%{fastbuild_mode_debug_flag}": "/DEBUG",
+            "%{msvc_cxx_builtin_include_directories}": "",
+        }
+        return msvc_vars
 
     env = setup_vc_env_vars(repository_ctx, vc_path)
     escaped_paths = escape_string(env["PATH"])
@@ -578,26 +560,50 @@ def configure_windows_toolchain(repository_ctx):
 
     support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
 
+    msvc_vars = {
+        "%{msvc_env_tmp}": escaped_tmp_dir,
+        "%{msvc_env_path}": escaped_paths,
+        "%{msvc_env_include}": escaped_include_paths,
+        "%{msvc_env_lib}": escaped_lib_paths,
+        "%{msvc_cl_path}": cl_path,
+        "%{msvc_ml_path}": msvc_ml_path,
+        "%{msvc_link_path}": link_path,
+        "%{msvc_lib_path}": lib_path,
+        "%{dbg_mode_debug_flag}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
+        "%{fastbuild_mode_debug_flag}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
+        "%{msvc_cxx_builtin_include_directories}": "        " + ",\n        ".join(escaped_cxx_include_directories),
+    }
+    return msvc_vars
+
+def configure_windows_toolchain(repository_ctx):
+    """Configure C++ toolchain on Windows."""
+    paths = resolve_labels(repository_ctx, [
+        "@bazel_tools//tools/cpp:BUILD.windows.tpl",
+        "@bazel_tools//tools/cpp:windows_cc_toolchain_config.bzl",
+        "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
+        "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
+        "@bazel_tools//tools/cpp:msys_gcc_installation_error.bat",
+    ])
+
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:windows_cc_toolchain_config.bzl"],
+        "windows_cc_toolchain_config.bzl",
+    )
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl"],
+        "armeabi_cc_toolchain_config.bzl",
+    )
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:msys_gcc_installation_error.bat"],
+        "msys_gcc_installation_error.bat",
+    )
+
+    template_vars = dict()
+    template_vars.update(_get_msvc_vars(repository_ctx, paths))
+    template_vars.update(_get_msys_mingw_vars(repository_ctx))
+
     repository_ctx.template(
         "BUILD",
         paths["@bazel_tools//tools/cpp:BUILD.windows.tpl"],
-        {
-            "%{msvc_env_tmp}": escaped_tmp_dir,
-            "%{msvc_env_path}": escaped_paths,
-            "%{msvc_env_include}": escaped_include_paths,
-            "%{msvc_env_lib}": escaped_lib_paths,
-            "%{msvc_cl_path}": cl_path,
-            "%{msvc_ml_path}": msvc_ml_path,
-            "%{msvc_link_path}": link_path,
-            "%{msvc_lib_path}": lib_path,
-            "%{dbg_mode_debug_flag}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
-            "%{fastbuild_mode_debug_flag}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
-            "%{cxx_builtin_include_directories}": inc_dir_msys + ",\n        ".join(escaped_cxx_include_directories),
-            "%{msvc_cxx_builtin_include_directories}": "        " + ",\n        ".join(escaped_cxx_include_directories),
-            "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw + ",\n        ".join(escaped_cxx_include_directories),
-            "%{tool_paths}": tool_paths,
-            "%{mingw_tool_paths}": tool_paths_mingw,
-            "%{tool_bin_path}": tool_bin_path,
-            "%{mingw_tool_bin_path}": tool_bin_path_mingw,
-        },
+        template_vars,
     )

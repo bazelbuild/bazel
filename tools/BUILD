@@ -37,6 +37,7 @@ filegroup(
     ],
 )
 
+# Sources in the built in repo '@bazel_tools'
 filegroup(
     name = "embedded_tools_srcs",
     srcs = glob(["**"]) + [
@@ -45,6 +46,7 @@ filegroup(
         "//tools/build_defs:embedded_tools",
         "//tools/build_rules:embedded_tools_srcs",
         "//tools/buildstamp:srcs",
+        "//tools/config:srcs",
         "//tools/coverage:srcs",
         "//tools/cpp:embedded_tools",
         "//tools/genrule:srcs",

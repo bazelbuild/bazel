@@ -1,11 +1,11 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#my_module.assert_non_empty"></a>
+<a name="#my_namespace.assert_non_empty"></a>
 
-## my_module.assert_non_empty
+## my_namespace.assert_non_empty
 
 <pre>
-my_module.assert_non_empty(<a href="#my_module.assert_non_empty-some_list">some_list</a>, <a href="#my_module.assert_non_empty-other_list">other_list</a>)
+my_namespace.assert_non_empty(<a href="#my_namespace.assert_non_empty-some_list">some_list</a>, <a href="#my_namespace.assert_non_empty-other_list">other_list</a>)
 </pre>
 
 Asserts the two given lists are not empty.
@@ -18,7 +18,7 @@ Asserts the two given lists are not empty.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="my_module.assert_non_empty-some_list">
+    <tr id="my_namespace.assert_non_empty-some_list">
       <td><code>some_list</code></td>
       <td>
         required.
@@ -27,7 +27,7 @@ Asserts the two given lists are not empty.
         </p>
       </td>
     </tr>
-    <tr id="my_module.assert_non_empty-other_list">
+    <tr id="my_namespace.assert_non_empty-other_list">
       <td><code>other_list</code></td>
       <td>
         required.
@@ -40,12 +40,12 @@ Asserts the two given lists are not empty.
 </table>
 
 
-<a name="#my_module.min"></a>
+<a name="#my_namespace.min"></a>
 
-## my_module.min
+## my_namespace.min
 
 <pre>
-my_module.min(<a href="#my_module.min-integers">integers</a>)
+my_namespace.min(<a href="#my_namespace.min-integers">integers</a>)
 </pre>
 
 Returns the minimum of given elements.
@@ -58,7 +58,7 @@ Returns the minimum of given elements.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="my_module.min-integers">
+    <tr id="my_namespace.min-integers">
       <td><code>integers</code></td>
       <td>
         required.
@@ -71,12 +71,12 @@ Returns the minimum of given elements.
 </table>
 
 
-<a name="#my_module.join_strings"></a>
+<a name="#my_namespace.join_strings"></a>
 
-## my_module.join_strings
+## my_namespace.join_strings
 
 <pre>
-my_module.join_strings(<a href="#my_module.join_strings-strings">strings</a>, <a href="#my_module.join_strings-delimiter">delimiter</a>)
+my_namespace.join_strings(<a href="#my_namespace.join_strings-strings">strings</a>, <a href="#my_namespace.join_strings-delimiter">delimiter</a>)
 </pre>
 
 Joins the given strings with a delimiter.
@@ -89,7 +89,7 @@ Joins the given strings with a delimiter.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="my_module.join_strings-strings">
+    <tr id="my_namespace.join_strings-strings">
       <td><code>strings</code></td>
       <td>
         required.
@@ -98,7 +98,7 @@ Joins the given strings with a delimiter.
         </p>
       </td>
     </tr>
-    <tr id="my_module.join_strings-delimiter">
+    <tr id="my_namespace.join_strings-delimiter">
       <td><code>delimiter</code></td>
       <td>
         optional. default is <code>", "</code>

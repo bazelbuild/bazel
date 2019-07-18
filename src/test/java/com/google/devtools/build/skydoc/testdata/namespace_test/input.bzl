@@ -1,4 +1,4 @@
-"""A test that verifies documenting a module of functions."""
+"""A test that verifies documenting a namespace of functions."""
 
 def _min(integers):
     """Returns the minimum of given elements.
@@ -35,7 +35,7 @@ def _join_strings(strings, delimiter = ", "):
     _ignore = [strings, delimiter]
     return ""
 
-my_module = struct(
+my_namespace = struct(
     dropped_field = "Note this field should not be documented",
     assert_non_empty = _assert_non_empty,
     min = _min,

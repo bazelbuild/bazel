@@ -389,17 +389,38 @@ public class SkydocMain {
         userDefinedFunctionMap.put(envEntry.getKey(), userDefinedFunction);
       }
       if (envEntry.getValue() instanceof FakeStructApi) {
-        FakeStructApi struct = (FakeStructApi) envEntry.getValue();
-        for (String field : struct.getFieldNames()) {
-          if (struct.getValue(field) instanceof UserDefinedFunction) {
-            UserDefinedFunction userDefinedFunction = (UserDefinedFunction) struct.getValue(field);
-            userDefinedFunctionMap.put(envEntry.getKey() + "." + field, userDefinedFunction);
-          }
-        }
+        String namespaceName = envEntry.getKey();
+        FakeStructApi namespace = (FakeStructApi) envEntry.getValue();
+        putStructFields(namespaceName, namespace, userDefinedFunctionMap);
       }
     }
 
     return env;
+  }
+
+  /**
+   * Recursively adds functions defined in {@code namespace}, and in its nested namespaces, to
+   * {@code userDefinedFunctionMap}.
+   *
+   * <p>Each entry's key is the fully qualified function name, e.g. {@code
+   * "outernamespace.innernamespace.func"}. {@code namespaceName} is the fully qualified name of
+   * {@code namespace} itself.
+   */
+  private static void putStructFields(
+      String namespaceName,
+      FakeStructApi namespace,
+      ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap)
+      throws EvalException {
+    for (String field : namespace.getFieldNames()) {
+      String qualifiedFieldName = namespaceName + "." + field;
+      if (namespace.getValue(field) instanceof UserDefinedFunction) {
+        UserDefinedFunction userDefinedFunction = (UserDefinedFunction) namespace.getValue(field);
+        userDefinedFunctionMap.put(qualifiedFieldName, userDefinedFunction);
+      } else if (namespace.getValue(field) instanceof FakeStructApi) {
+        FakeStructApi innerNamespace = (FakeStructApi) namespace.getValue(field);
+        putStructFields(qualifiedFieldName, innerNamespace, userDefinedFunctionMap);
+      }
+    }
   }
 
   /**

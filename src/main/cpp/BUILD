@@ -17,7 +17,7 @@ cc_library(
     name = "blaze_util",
     srcs = [
         "blaze_util.cc",
-        "global_variables.h",
+        "server_process_info.h",
         "startup_options.h",
     ] + select({
         "//src/conditions:darwin": [
@@ -94,8 +94,8 @@ cc_binary(
     srcs = [
         "blaze.cc",
         "blaze.h",
-        "global_variables.cc",
-        "global_variables.h",
+        "server_process_info.cc",
+        "server_process_info.h",
         "main.cc",
     ] + select({
         "//src/conditions:windows": ["resources.o"],

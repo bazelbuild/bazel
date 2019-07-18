@@ -11,12 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// global_variables.h: The global state in the blaze.cc Blaze client.
-//
 
-#ifndef BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
-#define BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
+#ifndef BAZEL_SRC_MAIN_CPP_SERVER_PROCESS_INFO_H_
+#define BAZEL_SRC_MAIN_CPP_SERVER_PROCESS_INFO_H_
 
 #include <sys/types.h>
 #include <string>
@@ -26,24 +23,26 @@
 
 namespace blaze {
 
-class StartupOptions;
+// Encapsulates information around the blaze server process and its
+// configuration.
+class ServerProcessInfo final {
+ public:
+  ServerProcessInfo(
+      const std::string &output_base, const std::string &server_jvm_out);
 
-struct GlobalVariables {
-  GlobalVariables();
-
-  // Whrere to write the server's JVM's output. Default value is
-  // <output_base>/server/jvm.out.
-  std::string jvm_log_file;
+  // When running as a daemon, where the deamonized server's stdout and stderr
+  // should be written.
+  const std::string jvm_log_file_;
 
   // Whether or not the jvm_log_file should be opened with O_APPEND.
-  bool jvm_log_file_append;
+  const bool jvm_log_file_append_;
 
   // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of here and wherever
   // else it appears. Find some way to not have to declare a pid_t here, either
   // by making PID handling platform-independent or some other idea.
-  pid_t server_pid;
+  pid_t server_pid_;
 };
 
 }  // namespace blaze
 
-#endif  // BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
+#endif  // BAZEL_SRC_MAIN_CPP_SERVER_PROCESS_INFO_H_

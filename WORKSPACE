@@ -37,12 +37,12 @@ bind(
 
 http_archive(
     name = "bazel_j2objc",
-    # Computed using "shasum -a 256 j2objc-2.0.3.zip"
-    sha256 = "a36bac432d0dbd8c98249e484b2b69dd5720afa4abb58711a3c3def1c0bfa21d",
-    strip_prefix = "j2objc-2.0.3",
+    # Computed using "shasum -a 256 j2objc-2.5.zip"
+    sha256 = "8d3403b5b7db57e347c943d214577f6879e5b175c2b59b7e075c0b6453330e9b",
+    strip_prefix = "j2objc-2.5",
     urls = [
-        "https://miirror.bazel.build/github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
-        "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
+        "https://miirror.bazel.build/github.com/google/j2objc/releases/download/2.5/j2objc-2.5.zip",
+        "https://github.com/google/j2objc/releases/download/2.5/j2objc-2.5.zip",
     ],
 )
 
@@ -125,6 +125,8 @@ distdir_tar(
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
         # bazelbuild/bazel-toolchains
         "0.27.1.tar.gz",
+	# bazelbuild/rules_pkg
+	"rules_pkg-0.2.0.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -146,6 +148,8 @@ distdir_tar(
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
         # bazelbuild/bazel-toolchains
         "0.27.1.tar.gz": "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
+	# bazelbuild/rules_pkg
+	"rules_pkg-0.2.0.tar.gz": "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -202,6 +206,11 @@ distdir_tar(
         "0.27.1.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
             "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
+        ],
+        # bazelbuild/rules_pkg
+        "rules_pkg-0.2.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
         ],
     },
 )
@@ -435,6 +444,16 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "rules_java",
+    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+    urls = [
+      "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+      "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip"
+    ],
+    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178"
+)
+
 # For testing, have an distdir_tar with all the archives implicit in every
 # WORKSPACE, to that they don't have to be refetched for every test
 # calling `bazel sync`.
@@ -573,25 +592,25 @@ http_archive(
 
 http_archive(
     name = "java_tools_langtools_javac9",
-    sha256 = "3b6bbc47256acf2f61883901e2d4e3f9b292f5fe154a6912b928805de24cb864",
+    sha256 = "d94befcfb325a9a62aebc2052e631fde2322b4df5c82a19ed260b38ba12a0ad1",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk9.zip",
+        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk9_v2.zip",
     ],
 )
 
 http_archive(
     name = "java_tools_langtools_javac10",
-    sha256 = "e379c71e051eb83e3fc9a08c9b404712707d8920ffcf1e8fd59c844965f0b0dd",
+    sha256 = "0e9c9ac5ef17869de3cb8c3497c4c0d31836ef7b63efe1690506f53783adb212",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk10.zip",
+        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk10_v2.zip",
     ],
 )
 
 http_archive(
     name = "java_tools_langtools_javac11",
-    sha256 = "128a63f39d3f828a761f6afcfe3c6115279336a72ea77f60d7b3acf1841c9acb",
+    sha256 = "cf0814fa002ef3d794582bb086516d8c9ed0958f83f19799cdb08949019fe4c7",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk11.zip",
+        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk11_v2.zip",
     ],
 )
 
@@ -630,6 +649,18 @@ load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 sass_repositories()
 
 register_execution_platforms("//:default_host_platform")  # buildozer: disable=positional-args
+
+# Tools for building deb, rpm and tar files.
+http_archive(
+    name = "rules_pkg",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
+    ],
+    sha256 = "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
+)
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+rules_pkg_dependencies()
 
 register_toolchains(
     "//src/main/res:win_local_rc_toolchain",

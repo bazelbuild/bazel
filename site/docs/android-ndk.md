@@ -255,6 +255,77 @@ cc_library(
 )
 ```
 
+## Integration with platforms and toolchains
+
+Bazel's configuration model is moving towards
+[platforms](https://docs.bazel.build/versions/master/platforms.html) and
+[toolchains](https://docs.bazel.build/versions/master/toolchains.html). If your
+build uses the `--platforms` flag to select for the architecture or operating system
+to build for, you will need to pass the `--extra_toolchains` flag to Bazel in
+order to use the NDK.
+
+For example, to integrate with the `android_arm64_cgo` toolchain provided by
+the Go rules, pass `--extra_toolchains=@androidndk//:all` in addition to the
+`--platforms` flag.
+
+```
+bazel build //my/cc:lib \
+  --platforms=@io_bazel_rules_go//go/toolchain:android_arm64_cgo \
+  --extra_toolchains=@androidndk//:all
+```
+
+You can also register them directly in the `WORKSPACE` file:
+
+```python
+android_ndk_repository(name = "androidndk")
+register_toolchains("@androidndk//:all")
+```
+
+Registering these toolchains tells Bazel to look for them in the NDK BUILD file
+(for NDK 20) when resolving architecture and operating system constraints:
+
+```python
+toolchain(
+  name = "x86-clang8.0.7-libcpp_toolchain",
+  toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+  target_compatible_with = [
+      "@bazel_tools//platforms:android",
+      "@bazel_tools//platforms:x86_32"
+  ],
+  toolchain = "@androidndk//:x86-clang8.0.7-libcpp",
+)
+
+toolchain(
+  name = "x86_64-clang8.0.7-libcpp_toolchain",
+  toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+  target_compatible_with = [
+      "@bazel_tools//platforms:android",
+      "@bazel_tools//platforms:x86_64"
+  ],
+  toolchain = "@androidndk//:x86_64-clang8.0.7-libcpp",
+)
+
+toolchain(
+  name = "arm-linux-androideabi-clang8.0.7-v7a-libcpp_toolchain",
+  toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+  target_compatible_with = [
+      "@bazel_tools//platforms:android",
+      "@bazel_tools//platforms:arm"
+  ],
+  toolchain = "@androidndk//:arm-linux-androideabi-clang8.0.7-v7a-libcpp",
+)
+
+toolchain(
+  name = "aarch64-linux-android-clang8.0.7-libcpp_toolchain",
+  toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+  target_compatible_with = [
+      "@bazel_tools//platforms:android",
+      "@bazel_tools//platforms:aarch64"
+  ],
+  toolchain = "@androidndk//:aarch64-linux-android-clang8.0.7-libcpp",
+)
+```
+
 ## How it works: introducing Android configuration transitions
 
 The `android_binary` rule can explicitly ask Bazel to build its dependencies in
