@@ -198,19 +198,19 @@ To build C++ targets with MSVC, you need:
     set BAZEL_WINSDK_FULL_VERSION=10.0.10240.0
     ```
 
-    If everything is set up, you can build a C++ target now!
+If everything is set up, you can build a C++ target now!
 
-    Try building a target from one of our [sample
-    projects](https://github.com/bazelbuild/bazel/tree/master/examples):
+Try building a target from one of our [sample
+projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
-    ```
-    C:\projects\bazel> bazel build //examples/cpp:hello-world
+```
+C:\projects\bazel> bazel build //examples/cpp:hello-world
 
-    C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
-    ```
+C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
+```
 
-    To build and use Dynamically Linked Libraries (DLL files), see [this
-    example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
+To build and use Dynamically Linked Libraries (DLL files), see [this
+example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
 
 ### Build C++ with Clang
 
