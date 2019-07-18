@@ -210,7 +210,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         },
         help =
             "If enabled, direct usage of the native Protobuf rules is disabled. Please use "
-                + "the Starlark rules instead https://github.com/bazelbuild/rules_proto")
+                + "the Starlark rules instead at https://github.com/bazelbuild/rules_proto")
     public boolean loadProtoRulesFromBzl;
 
     @Override

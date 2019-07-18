@@ -21,5 +21,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
  *
  * <p>Currently just a placeholder so that we have a {@code proto_common} symbol.
  */
-@SkylarkModule(name = "proto_common", doc = "Utilities for protocol buffers")
+@SkylarkModule(
+    name = "proto_common",
+    doc = "Utilities for protocol buffers. "
+              + "<p>"
+              + "Please consider using `load(\"@rules_proto//proto:defs.bzl\", \"proto_common\")` "
+              + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto.\">"
+              + "rules_proto</a>"
+              + "</p>")
 public interface ProtoModuleApi {}

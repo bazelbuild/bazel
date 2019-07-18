@@ -24,9 +24,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
     name = "ProtoInfo",
     doc = "Encapsulates information provided by <a href=\""
               + "../../be/protocol-buffer.html#proto_library\">proto_library.</a>"
+              + "<p>"
               + "Please consider using `load(\"@rules_proto//proto:defs.bzl\", \"ProtoInfo\")` "
               + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto.\">"
-              + "rules_proto</a>")
+              + "rules_proto</a>"
+              + "</p>")
 public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
   /** Provider class for {@link ProtoInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")

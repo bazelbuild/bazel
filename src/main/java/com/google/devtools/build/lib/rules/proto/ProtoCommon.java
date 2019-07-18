@@ -48,6 +48,11 @@ public class ProtoCommon {
     throw new UnsupportedOperationException();
   }
 
+  // Keep in sync with the migration label in
+  // https://github.com/bazelbuild/rules_proto/blob/master/proto/defs.bzl.
+  private static final String PROTO_RULES_MIGRATION_LABEL =
+      "__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
+
   /**
    * Gets the direct sources of a proto library. If protoSources is not empty, the value is just
    * protoSources. Otherwise, it's the combined sources of all direct dependencies of the given
@@ -479,9 +484,7 @@ public class ProtoCommon {
 
   private static boolean hasValidMigrationTag(RuleContext ruleContext) {
     return ruleContext
-        .attributes()
-        .get("tags", Type.STRING_LIST)
-        .contains("__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__");
+        .attributes().get("tags", Type.STRING_LIST).contains(PROTO_RULES_MIGRATION_LABEL);
   }
 
   /**
