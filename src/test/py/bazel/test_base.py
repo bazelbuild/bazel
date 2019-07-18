@@ -115,12 +115,12 @@ class TestBase(unittest.TestCase):
         actual_exit_code, lambda x: x != not_expected_exit_code,
         '(against expectations)', stderr_lines, stdout_lines)
 
-  def CreateWorkspaceWithDefaultRepos(self, path):
+  def CreateWorkspaceWithDefaultRepos(self, path, lines = []):
     rule_definition = [
         'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
     ]
     rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile(path, rule_definition)
+    self.ScratchFile(path, rule_definition + lines)
 
   def GetDefaultRepoRules(self):
     return self.GetCcRulesRepoRule()

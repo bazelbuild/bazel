@@ -592,6 +592,56 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn('this_is_an_error', ''.join(stdout))
 
+  def testBuildWithClangClByCompilerFlag(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+      'cc_binary(',
+      '  name = "main",',
+      '  srcs = ["main.cc"],',
+      ')',
+    ])
+    self.ScratchFile('main.cc', [
+      'int main() {',
+      '  return 0;',
+      '}',
+    ])
+    exit_code, stdout, stderr = self.RunBazel(['build', '-s', '--compiler=clang-cl', '--incompatible_enable_cc_toolchain_resolution=false', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('clang-cl.exe', ''.join(stderr))
+
+  def testBuildWithClangClByToolchainResolution(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE', [
+      'register_execution_platforms(',
+      '  ":windows_clang"',
+      ')',
+      '',
+      'register_toolchains(',
+      '  "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",',
+      ')',
+    ])
+    self.ScratchFile('BUILD', [
+      'platform(',
+      '  name = "windows_clang",',
+      '  constraint_values = [',
+      '    "@platforms//cpu:x86_64",',
+      '    "@platforms//os:windows",',
+      '    "@bazel_tools//tools/cpp:clang-cl",',
+      '  ]',
+      ')',
+      '',
+      'cc_binary(',
+      '  name = "main",',
+      '  srcs = ["main.cc"],',
+      ')',
+    ])
+    self.ScratchFile('main.cc', [
+      'int main() {',
+      '  return 0;',
+      '}',
+    ])
+    exit_code, stdout, stderr = self.RunBazel(['build', '-s', '--incompatible_enable_cc_toolchain_resolution=true', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('clang-cl.exe', ''.join(stderr))
 
 if __name__ == '__main__':
   unittest.main()
