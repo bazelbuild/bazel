@@ -45,7 +45,6 @@ This is my rule. It does stuff.
   </tbody>
 </table>
 
-
 <a name="#other_rule"></a>
 
 ## other_rule
@@ -91,7 +90,6 @@ This is another rule.
   </tbody>
 </table>
 
-
 <a name="#yet_another_rule"></a>
 
 ## yet_another_rule
@@ -127,7 +125,6 @@ This is yet another rule
     </tr>
   </tbody>
 </table>
-
 
 <a name="#top_fun"></a>
 
@@ -167,5 +164,4 @@ top_fun(<a href="#top_fun-a">a</a>, <a href="#top_fun-b">b</a>, <a href="#top_fu
     </tr>
   </tbody>
 </table>
-
 

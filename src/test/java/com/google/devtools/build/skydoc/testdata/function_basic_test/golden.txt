@@ -85,7 +85,6 @@ Use `bazel build` to run the check.
   </tbody>
 </table>
 
-
 <a name="#undocumented_function"></a>
 
 ## undocumented_function
@@ -124,5 +123,4 @@ undocumented_function(<a href="#undocumented_function-a">a</a>, <a href="#undocu
     </tr>
   </tbody>
 </table>
-
 

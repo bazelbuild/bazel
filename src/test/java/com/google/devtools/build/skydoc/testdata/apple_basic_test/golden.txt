@@ -54,4 +54,3 @@ This rule does apple-related things.
   </tbody>
 </table>
 
-

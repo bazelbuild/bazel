@@ -27,4 +27,3 @@ my_rule_impl(<a href="#my_rule_impl-ctx">ctx</a>)
   </tbody>
 </table>
 
-

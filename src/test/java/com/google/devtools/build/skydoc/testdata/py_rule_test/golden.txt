@@ -78,4 +78,3 @@ This rule does python-related things.
   </tbody>
 </table>
 
-

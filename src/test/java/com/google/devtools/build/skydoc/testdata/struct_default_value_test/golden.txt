@@ -66,4 +66,3 @@ Checks the default values of structs.
   </tbody>
 </table>
 
-

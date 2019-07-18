@@ -27,7 +27,6 @@ Returns the minimum of given elements.
   </tbody>
 </table>
 
-
 <a name="#my_namespace.math.min"></a>
 
 ## my_namespace.math.min
@@ -55,7 +54,6 @@ Returns the minimum of given elements.
   </tbody>
 </table>
 
-
 <a name="#other_namespace.foo.nothing"></a>
 
 ## other_namespace.foo.nothing
@@ -65,6 +63,5 @@ other_namespace.foo.nothing()
 </pre>
 
 This function does nothing.
-
 
 

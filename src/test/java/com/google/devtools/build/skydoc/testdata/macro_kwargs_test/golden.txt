@@ -39,7 +39,6 @@ My args macro is OK.
   </tbody>
 </table>
 
-
 <a name="#macro_with_both"></a>
 
 ## macro_with_both
@@ -99,7 +98,6 @@ Not much else to say.
     </tr>
   </tbody>
 </table>
-
 
 <a name="#macro_with_kwargs"></a>
 
@@ -164,5 +162,4 @@ vel mollis eros pellentesque.
     </tr>
   </tbody>
 </table>
-
 
