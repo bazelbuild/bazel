@@ -321,6 +321,15 @@ public class ExecutionTool {
     Throwable catastrophe = null;
     boolean buildCompleted = false;
     try {
+      if (request.getViewOptions().discardAnalysisCache
+          || !skyframeExecutor.tracksStateForIncrementality()) {
+        // Free memory by removing cache entries that aren't going to be needed.
+        try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
+          env.getSkyframeBuildView()
+              .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+        }
+      }
+
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
         try (SilentCloseable c =
             Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
@@ -333,15 +342,6 @@ public class ExecutionTool {
         }
       }
       skyframeExecutor.drainChangedFiles();
-
-      if (request.getViewOptions().discardAnalysisCache
-          || !skyframeExecutor.tracksStateForIncrementality()) {
-        // Free memory by removing cache entries that aren't going to be needed.
-        try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
-          env.getSkyframeBuildView()
-              .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
-        }
-      }
 
       try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
         configureResourceManager(request);
