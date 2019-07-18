@@ -44,7 +44,6 @@
 #include <string>
 
 #include "src/main/cpp/blaze_util.h"
-#include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -142,9 +141,9 @@ static void handler(int signum) {
         SigPrintf(
             "\n%s caught third interrupt signal; killed.\n\n",
             SignalHandler::Get().GetProductName().c_str());
-        if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
+        if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
-              SignalHandler::Get().GetGlobals()->server_pid,
+              SignalHandler::Get().GetServerProcessInfo()->server_pid_,
               SignalHandler::Get().GetOutputBase());
         }
         _exit(1);
@@ -164,10 +163,11 @@ static void handler(int signum) {
       signal_handler_received_signal = SIGPIPE;
       break;
     case SIGQUIT:
-      SigPrintf("\nSending SIGQUIT to JVM process %d (see %s).\n\n",
-                SignalHandler::Get().GetGlobals()->server_pid,
-                SignalHandler::Get().GetGlobals()->jvm_log_file.c_str());
-      kill(SignalHandler::Get().GetGlobals()->server_pid, SIGQUIT);
+      SigPrintf(
+          "\nSending SIGQUIT to JVM process %d (see %s).\n\n",
+          SignalHandler::Get().GetServerProcessInfo()->server_pid_,
+          SignalHandler::Get().GetServerProcessInfo()->jvm_log_file_.c_str());
+      kill(SignalHandler::Get().GetServerProcessInfo()->server_pid_, SIGQUIT);
       break;
   }
 
@@ -176,11 +176,11 @@ static void handler(int signum) {
 
 void SignalHandler::Install(const string &product_name,
                             const string &output_base,
-                            GlobalVariables* globals,
+                            const ServerProcessInfo *server_process_info,
                             SignalHandler::Callback cancel_server) {
   product_name_ = product_name;
   output_base_ = output_base;
-  globals_ = globals;
+  server_process_info_ = server_process_info;
   cancel_server_ = cancel_server;
 
   // Unblock all signals.

@@ -20,8 +20,9 @@
 #include <string>
 #include <vector>
 
-#include "src/main/cpp/util/port.h"
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/server_process_info.h"
+#include "src/main/cpp/util/port.h"
 
 namespace blaze {
 
@@ -69,7 +70,6 @@ Dumper* Create(std::string* error = nullptr);
 
 }  // namespace embedded_binaries
 
-struct GlobalVariables;
 class StartupOptions;
 
 class SignalHandler {
@@ -77,12 +77,15 @@ class SignalHandler {
   typedef void (* Callback)();
 
   static SignalHandler& Get() { return INSTANCE; }
-  GlobalVariables* GetGlobals() const { return globals_; }
+  const ServerProcessInfo* GetServerProcessInfo() const {
+    return server_process_info_;
+  }
   const std::string& GetProductName() const { return product_name_; }
   const std::string& GetOutputBase() const { return output_base_; }
   void CancelServer() { cancel_server_(); }
-  void Install(const std::string &product_name, const std::string &output_base,
-               GlobalVariables* globals, Callback cancel_server);
+  void Install(
+      const std::string &product_name, const std::string &output_base,
+      const ServerProcessInfo* server_process_info, Callback cancel_server);
   ATTRIBUTE_NORETURN void PropagateSignalOrExit(int exit_code);
 
  private:
@@ -90,10 +93,10 @@ class SignalHandler {
 
   std::string product_name_;
   std::string output_base_;
-  GlobalVariables* globals_;
+  const ServerProcessInfo* server_process_info_;
   Callback cancel_server_;
 
-  SignalHandler() : globals_(nullptr), cancel_server_(nullptr) {}
+  SignalHandler() : server_process_info_(nullptr), cancel_server_(nullptr) {}
 };
 
 // A signal-safe version of fprintf(stderr, ...).

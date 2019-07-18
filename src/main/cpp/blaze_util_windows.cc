@@ -38,7 +38,6 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -298,9 +297,9 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
         SigPrintf(
             "\n%s caught third Ctrl+C handler signal; killed.\n\n",
             SignalHandler::Get().GetProductName().c_str());
-        if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
+        if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
-              SignalHandler::Get().GetGlobals()->server_pid,
+              SignalHandler::Get().GetServerProcessInfo()->server_pid_,
               SignalHandler::Get().GetOutputBase());
         }
         _exit(1);
@@ -320,11 +319,11 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
 
 void SignalHandler::Install(const string &product_name,
                             const string &output_base,
-                            GlobalVariables* globals,
+                            const ServerProcessInfo *server_process_info_,
                             SignalHandler::Callback cancel_server) {
   product_name_ = product_name;
   output_base_ = output_base;
-  globals_ = globals;
+  server_process_info_ = server_process_info_;
   cancel_server_ = cancel_server;
   ::SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
