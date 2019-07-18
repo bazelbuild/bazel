@@ -12,4 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef BAZEL_SRC_TEST_RES_APP_H_
+#define BAZEL_SRC_TEST_RES_APP_H_
+
 #define IDS_STRING 1337
+
+#endif  // BAZEL_SRC_TEST_RES_APP_H_

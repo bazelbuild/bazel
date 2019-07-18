@@ -12,6 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Toolchain definition for Windows Resource Compiler toolchains.
+
+Usage:
+
+    load(
+        ":winsdk_toolchain.bzl",
+        "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE",
+        "windows_resource_compiler_toolchain",
+    )
+
+    windows_resource_compiler_toolchain(
+        name = "foo_rc_toolchain",
+        rc_path = "...",  # label of Resource Compiler or its wrapper
+    )
+
+    toolchain(
+        name = "foo_rc",
+        exec_compatible_with = [
+            # Add constraints here, if applicable.
+        ],
+        target_compatible_with = [
+            # Add constraints here, if applicable.
+        ],
+        toolchain = ":foo_rc_toolchain",
+        toolchain_type = WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE,
+    )
+"""
+
 WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE = "@io_bazel//src/main/res:toolchain_type"
 
 WindowsResourceCompilerInfo = provider(

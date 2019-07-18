@@ -12,6 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Configure local Resource Compilers for every available target platform.
+
+Usage:
+
+    load("//src/main/res:local_config_winsdk.bzl", "local_config_winsdk")
+
+    local_config_winsdk(name = "local_winsdk")
+
+    load("@local_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains")
+
+    register_local_rc_exe_toolchains()
+"""
+
 load("//tools/cpp:windows_cc_configure.bzl", "find_vc_path", "setup_vc_env_vars")
 load("//tools/cpp:cc_configure.bzl", "MSVC_ENVVARS")
 
@@ -72,7 +85,6 @@ load(
     "windows_resource_compiler_toolchain",
 )"""]
 
-    tc_labels = []
     for arch, rc_path in rc_exes.items():
         wrapper = "rc_%s.bat" % arch
         repository_ctx.file(
@@ -145,18 +157,4 @@ local_config_winsdk = repository_rule(
     implementation = _impl,
     local = True,
     environ = list(MSVC_ENVVARS),
-    doc = """<p>Configure local Resource Compilers for every available target platform.</p>
-
-<p>Usage:</p>
-
-<pre>
-    load("//src/main/res:local_config_winsdk.bzl", "local_config_winsdk")
-
-    local_config_winsdk(name = "local_winsdk")
-
-    load("@local_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains")
-
-    register_local_rc_exe_toolchains()
-</pre>
-""",
 )

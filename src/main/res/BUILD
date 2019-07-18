@@ -1,4 +1,3 @@
-load(":win_res.bzl", "windows_resources")
 load(":winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 
 filegroup(
