@@ -43,14 +43,25 @@ public class BuiltinCallable implements StarlarkFunction {
       Environment env)
       throws EvalException, InterruptedException {
     MethodDescriptor methodDescriptor = getMethodDescriptor(env.getSemantics());
+    Class<?> clazz;
+    Object objValue;
+
+    if (obj instanceof String) {
+      args.add(0, obj);
+      clazz = StringModule.class;
+      objValue = StringModule.INSTANCE;
+    } else {
+      clazz = obj.getClass();
+      objValue = obj;
+    }
 
     // TODO(cparsons): Profiling should be done at the MethodDescriptor level.
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_BUILTIN_FN, methodName)) {
       Object[] javaArguments =
           ast.convertStarlarkArgumentsToJavaMethodArguments(
-              methodDescriptor, obj.getClass(), args, kwargs, env);
-      return methodDescriptor.call(obj, javaArguments, ast.getLocation(), env);
+              methodDescriptor, clazz, args, kwargs, env);
+      return methodDescriptor.call(objValue, javaArguments, ast.getLocation(), env);
     }
   }
 
