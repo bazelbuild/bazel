@@ -5,7 +5,7 @@ load(":rule_size_test.bzl", "rule_size_test")
 
 exports_files(["jdeps_modules.golden"])
 
-md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' > $@"
+md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs cat | %s | awk '{ print $$1; }' > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
 filegroup(
