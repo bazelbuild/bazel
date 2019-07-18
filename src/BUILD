@@ -372,37 +372,13 @@ genrule(
     name = "bazel-bin" + suffix,
     srcs = [
         "//src/main/cpp:client",
-        "package-zip" + suffix,
+        "package-zip" + jdk,
     ],
     outs = ["bazel" + suffix],
     # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
     # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
     # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@; cat $(location //src/main/cpp:client) $(location :package-zip" + suffix + ") > $@ && zip -qA $@",
-    executable = 1,
-    output_to_bindir = 1,
-    visibility = [
-        "//scripts:__pkg__",  # For bash completion generation
-        "//scripts/packages:__pkg__",  # For installer generation
-        "//src/java:__subpackages__",  # For command line reference generation
-        "//src/test:__subpackages__",  # For integration tests
-    ],
-) for suffix in [
-    "_jdk_allmodules",
-    "_jdk_minimal",
-    "_dev_jdk",
-    "_notools",
-    "_nojdk",
-]]
-
-[genrule(
-    name = "bazel-bin" + suffix,
-    srcs = [":bazel-bin" + jdk],
-    outs = ["bazel" + suffix],
-    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
-    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
-    # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@; cp $(location :bazel-bin" + jdk + ") $@",
+    cmd = "rm -f $@; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@ && zip -qA $@",
     executable = 1,
     output_to_bindir = 1,
     visibility = [
@@ -414,6 +390,11 @@ genrule(
 ) for suffix, jdk in [
     ("-dev", "_jdk_allmodules"),
     ("", "_jdk_minimal"),
+    ("_jdk_allmodules", "_jdk_allmodules"),
+    ("_jdk_minimal", "_jdk_minimal"),
+    ("_dev_jdk", "_dev_jdk"),
+    ("_notools", "_notools"),
+    ("_nojdk", "_nojdk"),
 ]]
 
 # Build an executable named `bazel.exe`.
