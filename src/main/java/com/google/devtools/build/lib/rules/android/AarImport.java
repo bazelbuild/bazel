@@ -182,6 +182,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             /* isNeverLink = */ JavaCommon.isNeverLink(ruleContext),
             /* srcLessDepsExport = */ false);
 
+    // Wire up the source jar for the current target and transitively source jars from dependencies.
     ImmutableList<Artifact> srcJars = ImmutableList.of();
     Artifact srcJar = ruleContext.getPrerequisiteArtifact("srcjar", Mode.TARGET);
     NestedSetBuilder<Artifact> transitiveJavaSourceJarBuilder = NestedSetBuilder.stableOrder();

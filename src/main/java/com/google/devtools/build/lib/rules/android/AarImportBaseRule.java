@@ -54,13 +54,13 @@ public class AarImportBaseRule implements RuleDefinition {
                 .allowedRuleClasses("aar_import", "java_import")
                 .allowedFileTypes()
                 .validityPredicate(ANY_EDGE))
-        /* <!-- #BLAZE_RULE($aar_import).ATTRIBUTE(srcjar) -->
+        /* <!-- #BLAZE_RULE(aar_import).ATTRIBUTE(srcjar) -->
         A JAR file that contains source code for the compiled JAR files in the AAR.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
-                attr("srcjar", LABEL)
-                        .allowedFileTypes(JavaSemantics.SOURCE_JAR, JavaSemantics.JAR)
-                        .direct_compile_time_input())
+            attr("srcjar", LABEL)
+                .allowedFileTypes(JavaSemantics.SOURCE_JAR, JavaSemantics.JAR)
+                .direct_compile_time_input())
         .add(
             attr(AAR_EMBEDDED_JARS_EXTACTOR, LABEL)
                 .cfg(HostTransition.createFactory())
