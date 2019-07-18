@@ -29,12 +29,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RepoWithRuleWritingTextGeneratorTest {
   private static final String BUILD_TEXT =
-      "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")\n"
+      "load(\"@rules_pkg//:pkg.bzl\", \"pkg_tar\")\n"
           + "load('//:helper.bzl', 'write_to_file')\n"
           + "write_to_file(name = 'write_text', filename = 'out', text ='HELLO')\n"
           + "pkg_tar(name = \"pkg_tar_write_text\", srcs = glob([\"*\"]),)";
   private static final String BUILD_TEXT_PARAMS =
-      "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")\n"
+      "load(\"@rules_pkg//:pkg.bzl\", \"pkg_tar\")\n"
           + "load('//:helper.bzl', 'write_to_file')\n"
           + "write_to_file(name = 'target', filename = 'file', text ='text')\n"
           + "pkg_tar(name = \"pkg_tar_target\", srcs = glob([\"*\"]),)";

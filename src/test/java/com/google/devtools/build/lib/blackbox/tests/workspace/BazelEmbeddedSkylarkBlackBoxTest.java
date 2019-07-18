@@ -44,34 +44,6 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
   private static final String HELLO_FROM_MAIN_REPOSITORY = "Hello from main repository!";
 
   @Test
-  public void testPkgTar() throws Exception {
-    context().write("main/WORKSPACE", BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos());
-    context().write("main/foo.txt", "Hello World");
-    context().write("main/bar.txt", "Hello World, again");
-    context()
-        .write(
-            "main/BUILD",
-            "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
-            "pkg_tar(name = \"data\", srcs = ['foo.txt', 'bar.txt'],)");
-
-    BuilderRunner bazel = bazel();
-    bazel.build("...");
-
-    Path dataTarPath = context().resolveBinPath(bazel, "main/data.tar");
-    assertThat(Files.exists(dataTarPath)).isTrue();
-
-    Path directory = decompress(dataTarPath);
-    assertThat(directory.toFile().exists()).isTrue();
-
-    Map<String, Path> map =
-        Arrays.stream(Objects.requireNonNull(directory.toFile().listFiles()))
-            .collect(Collectors.toMap(File::getName, file -> Paths.get(file.getAbsolutePath())));
-
-    WorkspaceTestUtils.assertLinesExactly(map.get("foo.txt"), "Hello World");
-    WorkspaceTestUtils.assertLinesExactly(map.get("bar.txt"), "Hello World, again");
-  }
-
-  @Test
   public void testHttpArchive() throws Exception {
     Path repo = context().getTmpDir().resolve("ext_repo");
     RepoWithRuleWritingTextGenerator generator = new RepoWithRuleWritingTextGenerator(repo);
