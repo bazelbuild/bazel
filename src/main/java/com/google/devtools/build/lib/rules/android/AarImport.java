@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
+import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -192,12 +194,36 @@ public class AarImport implements RuleConfiguredTargetFactory {
             /* isNeverLink = */ JavaCommon.isNeverLink(ruleContext),
             /* srcLessDepsExport = */ false);
 
+    // Wire up the source jar for the current target and transitive source jars from dependencies.
+    ImmutableList<Artifact> srcJars = ImmutableList.of();
+    Artifact srcJar = ruleContext.getPrerequisiteArtifact("srcjar", Mode.TARGET);
+    NestedSetBuilder<Artifact> transitiveJavaSourceJarBuilder = NestedSetBuilder.stableOrder();
+    if (srcJar != null) {
+      srcJars = ImmutableList.of(srcJar);
+      transitiveJavaSourceJarBuilder.add(srcJar);
+    }
+    for (JavaSourceJarsProvider other :
+        JavaInfo.getProvidersFromListOfTargets(
+            JavaSourceJarsProvider.class, ruleContext.getPrerequisites("exports", Mode.TARGET))) {
+      transitiveJavaSourceJarBuilder.addTransitive(other.getTransitiveSourceJars());
+    }
+    NestedSet<Artifact> transitiveJavaSourceJars = transitiveJavaSourceJarBuilder.build();
+    JavaSourceJarsProvider javaSourceJarsProvider =
+        JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars);
+    JavaSourceInfoProvider javaSourceInfoProvider =
+        new JavaSourceInfoProvider.Builder()
+            .setJarFiles(ImmutableList.of(mergedJar))
+            .setSourceJarsForJarFiles(srcJars)
+            .build();
+
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
             .setRuntimeJars(ImmutableList.of(mergedJar))
             .setJavaConstraints(ImmutableList.of("android"))
             .setNeverlink(JavaCommon.isNeverLink(ruleContext))
             .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
+            .addProvider(JavaSourceJarsProvider.class, javaSourceJarsProvider)
+            .addProvider(JavaSourceInfoProvider.class, javaSourceInfoProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build());
 
     common.addTransitiveInfoProviders(

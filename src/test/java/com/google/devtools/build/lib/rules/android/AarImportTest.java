@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsChec
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -74,17 +76,27 @@ public class AarImportTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "a/BUILD",
+        "java_import(",
+        "    name = 'foo_src',",
+        "    jars = ['foo-src.jar'],",
+        ")",
         "aar_import(",
         "    name = 'foo',",
         "    aar = 'foo.aar',",
+        "    srcjar = ':foo_src',",
         ")",
         "aar_import(",
         "    name = 'baz',",
         "    aar = 'baz.aar',",
         ")",
+        "java_import(",
+        "    name = 'bar_src',",
+        "    jars = ['bar-src.jar'],",
+        ")",
         "aar_import(",
         "    name = 'bar',",
         "    aar = 'bar.aar',",
+        "    srcjar = ':bar_src',",
         "    deps = [':baz'],",
         "    exports = [':foo', '//java:baz'],",
         ")",
@@ -182,6 +194,43 @@ public class AarImportTest extends BuildViewTestCase {
     Artifact assetsTreeArtifact = Iterables.getOnlyElement(assets.getAssets());
     assertThat(assetsTreeArtifact.isTreeArtifact()).isTrue();
     assertThat(assetsTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/assets/foo");
+  }
+
+  @Test
+  public void testSourceJarsProvided() throws Exception {
+    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
+
+    Iterable<Artifact> srcJars =
+        JavaInfo.getProvider(JavaSourceJarsProvider.class, aarImportTarget).getSourceJars();
+    assertThat(srcJars).hasSize(1);
+    Artifact srcJar = Iterables.getOnlyElement(srcJars);
+    assertThat(srcJar.getExecPathString()).endsWith("foo-src.jar");
+
+    Iterable<Artifact> srcInfoJars =
+        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget)
+            .getSourceJarsForJarFiles();
+    assertThat(srcInfoJars).hasSize(1);
+    Artifact srcInfoJar = Iterables.getOnlyElement(srcInfoJars);
+    assertThat(srcInfoJar.getExecPathString()).endsWith("foo-src.jar");
+  }
+
+  @Test
+  public void testSourceJarsCollectedTransitively() throws Exception {
+    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
+
+    Iterable<Artifact> srcJars =
+        JavaInfo.getProvider(JavaSourceJarsProvider.class, aarImportTarget)
+            .getTransitiveSourceJars();
+    assertThat(srcJars).hasSize(2);
+    assertThat(ActionsTestUtil.baseArtifactNames(srcJars))
+        .containsExactly("foo-src.jar", "bar-src.jar");
+
+    Iterable<Artifact> srcInfoJars =
+        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget)
+            .getSourceJarsForJarFiles();
+    assertThat(srcInfoJars).hasSize(1);
+    Artifact srcInfoJar = Iterables.getOnlyElement(srcInfoJars);
+    assertThat(srcInfoJar.getExecPathString()).endsWith("bar-src.jar");
   }
 
   @Test
