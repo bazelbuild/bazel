@@ -72,6 +72,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
                 .allowedFileTypes()
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(FileProvider.class)))
+        .requiresConfigurationFragments(ProtoConfiguration.class)
         .advertiseProvider(ProtoLangToolchainProvider.class)
         .removeAttribute("data")
         .removeAttribute("deps")
