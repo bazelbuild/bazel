@@ -203,6 +203,8 @@ To build C++ targets, you need:
     From 0.29.0, Bazel supports building with LLVM's MSVC-compatible compiler driver (`clang-cl.exe`).
     To build with `clang-cl.exe`, you have to install **both** LLVM and Visual C++ Build tools.
     Because we still need to link to Visual C++ libraries.
+
+    To install LLVM, please visit http://releases.llvm.org/download.html.
     
     Bazel can automatically detect LLVM installation on your system, you can explicitly tell Bazel where LLVM is installed by `BAZEL_LLVM`.
     
