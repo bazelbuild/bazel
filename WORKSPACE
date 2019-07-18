@@ -665,10 +665,11 @@ rules_pkg_dependencies()
 # Toolchains for Resource Compilation (.rc files on Windows).
 load("//src/main/res:local_config_winsdk.bzl", "local_config_winsdk")
 
-local_config_winsdk(name = "local_config_winsdk")
+local_config_winsdk(name = "local_winsdk")
 
-register_toolchains(
-    "//src/main/res:win_local_rc_toolchain",
-    "//src/main/res:empty_rc_toolchain",
-)
+load("@local_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains")
+
+register_local_rc_exe_toolchains()
+
+register_toolchains("//src/main/res:empty_rc_toolchain")
 
