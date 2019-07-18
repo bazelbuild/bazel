@@ -41,10 +41,7 @@ def _compile_rc(ctx, rc_exe, rc_file, extra_inputs):
         executable = rc_exe,
         arguments = [args],
         mnemonic = "WindowsRc",
-        progress_message = "Compiling resources {0} to {1}".format(
-            rc_file.basename,
-            out.basename,
-        ),
+        progress_message = "Compiling resources %s" % rc_file.basename,
     )
     return out
 

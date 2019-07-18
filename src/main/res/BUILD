@@ -1,5 +1,5 @@
 load(":win_res.bzl", "windows_resources")
-load(":winsdk_toolchain.bzl", "windows_resource_compiler_toolchain")
+load(":winsdk_toolchain.bzl", "windows_resource_compiler_toolchain", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE")
 
 filegroup(
     name = "srcs",
@@ -41,11 +41,11 @@ toolchain(
         "@platforms//cpu:x86_64",
     ],
     toolchain = ":local",
-    toolchain_type = ":toolchain_type",
+    toolchain_type = WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE,
 )
 
 toolchain(
     name = "empty_rc_toolchain",
     toolchain = ":empty",
-    toolchain_type = ":toolchain_type",
+    toolchain_type = WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE,
 )
