@@ -198,6 +198,52 @@ To build C++ targets, you need:
     set BAZEL_WINSDK_FULL_VERSION=10.0.10240.0
     ```
 
+*   The Clang compiler
+    
+    From 0.29.0, Bazel supports building with LLVM's MSVC-compatible compiler driver (`clang-cl.exe`).
+    To build with `clang-cl.exe`, you have to install **both** LLVM and Visual C++ Build tools.
+    Because we still need to link to Visual C++ libraries.
+    
+    Bazel can automatically detect LLVM installation on your system, you can explicitly tell Bazel where LLVM is installed by `BAZEL_LLVM`.
+    
+    *   `BAZEL_LLVM` the LLVM installation directory
+
+        ```
+        set BAZEL_LLVM=C:\Program Files\LLVM
+        ```
+    
+    To use the Clang toolchain for building C++, there are two situations.
+    
+    * In Bazel 0.29.0: You can enable the Clang toolchain by a build flag `--compiler=clang-cl`. 
+      This is deprecated and will be removed in Bazel 1.0.
+    
+    * From Bazel 1.0: You have to add a platform target to your build file (eg. the top level BUILD file):
+        ```
+        platform(
+          name = "windows-clang-cl",
+          constraint_values = [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:windows",
+            "@bazel_tools//tools/cpp:clang-cl",
+          ]
+        )
+        ```
+        Then you can enable the Clang toolchain by specifying the following build flags:
+        ```
+        --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:windows-clang-cl
+        ```
+        **or** registering the platform and toolchain in your WORKSPACE file:
+        ```
+        register_execution_platforms(
+          ":windows-clang-cl"
+        )
+        
+        register_toolchains(
+            "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",
+        )
+        ```
+     The reason we have those two ways is because [--incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260) flag.
+
 If everything is set up, you can build a C++ target now!
 
 Try building a target from one of our [sample
