@@ -90,6 +90,10 @@ public class ProtoLangToolchainRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = proto_lang_toolchain, TYPE = LIBRARY, FAMILY = Protocol Buffer) -->
 
+<p>Deprecated. Please <a href="https://github.com/bazelbuild/rules_proto">
+   https://github.com/bazelbuild/rules_proto</a> instead.
+</p>
+
 <p>
 Specifies how a LANG_proto_library rule (e.g., <code>java_proto_library</code>) should invoke the
 proto-compiler.

@@ -199,11 +199,26 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
                 + "been superseded by the strip_import_prefix= and import_prefix= attributes")
     public boolean disableProtoSourceRoot;
 
+    @Option(
+        name = "incompatible_load_proto_rules_from_bzl",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "If enabled, direct usage of the native Protobuf rules is disabled. Please use "
+                + "the Starlark rules instead https://github.com/bazelbuild/rules_proto")
+    public boolean loadProtoRulesFromBzl;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
       host.disableLegacyProvider = disableLegacyProvider;
       host.disableProtoSourceRoot = disableProtoSourceRoot;
+      host.loadProtoRulesFromBzl = loadProtoRulesFromBzl;
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
       host.experimentalProtoExtraActions = experimentalProtoExtraActions;
@@ -318,5 +333,9 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public boolean generatedProtosInVirtualImports() {
     return options.generatedProtosInVirtualImports;
+  }
+
+  public boolean loadProtoRulesFromBzl() {
+    return options.loadProtoRulesFromBzl;
   }
 }

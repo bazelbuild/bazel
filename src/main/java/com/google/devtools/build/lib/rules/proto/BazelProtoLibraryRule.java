@@ -122,6 +122,10 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = proto_library, TYPE = LIBRARY, FAMILY = Protocol Buffer) -->
 
+<p>Deprecated. Please use <a href="https://github.com/bazelbuild/rules_proto">
+   https://github.com/bazelbuild/rules_proto</a> instead.
+</p>
+
 <p>Use <code>proto_library</code> to define libraries of protocol buffers
    which may be used from multiple languages. A <code>proto_library</code> may be listed
    in the <code>deps</code> clause of supported rules, such as <code>java_proto_library</code>.
