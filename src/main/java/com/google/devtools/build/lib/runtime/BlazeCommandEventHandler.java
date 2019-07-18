@@ -108,7 +108,7 @@ public class BlazeCommandEventHandler {
 
     @Option(
         name = "isatty",
-        // TODO(b/123504199): Old name should be removed after 2020-01-01, or whenever is
+        // TODO(b/137881511): Old name should be removed after 2020-01-01, or whenever is
         // reasonable.
         oldName = "is_stderr_atty",
         defaultValue = "false",
