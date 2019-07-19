@@ -33,6 +33,7 @@ Stores information about a foo.
   </tbody>
 </table>
 
+
 <a name="#MyPoorlyDocumentedInfo"></a>
 
 ## MyPoorlyDocumentedInfo
@@ -40,6 +41,7 @@ Stores information about a foo.
 <pre>
 MyPoorlyDocumentedInfo()
 </pre>
+
 
 
 
@@ -79,4 +81,5 @@ Look on my works, ye mighty, and despair!
     </tr>
   </tbody>
 </table>
+
 

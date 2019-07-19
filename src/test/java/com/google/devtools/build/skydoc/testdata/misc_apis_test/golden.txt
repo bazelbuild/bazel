@@ -74,6 +74,7 @@ These dependencies better provide MyInfo!
   </tbody>
 </table>
 
+
 <a name="#MyInfo"></a>
 
 ## MyInfo
@@ -107,6 +108,7 @@ MyInfo(<a href="#MyInfo-foo">foo</a>, <a href="#MyInfo-bar">bar</a>)
   </tbody>
 </table>
 
+
 <a name="#exercise_the_api"></a>
 
 ## exercise_the_api
@@ -114,6 +116,7 @@ MyInfo(<a href="#MyInfo-foo">foo</a>, <a href="#MyInfo-bar">bar</a>)
 <pre>
 exercise_the_api()
 </pre>
+
 
 
 
@@ -144,4 +147,5 @@ my_rule_impl(<a href="#my_rule_impl-ctx">ctx</a>)
     </tr>
   </tbody>
 </table>
+
 

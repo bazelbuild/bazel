@@ -54,6 +54,7 @@ This rule does C++-related things.
   </tbody>
 </table>
 
+
 <a name="#exercise_the_api"></a>
 
 ## exercise_the_api
@@ -61,6 +62,7 @@ This rule does C++-related things.
 <pre>
 exercise_the_api()
 </pre>
+
 
 
 
@@ -91,4 +93,5 @@ my_rule_impl(<a href="#my_rule_impl-ctx">ctx</a>)
     </tr>
   </tbody>
 </table>
+
 

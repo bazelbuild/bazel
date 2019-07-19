@@ -30,6 +30,7 @@ Returns the minimum of given elements.
   </tbody>
 </table>
 
+
 <a name="#my_namespace.math.min"></a>
 
 ## my_namespace.math.min
@@ -60,6 +61,7 @@ Returns the minimum of given elements.
   </tbody>
 </table>
 
+
 <a name="#my_namespace.foo.bar.baz"></a>
 
 ## my_namespace.foo.bar.baz
@@ -69,6 +71,7 @@ my_namespace.foo.bar.baz()
 </pre>
 
 This function does nothing.
+
 
 
 <a name="#my_namespace.one.two.min"></a>
@@ -101,6 +104,7 @@ Returns the minimum of given elements.
   </tbody>
 </table>
 
+
 <a name="#my_namespace.one.three.does_nothing"></a>
 
 ## my_namespace.one.three.does_nothing
@@ -110,5 +114,6 @@ my_namespace.one.three.does_nothing()
 </pre>
 
 This function does nothing.
+
 
 

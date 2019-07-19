@@ -39,6 +39,7 @@ Asserts the two given lists are not empty.
   </tbody>
 </table>
 
+
 <a name="#my_namespace.min"></a>
 
 ## my_namespace.min
@@ -68,6 +69,7 @@ Returns the minimum of given elements.
     </tr>
   </tbody>
 </table>
+
 
 <a name="#my_namespace.join_strings"></a>
 
@@ -107,4 +109,5 @@ Joins the given strings with a delimiter.
     </tr>
   </tbody>
 </table>
+
 
