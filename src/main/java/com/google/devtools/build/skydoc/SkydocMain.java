@@ -163,6 +163,14 @@ public class SkydocMain {
   private final SkylarkFileAccessor fileAccessor;
   private final List<String> depRoots;
   private final String workspaceName;
+  private static final String HEADER_TEMPLATE_PATH =
+      "com/google/devtools/build/skydoc/rendering/templates/header.vm";
+  private static final String RULE_TEMPLATE_PATH =
+      "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
+  private static final String PROVIDER_TEMPLATE_PATH =
+      "com/google/devtools/build/skydoc/rendering/templates/provider.vm";
+  private static final String FUNCTION_TEMPLATE_PATH =
+      "com/google/devtools/build/skydoc/rendering/templates/func.vm";
 
   public SkydocMain(SkylarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
     this.fileAccessor = fileAccessor;
@@ -246,7 +254,12 @@ public class SkydocMain {
             .writeModuleInfo(out);
       }
     } else if (skydocOptions.outputFormat == OutputFormat.MARKDOWN) {
-      MarkdownRenderer renderer = new MarkdownRenderer();
+      MarkdownRenderer renderer =
+          new MarkdownRenderer(
+              HEADER_TEMPLATE_PATH,
+              RULE_TEMPLATE_PATH,
+              PROVIDER_TEMPLATE_PATH,
+              FUNCTION_TEMPLATE_PATH);
       try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
         printWriter.println(renderer.renderMarkdownHeader());
         printRuleInfos(printWriter, renderer, filteredRuleInfos);

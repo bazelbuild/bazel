@@ -32,18 +32,23 @@ import org.apache.velocity.runtime.resource.loader.JarResourceLoader;
  */
 public class MarkdownRenderer {
 
-  private static final String HEADER_TEMPLATE_FILENAME =
-      "com/google/devtools/build/skydoc/rendering/templates/header.vm";
-  private static final String RULE_TEMPLATE_FILENAME =
-      "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
-  private static final String PROVIDER_TEMPLATE_FILENAME =
-      "com/google/devtools/build/skydoc/rendering/templates/provider.vm";
-  private static final String FUNCTION_TEMPLATE_FILENAME =
-      "com/google/devtools/build/skydoc/rendering/templates/func.vm";
+  private final String headerTemplateFilename;
+  private final String ruleTemplateFilename;
+  private final String providerTemplateFilename;
+  private final String functionTemplateFilename;
 
   private final VelocityEngine velocityEngine;
 
-  public MarkdownRenderer() {
+  public MarkdownRenderer(
+      String headerTemplate,
+      String ruleTemplate,
+      String providerTemplate,
+      String functionTemplate) {
+    this.headerTemplateFilename = headerTemplate;
+    this.ruleTemplateFilename = ruleTemplate;
+    this.providerTemplateFilename = providerTemplate;
+    this.functionTemplateFilename = functionTemplate;
+
     this.velocityEngine = new VelocityEngine();
     velocityEngine.setProperty("resource.loader", "classpath, jar");
     velocityEngine.setProperty("classpath.resource.loader.class",
@@ -62,7 +67,7 @@ public class MarkdownRenderer {
     StringWriter stringWriter = new StringWriter();
     try {
       velocityEngine.mergeTemplate(
-          HEADER_TEMPLATE_FILENAME, "UTF-8", new VelocityContext(), stringWriter);
+          headerTemplateFilename, "UTF-8", new VelocityContext(), stringWriter);
     } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
       throw new IOException(e);
     }
@@ -81,7 +86,7 @@ public class MarkdownRenderer {
 
     StringWriter stringWriter = new StringWriter();
     try {
-      velocityEngine.mergeTemplate(RULE_TEMPLATE_FILENAME, "UTF-8", context, stringWriter);
+      velocityEngine.mergeTemplate(ruleTemplateFilename, "UTF-8", context, stringWriter);
     } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
       throw new IOException(e);
     }
@@ -100,7 +105,7 @@ public class MarkdownRenderer {
 
     StringWriter stringWriter = new StringWriter();
     try {
-      velocityEngine.mergeTemplate(PROVIDER_TEMPLATE_FILENAME, "UTF-8", context, stringWriter);
+      velocityEngine.mergeTemplate(providerTemplateFilename, "UTF-8", context, stringWriter);
     } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
       throw new IOException(e);
     }
@@ -118,7 +123,7 @@ public class MarkdownRenderer {
 
     StringWriter stringWriter = new StringWriter();
     try {
-      velocityEngine.mergeTemplate(FUNCTION_TEMPLATE_FILENAME, "UTF-8", context, stringWriter);
+      velocityEngine.mergeTemplate(functionTemplateFilename, "UTF-8", context, stringWriter);
     } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
       throw new IOException(e);
     }
