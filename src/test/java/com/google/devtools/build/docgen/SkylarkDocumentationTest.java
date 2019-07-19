@@ -442,7 +442,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
                 + "MockClassWithContainerReturnValues.depset()");
     assertThat(signatures)
     .contains(
-        "<a class=\"anchor\" href=\"list.html\">tuple</a> "
+        "<a class=\"anchor\" href=\"tuple.html\">tuple</a> "
             + "MockClassWithContainerReturnValues.tuple()");
     assertThat(signatures)
         .contains(
