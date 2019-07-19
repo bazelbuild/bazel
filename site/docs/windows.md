@@ -247,7 +247,7 @@ example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
           ],
       )
       ```
-      Then you can enable the Clang toolchain by either the following two ways:
+      Then you can enable the Clang toolchain by either of the following two ways:
       * Specify the following build flags:
       ```
       --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:windows-clang-cl
