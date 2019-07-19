@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -540,6 +541,18 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   @Override
   public int hashCode() {
     return Objects.hashCode(starlarkDefinedConfigTransition);
+  }
+
+  /** Given a transition, figures out if it composes any Starlark transitions. */
+  public static boolean doesStarlarkTransition(ConfigurationTransition root)
+      throws TransitionException {
+    AtomicBoolean doesStarlarkTransition = new AtomicBoolean(false);
+    root.visit(
+        (StarlarkTransitionVisitor)
+            transition -> {
+              doesStarlarkTransition.set(true);
+            });
+    return doesStarlarkTransition.get();
   }
 
   @FunctionalInterface
