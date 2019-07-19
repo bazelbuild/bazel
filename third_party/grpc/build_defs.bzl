@@ -23,8 +23,8 @@ def _gensource_impl(ctx):
             print(("in srcs attribute of {0}: Proto source with label {1} should be in " +
                    "same package as consuming rule").format(ctx.label, s.label))
     srcdotjar = ctx.actions.declare_file(ctx.label.name + ".jar")
-    srcs = [f for dep in ctx.attr.srcs for f in dep.proto.direct_sources]
-    includes = [f for dep in ctx.attr.srcs for f in dep.proto.transitive_imports.to_list()]
+    srcs = [f for dep in ctx.attr.srcs for f in dep[ProtoInfo].direct_sources]
+    includes = [f for dep in ctx.attr.srcs for f in dep[ProtoInfo].transitive_imports.to_list()]
 
     ctx.actions.run_shell(
         command = " ".join([
@@ -51,7 +51,7 @@ _java_grpc_gensource = rule(
         "srcs": attr.label_list(
             mandatory = True,
             allow_empty = False,
-            providers = ["proto"],
+            providers = [ProtoInfo],
         ),
         "enable_deprecated": attr.bool(
             default = False,
