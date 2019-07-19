@@ -455,6 +455,15 @@ def _use_clang_cl(repository_ctx):
     """Returns True if USE_CLANG_CL is set to 1."""
     return repository_ctx.os.environ.get("USE_CLANG_CL", default = "0") == "1"
 
+def _find_missing_llvm_tools(repository_ctx, llvm_path):
+    """Check if any required tool is missing under given LLVM path."""
+    missing_tools = []
+    for tool in ["clang-cl.exe", "lld-link.exe", "llvm-lib.exe"]:
+        if not find_llvm_tool(repository_ctx, llvm_path, tool):
+            missing_tools.append(tool)
+
+    return missing_tools
+
 def _get_clang_version(repository_ctx, clang_cl):
     result = repository_ctx.execute([clang_cl, "-v"])
     if result.return_code != 0:
@@ -575,6 +584,77 @@ def _get_msvc_vars(repository_ctx, paths):
     }
     return msvc_vars
 
+def _get_clang_cl_vars(repository_ctx, paths, msvc_vars):
+    """Get the variables we need to populate the clang-cl toolchains."""
+    llvm_path = find_llvm_path(repository_ctx)
+    error_script = None
+    if msvc_vars["%{msvc_cl_path}"] == "vc_installation_error.bat":
+        error_script = "vc_installation_error.bat"
+    elif not llvm_path:
+        repository_ctx.template(
+            "clang_installation_error.bat",
+            paths["@bazel_tools//tools/cpp:clang_installation_error.bat.tpl"],
+            {"%{clang_error_message}": ""},
+        )
+        error_script = "clang_installation_error.bat"
+    else:
+        missing_tools = _find_missing_llvm_tools(repository_ctx, llvm_path)
+        if missing_tools:
+            message = "\r\n".join([
+                "echo. 1>&2",
+                "echo LLVM/Clang seems to be installed at %s 1>&2" % llvm_path,
+                "echo But Bazel can't find the following tools: 1>&2",
+                "echo     %s 1>&2" % ", ".join(missing_tools),
+                "echo. 1>&2",
+            ])
+            repository_ctx.template(
+                "clang_installation_error.bat",
+                paths["@bazel_tools//tools/cpp:clang_installation_error.bat.tpl"],
+                {"%{clang_error_message}": message},
+            )
+            error_script = "clang_installation_error.bat"
+
+    if error_script:
+        clang_cl_vars = {
+            "%{clang_cl_env_tmp}": "clang_cl_not_found",
+            "%{clang_cl_env_path}": "clang_cl_not_found",
+            "%{clang_cl_env_include}": "clang_cl_not_found",
+            "%{clang_cl_env_lib}": "clang_cl_not_found",
+            "%{clang_cl_cl_path}": error_script,
+            "%{clang_cl_link_path}": error_script,
+            "%{clang_cl_lib_path}": error_script,
+            "%{clang_cl_ml_path}": error_script,
+            "%{clang_cl_dbg_mode_debug_flag}": "/DEBUG",
+            "%{clang_cl_fastbuild_mode_debug_flag}": "/DEBUG",
+            "%{clang_cl_cxx_builtin_include_directories}": "",
+        }
+        return clang_cl_vars
+
+    clang_cl_path = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe")
+    lld_link_path = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe")
+    llvm_lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
+
+    clang_version = _get_clang_version(repository_ctx, clang_cl_path)
+    clang_dir = llvm_path + "\\lib\\clang\\" + clang_version
+    clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
+    clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
+
+    clang_cl_vars = {
+        "%{clang_cl_env_tmp}": msvc_vars["%{msvc_env_tmp}"],
+        "%{clang_cl_env_path}": msvc_vars["%{msvc_env_path}"],
+        "%{clang_cl_env_include}": msvc_vars["%{msvc_env_include}"] + ";" + clang_include_path,
+        "%{clang_cl_env_lib}": msvc_vars["%{msvc_env_lib}"] + ";" + clang_lib_path,
+        "%{clang_cl_cxx_builtin_include_directories}": msvc_vars["%{msvc_cxx_builtin_include_directories}"] + (",\n        \"%s\"" % clang_include_path),
+        "%{clang_cl_cl_path}": clang_cl_path,
+        "%{clang_cl_link_path}": lld_link_path,
+        "%{clang_cl_lib_path}": llvm_lib_path,
+        "%{clang_cl_ml_path}": msvc_vars["%{msvc_ml_path}"],
+        # LLVM's lld-link.exe doesn't support /DEBUG:FASTLINK.
+        "%{clang_cl_dbg_mode_debug_flag}": "/DEBUG",
+        "%{clang_cl_fastbuild_mode_debug_flag}": "/DEBUG",
+    }
+    return clang_cl_vars
+
 def configure_windows_toolchain(repository_ctx):
     """Configure C++ toolchain on Windows."""
     paths = resolve_labels(repository_ctx, [
@@ -583,6 +663,7 @@ def configure_windows_toolchain(repository_ctx):
         "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
         "@bazel_tools//tools/cpp:msys_gcc_installation_error.bat",
+        "@bazel_tools//tools/cpp:clang_installation_error.bat.tpl",
     ])
 
     repository_ctx.symlink(
@@ -599,7 +680,9 @@ def configure_windows_toolchain(repository_ctx):
     )
 
     template_vars = dict()
-    template_vars.update(_get_msvc_vars(repository_ctx, paths))
+    msvc_vars = _get_msvc_vars(repository_ctx, paths)
+    template_vars.update(msvc_vars)
+    template_vars.update(_get_clang_cl_vars(repository_ctx, paths, msvc_vars))
     template_vars.update(_get_msys_mingw_vars(repository_ctx))
 
     repository_ctx.template(

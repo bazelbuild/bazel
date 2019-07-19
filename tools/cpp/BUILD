@@ -41,6 +41,11 @@ constraint_value(
 )
 
 constraint_value(
+    name = "clang-cl",
+    constraint_setting = ":cc_compiler",
+)
+
+constraint_value(
     name = "mingw",
     constraint_setting = ":cc_compiler",
 )
