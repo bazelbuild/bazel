@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -335,10 +334,11 @@ public class ExecutionTool {
             Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
           actionContextProvider.executionPhaseStarting(
               actionGraph,
-              Suppliers.memoize(
-                  () ->
-                      TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(
-                          analysisResult, aspects)));
+              // If this supplier is ever consumed by more than one ActionContextProvider, it can be
+              // pulled out of the loop and made a memoizing supplier.
+              () ->
+                  TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(
+                      analysisResult, aspects));
         }
       }
       skyframeExecutor.drainChangedFiles();
