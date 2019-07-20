@@ -38,7 +38,6 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -298,9 +297,9 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
         SigPrintf(
             "\n%s caught third Ctrl+C handler signal; killed.\n\n",
             SignalHandler::Get().GetProductName().c_str());
-        if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
+        if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
-              SignalHandler::Get().GetGlobals()->server_pid,
+              SignalHandler::Get().GetServerProcessInfo()->server_pid_,
               SignalHandler::Get().GetOutputBase());
         }
         _exit(1);
@@ -320,11 +319,11 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
 
 void SignalHandler::Install(const string &product_name,
                             const string &output_base,
-                            GlobalVariables* globals,
+                            const ServerProcessInfo *server_process_info_,
                             SignalHandler::Callback cancel_server) {
   product_name_ = product_name;
   output_base_ = output_base;
-  globals_ = globals;
+  server_process_info_ = server_process_info_;
   cancel_server_ = cancel_server;
   ::SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
@@ -1189,28 +1188,22 @@ bool IsEmacsTerminal() {
   return emacs == "t" || ExistsEnv("INSIDE_EMACS");
 }
 
-// Returns true if stderr is connected to a terminal, and it can support color
-// and cursor movement (this is computed heuristically based on the values of
-// environment variables).  Blaze only outputs control characters to stderr,
-// so we only care for the stderr descriptor type.
-bool IsStderrStandardTerminal() {
-  DWORD mode = 0;
-  HANDLE handle = ::GetStdHandle(STD_ERROR_HANDLE);
-  // handle may be invalid when stderr is redirected
-  if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
-      !(mode & ENABLE_PROCESSED_OUTPUT) ||
-      !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
-      !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
-    return false;
+bool IsStandardTerminal() {
+  for (DWORD i : {STD_OUTPUT_HANDLE, STD_ERROR_HANDLE}) {
+    DWORD mode = 0;
+    HANDLE handle = ::GetStdHandle(STD_ERROR_HANDLE);
+    // handle may be invalid when std{out,err} is redirected
+    if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
+        !(mode & ENABLE_PROCESSED_OUTPUT) ||
+        !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
+        !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+      return false;
+    }
   }
   return true;
 }
 
-// Returns the number of columns of the terminal to which stderr is connected,
-// or $COLUMNS (default 80) if there is no such terminal.  Blaze only outputs
-// formatted messages to stderr, so we only care for width of a terminal
-// connected to the stderr descriptor.
-int GetStderrTerminalColumns() {
+int GetTerminalColumns() {
   string columns_env = GetEnv("COLUMNS");
   if (!columns_env.empty()) {
     char* endptr;
@@ -1220,7 +1213,7 @@ int GetStderrTerminalColumns() {
     }
   }
 
-  HANDLE stdout_handle = ::GetStdHandle(STD_ERROR_HANDLE);
+  HANDLE stdout_handle = ::GetStdHandle(STD_OUTPUT_HANDLE);
   if (stdout_handle != INVALID_HANDLE_VALUE) {
     // stdout_handle may be invalid when stdout is redirected.
     CONSOLE_SCREEN_BUFFER_INFO screen_info;

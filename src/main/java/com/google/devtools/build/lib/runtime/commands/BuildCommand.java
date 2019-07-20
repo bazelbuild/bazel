@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildTool;
@@ -41,24 +42,24 @@ import java.util.List;
  * passed to Blaze.
  */
 @Command(
-  name = "build",
-  builds = true,
-  options = {
-    BuildRequestOptions.class,
-    ExecutionOptions.class,
-    LocalExecutionOptions.class,
-    PackageCacheOptions.class,
-    AnalysisOptions.class,
-    LoadingOptions.class,
-    KeepGoingOption.class,
-    LoadingPhaseThreadsOption.class
-  },
-  usesConfigurationOptions = true,
-  shortDescription = "Builds the specified targets.",
-  allowResidue = true,
-  completion = "label",
-  help = "resource:build.txt"
-)
+    name = "build",
+    builds = true,
+    options = {
+      BuildRequestOptions.class,
+      ExecutionOptions.class,
+      LocalExecutionOptions.class,
+      PackageCacheOptions.class,
+      AnalysisOptions.class,
+      LoadingOptions.class,
+      KeepGoingOption.class,
+      LoadingPhaseThreadsOption.class,
+      BuildEventProtocolOptions.class
+    },
+    usesConfigurationOptions = true,
+    shortDescription = "Builds the specified targets.",
+    allowResidue = true,
+    completion = "label",
+    help = "resource:build.txt")
 public final class BuildCommand implements BlazeCommand {
 
   @Override

@@ -12,11 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/cpp/global_variables.h"
+#include "src/main/cpp/server_process_info.h"
+
+#include "src/main/cpp/util/path.h"
 
 namespace blaze {
 
-GlobalVariables::GlobalVariables()
-    : server_pid(-1) {}
+static std::string GetJvmOutFile(
+    const std::string &output_base, const std::string &server_jvm_out) {
+  if (!server_jvm_out.empty()) {
+    return server_jvm_out;
+  } else {
+    return blaze_util::JoinPath(output_base, "server/jvm.out");
+  }
+}
+
+ServerProcessInfo::ServerProcessInfo(
+    const std::string &output_base, const std::string &server_jvm_out)
+    : jvm_log_file_(GetJvmOutFile(output_base, server_jvm_out)),
+      jvm_log_file_append_(!server_jvm_out.empty()),
+      // TODO(b/69972303): Formalize the "no server" magic value or rm it.
+      server_pid_(-1) {}
 
 }  // namespace blaze

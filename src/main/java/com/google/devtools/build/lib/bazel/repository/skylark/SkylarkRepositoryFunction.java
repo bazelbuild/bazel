@@ -249,7 +249,13 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     return (Boolean) rule.getAttributeContainer().getAttr("$configure");
   }
 
-  public static boolean isConfigurelikeRule(Rule rule) {
+  /**
+   * Static method to determine if for a starlark repository rule {@code isConfigure} holds true. It
+   * also checks that the rule is indeed a Starlark rule so that this class is the appropriate
+   * handler for the given rule. As, however, only Starklark rules can be configure rules, this
+   * method can also be used as a universal check.
+   */
+  public static boolean isConfigureRule(Rule rule) {
     return rule.getRuleClassObject().isSkylark()
         && ((Boolean) rule.getAttributeContainer().getAttr("$configure"));
   }

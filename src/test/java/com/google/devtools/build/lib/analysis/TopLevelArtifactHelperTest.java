@@ -65,7 +65,7 @@ public class TopLevelArtifactHelperTest {
       mapBuilder.put(
           groupArtifact.getFirst(), newArtifacts(checkNotNull(groupArtifact.getSecond())));
     }
-    ctx = new TopLevelArtifactContext(false, setBuilder.build());
+    ctx = new TopLevelArtifactContext(false, false, setBuilder.build());
     groupProvider = new OutputGroupInfo(mapBuilder.build());
   }
 

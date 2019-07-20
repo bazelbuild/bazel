@@ -1,0 +1,23 @@
+<a name="#${ruleName}"></a>
+
+#[[##]]# ${ruleName}
+
+<pre>
+${util.ruleSummary($ruleName, $ruleInfo)}
+</pre>
+
+${ruleInfo.docString}
+
+#[[###]]# Attributes
+
+#if (!$ruleInfo.getAttributeList().isEmpty())
+#foreach ($attribute in $ruleInfo.getAttributeList())
+    <code>${attribute.name}</code>
+    ${util.attributeTypeString($attribute)}; ${util.mandatoryString($attribute)}
+#if (!$attribute.docString.isEmpty())
+        <p>
+          ${attribute.docString.trim()}
+        </p>
+#end
+#end
+#end

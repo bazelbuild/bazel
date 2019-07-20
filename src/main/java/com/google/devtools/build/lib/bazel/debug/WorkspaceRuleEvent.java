@@ -84,6 +84,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
       List<URL> urls,
       String output,
       String sha256,
+      String integrity,
       Boolean executable,
       String ruleLabel,
       Location location) {
@@ -91,6 +92,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.DownloadEvent.newBuilder()
             .setOutput(output)
             .setSha256(sha256)
+            .setIntegrity(integrity)
             .setExecutable(executable);
     for (URL u : urls) {
       e.addUrl(u.toString());
@@ -135,6 +137,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
       List<URL> urls,
       String output,
       String sha256,
+      String integrity,
       String type,
       String stripPrefix,
       String ruleLabel,
@@ -143,6 +146,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.DownloadAndExtractEvent.newBuilder()
             .setOutput(output)
             .setSha256(sha256)
+            .setIntegrity(integrity)
             .setType(type)
             .setStripPrefix(stripPrefix);
     for (URL u : urls) {

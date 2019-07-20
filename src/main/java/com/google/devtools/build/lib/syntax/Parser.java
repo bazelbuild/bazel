@@ -19,9 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -32,6 +30,7 @@ import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLit
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -162,12 +161,18 @@ public class Parser {
   private int errorsCount;
   private boolean recoveryMode;  // stop reporting errors until next statement
 
-  private final Interner<String> stringInterner = BlazeInterners.newStrongInterner();
+  // Intern string literals, as some files contain many literals for the same string.
+  private final Map<String, String> stringInterner = new HashMap<>();
 
   private Parser(Lexer lexer, EventHandler eventHandler) {
     this.lexer = lexer;
     this.eventHandler = eventHandler;
     nextToken();
+  }
+
+  private String intern(String s) {
+    String prev = stringInterner.putIfAbsent(s, s);
+    return prev != null ? prev : s;
   }
 
   private static Location locationFromStatements(Lexer lexer, List<Statement> statements) {
@@ -605,9 +610,7 @@ public class Parser {
     Preconditions.checkState(token.kind == TokenKind.STRING);
     int end = token.right;
     StringLiteral literal =
-        setLocation(
-            new StringLiteral(stringInterner.intern((String) token.value)), token.left, end);
-
+        setLocation(new StringLiteral(intern((String) token.value)), token.left, end);
     nextToken();
     if (token.kind == TokenKind.STRING) {
       reportError(lexer.createLocation(end, token.left),
@@ -669,6 +672,13 @@ public class Parser {
           Expression expr = parsePrimaryWithSuffix();
           UnaryOperatorExpression minus = new UnaryOperatorExpression(TokenKind.MINUS, expr);
           return setLocation(minus, start, expr);
+        }
+      case PLUS:
+        {
+          nextToken();
+          Expression expr = parsePrimaryWithSuffix();
+          UnaryOperatorExpression plus = new UnaryOperatorExpression(TokenKind.PLUS, expr);
+          return setLocation(plus, start, expr);
         }
       default:
         {
@@ -960,7 +970,7 @@ public class Parser {
       if (x instanceof StringLiteral && y instanceof StringLiteral) {
         StringLiteral left = (StringLiteral) x;
         StringLiteral right = (StringLiteral) y;
-        return new StringLiteral(stringInterner.intern(left.getValue() + right.getValue()));
+        return new StringLiteral(intern(left.getValue() + right.getValue()));
       }
     }
     return new BinaryOperatorExpression(x, op, y);

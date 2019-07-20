@@ -55,8 +55,8 @@
 #include "src/main/cpp/archive_utils.h"
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/option_processor.h"
+#include "src/main/cpp/server_process_info.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/bazel_log_handler.h"
 #include "src/main/cpp/util/errors.h"
@@ -245,7 +245,8 @@ class BlazeServer final {
       const int connect_timeout_secs,
       const bool batch,
       const bool block_for_lock,
-      const string &output_base);
+      const string &output_base,
+      const string &server_jvm_out);
   ~BlazeServer();
 
   // Acquire a lock for the server running in this output base. Returns the
@@ -279,6 +280,9 @@ class BlazeServer final {
   // connected state.
   void Cancel();
 
+  // Returns information about the actual server process and its configuration.
+  const ServerProcessInfo& ProcessInfo() const { return process_info_; }
+
  private:
   BlazeLock blaze_lock_;
   bool connected_;
@@ -304,6 +308,7 @@ class BlazeServer final {
   void SendAction(CancelThreadAction action);
   void SendCancelMessage();
 
+  ServerProcessInfo process_info_;
   const int connect_timeout_secs_;
   const bool batch_;
   const bool block_for_lock_;
@@ -312,13 +317,12 @@ class BlazeServer final {
 
 ////////////////////////////////////////////////////////////////////////
 // Global Variables
-static GlobalVariables *globals;
 static BlazeServer *blaze_server;
 
-// TODO(laszlocsomor) 2016-11-24: release the `globals` and `blaze_server`
-// objects. Currently nothing deletes them. Be careful that some functions may
-// call exit(2) or _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have
-// to delete the objects before those.
+// TODO(laszlocsomor) 2016-11-24: release the `blaze_server` object. Currently
+// nothing deletes it. Be careful that some functions may call exit(2) or
+// _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have to delete the
+// objects before those.
 
 uint64_t BlazeServer::AcquireLock() {
   return blaze::AcquireLock(output_base_,
@@ -752,15 +756,15 @@ static void ConnectOrDie(
     std::this_thread::sleep_until(next_attempt_time);
     if (!server_startup->IsStillAlive()) {
       option_processor.PrintStartupOptionsProvenanceMessage();
-      if (globals->jvm_log_file_append) {
+      if (server->ProcessInfo().jvm_log_file_append_) {
         // Don't dump the log if we were appending - the user should know where
         // to find it, and who knows how much content they may have accumulated.
         BAZEL_LOG(USER) << "Server crashed during startup. See "
-                        << globals->jvm_log_file;
+                        << server->ProcessInfo().jvm_log_file_;
       } else {
         BAZEL_LOG(USER) << "Server crashed during startup. Now printing "
-                        << globals->jvm_log_file;
-        WriteFileToStderrOrDie(globals->jvm_log_file.c_str());
+                        << server->ProcessInfo().jvm_log_file_;
+        WriteFileToStderrOrDie(server->ProcessInfo().jvm_log_file_.c_str());
       }
       exit(blaze_exit_code::INTERNAL_ERROR);
     }
@@ -840,7 +844,8 @@ static void StartServerAndConnect(
   BlazeServerStartup *server_startup;
   const int server_pid = ExecuteDaemon(
       server_exe, server_exe_args, PrepareEnvironmentForJvm(),
-      globals->jvm_log_file, globals->jvm_log_file_append,
+      server->ProcessInfo().jvm_log_file_,
+      server->ProcessInfo().jvm_log_file_append_,
       GetEmbeddedBinariesRoot(startup_options.install_base), server_dir,
       startup_options, &server_startup);
 
@@ -1177,7 +1182,7 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     // Check for the case when the workspace directory deleted and then gets
     // recreated while the server is running
 
-    string server_cwd = GetProcessCWD(globals->server_pid);
+    string server_cwd = GetProcessCWD(server->ProcessInfo().server_pid_);
     // If server_cwd is empty, GetProcessCWD failed. This notably occurs when
     // running under Docker because then readlink(/proc/[pid]/cwd) returns
     // EPERM.
@@ -1203,7 +1208,8 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     }
   }
 
-  BAZEL_LOG(INFO) << "Connected (server pid=" << globals->server_pid << ").";
+  BAZEL_LOG(INFO)
+      << "Connected (server pid=" << server->ProcessInfo().server_pid_ << ").";
 
   // Wall clock time since process startup.
   logging_info->client_startup_duration_ms =
@@ -1212,7 +1218,7 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
   SignalHandler::Get().Install(
       startup_options.product_name,
       startup_options.output_base,
-      globals,
+      &server->ProcessInfo(),
       CancelServer);
   SignalHandler::Get().PropagateSignalOrExit(
       server->Communicate(
@@ -1298,15 +1304,6 @@ static void UpdateConfiguration(
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "blaze_util::MakeCanonical('" << output_base
         << "') failed: " << GetLastErrorString();
-  }
-
-  if (!startup_options->server_jvm_out.empty()) {
-    globals->jvm_log_file = startup_options->server_jvm_out;
-    globals->jvm_log_file_append = true;
-  } else {
-    globals->jvm_log_file =
-      blaze_util::JoinPath(startup_options->output_base, "server/jvm.out");
-    globals->jvm_log_file_append = false;
   }
 }
 
@@ -1430,7 +1427,8 @@ static int RunLauncher(
     LoggingInfo *logging_info) {
   blaze_server = new BlazeServer(
       startup_options.connect_timeout_secs, startup_options.batch,
-      startup_options.block_for_lock, startup_options.output_base);
+      startup_options.block_for_lock, startup_options.output_base,
+      startup_options.server_jvm_out);
 
   logging_info->command_wait_duration_ms = blaze_server->AcquireLock();
   BAZEL_LOG(INFO) << "Acquired the client lock, waited "
@@ -1509,8 +1507,6 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
     PrintVersionInfo(self_path, option_processor->GetLowercaseProductName());
     return blaze_exit_code::SUCCESS;
   }
-
-  globals = new GlobalVariables();
 
   string cwd = GetCanonicalCwd();
   LoggingInfo logging_info(CheckAndGetBinaryPath(cwd, argv[0]), start_time);
@@ -1599,8 +1595,10 @@ BlazeServer::BlazeServer(
     const int connect_timeout_secs,
     const bool batch,
     const bool block_for_lock,
-    const string &output_base)
+    const string &output_base,
+    const string &server_jvm_out)
   : connected_(false),
+    process_info_(output_base, server_jvm_out),
     connect_timeout_secs_(connect_timeout_secs),
     batch_(batch),
     block_for_lock_(block_for_lock),
@@ -1698,7 +1696,7 @@ bool BlazeServer::Connect() {
 
   this->client_ = std::move(client);
   connected_ = true;
-  globals->server_pid = server_pid;
+  process_info_.server_pid_ = server_pid;
   return true;
 }
 
@@ -1841,18 +1839,18 @@ void BlazeServer::KillRunningServer() {
 
   // Wait for the server process to terminate (if we know the server PID).
   // If it does not terminate itself gracefully within 1m, terminate it.
-  if (globals->server_pid > 0 &&
-      !AwaitServerProcessTermination(globals->server_pid,
+  if (process_info_.server_pid_ > 0 &&
+      !AwaitServerProcessTermination(process_info_.server_pid_,
                                      output_base_,
                                      kPostShutdownGracePeriodSeconds)) {
     if (!status.ok()) {
       BAZEL_LOG(WARNING)
           << "Shutdown request failed, server still alive: (error code: "
           << status.error_code() << ", error message: '"
-          << status.error_message() << "', log file: '" << globals->jvm_log_file
-          << "')";
+          << status.error_message() << "', log file: '"
+          << process_info_.jvm_log_file_ << "')";
     }
-    KillServerProcess(globals->server_pid, output_base_);
+    KillServerProcess(process_info_.server_pid_, output_base_);
   }
 
   connected_ = false;
@@ -1865,7 +1863,7 @@ unsigned int BlazeServer::Communicate(
     const vector<RcStartupFlag> &original_startup_options,
     const LoggingInfo &logging_info) {
   assert(connected_);
-  assert(globals->server_pid > 0);
+  assert(process_info_.server_pid_ > 0);
 
   vector<string> arg_vector;
   if (!command.empty()) {
@@ -1971,10 +1969,10 @@ unsigned int BlazeServer::Communicate(
   // If the server has shut down, but does not terminate itself within a 1m
   // grace period, terminate it.
   if (final_response.termination_expected() &&
-      !AwaitServerProcessTermination(globals->server_pid,
+      !AwaitServerProcessTermination(process_info_.server_pid_,
                                      output_base_,
                                      kPostShutdownGracePeriodSeconds)) {
-    KillServerProcess(globals->server_pid, output_base_);
+    KillServerProcess(process_info_.server_pid_, output_base_);
   }
 
   SendAction(CancelThreadAction::JOIN);
@@ -1985,12 +1983,12 @@ unsigned int BlazeServer::Communicate(
     BAZEL_LOG(USER) << "\nServer terminated abruptly (error code: "
                     << status.error_code() << ", error message: '"
                     << status.error_message() << "', log file: '"
-                    << globals->jvm_log_file << "')\n";
+                    << process_info_.jvm_log_file_ << "')\n";
     return GetExitCodeForAbruptExit(output_base_);
   } else if (!finished) {
     BAZEL_LOG(USER)
         << "\nServer finished RPC without an explicit exit code (log file: '"
-        << globals->jvm_log_file << "')\n";
+        << process_info_.jvm_log_file_ << "')\n";
     return GetExitCodeForAbruptExit(output_base_);
   } else if (final_response.has_exec_request()) {
     const command_server::ExecRequest& request = final_response.exec_request();

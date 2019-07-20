@@ -633,9 +633,9 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   std::vector<std::string> result = {
       "--rc_source=client",
       "--default_override=0:common=--isatty=" +
-          ToString(IsStderrStandardTerminal()),
+          ToString(IsStandardTerminal()),
       "--default_override=0:common=--terminal_columns=" +
-          ToString(GetStderrTerminalColumns())};
+          ToString(GetTerminalColumns())};
   if (IsEmacsTerminal()) {
     result.push_back("--default_override=0:common=--emacs");
   }

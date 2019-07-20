@@ -92,15 +92,15 @@ When running a build or a test, Bazel does the following:
 Since all previous build work is cached, Bazel can identify and reuse cached
 artifacts and only rebuild or retest what's changed. To further enforce
 correctness, you can set up Bazel to run builds and tests
-[hermetically](user-manual.html#sandboxing) through sandboxing, minimizing skew
-and maximizing [reproducibility](user-manual.html#correctness).
+[hermetically](guide.html#sandboxing) through sandboxing, minimizing skew
+and maximizing [reproducibility](guide.html#correctness).
 
 
 ## What is the action graph?
 
 The action graph represents the build artifacts, the relationships between them,
 and the build actions that Bazel will perform. Thanks to this graph, Bazel can
-[track](user-manual.html#build-consistency-and-incremental-builds) changes to
+[track](guide.html#build-consistency-and-incremental-builds) changes to
 file content as well as changes to actions, such as build or test commands, and
 know what build work has previously been done. The graph also enables you to
 easily [trace dependencies](query-how-to.html) in your code.

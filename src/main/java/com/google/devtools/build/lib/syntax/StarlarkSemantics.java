@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.syntax;
 
@@ -60,6 +61,7 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP(StarlarkSemantics::incompatibleObjcFrameworkCleanup),
     INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(
         StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
+    INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::incompatibleAllowTagsPropagation),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -212,6 +214,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisablePartitionDefaultParameter();
 
+  public abstract boolean incompatibleAllowTagsPropagation();
+
   @Memoized
   @Override
   public abstract int hashCode();
@@ -247,7 +251,7 @@ public abstract class StarlarkSemantics {
           // <== Add new options here in alphabetic order ==>
           .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
-          .experimentalAllowIncrementalRepositoryUpdates(false)
+          .experimentalAllowIncrementalRepositoryUpdates(true)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
@@ -290,6 +294,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowSplitEmptySeparator(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
           .incompatibleDisablePartitionDefaultParameter(false)
+          .incompatibleAllowTagsPropagation(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -314,6 +319,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
     public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
+
+    public abstract Builder incompatibleAllowTagsPropagation(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 

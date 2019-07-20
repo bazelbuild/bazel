@@ -14,8 +14,7 @@
 
 package com.google.testing.junit.runner.util;
 
-/**
- * An interface for factory implementations.
- */
-public interface Factory<T> extends Supplier<T> {
-}
+import java.util.function.Supplier;
+
+/** An interface for factory implementations. */
+public interface Factory<T> extends Supplier<T> {}

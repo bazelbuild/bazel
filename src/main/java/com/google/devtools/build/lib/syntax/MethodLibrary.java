@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -170,17 +172,82 @@ public class MethodLibrary {
             type = Object.class,
             doc = "This collection.",
             // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
+            legacyNamed = true),
+        @Param(
+            name = "key",
+            doc = "An optional function applied to each element before comparison.",
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            noneable = true),
+        @Param(
+            name = "reverse",
+            type = Boolean.class,
+            doc = "Return results in descending order.",
+            named = true,
+            defaultValue = "False",
+            positional = false,
+            noneable = true)
       },
       useLocation = true,
       useEnvironment = true)
-  public MutableList<?> sorted(Object self, Location loc, Environment env) throws EvalException {
-    try {
-      return MutableList.copyOf(
-          env, EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)));
-    } catch (EvalUtils.ComparisonException e) {
-      throw new EvalException(loc, e);
+  public MutableList<?> sorted(
+      Object self, final Object key, Boolean reverse, final Location loc, final Environment env)
+      throws EvalException, InterruptedException {
+
+    ArrayList list = new ArrayList(EvalUtils.toCollection(self, loc, env));
+    if (key == Runtime.NONE) {
+      try {
+        Collections.sort(list, EvalUtils.SKYLARK_COMPARATOR);
+      } catch (EvalUtils.ComparisonException e) {
+        throw new EvalException(loc, e);
+      }
+    } else if (key instanceof StarlarkFunction) {
+      final StarlarkFunction keyfn = (StarlarkFunction) key;
+      final FuncallExpression ast = new FuncallExpression(Identifier.of(""), ImmutableList.of());
+
+      class KeyComparator implements Comparator<Object> {
+        Exception e;
+
+        @Override
+        public int compare(Object x, Object y) {
+          try {
+            return EvalUtils.SKYLARK_COMPARATOR.compare(callKeyFunc(x), callKeyFunc(y));
+          } catch (InterruptedException | EvalException e) {
+            if (this.e == null) {
+              this.e = e;
+            }
+            return 0;
+          }
+        }
+
+        Object callKeyFunc(Object x) throws EvalException, InterruptedException {
+          return keyfn.call(Collections.singletonList(x), ImmutableMap.of(), ast, env);
+        }
+      }
+
+      KeyComparator comp = new KeyComparator();
+      try {
+        Collections.sort(list, comp);
+      } catch (EvalUtils.ComparisonException e) {
+        throw new EvalException(loc, e);
+      }
+
+      if (comp.e != null) {
+        if (comp.e instanceof InterruptedException) {
+          throw (InterruptedException) comp.e;
+        }
+        throw (EvalException) comp.e;
+      }
+    } else {
+      throw new EvalException(
+          loc, Printer.format("%r object is not callable", EvalUtils.getDataTypeName(key)));
     }
+
+    if (reverse) {
+      Collections.reverse(list);
+    }
+    return MutableList.wrapUnsafe(env, list);
   }
 
   @SkylarkCallable(

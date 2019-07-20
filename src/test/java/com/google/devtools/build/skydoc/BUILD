@@ -14,11 +14,21 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+filegroup(
+    name = "test_template_files",
+    srcs = [
+        "//src/test/java/com/google/devtools/build/skydoc:test_templates/func.vm",
+        "//src/test/java/com/google/devtools/build/skydoc:test_templates/header.vm",
+        "//src/test/java/com/google/devtools/build/skydoc:test_templates/provider.vm",
+        "//src/test/java/com/google/devtools/build/skydoc:test_templates/rule.vm",
+    ],
+    tags = ["bazel"],
+)
+
 java_test(
     name = "SkydocTest",
     size = "medium",
     srcs = ["SkydocTest.java"],
-    shard_count = 1,
     visibility = ["//devtools/blaze/main:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
@@ -32,6 +42,23 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "MarkdownRendererTest",
+    srcs = ["MarkdownRendererTest.java"],
+    resources = [
+        ":test_template_files",
+    ],
+    visibility = ["//devtools/blaze/main:__pkg__"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skydoc/rendering",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -182,19 +209,37 @@ skydoc_test(
 )
 
 skydoc_test(
-    name = "module_test",
-    golden_file = "testdata/module_test/golden.txt",
-    input_file = "testdata/module_test/input.bzl",
+    name = "namespace_test",
+    golden_file = "testdata/namespace_test/golden.txt",
+    input_file = "testdata/namespace_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
 
 skydoc_test(
-    name = "module_test_with_whitelist",
-    golden_file = "testdata/module_test/golden.txt",
-    input_file = "testdata/module_test/input.bzl",
+    name = "namespace_test_with_whitelist",
+    golden_file = "testdata/namespace_test/golden.txt",
+    input_file = "testdata/namespace_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
     whitelisted_symbols = [
-        "my_module",
+        "my_namespace",
+    ],
+)
+
+skydoc_test(
+    name = "multi_level_namespace_test",
+    golden_file = "testdata/multi_level_namespace_test/golden.txt",
+    input_file = "testdata/multi_level_namespace_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
+    name = "multi_level_namespace_test_with_whitelist",
+    golden_file = "testdata/multi_level_namespace_test_with_whitelist/golden.txt",
+    input_file = "testdata/multi_level_namespace_test_with_whitelist/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+    whitelisted_symbols = [
+        "my_namespace",
+        "other_namespace.foo.nothing",
     ],
 )
 

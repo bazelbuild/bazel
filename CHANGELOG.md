@@ -1,3 +1,32 @@
+## Release 0.28.1 (2019-07-19)
+
+```
+Baseline: 2e374a9c6e3d4ed71f0145de287c4b2fe43c76d6
+
+Cherry picks:
+
+   + 6d0b14b95a71175362030b4811ca74512b00a890:
+     rule_test: apply "tags" to all rules in the macro
+   + 18cd9048526f067a4950c6ddbf4b1b3604760af0:
+     Release 0.28.0 (2019-07-10)
+   + 2260b970cb2a10c21a2fde116aa82c79be52991f:
+     When copying dynamic libraries to binary, copy them into the
+     runfiles as well.
+   + a0af170f87c8230fcd8860599b983df097b646bd:
+     Undo breaking change of hiding android_common behind
+     --experimental_google_legacy_api
+   + c6ca6c2ccd9e11a87f837341ae05d2ba037975b1:
+     Ignore external/ directory in users' source tree when creating
+     execroot symlink tree.
+```
+
+Important changes:
+
+  - rule_test: fix Bazel 0.27 regression ("tags" attribute was
+    ingored, https://github.com/bazelbuild/bazel/issues/8723
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 0.28.0 (2019-07-10)
 
 ```

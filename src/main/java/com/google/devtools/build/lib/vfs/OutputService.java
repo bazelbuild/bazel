@@ -192,7 +192,8 @@ public interface OutputService {
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
-      Iterable<Artifact> filesets) {
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
+      throws IOException {
     throw new IllegalStateException("Path resolver not supported by this class");
   }
 }

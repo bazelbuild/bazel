@@ -454,4 +454,72 @@ EOF
   expect_log "value=command_line_val"
 }
 
+function test_output_same_config_as_generating_target() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  rm -rf tools/whitelists/function_transition_whitelist
+  mkdir -p tools/whitelists/function_transition_whitelist
+  cat > tools/whitelists/function_transition_whitelist/BUILD <<EOF
+package_group(
+    name = "function_transition_whitelist",
+    packages = [
+        "//...",
+    ],
+)
+EOF
+
+  cat > $pkg/rules.bzl <<EOF
+def _rule_class_transition_impl(settings, attr):
+    return {
+        "//command_line_option:test_arg": ["blah"]
+    }
+
+_rule_class_transition = transition(
+    implementation = _rule_class_transition_impl,
+    inputs = [],
+    outputs = [
+        "//command_line_option:test_arg",
+    ],
+)
+
+def _rule_class_transition_rule_impl(ctx):
+    ctx.actions.write(ctx.outputs.artifact, "hello\n")
+    return [DefaultInfo(files = depset([ctx.outputs.artifact]))]
+
+rule_class_transition_rule = rule(
+    _rule_class_transition_rule_impl,
+    cfg = _rule_class_transition,
+    attrs = {
+        "_whitelist_function_transition": attr.label(default = "//tools/whitelists/function_transition_whitelist"),
+    },
+    outputs = {"artifact": "%{name}.output"},
+)
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "rule_class_transition_rule")
+
+rule_class_transition_rule(name = "with_rule_class_transition")
+EOF
+
+  bazel build //$pkg:with_rule_class_transition.output > output 2>"$TEST_log" || fail "Expected success"
+
+  bazel cquery "deps(//$pkg:with_rule_class_transition.output, 1)" > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:with_rule_class_transition.output " output
+  assert_contains "//$pkg:with_rule_class_transition " output
+
+  # Find the lines of output for the output target and the generating target
+  OUTPUT=$(grep "//$pkg:with_rule_class_transition.output " output)
+  TARGET=$(grep "//$pkg:with_rule_class_transition " output)
+
+  # Trim to just configuration
+  OUTPUT_CONFIG=${OUTPUT/"//$pkg:with_rule_class_transition.output "}
+  TARGET_CONFIG=${TARGET/"//$pkg:with_rule_class_transition "}
+
+  # Confirm same configuration
+  assert_equals $OUTPUT_CONFIG $TARGET_CONFIG
+}
+
 run_suite "${PRODUCT_NAME} starlark configurations tests"

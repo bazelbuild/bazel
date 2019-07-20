@@ -15,7 +15,8 @@ title: Configurable Build Attributes
 * [Multiple Selects](#multiple-selects)
 * [OR Chaining](#or-chaining)
   * [selects.with_or](#selects-with-or)
-  * [config_setting Aliasing](#config-setting-aliasing)
+  * [selects.config_setting_group](#selects-config-setting-or-group)
+* [AND Chaining](#and-chaining)
 * [Custom Error Messages](#custom-error-messages)
 * [Rules Compatibility](#rules)
 * [Bazel Query and Cquery](#query)
@@ -426,8 +427,8 @@ sh_binary(
 )
 ```
 
-`select` cannot appear inside another `select` (i.e. *`AND` chaining*). If you
-need to `AND` selects together, either use an intermediate target:
+`select` cannot appear inside another `select`. If you need to nest `selects`
+use an intermediate target:
 
 ```python
 sh_binary(
@@ -448,23 +449,11 @@ sh_library(
 )
 ```
 
-or write a [macro](skylark/macros.md) to do the same thing
-automatically.
+Note that this approach doesn't work for non-deps attributes (like
+[genrule:cmd](be/general.html#genrule.cmd)).
 
-This approach doesn't work for non-deps attributes (like
-[genrule:cmd](be/general.html#genrule.cmd)). For these, extra `config_settings`
-may be necessary:
-
-```python
-config_setting(
-    name = "armeabi_and_opt",
-    values = {
-        "cpu": "armeabi",
-        "compilation_mode": "opt",
-    },
-)
-```
-
+If you just need a `select` to match when multiple conditions match, see [AND
+chaining](#and-chaining).
 
 ## OR Chaining
 
@@ -507,14 +496,15 @@ sh_binary(
 This makes it easier to manage the dependency. But it still adds unnecessary
 duplication.
 
-`select()` doesn't support native syntax for `OR`ed conditions. For this, use
-one of the following:
+For more direct support, use one of the following:
 
 ### <a name="selects-with-or"></a>`selects.with_or`
 
-The [Skylib](https://github.com/bazelbuild/bazel-skylib) utility
-[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl)
-defines a Starlark macro that emulates `OR` behavior:
+The
+[with_or](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectswith_or)
+macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
+[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md)
+module supports `OR`ing conditions directly inside a `select`:
 
 ```python
 load("@bazel_skylib//:lib.bzl", "selects")
@@ -531,50 +521,86 @@ sh_binary(
 )
 ```
 
-This automatically expands the `select` to the original syntax above.
+### <a name="selects-config-setting-or-group"></a>`selects.config_setting_group`
 
-### <a name="config-setting-aliasing"></a>`config_setting` Aliasing
 
-If you'd like to `OR` conditions under a proper `config_setting` that any rule
-can reference, you can use a `select`able [alias](be/general.html#alias) that
-matches any of the desired conditions:
+The
+[config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectsconfig_setting_group)
+macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
+[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md)
+module supports `OR`ing multiple `config_setting`s:
 
 ```python
-alias(
-    name = "config1_or_2_or_3",
-    actual = select({
-        # When the build matches :config1, this alias *becomes* :config1.
-        # So it too matches by definition. The same applies for :config2
-        # and :config3.
-        ":config1": ":config1",
-        ":config2": ":config2",
-        ":config3": ":config3",
-        # The default condition represents this alias "not matching" (i.e.
-        # none of the conditions that we care about above match). In this
-        # case, bind the alias to any of those conditions. By definition
-        # it won't match.
-        "//conditions:default": ":config2", # Arbitrarily chosen from above.
-    }),
-)
+load("@bazel_skylib//:lib.bzl", "selects")
+```
 
+
+```python
+config_setting(
+    name = "config1",
+    values = {"cpu": "arm"},
+)
+config_setting(
+    name = "config2",
+    values = {"compilation_mode": "dbg"},
+)
+selects.config_setting_group(
+    name = "config1_or_2",
+    match_any = [":config1", ":config2"],
+)
 sh_binary(
     name = "my_target",
     srcs = ["always_include.sh"],
     deps = select({
-        ":config1_or_2_or_3": [":standard_lib"],
-        ":config4": [":special_lib"],
+        ":config1_or_2": [":standard_lib"],
+        "//conditions:default": [":other_lib"],
     }),
 )
 ```
 
-Unlike `selects.with_or`, different rules can `select` on `:config1_or_2_or_3`
+Unlike `selects.with_or`, different rules can `select` on `:config1_or_2`
 with different values.
 
 Note that it's an error for multiple conditions to match unless one is a
 "specialization" of the other. See [select()](be/functions.html#select)
 documentation for details.
 
-For `AND` chaining, see [here](#multiple-selects).
+## And Chaining
+
+If you need a `select` path to match when multiple conditions match, use the
+[Skylib](https://github.com/bazelbuild/bazel-skylib) macro
+[config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectsconfig_setting_group):
+
+```python
+load("@bazel_skylib//:lib.bzl", "selects")
+```
+
+```python
+config_setting(
+    name = "config1",
+    values = {"cpu": "arm"},
+)
+config_setting(
+    name = "config2",
+    values = {"compilation_mode": "dbg"},
+)
+selects.config_setting_group(
+    name = "config1_and_2",
+    match_all = [":config1", ":config2"],
+)
+sh_binary(
+    name = "my_target",
+    srcs = ["always_include.sh"],
+    deps = select({
+        ":config1_and_2": [":standard_lib"],
+        "//conditions:default": [":other_lib"],
+        }),
+)
+```
+
+Unlike OR chaining, existing `config_setting`s can't be `AND`ed together
+directly inside a `select`: you have to explicitly declare the
+`config_setting_group`.
 
 ## Custom Error Messages
 

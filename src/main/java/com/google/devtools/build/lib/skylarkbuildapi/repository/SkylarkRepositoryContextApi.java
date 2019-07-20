@@ -343,8 +343,9 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   @SkylarkCallable(
       name = "download",
       doc =
-          "Downloads a file to the output path for the provided url and returns a struct containing"
-              + " a hash of the file with the field <code>sha256</code>.",
+          "Downloads a file to the output path for the provided url and returns a struct"
+              + " containing a hash of the file with the fields <code>sha256</code> and"
+              + " <code>integrity</code>.",
       useLocation = true,
       parameters = {
         @Param(
@@ -404,6 +405,18 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             defaultValue = "{}",
             named = true,
             doc = "An optional dict specifying authentication information for some of the URLs."),
+        @Param(
+            name = "integrity",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            positional = false,
+            doc =
+                "Expected checksum of the file downloaded, in Subresource Integrity format."
+                    + " This must match the checksum of the file downloaded. It is a security"
+                    + " risk to omit the checksum as remote files can change. At best omitting this"
+                    + " field will make your build non-hermetic. It is optional to make development"
+                    + " easier but should be set before shipping."),
       })
   public StructApi download(
       Object url,
@@ -413,6 +426,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       Boolean allowFail,
       String canonicalId,
       SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      String integrity,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
@@ -463,8 +477,8 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       name = "download_and_extract",
       doc =
           "Downloads a file to the output path for the provided url, extracts it, and returns"
-              + " a struct containing a hash of the downloaded file with the field"
-              + " <code>sha256</code>.",
+              + " a struct containing a hash of the downloaded file with the fields"
+              + " <code>sha256</code> and <code>integrity</code>.",
       useLocation = true,
       parameters = {
         @Param(
@@ -546,6 +560,18 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             defaultValue = "{}",
             named = true,
             doc = "An optional dict specifying authentication information for some of the URLs."),
+        @Param(
+            name = "integrity",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            positional = false,
+            doc =
+                "Expected checksum of the file downloaded, in Subresource Integrity format."
+                    + " This must match the checksum of the file downloaded. It is a security"
+                    + " risk to omit the checksum as remote files can change. At best omitting this"
+                    + " field will make your build non-hermetic. It is optional to make development"
+                    + " easier but should be set before shipping."),
       })
   public StructApi downloadAndExtract(
       Object url,
@@ -556,6 +582,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       Boolean allowFail,
       String canonicalId,
       SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      String integrity,
       Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 }

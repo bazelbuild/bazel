@@ -69,13 +69,12 @@ import java.util.regex.Pattern;
  */
 public final class AnalysisTestUtil {
 
-  /**
-   * TopLevelArtifactContext that should be sufficient for testing.
-   */
+  /** TopLevelArtifactContext that should be sufficient for testing. */
   public static final TopLevelArtifactContext TOP_LEVEL_ARTIFACT_CONTEXT =
       new TopLevelArtifactContext(
-          /*runTestsExclusively=*/false,
-          /*outputGroups=*/ImmutableSortedSet.copyOf(OutputGroupInfo.DEFAULT_GROUPS));
+          /*runTestsExclusively=*/ false,
+          /*expandFilesets=*/ false,
+          /*outputGroups=*/ ImmutableSortedSet.copyOf(OutputGroupInfo.DEFAULT_GROUPS));
 
   /**
    * An {@link AnalysisEnvironment} implementation that collects the actions registered.

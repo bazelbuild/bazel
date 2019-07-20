@@ -29,6 +29,15 @@ genrule(
     cmd = "cp $< $@",
 )
 
+filegroup(
+    name = "jre_emul_module",
+    srcs = [
+        J2_DIR + "lib/jre_emul_module/lib/jrt-fs.jar",
+        J2_DIR + "lib/jre_emul_module/lib/modules",
+        J2_DIR + "lib/jre_emul_module/release",
+    ],
+)
+
 java_import(
     name = "annotations",
     jars = [J2_DIR + "lib/j2objc_annotations.jar"],

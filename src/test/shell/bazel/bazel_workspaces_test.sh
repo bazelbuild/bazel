@@ -223,6 +223,62 @@ function test_download_multiple() {
   ensure_contains_exactly 'output: "out_for_list.txt"' 1
 }
 
+function test_download_integrity_sha256() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local file="${server_dir}/file.txt"
+  echo "file contents here" > "${file}"
+
+  # Use Python for hashing and encoding due to cross-platform differences in
+  # presence + behavior of `shasum` and `base64`.
+  sha256_py='import base64, hashlib, sys; print(base64.b64encode(hashlib.sha256(sys.stdin.read()).digest()))'
+  file_integrity="sha256-$(cat "${file}" | python -c "${sha256_py}")"
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'download_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
+  ensure_contains_exactly 'output: "file.txt"' 1
+  ensure_contains_exactly "sha256: " 0
+  ensure_contains_exactly "integrity: \"${file_integrity}\"" 1
+}
+
+function test_download_integrity_sha512() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local file="${server_dir}/file.txt"
+  echo "file contents here" > "${file}"
+
+  # Use Python for hashing and encoding due to cross-platform differences in
+  # presence + behavior of `shasum` and `base64`.
+  sha512_py='import base64, hashlib, sys; print(base64.b64encode(hashlib.sha512(sys.stdin.read()).digest()))'
+  file_integrity="sha512-$(cat "${file}" | python -c "${sha512_py}")"
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'download_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
+  ensure_contains_exactly 'output: "file.txt"' 1
+  ensure_contains_exactly "sha256: " 0
+  ensure_contains_exactly "integrity: \"${file_integrity}\"" 1
+}
+
 function test_download_then_extract() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"

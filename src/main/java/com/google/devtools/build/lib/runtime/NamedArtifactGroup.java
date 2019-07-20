@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
+import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -30,6 +31,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 
 /**
@@ -65,10 +68,22 @@ class NamedArtifactGroup implements BuildEvent {
     ImmutableList.Builder<LocalFile> artifacts = ImmutableList.builder();
     completionContext.visitArtifacts(
         view.directs(),
-        artifact -> {
-          artifacts.add(
-              new LocalFile(
-                  completionContext.pathResolver().toPath(artifact), LocalFileType.OUTPUT));
+        new ArtifactReceiver() {
+          @Override
+          public void accept(Artifact artifact) {
+            artifacts.add(
+                new LocalFile(
+                    completionContext.pathResolver().toPath(artifact), LocalFileType.OUTPUT));
+          }
+
+          @Override
+          public void acceptFilesetMapping(
+              Artifact fileset, PathFragment relName, Path targetFile) {
+            artifacts.add(
+                new LocalFile(
+                    completionContext.pathResolver().convertPath(targetFile),
+                    LocalFileType.OUTPUT));
+          }
         });
     return artifacts.build();
   }
@@ -82,10 +97,25 @@ class NamedArtifactGroup implements BuildEvent {
         BuildEventStreamProtos.NamedSetOfFiles.newBuilder();
     completionContext.visitArtifacts(
         view.directs(),
-        artifact -> {
-          String uri = pathConverter.apply(completionContext.pathResolver().toPath(artifact));
-          if (uri != null) {
-            builder.addFiles(newFileFromArtifact(artifact).setUri(uri));
+        new ArtifactReceiver() {
+          @Override
+          public void accept(Artifact artifact) {
+            String uri = pathConverter.apply(completionContext.pathResolver().toPath(artifact));
+            if (uri != null) {
+              builder.addFiles(newFileFromArtifact(artifact).setUri(uri));
+            }
+          }
+
+          @Override
+          public void acceptFilesetMapping(
+              Artifact fileset, PathFragment relName, Path targetFile) {
+            String uri =
+                converters
+                    .pathConverter()
+                    .apply(completionContext.pathResolver().convertPath(targetFile));
+            if (uri != null) {
+              builder.addFiles(newFileFromArtifact(null, fileset, relName).setUri(uri).build());
+            }
           }
         });
     for (NestedSetView<Artifact> child : view.transitives()) {

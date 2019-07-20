@@ -46,7 +46,14 @@ public class RendererMain {
 
     String inputPath = rendererOptions.inputPath;
     String outputPath = rendererOptions.outputFilePath;
-    MarkdownRenderer renderer = new MarkdownRenderer();
+    String headerTemplatePath = rendererOptions.headerTemplateFilePath;
+    String ruleTemplatePath = rendererOptions.ruleTemplateFilePath;
+    String providerTemplatePath = rendererOptions.providerTemplateFilePath;
+    String funcTemplatePath = rendererOptions.funcTemplateFilePath;
+
+    MarkdownRenderer renderer =
+        new MarkdownRenderer(
+            headerTemplatePath, ruleTemplatePath, providerTemplatePath, funcTemplatePath);
     try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
       ModuleInfo moduleInfo = ModuleInfo.parseFrom(new FileInputStream(inputPath));
       printWriter.println(renderer.renderMarkdownHeader());

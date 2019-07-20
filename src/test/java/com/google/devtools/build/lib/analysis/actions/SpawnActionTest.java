@@ -115,6 +115,14 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExecutionInfoCopied() {
+    SpawnAction copyFromWelcomeToDestination =
+        createCopyFromWelcomeToDestination(ImmutableMap.of());
+    Map<String, String> executionInfo = copyFromWelcomeToDestination.getExecutionInfo();
+    assertThat(executionInfo).containsExactly("local", "");
+  }
+
+  @Test
   public void testBuilder() throws Exception {
     Artifact input = getSourceArtifact("input");
     Artifact output = getBinArtifactWithNoOwner("output");
@@ -288,7 +296,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(info.getMnemonic()).isEqualTo("Dummy");
 
     SpawnInfo spawnInfo = info.getExtension(SpawnInfo.spawnInfo);
-    assertThat(spawnInfo).isNotNull();
+    assertThat(info.hasExtension(SpawnInfo.spawnInfo)).isTrue();
 
     assertThat(spawnInfo.getArgumentList())
         .containsExactlyElementsIn(action.getArguments());

@@ -1002,7 +1002,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, Iterable<Artifact> dynamicLibrariesForRuntime) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     for (Artifact target : dynamicLibrariesForRuntime) {
-      if (!ruleContext.getLabel().getPackageName().equals(target.getOwner().getPackageName())) {
+      if (!ruleContext
+          .getLabel()
+          .getPackageIdentifier()
+          .equals(target.getOwner().getPackageIdentifier())) {
         // SymlinkAction on file is actually copy on Windows.
         Artifact copy = ruleContext.getBinArtifact(target.getFilename());
         ruleContext.registerAction(SymlinkAction.toArtifact(

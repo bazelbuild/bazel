@@ -201,12 +201,28 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     return ccToolchainTemplate
         .replace("%toolchainName%", toolchain.getToolchainIdentifier())
         .replace("%cpu%", toolchain.getTargetCpu())
+        .replace("%platform_cpu%", getPlatformCpuLabel(toolchain.getTargetCpu()))
         .replace("%compiler%", toolchain.getCompiler())
         .replace("%version%", version)
         .replace("%dynamicRuntimeLibs%", toolchain.getDynamicRuntimesFilegroup())
         .replace("%staticRuntimeLibs%", toolchain.getStaticRuntimesFilegroup())
         .replace("%toolchainDirectory%", toolchainDirectory)
         .replace("%toolchainFileGlobs%", toolchainFileGlobs.toString().trim());
+  }
+
+  private static String getPlatformCpuLabel(String targetCpu) {
+    // Create a mapping of CcToolchain CPU values to platform arch constraint values
+    // in @bazel_tools//platforms
+    switch (targetCpu) {
+      case "x86":
+        return "x86_32";
+      case "armeabi-v7a":
+        return "arm";
+      case "arm64-v8a":
+        return "aarch64";
+      default:
+        return "x86_64";
+    }
   }
 
   private static String getTemplate(String templateFile) {

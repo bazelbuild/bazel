@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.packages;
 
@@ -64,17 +65,13 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "experimental_allow_incremental_repository_updates",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "If used, it is possible to define a mapping between external repositories"
-              + " and some (mostly likely ignored by .bazelignore) directories."
-              + " The repository rule can read and update files in those directories,"
-              + " and the changes will be visible in the same build."
-              + " Use attribute 'managed_directories' of the global workspace()"
-              + " function in WORKSPACE file to define the mapping.")
+          "This flag will be removed in Bazel 1.0. Please do not use it.\n"
+              + "Incremental repository updates feature is now enabled without the flag.")
   public boolean experimentalAllowIncrementalRepositoryUpdates;
 
   @Option(
@@ -175,6 +172,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
           "If set to true, all `load` must be called at the top of .bzl files, before any other "
               + "statement.")
   public boolean incompatibleBzlDisallowLoadAfterStatement;
+
+  @Option(
+      name = "incompatible_allow_tags_propagation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, tags will be propagated from a target to the actions' execution"
+              + " requirements; otherwise tags are not propagated. See"
+              + " https://github.com/bazelbuild/bazel/issues/8830 for details.")
+  public boolean incompatibleAllowTagsPropagation;
 
   @Option(
       name = "incompatible_depset_union",
@@ -713,6 +725,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
                 incompatibleDisallowDictLookupUnhashableKeys)
             .incompatibleDisablePartitionDefaultParameter(
                 incompatibleDisablePartitionDefaultParameter)
+            .incompatibleAllowTagsPropagation(incompatibleAllowTagsPropagation)
             .build();
     return INTERNER.intern(semantics);
   }

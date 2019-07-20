@@ -15,7 +15,7 @@
 package com.google.testing.junit.runner.internal;
 
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Supplier;
+import java.util.function.Supplier;
 
 /**
  * A factory that supplies {@link SignalHandlers}.

@@ -92,27 +92,17 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
     checkProjectFiles();
   }
 
-  @Test
-  public void testWithoutFlag() throws Exception {
-    generateProject();
-    ProcessResult result = context().bazel().shouldFail().build("//...");
-    assertThat(result.errString())
-        .contains(
-            "parameter 'managed_directories' is experimental and thus unavailable"
-                + " with the current flags.");
-  }
-
   private BuilderRunner bazel() {
     return bazel(false);
   }
 
   private BuilderRunner bazel(boolean watchFs) {
     currentDebugId = random.nextInt();
-    String[] flags =
-        watchFs
-            ? new String[] {"--experimental_allow_incremental_repository_updates", "--watchfs=true"}
-            : new String[] {"--experimental_allow_incremental_repository_updates"};
-    return context().bazel().withFlags(flags).withEnv("DEBUG_ID", String.valueOf(currentDebugId));
+    BuilderRunner bazel = context().bazel().withEnv("DEBUG_ID", String.valueOf(currentDebugId));
+    if (watchFs) {
+      bazel.withFlags("--watchfs=true");
+    }
+    return bazel;
   }
 
   @Test

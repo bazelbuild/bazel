@@ -22,10 +22,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
+import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -117,7 +117,6 @@ public final class TargetCompleteEvent
   private final BuildEventId configEventId;
   private final Iterable<String> tags;
   private final ExecutableTargetData executableTargetData;
-  private final boolean bepReportOnlyImportantArtifacts;
 
   private TargetCompleteEvent(
       ConfiguredTargetAndData targetAndData,
@@ -156,11 +155,6 @@ public final class TargetCompleteEvent
         isTest
             ? targetAndData.getConfiguredTarget().getProvider(TestProvider.class).getTestParams()
             : null;
-    // It should be safe to set this to true for targets that don't have a configuration - they
-    // should not have any output files either.
-    this.bepReportOnlyImportantArtifacts =
-        configuration == null
-            || configuration.getOptions().get(CoreOptions.class).bepReportOnlyImportantArtifacts;
     InstrumentedFilesInfo instrumentedFilesProvider =
         targetAndData.getConfiguredTarget().get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
     if (instrumentedFilesProvider == null) {
@@ -305,20 +299,47 @@ public final class TargetCompleteEvent
       Iterable<Artifact> artifacts) {
     completionContext.visitArtifacts(
         artifacts,
-        artifact -> {
-          String name = artifactNameFunction.apply(artifact);
-          String uri =
-              converters.pathConverter().apply(completionContext.pathResolver().toPath(artifact));
-          if (uri != null) {
-            builder.addImportantOutput(newFileFromArtifact(name, artifact).setUri(uri).build());
+        new ArtifactReceiver() {
+          @Override
+          public void accept(Artifact artifact) {
+            String name = artifactNameFunction.apply(artifact);
+            String uri =
+                converters.pathConverter().apply(completionContext.pathResolver().toPath(artifact));
+            if (uri != null) {
+              builder.addImportantOutput(newFileFromArtifact(name, artifact).setUri(uri).build());
+            }
+          }
+
+          @Override
+          public void acceptFilesetMapping(
+              Artifact fileset, PathFragment relativePath, Path targetFile) {
+            String name = artifactNameFunction.apply(fileset);
+            name = PathFragment.create(name).getRelative(relativePath).getPathString();
+            String uri =
+                converters
+                    .pathConverter()
+                    .apply(completionContext.pathResolver().convertPath(targetFile));
+            if (uri != null) {
+              builder.addImportantOutput(
+                  newFileFromArtifact(name, fileset, relativePath).setUri(uri).build());
+            }
           }
         });
   }
 
   public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
       String name, Artifact artifact) {
+    return newFileFromArtifact(name, artifact, PathFragment.EMPTY_FRAGMENT);
+  }
+
+  public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
+      String name, Artifact artifact, PathFragment relPath) {
     File.Builder builder =
-        File.newBuilder().setName(name == null ? artifact.getRootRelativePathString() : name);
+        File.newBuilder()
+            .setName(
+                name == null
+                    ? artifact.getRootRelativePath().getRelative(relPath).getPathString()
+                    : name);
     if (artifact.getRoot().getComponents() != null) {
       builder.addAllPathPrefix(
           Iterables.transform(artifact.getRoot().getComponents(), PathFragment::getPathString));
@@ -337,10 +358,22 @@ public final class TargetCompleteEvent
       if (group.areImportant()) {
         completionContext.visitArtifacts(
             group.getArtifacts(),
-            artifact -> {
-              builder.add(
-                  new LocalFile(
-                      completionContext.pathResolver().toPath(artifact), LocalFileType.OUTPUT));
+            new ArtifactReceiver() {
+              @Override
+              public void accept(Artifact artifact) {
+                builder.add(
+                    new LocalFile(
+                        completionContext.pathResolver().toPath(artifact), LocalFileType.OUTPUT));
+              }
+
+              @Override
+              public void acceptFilesetMapping(
+                  Artifact fileset, PathFragment name, Path targetFile) {
+                builder.add(
+                    new LocalFile(
+                        completionContext.pathResolver().convertPath(targetFile),
+                        LocalFileType.OUTPUT));
+              }
             });
       }
     }
@@ -395,7 +428,7 @@ public final class TargetCompleteEvent
   public ReportedArtifacts reportedArtifacts() {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     for (ArtifactsInOutputGroup artifactsInGroup : outputs) {
-      if (!bepReportOnlyImportantArtifacts || artifactsInGroup.areImportant()) {
+      if (artifactsInGroup.areImportant()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
     }
@@ -417,7 +450,7 @@ public final class TargetCompleteEvent
   private Iterable<OutputGroup> getOutputFilesByGroup(ArtifactGroupNamer namer) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
     for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs) {
-      if (bepReportOnlyImportantArtifacts && !artifactsInOutputGroup.areImportant()) {
+      if (!artifactsInOutputGroup.areImportant()) {
         continue;
       }
       OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();

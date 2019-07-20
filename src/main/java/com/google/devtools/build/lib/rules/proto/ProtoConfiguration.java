@@ -217,6 +217,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       host.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
       host.experimentalJavaProtoAddAllowedPublicImports =
           experimentalJavaProtoAddAllowedPublicImports;
+      host.generatedProtosInVirtualImports = generatedProtosInVirtualImports;
       host.doNotUseBuggyImportPath = doNotUseBuggyImportPath;
       return host;
     }

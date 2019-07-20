@@ -163,6 +163,14 @@ public class SkydocMain {
   private final SkylarkFileAccessor fileAccessor;
   private final List<String> depRoots;
   private final String workspaceName;
+  private static final String HEADER_TEMPLATE_PATH =
+      "com/google/devtools/build/skydoc/rendering/templates/header.vm";
+  private static final String RULE_TEMPLATE_PATH =
+      "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
+  private static final String PROVIDER_TEMPLATE_PATH =
+      "com/google/devtools/build/skydoc/rendering/templates/provider.vm";
+  private static final String FUNCTION_TEMPLATE_PATH =
+      "com/google/devtools/build/skydoc/rendering/templates/func.vm";
 
   public SkydocMain(SkylarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
     this.fileAccessor = fileAccessor;
@@ -246,7 +254,12 @@ public class SkydocMain {
             .writeModuleInfo(out);
       }
     } else if (skydocOptions.outputFormat == OutputFormat.MARKDOWN) {
-      MarkdownRenderer renderer = new MarkdownRenderer();
+      MarkdownRenderer renderer =
+          new MarkdownRenderer(
+              HEADER_TEMPLATE_PATH,
+              RULE_TEMPLATE_PATH,
+              PROVIDER_TEMPLATE_PATH,
+              FUNCTION_TEMPLATE_PATH);
       try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
         printWriter.println(renderer.renderMarkdownHeader());
         printRuleInfos(printWriter, renderer, filteredRuleInfos);
@@ -389,17 +402,38 @@ public class SkydocMain {
         userDefinedFunctionMap.put(envEntry.getKey(), userDefinedFunction);
       }
       if (envEntry.getValue() instanceof FakeStructApi) {
-        FakeStructApi struct = (FakeStructApi) envEntry.getValue();
-        for (String field : struct.getFieldNames()) {
-          if (struct.getValue(field) instanceof UserDefinedFunction) {
-            UserDefinedFunction userDefinedFunction = (UserDefinedFunction) struct.getValue(field);
-            userDefinedFunctionMap.put(envEntry.getKey() + "." + field, userDefinedFunction);
-          }
-        }
+        String namespaceName = envEntry.getKey();
+        FakeStructApi namespace = (FakeStructApi) envEntry.getValue();
+        putStructFields(namespaceName, namespace, userDefinedFunctionMap);
       }
     }
 
     return env;
+  }
+
+  /**
+   * Recursively adds functions defined in {@code namespace}, and in its nested namespaces, to
+   * {@code userDefinedFunctionMap}.
+   *
+   * <p>Each entry's key is the fully qualified function name, e.g. {@code
+   * "outernamespace.innernamespace.func"}. {@code namespaceName} is the fully qualified name of
+   * {@code namespace} itself.
+   */
+  private static void putStructFields(
+      String namespaceName,
+      FakeStructApi namespace,
+      ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap)
+      throws EvalException {
+    for (String field : namespace.getFieldNames()) {
+      String qualifiedFieldName = namespaceName + "." + field;
+      if (namespace.getValue(field) instanceof UserDefinedFunction) {
+        UserDefinedFunction userDefinedFunction = (UserDefinedFunction) namespace.getValue(field);
+        userDefinedFunctionMap.put(qualifiedFieldName, userDefinedFunction);
+      } else if (namespace.getValue(field) instanceof FakeStructApi) {
+        FakeStructApi innerNamespace = (FakeStructApi) namespace.getValue(field);
+        putStructFields(qualifiedFieldName, innerNamespace, userDefinedFunctionMap);
+      }
+    }
   }
 
   /**

@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
+load("//tools/config:common_settings.bzl", "bool_flag")
+
 licenses(["notice"])  # Apache 2.0
+
+bool_flag(
+    name = "incompatible_no_build_defs_pkg",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
 
 filegroup(
     name = "srcs",
@@ -65,6 +73,9 @@ py_binary(
 py_binary(
     name = "make_deb",
     srcs = ["make_deb.py"],
+    deprecation = "The internal version of make_deb is deprecated. Please " +
+                  "use the replacement for pkg_deb from " +
+                  "https://github.com/bazelbuild/rules_pkg/blob/master/pkg.",
     python_version = "PY2",
     srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
@@ -78,6 +89,9 @@ py_binary(
 py_binary(
     name = "make_rpm",
     srcs = ["make_rpm.py"],
+    deprecation = "The internal version of make_rpm is deprecated. Please " +
+                  "use the replacement for pkg_rpm from " +
+                  "https://github.com/bazelbuild/rules_pkg/blob/master/pkg.",
     python_version = "PY2",
     srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],

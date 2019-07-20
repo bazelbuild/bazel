@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -321,19 +320,6 @@ public class ExecutionTool {
     Throwable catastrophe = null;
     boolean buildCompleted = false;
     try {
-      for (ActionContextProvider actionContextProvider : actionContextProviders) {
-        try (SilentCloseable c =
-            Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
-          actionContextProvider.executionPhaseStarting(
-              actionGraph,
-              Suppliers.memoize(
-                  () ->
-                      TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(
-                          analysisResult, aspects)));
-        }
-      }
-      skyframeExecutor.drainChangedFiles();
-
       if (request.getViewOptions().discardAnalysisCache
           || !skyframeExecutor.tracksStateForIncrementality()) {
         // Free memory by removing cache entries that aren't going to be needed.
@@ -342,6 +328,20 @@ public class ExecutionTool {
               .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
         }
       }
+
+      for (ActionContextProvider actionContextProvider : actionContextProviders) {
+        try (SilentCloseable c =
+            Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
+          actionContextProvider.executionPhaseStarting(
+              actionGraph,
+              // If this supplier is ever consumed by more than one ActionContextProvider, it can be
+              // pulled out of the loop and made a memoizing supplier.
+              () ->
+                  TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(
+                      analysisResult, aspects));
+        }
+      }
+      skyframeExecutor.drainChangedFiles();
 
       try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
         configureResourceManager(request);

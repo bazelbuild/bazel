@@ -74,6 +74,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       new Precomputed<>(
           PrecomputedValue.Key.create("dependency_for_unconditional_repository_fetching"));
 
+  public static final Precomputed<String> DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING =
+      new Precomputed<>(PrecomputedValue.Key.create("dependency_for_unconditional_configuring"));
+
   public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_FOR_VERIFICATION =
       new Precomputed<>(
           PrecomputedValue.Key.create("resolved_file_for_external_repository_verification"));
@@ -139,6 +142,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
     boolean doNotFetchUnconditionally =
         DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
+    boolean needsConfiguring = false;
 
     Path repoRoot = RepositoryFunction.getExternalRepositoryDirectory(directories)
         .getRelative(repositoryName.strippedName());
@@ -163,6 +167,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
     }
 
+    if (handler.isConfigure(rule)) {
+      needsConfiguring =
+          !DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING.get(env));
+    }
+
     byte[] ruleSpecificData = handler.getRuleSpecificMarkerData(rule, env);
     if (env.valuesMissing()) {
       return null;
@@ -185,10 +194,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         && managedDirectoriesExist(directories.getWorkspace(), managedDirectories)) {
       // For the non-local repositories, check if they are already up-to-date:
       // 1) unconditional fetching is not enabled, AND
-      // 2) repository directory exists, AND
-      // 3) marker file correctly describes the current repository state, AND
-      // 4) managed directories, mapped to the repository, exist
-      if (doNotFetchUnconditionally && repoRoot.exists()) {
+      // 2) unconditional syncing is not enabled or the rule is not a configure rule, AND
+      // 3) repository directory exists, AND
+      // 4) marker file correctly describes the current repository state, AND
+      // 5) managed directories, mapped to the repository, exist
+      if (!needsConfiguring && doNotFetchUnconditionally && repoRoot.exists()) {
         byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
         if (env.valuesMissing()) {
           return null;

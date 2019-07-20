@@ -249,6 +249,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("sorted([True, False, True])", "[False, True, True]")
         .testEval("sorted(['a','x','b','z'])", "[\"a\", \"b\", \"x\", \"z\"]")
         .testEval("sorted({1: True, 5: True, 4: False})", "[1, 4, 5]")
+        .testEval("sorted([3, 2, 1, 0], reverse=True)", "[3, 2, 1, 0]")
+        .testEval("sorted([[1], [], [1, 2]], key=len, reverse=True)", "[[1, 2], [1], []]")
+        .testEval("sorted([[0, 5], [4, 1], [1, 7]], key=max)", "[[4, 1], [0, 5], [1, 7]]")
         .testIfExactError("Cannot compare function with function", "sorted([sorted, sorted])");
   }
 
@@ -712,7 +715,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         // Parameters which may be specified by keyword but are not explicitly 'named'.
         .testStatement("all(elements=[True, True])", Boolean.TRUE)
         .testStatement("any(elements=[True, False])", Boolean.TRUE)
-        .testEval("sorted(self=[3, 0, 2])", "[0, 2, 3]")
+        .testEval("sorted(self=[3, 0, 2], key=None, reverse=False)", "[0, 2, 3]")
         .testEval("reversed(sequence=[3, 2, 0])", "[0, 2, 3]")
         .testEval("tuple(x=[1, 2])", "(1, 2)")
         .testEval("list(x=(1, 2))", "[1, 2]")

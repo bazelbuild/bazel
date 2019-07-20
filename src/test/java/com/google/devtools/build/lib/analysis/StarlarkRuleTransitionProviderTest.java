@@ -54,10 +54,34 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         help = "An option that is sometimes set to null.")
     public Label nullable;
+
+    @Option(
+        name = "foo",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "A regular string-typed option")
+    public String foo;
+
+    @Option(
+        name = "bar",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "A regular string-typed option")
+    public String bar;
+
+    @Option(
+        name = "bool",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "A regular bool-typed option")
+    public boolean bool;
   }
 
   /** Loads a new {link @DummyTestFragment} instance. */
-  private static class DummyTestLoader implements ConfigurationFragmentFactory {
+  protected static class DummyTestLoader implements ConfigurationFragmentFactory {
 
     @Override
     public Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException {

@@ -37,4 +37,44 @@ public class RendererOptions extends OptionsBase {
       effectTags = OptionEffectTag.UNKNOWN,
       help = "The path of the file to output documentation into")
   public String outputFilePath;
+
+  @Option(
+      name = "header_template",
+      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/header.vm",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help =
+          "The template for the header string. If the option is unspecified,"
+              + " a default markdown output template will be used.")
+  public String headerTemplateFilePath;
+
+  @Option(
+      name = "rule_template",
+      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/rule.vm",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help =
+          "The template for the documentation of a rule. If the option is unspecified, a"
+              + " default markdown output template will be used.")
+  public String ruleTemplateFilePath;
+
+  @Option(
+      name = "provider_template",
+      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/provider.vm",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help =
+          "The template for the documentation of a provider. If the option is"
+              + " unspecified, a default markdown output template will be used.")
+  public String providerTemplateFilePath;
+
+  @Option(
+      name = "func_template",
+      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/func.vm",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help =
+          "The template for the documentation of a function. If the option is"
+              + " unspecified, a default markdown output template will be used.")
+  public String funcTemplateFilePath;
 }

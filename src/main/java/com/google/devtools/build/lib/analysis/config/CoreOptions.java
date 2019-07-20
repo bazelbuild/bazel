@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyT
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -29,6 +30,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.LinkedHashMap;
@@ -251,7 +253,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public String outputDirectoryName;
 
   /**
-   * This option is used by skylark transitions to add a disginguishing element to the output
+   * This option is used by starlark transitions to add a distinguishing element to the output
    * directory name, in order to avoid name clashing.
    */
   @Option(
@@ -265,6 +267,38 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       },
       metadataTags = {OptionMetadataTag.INTERNAL})
   public String transitionDirectoryNameFragment;
+
+  /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
+  public static class EmptyListConverter implements Converter<List<String>> {
+    @Override
+    public List<String> convert(String input) throws OptionsParsingException {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Regardless of input, converts to an empty list. For use with"
+          + " affectedByStarlarkTransition";
+    }
+  }
+
+  /**
+   * This internal option is a *set* of names (e.g. "cpu") of *native* options that have been
+   * changed by starlark transitions at any point in the build at the time of accessing. This is
+   * used to regenerate {@code transitionDirectoryNameFragment} after each starlark transition.
+   */
+  @Option(
+      name = "affected by starlark transition",
+      defaultValue = "",
+      converter = EmptyListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      metadataTags = {OptionMetadataTag.INTERNAL})
+  public List<String> affectedByStarlarkTransition;
 
   @Option(
       name = "platform_suffix",
@@ -567,15 +601,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Declare the environment_group to use for automatically mapping cpu values to "
               + "target_environment values.")
   public Label autoCpuEnvironmentGroup;
-
-  @Option(
-      name = "experimental_bep_report_only_important_artifacts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If false, the BEP no longer contains information about hidden output groups.")
-  public boolean bepReportOnlyImportantArtifacts;
 
   /** Values for --experimental_dynamic_configs. */
   public enum ConfigsMode {

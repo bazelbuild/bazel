@@ -1640,6 +1640,20 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("same_pkg_direct_rdeps(//foo:d)")).isEqualTo("//foo:b //foo:c");
   }
 
+  @Test
+  public void testSiblings_MatchesTargetNamedAll() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        // NOTE: target named 'all' collides with, takes precedence over the ':all' wildcard
+        "sh_library(name = 'all')",
+        "sh_library(name = 'ball')",
+        "sh_library(name = 'call')",
+        "sh_library(name = 'doll')");
+    assertThat(evalToString("//foo:all")).isEqualTo("//foo:all");
+    assertThat(evalToString("kind(' rule', siblings(//foo:BUILD))"))
+        .isEqualTo("//foo:all //foo:ball //foo:call //foo:doll");
+  }
+
   // Explicit test for the interaction of 'siblings' on operands coming from 'buildfiles' or
   // 'loadfiles'. The behavior here of treating a load'd .bzl file as coming from the package
   // loading it, rather than the package to which it belongs, is unfortunate, but it's the only
