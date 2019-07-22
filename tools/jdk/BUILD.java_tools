@@ -126,6 +126,11 @@ java_toolchain(
     ],
 )
 
+# The new toolchain is using all the pre-built tools, including
+# singlejar and ijar, even on remote execution. This toolchain
+# should be used only when host and execution platform are the
+# same, otherwise the binaries will not work on the execution
+# platform.
 java_toolchain(
     name = "prebuilt_toolchain",
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
