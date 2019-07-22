@@ -2523,7 +2523,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
     assertContainsEvent(
-        "expected value of type 'JavaToolchainSkylarkApiProvider' for parameter 'java_toolchain'");
+        "expected value of type 'JavaToolchainInfo' for parameter 'java_toolchain'");
   }
 
   @Test

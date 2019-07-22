@@ -17,23 +17,21 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /** Provides access to make variables from the current fragments. */
 @SkylarkModule(
     name = "TemplateVariableInfo",
-    doc = "<b>WARNING</b>: The constructor of this provider is experimental and may go away at any "
-        + "time."
-        + "<p>Encapsulates template variables, that is, variables that can be referenced by "
-        + "strings like <code>$(VARIABLE)</code> in BUILD files and expanded by "
-        + "<code>ctx.expand_make_variables</code> and implicitly in certain attributes of "
-        + "built-in rules."
-        + "</p>"
-        + "<p><code>TemplateVariableInfo</code> can be created by calling its eponymous "
-        + "constructor with a string-to-string dict as an argument that specifies the variables "
-        + "provided."
-        + "</p>"
-        + "<p>Example: <code>platform_common.TemplateVariableInfo({'FOO': 'bar'})</code>"
-        + "</p>")
+    category = SkylarkModuleCategory.PROVIDER,
+    doc =
+        "<b>WARNING</b>: The constructor of this provider is experimental and may go away at any "
+            + "time.<p>Encapsulates template variables, that is, variables that can be referenced"
+            + " by strings like <code>$(VARIABLE)</code> in BUILD files and expanded by"
+            + " <code>ctx.expand_make_variables</code> and implicitly in certain attributes of"
+            + " built-in rules.</p><p><code>TemplateVariableInfo</code> can be created by calling"
+            + " its eponymous constructor with a string-to-string dict as an argument that"
+            + " specifies the variables provided.</p><p>Example:"
+            + " <code>platform_common.TemplateVariableInfo({'FOO': 'bar'})</code></p>")
 public interface TemplateVariableInfoApi extends StructApi {
 
   @SkylarkCallable(

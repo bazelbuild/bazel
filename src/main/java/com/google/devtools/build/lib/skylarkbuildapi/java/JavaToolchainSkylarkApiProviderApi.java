@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
@@ -26,7 +27,8 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
  * field on a Target struct.
  */
 @SkylarkModule(
-    name = "JavaToolchainSkylarkApiProvider",
+    name = "JavaToolchainInfo",
+    category = SkylarkModuleCategory.PROVIDER,
     doc =
         "Provides access to information about the Java toolchain rule. "
             + "Accessible as a 'java_toolchain' field on a Target struct.")

@@ -31,7 +31,11 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 @SkylarkModule(
     name = "CcInfo",
     category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider containing information for C++ compilation and linking.")
+    doc =
+        "A provider for compilation and linking of C++. This "
+            + "is also a marking provider telling C++ rules that they can depend on the rule "
+            + "with this provider. If it is not intended for the rule to be depended on by C++, "
+            + "the rule should wrap the CcInfo in some other provider.")
 public interface CcInfoApi extends StructApi {
   String NAME = "CcInfo";
 
@@ -47,14 +51,13 @@ public interface CcInfoApi extends StructApi {
       structField = true)
   CcLinkingContextApi getCcLinkingContext();
 
-  /** The provider implementing this can construct the CcInfo provider. */
+  /** The provider implementing this can construct CcInfo objects. */
   @SkylarkModule(
-      name = "CcProvider",
-      doc =
-          "A provider for compilation and linking of C++. This "
-              + "is also a marking provider telling C++ rules that they can depend on the rule "
-              + "with this provider. If it is not intended for the rule to be depended on by C++, "
-              + "the rule should wrap the CcInfo in some other provider.")
+      name = "Provider",
+      doc = "",
+      // This object is documented via the CcInfo documentation and the docuemntation of its
+      // callable function.
+      documented = false)
   interface Provider extends ProviderApi {
 
     @SkylarkCallable(

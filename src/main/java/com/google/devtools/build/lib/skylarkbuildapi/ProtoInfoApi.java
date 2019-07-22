@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /** Info object propagating information about protocol buffer sources. */
 @SkylarkModule(
     name = "ProtoInfo",
+    category = SkylarkModuleCategory.PROVIDER,
     doc =
         "Encapsulates information provided by <a href=\""
             + "../../be/protocol-buffer.html#proto_library\">proto_library.</a>"
