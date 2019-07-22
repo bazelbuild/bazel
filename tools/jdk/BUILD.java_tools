@@ -347,41 +347,7 @@ cc_binary(
         "java_tools/ijar/classfile.cc",
         "java_tools/ijar/ijar.cc",
     ],
-    deps = [":zip"],
-)
-
-cc_library(
-    name = "zip",
-    srcs = [
-        "java_tools/ijar/zip.cc",
-    ] + select({
-        ":windows": [
-            "java_tools/ijar/mapped_file_windows.cc",
-        ],
-        "//conditions:default": [
-            "java_tools/ijar/mapped_file_unix.cc",
-        ],
-    }),
-    hdrs = [
-        "java_tools/ijar/common.h",
-        "java_tools/ijar/mapped_file.h",
-        "java_tools/ijar/zip.h",
-    ],
-    include_prefix = "third_party",
-    strip_include_prefix = "java_tools",
-    deps = [
-        ":platform_utils",
-        ":zlib_client",
-    ] + select({
-        ":windows": [
-            ":errors",
-            ":filesystem",
-            ":logging",
-            ":strings",
-        ],
-        "//conditions:default": [
-        ],
-    }),
+    deps = ["@bazel_tools//third_party/ijar:zip"],
 )
 
 cc_library(

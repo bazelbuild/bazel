@@ -30,6 +30,7 @@ cc_library(
         "//src:__subpackages__",
         "//third_party/ijar:__subpackages__",
         "//tools/test:__pkg__",
+        "@local_java_tools//:__pkg__",
     ],
     deps = [
         ":platform_utils",
