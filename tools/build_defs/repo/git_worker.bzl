@@ -115,7 +115,7 @@ def init(ctx, git_repo):
         _error(ctx.name, cl, st.stderr)
 
 def add_origin(ctx, git_repo, remote):
-    _git(ctx, git_repo, "remote", "add", "origin", remote)
+    _git(ctx, git_repo, "remote", "add", "--tags", "origin", remote)
 
 def fetch(ctx, git_repo):
     if not git_repo.fetch_ref:
