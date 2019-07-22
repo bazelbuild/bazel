@@ -30,7 +30,9 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Servi
 public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws ActionConflictException, RuleErrorException {
+    ProtoCommon.checkRuleHasValidMigrationTag(ruleContext);
     ProtoInfo protoInfo =
         ProtoCommon.createProtoInfo(
             ruleContext,
