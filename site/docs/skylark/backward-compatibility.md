@@ -18,6 +18,7 @@ General Starlark
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [String escapes](#string-escapes)
 *   [String.split empty separator](#string.split-empty-separator)
+*   [Disable default parameter of String.partition/rpartition](#string.split-empty-separator)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
@@ -106,6 +107,15 @@ the empty string, `split` will fail.
 *   Flag: `--incompatible_disallow_split_empty_separator`
 *   Default: `false`
 *   Tracking issue: [#7355](https://github.com/bazelbuild/bazel/issues/7355)
+
+### Disable default parameter of String.partition/rpartition
+
+This flag disables the default value `' '` for `sep` parameter of `String.parition`
+and `String.rpartition`.
+
+*   Flag: `--incompatible_disable_partition_default_parameter`
+*   Default: `false`
+*   Tracking issue: [#8725](https://github.com/bazelbuild/bazel/issues/8725)
 
 ### Load must appear at top of file
 
