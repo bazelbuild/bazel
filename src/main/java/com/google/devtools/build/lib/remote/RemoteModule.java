@@ -22,10 +22,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -34,6 +37,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -321,27 +325,43 @@ public final class RemoteModule extends BlazeModule {
       ImmutableSet<AspectValue> aspects) {
     if (remoteOutputsMode != null && remoteOutputsMode.downloadToplevelOutputsOnly()) {
       Preconditions.checkState(actionContextProvider != null, "actionContextProvider was null");
-      // TODO(buchgr): Consider only storing the action owners instead of the artifacts
       // Collect all top level output artifacts of regular targets as well as aspects. This
       // information is used by remote spawn runners to decide whether to download an artifact
       // if --experimental_remote_download_outputs=toplevel is set
-      ImmutableSet.Builder<Artifact> topLevelOutputsBuilder = ImmutableSet.builder();
+      ImmutableSet.Builder<ActionInput> topLevelOutputsBuilder = ImmutableSet.builder();
       for (ConfiguredTarget configuredTarget : configuredTargets) {
         topLevelOutputsBuilder.addAll(
-            TopLevelArtifactHelper.getAllArtifactsToBuild(
-                    configuredTarget, request.getTopLevelArtifactContext())
-                .getImportantArtifacts());
+            getTopLevelTargetOutputs(
+                configuredTarget, request.getTopLevelArtifactContext(), env.getCommandName()));
       }
-
-      for (AspectValue aspect : aspects) {
-        topLevelOutputsBuilder.addAll(
-            TopLevelArtifactHelper.getAllArtifactsToBuild(
-                    aspect, request.getTopLevelArtifactContext())
-                .getImportantArtifacts());
-      }
-
       actionContextProvider.setTopLevelOutputs(topLevelOutputsBuilder.build());
     }
+  }
+
+  /** Returns a list of build or test outputs produced by the configured target. */
+  private ImmutableList<ActionInput> getTopLevelTargetOutputs(
+      ConfiguredTarget configuredTarget,
+      TopLevelArtifactContext topLevelArtifactContext,
+      String commandName) {
+    if (commandName.equals("test") && isTestRule(configuredTarget)) {
+      TestProvider testProvider = configuredTarget.getProvider(TestProvider.class);
+      if (testProvider == null) {
+        return ImmutableList.of();
+      }
+      return testProvider.getTestParams().getOutputs();
+    } else {
+      return ImmutableList.copyOf(
+          TopLevelArtifactHelper.getAllArtifactsToBuild(configuredTarget, topLevelArtifactContext)
+              .getImportantArtifacts());
+    }
+  }
+
+  private static boolean isTestRule(ConfiguredTarget configuredTarget) {
+    if (configuredTarget instanceof RuleConfiguredTarget) {
+      RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+      return TargetUtils.isTestRuleName(ruleConfiguredTarget.getRuleClassString());
+    }
+    return false;
   }
 
   private static void cleanAndCreateRemoteLogsDir(Path logDir) throws AbruptExitException {

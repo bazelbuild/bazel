@@ -967,7 +967,7 @@ public class RemoteSpawnRunnerTest {
         /* topLevelOutputs= */ ImmutableSet.of());
   }
 
-  private RemoteSpawnRunner newSpawnRunner(ImmutableSet<Artifact> topLevelOutputs) {
+  private RemoteSpawnRunner newSpawnRunner(ImmutableSet<ActionInput> topLevelOutputs) {
     return newSpawnRunner(
         /* verboseFailures= */ false, executor, /* reporter= */ null, topLevelOutputs);
   }
@@ -976,7 +976,7 @@ public class RemoteSpawnRunnerTest {
       boolean verboseFailures,
       @Nullable GrpcRemoteExecutor executor,
       @Nullable Reporter reporter,
-      ImmutableSet<Artifact> topLevelOutputs) {
+      ImmutableSet<ActionInput> topLevelOutputs) {
     return new RemoteSpawnRunner(
         execRoot,
         remoteOptions,

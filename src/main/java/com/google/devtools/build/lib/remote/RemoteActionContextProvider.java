@@ -19,7 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
@@ -49,7 +49,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
   private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
-  private ImmutableSet<Artifact> topLevelOutputs = ImmutableSet.of();
+  private ImmutableSet<ActionInput> topLevelOutputs = ImmutableSet.of();
 
   private RemoteActionContextProvider(
       CommandEnvironment env,
@@ -171,7 +171,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     return cache;
   }
 
-  void setTopLevelOutputs(ImmutableSet<Artifact> topLevelOutputs) {
+  void setTopLevelOutputs(ImmutableSet<ActionInput> topLevelOutputs) {
     this.topLevelOutputs = Preconditions.checkNotNull(topLevelOutputs, "topLevelOutputs");
   }
 

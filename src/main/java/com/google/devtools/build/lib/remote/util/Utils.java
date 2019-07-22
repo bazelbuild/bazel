@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote.util;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -100,7 +99,7 @@ public class Utils {
 
   /** Returns {@code true} if outputs contains one or more top level outputs. */
   public static boolean hasTopLevelOutputs(
-      Collection<? extends ActionInput> outputs, ImmutableSet<Artifact> topLevelOutputs) {
+      Collection<? extends ActionInput> outputs, ImmutableSet<ActionInput> topLevelOutputs) {
     if (topLevelOutputs.isEmpty()) {
       return false;
     }

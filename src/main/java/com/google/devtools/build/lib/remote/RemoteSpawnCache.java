@@ -27,7 +27,6 @@ import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -90,7 +89,7 @@ final class RemoteSpawnCache implements SpawnCache {
    * <p>This set is empty unless {@link RemoteOutputsMode#TOPLEVEL} is specified. If so, this set is
    * used to decide whether to download an output.
    */
-  private final ImmutableSet<Artifact> topLevelOutputs;
+  private final ImmutableSet<ActionInput> topLevelOutputs;
 
   RemoteSpawnCache(
       Path execRoot,
@@ -100,7 +99,7 @@ final class RemoteSpawnCache implements SpawnCache {
       String commandId,
       @Nullable Reporter cmdlineReporter,
       DigestUtil digestUtil,
-      ImmutableSet<Artifact> topLevelOutputs) {
+      ImmutableSet<ActionInput> topLevelOutputs) {
     this.execRoot = execRoot;
     this.options = options;
     this.remoteCache = remoteCache;
