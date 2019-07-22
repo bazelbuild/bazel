@@ -552,7 +552,12 @@ public class SkylarkRepositoryContext
     Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
 
     List<URL> urls =
-        getUrls(url, /* ensureNonEmpty= */ !allowFail, env, !Strings.isNullOrEmpty(sha256));
+        getUrls(
+            url,
+            /* ensureNonEmpty= */ !allowFail,
+            env,
+            /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
+                || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
@@ -660,7 +665,12 @@ public class SkylarkRepositoryContext
     Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
 
     List<URL> urls =
-        getUrls(url, /* ensureNonEmpty= */ !allowFail, env, !Strings.isNullOrEmpty(sha256));
+        getUrls(
+            url,
+            /* ensureNonEmpty= */ !allowFail,
+            env,
+            /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
+                || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
