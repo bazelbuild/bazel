@@ -39,8 +39,7 @@ Every rule repository should have a certain layout so that users can quickly
 understand new rules.
 
 For example, suppose we are writing new rules for the (make-believe)
-mockascript language. The repository will be named `rules_mockascript`.
-We would have the following structure:
+`mockascript` language. We would have the following structure:
 
 ```
 /
@@ -61,6 +60,24 @@ We would have the following structure:
     bin.mocs
     lib.mocs
     test.mocs
+```
+
+### WORKSPACE
+
+In the project's `WORKSPACE`, you should define the name that users will use
+to reference you rules. If your rules belong to the
+[bazelbuild](https://github.com/bazelbuild) organization, you must use
+`rules_<lang>` (e.g. `rules_mockascript`). Otherwise, you should name your
+repository `<org>_rules_<lang>` (e.g. `build_stack_rules_proto`). Please contact
+[bazel-dev mailing list](https://groups.google.com/forum/#!forum/bazel-dev)
+if you feel like your rules should follow the convention for rules in the
+[bazelbuild](https://github.com/bazelbuild) organization.
+
+In the following sections, we will assume the repository belongs to the
+[bazelbuild](https://github.com/bazelbuild) organization.
+
+```
+workspace(name = "rules_mockascript")
 ```
 
 ### README
@@ -212,7 +229,9 @@ docs](https://docs.travis-ci.com/user/getting-started/). Then add a
 `.travis.yml` file to your repository with the following content:
 
 ```
-# On trusty images, the Bazel apt repository can be used.
+dist: xenial  # Ubuntu 16.04
+
+# On trusty (or later) images, the Bazel apt repository can be used.
 addons:
   apt:
     sources:
@@ -227,8 +246,8 @@ script:
 ```
 
 If your repository is under the [bazelbuild organization](https://github.com/bazelbuild),
-contact the [bazel-dev](https://groups.google.com/forum/#!forum/bazel-dev) list
-to have it added to [ci.bazel.build](http://ci.bazel.build).
+you can [ask to add](https://github.com/bazelbuild/continuous-integration/issues/new?template=adding-your-project-to-bazel-ci.md&title=Request+to+add+new+project+%5BPROJECT_NAME%5D&labels=new-project)
+it to [ci.bazel.build](http://ci.bazel.build).
 
 ## Documentation
 
