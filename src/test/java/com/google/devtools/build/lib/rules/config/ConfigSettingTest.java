@@ -1739,4 +1739,101 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--copt", "-Dfoo");
     assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
   }
+
+  @Test
+  public void simpleStarlarkFlag() throws Exception {
+    scratch.file(
+        "test/flagdef.bzl",
+        "def _impl(ctx):",
+        "    return []",
+        "my_flag = rule(",
+        "    implementation = _impl,",
+        "    build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:flagdef.bzl', 'my_flag')",
+        "my_flag(",
+        "    name = 'flag',",
+        "    build_setting_default = 'actual_flag_value')",
+        "config_setting(",
+        "    name = 'matches',",
+        "    flag_values = {",
+        "        ':flag': 'actual_flag_value',",
+        "    })",
+        "config_setting(",
+        "    name = 'doesntmatch',",
+        "    flag_values = {",
+        "        ':flag': 'other_flag_value',",
+        "    })");
+    assertThat(getConfigMatchingProvider("//test:matches").matches()).isTrue();
+    assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+  }
+
+  @Test
+  public void starlarkListFlagSingleValue() throws Exception {
+    // When a list-typed Starlark flag has value ["foo"], the config_setting's expected value "foo"
+    // must match exactly.
+    scratch.file(
+        "test/flagdef.bzl",
+        "def _impl(ctx):",
+        "    return []",
+        "my_flag = rule(",
+        "    implementation = _impl,",
+        "    build_setting = config.string_list(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:flagdef.bzl', 'my_flag')",
+        "my_flag(",
+        "    name = 'one_value_flag',",
+        "    build_setting_default = ['one'])",
+        "config_setting(",
+        "    name = 'matches',",
+        "    flag_values = {",
+        "        ':one_value_flag': 'one',",
+        "    })",
+        "config_setting(",
+        "    name = 'doesntmatch',",
+        "    flag_values = {",
+        "        ':one_value_flag': 'other',",
+        "    })");
+    assertThat(getConfigMatchingProvider("//test:matches").matches()).isTrue();
+    assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+  }
+
+  @Test
+  public void starlarkListFlagMultiValue() throws Exception {
+    // When a list-typed Starlark flag has value ["foo", "bar"], the config_setting's expected
+    // value "foo" must match *any* entry in the list.
+    scratch.file(
+        "test/flagdef.bzl",
+        "def _impl(ctx):",
+        "    return []",
+        "my_flag = rule(",
+        "    implementation = _impl,",
+        "    build_setting = config.string_list(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:flagdef.bzl', 'my_flag')",
+        "my_flag(",
+        "    name = 'two_value_flag',",
+        "    build_setting_default = ['one', 'two'])",
+        "config_setting(",
+        "    name = 'matches_one',",
+        "    flag_values = {",
+        "        ':two_value_flag': 'one',",
+        "    })",
+        "config_setting(",
+        "    name = 'matches_two',",
+        "    flag_values = {",
+        "        ':two_value_flag': 'two',",
+        "    })",
+        "config_setting(",
+        "    name = 'doesntmatch',",
+        "    flag_values = {",
+        "        ':two_value_flag': 'other',",
+        "    })");
+    assertThat(getConfigMatchingProvider("//test:matches_one").matches()).isTrue();
+    assertThat(getConfigMatchingProvider("//test:matches_two").matches()).isTrue();
+    assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+  }
 }
