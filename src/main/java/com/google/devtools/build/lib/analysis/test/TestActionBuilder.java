@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -330,6 +331,7 @@ public final class TestActionBuilder {
     List<Artifact.DerivedArtifact> results =
         Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
+    ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
 
     for (int run = 0; run < runsPerTest; run++) {
       // Use a 1-based index for user friendliness.
@@ -358,7 +360,7 @@ public final class TestActionBuilder {
           coverageArtifacts.add(coverageArtifact);
         }
 
-        env.registerAction(
+        TestRunnerAction testRunnerAction =
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
                 inputs,
@@ -379,7 +381,13 @@ public final class TestActionBuilder {
                 (!isUsingTestWrapperInsteadOfTestSetupScript
                         || executionSettings.needsShell(isExecutedOnWindows))
                     ? ShToolchain.getPathOrError(ruleContext)
-                    : null));
+                    : null);
+
+        testOutputs.addAll(testRunnerAction.getSpawnOutputs());
+        testOutputs.addAll(testRunnerAction.getOutputs());
+
+        env.registerAction(testRunnerAction);
+
         results.add(cacheStatus);
       }
     }
@@ -394,8 +402,14 @@ public final class TestActionBuilder {
       reportGenerator = reportGeneratorTarget.getProvider(FilesToRunProvider.class);
     }
 
-    return new TestParams(runsPerTest, shards, TestTimeout.getTestTimeout(ruleContext.getRule()),
-        ruleContext.getRule().getRuleClass(), ImmutableList.copyOf(results),
-        coverageArtifacts.build(), reportGenerator);
+    return new TestParams(
+        runsPerTest,
+        shards,
+        TestTimeout.getTestTimeout(ruleContext.getRule()),
+        ruleContext.getRule().getRuleClass(),
+        ImmutableList.copyOf(results),
+        coverageArtifacts.build(),
+        reportGenerator,
+        testOutputs.build());
   }
 }
