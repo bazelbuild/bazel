@@ -192,6 +192,56 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
   }
 
+  /**
+   * Tests usage of git_repository workspace rule in the particular use case, when only the commit
+   * hash is specified, and the commit is not in the HEAD-reachable subtree, on a separate tag and
+   * not on any branch.
+   */
+  @Test
+  public void testCheckoutOfCommitFromTag() throws Exception {
+    Path repo = context().getTmpDir().resolve("tag_repo");
+    GitRepositoryHelper gitRepository = initGitRepository(context(), repo);
+
+    context().write(repo.resolve("master.marker").toString());
+    gitRepository.addAll();
+    gitRepository.commit("Initial commit");
+
+    gitRepository.createNewBranch("demonstrate_branch");
+
+    RepoWithRuleWritingTextGenerator generator = new RepoWithRuleWritingTextGenerator(repo);
+    generator.withOutputText(HELLO_FROM_BRANCH).setupRepository();
+
+    gitRepository.addAll();
+    gitRepository.commit("Commit in tag1");
+    gitRepository.tag("tag1");
+    String tagCommitHash = gitRepository.getHead();
+
+    gitRepository.checkout("master");
+
+    // delete branch, so that the last commit is not an any branch.
+    gitRepository.deleteBranch("demonstrate_branch");
+
+    generator.withOutputText(HELLO_FROM_EXTERNAL_REPOSITORY).setupRepository();
+    gitRepository.addAll();
+    gitRepository.commit("Commit in master");
+
+    context()
+        .write(
+            "WORKSPACE",
+            "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
+            "git_repository(",
+            "  name='ext',",
+            String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
+            String.format("  commit='%s',", tagCommitHash),
+            ")");
+
+    // This creates Bazel without MSYS, see implementation for details.
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    bazel.build("@ext//:write_text");
+    Path outPath = context().resolveBinPath(bazel, "external/ext/out");
+    WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
+  }
+
   private static String setupGitRepository(BlackBoxTestContext context, Path repo)
       throws Exception {
     GitRepositoryHelper gitRepository = initGitRepository(context, repo);

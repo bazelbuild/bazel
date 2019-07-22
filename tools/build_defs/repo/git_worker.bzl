@@ -119,9 +119,9 @@ def add_origin(ctx, git_repo, remote):
 
 def fetch(ctx, git_repo):
     if not git_repo.fetch_ref:
-        # We need to explicitly specify to fetch all branches, otherwise only HEAD-reachable
-        # is fetched.
-        _git_maybe_shallow(ctx, git_repo, "fetch", "--all")
+        # We need to explicitly specify to fetch all branches and tags,
+        # otherwise only HEAD-reachable ones are fetched.
+        _git_maybe_shallow(ctx, git_repo, "fetch", "--all", "--tags")
     else:
         _git_maybe_shallow(ctx, git_repo, "fetch", "origin", git_repo.fetch_ref)
 
