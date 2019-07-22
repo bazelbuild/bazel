@@ -1057,6 +1057,78 @@ public class CcCommonTest extends BuildViewTestCase {
         .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
   }
 
+  @Test
+  public void testCcLibraryLoadedThroughMacro() throws Exception {
+    setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testCcLibraryNotLoadedThroughMacro() throws Exception {
+    setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestCcLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_library"),
+        "cc_library(name='a', srcs=['a.cc'])");
+  }
+
+  @Test
+  public void testFdoProfileLoadedThroughMacro() throws Exception {
+    setuptestFdoProfileLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testFdoProfileNotLoadedThroughMacro() throws Exception {
+    setuptestFdoProfileLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setuptestFdoProfileLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "fdo_profile"),
+        "fdo_profile(name='a', profile='profile.xfdo')");
+  }
+
+  @Test
+  public void testFdoPrefetchHintsLoadedThroughMacro() throws Exception {
+    setupTestFdoPrefetchHintsLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testFdoPrefetchHintsNotLoadedThroughMacro() throws Exception {
+    setupTestFdoPrefetchHintsLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestFdoPrefetchHintsLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "fdo_prefetch_hints"),
+        "fdo_prefetch_hints(",
+        "    name = 'a',",
+        "    profile = 'profile.afdo',",
+        ")");
+  }
+
   private String removeOutDirectory(String s) {
     return s.replace("blaze-out", "").replace("bazel-out", "");
   }

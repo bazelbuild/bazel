@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.LinkCommandLine;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Creates mock BUILD files required for the C/C++ rules.
@@ -254,5 +256,59 @@ public abstract class MockCcSupport {
 
   public final Predicate<Label> labelFilter() {
     return ccLabelFilter;
+  }
+
+  public void writeMacroFile(MockToolsConfig config) throws IOException {
+    List<String> ruleNames =
+        ImmutableList.of(
+            "cc_library",
+            "cc_binary",
+            "cc_test",
+            "cc_import",
+            "objc_import",
+            "objc_library",
+            "cc_toolchain",
+            "cc_toolchain_suite",
+            "fdo_profile",
+            "fdo_prefetch_hints",
+            "cc_proto_library");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/cc_rules/macros/BUILD", "");
+
+    StringBuilder macros = new StringBuilder();
+    for (String ruleName : ruleNames) {
+      Joiner.on("\n")
+          .appendTo(
+              macros,
+              "def " + ruleName + "(**attrs):",
+              "    if 'tags' in attrs and attrs['tags'] != None:",
+              "        attrs['tags'] = attrs['tags'] +"
+                  + " ['__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
+              "    else:",
+              "        attrs['tags'] = ['__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
+              "    native." + ruleName + "(**attrs)");
+      macros.append("\n");
+    }
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/cc_rules/macros/defs.bzl",
+        macros.toString());
+  }
+
+  public String getMacroLoadStatement(boolean loadMacro, String... ruleNames) {
+    if (!loadMacro) {
+      return "";
+    }
+    Preconditions.checkState(ruleNames.length > 0);
+    StringBuilder loadStatement =
+        new StringBuilder()
+            .append("load('")
+            .append(TestConstants.TOOLS_REPOSITORY)
+            .append("//third_party/cc_rules/macros:defs.bzl', ");
+    ImmutableList.Builder<String> quotedRuleNames = ImmutableList.builder();
+    for (String ruleName : ruleNames) {
+      quotedRuleNames.add(String.format("'%s'", ruleName));
+    }
+    Joiner.on(",").appendTo(loadStatement, quotedRuleNames.build());
+    loadStatement.append(")");
+    return loadStatement.toString();
   }
 }

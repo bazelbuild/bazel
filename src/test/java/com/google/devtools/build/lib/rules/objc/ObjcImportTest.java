@@ -122,4 +122,27 @@ public class ObjcImportTest extends ObjcRuleTestCase {
   public void testSdkIncludesUsedInCompileActionsOfDependers() throws Exception {
     checkSdkIncludesUsedInCompileActionsOfDependers(RULE_TYPE);
   }
+
+  @Test
+  public void testObjcImportLoadedThroughMacro() throws Exception {
+    setupTestObjcImportLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testObjcImportNotLoadedThroughMacro() throws Exception {
+    setupTestObjcImportLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestObjcImportLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "objc_import"),
+        "objc_import(name='a', archives=['a.a'])");
+  }
 }

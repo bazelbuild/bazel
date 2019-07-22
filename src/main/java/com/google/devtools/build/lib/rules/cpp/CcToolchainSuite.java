@@ -42,6 +42,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
 
     String transformedCpu = cppConfiguration.getTransformedCpuFromOptions();

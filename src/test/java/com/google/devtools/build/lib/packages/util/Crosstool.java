@@ -464,6 +464,10 @@ public final class Crosstool {
                 "licenses(['restricted'])",
                 "",
                 "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+                "load('"
+                    + TestConstants.TOOLS_REPOSITORY
+                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain',"
+                    + " 'cc_toolchain_suite')",
                 "toolchain_type(name = 'toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
                 "alias(name = 'toolchain', actual = 'everything')",
@@ -533,6 +537,10 @@ public final class Crosstool {
             .add(
                 "package(default_visibility=['//visibility:public'])",
                 "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+                "load('"
+                    + TestConstants.TOOLS_REPOSITORY
+                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library',"
+                    + " 'cc_toolchain_suite')",
                 "exports_files(glob(['**']))",
                 "cc_toolchain_suite(",
                 "    name = 'crosstool',",

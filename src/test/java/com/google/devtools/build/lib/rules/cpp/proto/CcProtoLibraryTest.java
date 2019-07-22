@@ -331,4 +331,41 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         ccInfo.getCcCompilationContext().getDeclaredIncludeSrcs().toList();
     return Iterables.getOnlyElement(headers).getExecPathString();
   }
+
+  @Test
+  public void testCcProtoLibraryLoadedThroughMacro() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
+    setupTestCcProtoLibraryLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testCcProtoLibraryNotLoadedThroughMacro() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
+    setupTestCcProtoLibraryLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestCcProtoLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_proto_library"),
+        "cc_proto_library(",
+        "    name='a',",
+        "    deps=[':a_p'],",
+        ")",
+        "proto_library(",
+        "    name='a_p',",
+        "    srcs = ['a.proto'],",
+        ")");
+  }
 }

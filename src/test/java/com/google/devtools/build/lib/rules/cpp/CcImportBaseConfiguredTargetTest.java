@@ -279,4 +279,27 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
             .getDeclaredIncludeSrcs();
     assertThat(artifactsToStrings(headers)).containsExactly("src a/foo.h");
   }
+
+  @Test
+  public void testCcImportLoadedThroughMacro() throws Exception {
+    setupTestCcImportLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testCcImportNotLoadedThroughMacro() throws Exception {
+    setupTestCcImportLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestCcImportLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_import"),
+        "cc_import(name='a', static_library='a.a')");
+  }
 }

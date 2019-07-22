@@ -1061,4 +1061,31 @@ public final class CcCommon {
     }
     return outputGroupsBuilder.build();
   }
+
+  public static void checkRuleLoadedThroughMacro(RuleContext ruleContext)
+      throws RuleErrorException {
+    if (!ruleContext.getFragment(CppConfiguration.class).loadCcRulesFromBzl()) {
+      return;
+    }
+
+    if (!hasValidTag(ruleContext) || !ruleContext.getRule().wasCreatedByMacro()) {
+      registerMigrationRuleError(ruleContext);
+    }
+  }
+
+  private static boolean hasValidTag(RuleContext ruleContext) {
+    return ruleContext
+        .attributes()
+        .get("tags", Type.STRING_LIST)
+        .contains("__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__");
+  }
+
+  private static void registerMigrationRuleError(RuleContext ruleContext)
+      throws RuleErrorException {
+    ruleContext.ruleError(
+        "The native C++/Objc rules are deprecated. Please load "
+            + ruleContext.getRule().getRuleClass()
+            + " from the rules_cc repository."
+            + " See http://github.com/bazelbuild/rules_cc.");
+  }
 }
