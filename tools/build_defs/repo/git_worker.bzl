@@ -98,9 +98,10 @@ def git_repo(ctx, directory):
 def _update(ctx, git_repo):
     ctx.delete(git_repo.directory)
 
+    git_version = _parse_git_version(ctx)
     init(ctx, git_repo)
     add_origin(ctx, git_repo, ctx.attr.remote)
-    fetch(ctx, git_repo)
+    fetch(ctx, git_repo, git_version)
     reset(ctx, git_repo)
     clean(ctx, git_repo)
 
@@ -117,11 +118,18 @@ def init(ctx, git_repo):
 def add_origin(ctx, git_repo, remote):
     _git(ctx, git_repo, "remote", "add", "--tags", "origin", remote)
 
-def fetch(ctx, git_repo):
+def fetch(ctx, git_repo, git_version):
     if not git_repo.fetch_ref:
         # We need to explicitly specify to fetch all branches and tags,
         # otherwise only HEAD-reachable ones are fetched.
-        _git_maybe_shallow(ctx, git_repo, "fetch", "--all", "--tags")
+        if git_version.major > 1 or (git_version.major == 1 and git_version.minor > 8):
+            _git(ctx, git_repo, "fetch", "--all", "--tags")
+        else:
+            # However, in versions of Git before 1.9 "fetch --tags" used to mean
+            # "fetch only tags". That is why we have to fetch tags in a separate
+            # command.
+            _git(ctx, git_repo, "fetch", "--all")
+            _git(ctx, git_repo, "fetch", "--tags")
     else:
         _git_maybe_shallow(ctx, git_repo, "fetch", "origin", git_repo.fetch_ref)
 
@@ -157,6 +165,16 @@ def _git_maybe_shallow(ctx, git_repo, command, *args):
     st = _execute(ctx, git_repo, start + args_list)
     if st.return_code != 0:
         _error(ctx.name, start + args_list, st.stderr)
+
+def _parse_git_version(ctx):
+    st = ctx.execute(["git", "version"], environment = ctx.os.environ)
+    if st.return_code != 0:
+        fail("Can not determine Git version: " + st.stderr)
+    stdout = st.stdout
+    parts = stdout.strip("git version ").strip(" ").split(".")
+    if len(parts) < 2:
+        fail("Can not parse Git version: '%s'." % stdout)
+    return struct(major = int(parts[0]), minor = int(parts[1]))
 
 def _execute(ctx, git_repo, args):
     return ctx.execute(
