@@ -217,8 +217,10 @@ public final class RemoteOptions extends OptionsBase {
       converter = RemoteOutputsStrategyConverter.class,
       help =
           "If set to 'minimal' doesn't download any remote build outputs to the local machine, "
-              + "except the ones required by local actions. This option can significantly reduce"
-              + " build times if network bandwidth is a bottleneck.")
+              + "except the ones required by local actions. If set to 'toplevel' behaves like"
+              + "'minimal' except that it also downloads outputs of top level targets to the local "
+              + "machine. Both options can significantly reduce build times if network bandwidth "
+              + "is a bottleneck.")
   public RemoteOutputsMode remoteOutputsMode;
 
   /** Outputs strategy flag parser */
@@ -227,6 +229,36 @@ public final class RemoteOptions extends OptionsBase {
       super(RemoteOutputsMode.class, "download remote outputs");
     }
   }
+
+  @Option(
+      name = "experimental_remote_download_minimal",
+      defaultValue = "null",
+      expansion = {"--experimental_inmemory_jdeps_files", "--experimental_inmemory_dotd_files",
+          "--experimental_remote_download_outputs=minimal"},
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Does not download any remote build outputs to the local machine. This flag is a "
+              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
+              + "--experimental_inmemory_dotd_files and "
+              + "--experimental_remote_download_outputs=minimal.")
+  public Void remoteOutputsMinimal;
+
+  @Option(
+      name = "experimental_remote_download_toplevel",
+      defaultValue = "null",
+      expansion = {"--experimental_inmemory_jdeps_files", "--experimental_inmemory_dotd_files",
+          "--experimental_remote_download_outputs=toplevel"},
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Only downloads remote outputs of top level targets to the local machine. This flag is a "
+              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
+              + "--experimental_inmemory_dotd_files and "
+              + "--experimental_remote_download_outputs=toplevel.")
+  public Void remoteOutputsToplevel;
 
   @Option(
       name = "remote_result_cache_priority",

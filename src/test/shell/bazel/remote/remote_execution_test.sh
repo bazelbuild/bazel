@@ -826,9 +826,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:foobar || fail "Failed to build //a:foobar"
 
   (! [[ -f bazel-bin/a/foo.txt ]] && ! [[ -f bazel-bin/a/foobar.txt ]]) \
@@ -851,9 +849,7 @@ EOF
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:fail && fail "Expected test failure" || true
 
   [[ -f bazel-bin/a/fail.txt ]] \
@@ -884,9 +880,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:remote || fail "Failed to build //a:remote"
 
   (! [[ -f bazel-bin/a/remote.txt ]]) \
@@ -895,9 +889,7 @@ EOF
   bazel build \
     --genrule_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:local || fail "Failed to build //a:local"
 
   localtxt="bazel-bin/a/local.txt"
@@ -924,9 +916,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:remote >& $TEST_log || fail "Failed to build //a:remote"
 
   expect_log "1 process: 1 remote"
@@ -934,8 +924,6 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=all \
     //a:remote >& $TEST_log || fail "Failed to build //a:remote"
 
@@ -991,9 +979,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:substitute-buchgr >& $TEST_log || fail "Failed to build //a:substitute-buchgr"
 
   # The genrule //a:generate-template should run remotely and //a:substitute-buchgr
@@ -1031,9 +1017,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=toplevel \
+    --experimental_remote_download_toplevel \
     //a:foobar || fail "Failed to build //a:foobar"
 
   (! [[ -f bazel-bin/a/foo.txt ]]) \
@@ -1049,9 +1033,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=toplevel \
+    --experimental_remote_download_toplevel \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
   expect_log "1 process: 1 remote cache hit"
@@ -1087,9 +1069,7 @@ EOF
 
   bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     --build_event_text_file=$TEST_log \
     //a:foo //a:success_test || fail "Failed to test //a:foo //a:success_test"
 
