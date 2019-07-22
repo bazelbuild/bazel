@@ -118,7 +118,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
    * <p>This set is empty unless {@link RemoteOutputsMode#TOPLEVEL} is specified. If so, this set is
    * used to decide whether to download an output.
    */
-  private final ImmutableSet<Artifact> topLevelOutputs;
+  private final ImmutableSet<ActionInput> topLevelOutputs;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -137,7 +137,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,
       Path logDir,
-      ImmutableSet<Artifact> topLevelOutputs) {
+      ImmutableSet<ActionInput> topLevelOutputs) {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;

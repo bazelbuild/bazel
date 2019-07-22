@@ -90,7 +90,7 @@ final class RemoteSpawnCache implements SpawnCache {
    * <p>This set is empty unless {@link RemoteOutputsMode#TOPLEVEL} is specified. If so, this set is
    * used to decide whether to download an output.
    */
-  private final ImmutableSet<Artifact> topLevelOutputs;
+  private final ImmutableSet<ActionInput> topLevelOutputs;
 
   RemoteSpawnCache(
       Path execRoot,
@@ -100,7 +100,7 @@ final class RemoteSpawnCache implements SpawnCache {
       String commandId,
       @Nullable Reporter cmdlineReporter,
       DigestUtil digestUtil,
-      ImmutableSet<Artifact> topLevelOutputs) {
+      ImmutableSet<ActionInput> topLevelOutputs) {
     this.execRoot = execRoot;
     this.options = options;
     this.remoteCache = remoteCache;

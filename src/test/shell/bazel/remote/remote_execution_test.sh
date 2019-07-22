@@ -1058,8 +1058,62 @@ EOF
 
   [[ -f bazel-bin/a/foobar.txt ]] \
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
+}
 
+function test_download_toplevel_test_rule() {
+  # Test that when using --experimental_remote_download_outputs=toplevel with bazel test only
+  # the test.log and test.xml file are downloaded but not the test binary. However when building
+  # a test then the test binary should be downloaded.
 
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_test(
+  name = 'test',
+  srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello test!" << std::endl; return 0; }
+EOF
+
+  # When invoking bazel test only test.log and test.xml should be downloaded.
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=toplevel \
+    //a:test >& $TEST_log || fail "Failed to test //a:test with remote execution"
+
+  (! [[ -f bazel-bin/a/test ]]) \
+  || fail "Expected test binary bazel-bin/a/test to not be downloaded"
+
+  [[ -f bazel-testlogs/a/test/test.log ]] \
+  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+
+  [[ -f bazel-testlogs/a/test/test.xml ]] \
+  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+
+  bazel clean
+
+  # When invoking bazel build the test binary should be downloaded.
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=toplevel \
+    //a:test >& $TEST_log || fail "Failed to build //a:test with remote execution"
+
+  ([[ -f bazel-bin/a/test ]]) \
+  || fail "Expected test binary bazel-bin/a/test to be downloaded"
 }
 
 function test_downloads_minimal_bep() {
