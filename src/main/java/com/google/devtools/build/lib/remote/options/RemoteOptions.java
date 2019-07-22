@@ -17,12 +17,15 @@ package com.google.devtools.build.lib.remote.options;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
+import java.util.Map.Entry;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
@@ -68,6 +71,20 @@ public final class RemoteOptions extends OptionsBase {
               + "If no schema is provided we'll default to grpc. "
               + "See https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
+
+  @Option(
+      name = "remote_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a HTTP header that will be included in requests: --remote_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list. This flag"
+              + "is currently only implemented for the HTTP protocol.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteHeaders;
 
   @Option(
       name = "remote_timeout",

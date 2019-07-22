@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.blobstore.http;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HttpHeaders;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -49,7 +50,7 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
    */
   @Test
   public void uploadsShouldWork() throws Exception {
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null, ImmutableList.of()));
     HttpResponseStatus[] statuses = new HttpResponseStatus[] {HttpResponseStatus.OK,
         HttpResponseStatus.CREATED, HttpResponseStatus.ACCEPTED, HttpResponseStatus.NO_CONTENT};
 
@@ -86,7 +87,7 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
   /** Test that the handler correctly supports http error codes i.e. 404 (NOT FOUND). */
   @Test
   public void httpErrorsAreSupported() {
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null, ImmutableList.of()));
     ByteArrayInputStream data = new ByteArrayInputStream(new byte[] {1, 2, 3, 4, 5});
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(new UploadCommand(CACHE_URI, true, "abcdef", data, 5), writePromise);
@@ -115,7 +116,7 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
    */
   @Test
   public void httpErrorsWithContentAreSupported() {
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null, ImmutableList.of()));
     ByteArrayInputStream data = new ByteArrayInputStream(new byte[] {1, 2, 3, 4, 5});
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(new UploadCommand(CACHE_URI, true, "abcdef", data, 5), writePromise);

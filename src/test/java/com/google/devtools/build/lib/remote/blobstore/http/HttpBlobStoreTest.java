@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 import com.google.api.client.util.Preconditions;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -245,11 +246,17 @@ public class HttpBlobStoreTest {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
       URI uri = new URI("http://localhost");
       return HttpBlobStore.create(
-          domainSocketAddress, uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds);
+          domainSocketAddress,
+          uri,
+          timeoutSeconds,
+          /* remoteMaxConnections= */ 0,
+          ImmutableList.of(),
+          creds);
     } else if (socketAddress instanceof InetSocketAddress) {
       InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
       URI uri = new URI("http://localhost:" + inetSocketAddress.getPort());
-      return HttpBlobStore.create(uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds);
+      return HttpBlobStore.create(
+          uri, timeoutSeconds, /* remoteMaxConnections= */ 0, ImmutableList.of(), creds);
     } else {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());

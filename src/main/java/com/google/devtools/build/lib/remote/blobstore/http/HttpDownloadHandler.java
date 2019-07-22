@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.blobstore.http;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auth.Credentials;
+import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -36,6 +37,7 @@ import io.netty.util.internal.StringUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Map.Entry;
 
 /** ChannelHandler for downloads. */
 final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
@@ -50,8 +52,9 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
   /** the path header in the http request */
   private String path;
 
-  public HttpDownloadHandler(Credentials credentials) {
-    super(credentials);
+  public HttpDownloadHandler(
+      Credentials credentials, ImmutableList<Entry<String, String>> extraHttpHeaders) {
+    super(credentials, extraHttpHeaders);
   }
 
   @Override
@@ -136,6 +139,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     path = constructPath(cmd.uri(), cmd.hash(), cmd.casDownload());
     HttpRequest request = buildRequest(path, constructHost(cmd.uri()));
     addCredentialHeaders(request, cmd.uri());
+    addExtraRemoteHeaders(request);
     addUserAgentHeader(request);
     ctx.writeAndFlush(request)
         .addListener(

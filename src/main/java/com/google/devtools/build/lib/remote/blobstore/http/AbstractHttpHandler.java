@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.blobstore.http;
 
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import io.netty.channel.ChannelHandlerContext;
@@ -30,6 +31,7 @@ import java.net.URI;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /** Common functionality shared by concrete classes. */
 abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelInboundHandler<T>
@@ -39,9 +41,12 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
       "bazel/" + BlazeVersionInfo.instance().getVersion();
 
   private final Credentials credentials;
+  private final ImmutableList<Entry<String, String>> extraHttpHeaders;
 
-  public AbstractHttpHandler(Credentials credentials) {
+  public AbstractHttpHandler(
+      Credentials credentials, ImmutableList<Entry<String, String>> extraHttpHeaders) {
     this.credentials = credentials;
+    this.extraHttpHeaders = extraHttpHeaders;
   }
 
   protected ChannelPromise userPromise;
@@ -54,8 +59,8 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     userPromise = null;
   }
 
-  @SuppressWarnings("FutureReturnValueIgnored") 
-  protected void succeedAndResetUserPromise() {  
+  @SuppressWarnings("FutureReturnValueIgnored")
+  protected void succeedAndResetUserPromise() {
     userPromise.setSuccess();
     userPromise = null;
   }
@@ -79,6 +84,12 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
       for (String value : entry.getValue()) {
         request.headers().add(name, value);
       }
+    }
+  }
+
+  protected void addExtraRemoteHeaders(HttpRequest request) {
+    for (Map.Entry<String, String> header : extraHttpHeaders) {
+      request.headers().add(header.getKey(), header.getValue());
     }
   }
 

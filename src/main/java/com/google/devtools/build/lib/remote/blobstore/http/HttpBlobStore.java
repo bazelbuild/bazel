@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.blobstore.http;
 
 
 import com.google.auth.Credentials;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
@@ -65,6 +66,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -107,6 +109,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private final ChannelPool channelPool;
   private final URI uri;
   private final int timeoutSeconds;
+  private final ImmutableList<Entry<String, String>> extraHttpHeaders;
   private final boolean useTls;
 
   private final Object closeLock = new Object();
@@ -123,7 +126,11 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private long lastRefreshTime;
 
   public static HttpBlobStore create(
-      URI uri, int timeoutSeconds, int remoteMaxConnections, @Nullable final Credentials creds)
+      URI uri,
+      int timeoutSeconds,
+      int remoteMaxConnections,
+      ImmutableList<Entry<String, String>> extraHttpHeaders,
+      @Nullable final Credentials creds)
       throws Exception {
     return new HttpBlobStore(
         NioEventLoopGroup::new,
@@ -131,6 +138,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
         uri,
         timeoutSeconds,
         remoteMaxConnections,
+        extraHttpHeaders,
         creds,
         null);
   }
@@ -140,6 +148,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
       URI uri,
       int timeoutSeconds,
       int remoteMaxConnections,
+      ImmutableList<Entry<String, String>> extraHttpHeaders,
       @Nullable final Credentials creds)
       throws Exception {
 
@@ -150,6 +159,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
           uri,
           timeoutSeconds,
           remoteMaxConnections,
+          extraHttpHeaders,
           creds,
           domainSocketAddress);
     } else if (Epoll.isAvailable()) {
@@ -159,6 +169,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
           uri,
           timeoutSeconds,
           remoteMaxConnections,
+          extraHttpHeaders,
           creds,
           domainSocketAddress);
     } else {
@@ -172,6 +183,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
       URI uri,
       int timeoutSeconds,
       int remoteMaxConnections,
+      ImmutableList<Entry<String, String>> extraHttpHeaders,
       @Nullable final Credentials creds,
       @Nullable SocketAddress socketAddress)
       throws Exception {
@@ -237,6 +249,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
     }
     this.creds = creds;
     this.timeoutSeconds = timeoutSeconds;
+    this.extraHttpHeaders = extraHttpHeaders;
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -271,7 +284,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 p.addLast(new HttpRequestEncoder());
                 p.addLast(new ChunkedWriteHandler());
                 synchronized (credentialsLock) {
-                  p.addLast(new HttpUploadHandler(creds));
+                  p.addLast(new HttpUploadHandler(creds, extraHttpHeaders));
                 }
 
                 if (!ch.eventLoop().inEventLoop()) {
@@ -343,7 +356,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
                     new IdleTimeoutHandler(timeoutSeconds, ReadTimeoutException.INSTANCE));
                 p.addLast(new HttpClientCodec());
                 synchronized (credentialsLock) {
-                  p.addLast(new HttpDownloadHandler(creds));
+                  p.addLast(new HttpDownloadHandler(creds, extraHttpHeaders));
                 }
 
                 if (!ch.eventLoop().inEventLoop()) {
