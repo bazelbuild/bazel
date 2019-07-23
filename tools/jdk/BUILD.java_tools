@@ -341,12 +341,19 @@ filegroup(
     }),
 )
 
+cc_library(
+    name = "malloc",
+)
+
 cc_binary(
     name = "ijar_cc_binary",
     srcs = [
         "java_tools/ijar/classfile.cc",
         "java_tools/ijar/ijar.cc",
     ],
+    # Remove dependency on @bazel_tools//tools/cpp:malloc, which avoid /Iexternal/tools being used
+    # in compiling actions.
+    malloc = ":malloc",
     deps = [":zip"],
 )
 
@@ -569,6 +576,9 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkstatic = 1,
+    # Remove dependency on @bazel_tools//tools/cpp:malloc, which avoid /Iexternal/tools being used
+    # in compiling actions.
+    malloc = ":malloc",
     visibility = ["//visibility:public"],
     deps = [
         ":options",
