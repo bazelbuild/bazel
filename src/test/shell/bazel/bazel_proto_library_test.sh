@@ -59,7 +59,10 @@ http_archive(
     name = "bazel_skylib",
     sha256 = "54ee22e5b9f0dd2b42eb8a6c1878dee592cfe8eb33223a7dbbc583a383f6ee1a",
     strip_prefix = "bazel-skylib-0.6.0",
-    urls = ["https://github.com/bazelbuild/bazel-skylib/archive/0.6.0.zip"],
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/0.6.0.zip",
+        "https://github.com/bazelbuild/bazel-skylib/archive/0.6.0.zip",
+    ],
     type = "zip",
 )
 
@@ -67,7 +70,10 @@ http_archive(
     name = "com_google_protobuf",
     strip_prefix = "protobuf-7b28271a61a3da0a37f6fda399b0c4c86464e5b3",
     sha256 = "d625beb4a43304409429a0466bb4fb44c89f7e7d90aeced972b8a61dbe92c80b",
-    urls = ["https://github.com/google/protobuf/archive/7b28271a61a3da0a37f6fda399b0c4c86464e5b3.zip"],  # 2018-11-16
+    urls = [
+        "https://mirror.bazel.build/github.com/google/protobuf/archive/7b28271a61a3da0a37f6fda399b0c4c86464e5b3.zip",
+        "https://github.com/google/protobuf/archive/7b28271a61a3da0a37f6fda399b0c4c86464e5b3.zip",
+    ],
 )
 
 # java_lite_proto_library rules implicitly depend on @com_google_protobuf_javalite//:javalite_toolchain,
@@ -76,7 +82,10 @@ http_archive(
     name = "com_google_protobuf_javalite",
     sha256 = "d8a2fed3708781196f92e1e7e7e713cf66804bd2944894401057214aff4f468e",
     strip_prefix = "protobuf-5e8916e881c573c5d83980197a6f783c132d4276",
-    urls = ["https://github.com/google/protobuf/archive/5e8916e881c573c5d83980197a6f783c132d4276.zip"],
+    urls = [
+        "https://mirror.bazel.build/github.com/google/protobuf/archive/5e8916e881c573c5d83980197a6f783c132d4276.zip",
+        "https://github.com/google/protobuf/archive/5e8916e881c573c5d83980197a6f783c132d4276.zip",
+    ],
 )
 EOF
 }
