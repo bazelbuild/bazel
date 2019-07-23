@@ -1727,14 +1727,4 @@ EOF
   bazel build java/com/google/foo:my_skylark_rule >& "$TEST_log" || fail "Expected success"
 }
 
-# This test builds a simple java deploy jar using remote singlejar and ijar
-# targets which compile them from source.
-function test_build_hello_world_with_remote_embedded_tool_targets() {
-  write_hello_library_files
-
-  bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
-    &> $TEST_log || fail "build failed"
-}
-
-
 run_suite "Java integration tests"
