@@ -380,8 +380,10 @@ public final class SkyframeActionExecutor {
           try {
             actionGraph.registerAction(action);
           } catch (ActionConflictException e) {
-            Exception oldException = badActionMap.put(action, new ConflictException(e));
-            Preconditions.checkState(oldException == null, "%s | %s | %s", action, e, oldException);
+            // It may be possible that we detect a conflict for the same action more than once, if
+            // that action belongs to multiple aspect values. In this case we will harmlessly
+            // overwrite the badActionMap entry.
+            badActionMap.put(action, new ConflictException(e));
             // We skip the rest of the loop, and do not add the path->artifact mapping for this
             // artifact below -- we don't need to check it since this action is already in
             // error.
