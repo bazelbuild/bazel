@@ -1036,13 +1036,11 @@ function test_skylark_repository_download_args() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
-  local download_with_sha256="${server_dir}/download_with_sha256.txt"
-  local download_no_sha256="${server_dir}/download_no_sha256.txt"
-  local download_executable_file="${server_dir}/download_executable_file.sh"
-  echo "This is one file" > "${download_no_sha256}"
-  echo "This is another file" > "${download_with_sha256}"
-  echo "echo 'I am executable'" > "${download_executable_file}"
-  file_sha256="$(sha256sum "${download_with_sha256}" | head -c 64)"
+  local download_1="${server_dir}/download_1.txt"
+  local download_2="${server_dir}/download_2.txt"
+  echo "The file's content" > "${download_1}"
+  echo "The file's content" > "${download_2}"
+  file_sha256="$(sha256sum "${download_1}" | head -c 64)"
 
   # Start HTTP server with Python
   startup_server "${server_dir}"
@@ -1057,9 +1055,10 @@ function test_skylark_repository_download_args() {
 load('//:test.bzl', 'repo')
 repo(name = 'foo',
      urls = [
-       "http://localhost:${fileserver_port}/download_no_sha256.txt",
-       "http://localhost:${fileserver_port}/download_with_sha256.txt",
+       "http://localhost:${fileserver_port}/download_1.txt",
+       "http://localhost:${fileserver_port}/download_2.txt",
      ],
+     sha256 = "${file_sha256}",
      output = "whatever.txt"
 )
 EOF
@@ -1068,11 +1067,19 @@ EOF
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
   repository_ctx.file("BUILD")
-  repository_ctx.download(repository_ctx.attr.urls, output=repository_ctx.attr.output)
+  repository_ctx.download(
+    repository_ctx.attr.urls,
+    sha256 = repository_ctx.attr.sha256,
+    output=repository_ctx.attr.output,
+  )
 
 repo = repository_rule(implementation=_impl,
       local=False,
-      attrs = { "urls" : attr.string_list(), "output" : attr.string() }
+      attrs = {
+        "urls" : attr.string_list(),
+        "output" : attr.string(),
+        "sha256" : attr.string(),
+     }
 )
 EOF
 
@@ -1099,7 +1106,9 @@ function test_skylark_repository_download_and_extract() {
   tar -zcvf server_dir/download_and_extract1.tar.gz server_dir/download_and_extract1.txt
   zip server_dir/download_and_extract2.zip server_dir/download_and_extract2.txt
   zip server_dir/download_and_extract3.zip server_dir/download_and_extract3.txt
-  file_sha256="$(sha256sum server_dir/download_and_extract3.zip | head -c 64)"
+  file1_sha256="$(sha256sum server_dir/download_and_extract1.tar.gz | head -c 64)"
+  file2_sha256="$(sha256sum server_dir/download_and_extract2.zip | head -c 64)"
+  file3_sha256="$(sha256sum server_dir/download_and_extract3.zip | head -c 64)"
   popd
 
   # Start HTTP server with Python
@@ -1111,17 +1120,17 @@ function test_skylark_repository_download_and_extract() {
 def _impl(repository_ctx):
   repository_ctx.file("BUILD")
   repository_ctx.download_and_extract(
-    "http://localhost:${fileserver_port}/download_and_extract1.tar.gz", "")
+    "http://localhost:${fileserver_port}/download_and_extract1.tar.gz", "", sha256="${file1_sha256}")
   repository_ctx.download_and_extract(
-    "http://localhost:${fileserver_port}/download_and_extract2.zip", "", "")
+    "http://localhost:${fileserver_port}/download_and_extract2.zip", "", "${file2_sha256}")
   repository_ctx.download_and_extract(
-    "http://localhost:${fileserver_port}/download_and_extract1.tar.gz", "some/path")
+    "http://localhost:${fileserver_port}/download_and_extract1.tar.gz", "some/path", sha256="${file1_sha256}")
   repository_ctx.download_and_extract(
-    "http://localhost:${fileserver_port}/download_and_extract3.zip", ".", "${file_sha256}", "", "")
+    "http://localhost:${fileserver_port}/download_and_extract3.zip", ".", "${file3_sha256}", "", "")
   repository_ctx.download_and_extract(
     url = ["http://localhost:${fileserver_port}/download_and_extract3.zip"],
     output = "other/path",
-    sha256 = "${file_sha256}"
+    sha256 = "${file3_sha256}"
   )
 repo = repository_rule(implementation=_impl, local=False)
 EOF
@@ -1350,6 +1359,7 @@ def root_cause():
   http_archive(
     name = "this_is_the_root_cause",
     urls = ["http://does.not.exist.example.com/some/file.tar"],
+    sha256 = "aba1fcb7781eb26c854d13446a4b3e8a906cc03676371bbb69eb4430926f5969",
   )
 
 EOF
@@ -1502,18 +1512,21 @@ function test_auth_provided() {
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt
   tar cvf x.tar x
+  sha256="$(sha256sum x.tar | head -c 64)"
   serve_file_auth x.tar
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:auth.bzl", "with_auth")
 with_auth(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256 = "$sha256",
 )
 EOF
   cat > auth.bzl <<'EOF'
 def _impl(ctx):
   ctx.download_and_extract(
     url = ctx.attr.url,
+    sha256 = ctx.attr.sha256,
     # Use the username/password pair hard-coded
     # in the testing server.
     auth = {ctx.attr.url : { "type": "basic",
@@ -1523,7 +1536,7 @@ def _impl(ctx):
 
 with_auth = repository_rule(
   implementation = _impl,
-  attrs = { "url" : attr.string() }
+  attrs = { "url" : attr.string(), "sha256" : attr.string() }
 )
 EOF
   cat > BUILD <<'EOF'
@@ -1767,6 +1780,7 @@ function test_http_archive_netrc() {
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt
   tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -1774,6 +1788,7 @@ http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
   netrc = "$(pwd)/.netrc",
+  sha256="$sha256",
 )
 EOF
   cat > .netrc <<'EOF'
@@ -1798,6 +1813,7 @@ function test_implicit_netrc() {
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt
   tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
 
   export HOME=`pwd`
@@ -1814,6 +1830,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256="$sha256",
 )
 EOF
   cat > BUILD <<'EOF'
