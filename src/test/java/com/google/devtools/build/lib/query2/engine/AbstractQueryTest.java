@@ -667,6 +667,13 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void testSubdirSymlinkCycle() throws Exception {
+    writeBuildFiles1();
+    helper.ensureSymbolicLink("a/s", "s");
+    assertThat(evalToString("a/...:*")).isEqualTo(A_AB_FILES);
+  }
+
+  @Test
   public void testCycleInSubpackage() throws Exception {
     writeFile("a/BUILD", "sh_library(name = 'a', deps = [':dep'])", "sh_library(name = 'dep')");
     writeFile("a/subdir/BUILD", "sh_library(name = 'cycletarget', deps = ['cycletarget'])");
