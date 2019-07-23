@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
-import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -67,6 +66,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -322,8 +322,10 @@ class ExperimentalStateTracker {
   private int failedTests;
   private boolean ok;
   private boolean buildComplete;
-  private String defaultStatus = "Loading";
-  private String defaultActivity = "loading...";
+
+  // These are only null between the completion of analysis and the beginning of execution.
+  @Nullable private String defaultStatus = "Loading";
+  @Nullable private String defaultActivity = "loading...";
 
   private ExecutionProgressReceiver executionProgressReceiver;
   private PackageProgressReceiver packageProgressReceiver;
@@ -385,7 +387,7 @@ class ExperimentalStateTracker {
    * Make the state tracker aware of the fact that the analysis has finished. Return a summary of
    * the work done in the analysis phase.
    */
-  synchronized String analysisComplete(AnalysisPhaseCompleteEvent event) {
+  synchronized String analysisComplete() {
     String workDone = "Analyzed " + additionalMessage;
     if (packageProgressReceiver != null) {
       Pair<String, String> progress = packageProgressReceiver.progressState();
@@ -399,13 +401,15 @@ class ExperimentalStateTracker {
     status = null;
     packageProgressReceiver = null;
     configuredTargetProgressReceiver = null;
-    defaultStatus = "Building";
-    defaultActivity = "checking cached actions";
+    defaultStatus = null;
+    defaultActivity = null;
     return workDone;
   }
 
-  void progressReceiverAvailable(ExecutionProgressReceiverAvailableEvent event) {
+  synchronized void progressReceiverAvailable(ExecutionProgressReceiverAvailableEvent event) {
     executionProgressReceiver = event.getExecutionProgressReceiver();
+    defaultStatus = "Building";
+    defaultActivity = "checking cached actions";
   }
 
   void buildComplete(BuildCompleteEvent event, String additionalInfo) {
@@ -1103,6 +1107,8 @@ class ExperimentalStateTracker {
     }
     if (executionProgressReceiver != null) {
       terminalWriter.okStatus().append(executionProgressReceiver.getProgressString());
+    } else if (defaultStatus == null) {
+      return;
     } else {
       terminalWriter.okStatus().append(defaultStatus).append(":");
     }
