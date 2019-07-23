@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -129,9 +130,7 @@ final class RemoteSpawnCache implements SpawnCache {
     Digest merkleTreeRoot = merkleTree.getRootDigest();
 
     // Get the remote platform properties.
-    Platform platform =
-        RemoteSpawnRunner.parsePlatform(
-            spawn.getExecutionPlatform(), options.remoteDefaultPlatformProperties);
+    Platform platform = PlatformUtils.getPlatformProto(spawn.getExecutionPlatform(), options);
 
     Command command =
         RemoteSpawnRunner.buildCommand(

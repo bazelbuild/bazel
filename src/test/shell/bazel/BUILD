@@ -876,6 +876,18 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_docker_sandboxing_light_test",
+    srcs = ["bazel_docker_sandboxing_light_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = [
+        "local",
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_sandboxing_test",
     size = "large",
     srcs = ["bazel_sandboxing_test.sh"],
