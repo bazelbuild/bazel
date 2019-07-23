@@ -5,6 +5,7 @@ load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 load("//third_party/protobuf/3.6.1:protobuf.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 load("@rules_cc//cc:defs.bzl", "cc_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 
 exports_files(
     ["execution_statitics.proto"],
