@@ -9,7 +9,7 @@ A list of all modules and globals that are available:
 <h2>
 
 
-  <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html">Global Functions & Constants</a>
+  <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html">Global Functions</a>
 
 
 </h2>
@@ -17,6 +17,30 @@ A list of all modules and globals that are available:
   <ul>
 
 #foreach ($name in $global_functions)
+
+    <li>
+
+
+      <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html#${name}">${name}</a>
+
+
+    </li>
+
+#end
+
+  </ul>
+</div>
+<h2>
+
+
+  <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html">Global Constants</a>
+
+
+</h2>
+<div class="toc">
+  <ul>
+
+#foreach ($name in $global_constants)
 
     <li>
 
