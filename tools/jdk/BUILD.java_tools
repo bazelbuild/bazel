@@ -625,9 +625,9 @@ cc_library(
     strip_include_prefix = "java_tools",
     visibility = ["//visibility:private"],
     deps = [
-        ":cpp_util",
         ":diag",
         ":singlejar_port",
+        "@bazel_tools//src/main/cpp/util",
     ],
 )
 
@@ -672,13 +672,13 @@ cc_library(
     strip_include_prefix = "java_tools",
     deps = [
         ":combiners",
-        ":cpp_util",
         ":diag",
         ":input_jar",
         ":mapped_file",
         ":options",
         ":singlejar_port",
         "//java_tools/zlib",
+        "@bazel_tools//src/main/cpp/util",
     ],
 )
 
