@@ -145,7 +145,7 @@ distdir_tar(
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_cc
-        "plf-moving-tools.zip": "38a57c8ac4869ef62a2a232b89f77b3248f22353fd974bd1c60b68a855f9fc5c",
+        "plf-moving-tools.zip": "a2bfe9921f72586a55b51ee57d0443ae16202a5bbad55c92fc22a3c750fd35f2",
         # bazelbuild/bazel-toolchains
         "0.27.1.tar.gz": "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
         # bazelbuild/rules_pkg
@@ -199,8 +199,7 @@ distdir_tar(
         ],
         # bazelbuild/rules_cc
         "plf-moving-tools.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/plf-moving-tools.zip",
-            "https://github.com/bazelbuild/rules_cc/archive/plf-moving-tools.zip",
+            "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",
         ],
         # bazelbuild/bazel-toolchains
         "0.27.1.tar.gz": [
@@ -436,11 +435,10 @@ http_archive(
 
 http_archive(
     name = "rules_cc",
-    sha256 = "38a57c8ac4869ef62a2a232b89f77b3248f22353fd974bd1c60b68a855f9fc5c",
-    strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",
+    sha256 = "a2bfe9921f72586a55b51ee57d0443ae16202a5bbad55c92fc22a3c750fd35f2",
+    strip_prefix = "rules_cc-plf-moving-tools",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/plf-moving-tools.zip",
-        "https://github.com/bazelbuild/rules_cc/archive/plf-moving-tools.zip",
+        "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",
     ],
 )
 
@@ -514,7 +512,7 @@ distdir_tar(
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_cc
-        "plf-moving-tools.zip": "38a57c8ac4869ef62a2a232b89f77b3248f22353fd974bd1c60b68a855f9fc5c",
+        "plf-moving-tools.zip": "a2bfe9921f72586a55b51ee57d0443ae16202a5bbad55c92fc22a3c750fd35f2",
     },
     urls = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -551,8 +549,7 @@ distdir_tar(
         ],
         # bazelbuild/rules_cc
         "plf-moving-tools.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/plf-moving-tools.zip",
-            "https://github.com/bazelbuild/rules_cc/archive/plf-moving-tools.zip",
+            "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",
         ],
     },
 )
