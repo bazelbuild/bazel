@@ -639,7 +639,6 @@ public class SkydocMain {
     ProguardMappingProviderApi.NAME,
     GeneratedExtensionRegistryProviderApi.NAME,
     AndroidBinaryDataInfoApi.NAME,
-    "JspbInfo",
   };
 
   /**
