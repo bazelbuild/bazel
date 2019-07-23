@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -1071,6 +1072,19 @@ public class PackageFunctionTest extends BuildViewTestCase {
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void veryBrokenPackagePostsDoneToProgressReceiver() throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file("pkg/BUILD", "load('//does_not:exist.bzl', 'broken'");
+    SkyKey key = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(getSkyframeExecutor(), key, false, reporter);
+    assertThatEvaluationResult(result).hasError();
+    assertThat(getSkyframeExecutor().getPackageProgressReceiver().progressState())
+        .isEqualTo(new Pair<String, String>("1 packages loaded", ""));
   }
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {
