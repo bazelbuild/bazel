@@ -205,13 +205,19 @@ function test_download_multiple() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
+  local file1="${server_dir}/file1.txt"
   local file2="${server_dir}/file2.txt"
-  echo "second contents here" > "${file2}"
+  echo "contents here" > "${file1}"
+  echo "contents here" > "${file2}"
+  sha256=$(sha256sum "${file2}" | head -c 64)
 
   # Start HTTP server with Python
+  ls -al "${server_dir}"
+  sha256sum "${file2}"
+
   startup_server "${server_dir}"
 
-  set_workspace_command "repository_ctx.download([\"http://localhost:${fileserver_port}/file1.txt\",\"http://localhost:${fileserver_port}/file2.txt\"], \"out_for_list.txt\")"
+  set_workspace_command "repository_ctx.download([\"http://localhost:${fileserver_port}/file1.txt\",\"http://localhost:${fileserver_port}/file2.txt\"], \"out_for_list.txt\", sha256='${sha256}')"
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
