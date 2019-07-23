@@ -84,6 +84,9 @@ public final class UnaryOperatorExpression extends Expression {
           return ~((Integer) value);
         }
         break;
+
+      // ignore any other operator and proceed to report an error
+      default:
     }
     throw new EvalException(
         loc,
