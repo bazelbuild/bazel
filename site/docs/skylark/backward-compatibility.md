@@ -17,8 +17,8 @@ General Starlark
 *   [Dictionary lookup of unhashable types](#dictionary-lookup-of-unhashable-types)
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [String escapes](#string-escapes)
-*   [String.split empty separator](#string.split-empty-separator)
-*   [Disable default parameter of String.partition/rpartition](#string.split-empty-separator)
+*   [String.split empty separator](#stringsplit-empty-separator)
+*   [Disable default parameter of String.partition/rpartition](#disable-default-parameter-of-stringpartitionrpartition)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
@@ -27,6 +27,7 @@ General Starlark
 *   [Package name is a function](#package-name-is-a-function)
 *   [FileType is deprecated](#filetype-is-deprecated)
 *   [Static Name Resolution](#static-name-resolution)
+*   [Assignment LHS identifiers have local scope](#assignment-lhs-identifiers-have-local-scope)
 *   [Load label cannot cross package boundaries](#load-label-cannot-cross-package-boundaries)
 
 Starlark Rules
@@ -599,6 +600,30 @@ The proposal is not fully implemented yet.
 *   Default: `true`
 *   Tracking issue: [#5637](https://github.com/bazelbuild/bazel/issues/5637)
 
+### Assignment LHS identifiers have local scope
+
+When the flag is set, LHS identifiers in assignment statements (`x = y`, `x += y`)
+get the local scope of the lexical block containing the statement.
+
+Previously assignment statements did not set a new local scope for identifiers,
+for example:
+
+```python
+# Before
+a = []
+def f(): a += [1]
+f()
+print(a) # [1]
+
+# After
+a = []
+def f(): a += [1]
+f()      # local variable 'a' is referenced before assignment
+```
+
+*   Flag: `--incompatible_assignment_identifiers_have_local_scope`
+*   Default: `false`
+*   Tracking issue: [#8956](https://github.com/bazelbuild/bazel/issues/8956)
 
 ### Disallow transitive loads
 

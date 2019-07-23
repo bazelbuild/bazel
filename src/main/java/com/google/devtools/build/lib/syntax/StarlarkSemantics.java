@@ -214,6 +214,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisablePartitionDefaultParameter();
 
+  public abstract boolean incompatibleAssignmentIdentifiersHaveLocalScope();
+
   public abstract boolean incompatibleAllowTagsPropagation();
 
   @Memoized
@@ -295,6 +297,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowDictLookupUnhashableKeys(false)
           .incompatibleDisablePartitionDefaultParameter(false)
           .incompatibleAllowTagsPropagation(false)
+          .incompatibleAssignmentIdentifiersHaveLocalScope(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -394,6 +397,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
 
     public abstract Builder incompatibleDisablePartitionDefaultParameter(boolean value);
+
+    public abstract Builder incompatibleAssignmentIdentifiersHaveLocalScope(boolean value);
 
     public abstract StarlarkSemantics build();
   }
