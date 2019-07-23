@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -124,32 +125,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      final OutputStream out, final QueryOptions options) {
-    return new OutputFormatterCallback<Target>() {
-
-      private QueryResult.Builder queryResult;
-
-      @Override
-      public void start() {
-        queryResult = Build.QueryResult.newBuilder();
-      }
-
-      @Override
-      public void processOutput(Iterable<Target> partialResult)
-          throws IOException, InterruptedException {
-
-        for (Target target : partialResult) {
-          queryResult.addTarget(toTargetProtoBuffer(target));
-        }
-      }
-
-      @Override
-      public void close(boolean failFast) throws IOException {
-        if (!failFast) {
-          queryResult.build().writeTo(out);
-        }
-      }
-    };
+      OutputStream out, QueryOptions options) {
+    return new StreamedQueryResultFormatter(out);
   }
 
   @Override
@@ -500,5 +477,43 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     throw new AssertionError("Unknown type: " + attrType);
+  }
+
+  /**
+   * Specialized {@link OutputFormatterCallback} implementation which produces a valid {@link
+   * QueryResult} in streaming fashion. Internally this class makes some reasonably sound and stable
+   * assumptions about the format of serialized protos in order to improve memory overhead and
+   * performance.
+   */
+  private class StreamedQueryResultFormatter extends OutputFormatterCallback<Target> {
+
+    /**
+     * Pseudo-arbitrarily chosen buffer size for output. Chosen to be large enough to fit a handful
+     * of targets without needing to flush to the underlying output, which may not be buffered.
+     */
+    private static final int OUTPUT_BUFFER_SIZE = 16384;
+
+    private final CodedOutputStream codedOut;
+
+    private StreamedQueryResultFormatter(OutputStream out) {
+      this.codedOut = CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE);
+    }
+
+    @Override
+    public void processOutput(Iterable<Target> partialResult)
+        throws IOException, InterruptedException {
+      // Write out targets with their tag (field number) as if they were serialized as part of a
+      // QueryResult proto. The assumptions we make about this being compatible with actually
+      // constructing and serializing a QueryResult proto are protected by test coverage and proto
+      // best practices.
+      for (Target target : partialResult) {
+        codedOut.writeMessage(QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target));
+      }
+    }
+
+    @Override
+    public void close(boolean failFast) throws IOException {
+      codedOut.flush();
+    }
   }
 }
