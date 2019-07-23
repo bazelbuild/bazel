@@ -123,11 +123,13 @@ def fetch(ctx, git_repo, git_version):
         # We need to explicitly specify to fetch all branches and tags,
         # otherwise only HEAD-reachable ones are fetched.
         if git_version.major > 1 or (git_version.major == 1 and git_version.minor > 8):
+            print("Calling git fetch --all --tags")
             _git(ctx, git_repo, "fetch", "--all", "--tags")
         else:
             # However, in versions of Git before 1.9 "fetch --tags" used to mean
             # "fetch only tags". That is why we have to fetch tags in a separate
             # command.
+            print("Calling git fetch --all and git fetch --tags")
             _git(ctx, git_repo, "fetch", "--all")
             _git(ctx, git_repo, "fetch", "--tags")
     else:
@@ -171,6 +173,7 @@ def _parse_git_version(ctx):
     if st.return_code != 0:
         fail("Can not determine Git version: " + st.stderr)
     stdout = st.stdout
+    print("GIT VERSION: '%s'" % stdout)
     parts = stdout.strip("git version ").strip(" ").split(".")
     if len(parts) < 2:
         fail("Can not parse Git version: '%s'." % stdout)

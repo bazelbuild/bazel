@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.logging.Logger;
 import org.junit.Test;
 
 /**
@@ -51,7 +52,7 @@ import org.junit.Test;
  * "out.txt" file.
  */
 public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
-
+  private static final Logger logger = Logger.getLogger(GitRepositoryBlackBoxTest.class.getName());
   private static final String HELLO_FROM_EXTERNAL_REPOSITORY = "Hello from GIT repository!";
   private static final String HELLO_FROM_BRANCH = "Hello from branch!";
 
@@ -260,6 +261,8 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     PathUtils.deleteTree(repo);
     Files.createDirectories(repo);
     GitRepositoryHelper gitRepository = new GitRepositoryHelper(context, repo);
+    String version = gitRepository.getVersion();
+    logger.info(String.format("Git version: '%s'", version));
     gitRepository.init();
     return gitRepository;
   }

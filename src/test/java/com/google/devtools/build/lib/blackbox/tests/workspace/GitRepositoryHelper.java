@@ -133,6 +133,10 @@ class GitRepositoryHelper {
     return runGit("rev-parse", "--short", "HEAD");
   }
 
+  String getVersion() throws Exception {
+    return runGit("version");
+  }
+
   private String runGit(String... arguments) throws Exception {
     ProcessResult result = context.runBinary(root, "git", false, arguments);
     return result.outString();
