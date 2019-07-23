@@ -105,7 +105,12 @@ load("//:distdir.bzl", "distdir_tar")
 
 distdir_tar(
     name = "additional_distfiles",
-    # Keep in sync with the archives fetched as part of building bazel
+    # Keep in sync with the archives fetched as part of building bazel.
+    #
+    # For repos in the bazelbuild org, please consider using
+    # `<repo>-<version>.tar.gz` so it can be updated with
+    # //tools:upload_bazel_rules
+    # (e.g. `bazelbuild/rules_foo` at version `bar` uses `rules_foo-bar`).
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
