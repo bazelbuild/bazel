@@ -239,7 +239,7 @@ To enable the Clang toolchain for building C++, there are several situations.
 * From Bazel 1.0: You have to add a platform target to your build file (eg. the top level BUILD file):
     ```
     platform(
-        name = "windows-clang-cl",
+        name = "x64_windows-clang-cl",
         constraint_values = [
             "@platforms//cpu:x86_64",
             "@platforms//os:windows",
@@ -250,18 +250,19 @@ To enable the Clang toolchain for building C++, there are several situations.
     Then you can enable the Clang toolchain by either of the following two ways:
     * Specify the following build flags:
     ```
-    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:windows-clang-cl
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
     ```
     * Register the platform and toolchain in your WORKSPACE file:
     ```
     register_execution_platforms(
-        ":windows-clang-cl"
+        ":x64_windows-clang-cl"
     )
 
     register_toolchains(
         "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",
     )
     ```
+
     The reason we have those two ways is because [--incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260) flag.
 
 ### Build Java
