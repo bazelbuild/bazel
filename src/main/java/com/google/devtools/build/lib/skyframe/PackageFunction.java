@@ -396,9 +396,8 @@ public class PackageFunction implements SkyFunction {
         repositoryMappingValue.getRepositoryMapping();
 
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
-    FileValue buildFileValue = null;
 
-    buildFileValue = getBuildFileValue(env, buildFileRootedPath);
+    FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
     if (buildFileValue == null) {
       return null;
     }
