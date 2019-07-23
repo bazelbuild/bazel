@@ -72,11 +72,18 @@ public class CriticalPathComputer {
   /** Maximum critical path found. */
   private final AtomicReference<CriticalPathComponent> maxCriticalPath;
   private final Clock clock;
+  private final boolean checkCriticalPathInconsistencies;
 
-  protected CriticalPathComputer(ActionKeyContext actionKeyContext, Clock clock) {
+  protected CriticalPathComputer(
+      ActionKeyContext actionKeyContext, Clock clock, boolean checkCriticalPathInconsistencies) {
     this.actionKeyContext = actionKeyContext;
     this.clock = clock;
     maxCriticalPath = new AtomicReference<>();
+    this.checkCriticalPathInconsistencies = checkCriticalPathInconsistencies;
+  }
+
+  protected CriticalPathComputer(ActionKeyContext actionKeyContext, Clock clock) {
+    this(actionKeyContext, clock, /*checkCriticalPathInconsistencies=*/ true);
   }
 
   /**
@@ -356,6 +363,9 @@ public class CriticalPathComputer {
 
   protected void checkCriticalPathInconsistency(
       Artifact.DerivedArtifact input, Action action, CriticalPathComponent actionStats) {
+    if (!checkCriticalPathInconsistencies) {
+      return;
+    }
     // Rare case that an action depending on a previously-cached shared action sees a different
     // shared action that is in the midst of being an action cache hit.
     for (Artifact actionOutput : action.getOutputs()) {
