@@ -3172,6 +3172,22 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testIdentifierAssignmentFromOuterScope2() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "a = [1, 2, 3]",
+        "def f(): a[0] = 9",
+        "y = f()",
+        "fail() if a[0] != 9 else None");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
   public void testIdentifierAssignmentFromOuterScopeForbidden() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=true");
 

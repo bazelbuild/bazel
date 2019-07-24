@@ -159,7 +159,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   private void assign(Expression lhs) {
     if (lhs instanceof Identifier) {
-      if (env.getSemantics().incompatibleAssignmentIdentifiersHaveLocalScope()) {
+      if (!isBuildFile && env.getSemantics().incompatibleAssignmentIdentifiersHaveLocalScope()) {
         ((Identifier) lhs).setScope(block.scope);
       }
       // no-op
