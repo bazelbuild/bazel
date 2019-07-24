@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote.blobstore;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

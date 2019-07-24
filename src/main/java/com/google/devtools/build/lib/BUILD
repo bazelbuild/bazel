@@ -44,6 +44,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/logging:srcs",
