@@ -1504,7 +1504,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest("--incompatible_depset_union=false")
         .testStatement("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
         .testStatement("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
-        .testIfExactError("unsupported operand type(s) for |: 'int' and 'int'", "2 | 4");
+        .testIfExactError("unsupported operand type(s) for |: 'int' and 'bool'", "2 | False");
   }
 
   @Test

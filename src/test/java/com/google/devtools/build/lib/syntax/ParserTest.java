@@ -473,6 +473,10 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(parseFile("x *= 1").toString()).isEqualTo("[x *= 1\n]");
     assertThat(parseFile("x /= 1").toString()).isEqualTo("[x /= 1\n]");
     assertThat(parseFile("x %= 1").toString()).isEqualTo("[x %= 1\n]");
+    assertThat(parseFile("x |= 1").toString()).isEqualTo("[x |= 1\n]");
+    assertThat(parseFile("x &= 1").toString()).isEqualTo("[x &= 1\n]");
+    assertThat(parseFile("x <<= 1").toString()).isEqualTo("[x <<= 1\n]");
+    assertThat(parseFile("x >>= 1").toString()).isEqualTo("[x >>= 1\n]");
   }
 
   @Test
