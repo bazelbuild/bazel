@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -65,7 +66,7 @@ public class CriticalPathComputer {
 
   private final AtomicInteger idGenerator = new AtomicInteger();
   // outputArtifactToComponent is accessed from multiple event handlers.
-  protected final ConcurrentMap<Artifact, CriticalPathComponent> outputArtifactToComponent =
+  private final ConcurrentMap<Artifact, CriticalPathComponent> outputArtifactToComponent =
       Maps.newConcurrentMap();
   private final ActionKeyContext actionKeyContext;
 
@@ -74,7 +75,7 @@ public class CriticalPathComputer {
   private final Clock clock;
   private final boolean checkCriticalPathInconsistencies;
 
-  protected CriticalPathComputer(
+  public CriticalPathComputer(
       ActionKeyContext actionKeyContext, Clock clock, boolean checkCriticalPathInconsistencies) {
     this.actionKeyContext = actionKeyContext;
     this.clock = clock;
@@ -82,7 +83,7 @@ public class CriticalPathComputer {
     this.checkCriticalPathInconsistencies = checkCriticalPathInconsistencies;
   }
 
-  protected CriticalPathComputer(ActionKeyContext actionKeyContext, Clock clock) {
+  public CriticalPathComputer(ActionKeyContext actionKeyContext, Clock clock) {
     this(actionKeyContext, clock, /*checkCriticalPathInconsistencies=*/ true);
   }
 
@@ -162,6 +163,10 @@ public class CriticalPathComputer {
             inputFiles,
             memoryEstimate),
         components.build());
+  }
+
+  public Map<Artifact, CriticalPathComponent> getCriticalPathComponentsMap() {
+    return outputArtifactToComponent;
   }
 
   /** Adds spawn metrics to the action stats. */
