@@ -742,10 +742,8 @@ public class MethodLibrary {
       name = "getattr",
       doc =
           "Returns the struct's field of the given name if it exists. If not, it either returns "
-              + "<code>default</code> (if specified) or raises an error. Built-in methods cannot "
-              + "currently be retrieved in this way; doing so will result in an error if a "
-              + "<code>default</code> is not given. <code>getattr(x, \"foobar\")</code> is "
-              + "equivalent to <code>x.foobar</code>."
+              + "<code>default</code> (if specified) or raises an error. "
+              + "<code>getattr(x, \"foobar\")</code> is equivalent to <code>x.foobar</code>."
               + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
               + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
       parameters = {

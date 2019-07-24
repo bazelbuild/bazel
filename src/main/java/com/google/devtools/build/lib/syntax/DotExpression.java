@@ -154,7 +154,9 @@ public final class DotExpression extends Expression {
         return result;
       }
     }
-
+    if (method != null) {
+      return new BuiltinCallable(objValue, name);
+    }
     return null;
   }
 
