@@ -27,7 +27,6 @@ def skydoc_test(
         name,
         input_file,
         golden_file,
-        skydoc,
         deps = [],
         whitelisted_symbols = [],
         semantic_flags = [],
@@ -87,7 +86,8 @@ def skydoc_test(
         input = input_file,
         symbol_names = whitelisted_symbols,
         deps = ["%s_lib" % name],
-        stardoc = skydoc,
+        renderer = Label("//src/main/java/com/google/devtools/build/skydoc/renderer:renderer"),
+        stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc"),
         semantic_flags = semantic_flags,
         format = format,
     )
