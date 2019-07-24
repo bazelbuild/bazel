@@ -110,12 +110,14 @@ import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInf
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
+import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
 import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
@@ -218,6 +220,7 @@ public class SkydocMain {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctions = ImmutableMap.builder();
+    ImmutableMap.Builder<String, AspectInfo> aspectInfoMap = ImmutableMap.builder();
 
     try {
       new SkydocMain(new FilesystemFileAccessor(), skydocOptions.workspaceName, depRoots)
@@ -226,7 +229,8 @@ public class SkydocMain {
               targetFileLabel,
               ruleInfoMap,
               providerInfoMap,
-              userDefinedFunctions);
+              userDefinedFunctions,
+              aspectInfoMap);
     } catch (StarlarkEvaluationException exception) {
       System.err.println("Stardoc documentation generation failed: " + exception.getMessage());
       System.exit(1);
@@ -244,6 +248,10 @@ public class SkydocMain {
         userDefinedFunctions.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+    Map<String, AspectInfo> filteredAspectInfos =
+        aspectInfoMap.build().entrySet().stream()
+            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+            .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
 
     if (skydocOptions.outputFormat == OutputFormat.PROTO) {
       try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputPath))) {
@@ -251,6 +259,7 @@ public class SkydocMain {
             .appendRuleInfos(filteredRuleInfos.values())
             .appendProviderInfos(filteredProviderInfos.values())
             .appendUserDefinedFunctionInfos(filteredUserDefinedFunctions)
+            .appendAspectInfos(filteredAspectInfos.values())
             .writeModuleInfo(out);
       }
     } else if (skydocOptions.outputFormat == OutputFormat.MARKDOWN) {
@@ -357,6 +366,9 @@ public class SkydocMain {
    * @param userDefinedFunctionMap a map builder to be populated with user-defined functions. Keys
    *     are exported names of functions, and values are the {@link UserDefinedFunction} objects.
    *     For example, 'def my_function(foo):' is a function with key 'my_function'.
+   * @param aspectInfoMap a map builder to be populated with aspect definition information for named
+   *     aspects. Keys are exported names of aspects, and values are the {@link AspectInfo} asepct
+   *     descriptions. For example, 'my_aspect = aspect(...)' has key 'my_aspect'
    * @throws InterruptedException if evaluation is interrupted
    */
   public Environment eval(
@@ -364,14 +376,19 @@ public class SkydocMain {
       Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
-      ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap)
+      ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap,
+      ImmutableMap.Builder<String, AspectInfo> aspectInfoMap)
       throws InterruptedException, IOException, LabelSyntaxException, EvalException,
           StarlarkEvaluationException {
 
     List<RuleInfoWrapper> ruleInfoList = new ArrayList<>();
 
     List<ProviderInfoWrapper> providerInfoList = new ArrayList<>();
-    Environment env = recursiveEval(semantics, label, ruleInfoList, providerInfoList);
+
+    List<AspectInfoWrapper> aspectInfoList = new ArrayList<>();
+
+    Environment env =
+        recursiveEval(semantics, label, ruleInfoList, providerInfoList, aspectInfoList);
 
     Map<BaseFunction, RuleInfoWrapper> ruleFunctions =
         ruleInfoList.stream()
@@ -381,6 +398,11 @@ public class SkydocMain {
     Map<BaseFunction, ProviderInfoWrapper> providerInfos =
         providerInfoList.stream()
             .collect(Collectors.toMap(ProviderInfoWrapper::getIdentifier, Functions.identity()));
+
+    Map<BaseFunction, AspectInfoWrapper> aspectFunctions =
+        aspectInfoList.stream()
+            .collect(
+                Collectors.toMap(AspectInfoWrapper::getIdentifierFunction, Functions.identity()));
 
     // Sort the bindings so their ordering is deterministic.
     TreeMap<String, Object> sortedBindings = new TreeMap<>(env.getGlobals().getExportedBindings());
@@ -405,6 +427,12 @@ public class SkydocMain {
         String namespaceName = envEntry.getKey();
         FakeStructApi namespace = (FakeStructApi) envEntry.getValue();
         putStructFields(namespaceName, namespace, userDefinedFunctionMap);
+      }
+      if (aspectFunctions.containsKey(envEntry.getValue())) {
+        AspectInfo.Builder aspectInfoBuild =
+            aspectFunctions.get(envEntry.getValue()).getAspectInfo();
+        AspectInfo aspectInfo = aspectInfoBuild.setAspectName(envEntry.getKey()).build();
+        aspectInfoMap.put(envEntry.getKey(), aspectInfo);
       }
     }
 
@@ -450,7 +478,8 @@ public class SkydocMain {
       StarlarkSemantics semantics,
       Label label,
       List<RuleInfoWrapper> ruleInfoList,
-      List<ProviderInfoWrapper> providerInfoList)
+      List<ProviderInfoWrapper> providerInfoList,
+      List<AspectInfoWrapper> aspectInfoList)
       throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
     Path path = pathOfLabel(label);
 
@@ -473,7 +502,7 @@ public class SkydocMain {
 
       try {
         Environment importEnv =
-            recursiveEval(semantics, relativeLabel, ruleInfoList, providerInfoList);
+            recursiveEval(semantics, relativeLabel, ruleInfoList, providerInfoList, aspectInfoList);
         imports.put(anImport.getImportString(), new Extension(importEnv));
       } catch (NoSuchFileException noSuchFileException) {
         throw new StarlarkEvaluationException(
@@ -484,7 +513,8 @@ public class SkydocMain {
     }
 
     Environment env =
-        evalSkylarkBody(semantics, buildFileAST, imports, ruleInfoList, providerInfoList);
+        evalSkylarkBody(
+            semantics, buildFileAST, imports, ruleInfoList, providerInfoList, aspectInfoList);
 
     pending.remove(path);
     env.mutability().freeze();
@@ -518,12 +548,16 @@ public class SkydocMain {
       BuildFileAST buildFileAST,
       Map<String, Extension> imports,
       List<RuleInfoWrapper> ruleInfoList,
-      List<ProviderInfoWrapper> providerInfoList)
+      List<ProviderInfoWrapper> providerInfoList,
+      List<AspectInfoWrapper> aspectInfoList)
       throws InterruptedException, StarlarkEvaluationException {
 
     Environment env =
         createEnvironment(
-            semantics, eventHandler, globalFrame(ruleInfoList, providerInfoList), imports);
+            semantics,
+            eventHandler,
+            globalFrame(ruleInfoList, providerInfoList, aspectInfoList),
+            imports);
 
     if (!buildFileAST.exec(env, eventHandler)) {
       throw new StarlarkEvaluationException("Starlark evaluation error");
@@ -543,14 +577,16 @@ public class SkydocMain {
    *     invocation information will be added
    */
   private static GlobalFrame globalFrame(
-      List<RuleInfoWrapper> ruleInfoList, List<ProviderInfoWrapper> providerInfoList) {
+      List<RuleInfoWrapper> ruleInfoList,
+      List<ProviderInfoWrapper> providerInfoList,
+      List<AspectInfoWrapper> aspectInfoList) {
     TopLevelBootstrap topLevelBootstrap =
         new TopLevelBootstrap(
             new FakeBuildApiGlobals(),
             new FakeSkylarkAttrApi(),
             new FakeSkylarkCommandLineApi(),
             new FakeSkylarkNativeModuleApi(),
-            new FakeSkylarkRuleFunctionsApi(ruleInfoList, providerInfoList),
+            new FakeSkylarkRuleFunctionsApi(ruleInfoList, providerInfoList, aspectInfoList),
             new FakeStructProviderApi(),
             new FakeOutputGroupInfoProvider(),
             new FakeActionsInfoProvider(),
