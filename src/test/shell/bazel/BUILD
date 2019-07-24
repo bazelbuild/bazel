@@ -861,23 +861,7 @@ sh_test(
 
 sh_test(
     name = "bazel_docker_sandboxing_test",
-    timeout = "eternal",
     srcs = ["bazel_docker_sandboxing_test.sh"],
-    args = ["$(location //:bazel-distfile)"],
-    data = [
-        ":test-deps",
-        "//:bazel-distfile",
-    ],
-    tags = [
-        "local",
-        "manual",
-        "no_windows",
-    ],
-)
-
-sh_test(
-    name = "bazel_docker_sandboxing_light_test",
-    srcs = ["bazel_docker_sandboxing_light_test.sh"],
     data = [
         ":test-deps",
     ],
