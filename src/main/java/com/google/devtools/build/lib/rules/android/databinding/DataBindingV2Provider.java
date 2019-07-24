@@ -115,7 +115,7 @@ public final class DataBindingV2Provider extends NativeInfo
     NestedSetBuilder<LabelJavaPackagePair> transitiveLabelAndJavaPackages =
         NestedSetBuilder.stableOrder();
     ImmutableList.Builder<LabelJavaPackagePair> labelAndJavaPackages = ImmutableList.builder();
-    LabelJavaPackagePair labelAndJavaPackage = LabelJavaPackagePair.create(label, javaPackage);
+    LabelJavaPackagePair labelAndJavaPackage = new LabelJavaPackagePair(label, javaPackage);
     labelAndJavaPackages.add(labelAndJavaPackage);
     transitiveLabelAndJavaPackages.add(labelAndJavaPackage);
 
