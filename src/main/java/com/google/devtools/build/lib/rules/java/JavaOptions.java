@@ -589,7 +589,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_require_java_toolchain_header_compiler_direct",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
