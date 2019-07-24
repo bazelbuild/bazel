@@ -60,21 +60,3 @@ curl -L --fail --output "${versioned_archive}" "${url}"
 # -n for no-clobber, so we don't overwrite existing files
 gsutil cp -n "${versioned_archive}" \
   "gs://bazel-mirror/github.com/bazelbuild/${REPO}/archive/${VERSION}.tar.gz"
-
-checksum=$(sha256sum "${versioned_archive}" | cut -f 1 -d ' ')
-
-echo
-echo "Run this command to update Bazel to use the new version:"
-echo
-
-# TODO(yannic): This currently fails for numbered versions (e.g. `0.29.0`).
-cat <<EOF
-sed -i 's/"${REPO}-[^\\.]*\.tar\.gz"/"${versioned_filename}"/g' WORKSPACE && \\
-sed -i 's/"${REPO}-[^\\.]*"/"${REPO}-${VERSION}"/g' WORKSPACE && \\
-sed -i 's/"${REPO}-[^\\.]*\.tar\.gz":[^"]*"[0-9a-fA-F]\{64\}",/"${versioned_filename}": "${checksum}",/g' WORKSPACE && \\
-sed -i 's/github.com\\/bazelbuild\\/${REPO}\\/archive\\/[^\\.]*\.tar\.gz/github.com\\/bazelbuild\\/${REPO}\\/archive\\/${VERSION}.tar.gz/g' WORKSPACE
-EOF
-
-echo
-echo "Then, commit the changes and submit a pull request."
-echo

@@ -87,6 +87,6 @@ test_suite(
 )
 
 sh_binary(
-    name = "upload_bazel_rules",
-    srcs = ["upload_bazel_rules.sh"],
+    name = "upload_bazel_mirror",
+    srcs = ["upload_bazel_mirror.sh"],
 )

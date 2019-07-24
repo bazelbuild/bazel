@@ -106,11 +106,6 @@ load("//:distdir.bzl", "distdir_tar")
 distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
-    #
-    # For repos in the bazelbuild org, please consider using
-    # `<repo>-<version>.tar.gz` so it can be updated with
-    # //tools:upload_bazel_rules
-    # (e.g. `bazelbuild/rules_foo` at version `bar` uses `rules_foo-bar`).
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
@@ -132,7 +127,8 @@ distdir_tar(
         "0.27.1.tar.gz",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz",
-        "rules_proto-b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
+        # bazelbuild/rules_proto
+        "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -156,7 +152,8 @@ distdir_tar(
         "0.27.1.tar.gz": "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz": "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
-        "rules_proto-b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz": "88b0a90433866b44bb4450d4c30bc5738b8c4f9c9ba14e9661deb123f56a833d",
+        # bazelbuild/rules_proto
+        "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz": "88b0a90433866b44bb4450d4c30bc5738b8c4f9c9ba14e9661deb123f56a833d",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -219,7 +216,8 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
             "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
         ],
-        "rules_proto-b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz": [
+        # bazelbuild/rules_proto
+        "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
             "https://github.com/bazelbuild/rules_proto/archive/b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
         ],
@@ -507,7 +505,8 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
-        "rules_proto-b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
+        # bazelbuild/rules_proto
+        "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -537,7 +536,8 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
-        "rules_proto-b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz": "88b0a90433866b44bb4450d4c30bc5738b8c4f9c9ba14e9661deb123f56a833d",
+        # bazelbuild/rules_proto
+        "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz": "88b0a90433866b44bb4450d4c30bc5738b8c4f9c9ba14e9661deb123f56a833d",
     },
     urls = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -577,7 +577,8 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
             "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
         ],
-        "rules_proto-b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz": [
+        # bazelbuild/rules_proto
+        "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
             "https://github.com/bazelbuild/rules_proto/archive/b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
         ],
