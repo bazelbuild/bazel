@@ -177,6 +177,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // Get the remote platform properties.
     Platform platform =
         parsePlatform(spawn.getExecutionPlatform(), remoteOptions.remoteDefaultPlatformProperties);
+
     Command command =
         buildCommand(
             spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
