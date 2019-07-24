@@ -910,12 +910,11 @@ function test_skylark_repository_download() {
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
   local download_with_sha256="${server_dir}/download_with_sha256.txt"
-  local download_no_sha256="${server_dir}/download_no_sha256.txt"
   local download_executable_file="${server_dir}/download_executable_file.sh"
-  echo "This is one file" > "${download_no_sha256}"
-  echo "This is another file" > "${download_with_sha256}"
+  echo "This is a file" > "${download_with_sha256}"
   echo "echo 'I am executable'" > "${download_executable_file}"
   file_sha256="$(sha256sum "${download_with_sha256}" | head -c 64)"
+  file_exec_sha256="$(sha256sum "${download_executable_file}" | head -c 64)"
 
   # Start HTTP server with Python
   startup_server "${server_dir}"
@@ -925,14 +924,11 @@ function test_skylark_repository_download() {
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
   repository_ctx.download(
-    "http://localhost:${fileserver_port}/download_no_sha256.txt",
-    "download_no_sha256.txt")
-  repository_ctx.download(
     "http://localhost:${fileserver_port}/download_with_sha256.txt",
     "download_with_sha256.txt", "${file_sha256}")
   repository_ctx.download(
     "http://localhost:${fileserver_port}/download_executable_file.sh",
-    "download_executable_file.sh", executable=True)
+    "download_executable_file.sh", executable=True, sha256="$file_exec_sha256")
   repository_ctx.file("BUILD")  # necessary directories should already created by download function
 repo = repository_rule(implementation=_impl, local=False)
 EOF
@@ -942,16 +938,11 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test download
-  test -e "${output_base}/external/foo/download_no_sha256.txt" \
-    || fail "download_no_sha256.txt is not downloaded"
   test -e "${output_base}/external/foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is not downloaded"
   test -e "${output_base}/external/foo/download_executable_file.sh" \
     || fail "download_executable_file.sh is not downloaded"
   # Test download
-  diff "${output_base}/external/foo/download_no_sha256.txt" \
-    "${download_no_sha256}" >/dev/null \
-    || fail "download_no_sha256.txt is not downloaded successfully"
   diff "${output_base}/external/foo/download_with_sha256.txt" \
     "${download_with_sha256}" >/dev/null \
     || fail "download_with_sha256.txt is not downloaded successfully"
@@ -959,8 +950,6 @@ EOF
     "${download_executable_file}" >/dev/null \
     || fail "download_executable_file.sh is not downloaded successfully"
   # Test executable
-  test ! -x "${output_base}/external/foo/download_no_sha256.txt" \
-    || fail "download_no_sha256.txt is executable"
   test ! -x "${output_base}/external/foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is executable"
   test -x "${output_base}/external/foo/download_executable_file.sh" \
