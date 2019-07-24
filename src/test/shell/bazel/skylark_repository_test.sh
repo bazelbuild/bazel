@@ -1007,8 +1007,12 @@ def _impl(repository_ctx):
 repo = repository_rule(implementation = _impl, local = False)
 EOF
 
-  bazel build @foo//:all >& $TEST_log && shutdown_server \
-    || fail "Execution of @foo//:all failed"
+  # This test case explictly verifies that a checksum is returned, even if
+  # none was provided by the call to download_and_extract. So we do have to
+  # allow a download without provided checksum, even though it is plain http;
+  # nevertheless, localhost is pretty safe against man-in-the-middle attacs.
+  bazel build --noincompatible_disallow_unverified_http_downloads @foo//:all \
+        >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
   output_base="$(bazel info output_base)"
   grep "no_sha_return $not_provided_sha256" $output_base/external/foo/returned_shas.txt \
