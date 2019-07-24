@@ -1,23 +1,23 @@
 ################### Remote java_tools with embedded javac 9 ####################
 http_archive(
     name = "remote_java_tools_javac9_test_linux",
-    sha256 = "54c2fa7276fc109029b3d144ae6108f474b2fd49480b47473e7ec6eba45f0fe9",
+    sha256 = "0bf678d9815c7212564ecc99b3bd3643450c17657becb12a7bbedcf97ece740d",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v2.0/java_tools_javac9_linux-v2.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v3.0/java_tools_javac9_linux-v3.0-rc1.zip",
     ],
 )
 http_archive(
     name = "remote_java_tools_javac9_test_windows",
-    sha256 = "88a1b735f418ad9ef8dced55a509d990eca99f6a05c55347dfb05b91e6599a3a",
+    sha256 = "9b7e8de98ed2d64ea20a7512f986028ca6375b0fce7637f8d05d1517e7890867",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v2.0/java_tools_javac9_windows-v2.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v3.0/java_tools_javac9_windows-v3.0-rc1.zip",
     ],
 )
 http_archive(
     name = "remote_java_tools_javac9_test_darwin",
-    sha256 = "5181247a93e0ee250fa7418572aab571742466d45d23b924e45de839379b3372",
+    sha256 = "13a94ddf0c421332f0d3be1adbfc833e24a3a3715bab8f1152660f2df81e286a",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac9/v2.0/java_tools_javac9_darwin-v2.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v3.0/java_tools_javac9_darwin-v3.0-rc1.zip",
     ],
 )
 
