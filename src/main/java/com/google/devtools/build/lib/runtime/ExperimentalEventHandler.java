@@ -222,10 +222,7 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   public ExperimentalEventHandler(
-      OutErr outErr,
-      BlazeCommandEventHandler.Options options,
-      Clock clock,
-      @Nullable PathFragment workspacePathFragment) {
+      OutErr outErr, UiOptions options, Clock clock, @Nullable PathFragment workspacePathFragment) {
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.outputLimit = options.experimentalUiLimitConsoleOutput;
     this.counter = new AtomicLong(outputLimit);

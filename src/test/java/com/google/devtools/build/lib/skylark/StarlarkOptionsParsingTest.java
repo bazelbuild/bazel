@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler.Options;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.ClientOptions;
 import com.google.devtools.build.lib.runtime.Command;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -59,7 +59,7 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
           KeepGoingOption.class,
           LoadingOptions.class,
           ClientOptions.class,
-          Options.class,
+          UiOptions.class,
           CommonCommandOptions.class);
 
   @Before
@@ -84,7 +84,7 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
         KeepGoingOption.class,
         LoadingOptions.class,
         ClientOptions.class,
-        Options.class,
+        UiOptions.class,
       },
       allowResidue = true,
       shortDescription =
