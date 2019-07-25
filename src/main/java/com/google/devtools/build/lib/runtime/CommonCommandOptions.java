@@ -274,16 +274,6 @@ public class CommonCommandOptions extends OptionsBase {
               + " too large.")
   public boolean enableJsonProfileDiet;
 
-  // TODO(twerth): Remove after Blaze is released with cl/248143034.
-  @Option(
-      name = "experimental_json_profile_metadata",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      help = "Deprecated no-op.")
-  public boolean enableJsonMetadata;
-
   @Option(
       name = "profile",
       defaultValue = "null",
