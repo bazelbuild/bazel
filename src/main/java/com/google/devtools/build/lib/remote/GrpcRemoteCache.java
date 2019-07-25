@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -226,10 +227,14 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
         continue;
       }
 
-      ActionInput file = merkleTree.getInputByDigest(missingDigest);
+      PathOrBytes file = merkleTree.getFileByDigest(missingDigest);
       if (file != null) {
-        Chunker c =
-            Chunker.builder().setInput(missingDigest.getSizeBytes(), file, execRoot).build();
+        final Chunker c;
+        if (file.getPath() != null) {
+          c = Chunker.builder().setInput(missingDigest.getSizeBytes(), file.getPath()).build();
+        } else {
+          c = Chunker.builder().setInput(file.getBytes().toByteArray()).build();
+        }
         inputsToUpload.put(hash, c);
         continue;
       }

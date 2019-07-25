@@ -17,32 +17,21 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
-import java.io.IOException;
+import com.google.protobuf.ByteString;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.SortedMap;
 import java.util.SortedSet;
-import java.util.TreeMap;
 
 /**
  * Intermediate tree representation of a list of lexicographically sorted list of files. Each node
  * in the tree represents either a directory or file.
  */
-class InputTree {
+final class DirectoryTree {
 
   interface Visitor {
     void visitDirectory(PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs);
@@ -80,26 +69,40 @@ class InputTree {
   }
 
   static class FileNode extends Node {
-    private final ActionInput input;
+    private final Path path;
+    private final ByteString data;
     private final Digest digest;
 
-    FileNode(String pathSegment, ActionInput input, Digest digest) {
+    FileNode(String pathSegment, Path path, Digest digest) {
       super(pathSegment);
-      this.input = Preconditions.checkNotNull(input, "input");
+      this.path = Preconditions.checkNotNull(path, "path");
+      this.data = null;
       this.digest = Preconditions.checkNotNull(digest, "digest");
     }
+
+    FileNode(String pathSegment, ByteString data, Digest digest) {
+      super(pathSegment);
+      this.path = null;
+      this.data = Preconditions.checkNotNull(data, "data");;
+      this.digest = Preconditions.checkNotNull(digest, "digest");
+    }
+
 
     Digest getDigest() {
       return digest;
     }
 
-    ActionInput getActionInput() {
-      return input;
+    Path getPath() {
+      return path;
+    }
+
+    ByteString getBytes() {
+      return data;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), input, digest);
+      return Objects.hash(super.hashCode(), path, data, digest);
     }
 
     @Override
@@ -107,7 +110,8 @@ class InputTree {
       if (o instanceof FileNode) {
         FileNode other = (FileNode) o;
         return super.equals(other)
-            && Objects.equals(input, other.input)
+            && Objects.equals(path, other.path)
+            && Objects.equals(data, other.data)
             && Objects.equals(digest, other.digest);
       }
       return false;
@@ -143,7 +147,7 @@ class InputTree {
   private final Map<PathFragment, DirectoryNode> tree;
   private final int numFiles;
 
-  private InputTree(Map<PathFragment, DirectoryNode> tree, int numFiles) {
+  protected DirectoryTree(Map<PathFragment, DirectoryNode> tree, int numFiles) {
     Preconditions.checkState(numFiles >= 0, "numFiles must gte 0");
     this.tree = Preconditions.checkNotNull(tree, "tree");
     this.numFiles = numFiles;
@@ -162,7 +166,7 @@ class InputTree {
   }
 
   /**
-   * Traverses the {@link InputTree} in a depth first search manner. The children are visited in
+   * Traverses the {@link ActionInputsTree} in a depth first search manner. The children are visited in
    * lexographical order.
    */
   void visit(Visitor visitor) {
@@ -232,10 +236,10 @@ class InputTree {
     if (o == this) {
       return true;
     }
-    if (!(o instanceof InputTree)) {
+    if (!(o instanceof DirectoryTree)) {
       return false;
     }
-    InputTree other = (InputTree) o;
+    DirectoryTree other = (DirectoryTree) o;
     return tree.equals(other.tree);
   }
 
@@ -243,142 +247,5 @@ class InputTree {
     return String.format(
         "%s (hash: %s, size: %d)",
         file.getPathSegment(), file.digest.getHash(), file.digest.getSizeBytes());
-  }
-
-  static InputTree build(
-      SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
-      Path execRoot,
-      DigestUtil digestUtil)
-      throws IOException {
-    Map<PathFragment, DirectoryNode> tree = new HashMap<>();
-    int numFiles = build(inputs, metadataProvider, execRoot, digestUtil, tree);
-    return new InputTree(tree, numFiles);
-  }
-
-  private static int build(
-      SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
-      Path execRoot,
-      DigestUtil digestUtil,
-      Map<PathFragment, DirectoryNode> tree)
-      throws IOException {
-    if (inputs.isEmpty()) {
-      return 0;
-    }
-
-    PathFragment dirname = null;
-    DirectoryNode dir = null;
-    int numFiles = inputs.size();
-    for (Map.Entry<PathFragment, ActionInput> e : inputs.entrySet()) {
-      PathFragment path = e.getKey();
-      ActionInput input = e.getValue();
-      if (dirname == null || !path.getParentDirectory().equals(dirname)) {
-        dirname = path.getParentDirectory();
-        dir = tree.get(dirname);
-        if (dir == null) {
-          dir = new DirectoryNode(dirname.getBaseName());
-          tree.put(dirname, dir);
-          createParentDirectoriesIfNotExist(dirname, dir, tree);
-        }
-      }
-
-      if (input instanceof VirtualActionInput) {
-        Digest d = digestUtil.compute((VirtualActionInput) input);
-        dir.addChild(new FileNode(path.getBaseName(), input, d));
-        continue;
-      }
-
-      FileArtifactValue metadata =
-          Preconditions.checkNotNull(
-              metadataProvider.getMetadata(input),
-              "missing metadata for '%s'",
-              input.getExecPathString());
-      switch (metadata.getType()) {
-        case REGULAR_FILE:
-          Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-          dir.addChild(new FileNode(path.getBaseName(), input, d));
-          break;
-
-        case DIRECTORY:
-          SortedMap<PathFragment, ActionInput> directoryInputs = explodeDirectory(path, execRoot);
-          numFiles += build(directoryInputs, metadataProvider, execRoot, digestUtil, tree);
-          break;
-
-        case SYMLINK:
-          throw new IllegalStateException(
-              String.format(
-                  "Encountered symlink input '%s', but all"
-                      + " symlinks should have been resolved by SkyFrame. This is a bug.",
-                  path));
-
-        case SPECIAL_FILE:
-          throw new IOException(
-              String.format(
-                  "The '%s' is a special input which is not supported"
-                      + " by remote caching and execution.",
-                  path));
-
-        case NONEXISTENT:
-          throw new IOException(String.format("The file type of '%s' is not supported.", path));
-      }
-    }
-    return numFiles;
-  }
-
-  private static SortedMap<PathFragment, ActionInput> explodeDirectory(
-      PathFragment dirname, Path execRoot) throws IOException {
-    SortedMap<PathFragment, ActionInput> inputs = new TreeMap<>();
-    explodeDirectory(dirname, inputs, execRoot);
-    return inputs;
-  }
-
-  private static void explodeDirectory(
-      PathFragment dirname, SortedMap<PathFragment, ActionInput> inputs, Path execRoot)
-      throws IOException {
-    Collection<Dirent> entries = execRoot.getRelative(dirname).readdir(Symlinks.FOLLOW);
-    for (Dirent entry : entries) {
-      String basename = entry.getName();
-      PathFragment path = dirname.getChild(basename);
-      switch (entry.getType()) {
-        case FILE:
-          inputs.put(path, ActionInputHelper.fromPath(path));
-          break;
-
-        case DIRECTORY:
-          explodeDirectory(path, inputs, execRoot);
-          break;
-
-        case SYMLINK:
-          throw new IllegalStateException(
-              String.format(
-                  "Encountered symlink input '%s', but all"
-                      + " symlinks should have been resolved by readdir. This is a bug.",
-                  path));
-
-        case UNKNOWN:
-          throw new IOException(String.format("The file type of '%s' is not supported.", path));
-      }
-    }
-  }
-
-  private static void createParentDirectoriesIfNotExist(
-      PathFragment dirname, DirectoryNode dir, Map<PathFragment, DirectoryNode> tree) {
-    PathFragment parentDirname = dirname.getParentDirectory();
-    DirectoryNode prevDir = dir;
-    while (parentDirname != null) {
-      DirectoryNode parentDir = tree.get(parentDirname);
-      if (parentDir != null) {
-        parentDir.addChild(prevDir);
-        break;
-      }
-
-      parentDir = new DirectoryNode(parentDirname.getBaseName());
-      parentDir.addChild(prevDir);
-      tree.put(parentDirname, parentDir);
-
-      parentDirname = parentDirname.getParentDirectory();
-      prevDir = parentDir;
-    }
   }
 }

@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.merkletree.InputTree.DirectoryNode;
-import com.google.devtools.build.lib.remote.merkletree.InputTree.FileNode;
-import com.google.devtools.build.lib.remote.merkletree.InputTree.Node;
+import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
+import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
+import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.Node;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.remote.util.StringActionInput;
@@ -49,9 +49,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link InputTree}. */
+/**
+ * Unit tests for {@link DirectoryTree}.
+ */
 @RunWith(JUnit4.class)
-public class InputTreeTest {
+public class DirectoryTreeTest {
 
   private Path execRoot;
   private ArtifactRoot artifactRoot;
@@ -67,8 +69,8 @@ public class InputTreeTest {
 
   @Test
   public void emptyTreeShouldWork() throws Exception {
-    InputTree tree =
-        InputTree.build(
+    DirectoryTree tree =
+        DirectoryTreeBuilder.fromActionInputs(
             new TreeMap<>(),
             new StaticMetadataProvider(Collections.emptyMap()),
             execRoot,
@@ -86,17 +88,22 @@ public class InputTreeTest {
     Artifact bar = addFile("srcs/bar.cc", "bar", sortedInputs, metadata);
     Artifact buzz = addFile("srcs/fizz/buzz.cc", "buzz", sortedInputs, metadata);
 
-    InputTree tree =
-        InputTree.build(sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+    DirectoryTree tree =
+        DirectoryTreeBuilder
+            .fromActionInputs(sortedInputs, new StaticMetadataProvider(metadata), execRoot,
+                digestUtil);
     assertLexicographicalOrder(tree);
 
     assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
     assertThat(directoriesAtDepth(1, tree)).containsExactly("fizz");
     assertThat(directoriesAtDepth(2, tree)).isEmpty();
 
-    FileNode expectedFooNode = new FileNode("foo.cc", foo, digestUtil.computeAsUtf8("foo"));
-    FileNode expectedBarNode = new FileNode("bar.cc", bar, digestUtil.computeAsUtf8("bar"));
-    FileNode expectedBuzzNode = new FileNode("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"));
+    FileNode expectedFooNode = new FileNode("foo.cc", foo.getPath(),
+        digestUtil.computeAsUtf8("foo"));
+    FileNode expectedBarNode = new FileNode("bar.cc", bar.getPath(),
+        digestUtil.computeAsUtf8("bar"));
+    FileNode expectedBuzzNode = new FileNode("buzz.cc", buzz.getPath(),
+        digestUtil.computeAsUtf8("buzz"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBuzzNode);
@@ -110,15 +117,19 @@ public class InputTreeTest {
     Artifact foo = addFile("srcs/foo.cc", "foo", sortedInputs, metadata);
     VirtualActionInput bar = addVirtualFile("srcs/bar.cc", "bar", sortedInputs);
 
-    InputTree tree =
-        InputTree.build(sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+    DirectoryTree tree =
+        DirectoryTreeBuilder
+            .fromActionInputs(sortedInputs, new StaticMetadataProvider(metadata), execRoot,
+                digestUtil);
     assertLexicographicalOrder(tree);
 
     assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
     assertThat(directoriesAtDepth(1, tree)).isEmpty();
 
-    FileNode expectedFooNode = new FileNode("foo.cc", foo, digestUtil.computeAsUtf8("foo"));
-    FileNode expectedBarNode = new FileNode("bar.cc", bar, digestUtil.computeAsUtf8("bar"));
+    FileNode expectedFooNode = new FileNode("foo.cc", foo.getPath(),
+        digestUtil.computeAsUtf8("foo"));
+    FileNode expectedBarNode = new FileNode("bar.cc", bar.getBytes(),
+        digestUtil.computeAsUtf8("bar"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
   }
@@ -152,8 +163,10 @@ public class InputTreeTest {
     sortedInputs.put(dirPath.relativeTo(execRoot), dir);
     metadata.put(dir, FileArtifactValue.createForTesting(dirPath));
 
-    InputTree tree =
-        InputTree.build(sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+    DirectoryTree tree =
+        DirectoryTreeBuilder
+            .fromActionInputs(sortedInputs, new StaticMetadataProvider(metadata), execRoot,
+                digestUtil);
     assertLexicographicalOrder(tree);
 
     assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
@@ -161,9 +174,12 @@ public class InputTreeTest {
     assertThat(directoriesAtDepth(2, tree)).containsExactly("fizz");
     assertThat(directoriesAtDepth(3, tree)).isEmpty();
 
-    FileNode expectedFooNode = new FileNode("foo.cc", foo, digestUtil.computeAsUtf8("foo"));
-    FileNode expectedBarNode = new FileNode("bar.cc", bar, digestUtil.computeAsUtf8("bar"));
-    FileNode expectedBuzzNode = new FileNode("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"));
+    FileNode expectedFooNode = new FileNode("foo.cc", foo.getPath(),
+        digestUtil.computeAsUtf8("foo"));
+    FileNode expectedBarNode = new FileNode("bar.cc", execRoot.getRelative(bar.getExecPath()),
+        digestUtil.computeAsUtf8("bar"));
+    FileNode expectedBuzzNode = new FileNode("buzz.cc", execRoot.getRelative(buzz.getExecPath()),
+        digestUtil.computeAsUtf8("buzz"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBarNode);
@@ -189,8 +205,10 @@ public class InputTreeTest {
     addFile("srcs/system/foo.txt", "foo", sortedInputs, metadata);
     addFile("srcs/system-root/bar.txt", "bar", sortedInputs, metadata);
 
-    InputTree tree =
-        InputTree.build(sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+    DirectoryTree tree =
+        DirectoryTreeBuilder
+            .fromActionInputs(sortedInputs, new StaticMetadataProvider(metadata), execRoot,
+                digestUtil);
     assertLexicographicalOrder(tree);
   }
 
@@ -217,7 +235,7 @@ public class InputTreeTest {
     return input;
   }
 
-  private static void assertLexicographicalOrder(InputTree tree) {
+  private static void assertLexicographicalOrder(DirectoryTree tree) {
     // Assert the lexicographical order as defined by the remote execution protocol
     tree.visit(
         (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
@@ -226,7 +244,7 @@ public class InputTreeTest {
         });
   }
 
-  private static List<String> directoriesAtDepth(int depth, InputTree tree) {
+  private static List<String> directoriesAtDepth(int depth, DirectoryTree tree) {
     return asPathSegments(directoryNodesAtDepth(tree, depth));
   }
 
@@ -234,7 +252,7 @@ public class InputTreeTest {
     return nodes.stream().map(Node::getPathSegment).collect(Collectors.toList());
   }
 
-  private static List<DirectoryNode> directoryNodesAtDepth(InputTree tree, int depth) {
+  private static List<DirectoryNode> directoryNodesAtDepth(DirectoryTree tree, int depth) {
     List<DirectoryNode> directoryNodes = new ArrayList<>();
     tree.visit(
         (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
@@ -246,7 +264,7 @@ public class InputTreeTest {
     return directoryNodes;
   }
 
-  private static List<FileNode> fileNodesAtDepth(InputTree tree, int depth) {
+  private static List<FileNode> fileNodesAtDepth(DirectoryTree tree, int depth) {
     List<FileNode> fileNodes = new ArrayList<>();
     tree.visit(
         (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
