@@ -46,8 +46,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteE
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.runtime.ExperimentalStateTracker.ProgressMode;
-import com.google.devtools.build.lib.runtime.ExperimentalStateTracker.StrategyIds;
+import com.google.devtools.build.lib.runtime.UiStateTracker.ProgressMode;
+import com.google.devtools.build.lib.runtime.UiStateTracker.StrategyIds;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -70,11 +70,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Tests {@link ExperimentalStateTracker}.
- */
+/** Tests {@link UiStateTracker}. */
 @RunWith(JUnit4.class)
-public class ExperimentalStateTrackerTest extends FoundationTestCase {
+public class UiStateTrackerTest extends FoundationTestCase {
 
   @Test
   public void testStrategyIds_getId_idsAreBitmasks() {
@@ -179,7 +177,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     when(progress.progressState()).thenReturn(new Pair<String, String>(state, activity));
 
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
 
     stateTracker.loadingStarted(new LoadingPhaseStartedEvent(progress));
 
@@ -208,7 +206,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(120000);
 
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(mockAction(message, "bar/foo"), 123456789));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -239,7 +237,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(120000);
     Action fastAction = mockAction(messageFast, "foo/fast");
     Action slowAction = mockAction(messageSlow, "bar/slow");
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(fastAction, 123456789));
     stateTracker.actionStarted(new ActionStartedEvent(slowAction, 123456999));
     stateTracker.actionCompletion(
@@ -285,7 +283,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     clock.advanceMillis(120000);
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     stateTracker.actionStarted(
         new ActionStartedEvent(mockAction(messageOld, "bar/foo"), 123456789));
     for (int i = 0; i < 30; i++) {
@@ -319,7 +317,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // Verify that the number of actions shown in the progress bar can be set as sample size.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(2));
 
     // Start 10 actions (numbered 0 to 9).
@@ -360,7 +358,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(2));
 
     stateTracker.actionStarted(
@@ -392,7 +390,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   public void initialProgressBarTimeIndependent() {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
 
     assertWithMessage("Initial progress status should be time independent")
         .that(stateTracker.progressBarTimeDependent())
@@ -403,7 +401,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   public void runningActionTimeIndependent() {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.actionStarted(
         new ActionStartedEvent(mockAction("Some action", "foo"), clock.nanoTime()));
@@ -417,7 +415,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   public void testCountVisible() throws Exception {
     // The test count should be visible in the status bar, as well as the short status bar
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
     Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
     ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
@@ -450,7 +448,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   public void testPassedVisible() throws Exception {
     // The last test should still be visible in the long status bar, and colored as ok if it passed.
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
     Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
     ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
@@ -481,7 +479,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // The last test should still be visible in the long status bar, and colored as fail if it
     // did not pass.
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
     Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
     ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
@@ -513,10 +511,12 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // the path implicit in it, that can also be extracted from the label. In particular,
     // the parts
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 70);
-    Action action = mockAction(
-        "Building some/very/very/long/path/for/some/library/directory/foo.jar (42 source files)",
-        "some/very/very/long/path/for/some/library/directory/foo.jar");
+    UiStateTracker stateTracker = new UiStateTracker(clock, 70);
+    Action action =
+        mockAction(
+            "Building some/very/very/long/path/for/some/library/directory/foo.jar (42 source"
+                + " files)",
+            "some/very/very/long/path/for/some/library/directory/foo.jar");
     Label label =
         Label.parseAbsolute(
             "//some/very/very/long/path/for/some/library/directory:libfoo", ImmutableMap.of());
@@ -565,7 +565,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     when(action.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
     when(action.getPrimaryOutput()).thenReturn(artifact);
 
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.runningAction(new RunningActionEvent(action, strategy));
 
@@ -592,7 +592,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     when(action.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
     when(action.getPrimaryOutput()).thenReturn(artifact);
 
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.runningAction(new RunningActionEvent(action, strategy1));
     stateTracker.runningAction(new RunningActionEvent(action, strategy2));
@@ -618,7 +618,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     String primaryOutput2 = "some/path/to/b/file";
 
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
 
     Path path1 = outputBase.getRelative(PathFragment.create(primaryOutput1));
@@ -664,14 +664,18 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // keep the line limit, and show the local part of the running actions and
     // the passed test.
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 70);
+    UiStateTracker stateTracker = new UiStateTracker(clock, 70);
 
-    Action foobuildAction = mockAction(
-        "Building //src/some/very/long/path/long/long/long/long/long/long/long/foo/foobuild.jar",
-        "src/some/very/long/path/long/long/long/long/long/long/long/foo/foobuild.jar");
-    Action bazbuildAction = mockAction(
-        "Building //src/some/very/long/path/long/long/long/long/long/long/long/baz/bazbuild.jar",
-        "src/some/very/long/path/long/long/long/long/long/long/long/baz/bazbuild.jar");
+    Action foobuildAction =
+        mockAction(
+            "Building"
+                + " //src/some/very/long/path/long/long/long/long/long/long/long/foo/foobuild.jar",
+            "src/some/very/long/path/long/long/long/long/long/long/long/foo/foobuild.jar");
+    Action bazbuildAction =
+        mockAction(
+            "Building"
+                + " //src/some/very/long/path/long/long/long/long/long/long/long/baz/bazbuild.jar",
+            "src/some/very/long/path/long/long/long/long/long/long/long/baz/bazbuild.jar");
 
     Label bartestLabel =
         Label.parseAbsolute(
@@ -740,7 +744,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // more than one active action and not all are running.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(120000);
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     Action actionFoo = mockAction("Building foo", "foo/foo");
     ActionOwner ownerFoo = Mockito.mock(ActionOwner.class);
     when(actionFoo.getOwner()).thenReturn(ownerFoo);
@@ -812,7 +816,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(2));
     LoggingTerminalWriter terminalWriter;
     String output;
@@ -869,7 +873,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // On the event bus, events sometimes are sent out of order; verify that we handle an
     // early message that an action is running gracefully.
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     Action actionFoo = mockAction("Building foo", "foo/foo");
     ActionOwner ownerFoo = Mockito.mock(ActionOwner.class);
     when(actionFoo.getOwner()).thenReturn(ownerFoo);
@@ -901,7 +905,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   public void testExecutingActionsFirst() throws Exception {
     // Verify that executing actions, even if started late, are visible.
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     clock.advanceMillis(120000);
 
     for (int i = 0; i < 30; i++) {
@@ -937,7 +941,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // is still shown.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 80);
+    UiStateTracker stateTracker = new UiStateTracker(clock, 80);
 
     Label labelFooTest = Label.parseAbsolute("//foo/bar:footest", ImmutableMap.of());
     ConfiguredTarget targetFooTest = Mockito.mock(ConfiguredTarget.class);
@@ -1009,12 +1013,11 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         .isTrue();
   }
 
-
   @Test
   public void testSuffix() throws Exception {
-    assertThat(ExperimentalStateTracker.suffix("foobar", 3)).isEqualTo("bar");
-    assertThat(ExperimentalStateTracker.suffix("foo", -2)).isEmpty();
-    assertThat(ExperimentalStateTracker.suffix("foobar", 200)).isEqualTo("foobar");
+    assertThat(UiStateTracker.suffix("foobar", 3)).isEqualTo("bar");
+    assertThat(UiStateTracker.suffix("foo", -2)).isEmpty();
+    assertThat(UiStateTracker.suffix("foobar", 200)).isEqualTo("foobar");
   }
 
   @Test
@@ -1023,7 +1026,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // bar.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 80);
+    UiStateTracker stateTracker = new UiStateTracker(clock, 80);
 
     URL url = new URL("http://example.org/first/dep");
 
@@ -1079,7 +1082,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // Also verify that the length is respected, even if only a download sample is shown.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 60);
+    UiStateTracker stateTracker = new UiStateTracker(clock, 60);
     URL url = new URL("http://example.org/some/really/very/very/long/path/filename.tar.gz");
 
     stateTracker.buildStarted(null);
@@ -1126,11 +1129,10 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     buildResult.setStopTime(clock.currentTimeMillis());
 
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 80);
+    UiStateTracker stateTracker = new UiStateTracker(clock, 80);
     stateTracker.buildStarted(null);
     stateTracker.buildEventTransportsAnnounced(
-        new AnnounceBuildEventTransportsEvent(
-            ImmutableList.of(transport1, transport2)));
+        new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport3)));
     stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
@@ -1186,17 +1188,16 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
-  public void testBuildEventTransportsOnNarrowTerminal() throws IOException{
+  public void testBuildEventTransportsOnNarrowTerminal() throws IOException {
     // Verify that the progress bar contains useful information on a 60-character terminal.
     //   - Too long names should be shortened to reasonably long prefixes of the name.
     ManualClock clock = new ManualClock();
-    BuildEventTransport transport1 =
-        newBepTransport(Strings.repeat("A", 61));
+    BuildEventTransport transport1 = newBepTransport(Strings.repeat("A", 61));
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport");
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setExitCondition(ExitCode.SUCCESS);
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 60);
+    UiStateTracker stateTracker = new UiStateTracker(clock, 60);
     stateTracker.buildStarted(null);
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
@@ -1234,7 +1235,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   @Test
   public void testTotalFetchesReported() throws IOException {
     ManualClock clock = new ManualClock();
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 80);
+    UiStateTracker stateTracker = new UiStateTracker(clock, 80);
 
     stateTracker.buildStarted(null);
     for (int i = 0; i < 30; i++) {
@@ -1265,7 +1266,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // Verify that the number of actions shown in the progress bar can be set as sample size.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(Duration.ofSeconds(123).toMillis());
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    UiStateTracker stateTracker = new UiStateTracker(clock);
     clock.advanceMillis(Duration.ofSeconds(2).toMillis());
 
     // Start actions with 10 different mnemonics Mnemonic0-9, n+1 of each mnemonic.

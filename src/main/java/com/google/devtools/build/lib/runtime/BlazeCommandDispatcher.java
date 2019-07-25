@@ -389,16 +389,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
         // for commands such as 'blaze run' where the output of the final executable shouldn't be
         // modified.
-        EventHandler ansiAllowingHandler = null;
         if (!eventHandlerOptions.useColor()) {
-          ansiAllowingHandler = createEventHandler(colorfulOutErr, eventHandlerOptions);
+          UiEventHandler ansiAllowingHandler =
+              createEventHandler(colorfulOutErr, eventHandlerOptions);
           reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
-          if (ansiAllowingHandler instanceof ExperimentalEventHandler) {
-            env.getEventBus()
-                .register(
-                    new PassiveExperimentalEventHandler(
-                        (ExperimentalEventHandler) ansiAllowingHandler));
-          }
+          env.getEventBus().register(new PassiveExperimentalEventHandler(ansiAllowingHandler));
         }
       }
 
@@ -641,11 +636,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   /** Returns the event handler to use for this Blaze command. */
-  private EventHandler createEventHandler(OutErr outErr, UiOptions eventOptions) {
+  private UiEventHandler createEventHandler(OutErr outErr, UiOptions eventOptions) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
-    return new ExperimentalEventHandler(
-        outErr, eventOptions, runtime.getClock(), workspacePathFragment);
+    return new UiEventHandler(outErr, eventOptions, runtime.getClock(), workspacePathFragment);
   }
 
   /**

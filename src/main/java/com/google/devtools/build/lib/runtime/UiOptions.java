@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.build.lib.runtime.ExperimentalStateTracker.ProgressMode;
+import com.google.devtools.build.lib.runtime.UiStateTracker.ProgressMode;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;

@@ -74,8 +74,8 @@ import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** An experimental new output stream. */
-public class ExperimentalEventHandler implements EventHandler {
-  private static final Logger logger = Logger.getLogger(ExperimentalEventHandler.class.getName());
+public class UiEventHandler implements EventHandler {
+  private static final Logger logger = Logger.getLogger(UiEventHandler.class.getName());
   /** Latest refresh of the progress bar, if contents other than time changed */
   static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
   /** Minimal rate limiting (in ms), if the progress bar cannot be updated in place */
@@ -99,7 +99,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private final long uiStartTimeMillis;
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
-  private final ExperimentalStateTracker stateTracker;
+  private final UiStateTracker stateTracker;
   private final LocationPrinter locationPrinter;
   private final boolean showProgress;
   private final boolean progressInTermTitle;
@@ -221,7 +221,7 @@ public class ExperimentalEventHandler implements EventHandler {
     }
   }
 
-  public ExperimentalEventHandler(
+  public UiEventHandler(
       OutErr outErr, UiOptions options, Clock clock, @Nullable PathFragment workspacePathFragment) {
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.outputLimit = options.experimentalUiLimitConsoleOutput;
@@ -265,8 +265,8 @@ public class ExperimentalEventHandler implements EventHandler {
     // in the wrapping process.
     this.stateTracker =
         this.cursorControl
-            ? new ExperimentalStateTracker(clock, this.terminalWidth - 2)
-            : new ExperimentalStateTracker(clock);
+            ? new UiStateTracker(clock, this.terminalWidth - 2)
+            : new UiStateTracker(clock);
     this.stateTracker.setProgressMode(options.uiProgressMode, options.uiSamplesShown);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
@@ -819,9 +819,8 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   /**
-   * Return true, if the test summary provides information that is both
-   * worth being shown in the scroll-back buffer and new with respect to
-   * the alreay shown failure messages.
+   * Return true, if the test summary provides information that is both worth being shown in the
+   * scroll-back buffer and new with respect to the alreay shown failure messages.
    */
   private boolean testSummaryProvidesNewInformation(TestSummary summary) {
     ImmutableSet<BlazeTestStatus> statusToIgnore =
@@ -999,7 +998,7 @@ public class ExperimentalEventHandler implements EventHandler {
     // arise if the completion of the build is reported (shortly) before the completion of
     // the last action is reported.
     if (buildRunning && updateThread.get() == null) {
-      final ExperimentalEventHandler eventHandler = this;
+      final UiEventHandler eventHandler = this;
       Thread threadToStart =
           new Thread(
               () -> {

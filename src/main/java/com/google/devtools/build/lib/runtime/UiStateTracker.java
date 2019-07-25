@@ -69,10 +69,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
-/**
- * An experimental state tracker for the new experimental UI.
- */
-class ExperimentalStateTracker {
+/** An experimental state tracker for the new experimental UI. */
+class UiStateTracker {
   enum ProgressMode {
     OLDEST_ACTIONS,
     MNEMONIC_HISTOGRAM
@@ -336,7 +334,7 @@ class ExperimentalStateTracker {
   // The point in time when closing of BEP transports was started.
   private long bepTransportClosingStartTimeMillis;
 
-  ExperimentalStateTracker(Clock clock, int targetWidth) {
+  UiStateTracker(Clock clock, int targetWidth) {
     this.activeActions = new ConcurrentHashMap<>();
 
     this.actionsCompleted = new AtomicInteger();
@@ -349,7 +347,7 @@ class ExperimentalStateTracker {
     this.targetWidth = targetWidth;
   }
 
-  ExperimentalStateTracker(Clock clock) {
+  UiStateTracker(Clock clock) {
     this(clock, 0);
   }
 
@@ -422,13 +420,22 @@ class ExperimentalStateTracker {
       int actionsCompleted = this.actionsCompleted.get();
       if (failedTests == 0) {
         additionalMessage =
-            additionalInfo + "Build completed successfully, "
-            + actionsCompleted + " total action" + (actionsCompleted == 1 ? "" : "s");
+            additionalInfo
+                + "Build completed successfully, "
+                + actionsCompleted
+                + " total action"
+                + (actionsCompleted == 1 ? "" : "s");
       } else {
         additionalMessage =
-            additionalInfo + "Build completed, "
-            + failedTests + " test" + (failedTests == 1 ? "" : "s") + " FAILED, "
-            + actionsCompleted + " total action" + (actionsCompleted == 1 ? "" : "s");
+            additionalInfo
+                + "Build completed, "
+                + failedTests
+                + " test"
+                + (failedTests == 1 ? "" : "s")
+                + " FAILED, "
+                + actionsCompleted
+                + " total action"
+                + (actionsCompleted == 1 ? "" : "s");
       }
     } else {
       ok = false;
@@ -550,9 +557,7 @@ class ExperimentalStateTracker {
     }
   }
 
-  /**
-   * From a string, take a suffix of at most the given length.
-   */
+  /** From a string, take a suffix of at most the given length. */
   static String suffix(String s, int len) {
     if (len <= 0) {
       return "";
@@ -565,9 +570,8 @@ class ExperimentalStateTracker {
   }
 
   /**
-   * If possible come up with a human-readable description of the label
-   * that fits within the given width; a non-positive width indicates not
-   * no restriction at all.
+   * If possible come up with a human-readable description of the label that fits within the given
+   * width; a non-positive width indicates not no restriction at all.
    */
   private String shortenedLabelString(Label label, int width) {
     if (width <= 0) {
@@ -882,10 +886,10 @@ class ExperimentalStateTracker {
     return bepOpenTransports.size();
   }
 
-  /***
-   * Predicate indicating whether the contents of the progress bar can change, if the
-   * only thing that happens is that time passes; this is the case, e.g., if the progress
-   * bar shows time information relative to the current time.
+  /**
+   * * Predicate indicating whether the contents of the progress bar can change, if the only thing
+   * that happens is that time passes; this is the case, e.g., if the progress bar shows time
+   * information relative to the current time.
    */
   boolean progressBarTimeDependent() {
     if (packageProgressReceiver != null) {
@@ -925,8 +929,8 @@ class ExperimentalStateTracker {
         } else {
           terminalWriter.failStatus();
         }
-        terminalWriter.append(shortenedLabelString(
-            mostRecentTest.getLabel(), width - prefix.length()));
+        terminalWriter.append(
+            shortenedLabelString(mostRecentTest.getLabel(), width - prefix.length()));
         terminalWriter.normal();
       }
       return true;
@@ -1022,8 +1026,8 @@ class ExperimentalStateTracker {
   }
 
   /**
-   * Display any BEP transports that are still open after the build. Most likely, because
-   * uploading build events takes longer than the build itself.
+   * Display any BEP transports that are still open after the build. Most likely, because uploading
+   * build events takes longer than the build itself.
    */
   private void maybeReportBepTransports(PositionAwareAnsiTerminalWriter terminalWriter)
       throws IOException {
