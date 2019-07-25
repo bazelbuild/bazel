@@ -336,6 +336,16 @@ public class BazelRulesModule extends BlazeModule {
         },
         help = "This option is deprecated and has no effect.")
     public boolean incompatibleDisableLateBoundOptionDefaults;
+
+    @Deprecated
+    @Option(
+        name = "ui",
+        oldName = "experimental_ui",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean experimentalUi;
   }
 
   @Override

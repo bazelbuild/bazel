@@ -185,18 +185,6 @@ public class BlazeCommandEventHandler {
                 + "workspace directory or one of the directories specified by --package_path.")
     public boolean attemptToPrintRelativePaths;
 
-    @Deprecated
-    @Option(
-        name = "ui",
-        oldName = "experimental_ui",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Switches to a progress bar that more explicitly shows progress, such "
-                + "as loaded packages and executed actions.")
-    public boolean experimentalUi;
-
     @Option(
         name = "experimental_ui_debug_all_events",
         defaultValue = "false",
