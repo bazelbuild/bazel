@@ -1,6 +1,7 @@
 package(default_visibility = ["//src:__subpackages__"])
 
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 
 filegroup(
     name = "srcs",

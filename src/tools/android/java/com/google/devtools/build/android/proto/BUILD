@@ -2,6 +2,8 @@
 
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
 java_proto_library(
     name = "serialize_format_java_pb",
     deps = [":serialize_format_proto"],
