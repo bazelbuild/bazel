@@ -126,21 +126,21 @@ public abstract class ArtifactFileMetadata {
       FileStateValue realFileStateValue) {
     Preconditions.checkState(pathFragment.isAbsolute(), pathFragment);
     Preconditions.checkState(realPathFragment.isAbsolute(), realPathFragment);
-    if (pathFragment.equals(realPathFragment)) {
-      Preconditions.checkState(
-          fileStateValue.getType() != FileStateType.SYMLINK,
-          "path: %s, fileStateValue: %s, realPath: %s, realFileStateValue: %s",
-          pathFragment,
-          fileStateValue,
-          realPathFragment,
-          realFileStateValue);
-      return new Regular(pathFragment, fileStateValue);
+    boolean pathsDiffer = !pathFragment.equals(realPathFragment);
+    boolean isSymlink = fileStateValue.getType() == FileStateType.SYMLINK;
+
+    Preconditions.checkState(
+        pathsDiffer == isSymlink,
+        "path: %s, fileStateValue: %s, realPath: %s, realFileStateValue: %s",
+        pathFragment,
+        fileStateValue,
+        realPathFragment,
+        realFileStateValue);
+
+    if (isSymlink) {
+      return new Symlink(realPathFragment, realFileStateValue, fileStateValue.getSymlinkTarget());
     } else {
-      if (fileStateValue.getType() == FileStateType.SYMLINK) {
-        return new Symlink(realPathFragment, realFileStateValue, fileStateValue.getSymlinkTarget());
-      } else {
-        return new DifferentRealPath(realPathFragment, realFileStateValue);
-      }
+      return new Regular(pathFragment, fileStateValue);
     }
   }
 
@@ -197,68 +197,22 @@ public abstract class ArtifactFileMetadata {
     }
   }
 
-  /**
-   * Base class for {@link ArtifactFileMetadata}s for files whose fully resolved path is different
-   * than the requested path. For example, this is the case for the path "foo/bar/baz" if at least
-   * one of 'foo', 'foo/bar', or 'foo/bar/baz' is a symlink.
-   */
-  private static class DifferentRealPath extends ArtifactFileMetadata {
-    protected final PathFragment realPath;
-    protected final FileStateValue realFileStateValue;
+  /** Implementation of {@link ArtifactFileMetadata} for files that are symlinks. */
+  private static final class Symlink extends ArtifactFileMetadata {
+    private final PathFragment linkTarget;
+    private final PathFragment realPath;
+    private final FileStateValue realFileStateValue;
 
-    DifferentRealPath(PathFragment realPath, FileStateValue realFileStateValue) {
-      this.realPath = Preconditions.checkNotNull(realPath);
-      this.realFileStateValue = Preconditions.checkNotNull(realFileStateValue);
-    }
-
-    @Override
-    public BigInteger getFingerprint() {
-      BigInteger original = super.getFingerprint();
-      BigIntegerFingerprint fp = new BigIntegerFingerprint();
-      fp.addBigIntegerOrdered(original);
-      fp.addString(getClass().getCanonicalName());
-      fp.addPath(realPath);
-      fp.addBigIntegerOrdered(realFileStateValue.getValueFingerprint());
-      return fp.getFingerprint();
+    private Symlink(
+        PathFragment realPath, FileStateValue realFileStateValue, PathFragment linkTarget) {
+      this.realPath = realPath;
+      this.realFileStateValue = realFileStateValue;
+      this.linkTarget = linkTarget;
     }
 
     @Override
     public FileStateValue realFileStateValue() {
       return realFileStateValue;
-    }
-
-    @SuppressWarnings("EqualsGetClass") // Only subclass should never be equal to this class.
-    @Override
-    public boolean equals(Object obj) {
-      if (obj == null) {
-        return false;
-      }
-      if (obj.getClass() != DifferentRealPath.class) {
-        return false;
-      }
-      DifferentRealPath other = (DifferentRealPath) obj;
-      return realPath.equals(other.realPath) && realFileStateValue.equals(other.realFileStateValue);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(realPath, realFileStateValue);
-    }
-
-    @Override
-    public String toString() {
-      return realPath + ", " + realFileStateValue + " (symlink ancestor)";
-    }
-  }
-
-  /** Implementation of {@link ArtifactFileMetadata} for files that are symlinks. */
-  private static final class Symlink extends DifferentRealPath {
-    private final PathFragment linkTarget;
-
-    private Symlink(
-        PathFragment realPath, FileStateValue realFileStateValue, PathFragment linkTarget) {
-      super(realPath, realFileStateValue);
-      this.linkTarget = linkTarget;
     }
 
     @Override
