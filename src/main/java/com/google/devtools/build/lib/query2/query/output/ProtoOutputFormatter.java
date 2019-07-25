@@ -93,6 +93,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
   private boolean includeLocations = true;
+  private boolean includeRuleInputsAndOutputs = true;
 
   protected void setDependencyFilter(QueryOptions options) {
     this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
@@ -111,6 +112,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
     this.flattenSelects = options.protoFlattenSelects;
     this.includeLocations = options.protoIncludeLocations;
+    this.includeRuleInputsAndOutputs = options.protoIncludeRuleInputsAndOutputs;
   }
 
   private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
@@ -402,7 +404,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   protected boolean includeRuleInputsAndOutputs() {
-    return true;
+    return includeRuleInputsAndOutputs;
   }
 
   protected boolean includeLocation() {

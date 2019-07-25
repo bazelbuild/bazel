@@ -153,6 +153,14 @@ public class CommonQueryOptions extends OptionsBase {
   )
   public List<String> protoOutputRuleAttributes = ImmutableList.of("all");
 
+  @Option(
+      name = "proto:rule_inputs_and_outputs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether or not to populate the rule_input and rule_output fields.")
+  public boolean protoIncludeRuleInputsAndOutputs;
+
   /** An enum converter for {@code  AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
     public AspectResolutionModeConverter() {
