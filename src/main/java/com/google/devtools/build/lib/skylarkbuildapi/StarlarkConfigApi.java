@@ -111,7 +111,7 @@ public interface StarlarkConfigApi extends SkylarkValue {
   /** The API for build setting descriptors. */
   @SkylarkModule(
       name = "BuildSetting",
-      category = SkylarkModuleCategory.NONE,
+      category = SkylarkModuleCategory.BUILTIN,
       doc =
           "The descriptor for a single piece of configuration information. If configuration is a "
               + "key-value map of settings like {'cpu': 'ppc', 'copt': '-DFoo'}, this describes a "

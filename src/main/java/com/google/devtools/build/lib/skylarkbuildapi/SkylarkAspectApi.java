@@ -20,11 +20,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /** The interface for skylark-defined aspects in the Build API. */
 @SkylarkModule(
-  name = "Aspect",
-  category = SkylarkModuleCategory.NONE,
-  doc =
-      "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
-          + "documentation of the aspect function</a> or the "
-          + "<a href=\"../aspects.md\">introduction to Aspects</a>."
-)
+    name = "Aspect",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
+            + "documentation of the aspect function</a> or the "
+            + "<a href=\"../aspects.md\">introduction to Aspects</a>.")
 public interface SkylarkAspectApi extends SkylarkValue {}

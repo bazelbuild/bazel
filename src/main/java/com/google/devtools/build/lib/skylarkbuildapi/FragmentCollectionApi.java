@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 /** Represents a collection of configuration fragments in Skylark. */
 @SkylarkModule(
     name = "fragments",
-    category = SkylarkModuleCategory.NONE,
+    category = SkylarkModuleCategory.BUILTIN,
     doc =
         "Possible fields are "
             + "<a href=\"android.html\">android</a>, <a href=\"apple.html\">apple</a>, "

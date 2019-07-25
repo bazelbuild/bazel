@@ -28,9 +28,15 @@ public enum SkylarkModuleCategory {
       + "<a href='../rules.$DOC_EXT#providers'>Rules page</a> for more on providers."
   ),
 
-  BUILTIN("Built-in Types and Modules", ""),
+  BUILTIN("Built-in Types", "This section lists types of Starlark objects."),
 
+  // Used for top-level modules of functions in the global namespace. Such modules will always
+  // be usable solely by accessing their members, via modulename.funcname() or
+  // modulename.constantname.
+  // Examples: attr, cc_common, config, java_common
   TOP_LEVEL_TYPE,
+
+  // Legacy uncategorized type; these are treated like TOP_LEVEL_TYPE in documentation.
   NONE;
 
   private final String title;

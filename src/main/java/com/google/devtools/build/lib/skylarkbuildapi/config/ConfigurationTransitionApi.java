@@ -15,19 +15,19 @@
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
-/**
- * Represents a configuration transition across a dependency edge.
- */
+/** Represents a configuration transition across a dependency edge. */
 @SkylarkModule(
     name = "transition",
-    doc = "<b>Experimental. This type is experimental and subject to change at any time. Do "
-        + "not depend on it.</b><p> "
-        + "Represents a configuration transition across a dependency edge. For example, if "
-        + "<code>//package:foo</code> depends on <code>//package:bar</code> with a configuration "
-        + "transition, then the configuration of these two targets will differ: "
-        + "<code>//package:bar</code>'s transition will be determined by that of "
-        + "<code>//package:foo</code>, as subject to the function defined by a transition object."
-)
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "<b>Experimental. This type is experimental and subject to change at any time. Do not"
+            + " depend on it.</b><p> Represents a configuration transition across a dependency"
+            + " edge. For example, if <code>//package:foo</code> depends on"
+            + " <code>//package:bar</code> with a configuration transition, then the configuration"
+            + " of these two targets will differ: <code>//package:bar</code>'s transition will be"
+            + " determined by that of <code>//package:foo</code>, as subject to the function"
+            + " defined by a transition object.")
 public interface ConfigurationTransitionApi extends SkylarkValue {}
