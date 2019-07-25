@@ -20,13 +20,13 @@ import java.util.Arrays;
  * point in time. Time is split into equal-sized buckets, and we compute one value per bucket. If a
  * range partially overlaps a bucket, then the bucket is incremented by the fraction of overlap.
  */
-public class CpuUsageTimeSeries {
+public class TimeSeries {
   private final long startTimeMillis;
   private final long bucketSizeMillis;
   private static final int INITIAL_SIZE = 100;
   private double[] data = new double[INITIAL_SIZE];
 
-  public CpuUsageTimeSeries(long startTimeMillis, long bucketSizeMillis) {
+  public TimeSeries(long startTimeMillis, long bucketSizeMillis) {
     this.startTimeMillis = startTimeMillis;
     this.bucketSizeMillis = bucketSizeMillis;
   }
