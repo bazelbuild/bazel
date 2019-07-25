@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -425,7 +426,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   }
 
   private void waitForBuildEventTransportsToClose(
-      Map<BuildEventTransport, ListenableFuture<Void>> transportFutures)
+      Map<BuildEventTransport, ListenableFuture<Void>> transportFutures,
+      boolean besUploadModeIsSynchronous)
       throws AbruptExitException {
     final ScheduledExecutorService executor =
         Executors.newSingleThreadScheduledExecutor(
@@ -461,7 +463,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
               "Unexpected Exception '%s' when closing BEP transports, this is a bug.",
               e.getCause().getMessage()));
     } finally {
-      cancelAndResetPendingUploads();
+      if (besUploadModeIsSynchronous) {
+        cancelAndResetPendingUploads();
+      }
       if (waitMessageFuture != null) {
         waitMessageFuture.cancel(/* mayInterruptIfRunning= */ true);
       }
@@ -514,14 +518,13 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         constructCloseFuturesMapWithTimeouts(streamer.getCloseFuturesMap());
     halfCloseFuturesWithTimeoutsMap =
         constructCloseFuturesMapWithTimeouts(streamer.getHalfClosedMap());
-
+    boolean besUploadModeIsSynchronous =
+        besOptions.besUploadMode == BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
     Map<BuildEventTransport, ListenableFuture<Void>> blockingTransportFutures = new HashMap<>();
     for (Map.Entry<BuildEventTransport, ListenableFuture<Void>> entry :
         closeFuturesWithTimeoutsMap.entrySet()) {
       BuildEventTransport bepTransport = entry.getKey();
-      if (!bepTransport.mayBeSlow()
-          || besOptions.besUploadMode
-              == BuildEventServiceOptions.BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE) {
+      if (!bepTransport.mayBeSlow() || besUploadModeIsSynchronous) {
         blockingTransportFutures.put(bepTransport, entry.getValue());
       } else {
         // When running asynchronously notify the UI immediately since we won't wait for the
@@ -530,7 +533,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       }
     }
     if (!blockingTransportFutures.isEmpty()) {
-      waitForBuildEventTransportsToClose(blockingTransportFutures);
+      waitForBuildEventTransportsToClose(blockingTransportFutures, besUploadModeIsSynchronous);
     }
   }
 
