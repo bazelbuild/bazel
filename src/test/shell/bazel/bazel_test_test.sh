@@ -179,8 +179,7 @@ EOF
 }
 
 # This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
-# this environment and cause --experimental_ui to be turned on, which causes
-# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
+# this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
   mkdir -p testing || fail "mkdir testing failed"
   echo "sh_test(name='t1', srcs=['t1.sh'])" > testing/BUILD
@@ -538,8 +537,7 @@ function test_detailed_test_summary() {
 }
 
 # This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
-# this environment and cause --experimental_ui to be turned on, which causes
-# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
+# this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
   cat >BUILD <<EOF
 sh_test(name = "flaky", flaky = True, srcs = ["flaky.sh"])

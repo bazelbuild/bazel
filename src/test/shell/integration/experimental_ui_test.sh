@@ -219,7 +219,7 @@ EOF
 #### TESTS #############################################################
 
 function test_basic_progress() {
-  bazel test --experimental_ui --curses=yes --color=yes pkg:true 2>$TEST_log \
+  bazel test --curses=yes --color=yes pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown
   expect_log '\[[0-9,]* / [0-9,]*\]'
@@ -231,7 +231,7 @@ function test_basic_progress() {
 }
 
 function test_noshow_progress() {
-  bazel test --experimental_ui --noshow_progress --curses=yes --color=yes \
+  bazel test --noshow_progress --curses=yes --color=yes \
     pkg:true 2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # Info messages should still go through
   expect_log 'Elapsed time'
@@ -240,7 +240,7 @@ function test_noshow_progress() {
 }
 
 function test_basic_progress_no_curses() {
-  bazel test --experimental_ui --curses=no --color=yes pkg:true 2>$TEST_log \
+  bazel test --curses=no --color=yes pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown
   expect_log '\[[0-9,]* / [0-9,]*\]'
@@ -253,28 +253,28 @@ function test_basic_progress_no_curses() {
 }
 
 function test_no_curses_no_linebreak() {
-  bazel test --experimental_ui --curses=no --color=yes --terminal_columns=9 \
+  bazel test --curses=no --color=yes --terminal_columns=9 \
     pkg:true 2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # expect a long-ish status line
   expect_log '\[[0-9,]* / [0-9,]*\]......'
 }
 
 function test_pass() {
-  bazel test --experimental_ui --curses=yes --color=yes pkg:true >$TEST_log \
+  bazel test --curses=yes --color=yes pkg:true >$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # PASS is written in green on the same line as the test target
   expect_log 'pkg:true.*'$'\x1b\[32m''.*PASS'
 }
 
 function test_fail() {
-  bazel test --experimental_ui --curses=yes --color=yes pkg:false >$TEST_log \
+  bazel test --curses=yes --color=yes pkg:false >$TEST_log \
     && fail "expected failure"
   # FAIL is written in red bold on the same line as the test target
   expect_log 'pkg:false.*'$'\x1b\[31m\x1b\[1m''.*FAIL'
 }
 
 function test_timestamp() {
-  bazel test --experimental_ui --show_timestamps pkg:true 2>$TEST_log \
+  bazel test --show_timestamps pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # expect something that looks like HH:mm:ss
   expect_log '[0-2][0-9]:[0-5][0-9]:[0-6][0-9]'
@@ -283,7 +283,7 @@ function test_timestamp() {
 function test_info_spacing() {
   # Verify that the output of "bazel info" is suitable for backtick escapes,
   # in particular free carriage-return characters.
-  BAZEL_INFO_OUTPUT=XXX`bazel info --experimental_ui workspace`XXX
+  BAZEL_INFO_OUTPUT=XXX`bazel info workspace`XXX
   echo "$BAZEL_INFO_OUTPUT" | grep -q 'XXX[^'$'\r'']*XXX' \
     || fail "${PRODUCT_NAME} info output spaced as $BAZEL_INFO_OUTPUT"
 }
@@ -291,7 +291,7 @@ function test_info_spacing() {
 function test_query_spacing() {
   # Verify that the output of "bazel query" is suitable for consumption by
   # other tools, i.e., contains only result lines, separated only by newlines.
-  BAZEL_QUERY_OUTPUT=`bazel query --experimental_ui 'deps(//pkg:true)'`
+  BAZEL_QUERY_OUTPUT=`bazel query 'deps(//pkg:true)'`
   echo "$BAZEL_QUERY_OUTPUT" | grep -q -v '^[@/]' \
    && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<" || true
   if ! $is_windows; then
@@ -302,47 +302,47 @@ function test_query_spacing() {
 
 function test_query_progress() {
   # Verify that some form of progress is reported during bazel query
-  bazel query --experimental_ui 'deps(//pkg:true)' 2> "${TEST_log}"
+  bazel query 'deps(//pkg:true)' 2> "${TEST_log}"
   expect_log 'Loading:.*packages loaded'
 }
 
 function test_clean_nobuild {
-  bazel clean --experimental_ui 2>$TEST_log \
+  bazel clean 2>$TEST_log \
    || fail "bazel shutdown failed"
   expect_not_log "actions running"
   expect_not_log "Building"
 }
 
 function test_clean_color_nobuild {
-  bazel clean --experimental_ui --color=yes 2>$TEST_log \
+  bazel clean --color=yes 2>$TEST_log \
    || fail "bazel shutdown failed"
   expect_not_log "actions running"
   expect_not_log "Building"
 }
 
 function test_help_nobuild {
-  bazel help --experimental_ui 2>$TEST_log \
+  bazel help 2>$TEST_log \
    || fail "bazel help failed"
   expect_not_log "actions running"
   expect_not_log "Building"
 }
 
 function test_help_color_nobuild {
-  bazel help --experimental_ui --color=yes 2>$TEST_log \
+  bazel help --color=yes 2>$TEST_log \
    || fail "bazel help failed"
   expect_not_log "actions running"
   expect_not_log "Building"
 }
 
 function test_version_nobuild {
-  bazel version --experimental_ui --curses=yes 2>$TEST_log \
+  bazel version --curses=yes 2>$TEST_log \
    || fail "bazel version failed"
   expect_not_log "action"
   expect_not_log "Building"
 }
 
 function test_version_nobuild_announce_rc {
-  bazel version --experimental_ui --curses=yes --announce_rc 2>$TEST_log \
+  bazel version --curses=yes --announce_rc 2>$TEST_log \
    || fail "bazel version failed"
   expect_not_log "action"
   expect_not_log "Building"
@@ -350,21 +350,21 @@ function test_version_nobuild_announce_rc {
 
 function test_subcommand {
   bazel clean || fail "${PRODUCT_NAME} clean failed"
-  bazel build --experimental_ui -s pkg:gentext 2>$TEST_log \
+  bazel build -s pkg:gentext 2>$TEST_log \
     || fail "bazel build failed"
   expect_log "here be dragons"
 }
 
 function test_subcommand_notdefault {
   bazel clean || fail "${PRODUCT_NAME} clean failed"
-  bazel build --experimental_ui pkg:gentext 2>$TEST_log \
+  bazel build pkg:gentext 2>$TEST_log \
     || fail "bazel build failed"
   expect_not_log "dragons"
 }
 
 function test_loading_progress {
   bazel clean || fail "${PRODUCT_NAME} clean failed"
-  bazel test --experimental_ui pkg:true 2>$TEST_log \
+  bazel test pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown during loading
   expect_log 'Loading.*[0-9,]* packages'
@@ -372,7 +372,7 @@ function test_loading_progress {
 
 function test_failure_scrollback_buffer_curses {
   bazel clean || fail "${PRODUCT_NAME} clean failed"
-  bazel test --experimental_ui --curses=yes --color=yes \
+  bazel test --curses=yes --color=yes \
     --nocache_test_results pkg:false pkg:slow 2>$TEST_log \
     && fail "expected failure"
   # Some line starts with FAIL in red bold.
@@ -380,7 +380,7 @@ function test_failure_scrollback_buffer_curses {
 }
 
 function test_terminal_title {
-  bazel test --experimental_ui --curses=yes \
+  bazel test --curses=yes \
     --progress_in_terminal_title pkg:true \
     2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # The terminal title is changed
@@ -389,7 +389,7 @@ function test_terminal_title {
 
 function test_failure_scrollback_buffer {
   bazel clean || fail "${PRODUCT_NAME} clean failed"
-  bazel test --experimental_ui --curses=no --color=yes \
+  bazel test --curses=no --color=yes \
     --nocache_test_results pkg:false pkg:slow 2>$TEST_log \
     && fail "expected failure"
   # Some line starts with FAIL in red bold.
@@ -397,7 +397,7 @@ function test_failure_scrollback_buffer {
 }
 
 function test_streamed {
-  bazel test --experimental_ui --curses=yes --color=yes \
+  bazel test --curses=yes --color=yes \
     --nocache_test_results --test_output=streamed pkg:output >$TEST_log \
     || fail "expected success"
   expect_log 'foobar'
@@ -405,7 +405,7 @@ function test_streamed {
 
 function test_stdout_bundled {
     # Verify that the error message is part of the error event
-    bazel build --experimental_ui --experimental_ui_debug_all_events \
+    bazel build --experimental_ui_debug_all_events \
           error:failwitherror > "${TEST_log}" 2>&1 \
     && fail "expected failure" || :
     grep -A1 '^ERROR' "${TEST_log}" \
@@ -417,7 +417,7 @@ function test_output_deduplicated {
     # Verify that we suscessfully deduplicate identical messages from actions
     bazel clean --expunge
     bazel version
-    bazel build --experimental_ui --curses=yes --color=yes \
+    bazel build --curses=yes --color=yes \
           --experimental_ui_deduplicate \
           pkg/errorAfterWarning:failing >"${TEST_log}" 2>&1 \
         && fail "expected failure" || :
@@ -431,7 +431,7 @@ function test_debug_deduplicated {
     # Verify that we suscessfully deduplicate identical debug statements
     bazel clean --expunge
     bazel version
-    bazel build --experimental_ui --curses=yes --color=yes \
+    bazel build --curses=yes --color=yes \
           --experimental_ui_deduplicate \
           pkg/debugMessages/... >"${TEST_log}" 2>&1 || fail "Expected success"
     expect_log_once 'static debug message'
@@ -449,7 +449,7 @@ function test_output_limit {
     # However, that limit only applies to the output produces by the bazel
     # server; any startup message generated by the client is on top of that.
     # So we add another 1k output for what the client has to tell.
-    bazel build --experimental_ui --curses=yes --color=yes \
+    bazel build --curses=yes --color=yes \
           --experimental_ui_limit_console_output=51200 \
           pkg:withOutputA pkg:withOutputB >$TEST_log 2>&1 \
     || fail "expected success"
@@ -465,7 +465,7 @@ function test_status_despite_output_limit {
     # still find the test summary.
     bazel clean --expunge
     bazel version
-    bazel test --experimental_ui --curses=yes --color=yes \
+    bazel test --curses=yes --color=yes \
           --experimental_ui_limit_console_output=500 \
           pkg:truedependingonoutput >$TEST_log 2>&1 \
     || fail "expected success"
@@ -483,7 +483,7 @@ function test_error_message_despite_output_limit {
     # still the final error message.
     bazel clean --expunge
     bazel version
-    bazel build --experimental_ui --curses=yes --color=yes \
+    bazel build --curses=yes --color=yes \
           --experimental_ui_limit_console_output=10240 \
           --noexperimental_ui_deduplicate \
           pkg/errorAfterWarning:failing >"${TEST_log}" 2>&1 \

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# An end-to-end test that Bazel's experimental UI produces reasonable output.
+# An end-to-end test that Bazel's UI produces reasonable output.
 
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
@@ -89,7 +89,7 @@ EOF
 
 function test_fetch {
   bazel clean --expunge
-  bazel fetch @remote//... --experimental_ui --curses=yes 2>$TEST_log || fail "bazel fetch failed"
+  bazel fetch @remote//... --curses=yes 2>$TEST_log || fail "bazel fetch failed"
   expect_log 'Fetching.*remote_file'
 }
 
