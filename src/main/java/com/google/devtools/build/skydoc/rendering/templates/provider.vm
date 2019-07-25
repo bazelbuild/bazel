@@ -6,7 +6,7 @@
 ${util.providerSummary($providerName, $providerInfo)}
 </pre>
 
-${providerInfo.docString}
+${util.htmlEscape($providerInfo.docString)}
 
 #if (!$providerInfo.fieldInfoList.isEmpty())
 #[[###]]# Fields
@@ -21,7 +21,7 @@ ${providerInfo.docString}
     <tr id="${providerName}-${field.name}">
       <td><code>${field.name}</code></td>
       <td>
-        <p>${field.docString}</p>
+        <p>${util.htmlEscape($field.docString)}</p>
       </td>
     </tr>
 #end

@@ -6,7 +6,7 @@
 ${util.ruleSummary($ruleName, $ruleInfo)}
 </pre>
 
-${ruleInfo.docString}
+${util.htmlEscape($ruleInfo.docString)}
 
 #[[###]]# Attributes
 
@@ -24,7 +24,7 @@ ${ruleInfo.docString}
         ${util.attributeTypeString($attribute)}; ${util.mandatoryString($attribute)}
 #if (!$attribute.docString.isEmpty())
         <p>
-          ${attribute.docString.trim()}
+          ${util.htmlEscape($attribute.docString.trim())}
         </p>
 #end
       </td>

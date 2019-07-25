@@ -65,6 +65,12 @@ java_test(
 )
 
 skydoc_test(
+    name = "angle_bracket_test",
+    golden_file = "testdata/angle_bracket_test/golden.txt",
+    input_file = "testdata/angle_bracket_test/input.bzl",
+)
+
+skydoc_test(
     name = "proto_format_test",
     format = "proto",
     golden_file = "testdata/proto_format_test/golden.raw",

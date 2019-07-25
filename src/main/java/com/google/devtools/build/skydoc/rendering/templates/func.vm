@@ -6,7 +6,7 @@
 ${util.funcSummary($funcInfo)}
 </pre>
 
-${funcInfo.docString}
+${util.htmlEscape($funcInfo.docString)}
 
 #if (!$funcInfo.getParameterList().isEmpty())
 #[[###]]# Parameters
@@ -25,7 +25,7 @@ ${funcInfo.docString}
 
 #if (!$param.docString.isEmpty())
         <p>
-          ${param.docString.trim()}
+          ${util.htmlEscape($param.docString.trim())}
         </p>
 #end
       </td>

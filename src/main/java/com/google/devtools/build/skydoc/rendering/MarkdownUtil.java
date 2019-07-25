@@ -28,6 +28,14 @@ import java.util.stream.Collectors;
  * Contains a number of utility methods for markdown rendering.
  */
 public final class MarkdownUtil {
+  /**
+   * Return a string that escapes angle brackets for HTML.
+   *
+   * <p>For example: 'Information with <brackets>.' becomes 'Information with &lt;brackets&gt;'.
+   */
+  public String htmlEscape(String docString) {
+    return docString.replace("<", "&lt;").replace(">", "&gt;");
+  }
 
   /**
    * Return a string representing the rule summary for the given rule with the given name.
