@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -231,7 +232,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
       if (!fileMetadata.exists()) {
         throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
       }
-      return FileArtifactValue.createNormalFile(fileMetadata, !artifact.isConstantMetadata());
+      return FileArtifactValue.createFromMetadata(fileMetadata, !artifact.isConstantMetadata());
     }
 
     // No existing metadata; this can happen if the output metadata is not injected after a spawn
@@ -259,7 +260,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
    * See {@link OutputStore#getAllAdditionalOutputData} for why we sometimes need to store
    * additional data, even for normal (non-middleman) artifacts.
    */
-  @Nullable
   private FileArtifactValue maybeStoreAdditionalData(
       Artifact artifact, ArtifactFileMetadata data, @Nullable byte[] injectedDigest)
       throws IOException {
@@ -271,17 +271,32 @@ public final class ActionMetadataHandler implements MetadataHandler {
     if (isFile && !artifact.hasParent() && data.getDigest() != null) {
       // We do not need to store the FileArtifactValue separately -- the digest is in the file value
       // and that is all that is needed for this file's metadata.
-      return FileArtifactValue.createNormalFile(data, !artifact.isConstantMetadata());
+      return FileArtifactValue.createFromMetadata(data, !artifact.isConstantMetadata());
     }
-    // Unfortunately, the ArtifactFileMetadata does not contain enough information for us to
-    // calculate the corresponding FileArtifactValue -- either the metadata must use the modified
-    // time, which we do not expose in the ArtifactFileMetadata, or the ArtifactFileMetadata didn't
-    // store the digest So we store the metadata separately.
-    // Use the ArtifactFileMetadata's digest if no digest was injected, or if the file can't be
-    // digested.
-    injectedDigest = injectedDigest != null || !isFile ? injectedDigest : data.getDigest();
-    FileArtifactValue value = FileArtifactValue.create(artifact, artifactPathResolver, data,
-        injectedDigest);
+
+    final FileArtifactValue value;
+
+    if (data.isDirectory()) {
+      value =
+          FileArtifactValue.createForDirectoryWithMtime(
+              artifactPathResolver.toPath(artifact).getLastModifiedTime());
+    } else {
+      // Unfortunately, the ArtifactFileMetadata does not contain enough information for us to
+      // calculate the corresponding FileArtifactValue -- either the metadata must use the modified
+      // time, which we do not expose in the ArtifactFileMetadata, or the ArtifactFileMetadata
+      // didn't store the digest So we store the metadata separately.
+      // Use the ArtifactFileMetadata's digest if no digest was injected, or if the file can't be
+      // digested.
+      if (injectedDigest == null) {
+        injectedDigest =
+            DigestUtils.getDigestOrFail(artifactPathResolver.toPath(artifact), data.getSize());
+      }
+
+      value =
+          FileArtifactValue.createFromInjectedDigest(
+              data, injectedDigest, !artifact.isConstantMetadata());
+    }
+
     store.putAdditionalOutputData(artifact, value);
     return metadataFromValue(value);
   }

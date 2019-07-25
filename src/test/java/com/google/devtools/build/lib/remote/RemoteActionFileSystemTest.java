@@ -153,7 +153,8 @@ public class RemoteActionFileSystemTest {
     Path p = outputRoot.getRoot().asPath().getRelative(pathFragment);
     FileSystemUtils.writeContent(p, StandardCharsets.UTF_8, contents);
     Artifact a = ActionsTestUtil.createArtifact(outputRoot, p);
-    inputs.putWithNoDepOwner(a, FileArtifactValue.create(a.getPath(), /* isShareable= */ true));
+    inputs.putWithNoDepOwner(
+        a, FileArtifactValue.createFromFileSystem(a.getPath(), /* isShareable= */ true));
     return a;
   }
 }

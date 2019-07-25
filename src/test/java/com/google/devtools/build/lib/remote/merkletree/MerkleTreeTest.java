@@ -149,7 +149,7 @@ public class MerkleTreeTest {
     Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
 
     sortedInputs.put(PathFragment.create(path), a);
-    metadata.put(a, FileArtifactValue.create(a));
+    metadata.put(a, FileArtifactValue.createForTesting(a));
     return a;
   }
 

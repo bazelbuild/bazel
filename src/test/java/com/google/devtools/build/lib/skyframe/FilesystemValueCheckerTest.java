@@ -777,7 +777,7 @@ public class FilesystemValueCheckerTest {
         }
         ArtifactFileMetadata fileValue =
             ActionMetadataHandler.fileMetadataFromArtifact(output, null, null);
-        dirDatum.put(output, FileArtifactValue.create(output, fileValue));
+        dirDatum.put(output, FileArtifactValue.createForTesting(output, fileValue));
         fileData.put(output, fileValue);
       } catch (IOException e) {
         throw new IllegalStateException(e);

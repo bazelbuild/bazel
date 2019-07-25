@@ -58,7 +58,7 @@ public class ActionMetadataHandlerTest {
   public void withNonArtifactInput() throws Exception {
     ActionInput input = ActionInputHelper.fromPath("foo/bar");
     FileArtifactValue metadata =
-        FileArtifactValue.createNormalFile(
+        FileArtifactValue.createForNormalFile(
             new byte[] {1, 2, 3}, /*proxy=*/ null, 10L, /*isShareable=*/ true);
     ActionInputMap map = new ActionInputMap(1);
     map.putWithNoDepOwner(input, metadata);
@@ -78,7 +78,7 @@ public class ActionMetadataHandlerTest {
     PathFragment path = PathFragment.create("src/a");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(sourceRoot, path);
     FileArtifactValue metadata =
-        FileArtifactValue.createNormalFile(
+        FileArtifactValue.createForNormalFile(
             new byte[] {1, 2, 3}, /*proxy=*/ null, 10L, /*isShareable=*/ true);
     ActionInputMap map = new ActionInputMap(1);
     map.putWithNoDepOwner(artifact, metadata);
