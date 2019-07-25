@@ -229,9 +229,17 @@ alias(
     actual = "@rules_cc//cc/private/toolchain:srcs",
 )
 
-alias(
+filegroup(
     name = "embedded_tools",
-    actual = "@rules_cc//cc/private/toolchain:embedded_tools",
+    srcs = glob(["**"]) + [
+        "@rules_cc//cc/private/toolchain:embedded_tools",
+        "//tools/cpp/runfiles:embedded_tools",
+    ],
+)
+
+filegroup(
+    name = "embedded_tools_toolchain_type",
+    srcs = ["BUILD"],
 )
 
 alias(

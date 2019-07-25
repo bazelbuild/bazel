@@ -128,11 +128,10 @@ class TestBase(unittest.TestCase):
   def GetCcRulesRepoRule(self):
     return [
         'http_archive(', '    name = "rules_cc",', '    sha256 = '
-        '"36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",',
-        '    strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",',
+        '"3d6a063c723ba15078dccec927524c04721179788307af9673f6d327d909f29b",',
+        '    strip_prefix = "rules_cc-plf-moving-tools",',
         '    urls = [',
-        '        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",',
-        '        "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",',
+        '        "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",',
         '    ],', ')'
     ]
 

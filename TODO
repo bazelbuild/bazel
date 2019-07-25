@@ -1,2 +1,0 @@
-In rules_Cc fix copybara for repeated @bazel_tools@bazel_tools
-Fix visibility of embedded_tools

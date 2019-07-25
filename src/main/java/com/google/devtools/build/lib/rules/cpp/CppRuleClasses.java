@@ -32,6 +32,9 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_OBJECT_FI
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -61,9 +64,17 @@ public class CppRuleClasses {
 
   public static LabelLateBoundDefault<CppConfiguration> ccToolchainAttribute(
       RuleDefinitionEnvironment env) {
+    Label crossToolLabel = null;
+    try {
+      PackageIdentifier packageIdentifier =
+          PackageIdentifier.create("@rules_cc", PathFragment.create("cc/private/toolchain"));
+      crossToolLabel = Label.create(packageIdentifier, "toolchain");
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(e);
+    }
     return LabelLateBoundDefault.fromTargetConfiguration(
         CppConfiguration.class,
-        env.getToolsLabel(CROSSTOOL_LABEL),
+        crossToolLabel,
         CC_TOOLCHAIN_CONFIGURATION_RESOLVER);
   }
 
@@ -73,14 +84,28 @@ public class CppRuleClasses {
 
   public static LabelLateBoundDefault<CppConfiguration> ccHostToolchainAttribute(
       RuleDefinitionEnvironment env) {
+    Label crossToolLabel = null;
+    try {
+      PackageIdentifier packageIdentifier =
+          PackageIdentifier.create("@rules_cc", PathFragment.create("cc/private/toolchain"));
+      crossToolLabel = Label.create(packageIdentifier, "toolchain");
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(e);
+    }
     return LabelLateBoundDefault.fromHostConfiguration(
         CppConfiguration.class,
-        env.getToolsLabel(CROSSTOOL_LABEL),
+        crossToolLabel,
         (rules, attributes, cppConfig) -> cppConfig.getRuleProvidingCcToolchainProvider());
   }
 
   public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
-    return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
+    try {
+      PackageIdentifier packageIdentifier =
+          PackageIdentifier.create("@rules_cc", PathFragment.create("cc"));
+      return Label.create(packageIdentifier, "toolchain_type");
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules

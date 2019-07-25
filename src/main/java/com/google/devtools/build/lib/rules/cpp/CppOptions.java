@@ -114,7 +114,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
     name = "crosstool_top",
-    defaultValue = "@bazel_tools//tools/cpp:toolchain",
+    defaultValue = "@rules_cc//cc/private/toolchain:toolchain",
     converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
     effectTags = {
