@@ -111,11 +111,13 @@ final class RemoteSpawnCache implements SpawnCache {
     this.topLevelOutputs = Preconditions.checkNotNull(topLevelOutputs, "topLevelOutputs");
   }
 
-
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException {
-    if (!Spawns.mayBeCached(spawn) || !Spawns.mayBeExecutedRemotely(spawn)) {
+    if (!Spawns.mayBeCached(spawn)
+        || (!Spawns.mayBeCachedRemotely(spawn) && isRemoteCache(options))) {
+      // returning SpawnCache.NO_RESULT_NO_STORE in case the caching is disabled or in case
+      // the remote caching is disabled and the only configured cache is remote.
       return SpawnCache.NO_RESULT_NO_STORE;
     }
     boolean checkCache = options.remoteAcceptCached;
@@ -290,5 +292,9 @@ final class RemoteSpawnCache implements SpawnCache {
       reportedErrors.add(evt.getMessage());
       cmdlineReporter.handle(evt);
     }
+  }
+
+  private static boolean isRemoteCache(RemoteOptions options) {
+    return !isNullOrEmpty(options.remoteCache);
   }
 }
