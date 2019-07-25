@@ -277,7 +277,8 @@ public class ExecutionTool {
           getReporter(),
           targetConfigurations,
           request.getBuildOptions().getSymlinkPrefix(productName),
-          productName);
+          productName,
+          !request.getBuildOptions().incompatibleSkipGenfilesSymlink);
     }
 
     ActionCache actionCache = getActionCache();
