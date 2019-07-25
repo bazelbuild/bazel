@@ -267,6 +267,26 @@ public interface JavaCommonApi<
             defaultValue = "[]",
             doc = "A list of exported plugins. Optional."),
         @Param(
+            name = "annotation_processor_additional_inputs",
+            positional = false,
+            named = true,
+            type = SkylarkList.class,
+            generic1 = FileApi.class,
+            defaultValue = "[]",
+            doc =
+                "A list of inputs that the Java compilation action will take in addition to the "
+                    + "Java sources for annotation processing."),
+        @Param(
+            name = "annotation_processor_additional_outputs",
+            positional = false,
+            named = true,
+            type = SkylarkList.class,
+            generic1 = FileApi.class,
+            defaultValue = "[]",
+            doc =
+                "A list of outputs that the Java compilation action will output in addition to "
+                    + "the class jar from annotation processing."),
+        @Param(
             name = "strict_deps",
             defaultValue = "'ERROR'",
             positional = false,
@@ -325,6 +345,8 @@ public interface JavaCommonApi<
       SkylarkList<JavaInfoT> exports,
       SkylarkList<JavaInfoT> plugins,
       SkylarkList<JavaInfoT> exportedPlugins,
+      SkylarkList<FileT> annotationProcessorAdditionalInputs,
+      SkylarkList<FileT> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       JavaToolchainT javaToolchain,
       JavaRuntimeT hostJavabase,

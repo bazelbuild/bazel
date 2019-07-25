@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -945,6 +946,52 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
           .contains(
               "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
     }
+  }
+
+  @Test
+  public void testJavaCommonCompileAdditionalInputsAndOutputs() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  srcs = ['myjar-src.jar'],",
+        "  additional_inputs = ['additional_input.bin'],",
+        ")");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_jars = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    annotation_processor_additional_inputs = ctx.files.additional_inputs,",
+        "    annotation_processor_additional_outputs = [ctx.outputs.additional_output],",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],",
+        "  )",
+        "  return [DefaultInfo(files = depset([output_jar]))]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'additional_output': '%{name}_additional_output',",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.jar']),",
+        "    'additional_inputs': attr.label_list(allow_files=['.bin']),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
+    Action javaAction = getGeneratingAction(configuredTarget, "java/test/libcustom.jar");
+    assertThat(artifactFilesNames(javaAction.getInputs())).contains("additional_input.bin");
+    assertThat(artifactFilesNames(javaAction.getOutputs())).contains("custom_additional_output");
   }
 
   @Test
