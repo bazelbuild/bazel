@@ -112,7 +112,7 @@ public final class DictComprehension extends AbstractComprehension {
     @Override
     public void evaluateAndCollect(Environment env) throws EvalException, InterruptedException {
       Object key = keyExpression.eval(env);
-      EvalUtils.checkValidDictKey(key);
+      EvalUtils.checkValidDictKey(key, env);
       result.put(key, valueExpression.eval(env), getLocation(), env);
     }
 

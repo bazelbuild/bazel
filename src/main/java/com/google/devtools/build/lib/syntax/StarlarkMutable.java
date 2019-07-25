@@ -69,6 +69,12 @@ public abstract class StarlarkMutable implements Freezable, SkylarkValue {
     return mutability().isFrozen();
   }
 
+  @Override
+  public boolean isHashable() {
+    // Mutable structures are unhashable even if frozen
+    return false;
+  }
+
   /**
    * Add a new lock at {@code loc}. No effect if frozen.
    */

@@ -15,6 +15,7 @@ Full, authorative list of incompatible changes is [GitHub issues with
 General Starlark
 
 *   [Dictionary lookup of unhashable types](#dictionary-lookup-of-unhashable-types)
+*   [Frozen mutable types are no longer hashable](#frozen-mutable-types-are-no-longer-hashable)
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [String escapes](#string-escapes)
 *   [String.split empty separator](#string.split-empty-separator)
@@ -78,6 +79,15 @@ a dict will fail.
 *   Flag: `--incompatible_disallow_dict_lookup_unhashable_keys`
 *   Default: `false`
 *   Tracking issue: [#8730](https://github.com/bazelbuild/bazel/issues/8730)
+
+### Frozen mutable types are no longer hashable
+
+When this flag is enabled, mutable types (e.g. list, dict) do not become
+hashable when frozen and thus cannot be used as dictionary keys.
+
+*   Flag: `--incompatible_disallow_hashing_frozen_mutables`
+*   Default: `false`
+*   Tracking issue: [#7800](https://github.com/bazelbuild/bazel/issues/7800)
 
 ### Dictionary concatenation
 

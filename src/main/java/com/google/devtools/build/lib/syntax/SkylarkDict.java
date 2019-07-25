@@ -222,7 +222,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     SkylarkDict<K, V> dict =
         (args instanceof SkylarkDict) ? (SkylarkDict<K, V>) args : getDictFromArgs(args, loc, env);
     dict = SkylarkDict.plus(dict, (SkylarkDict<K, V>) kwargs, env);
-    putAll(dict, loc, env.mutability());
+    putAll(dict, loc, env.mutability(), env);
     return Runtime.NONE;
   }
 
@@ -355,7 +355,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    */
   public void put(K key, V value, Location loc, Mutability mutability) throws EvalException {
     checkMutable(loc, mutability);
-    EvalUtils.checkValidDictKey(key);
+    EvalUtils.checkValidDictKey(key, null);
     contents.put(key, value);
   }
 
@@ -365,7 +365,9 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    */
   // TODO(bazel-team): Decide whether to eliminate this overload.
   public void put(K key, V value, Location loc, Environment env) throws EvalException {
-    put(key, value, loc, env.mutability());
+    checkMutable(loc, mutability);
+    EvalUtils.checkValidDictKey(key, env);
+    contents.put(key, value);
   }
 
   /**
@@ -377,11 +379,11 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    * @throws EvalException if some key is invalid or the dict is frozen
    */
   public <KK extends K, VV extends V> void putAll(
-      Map<KK, VV> map, Location loc, Mutability mutability) throws EvalException {
+      Map<KK, VV> map, Location loc, Mutability mutability, Environment env) throws EvalException {
     checkMutable(loc, mutability);
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
-      EvalUtils.checkValidDictKey(k);
+      EvalUtils.checkValidDictKey(k, env);
       contents.put(k, e.getValue());
     }
   }
@@ -508,7 +510,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   @Override
   public final boolean containsKey(Object key, Location loc, Environment env) throws EvalException {
     if (env.getSemantics().incompatibleDisallowDictLookupUnhashableKeys()) {
-      EvalUtils.checkValidDictKey(key);
+      EvalUtils.checkValidDictKey(key, env);
     }
     return this.containsKey(key);
   }
