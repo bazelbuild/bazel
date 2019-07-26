@@ -123,12 +123,6 @@ query --output=label_kind
 # file instead.
 test --test_output=errors
 
-# Show which actions are running under which workers and print all
-# the actions running in parallel. This shows that Bazel runs on all
-# cores of a CPU.
-build --experimental_ui
-test --experimental_ui
-
 ###############################
 # Typescript / Angular / Sass #
 ###############################
