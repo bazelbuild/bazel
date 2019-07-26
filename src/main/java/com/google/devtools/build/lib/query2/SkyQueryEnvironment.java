@@ -146,10 +146,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected final ImmutableList<String> universeScope;
   protected boolean blockUniverseEvaluationErrors;
   protected ExtendedEventHandler universeEvalEventHandler;
-
   protected final String parserPrefix;
   protected final PathPackageLocator pkgPath;
   protected final int queryEvaluationParallelismLevel;
+  private final boolean visibilityDepsAreAllowed;
 
   // The following fields are set in the #beforeEvaluateQuery method.
   private MultisetSemaphore<PackageIdentifier> packageSemaphore;
@@ -224,6 +224,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     this.universeTargetPatternKeys =
         PrepareDepsOfPatternsFunction.getTargetPatternKeys(
             PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler));
+    // In #getAllowedDeps we have special treatment of deps entailed by the `visibility` attribute.
+    // Since this attribute is of the NODEP type, that means we need a special implementation of
+    // NO_NODEP_DEPS.
+    this.visibilityDepsAreAllowed = !settings.contains(Setting.NO_NODEP_DEPS);
   }
 
   @Override
@@ -464,7 +468,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   private Set<Label> getAllowedDeps(Rule rule) throws InterruptedException {
     Set<Label> allowedLabels = new HashSet<>(rule.getTransitions(dependencyFilter).values());
-    allowedLabels.addAll(rule.getVisibility().getDependencyLabels());
+    if (visibilityDepsAreAllowed) {
+      // Rule#getTransitions only visits the labels of attribute values, so that means it doesn't
+      // know about deps from the labels of the rule's package's default_visibility. Therefore, we
+      // need to explicitly handle that here.
+      allowedLabels.addAll(rule.getVisibility().getDependencyLabels());
+    }
     // We should add deps from aspects, otherwise they are going to be filtered out.
     allowedLabels.addAll(rule.getAspectLabelsSuperset(dependencyFilter));
     return allowedLabels;

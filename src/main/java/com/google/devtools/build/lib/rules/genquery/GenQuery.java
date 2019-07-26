@@ -172,6 +172,13 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;
 
+    if (!optionsParser.containsExplicitOption("nodep_deps")) {
+      // Have GenQuery *not* include "nodep" deps by default. This is an unfortunate divergence from
+      // `query` which is necessary to maintain legacy behavior.
+      // TODO(b/123122592): Complete the migration and remove this divergence.
+      queryOptions.includeNoDepDeps = false;
+    }
+
     GenQueryResult result;
     try (SilentCloseable c =
         Profiler.instance().profile("GenQuery.executeQuery/" + ruleContext.getLabel())) {
@@ -320,14 +327,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     AggregateAllOutputFormatterCallback<Target, ?> targets;
     try {
       Set<Setting> settings = queryOptions.toSettings();
-
-      // Turns out, if we have two targets with a cycle of length 2 were one of
-      // the edges is of type NODEP_LABEL type, the targets both show up in
-      // each other's result for deps(X) when the query is executed using
-      // 'blaze query'. This obviously does not fly when doing the query as a
-      // part of the build, thus, there is a slight discrepancy between the
-      // behavior of the query engine in these two use cases.
-      settings.add(Setting.NO_NODEP_DEPS);
 
       formatter =
           OutputFormatter.getFormatter(
