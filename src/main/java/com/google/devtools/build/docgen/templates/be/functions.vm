@@ -64,7 +64,7 @@ file, before any rule.</p>
         attribute, see the documentation of the
         <a href="common-definitions.html#common.visibility">visibility</a>
         attribute. The package default visibility does not apply to
-        <a href="general.html#exports_files">exports_files</a>, which is
+        <a href="#exports_files">exports_files</a>, which is
         public by default.</p>
       </td>
     </tr>
