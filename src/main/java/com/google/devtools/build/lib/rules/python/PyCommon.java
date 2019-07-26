@@ -620,11 +620,14 @@ public final class PyCommon {
     if (!ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
       return false;
     }
+    // TODO(8996): Update URL to point to rules_python's docs instead of the Bazel site.
     String errorTemplate =
         "This target is being built for Python %s but (transitively) includes Python %s-only "
             + "sources. You can get diagnostic information about which dependencies introduce this "
             + "version requirement by running the `find_requirements` aspect. For more info see "
-            + "the documentation for the `srcs_version` attribute.";
+            + "the documentation for the `srcs_version` attribute: "
+            + "https://docs.bazel.build/versions/master/be/python.html#py_binary.srcs_version";
+
     String error = null;
     if (version == PythonVersion.PY2 && hasPy3OnlySources) {
       error = String.format(errorTemplate, "2", "3");
