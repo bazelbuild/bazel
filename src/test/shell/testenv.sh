@@ -465,9 +465,27 @@ http_archive(
 EOF
 }
 
+# TODO(https://github.com/bazelbuild/bazel/issues/8986): Build this dynamically
+# from //WORKSPACE
+function add_rules_pkg_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_pkg",
+    sha256 = "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
+    ],
+)
+EOF
+}
+
 function create_workspace_with_default_repos() {
   touch "$1"
-  add_rules_cc_to_workspace $1
+  add_rules_cc_to_workspace "$1"
+  add_rules_pkg_to_workspace "$1"
   echo "$1"
 }
 
@@ -477,6 +495,7 @@ function write_workspace_file() {
 workspace(name = '$WORKSPACE_NAME')
 EOF
   add_rules_cc_to_workspace "WORKSPACE"
+  add_rules_pkg_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace
 }
