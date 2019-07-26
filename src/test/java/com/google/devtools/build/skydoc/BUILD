@@ -17,6 +17,7 @@ filegroup(
 filegroup(
     name = "test_template_files",
     srcs = [
+        "//src/test/java/com/google/devtools/build/skydoc:test_templates/aspect.vm",
         "//src/test/java/com/google/devtools/build/skydoc:test_templates/func.vm",
         "//src/test/java/com/google/devtools/build/skydoc:test_templates/header.vm",
         "//src/test/java/com/google/devtools/build/skydoc:test_templates/provider.vm",
@@ -245,6 +246,12 @@ skydoc_test(
     name = "struct_default_value_test",
     golden_file = "testdata/struct_default_value_test/golden.txt",
     input_file = "testdata/struct_default_value_test/input.bzl",
+)
+
+skydoc_test(
+    name = "aspect_test",
+    golden_file = "testdata/aspect_test/golden.txt",
+    input_file = "testdata/aspect_test/input.bzl",
 )
 
 genrule(

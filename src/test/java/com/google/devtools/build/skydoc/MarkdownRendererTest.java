@@ -17,6 +17,7 @@ package com.google.devtools.build.skydoc;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
@@ -39,9 +40,15 @@ public final class MarkdownRendererTest {
   private final String providerTemplatePath =
       "com/google/devtools/build/skydoc/test_templates/provider.vm";
   private final String funcTemplatePath = "com/google/devtools/build/skydoc/test_templates/func.vm";
+  private final String aspectTemplatePath =
+      "com/google/devtools/build/skydoc/test_templates/aspect.vm";
   private final MarkdownRenderer renderer =
       new MarkdownRenderer(
-          headerTemplatePath, ruleTemplatePath, providerTemplatePath, funcTemplatePath);
+          headerTemplatePath,
+          ruleTemplatePath,
+          providerTemplatePath,
+          funcTemplatePath,
+          aspectTemplatePath);
 
   @Test
   public void testHeaderStrings() throws IOException {
@@ -148,6 +155,48 @@ public final class MarkdownRendererTest {
                 + "  optional. default is <code>32</code>\n"
                 + "        <p>\n"
                 + "          the first parameter\n"
+                + "        </p>\n");
+  }
+
+  @Test
+  public void testAspectStrings() throws IOException {
+    AttributeInfo attrInfo =
+        AttributeInfo.newBuilder()
+            .setName("first")
+            .setDocString("the first attribute")
+            .setTypeValue(AttributeType.STRING.getNumber())
+            .build();
+    AspectInfo aspectInfo =
+        AspectInfo.newBuilder()
+            .setAspectName("my_aspect")
+            .setDocString("This aspect does things.")
+            .addAttribute(attrInfo)
+            .addAspectAttribute("deps")
+            .build();
+
+    assertThat(renderer.render(aspectInfo.getAspectName(), aspectInfo))
+        .isEqualTo(
+            "<a name=\"#my_aspect\"></a>\n"
+                + "\n"
+                + "## my_aspect\n"
+                + "\n"
+                + "<pre>\n"
+                + "null(<a href=\"#null-first\">first</a>)\n"
+                + "</pre>\n"
+                + "\n"
+                + "This aspect does things.\n"
+                + "\n"
+                + "### Aspect Attributes\n"
+                + "\n"
+                + "        <code>deps</code><\n"
+                + "        String; required.\n"
+                + "\n"
+                + "### Attributes\n"
+                + "\n"
+                + "      <code>first</code>\n"
+                + "      String; optional\n"
+                + "        <p>\n"
+                + "          the first attribute\n"
                 + "        </p>\n");
   }
 }

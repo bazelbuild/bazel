@@ -173,6 +173,8 @@ public class SkydocMain {
       "com/google/devtools/build/skydoc/rendering/templates/provider.vm";
   private static final String FUNCTION_TEMPLATE_PATH =
       "com/google/devtools/build/skydoc/rendering/templates/func.vm";
+  private static final String ASPECT_TEMPLATE_PATH =
+      "com/google/devtools/build/skydoc/rendering/templates/aspect.vm";
 
   public SkydocMain(SkylarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
     this.fileAccessor = fileAccessor;
@@ -268,7 +270,8 @@ public class SkydocMain {
               HEADER_TEMPLATE_PATH,
               RULE_TEMPLATE_PATH,
               PROVIDER_TEMPLATE_PATH,
-              FUNCTION_TEMPLATE_PATH);
+              FUNCTION_TEMPLATE_PATH,
+              ASPECT_TEMPLATE_PATH);
       try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
         printWriter.println(renderer.renderMarkdownHeader());
         printRuleInfos(printWriter, renderer, filteredRuleInfos);

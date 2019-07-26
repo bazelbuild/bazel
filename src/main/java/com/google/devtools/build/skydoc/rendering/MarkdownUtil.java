@@ -15,6 +15,7 @@
 package com.google.devtools.build.skydoc.rendering;
 
 import com.google.common.base.Joiner;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
@@ -65,6 +66,20 @@ public final class MarkdownUtil {
             .map(field -> field.getName())
             .collect(Collectors.toList());
     return summary(providerName, fieldNames);
+  }
+
+  /**
+   * Return a string representing the aspect summary for the given aspect with the given name.
+   *
+   * <p>For example: 'my_aspect(foo, bar)'. The summary will contain hyperlinks for each attribute.
+   */
+  @SuppressWarnings("unused") // Used by markdown template.
+  public String aspectSummary(String aspectName, AspectInfo aspectInfo) {
+    List<String> attributeNames =
+        aspectInfo.getAttributeList().stream()
+            .map(attr -> attr.getName())
+            .collect(Collectors.toList());
+    return summary(aspectName, attributeNames);
   }
 
   /**
