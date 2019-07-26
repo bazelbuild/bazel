@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -252,7 +253,7 @@ public class HeaderDiscovery {
 
     /** Creates a CppHeaderDiscovery instance. */
     public HeaderDiscovery build() {
-      Map<PathFragment, Artifact> allowedDerivedInputsMap = new HashMap<>();
+      Map<PathFragment, Artifact> allowedDerivedInputsMap = CompactHashMap.create();
       ImmutableSet.Builder<Artifact> treeArtifacts = ImmutableSet.builder();
       for (Artifact a : allowedDerivedInputs) {
         if (a.isTreeArtifact()) {
