@@ -105,6 +105,9 @@ public class ResourceLinker {
       Boolean.parseBoolean(
           System.getProperty("rpbb.override_styles_instead_of_overlaying", "false"));
 
+  private static final boolean AAPT2_OPTIMIZE =
+      Boolean.parseBoolean(System.getProperty("rpbb.aapt2_optimize", "false"));
+
   /** Represents errors thrown during linking. */
   public static class LinkError extends Aapt2Exception {
 
@@ -432,8 +435,7 @@ public class ResourceLinker {
             .add("-o", linked)
             .execute(String.format("Linking %s", compiled.getManifest())));
     profiler.recordEndOf("fulllink");
-    return ProtoApk.readFrom(
-        densities.size() < 2 ? linked : optimizeForDensities(compiled, linked));
+    return ProtoApk.readFrom(optimize(compiled, linked));
   }
 
   private Path combineApks(Path protoApk, Path binaryApk, Path workingDirectory)
@@ -511,7 +513,11 @@ public class ResourceLinker {
     return attributes;
   }
 
-  private Path optimizeForDensities(CompiledResources compiled, Path binary) throws IOException {
+  private Path optimize(CompiledResources compiled, Path binary) throws IOException {
+    if (!AAPT2_OPTIMIZE && densities.size() < 2) {
+      return binary;
+    }
+
     profiler.startTask("optimize");
     final Path optimized = workingDirectory.resolve("optimized." + PROTO_EXTENSION);
     logger.fine(
@@ -521,7 +527,11 @@ public class ResourceLinker {
             .add("optimize")
             .when(Objects.equals(logger.getLevel(), Level.FINE))
             .thenAdd("-v")
-            .add("--target-densities", densities.stream().collect(Collectors.joining(",")))
+            // TODO(b/138166830): Simplify behavior specific to number of densities. There's likely
+            // little to lose in passing a single-element density list, which we would confirm in
+            // the APK analyzer dashboard.
+            .when(densities.size() >= 2)
+            .thenAdd("--target-densities", densities.stream().collect(Collectors.joining(",")))
             .add("-o", optimized)
             .add(binary.toString())
             .execute(String.format("Optimizing %s", compiled.getManifest())));
