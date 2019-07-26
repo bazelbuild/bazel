@@ -24,6 +24,7 @@ filegroup(
             test_file,
         ],
         main = "starlark_test.py",
+        python_version = "PY2",
     )
     for test_file in glob(["testdata/*"])
 ]
