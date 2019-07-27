@@ -160,6 +160,7 @@ public class ResourceProcessorBusyBox {
     abstract void call(String[] args) throws Exception;
   }
 
+  public static final String PROPERTY_KEY_PREFIX = "rpbb.";
   private static final Logger logger = Logger.getLogger(ResourceProcessorBusyBox.class.getName());
 
   /** Converter for the Tool enum. */

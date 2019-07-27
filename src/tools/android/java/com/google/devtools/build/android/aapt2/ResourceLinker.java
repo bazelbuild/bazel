@@ -41,6 +41,7 @@ import com.google.devtools.build.android.AndroidCompiledDataDeserializer;
 import com.google.devtools.build.android.AndroidResourceOutputs;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.Profiler;
+import com.google.devtools.build.android.ResourceProcessorBusyBox;
 import com.google.devtools.build.android.aapt2.ResourceCompiler.CompiledType;
 import com.google.devtools.build.android.ziputils.DataDescriptor;
 import com.google.devtools.build.android.ziputils.DirectoryEntry;
@@ -101,12 +102,17 @@ public class ResourceLinker {
   private static final ImmutableSet<String> PSEUDO_LOCALE_FILTERS =
       ImmutableSet.of("en_XA", "ar_XB");
 
-  private static final boolean OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING =
-      Boolean.parseBoolean(
-          System.getProperty("rpbb.override_styles_instead_of_overlaying", "false"));
+  private static final String OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING_KEY =
+      ResourceProcessorBusyBox.PROPERTY_KEY_PREFIX + "override_styles_instead_of_overlaying";
 
-  private static final boolean AAPT2_OPTIMIZE =
-      Boolean.parseBoolean(System.getProperty("rpbb.aapt2_optimize", "false"));
+  private static final boolean OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING =
+      Boolean.parseBoolean(System.getProperty(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING_KEY, "false"));
+
+  public static final String AAPT2_OPTIMIZE_KEY =
+      ResourceProcessorBusyBox.PROPERTY_KEY_PREFIX + "aapt2_optimize";
+
+  public static final String ENABLE_RESOURCE_PATH_SHORTENING_KEY =
+      ResourceProcessorBusyBox.PROPERTY_KEY_PREFIX + "aapt2_enable_resource_path_shortening";
 
   /** Represents errors thrown during linking. */
   public static class LinkError extends Aapt2Exception {
@@ -144,6 +150,10 @@ public class ResourceLinker {
   private List<CompiledResources> include = ImmutableList.of();
   private List<Path> assetDirs = ImmutableList.of();
   private boolean conditionalKeepRules = false;
+  private final boolean aapt2Optimize =
+      Boolean.parseBoolean(System.getProperty(AAPT2_OPTIMIZE_KEY, "false"));
+  private final boolean enableResourcePathShortening =
+      Boolean.parseBoolean(System.getProperty(ENABLE_RESOURCE_PATH_SHORTENING_KEY, "false"));
 
   private ResourceLinker(
       Path aapt2, ListeningExecutorService executorService, Path workingDirectory) {
@@ -514,7 +524,7 @@ public class ResourceLinker {
   }
 
   private Path optimize(CompiledResources compiled, Path binary) throws IOException {
-    if (!AAPT2_OPTIMIZE && densities.size() < 2) {
+    if (!aapt2Optimize && densities.size() < 2) {
       return binary;
     }
 
@@ -532,6 +542,8 @@ public class ResourceLinker {
             // the APK analyzer dashboard.
             .when(densities.size() >= 2)
             .thenAdd("--target-densities", densities.stream().collect(Collectors.joining(",")))
+            .when(enableResourcePathShortening)
+            .thenAdd("--enable-resource-path-shortening")
             .add("-o", optimized)
             .add(binary.toString())
             .execute(String.format("Optimizing %s", compiled.getManifest())));
