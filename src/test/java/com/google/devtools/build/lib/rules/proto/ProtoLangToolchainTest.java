@@ -23,12 +23,28 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class ProtoLangToolchainTest extends BuildViewTestCase {
+  @Before
+  public void setUp() throws Exception {
+    scratch.file("proto/BUILD");
+    scratch.file(
+        "proto/defs.bzl",
+        "def _add_tags(kargs):",
+        "    if 'tags' in kargs:",
+        "        kargs['tags'] += ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
+        "    else:",
+        "        kargs['tags'] = ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
+        "    return kargs",
+        "",
+        "def proto_lang_toolchain(**kargs): native.proto_lang_toolchain(**_add_tags(kargs))");
+  }
+
   @Test
   public void protoToolchain() throws Exception {
     scratch.file(
@@ -40,6 +56,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
     scratch.file(
         "foo/BUILD",
+        "load('//proto:defs.bzl', 'proto_lang_toolchain')",
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
         "    command_line = 'cmd-line',",
@@ -69,6 +86,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void optionalFieldsAreEmpty() throws Exception {
     scratch.file(
         "foo/BUILD",
+        "load('//proto:defs.bzl', 'proto_lang_toolchain')",
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
         "    command_line = 'cmd-line',",

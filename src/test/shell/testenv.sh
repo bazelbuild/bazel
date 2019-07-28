@@ -465,6 +465,22 @@ http_archive(
 EOF
 }
 
+function add_rules_java_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_java",
+    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+    ],
+)
+EOF
+}
+
 # TODO(https://github.com/bazelbuild/bazel/issues/8986): Build this dynamically
 # from //WORKSPACE
 function add_rules_pkg_to_workspace() {
@@ -482,10 +498,28 @@ http_archive(
 EOF
 }
 
+function add_rules_proto_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_proto",
+    sha256 = "88b0a90433866b44bb4450d4c30bc5738b8c4f9c9ba14e9661deb123f56a833d",
+    strip_prefix = "rules_proto-b0cc14be5da05168b01db282fe93bdf17aa2b9f4",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz",
+    ],
+)
+EOF
+}
+
 function create_workspace_with_default_repos() {
   touch "$1"
   add_rules_cc_to_workspace "$1"
+  add_rules_java_to_workspace "$1"
   add_rules_pkg_to_workspace "$1"
+  add_rules_proto_to_workspace "$1"
   echo "$1"
 }
 

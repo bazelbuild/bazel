@@ -89,6 +89,17 @@ public abstract class BlackBoxTestEnvironment {
             "        'https://github.com/bazelbuild/rules_cc/archive/"
                 + "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip',",
             "    ],",
+            ")",
+            "http_archive(",
+            "    name = 'rules_proto',",
+            "    sha256 = '88b0a90433866b44bb4450d4c30bc5738b8c4f9c9ba14e9661deb123f56a833d',",
+            "    strip_prefix = 'rules_proto-b0cc14be5da05168b01db282fe93bdf17aa2b9f4',",
+            "    urls = [",
+            "        'https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/"
+                + "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.zip',",
+            "        'https://github.com/bazelbuild/rules_proto/archive/"
+                + "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.zip',",
+            "    ],",
             ")");
   }
 }

@@ -95,6 +95,7 @@ function test_modify_execution_info_multiple {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 genrule(
     name = "bar",
     outs = ["bar_out.txt"],
@@ -164,6 +165,10 @@ EOF
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   echo "load('//$pkg:shell.bzl', 'skylark_shell')" > "$pkg/BUILD"
   cat >> "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_proto//proto:defs.bzl", "proto_binary")
+
 skylark_shell(
   name = "shelly",
   output = "ok.txt",
