@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
 /**
@@ -30,4 +31,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
             + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto.\">"
             + "rules_proto</a>"
             + "</p>")
-public interface ProtoModuleApi {}
+public interface ProtoModuleApi {
+  @Deprecated
+  @SkylarkCallable(
+      name = "do_not_use_has_configuration_field_protoc",
+      doc = "Do not use this field, its only puprose is to help with migration of "
+                + "Protobuf rules to Starlark.",
+      structField = true)
+  default void configurationFieldProtocExists() {}
+}

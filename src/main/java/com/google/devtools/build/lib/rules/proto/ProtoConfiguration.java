@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoConfigurationApi;
@@ -279,6 +281,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return !options.disableProtoSourceRoot;
   }
 
+  @Override
   public ImmutableList<String> protocOpts() {
     return protocOpts;
   }
@@ -292,6 +295,12 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.experimentalProtoExtraActions;
   }
 
+  @SkylarkConfigurationField(
+      name = "protoc",
+      doc = "Returns the target denoted by the value of the --proto_compiler flag. "
+                + "Do not use this field, its only puprose is to help with migration of "
+                + "Protobuf rules to Starlark."
+  )
   public Label protoCompiler() {
     return options.protoCompiler;
   }
@@ -314,6 +323,24 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public StrictDepsMode strictProtoDeps() {
     return options.strictProtoDeps;
+  }
+
+  @Override
+  public String starlarkStrictDeps() {
+    switch (strictProtoDeps()) {
+      case OFF:
+        return "OFF";
+
+      case WARN:
+        return "WARN";
+
+      case ERROR:  // fall-through
+      case STRICT:
+      case DEFAULT:
+        return "ERROR";
+    }
+    Preconditions.checkState(false, "NOTREACHED");
+    return null;
   }
 
   public List<String> ccProtoLibraryHeaderSuffixes() {
