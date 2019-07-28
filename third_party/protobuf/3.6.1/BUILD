@@ -1,6 +1,9 @@
 # Bazel (http://bazel.io/) BUILD file for Protobuf.
 
-load("@rules_java//java:defs.bzl", "java_import")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test", "objc_library")
+load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_proto//proto:defs.bzl", "proto_lang_toolchain", "proto_library")
+load("@rules_python//python:defs.bzl", "py_library")
 
 licenses(["notice"])
 
@@ -23,9 +26,6 @@ config_setting(
 
 load(":protobuf.bzl", "py_proto_library")
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
-
-# Needed for #9006. Hopefully a future upstream version will include this line.
-load("@rules_python//python:defs.bzl", "py_library")
 
 filegroup(
     name = "srcs",
