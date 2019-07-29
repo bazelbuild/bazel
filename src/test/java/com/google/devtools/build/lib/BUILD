@@ -742,6 +742,7 @@ java_test(
     srcs = glob([
         "analysis/actions/*.java",
     ]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["analysis"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -773,6 +774,7 @@ java_test(
     srcs = glob([
         "analysis/config/**/*.java",
     ]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["analysis"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -812,6 +814,7 @@ java_test(
     srcs = glob([
         "analysis/constraints/*.java",
     ]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["analysis"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -835,6 +838,7 @@ java_test(
     srcs = glob([
         "analysis/select/*.java",
     ]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["analysis"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -859,6 +863,7 @@ java_test(
     srcs = glob([
         "analysis/*.java",
     ]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     shard_count = 6,
     tags = [
         "analysis",
@@ -981,6 +986,7 @@ java_test(
             "packages/BazelDocumentationTest.java",
         ],
     ),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
@@ -1018,6 +1024,7 @@ java_test(
             "pkgcache/*.java",
         ],
     ),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
@@ -1157,6 +1164,7 @@ java_library(
 java_test(
     name = "filegroup-rules-tests",
     srcs = glob(["rules/filegroup/*.java"]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -1195,6 +1203,7 @@ java_test(
         ["rules/java/*.java"],
         exclude = JAVA_COMPILE_ACTION_TEST_HELPER_SRCS,
     ),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -1223,6 +1232,7 @@ java_test(
 java_test(
     name = "test-rules-tests",
     srcs = ["rules/test/SkylarkTestingModuleTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.rules.test.SkylarkTestingModuleTest",
     deps = [
@@ -1401,6 +1411,7 @@ java_test(
 java_test(
     name = "exec-tests",
     srcs = glob(["exec/*.java"]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["exec"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -1482,6 +1493,7 @@ java_test(
 java_test(
     name = "ProtoLangToolchainTest",
     srcs = ["rules/proto/ProtoLangToolchainTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -1496,6 +1508,7 @@ java_test(
 java_test(
     name = "BazelProtoLibraryTest",
     srcs = ["rules/proto/BazelProtoLibraryTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -1511,6 +1524,7 @@ java_test(
 java_test(
     name = "BazelProtoInfoStarlarkTest",
     srcs = ["rules/proto/BazelProtoInfoStarlarkTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -1529,6 +1543,7 @@ java_test(
 java_test(
     name = "repository-tests",
     srcs = glob(["repository/*.java"]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
@@ -1550,6 +1565,7 @@ java_test(
 java_test(
     name = "rules-tests",
     srcs = glob(["rules/*.java"]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",

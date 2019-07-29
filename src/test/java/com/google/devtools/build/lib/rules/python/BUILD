@@ -37,6 +37,7 @@ java_library(
 java_test(
     name = "PythonConfigurationTest",
     srcs = ["PythonConfigurationTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -52,6 +53,7 @@ java_test(
 java_test(
     name = "PyRuntimeConfiguredTargetTest",
     srcs = ["PyRuntimeConfiguredTargetTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
@@ -109,6 +111,7 @@ java_test(
 java_test(
     name = "PyTestConfiguredTargetTest",
     srcs = ["PyTestConfiguredTargetTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":PyExecutableTestBase",
         "//third_party:junit4",
@@ -118,6 +121,7 @@ java_test(
 java_test(
     name = "PyLibraryConfiguredTargetTest",
     srcs = ["PyLibraryConfiguredTargetTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":PyBaseTestBase",
         ":PythonTestUtils",
@@ -160,6 +164,7 @@ java_test(
 java_test(
     name = "PythonSrcsVersionAspectTest",
     srcs = ["PythonSrcsVersionAspectTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -173,6 +178,7 @@ java_test(
 java_test(
     name = "PythonToolchainTest",
     srcs = ["PythonToolchainTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -186,6 +192,7 @@ java_test(
 java_test(
     name = "PyProviderUtilsTest",
     srcs = ["PyProviderUtilsTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
@@ -220,6 +227,7 @@ java_test(
 java_test(
     name = "PyInfoTest",
     srcs = ["PyInfoTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
@@ -236,6 +244,7 @@ java_test(
 java_test(
     name = "PyRuntimeInfoTest",
     srcs = ["PyRuntimeInfoTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
@@ -251,6 +260,7 @@ java_test(
 java_test(
     name = "PythonStarlarkApiTest",
     srcs = ["PythonStarlarkApiTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",

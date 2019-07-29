@@ -34,6 +34,7 @@ java_library(
 
 java_test(
     name = "PlatformRulesTests",
+    data = ["@rules_cc//cc:all_files_for_testing"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":PlatformRulesTests_lib",

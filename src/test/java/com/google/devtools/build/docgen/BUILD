@@ -29,6 +29,7 @@ java_test(
     name = "DocumentationTests",
     size = "medium",
     srcs = ["DocumentationTests.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     shard_count = 1,
     tags = ["docgen"],
     deps = [

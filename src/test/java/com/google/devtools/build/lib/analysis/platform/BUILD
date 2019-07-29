@@ -13,6 +13,7 @@ filegroup(
 java_test(
     name = "PlatformAnalysisTests",
     srcs = glob(["*.java"]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",

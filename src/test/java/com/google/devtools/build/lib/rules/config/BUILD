@@ -40,6 +40,7 @@ java_library(
 
 java_test(
     name = "ConfigRulesTests",
+    data = ["@rules_cc//cc:all_files_for_testing"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":ConfigRulesTests_lib",

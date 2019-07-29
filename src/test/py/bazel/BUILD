@@ -185,6 +185,7 @@ cc_binary(
 py_test(
     name = "first_time_use_test",
     srcs = ["first_time_use_test.py"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [":test_base"],
 )
 

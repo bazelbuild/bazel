@@ -35,6 +35,7 @@ test_suite(
 java_test(
     name = "bazel-rules-tests",
     srcs = glob(["rules/**/*.java"]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     resources = [
         "//tools/android:android_sdk_repository_template.bzl",
         "//tools/build_defs/cc:action_names.bzl",

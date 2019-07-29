@@ -21,6 +21,7 @@ java_test(
     data = [
         "test_decompress_archive.tar.gz",
         "test_decompress_archive.zip",
+        "@rules_cc//cc:all_files_for_testing",
     ],
     tags = [
         "rules",

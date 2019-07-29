@@ -13,6 +13,7 @@ filegroup(
 java_test(
     name = "AarImportTest",
     srcs = ["AarImportTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -62,6 +63,7 @@ java_test(
 java_test(
     name = "AndroidCommonTest",
     srcs = ["AndroidCommonTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -76,6 +78,7 @@ java_test(
 java_test(
     name = "AndroidBinaryTest",
     srcs = ["AndroidBinaryTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
@@ -105,6 +108,7 @@ java_test(
 java_test(
     name = "ResourceFilterFactoryTest",
     srcs = ["ResourceFilterFactoryTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":ResourceTestBase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
@@ -216,6 +220,7 @@ java_test(
 java_test(
     name = "AndroidInstrumentationTestTest",
     srcs = ["AndroidInstrumentationTestTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["no_windows"],
     deps = [
         ":AndroidBuildViewTestCase",
@@ -344,6 +349,7 @@ java_test(
 java_test(
     name = "AndroidSdkTest",
     srcs = ["AndroidSdkTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:testutil"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:android-rules",

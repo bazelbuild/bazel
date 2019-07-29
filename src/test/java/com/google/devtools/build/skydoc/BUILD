@@ -29,6 +29,7 @@ java_test(
     name = "SkydocTest",
     size = "medium",
     srcs = ["SkydocTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     visibility = ["//devtools/blaze/main:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:skylark_semantics",

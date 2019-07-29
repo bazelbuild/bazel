@@ -44,6 +44,7 @@ java_library(
 
 java_test(
     name = "ObjcRulesTests",
+    data = ["@rules_cc//cc:all_files_for_testing"],
     shard_count = 20,
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",

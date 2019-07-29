@@ -13,6 +13,7 @@ filegroup(
 java_test(
     name = "RepositoryTests",
     srcs = glob(["*.java"]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
