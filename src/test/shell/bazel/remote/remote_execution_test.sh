@@ -1131,6 +1131,33 @@ EOF
   expect_log "uri:.*bytestream://localhost"
 }
 
+function test_remote_exec_properties() {
+  # Test that setting remote exec properties works.
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties=OSFamily=linux \
+    //a:foo || fail "Failed to build //a:foo"
+
+  bazel clean
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties=OSFamily=windows \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_not_log "remote cache hit"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

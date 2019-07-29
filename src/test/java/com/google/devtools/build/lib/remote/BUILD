@@ -10,6 +10,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/logging:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/merkletree:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote/options:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/util:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
