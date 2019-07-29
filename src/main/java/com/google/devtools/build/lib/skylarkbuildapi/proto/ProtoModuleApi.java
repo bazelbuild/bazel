@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
         "Utilities for protocol buffers. "
             + "<p>"
             + "Please consider using `load(\"@rules_proto//proto:defs.bzl\", \"proto_common\")` "
-            + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto.\">"
+            + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
             + "rules_proto</a>"
             + "</p>")
 public interface ProtoModuleApi {}

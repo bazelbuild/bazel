@@ -299,7 +299,8 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       doc =
           "Apply a patch file to the root directory of external repository. "
               + "The patch file should be a standard "
-              + "[unified diff format](https://en.wikipedia.org/wiki/Diff#Unified_format) file. "
+              + "<a href=\"https://en.wikipedia.org/wiki/Diff#Unified_format\">"
+              + "unified diff format</a> file. "
               + "The Bazel-native patch implementation doesn't support fuzz match and binary patch "
               + "like the patch command line tool.",
       useLocation = true,
