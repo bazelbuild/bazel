@@ -50,18 +50,21 @@ function run_external_skylark_load_test() {
   cat > ${WORKSPACE_DIR}/WORKSPACE <<EOF
 local_repository(name = "external_repo", path = "${external_repo}")
 EOF
+  add_default_rules_to_workspace ${WORKSPACE_DIR}/WORKSPACE
 
   mkdir ${WORKSPACE_DIR}/local_pkg
   cat > ${WORKSPACE_DIR}/local_pkg/BUILD <<EOF
 load("@external_repo//external_pkg:macro_def.bzl", "macro")
 macro(name="macro_instance")
 EOF
+  add_default_rules_to_workspace ${WORKSPACE
 
   mkdir ${WORKSPACE_DIR}/another_local_pkg
   touch ${WORKSPACE_DIR}/another_local_pkg/BUILD
   cat > ${WORKSPACE_DIR}/another_local_pkg/local_constants.bzl <<EOF
 OUTPUT_STRING = "LOCAL!"
 EOF
+  add_default_rules_to_workspace ${WORKSPACE
 
   mkdir ${external_repo}/external_pkg
   touch ${external_repo}/external_pkg/BUILD
@@ -131,6 +134,7 @@ local_repository(
     path = "$repo2",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<EOF
 load('@r//:remote.bzl', 'remote_rule')
 
@@ -179,6 +183,7 @@ local_repository(
     path = "$repo2",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
     name = "foo",
@@ -231,6 +236,7 @@ bind(name="x1", actual="//:x1")
 load("//:repo.bzl", "repo")
 bind(name="x2", actual="//:x2")
 EOF
+add_default_rules_to_workspace WORKSPACE
 
 cat > BUILD <<EOF
 load("//:rule.bzl", "test_rule")

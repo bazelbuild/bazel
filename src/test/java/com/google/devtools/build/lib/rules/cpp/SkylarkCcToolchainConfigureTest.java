@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
+import java.nio.file.Paths;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,7 +59,8 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         // environment).
         .setUp("def Label(arg):\n  return 42")
         .setUp(
-            ResourceLoader.readFromResources(
-                TestConstants.BAZEL_REPO_PATH + "tools/cpp/lib_cc_configure.bzl"));
+            new String(
+                java.nio.file.Files.readAllBytes(Paths.get(BlazeTestUtils.runfilesDir() + "/rules_cc/cc/private/toolchain/lib_cc_configure.bzl")),
+                UTF_8));
   }
 }

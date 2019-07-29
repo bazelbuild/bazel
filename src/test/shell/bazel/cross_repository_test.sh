@@ -53,6 +53,7 @@ local_repository(
     path = "bar",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   write_rule depend_via_repo "@bar//:bar" >> BUILD
   write_rule depend_via_repo_subdir "@bar//subbar:subbar" >> BUILD
@@ -84,6 +85,7 @@ local_repository(
     path = ".",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   write_rule foo >> BUILD
 
@@ -101,6 +103,7 @@ local_repository(
     path = "bar",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   write_rule depend_via_repo "@bar//:bar" >> BUILD
   write_rule depend_directly "//bar:bar" >> BUILD
@@ -133,6 +136,7 @@ local_repository(
     path = "bar",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   write_rule depend_via_repo "@bar//:bar" >> BUILD
 
@@ -158,6 +162,7 @@ local_repository(
     path = ".",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   write_rule foo >> BUILD
 
@@ -184,6 +189,7 @@ local_repository(
     path = "bar",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   touch bar/WORKSPACE
 
   # These should now fail, using the incorrect label.
@@ -206,6 +212,7 @@ local_repository(
     path = "bar",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   mkdir -p bar
   touch bar/WORKSPACE
   write_rule bar >> bar/BUILD
@@ -240,16 +247,19 @@ function test_workspace_directory {
   cat > WORKSPACE <<EOF
 load('//pkg/WORKSPACE:ext.bzl', 'VALUE')
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   mkdir -p pkg/WORKSPACE
 
   cat > pkg/WORKSPACE/BUILD <<EOF
 exports_files(['ext.bzl'])
 EOF
+  add_default_rules_to_workspace pkg/WORKSPACE
 
   cat > pkg/WORKSPACE/ext.bzl <<EOF
 VALUE = 'a value'
 EOF
+  add_default_rules_to_workspace pkg/WORKSPACE
 
   # These should succeed, they use the correct label.
   bazel build //pkg/WORKSPACE:all || fail "build should succeed"

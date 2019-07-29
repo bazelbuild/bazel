@@ -47,6 +47,8 @@ local_repository(
     path = "$repo_a",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
+  add_default_rules_to_workspace WORKSPACE
 
   bazel build @x//:x || fail "build failed"
   assert_contains "hi" bazel-genfiles/external/x/out
@@ -57,6 +59,8 @@ local_repository(
     path = "$repo_b",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
+  add_default_rules_to_workspace WORKSPACE
 
   bazel build @x//:x || fail "build failed"
   assert_contains "bye" bazel-genfiles/external/x/out
@@ -110,7 +114,7 @@ EOF
 # Regression test for issue #724: NullPointerException in WorkspaceFile
 function test_error_in_workspace_file() {
   # Create a buggy workspace
-  cat >WORKSPACE <<'EOF'
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 /
 EOF
 
@@ -162,6 +166,8 @@ function test_clean() {
   cat > WORKSPACE <<EOF
 workspace(name = "y")
 EOF
+  add_default_rules_to_workspace WORKSPACE
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(name = "z", cmd = "echo hi > $@", outs = ["x.out"], srcs = [])
 EOF
@@ -217,6 +223,8 @@ local_repository(
     path = "$PWD/bar",
 )
 EOF
+  add_default_rules_to_workspace foo/WORKSPACE
+  add_default_rules_to_workspace foo/WORKSPACE
   cat > foo/BUILD <<EOF
 exports_files(glob(["*"]))
 EOF
@@ -224,6 +232,8 @@ EOF
   cat > bar/WORKSPACE <<EOF
 workspace(name = "bar")
 EOF
+  add_default_rules_to_workspace bar/WORKSPACE
+  add_default_rules_to_workspace bar/WORKSPACE
   cat > bar/BUILD <<EOF
 genrule(
     name = "depend-on-foo",
@@ -299,9 +309,13 @@ EOF
   cat > repo_one/WORKSPACE <<EOF
 workspace(name = "new_repo")
 EOF
+  add_default_rules_to_workspace repo_one/WORKSPACE
+  add_default_rules_to_workspace repo_one/ORKSPACE
   cat > repo_two/WORKSPACE <<EOF
 workspace(name = "new_repo")
 EOF
+  add_default_rules_to_workspace repo_two/WORKSPACE
+  add_default_rules_to_workspace repo_two/ORKSPACE
 
   bazel build @new_repo//:gen \
       && fail "Failure expected" || true
@@ -330,6 +344,7 @@ function test_package_loading_with_remapping_changes() {
 
   mkdir -p flower/daisy
   echo 'workspace(name="flower")' > flower/WORKSPACE
+  add_default_rules_to_workspace flower/WORKSPACE
   echo 'sh_library(name="daisy")' > flower/daisy/BUILD
 
   mkdir -p tree/oak
@@ -341,6 +356,8 @@ local_repository(
     repo_mapping = {"@tulip" : "@rose"}
 )
 EOF
+  add_default_rules_to_workspace tree/WORKSPACE
+  add_default_rules_to_workspace tree/WORKSPACE
   echo 'sh_library(name="oak")' > tree/oak/BUILD
 
   cd tree
@@ -365,6 +382,8 @@ local_repository(
     repo_mapping = {"@tulip" : "@daffodil"}
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
+  add_default_rules_to_workspace WORKSPACE
 
   # Test that packages in the tree workspace are not affected
   bazel query --experimental_ui_debug_all_events \
@@ -388,6 +407,8 @@ workspace(name = "main")
 local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@y"})
 local_repository(name = "y", path="../y")
 EOF
+  add_default_rules_to_workspace main/WORKSPACE
+  add_default_rules_to_workspace main/WORKSPACE
   touch main/BUILD
 
   # Repository y is a substitute for x
@@ -425,6 +446,8 @@ workspace(name = "main")
 local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@y"})
 local_repository(name = "y", path="../y")
 EOF
+  add_default_rules_to_workspace main/WORKSPACE
+  add_default_rules_to_workspace main/WORKSPACE
   touch main/BUILD
 
   # Repository y is a substitute for x
@@ -484,6 +507,8 @@ workspace(name = "main")
 local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
 local_repository(name = "b", path="../b")
 EOF
+  add_default_rules_to_workspace main/WORKSPACE
+  add_default_rules_to_workspace main/WORKSPACE
   touch main/BUILD
 
   cd main
@@ -520,6 +545,8 @@ workspace(name = "main")
 local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
 local_repository(name = "b", path="../b")
 EOF
+  add_default_rules_to_workspace main/WORKSPACE
+  add_default_rules_to_workspace main/WORKSPACE
   touch main/BUILD
 
   cd main
@@ -565,6 +592,8 @@ http_archive(
 )
 local_repository(name = "b", path="../b")
 EOF
+  add_default_rules_to_workspace main/WORKSPACE
+  add_default_rules_to_workspace main/WORKSPACE
   touch main/BUILD
 
   cd main
@@ -592,11 +621,13 @@ EOF
 
   # Main repo assigns @a to @b within @foo
   mkdir -p main
-  cat >main/WORKSPACE <<EOF
+  cat > main/WORKSPACE <<EOF
 workspace(name = "main")
 local_repository(name = "foo", path="../foo", repo_mapping = {"@a" : "@b"})
 local_repository(name = "b", path="../b")
 EOF
+  add_default_rules_to_workspace main/WORKSPACE
+  add_default_rules_to_workspace main/WORKSPACE
   touch main/BUILD
 
   cd main
@@ -626,11 +657,13 @@ EOF
 
   # Main repo assigns @a to @b within @foo
   mkdir -p main
-  cat >main/WORKSPACE <<EOF
+  cat > main/WORKSPACE <<EOF
 workspace(name = "main")
 local_repository(name = "foo", path="../foo", repo_mapping = {"@a" : "@b"})
 local_repository(name = "b", path="../b")
 EOF
+  add_default_rules_to_workspace main/WORKSPACE
+  add_default_rules_to_workspace main/WORKSPACE
   touch main/BUILD
 
   cd main
@@ -660,10 +693,13 @@ EOF
   cat > repo_one/WORKSPACE <<EOF
 workspace(name = "new_repo")
 EOF
+  add_default_rules_to_workspace repo_one/WORKSPACE
+  add_default_rules_to_workspace repo_one/WORKSPACE
   cat > repo_two/WORKSPACE <<EOF
 workspace(name = "new_repo")
 EOF
-
+  add_default_rules_to_workspace repo_two/WORKSPACE
+  add_default_rules_to_workspace repo_two/WORKSPACE
 
   cat > repo_one/aspects.bzl <<EOF
 def _print_aspect_impl(target, ctx):
@@ -714,6 +750,7 @@ function test_mainrepo_name_is_not_different_repo() {
   # Repository a refers to @x
   mkdir -p mainrepo
   echo "workspace(name = 'mainrepo')" > mainrepo/WORKSPACE
+  add_default_rules_to_workspace mainrepo/WORKSPACE
   cat > mainrepo/BUILD<<EOF
 load("//:def.bzl", "a")
 load("@mainrepo//:def.bzl", "a")
@@ -733,13 +770,15 @@ EOF
 function test_mainrepo_name_remapped_properly() {
   mkdir -p mainrepo
   touch mainrepo/BUILD
-  cat > mainrepo/WORKSPACE<<EOF
+  cat > mainrepo/WORKSPACE <<EOF
 workspace(name = "mainrepo")
 local_repository(
   name = "a",
   path = "../a"
 )
 EOF
+  add_default_rules_to_workspace mainrepo/WORKSPACE
+  add_default_rules_to_workspace mainrepo/WORKSPACE
   cat > mainrepo/def.bzl<<EOF
 print ("def.bzl loaded")
 x = 10
@@ -758,7 +797,7 @@ EOF
   expect_not_log "external"
 
   cd ..
-  cat > mainrepo/WORKSPACE<<EOF
+  cat > mainrepo/WORKSPACE <<EOF
 workspace(name = "mainrepo")
 local_repository(
   name = "a",
@@ -766,6 +805,8 @@ local_repository(
   repo_mapping = {"@mainrepo" : "@newname"}
 )
 EOF
+  add_default_rules_to_workspace mainrepo/WORKSPACE
+  add_default_rules_to_workspace mainrepo/WORKSPACE
 
   # now that @mainrepo doesn't exist within workspace "a",
   # the query should fail
@@ -784,6 +825,7 @@ function test_external_subpacakge() {
   mkdir main
   cd main
   echo 'local_repository(name="local", path="../local")' > WORKSPACE
+  add_default_rules_to_workspace WORKSPACE
   bazel build //external:local --build_event_json_file=bep.json \
         > "${TEST_log}" 2>&1 \
       || fail "Accessing a repo through the //extern package should not fail"

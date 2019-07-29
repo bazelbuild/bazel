@@ -46,6 +46,7 @@ java_test(
     srcs = glob([
         "*.java",
     ]),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     shard_count = 5,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [

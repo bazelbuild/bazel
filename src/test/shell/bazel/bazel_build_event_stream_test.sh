@@ -80,6 +80,7 @@ function set_up() {
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name="remote", urls=["${FILE_URL}"])
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > pkg/BUILD <<'EOF'
 genrule(
   name="main",
@@ -158,6 +159,7 @@ load("//:failing_repo.bzl", "failing")
 
 failing(name="remote")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   touch BUILD
   cat > failing_repo.bzl <<'EOF'
 def _impl(ctx):

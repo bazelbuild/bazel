@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.mock;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -46,16 +47,21 @@ import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.StringJoiner;
+import java.util.regex.Pattern;
 
 /** Subclass of {@link AnalysisMock} using Bazel-specific semantics. */
 public final class BazelAnalysisMock extends AnalysisMock {
@@ -63,6 +69,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
   private BazelAnalysisMock() {
   }
+
+  public final static String RULES_CC_WORKSPACE = "local_repository(name = 'rules_cc', path = '/rules_cc_workspace')";
 
   @Override
   public List<String> getWorkspaceContents(MockToolsConfig config) {
@@ -83,7 +91,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
             "local_repository(name = 'local_config_platform', path = '"
                 + localConfigPlatformWorkspace
-                + "')"));
+                + "')",
+            RULES_CC_WORKSPACE)
+            );
   }
 
   @Override
@@ -92,18 +102,71 @@ public final class BazelAnalysisMock extends AnalysisMock {
     setupMockClient(config, workspaceContents);
   }
 
+  private void copyFilesFromRulesCc(MockToolsConfig config) throws IOException {
+    String directoryPath = BlazeTestUtils.runfilesDir() + "/rules_cc/cc";
+    Files.walk(Paths.get(directoryPath), FileVisitOption.FOLLOW_LINKS).forEach(
+        x -> {
+          if (Files.isDirectory(x)) {
+            return;
+          }
+          java.nio.file.Path newPath = Paths.get(BlazeTestUtils.runfilesDir() + "/rules_cc").relativize(x);
+          try {
+            String contents;
+            /**
+             *  This replaces following lines from cc/private/toolchain/BUILD
+             *  85 alias(
+             *  86     name = "toolchain",
+             *  87     actual = "//external:cc_toolchain",
+             *  88 )
+             *
+             *  This is mocked differently in tests compared to the real thing.
+             */
+            if (newPath.toString().endsWith("private/toolchain/BUILD")) {
+              StringBuilder lines = new StringBuilder();
+              int lineNumber = 0;
+              for (String line : java.nio.file.Files.readAllLines(x, UTF_8)) {
+                lineNumber++;
+                if (lineNumber >= 85 && lineNumber <= 88) {
+                  continue;
+                }
+                lines.append(line + "\n");
+              }
+              lines.append("alias(name = 'toolchain', actual = '@bazel_tools//tools/cpp:toolchain')");
+              contents = lines.toString();
+            } else {
+              contents = new String(
+                  java.nio.file.Files.readAllBytes(x),
+                  UTF_8);
+            }
+            config.create(
+                "/rules_cc_workspace/" + newPath.toString(),
+                contents
+                );
+          } catch (IOException e) {
+            throw new IllegalStateException(e);
+          }
+        }
+    );
+  }
+
   @Override
   public void setupMockClient(MockToolsConfig config, List<String> workspaceContents)
       throws IOException {
     config.create("/local_config_xcode/BUILD", "xcode_config(name = 'host_xcodes')");
     config.create(
         "/protobuf/BUILD", "licenses(['notice'])", "exports_files(['protoc', 'cc_toolchain'])");
-    config.create("/local_config_xcode/WORKSPACE");
-    config.create("/protobuf/WORKSPACE");
+    config.overwrite("/local_config_xcode/WORKSPACE",
+        RULES_CC_WORKSPACE);
+    config.overwrite("/rules_cc_workspace/WORKSPACE", "workspace(name = 'rules_cc')");
+    copyFilesFromRulesCc(config);
+    config.overwrite("/protobuf/WORKSPACE",
+        RULES_CC_WORKSPACE);
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
     /** The rest of platforms is initialized in {@link MockPlatformSupport}. */
-    config.create("/platforms/WORKSPACE", "workspace(name = 'platforms')");
-    config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    config.overwrite("/platforms/WORKSPACE", "workspace(name = 'platforms')",
+        RULES_CC_WORKSPACE);
+    config.overwrite("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')",
+        RULES_CC_WORKSPACE);
     Runfiles runfiles = Runfiles.create();
     for (String filename :
         Arrays.asList("tools/jdk/toolchain_utils.bzl", "tools/jdk/java_toolchain_alias.bzl")) {
@@ -385,7 +448,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
-    config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')",
+        RULES_CC_WORKSPACE);
     config.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
     config.create(
         "/bazel_tools_workspace/tools/build_defs/repo/utils.bzl",

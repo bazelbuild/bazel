@@ -29,6 +29,7 @@ load("//:fastfailure.bzl", "failfast")
 slowrepo(name="slow")
 failfast(name="failfast")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "slow",
@@ -94,6 +95,7 @@ load("//:handletimeout.bzl", "timeoutrepo")
 
 timeoutrepo(name="ext")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "it",

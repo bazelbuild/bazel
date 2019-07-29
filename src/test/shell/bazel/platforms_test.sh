@@ -59,6 +59,7 @@ local_repository(
   path = '../override',
 )
 EOF
+  add_default_rules_to_workspace platforms_can_be_overridden/WORKSPACE
 
   mkdir -p override || fail "couldn't create override directory"
   touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"

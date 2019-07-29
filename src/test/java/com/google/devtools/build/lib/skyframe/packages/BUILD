@@ -16,6 +16,7 @@ java_test(
         "AbstractPackageLoaderTest.java",
         "BazelPackageLoaderTest.java",
     ],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",

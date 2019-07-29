@@ -81,6 +81,7 @@ function set_up() {
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name="remote", urls=["file://${cwd}/remote_file"])
 EOF
+  add_default_rules_to_workspace WORKSPACE
   touch BUILD
 }
 

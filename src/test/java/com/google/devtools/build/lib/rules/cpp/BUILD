@@ -19,6 +19,7 @@ java_test(
             "SkylarkCcCommonTestHelper.java",
         ],
     ) + ["proto/CcProtoLibraryTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     resources = [
         "//tools/build_defs/cc:action_names.bzl",
         "//tools/cpp:cc_toolchain_config_lib.bzl",

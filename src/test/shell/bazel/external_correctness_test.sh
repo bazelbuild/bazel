@@ -43,6 +43,7 @@ local_repository(
     path = "$REMOTE",
 )
 EOF
+  add_default_rules_to_workspace $LOCAL/WORKSPACE
   cat > $LOCAL/BUILD <<EOF
 genrule(
     name = "b",
@@ -161,6 +162,7 @@ filegroup(name="fg", visibility=[":pg"])
 EOF
 
   echo "local_repository(name='r', path='$REMOTE')" > WORKSPACE
+  add_default_rules_to_workspace WORKSPACE
   bazel build @r//v:rv >& $TEST_log || fail "Build failed"
   bazel build @r//a:ra >& $TEST_log && fail "Build succeeded"
   expect_log "target '@r//:fg' is not visible"
@@ -201,6 +203,7 @@ local_repository(
     path = "$REMOTE2",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   bazel build @remote2//:x &> $TEST_log || fail "Build failed"
   assert_contains 1.0 bazel-genfiles/external/remote2/x.out
@@ -228,6 +231,7 @@ EOF
   cat > WORKSPACE <<EOF
 local_repository(name = "r", path = "$REMOTE")
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   cat > BUILD <<EOF
 filegroup(name="fg", srcs=["@r//r:fg1", "@r//r:fg2"])
@@ -268,6 +272,7 @@ EOF
   cat > WORKSPACE <<EOF
 local_repository(name="r", path="$REMOTE")
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   cat > d/BUILD <<EOF
 package(default_visibility=["//visibility:public"])
@@ -310,6 +315,7 @@ genrule(
 )""",
 )
 EOF
+  add_default_rules_to_workspace m/WORKSPACE
   cd m
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"

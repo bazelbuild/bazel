@@ -430,6 +430,7 @@ EOF
 function test_repository_package_query() {
   mkdir a b b/b
   echo "local_repository(name='b', path='b')" > WORKSPACE
+  add_default_rules_to_workspace WORKSPACE
   echo "sh_library(name='a', deps=['@b//b'])" > a/BUILD
   create_workspace_with_default_repos b/WORKSPACE
   echo "sh_library(name='b')" > b/b/BUILD
@@ -441,6 +442,7 @@ function test_repository_package_query() {
 function test_repository_buildfiles_package_query() {
   mkdir a b b/b b/c
   echo "local_repository(name='b', path='b')" > WORKSPACE
+  add_default_rules_to_workspace WORKSPACE
   echo "sh_library(name='a', deps=['@b//b'])" > a/BUILD
   touch b/WORKSPACE b/c/BUILD
   cat > b/b/BUILD <<EOF
@@ -462,6 +464,7 @@ function test_override_workspace_file() {
   cat > "$bar/WORKSPACE" <<EOF
 workspace(name = "foo")
 EOF
+  add_default_rules_to_workspace "$bar/WORKSPACE
 
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 new_local_repository(
@@ -880,6 +883,7 @@ function test_recursive_wildcard_in_remote_repository() {
   echo 'exports_files(["m", "n"])' > $r/a/y/z/BUILD
 
   echo "local_repository(name='r', path='$r')" > WORKSPACE
+  add_default_rules_to_workspace WORKSPACE
   bazel query @r//...:all-targets >& $TEST_log || fail "query failed"
   expect_log "@r//a/x:m"
   expect_log "@r//a/x:n"

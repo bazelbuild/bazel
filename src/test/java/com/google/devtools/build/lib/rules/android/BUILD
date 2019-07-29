@@ -32,6 +32,7 @@ java_test(
 java_test(
     name = "AndroidSkylarkTest",
     srcs = ["AndroidSkylarkTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
@@ -48,6 +49,7 @@ java_test(
 java_test(
     name = "AndroidSkylarkCommonTest",
     srcs = ["AndroidSkylarkCommonTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
@@ -122,6 +124,7 @@ java_test(
 java_test(
     name = "AndroidResourcesTest",
     srcs = ["AndroidResourcesTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":ResourceTestBase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
@@ -140,6 +143,7 @@ java_test(
 java_test(
     name = "AndroidAssetsTest",
     srcs = ["AndroidAssetsTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":ResourceTestBase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
@@ -174,6 +178,7 @@ java_library(
 java_test(
     name = "AndroidDeviceScriptFixtureTest",
     srcs = ["AndroidDeviceScriptFixtureTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
@@ -193,6 +198,7 @@ java_test(
 java_test(
     name = "AndroidHostServiceFixtureTest",
     srcs = ["AndroidHostServiceFixtureTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
@@ -232,6 +238,7 @@ java_test(
     name = "AndroidLibraryTest",
     timeout = "long",
     srcs = ["AndroidLibraryTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
@@ -277,6 +284,7 @@ java_library(
 java_test(
     name = "AndroidDeviceTest",
     srcs = ["AndroidDeviceTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
@@ -295,6 +303,7 @@ java_test(
         "AndroidBinaryMultidexTest.java",
         "AndroidMultidexBaseTest.java",
     ],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -313,6 +322,7 @@ java_test(
 java_test(
     name = "AndroidDataBindingTest",
     srcs = ["AndroidDataBindingTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",

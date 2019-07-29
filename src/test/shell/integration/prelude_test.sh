@@ -59,6 +59,7 @@ local_repository(
   path = "$PWD/imported_workspace",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   mkdir -p tools/build_rules
   touch tools/build_rules/BUILD

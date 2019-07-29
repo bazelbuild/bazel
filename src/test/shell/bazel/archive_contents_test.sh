@@ -90,6 +90,7 @@ http_archive(
   strip_prefix="ext",
 )
 EOF
+    add_default_rules_to_workspace WORKSPACE
     cat > BUILD <<'EOF'
 genrule(
   name = "it",

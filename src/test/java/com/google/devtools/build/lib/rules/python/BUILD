@@ -96,6 +96,7 @@ java_library(
 java_test(
     name = "PyBinaryConfiguredTargetTest",
     srcs = ["PyBinaryConfiguredTargetTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         ":PyExecutableTestBase",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -143,6 +144,7 @@ java_test(
 java_test(
     name = "PythonVersionSelectTest",
     srcs = ["PythonVersionSelectTest.java"],
+    data = ["@rules_cc//cc:all_files_for_testing"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",

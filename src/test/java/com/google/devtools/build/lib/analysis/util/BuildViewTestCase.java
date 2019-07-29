@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -236,7 +237,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     actionKeyContext = new ActionKeyContext();
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
-    mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    mockToolsConfig.overwrite("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     mockToolsConfig.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
     mockToolsConfig.create(
         "/bazel_tools_workspace/tools/build_defs/repo/utils.bzl",

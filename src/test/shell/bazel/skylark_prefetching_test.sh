@@ -54,6 +54,7 @@ EOF
 load("//:rule.bzl", "myrule")
 myrule(name="ext", build_file="//:ext.BUILD")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   bazel build @ext//:foo || fail "expected success"
   [ `cat "${WRKDIR}/log" | wc -l` -eq 1 ] \
       || fail "did not find precisely one invocation of the action"
@@ -83,6 +84,7 @@ EOF
 load("//:rule.bzl", "myrule")
 myrule(name="ext", unused="//does/not/exist:file")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   bazel build @ext//:foo || fail "expected success"
 }
 
@@ -121,6 +123,7 @@ EOF
 load("//:rule.bzl", "myrule")
 myrule(name="ext", data = ["//:a.txt", "//:b.txt"])
 EOF
+  add_default_rules_to_workspace WORKSPACE
   echo Hello > a.txt
   echo World > b.txt
   bazel build @ext//:foo || fail "expected success"
@@ -154,6 +157,7 @@ load("//:rule.bzl", "myrule")
 myrule(name="ext", unused_list=["//does/not/exist:file1",
                                 "//does/not/exists:file2"])
 EOF
+  add_default_rules_to_workspace WORKSPACE
   bazel build @ext//:foo || fail "expected success"
 }
 

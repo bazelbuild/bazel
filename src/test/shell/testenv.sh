@@ -449,13 +449,17 @@ new_local_repository(
 EOF
 }
 
+function add_default_rules_to_workspace() {
+  add_rules_cc_to_workspace $1
+}
+
 function add_rules_cc_to_workspace() {
   cat >> "$1"<<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_cc",
-    sha256 = "3d6a063c723ba15078dccec927524c04721179788307af9673f6d327d909f29b",
+    sha256 = "ae512d0a148f319ed51ea3d795db7e7d83839136b86977f2f27eba302269d76f",
     strip_prefix = "rules_cc-plf-moving-tools",
     urls = [
         "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",

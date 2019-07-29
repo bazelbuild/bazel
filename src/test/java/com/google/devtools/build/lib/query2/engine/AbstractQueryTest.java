@@ -534,7 +534,8 @@ public abstract class AbstractQueryTest<T> {
                 + "//tools/def_parser:def_parser"
                 + " + "
                 + helper.getToolsRepository()
-                + "//tools/cpp:grep-includes";
+                + "//tools/cpp:grep-includes"
+                + " + @rules_cc//cc/private/toolchain:toolchain";
       }
       assertThat(eval("deps(//configurable:main, 1)" + TestConstants.CC_DEPENDENCY_CORRECTION))
           .containsExactlyElementsIn(
@@ -735,6 +736,7 @@ public abstract class AbstractQueryTest<T> {
     String hostDepsExpr = helper.getToolsRepository() + "//tools/cpp:malloc";
     String implicitDepsExpr = "";
     if (analysisMock.isThisBazel()) {
+      hostDepsExpr += " + @rules_cc//cc/private/toolchain:toolchain";
       implicitDepsExpr +=
           " + "
               + helper.getToolsRepository()

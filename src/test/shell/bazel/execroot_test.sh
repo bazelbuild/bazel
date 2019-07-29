@@ -26,6 +26,7 @@ function test_execroot_structure() {
   cat > WORKSPACE <<EOF
 workspace(name = "$ws_name")
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   mkdir dir
   cat > dir/BUILD <<'EOF'

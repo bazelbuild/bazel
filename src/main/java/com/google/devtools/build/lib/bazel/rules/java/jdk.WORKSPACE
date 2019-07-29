@@ -254,12 +254,11 @@ maybe(
 maybe(
     http_archive,
     "rules_cc",
-    sha256 = "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
+    sha256 = "ae512d0a148f319ed51ea3d795db7e7d83839136b86977f2f27eba302269d76f",
     urls = [
-      "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
-      "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip"
+      "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip"
     ],
-    strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",
+    strip_prefix = "rules_cc-plf-moving-tools",
 )
 
 register_toolchains("@bazel_tools//tools/jdk:all")

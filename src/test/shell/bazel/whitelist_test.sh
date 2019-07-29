@@ -77,6 +77,7 @@ EOF
   cat > WORKSPACE <<EOF
 local_repository(name = 'secret_ingredient', path = "${repo2}")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > vinegar/rules.bzl <<EOF
 def _impl(ctx):
   return []

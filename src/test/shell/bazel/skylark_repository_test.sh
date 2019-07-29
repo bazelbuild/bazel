@@ -1271,6 +1271,7 @@ load("//:repos.bzl", "configure", "source")
 configure(name="configure", reference="@//:reference.txt")
 source(name="source", reference="@//:reference.txt")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 [ genrule(
     name = name,
@@ -1741,6 +1742,7 @@ http_archive(
   url = "http://127.0.0.1:$nc_port/x.tar",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "it",
@@ -1791,6 +1793,7 @@ http_archive(
   sha256="$sha256",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > .netrc <<'EOF'
 machine 127.0.0.1
 login foo
@@ -1833,6 +1836,7 @@ http_archive(
   sha256="$sha256",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "it",

@@ -26,6 +26,7 @@ bind(
    actual = "//bar:baz"
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   mkdir bar
   cat > bar/BUILD <<EOF
 genrule(
@@ -54,6 +55,7 @@ bind(
    actual = "//bar:baz"
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   mkdir bar
   cat > bar/BUILD <<EOF
 genrule(

@@ -122,6 +122,7 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
@@ -156,6 +157,7 @@ EOF
 load("//:workspace.bzl", "repo")
 repo()
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "out",
@@ -198,6 +200,7 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "out",
@@ -248,6 +251,7 @@ EOF
 load("//:workspace.bzl", "repo")
 repo()
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "out",
@@ -295,6 +299,7 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
+  add_default_rules_to_workspace followbranch/WORKSPACE
   cat > followbranch/BUILD <<'EOF'
 genrule(
   name = "out",
@@ -345,6 +350,7 @@ http_archive(
   urls=["file://${EXTREPODIR}/a.zip"],
 )
 EOF
+  add_default_rules_to_workspace main/WORKSPACE
   touch main/BUILD
 
   cd main
@@ -444,6 +450,7 @@ load("//:rule.bzl", "trivial_rule")
 trivial_rule(name = "a")
 trivial_rule(name = "b")
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   bazel build @a//... @b//...
   echo; echo sync run; echo
@@ -482,6 +489,7 @@ load("//does/not:exist.bzl", "randomfunction")
 
 radomfunction(name="foo")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir > "${TEST_log}" 2>&1 && fail "Expected failure" || :
   expect_log '//does/not:exist.bzl'
 }
@@ -544,6 +552,7 @@ load("//:indirect.bzl", "call")
 
 call(trivial_rule, name="foo")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
 
@@ -595,6 +604,7 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "out",
@@ -636,6 +646,7 @@ http_archive(
   build_file="@//:exit.BUILD",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   echo 'exports_files(["file.txt"])' > exit.BUILD
   cat > BUILD <<'EOF'
 genrule(
@@ -687,6 +698,7 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
+  add_default_rules_to_workspace followbranch/WORKSPACE
   cat > followbranch/BUILD <<'EOF'
 genrule(
   name = "out",
@@ -742,6 +754,7 @@ load("//:rule.bzl", "trivial_rule")
 
 trivial_rule(name="foo", build_file="@//:BUILD.remote")
 EOF
+  add_default_rules_to_workspace WORKSPACE
 }
 
 test_hash_included_and_reproducible() {
@@ -818,6 +831,7 @@ load("//:rule.bzl", "time_rule")
 
 time_rule(name="timestamprepo")
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
     bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
     bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_hash_file=`pwd`/resolved.bzl \
@@ -857,6 +871,7 @@ http_archive(
 load("@rulerepo//:rule.bzl", "trivial_rule")
 trivial_rule(name="a")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -908,6 +923,7 @@ http_archive(
   urls=["file://${EXTREPODIR}/metadatarepo.zip"],
 )
 EOF
+   add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -963,6 +979,7 @@ sleep_rule(name="a", sleep=1)
 sleep_rule(name="c", sleep=3)
 sleep_rule(name="b", sleep=5)
 EOF
+  add_default_rules_to_workspace WORKSPACE
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=repo.bzl
   bazel build //:order
@@ -976,6 +993,7 @@ sleep_rule(name="a", sleep=5)
 sleep_rule(name="c", sleep=3)
 sleep_rule(name="b", sleep=1)
 EOF
+  add_default_rules_to_workspace WORKSPACE
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=repo.bzl
   bazel build //:order
@@ -1012,6 +1030,7 @@ new_local_repository(name="newlocal", path="../newlocal",
                      build_file_content='exports_files(["data.txt"])')
 bind(name="bound", actual="//target_to_be_bound:data.txt")
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "it",
@@ -1068,6 +1087,7 @@ load("//:repo.bzl", "data_repo")
 
 data_repo("foo")
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   bazel build --experimental_repository_resolved_file=resolved.bzl //:it
   echo > WORKSPACE # remove workspace, only work from the resolved file
@@ -1154,6 +1174,7 @@ load("//:first/path/foo.bzl", "foo")
 
 foo()
 EOF
+  add_default_rules_to_workspace WORKSPACE
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=resolved.bzl

@@ -58,6 +58,7 @@ java_test(
             exclude = ["MacOSXFsEventsDiffAwarenessTest.java"],
         ),
     }),
+    data = ["@rules_cc//cc:all_files_for_testing"],
     flaky = 1,
     tags = ["skyframe"],
     test_class = "com.google.devtools.build.lib.AllTests",

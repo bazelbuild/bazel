@@ -118,6 +118,7 @@ http_archive(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -157,6 +158,7 @@ http_archive(
   build_file_content="exports_files([\"foo.sh\"])",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   bazel build :foo.sh
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'Here be' $foopath || fail "expected unpatched file"
@@ -190,6 +192,7 @@ http_archive(
   patch_tool = "${EXTREPODIR}/my_patch_tool",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   touch BUILD
 
   bazel build @ext//... >"${TEST_log}" 2>&1 && fail "expected failure" || :
@@ -241,6 +244,7 @@ new_git_repository(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -280,6 +284,7 @@ new_git_repository(
   build_file_content="exports_files([\"foo.sh\"])",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   bazel build :foo.sh
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'Here be' $foopath || fail "expected unpatched file"
@@ -318,6 +323,7 @@ http_archive(
   build_file="@//:ext.BUILD",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -384,6 +390,7 @@ genrule(
   """,
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -443,6 +450,7 @@ new_git_repository(
   build_file="@//:ext.BUILD",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -519,6 +527,7 @@ genrule(
   """,
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -567,6 +576,7 @@ http_archive(
   build_file="@//:ext.BUILD",
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -636,6 +646,7 @@ http_archive(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
+  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
