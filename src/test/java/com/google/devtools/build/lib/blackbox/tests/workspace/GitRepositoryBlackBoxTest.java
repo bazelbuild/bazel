@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.blackbox.tests.workspace.RepoWithRul
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
+import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -188,7 +189,8 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
 
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
-    bazel.build("@ext//:write_text");
+    ProcessResult result = bazel.build("@ext//:write_text");
+    System.out.println("RESULT:\n" + result);
     Path outPath = context().resolveBinPath(bazel, "external/ext/out");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
   }
@@ -238,7 +240,8 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
 
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
-    bazel.build("@ext//:write_text");
+    ProcessResult result = bazel.build("@ext//:write_text");
+    System.out.println("RESULT:\n" + result);
     Path outPath = context().resolveBinPath(bazel, "external/ext/out");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
   }

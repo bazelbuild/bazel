@@ -123,15 +123,15 @@ def fetch(ctx, git_repo, git_version):
         # We need to explicitly specify to fetch all branches and tags,
         # otherwise only HEAD-reachable ones are fetched.
         if git_version.major > 1 or (git_version.major == 1 and git_version.minor > 8):
-            print("Calling git fetch --all --tags")
-            _git(ctx, git_repo, "fetch", "--all", "--tags")
+            print("Calling git fetch --all --tags -v")
+            _git_maybe_shallow(ctx, git_repo, "fetch", "--all", "--tags", "-v")
         else:
             # However, in versions of Git before 1.9 "fetch --tags" used to mean
             # "fetch only tags". That is why we have to fetch tags in a separate
             # command.
             print("Calling git fetch --all and git fetch --tags")
-            _git(ctx, git_repo, "fetch", "--all")
-            _git(ctx, git_repo, "fetch", "--tags")
+            _git_maybe_shallow(ctx, git_repo, "fetch", "--all", "--tags", "-v")
+            _git_maybe_shallow(ctx, git_repo, "fetch", "--tags", "-v")
     else:
         _git_maybe_shallow(ctx, git_repo, "fetch", "origin", git_repo.fetch_ref)
 
@@ -162,11 +162,13 @@ def _git_maybe_shallow(ctx, git_repo, command, *args):
     args_list = list(args)
     if git_repo.shallow:
         st = _execute(ctx, git_repo, start + [git_repo.shallow] + args_list)
+        print("RUNNING " + " ".join(start + args_list) + ": " + st.stdout + ", " + st.stderr)
         if st.return_code == 0:
             return
     st = _execute(ctx, git_repo, start + args_list)
     if st.return_code != 0:
         _error(ctx.name, start + args_list, st.stderr)
+    print("RUNNING " + " ".join(start + args_list) + ": " + st.stdout + ", " + st.stderr)
 
 def _parse_git_version(ctx):
     st = ctx.execute(["git", "version"], environment = ctx.os.environ)
