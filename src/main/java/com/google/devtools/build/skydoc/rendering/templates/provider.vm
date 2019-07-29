@@ -21,7 +21,7 @@ ${util.htmlEscape($providerInfo.docString)}
     <tr id="${providerName}-${field.name}">
       <td><code>${field.name}</code></td>
       <td>
-        <p>${util.htmlEscape($field.docString)}</p>
+        <p>${field.docString}</p>
       </td>
     </tr>
 #end

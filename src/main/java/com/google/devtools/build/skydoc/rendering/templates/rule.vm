@@ -24,7 +24,7 @@ ${util.htmlEscape($ruleInfo.docString)}
         ${util.attributeTypeString($attribute)}; ${util.mandatoryString($attribute)}
 #if (!$attribute.docString.isEmpty())
         <p>
-          ${util.htmlEscape($attribute.docString.trim())}
+          ${attribute.docString.trim()}
         </p>
 #end
       </td>

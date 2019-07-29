@@ -25,7 +25,7 @@ ${util.htmlEscape($funcInfo.docString)}
 
 #if (!$param.docString.isEmpty())
         <p>
-          ${util.htmlEscape($param.docString.trim())}
+          ${param.docString.trim()}
         </p>
 #end
       </td>
