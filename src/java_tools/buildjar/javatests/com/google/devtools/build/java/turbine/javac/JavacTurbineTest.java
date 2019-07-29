@@ -1224,8 +1224,8 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     addSourceLines(
         "Hello.java",
         "import " + Lib.class.getCanonicalName() + ";",
-        "import no.such.Class;",
         "class Hello extends Lib {",
+        "  no.such.Class f;",
         "}");
 
     optionsBuilder.addClassPathEntries(ImmutableList.of(lib.toString()));
