@@ -15,7 +15,7 @@ java_test(
     srcs = glob(["*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http",
+        "//src/main/java/com/google/devtools/build/lib/remote/http",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//third_party:api_client",
