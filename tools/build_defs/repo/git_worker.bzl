@@ -120,26 +120,14 @@ def add_origin(ctx, git_repo, remote):
 
 def fetch(ctx, git_repo, git_version):
     if not git_repo.fetch_ref:
-        # We need to explicitly specify to fetch all branches and tags,
-        # otherwise only HEAD-reachable ones are fetched.
-        if git_version.major > 1 or (git_version.major == 1 and git_version.minor > 8):
-            print("Calling git fetch --all --tags -v")
-            _git_maybe_shallow(ctx, git_repo, "fetch", "--all", "--tags")
-        else:
-            # However, in versions of Git before 1.9 "fetch --tags" used to mean
-            # "fetch only tags". That is why we have to fetch tags in a separate
-            # command.
-            print("Calling git fetch --all and git fetch --tags")
-            _git_maybe_shallow(
-                ctx,
-                git_repo,
-                "fetch",
-                "origin",
-                "+refs/heads/*:refs/remotes/origin/*",
-                "+refs/tags/*:refs/tags/*",
-            )
-
-        #            _git_maybe_shallow(ctx, git_repo, "fetch", "--tags", "-v")
+        _git_maybe_shallow(
+            ctx,
+            git_repo,
+            "fetch",
+            "origin",
+            "refs/heads/*:refs/remotes/origin/*",
+            "refs/tags/*:refs/tags/*",
+        )
     else:
         _git_maybe_shallow(ctx, git_repo, "fetch", "origin", git_repo.fetch_ref)
 
