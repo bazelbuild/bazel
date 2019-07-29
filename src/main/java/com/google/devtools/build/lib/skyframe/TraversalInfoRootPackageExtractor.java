@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -33,6 +32,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.function.Consumer;
 
 /** Looks up values under {@link TraversalInfo}s of given roots in a {@link WalkableGraph}. */
 public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
@@ -41,7 +41,8 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       Comparator.comparing(ti -> ti.rootedDir.getRootRelativePath());
 
   @Override
-  public Iterable<PathFragment> getPackagesFromRoots(
+  public void streamPackagesFromRoots(
+      Consumer<PathFragment> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
@@ -50,27 +51,22 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    // If we found a TargetsBelowDirectory pattern in the universe that contains this directory,
-    // then we can look for packages in and under it in the graph. If we didn't find one, then the
-    // directory wasn't in the universe, so return an empty list.
-    ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
     for (Root root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
       TraversalInfo info =
           new TraversalInfo(rootedDir, blacklistedSubdirectories, excludedSubdirectories);
       TreeSet<TraversalInfo> dirsToCheckForPackages = new TreeSet<>(TRAVERSAL_INFO_COMPARATOR);
       dirsToCheckForPackages.add(info);
-      collectPackagesUnder(graph, eventHandler, repository, dirsToCheckForPackages, builder);
+      collectPackagesUnder(results, graph, eventHandler, repository, dirsToCheckForPackages);
     }
-    return builder.build();
   }
 
   private void collectPackagesUnder(
+      Consumer<PathFragment> results,
       WalkableGraph graph,
       ExtendedEventHandler eventHandler,
       final RepositoryName repository,
-      TreeSet<TraversalInfo> dirsToCheckForPackages,
-      ImmutableList.Builder<PathFragment> resultsBuilder)
+      TreeSet<TraversalInfo> dirsToCheckForPackages)
       throws InterruptedException {
     // NOTE: Maps.asMap returns a Map<T> view whose entrySet() order matches the underlying Set<T>.
     Map<TraversalInfo, SkyKey> traversalToKeyMap =
@@ -91,7 +87,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
           (CollectPackagesUnderDirectoryValue) val;
       if (collectPackagesValue != null) {
         if (collectPackagesValue.isDirectoryPackage()) {
-          resultsBuilder.add(info.rootedDir.getRootRelativePath());
+          results.accept(info.rootedDir.getRootRelativePath());
         }
 
         if (collectPackagesValue.getErrorMessage() != null) {
@@ -126,8 +122,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
     }
 
     if (!subdirsToCheckForPackages.isEmpty()) {
-      collectPackagesUnder(
-          graph, eventHandler, repository, subdirsToCheckForPackages, resultsBuilder);
+      collectPackagesUnder(results, graph, eventHandler, repository, subdirsToCheckForPackages);
     }
   }
 
