@@ -277,6 +277,12 @@ public final class ActionMetadataHandler implements MetadataHandler {
     final FileArtifactValue value;
 
     if (data.isDirectory()) {
+      // This branch is taken when the output of an action is a directory:
+      //   - A Fileset (in this case, Blaze is correct)
+      //   - A directory someone created in a local action (in this case, changes under the
+      //     directory may not be detected since we use the mtime of the directory for
+      //     up-to-dateness checks)
+      //   - A symlink to a source directory due to Filesets
       value =
           FileArtifactValue.createForDirectoryWithMtime(
               artifactPathResolver.toPath(artifact).getLastModifiedTime());
@@ -602,6 +608,9 @@ public final class ActionMetadataHandler implements MetadataHandler {
       @Nullable FileStatusWithDigest statNoFollow,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
+    Preconditions.checkState(!artifact.isTreeArtifact());
+    Preconditions.checkState(!artifact.isMiddlemanArtifact());
+
     Path path = artifactPathResolver.toPath(artifact);
     PathFragment pathFragment = path.asFragment();
     RootedPath rootedPath =
@@ -611,38 +620,35 @@ public final class ActionMetadataHandler implements MetadataHandler {
     if (statNoFollow == null) {
       statNoFollow = FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW));
       if (statNoFollow == null) {
-        return ArtifactFileMetadata.value(
-            pathFragment,
-            FileStateValue.NONEXISTENT_FILE_STATE_NODE,
-            pathFragment,
-            FileStateValue.NONEXISTENT_FILE_STATE_NODE);
+        return ArtifactFileMetadata.forRegularFile(
+            pathFragment, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
       }
     }
-    Path realPath = path;
+
+    FileStateValue fileStateValue =
+        FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
+    if (!statNoFollow.isSymbolicLink()) {
+      return ArtifactFileMetadata.forRegularFile(path.asFragment(), fileStateValue);
+    }
+
     // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat
-    // done by the latter.
-    if (statNoFollow.isSymbolicLink()) {
-      realPath = path.resolveSymbolicLinks();
-      // We need to protect against symlink cycles since ArtifactFileMetadata#value assumes it's
-      // dealing with a
-      // file that's not in a symlink cycle.
-      if (realPath.equals(path)) {
-        throw new IOException("symlink cycle");
-      }
+    // done by the latter.  We need to protect against symlink cycles since
+    // ArtifactFileMetadata#value assumes it's dealing with a file that's not in a symlink cycle.
+    Path realPath = path.resolveSymbolicLinks();
+    if (realPath.equals(path)) {
+      throw new IOException("symlink cycle");
     }
+
     RootedPath realRootedPath =
         RootedPath.toRootedPathMaybeUnderRoot(
             realPath,
             ImmutableList.of(artifactPathResolver.transformRoot(artifact.getRoot().getRoot())));
-    FileStateValue fileStateValue =
-        FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
+
     // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
     // and is a source file (since changes to those are checked separately).
-    FileStateValue realFileStateValue = realPath.equals(path)
-        ? fileStateValue
-        : FileStateValue.create(realRootedPath, tsgm);
-    return ArtifactFileMetadata.value(
-        pathFragment, fileStateValue, realPath.asFragment(), realFileStateValue);
+    FileStateValue realFileStateValue = FileStateValue.create(realRootedPath, tsgm);
+    return ArtifactFileMetadata.forSymlink(
+        realPath.asFragment(), realFileStateValue, fileStateValue.getSymlinkTarget());
   }
 
   private void setPathReadOnlyAndExecutable(Artifact artifact) throws IOException {

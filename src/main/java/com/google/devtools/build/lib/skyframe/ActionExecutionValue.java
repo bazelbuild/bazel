@@ -267,19 +267,23 @@ public class ActionExecutionValue implements SkyValue {
   /** Transforms PLACEHOLDER values into normal instances. */
   private ArtifactFileMetadata transformIfPlaceholder(
       Artifact artifact, ArtifactFileMetadata value) {
-    if (value == ArtifactFileMetadata.PLACEHOLDER) {
-      FileArtifactValue metadata =
-          Preconditions.checkNotNull(
-              additionalOutputData.get(artifact),
-              "Placeholder without corresponding FileArtifactValue for: %s",
-              artifact);
-      FileStateValue.RegularFileStateValue fileStateValue =
-          new FileStateValue.RegularFileStateValue(
-              metadata.getSize(), metadata.getDigest(), /*contentsProxy=*/ null);
-      PathFragment pathFragment = artifact.getPath().asFragment();
-      return ArtifactFileMetadata.value(pathFragment, fileStateValue, pathFragment, fileStateValue);
+    Preconditions.checkState(!artifact.isTreeArtifact());
+    Preconditions.checkState(!artifact.isMiddlemanArtifact());
+
+    if (value != ArtifactFileMetadata.PLACEHOLDER) {
+      return value;
     }
-    return value;
+
+    FileArtifactValue metadata =
+        Preconditions.checkNotNull(
+            additionalOutputData.get(artifact),
+            "Placeholder without corresponding FileArtifactValue for: %s",
+            artifact);
+    FileStateValue.RegularFileStateValue fileStateValue =
+        new FileStateValue.RegularFileStateValue(
+            metadata.getSize(), metadata.getDigest(), /*contentsProxy=*/ null);
+    PathFragment pathFragment = artifact.getPath().asFragment();
+    return ArtifactFileMetadata.forRegularFile(pathFragment, fileStateValue);
   }
 
   /**
