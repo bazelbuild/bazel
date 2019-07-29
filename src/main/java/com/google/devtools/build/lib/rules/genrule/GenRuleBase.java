@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.CommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -42,9 +43,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +80,35 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     return builder;
   }
 
+  enum CommandType {
+    BASH,
+    BATCH,
+    POWERSHELL,
+  }
+
+  private static Pair<CommandType, String> determineCommandTypeAndAttribute(RuleContext ruleContext) {
+    AttributeMap attributeMap = ruleContext.attributes();
+    // TODO(pcloudy): This should match the execution platform instead of using OS.getCurrent()
+    if (OS.getCurrent() == OS.WINDOWS) {
+      if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
+        return Pair.of(CommandType.POWERSHELL, "cmd_ps");
+      }
+      if (attributeMap.isAttributeValueExplicitlySpecified("cmd_bat")) {
+        return Pair.of(CommandType.BATCH, "cmd_bat");
+      }
+    }
+    if (attributeMap.isAttributeValueExplicitlySpecified("cmd_bash")) {
+      return Pair.of(CommandType.BASH, "cmd_bash");
+    }
+    if (attributeMap.isAttributeValueExplicitlySpecified("cmd")) {
+      return Pair.of(CommandType.BASH, "cmd");
+    }
+    ruleContext.attributeError(
+        "cmd",
+        "missing value for `cmd` attribute in genrule, you can also set `cmd_ps` or `cmd_bat` on Windows and `cmd_bash` on other platforms.");
+    return null;
+  }
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
@@ -94,6 +127,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
               + "If you need the executable=1 argument, then you should split this genrule into "
               + "genrules producing single outputs");
     }
+
+    Pair<CommandType, String> cmdTypeAndAttr = determineCommandTypeAndAttribute(ruleContext);
 
     ImmutableMap.Builder<Label, NestedSet<Artifact>> labelMap = ImmutableMap.builder();
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("srcs", Mode.TARGET)) {
@@ -114,28 +149,35 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    String baseCommand = ruleContext.attributes().get("cmd", Type.STRING);
+    CommandType cmdType = cmdTypeAndAttr.first;
+    String cmdAttr = cmdTypeAndAttr.second;
+    boolean expandToWindowsPath = cmdType != CommandType.BASH;
+
+    String baseCommand = ruleContext.attributes().get(cmdAttr, Type.STRING);
+
     // Expand template variables and functions.
     ImmutableList.Builder<MakeVariableSupplier> makeVariableSuppliers =
         new ImmutableList.Builder<>();
     CommandResolverContext commandResolverContext =
         new CommandResolverContext(
-            ruleContext, resolvedSrcs, filesToBuild, makeVariableSuppliers.build());
+            ruleContext, resolvedSrcs, filesToBuild, makeVariableSuppliers.build(), expandToWindowsPath);
     String command =
         ruleContext
             .getExpander(commandResolverContext)
-            .withExecLocations(commandHelper.getLabelMap())
-            .expand("cmd", baseCommand);
+            .withExecLocations(commandHelper.getLabelMap(), expandToWindowsPath)
+            .expand(cmdAttr, baseCommand);
 
     // Heuristically expand things that look like labels.
     if (ruleContext.attributes().get("heuristic_label_expansion", Type.BOOLEAN)) {
       command = commandHelper.expandLabelsHeuristically(command);
     }
 
-    // Add the genrule environment setup script before the actual shell command.
-    command = String.format("source %s; %s",
-        ruleContext.getPrerequisiteArtifact("$genrule_setup", Mode.HOST).getExecPath(),
-        command);
+    if (cmdType == CommandType.BASH) {
+      // Add the genrule environment setup script before the actual shell command.
+      command = String.format("source %s; %s",
+          ruleContext.getPrerequisiteArtifact("$genrule_setup", Mode.HOST).getExecPath(),
+          command);
+    }
 
     String messageAttr = ruleContext.attributes().get("message", Type.STRING);
     String message = messageAttr.isEmpty() ? "Executing genrule" : messageAttr;
@@ -160,20 +202,31 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     inputs.addTransitive(resolvedSrcs);
     inputs.addTransitive(commandHelper.getResolvedTools());
-    FilesToRunProvider genruleSetup =
-        ruleContext.getPrerequisite("$genrule_setup", Mode.HOST, FilesToRunProvider.class);
-    inputs.addTransitive(genruleSetup.getFilesToRun());
-    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+    if (cmdType == CommandType.BASH) {
+      FilesToRunProvider genruleSetup = ruleContext.getPrerequisite("$genrule_setup", Mode.HOST, FilesToRunProvider.class);
+      inputs.addTransitive(genruleSetup.getFilesToRun());
+    }
     if (ruleContext.hasErrors()) {
       return null;
     }
-    List<String> argv =
-        commandHelper.buildCommandLine(
-            shExecutable,
-            command,
-            inputs,
-            ".genrule_script.sh",
-            ImmutableMap.copyOf(executionInfo));
+
+    CommandConstructor constructor;
+    switch (cmdType) {
+      case BATCH:
+        constructor = CommandHelper.buildBatchCommandConstructor(
+            ".genrule_script.bat");
+        break;
+      case POWERSHELL:
+        constructor = CommandHelper.buildPowershellCommandConstructor(
+            ".genrule_script.ps1");
+        break;
+      case BASH:
+      default:
+        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+        constructor = CommandHelper.buildBashCommandConstructor(
+            executionInfo, shExecutable, ".genrule_script.sh");
+    }
+    List<String> argv = commandHelper.buildCommandLine(command, inputs, constructor);
 
     if (isStampingEnabled(ruleContext)) {
       inputs.add(ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact());
@@ -244,12 +297,14 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     private final RuleContext ruleContext;
     private final NestedSet<Artifact> resolvedSrcs;
     private final NestedSet<Artifact> filesToBuild;
+    private final boolean windowsPath;
 
     public CommandResolverContext(
         RuleContext ruleContext,
         NestedSet<Artifact> resolvedSrcs,
         NestedSet<Artifact> filesToBuild,
-        Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+        Iterable<? extends MakeVariableSupplier> makeVariableSuppliers,
+        boolean windowsPath) {
       super(
           ruleContext,
           ruleContext.getRule().getPackage(),
@@ -258,6 +313,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       this.ruleContext = ruleContext;
       this.resolvedSrcs = resolvedSrcs;
       this.filesToBuild = filesToBuild;
+      this.windowsPath = windowsPath;
     }
 
     public RuleContext getRuleContext() {
@@ -266,6 +322,14 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     @Override
     public String lookupVariable(String variableName) throws ExpansionException {
+      String val = lookupVariableImpl(variableName);
+      if (windowsPath) {
+        return val.replace('/', '\\');
+      }
+      return val;
+    }
+
+    private String lookupVariableImpl(String variableName) throws ExpansionException {
       if (variableName.equals("SRCS")) {
         return Artifact.joinExecPaths(" ", resolvedSrcs);
       }

@@ -1,0 +1,142 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.bazel.rules.genrule;
+
+import static com.google.common.truth.Truth.assertThat;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/** Tests of {@link BazelGenRule} on Windows.*/
+@RunWith(JUnit4.class)
+public class GenRuleWindowsTest extends BuildViewTestCase {
+
+  private static final Pattern BATCH_COMMAND_PATTERN =
+      Pattern.compile("(?<command>.*)");
+
+  private static final Pattern POWERSHELL_COMMAND_PATTERN =
+      Pattern.compile(".*'utf8';\\s+(?<command>.*)");
+
+  private void assertCommandEquals(String expected, String command, Pattern pattern) {
+    // Ensure the command after the genrule setup is correct.
+    Matcher m = pattern.matcher(command);
+    if (m.matches()) {
+      command = m.group("command");
+    }
+    assertThat(command).isEqualTo(expected);
+  }
+
+  private void assertBatchCommandEquals(String expected, String command) {
+    assertCommandEquals(expected, command, BATCH_COMMAND_PATTERN);
+  }
+
+  private void assertPowershellCommandEquals(String expected, String command) {
+    assertCommandEquals(expected, command, POWERSHELL_COMMAND_PATTERN);
+  }
+
+  private static String getWindowsPath(Artifact artifact) {
+    return artifact.getExecPathString().replace('/', '\\');
+  }
+
+  @Test
+  public void testCmdBatchIsPreferred() throws Exception {
+    scratch.file(
+        "genrule1/BUILD",
+        "genrule(name = 'hello_world',",
+        "outs = ['message.txt'],",
+        "cmd  = 'echo \"Hello, default cmd.\" >$(location message.txt)',",
+        "cmd_bash  = 'echo \"Hello, Bash cmd.\" >$(location message.txt)',",
+        "cmd_bat  = 'echo \"Hello, Batch cmd.\" >$(location message.txt)')");
+
+    Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
+    SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
+
+    assertThat(shellAction).isNotNull();
+    assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
+
+    String expected = "echo \"Hello, Batch cmd.\" >" + getWindowsPath(messageArtifact);
+    assertThat(shellAction.getArguments().get(0)).isEqualTo("cmd.exe");
+    assertThat(shellAction.getArguments().get(1)).isEqualTo("/c");
+    assertBatchCommandEquals(expected, shellAction.getArguments().get(2));
+  }
+
+  @Test
+  public void testCmdPsIsPreferred() throws Exception {
+    scratch.file(
+        "genrule1/BUILD",
+        "genrule(name = 'hello_world',",
+        "outs = ['message.txt'],",
+        "cmd  = 'echo \"Hello, default cmd.\" >$(location message.txt)',",
+        "cmd_bash  = 'echo \"Hello, Bash cmd.\" >$(location message.txt)',",
+        "cmd_bat  = 'echo \"Hello, Batch cmd.\" >$(location message.txt)',",
+        "cmd_ps  = 'echo \"Hello, Powershell cmd.\" >$(location message.txt)')");
+
+    Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
+    SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
+
+    assertThat(shellAction).isNotNull();
+    assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
+
+    String expected = "echo \"Hello, Powershell cmd.\" >" + getWindowsPath(messageArtifact);
+    assertThat(shellAction.getArguments().get(0)).isEqualTo("powershell.exe");
+    assertThat(shellAction.getArguments().get(1)).isEqualTo("/c");
+    assertPowershellCommandEquals(expected, shellAction.getArguments().get(2));
+  }
+
+  @Test
+  public void testScriptFileIsUsedForBatchCmd() throws Exception {
+    scratch.file(
+        "genrule1/BUILD",
+        "genrule(name = 'hello_world',",
+        "outs = ['message.txt'],",
+        "cmd_bat  = ' && '.join([\"echo \\\"Hello, Batch cmd, %s.\\\" >$(location message.txt)\" % i for i in range(1, 1000)]),)");
+
+    Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
+    SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
+
+    assertThat(shellAction).isNotNull();
+    assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
+
+    String expected = "bazel-out\\k8-fastbuild\\bin\\genrule1\\hello_world.genrule_script.bat";
+    assertThat(shellAction.getArguments().get(0)).isEqualTo("cmd.exe");
+    assertThat(shellAction.getArguments().get(1)).isEqualTo("/c");
+    assertPowershellCommandEquals(expected, shellAction.getArguments().get(2));
+  }
+
+  @Test
+  public void testScriptFileIsUsedForPowershellCmd() throws Exception {
+    scratch.file(
+        "genrule1/BUILD",
+        "genrule(name = 'hello_world',",
+        "outs = ['message.txt'],",
+        "cmd_ps  = '; '.join([\"echo \\\"Hello, Powershell cmd, %s.\\\" >$(location message.txt)\" % i for i in range(1, 1000)]),)");
+
+    Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
+    SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
+
+    assertThat(shellAction).isNotNull();
+    assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
+
+    String expected = ".\\bazel-out\\k8-fastbuild\\bin\\genrule1\\hello_world.genrule_script.ps1";
+    assertThat(shellAction.getArguments().get(0)).isEqualTo("powershell.exe");
+    assertThat(shellAction.getArguments().get(1)).isEqualTo("/c");
+    assertPowershellCommandEquals(expected, shellAction.getArguments().get(2));
+  }
+}

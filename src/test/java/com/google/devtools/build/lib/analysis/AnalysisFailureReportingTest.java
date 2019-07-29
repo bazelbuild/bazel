@@ -63,8 +63,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
   @Test
   public void testMissingRequiredAttribute() throws Exception {
     scratch.file("foo/BUILD",
-        "genrule(name = 'foo',", // missing cmd attribute
-        "        outs = ['foo.txt'])");
+        "genrule(name = 'foo',", // missing out attribute
+        "        cmd = '')");
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
     Label topLevel = Label.parseAbsoluteUnchecked("//foo");

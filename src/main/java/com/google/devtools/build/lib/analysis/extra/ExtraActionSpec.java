@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -129,13 +130,13 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         actionToShadow.getPrimaryOutput().getExecPath().getBaseName()
             + "."
             + actionToShadow.getKey(owningRule.getActionKeyContext());
+    BashCommandConstructor constructor = CommandHelper.buildBashCommandConstructor(
+        executionInfo, shExecutable, "." + actionUniquifier + ".extra_action_script.sh");
     List<String> argv =
         commandHelper.buildCommandLine(
-            shExecutable,
             command,
             extraActionInputs,
-            "." + actionUniquifier + ".extra_action_script.sh",
-            executionInfo);
+            constructor);
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(
