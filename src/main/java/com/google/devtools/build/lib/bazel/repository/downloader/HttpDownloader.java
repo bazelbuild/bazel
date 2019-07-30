@@ -37,6 +37,8 @@ import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -199,21 +201,45 @@ public class HttpDownloader {
     HttpConnectorMultiplexer multiplexer =
         new HttpConnectorMultiplexer(eventHandler, connector, httpStreamFactory, clock, sleeper);
 
-    // Connect to the best mirror and download the file, while reporting progress to the CLI.
-    semaphore.acquire();
+    // Iterate over urls and download the file falling back to the next url if previous failed,
+    // while reporting progress to the CLI.
     boolean success = false;
-    try (HttpStream payload = multiplexer.connect(urls, checksum, authHeaders);
-        OutputStream out = destination.getOutputStream()) {
-      ByteStreams.copy(payload, out);
-      success = true;
-    } catch (InterruptedIOException e) {
-      throw new InterruptedException();
-    } catch (IOException e) {
-      throw new IOException(
-          "Error downloading " + urls + " to " + destination + ": " + e.getMessage());
-    } finally {
-      semaphore.release();
-      eventHandler.post(new FetchEvent(urls.get(0).toString(), success));
+
+    List<IOException> ioExceptions = Collections.emptyList();
+
+    for (URL url : urls) {
+      semaphore.acquire();
+
+      try (HttpStream payload = multiplexer
+          .connect(Collections.singletonList(url), checksum, authHeaders);
+          OutputStream out = destination.getOutputStream()) {
+        ByteStreams.copy(payload, out);
+        success = true;
+      } catch (InterruptedIOException e) {
+        throw new InterruptedException();
+      } catch (IOException e) {
+        if (ioExceptions.isEmpty()) {
+          ioExceptions = new ArrayList<>(1);
+        }
+        ioExceptions.add(e);
+        continue;
+      } finally {
+        semaphore.release();
+        eventHandler.post(new FetchEvent(url.toString(), success));
+      }
+    }
+
+    if (!success) {
+      final IOException exception = new IOException(
+          "Error downloading " + urls + " to " + destination
+              + (ioExceptions.isEmpty() ? ""
+              : ": " + ioExceptions.get(ioExceptions.size() - 1).getMessage()));
+
+      for (IOException cause : ioExceptions) {
+        exception.addSuppressed(cause);
+      }
+
+      throw exception;
     }
 
     if (isCachingByProvidedChecksum) {
