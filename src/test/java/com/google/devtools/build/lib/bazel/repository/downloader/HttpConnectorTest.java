@@ -224,36 +224,35 @@ public class HttpConnectorTest {
       sleeper.scheduleRunnable(() -> {
         @SuppressWarnings("unused")
         Future<?> possiblyIgnoredError =
-                executor.submit(
-                        new Callable<Object>() {
-                          @Override
-                          public Object call() throws Exception {
-                            server.set(new ServerSocket(port, 1, InetAddress.getByName(null)));
+            executor.submit(() -> {
+              server.set(new ServerSocket(port, 1, InetAddress.getByName(null)));
 
-                            try (Socket socket = server.get().accept()) {
-                              readHttpRequest(socket.getInputStream());
-                              sendLines(
-                                      socket,
-                                      "HTTP/1.1 200 OK",
-                                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                                      "Connection: close",
-                                      "Content-Type: text/plain",
-                                      "Content-Length: 5",
-                                      "",
-                                      "hello");
-                            }
-                            return null;
-                          }
-                        });
+              while (!executor.isShutdown()) {
+                try (Socket socket = server.get().accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 5",
+                      "",
+                      "hello");
+                }
+              }
+
+              return null;
+            });
       }, 100);
 
       try (Reader payload =
-                   new InputStreamReader(
-                           connector.connect(
-                                   new URL(String.format("http://localhost:%d", port)),
-                                   ImmutableMap.<String, String>of())
-                                   .getInputStream(),
-                           ISO_8859_1)) {
+          new InputStreamReader(
+              connector.connect(
+                  new URL(String.format("http://localhost:%d", port)),
+                  ImmutableMap.<String, String>of())
+                  .getInputStream(),
+              ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
         assertThat(clock.currentTimeMillis()).isEqualTo(100);
       }
@@ -279,7 +278,7 @@ public class HttpConnectorTest {
                         // Schedule proper HTTP response once client retries.
                         sleeper.scheduleRunnable(() -> {
                           executor.submit(() -> {
-                            while (true) {
+                            while (!executor.isShutdown()) {
                               try (Socket socket = server.accept()) {
                                 readHttpRequest(socket.getInputStream());
                                 sendLines(
