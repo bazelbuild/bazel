@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote.blobstore.http;
+package com.google.devtools.build.lib.remote.http;
 
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;

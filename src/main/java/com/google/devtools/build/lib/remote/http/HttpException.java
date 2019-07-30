@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote.blobstore.http;
+package com.google.devtools.build.lib.remote.http;
 
+import io.netty.handler.codec.http.HttpResponse;
 import java.io.IOException;
 
-final class UploadTimeoutException extends IOException {
+/** An exception that propagates the http status. */
+final class HttpException extends IOException {
+  private final HttpResponse response;
 
-  UploadTimeoutException(String url, long contentLength) {
-    super(buildMessage(url, contentLength));
+  HttpException(HttpResponse response, String message, Throwable cause) {
+    super(message, cause);
+    this.response = response;
   }
 
-  private static String buildMessage(String url, long contentLength) {
-    return String.format("Upload of '%s' timed out. Sent %d bytes.", url, contentLength);
+  public HttpResponse response() {
+    return response;
   }
 }

@@ -2,7 +2,16 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/remote/common:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/disk:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/blobstore:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/http:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/logging:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/options:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/merkletree:srcs",
+    ],
     visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
@@ -30,7 +39,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
-        "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http",
+        "//src/main/java/com/google/devtools/build/lib/remote/common",
+        "//src/main/java/com/google/devtools/build/lib/remote/disk",
+        "//src/main/java/com/google/devtools/build/lib/remote/http",
         "//src/main/java/com/google/devtools/build/lib/remote/logging",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/options",

@@ -7,14 +7,10 @@ filegroup(
 )
 
 java_library(
-    name = "blobstore",
+    name = "common",
     srcs = glob(["*.java"]),
     tags = ["bazel"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/remote/common",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
 )

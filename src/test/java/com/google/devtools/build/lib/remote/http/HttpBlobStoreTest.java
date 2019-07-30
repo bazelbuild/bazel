@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote.blobstore.http;
+package com.google.devtools.build.lib.remote.http;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
@@ -83,9 +83,7 @@ import org.junit.runners.Parameterized.Parameters;
 import org.mockito.AdditionalAnswers;
 import org.mockito.Mockito;
 
-/**
- * Tests for {@link HttpBlobStore}.
- */
+/** Tests for {@link HttpBlobStore}. */
 @RunWith(Parameterized.class)
 public class HttpBlobStoreTest {
 
@@ -162,8 +160,7 @@ public class HttpBlobStoreTest {
 
     public UnixDomainServer(
         Class<? extends ServerChannel> serverChannelClass,
-        IntFunction<EventLoopGroup> newEventLoopGroup
-    ) {
+        IntFunction<EventLoopGroup> newEventLoopGroup) {
       EventLoopGroup eventLoop = newEventLoopGroup.apply(1);
       ServerBootstrap sb =
           new ServerBootstrap()
@@ -184,7 +181,6 @@ public class HttpBlobStoreTest {
       } catch (Exception e) {
         throw new IllegalStateException(e);
       }
-
     }
 
     public ServerChannel start(ChannelInboundHandler handler) {
@@ -209,24 +205,23 @@ public class HttpBlobStoreTest {
     }
   }
 
-
   @Parameters
   public static Collection createInputValues() {
-    ArrayList<Object[]> parameters = new ArrayList<Object[]>(
-        Arrays.asList(new Object[][]{
-            { new InetTestServer() }
-        }));
+    ArrayList<Object[]> parameters =
+        new ArrayList<Object[]>(Arrays.asList(new Object[][] {{new InetTestServer()}}));
 
     if (Epoll.isAvailable()) {
-      parameters.add(new Object[]{
-          new UnixDomainServer(EpollServerDomainSocketChannel.class, EpollEventLoopGroup::new)
-      });
+      parameters.add(
+          new Object[] {
+            new UnixDomainServer(EpollServerDomainSocketChannel.class, EpollEventLoopGroup::new)
+          });
     }
 
     if (KQueue.isAvailable()) {
-      parameters.add(new Object[]{
-          new UnixDomainServer(KQueueServerDomainSocketChannel.class, KQueueEventLoopGroup::new)
-      });
+      parameters.add(
+          new Object[] {
+            new UnixDomainServer(KQueueServerDomainSocketChannel.class, KQueueEventLoopGroup::new)
+          });
     }
 
     return parameters;
@@ -424,7 +419,7 @@ public class HttpBlobStoreTest {
 
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-      blobStore.put("key", 1, new ByteArrayInputStream(new byte[]{0}));
+      blobStore.put("key", 1, new ByteArrayInputStream(new byte[] {0}));
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);
@@ -442,12 +437,12 @@ public class HttpBlobStoreTest {
     headers.put("Authorization", singletonList("Bearer invalidToken"));
     when(credentials.getRequestMetadata(any(URI.class))).thenReturn(headers);
     Mockito.doAnswer(
-        (mock) -> {
-          Map<String, List<String>> headers2 = new HashMap<>();
-          headers2.put("Authorization", singletonList("Bearer validToken"));
-          when(credentials.getRequestMetadata(any(URI.class))).thenReturn(headers2);
-          return null;
-        })
+            (mock) -> {
+              Map<String, List<String>> headers2 = new HashMap<>();
+              headers2.put("Authorization", singletonList("Bearer validToken"));
+              when(credentials.getRequestMetadata(any(URI.class))).thenReturn(headers2);
+              return null;
+            })
         .when(credentials)
         .refresh();
     return credentials;
@@ -479,8 +474,8 @@ public class HttpBlobStoreTest {
       if (messageCount == 0) {
         if (!"Bearer invalidToken".equals(request.headers().get(HttpHeaderNames.AUTHORIZATION))) {
           ctx.writeAndFlush(
-              new DefaultFullHttpResponse(
-                  HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR))
+                  new DefaultFullHttpResponse(
+                      HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR))
               .addListener(ChannelFutureListener.CLOSE);
           return;
         }
@@ -506,8 +501,8 @@ public class HttpBlobStoreTest {
       } else if (messageCount == 1) {
         if (!"Bearer validToken".equals(request.headers().get(HttpHeaderNames.AUTHORIZATION))) {
           ctx.writeAndFlush(
-              new DefaultFullHttpResponse(
-                  HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR))
+                  new DefaultFullHttpResponse(
+                      HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR))
               .addListener(ChannelFutureListener.CLOSE);
           return;
         }
@@ -522,11 +517,10 @@ public class HttpBlobStoreTest {
       } else {
         // No third message expected.
         ctx.writeAndFlush(
-            new DefaultFullHttpResponse(
-                HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR))
+                new DefaultFullHttpResponse(
+                    HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR))
             .addListener(ChannelFutureListener.CLOSE);
       }
     }
   }
-
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote.blobstore.http;
+package com.google.devtools.build.lib.remote.http;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -51,8 +51,13 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
   @Test
   public void uploadsShouldWork() throws Exception {
     EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null, ImmutableList.of()));
-    HttpResponseStatus[] statuses = new HttpResponseStatus[] {HttpResponseStatus.OK,
-        HttpResponseStatus.CREATED, HttpResponseStatus.ACCEPTED, HttpResponseStatus.NO_CONTENT};
+    HttpResponseStatus[] statuses =
+        new HttpResponseStatus[] {
+          HttpResponseStatus.OK,
+          HttpResponseStatus.CREATED,
+          HttpResponseStatus.ACCEPTED,
+          HttpResponseStatus.NO_CONTENT
+        };
 
     for (HttpResponseStatus status : statuses) {
       uploadsShouldWork(true, ch, status);
@@ -74,8 +79,7 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
     HttpChunkedInput content = ch.readOutbound();
     assertThat(content.readChunk(ByteBufAllocator.DEFAULT).content().readableBytes()).isEqualTo(5);
 
-    FullHttpResponse response =
-        new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
+    FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
     response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
 
     ch.writeInbound(response);

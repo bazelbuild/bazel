@@ -7,7 +7,7 @@ filegroup(
 )
 
 java_library(
-    name = "blobstore",
+    name = "disk",
     srcs = glob(["*.java"]),
     tags = ["bazel"],
     deps = [
