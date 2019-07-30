@@ -7,6 +7,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/logging:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/merkletree:srcs",
