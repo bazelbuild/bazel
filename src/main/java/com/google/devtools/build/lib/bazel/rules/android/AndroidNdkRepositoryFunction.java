@@ -398,6 +398,10 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
             .replaceAll(
                 "%big_conditional_populating_variables%",
                 Joiner.on("\n" + "    ").join(bigConditional.build())));
+
+    writeFile(outputDirectory,
+        "platform_mappings",
+        getTemplate("android_ndk_platform_mappings.txt"));
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 

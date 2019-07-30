@@ -17,6 +17,8 @@
 
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
+exports_files(["platform_mappings"])
+
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -32,6 +34,46 @@ cc_library(
 alias(
     name = "default_crosstool",
     actual = "%defaultCrosstool%",
+)
+
+# Platform definitions for Android.
+# The constraints are on OS and Architecture. Currently, there are
+# no constraints on API levels. There is also no constraint on the STL
+# as Android NDK ships with libcpp only.
+#
+# Keep consistent with Android NDK supported architectures.
+# See https://docs.bazel.build/versions/master/android-ndk.html#integration-with-platforms-and-toolchains
+# for more information.
+platform(
+    name = "android_x86_64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "android_x86",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86",
+    ],
+)
+
+platform(
+    name = "android_arm",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:arm",
+    ],
+)
+
+platform(
+    name = "android_aarch64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:aarch64",
+    ],
 )
 
 ################################################################

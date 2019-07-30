@@ -1,0 +1,13 @@
+platforms:
+  @androidsdk//:android_arm
+    --android_cpu=armeabi-v7a
+    --fat_apk_cpu=armeabi-v7a
+  @androidsdk//:android_x86_64
+    --android_cpu=x86_64
+    --fat_apk_cpu=x86_64
+
+flags:
+  --fat_apk_cpu=armeabi-v7a
+    @androidsdk//:android_arm
+  --fat_apk_cpu=x86_64
+    @androidsdk//:android_x86_64
