@@ -66,6 +66,16 @@ java_test(
 )
 
 skydoc_test(
+    name = "input_template_test",
+    func_template = "testdata/input_template_test/func.vm",
+    golden_file = "testdata/input_template_test/golden.txt",
+    header_template = "testdata/input_template_test/header.vm",
+    input_file = "testdata/input_template_test/input.bzl",
+    provider_template = "testdata/input_template_test/provider.vm",
+    rule_template = "testdata/input_template_test/rule.vm",
+)
+
+skydoc_test(
     name = "angle_bracket_test",
     golden_file = "testdata/angle_bracket_test/golden.txt",
     input_file = "testdata/angle_bracket_test/input.bzl",
