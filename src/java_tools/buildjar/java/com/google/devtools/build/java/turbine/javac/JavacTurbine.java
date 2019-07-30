@@ -255,6 +255,8 @@ public class JavacTurbine implements AutoCloseable {
       builder.add("8");
     }
 
+    builder.add("-Xdoclint:none");
+
     if (!turbineOptions.processors().isEmpty()) {
       builder.add("-processor");
       builder.add(Joiner.on(',').join(turbineOptions.processors()));
