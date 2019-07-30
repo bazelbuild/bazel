@@ -338,7 +338,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addString(testProperties.getSize().toString());
     fp.addString(testProperties.getTimeout().toString());
     fp.addStrings(testProperties.getTags());
-    fp.addInt(testProperties.isLocal() ? 1 : 0);
+    fp.addInt(testProperties.isRemotable() ? 1 : 0);
     fp.addInt(shardNum);
     fp.addInt(executionSettings.getTotalShards());
     fp.addInt(runNumber);
