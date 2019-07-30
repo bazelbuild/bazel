@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
@@ -213,8 +214,16 @@ public class HttpDownloader {
       try (HttpStream payload = multiplexer
           .connect(Collections.singletonList(url), checksum, authHeaders);
           OutputStream out = destination.getOutputStream()) {
-        ByteStreams.copy(payload, out);
+        try {
+          ByteStreams.copy(payload, out);
+        } catch (SocketTimeoutException e) {
+          // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
+          // an external interruption, but simply a failed download due to some server timing
+          // out. So rethrow them as ordinary IOExceptions.
+          throw new IOException(e);
+        }
         success = true;
+        break;
       } catch (InterruptedIOException e) {
         throw new InterruptedException();
       } catch (IOException e) {
@@ -222,6 +231,7 @@ public class HttpDownloader {
           ioExceptions = new ArrayList<>(1);
         }
         ioExceptions.add(e);
+        eventHandler.handle(Event.warn("Download from " + url + " failed: " + e.getClass() + " " + e.getMessage()));
         continue;
       } finally {
         semaphore.release();
