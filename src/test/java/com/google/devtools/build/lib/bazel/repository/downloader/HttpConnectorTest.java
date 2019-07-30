@@ -222,10 +222,15 @@ public class HttpConnectorTest {
     try {
       // Schedule server socket to be started only after retry to simulate connection retry.
       sleeper.scheduleRunnable(() -> {
+        try {
+          server.set(new ServerSocket(port, 1, InetAddress.getByName(null)));
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+
         @SuppressWarnings("unused")
         Future<?> possiblyIgnoredError =
             executor.submit(() -> {
-              server.set(new ServerSocket(port, 1, InetAddress.getByName(null)));
 
               while (!executor.isShutdown()) {
                 try (Socket socket = server.get().accept()) {
@@ -244,7 +249,7 @@ public class HttpConnectorTest {
 
               return null;
             });
-      }, 100);
+      }, 1);
 
       try (Reader payload =
           new InputStreamReader(
@@ -254,7 +259,6 @@ public class HttpConnectorTest {
                   .getInputStream(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
-        assertThat(clock.currentTimeMillis()).isEqualTo(100);
       }
     } finally {
       ServerSocket serverSocket = server.get();
