@@ -63,7 +63,7 @@ java_library(
     ],
 )
 
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 # .tar archive of dependencies used for bootstrapping.
 pkg_tar(
@@ -71,12 +71,13 @@ pkg_tar(
     # The .jar files are created within the .tar file under third_party/bazel_bootstrap so that
     # they will appear there in bazel-distfile, which in turn makes them visible for bootstrapping
     # from the LIBRARY_JARS rule of bazel/scripts/bootstrap/compile.sh.
-    files = {
-        ":libautocodec-annotation.jar": "third_party/bazel_bootstrap/libautocodec-annotation.jar",
-        ":libautocodec-processor.jar": "third_party/bazel_bootstrap/libautocodec-processor.jar",
-        ":libregistered-singleton.jar": "third_party/bazel_bootstrap/libregistered-singleton.jar",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:libunsafe-provider.jar": "third_party/bazel_bootstrap/libunsafe-provider.jar",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:libserialization.jar": "third_party/bazel_bootstrap/libserialization.jar",
-    },
+    srcs = [
+        ":libautocodec-annotation.jar",
+        ":libautocodec-processor.jar",
+        ":libregistered-singleton.jar",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:libserialization.jar",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:libunsafe-provider.jar",
+    ],
+    package_dir = "third_party/bazel_bootstrap",
     visibility = ["//visibility:public"],
 )
