@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
@@ -747,5 +748,86 @@ public class CcToolchainTest extends BuildViewTestCase {
                 .collect(MoreCollectors.onlyElement());
     assertThat(preprocessedAsmAction.getInputs())
         .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles());
+  }
+
+  @Test
+  public void testCcToolchainLoadedThroughMacro() throws Exception {
+    setupTestCcToolchainLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testCcToolchainNotLoadedThroughMacro() throws Exception {
+    setupTestCcToolchainLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestCcToolchainLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_toolchain"),
+        getToolchainRule("a"));
+  }
+
+  @Test
+  public void setupTestCcToolchainSuiteLoadedThroughMacro() throws Exception {
+    setupTestCcToolchainSuiteLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  private void setupTestCcToolchainSuiteLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        getAnalysisMock()
+            .ccSupport()
+            .getMacroLoadStatement(loadMacro, "cc_toolchain", "cc_toolchain_suite"),
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        getToolchainRule("b"));
+  }
+
+  @Test
+  public void testCcToolchainSuiteNotLoadedThroughMacro() throws Exception {
+    setupTestCcToolchainSuiteLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private static String getToolchainRule(String targetName) {
+    return Joiner.on("\n")
+        .join(
+            "cc_toolchain(",
+            "    name = '" + targetName + "',",
+            "    toolchain_identifier = 'toolchain-identifier-k8',",
+            "    toolchain_config = ':toolchain_config',",
+            "    all_files = ':banana',",
+            "    ar_files = ':empty',",
+            "    as_files = ':empty',",
+            "    compiler_files = ':empty',",
+            "    dwp_files = ':empty',",
+            "    linker_files = ':empty',",
+            "    strip_files = ':empty',",
+            "    objcopy_files = ':empty',",
+            "    dynamic_runtime_lib = ':empty',",
+            "    static_runtime_lib = ':empty')",
+            "filegroup(",
+            "   name='empty')",
+            "filegroup(",
+            "    name = 'banana',",
+            "    srcs = ['banana1', 'banana2'])",
+            "cc_toolchain_config(name='toolchain_config')");
   }
 }

@@ -71,6 +71,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
 
     boolean systemProvided = ruleContext.attributes().get("system_provided", Type.BOOLEAN);
     CcToolchainProvider ccToolchain =

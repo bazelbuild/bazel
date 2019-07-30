@@ -42,7 +42,7 @@ public class BlazeCommandUtils {
   /** The set of option-classes that are common to all Blaze commands. */
   private static final ImmutableList<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
       ImmutableList.of(
-          BlazeCommandEventHandler.Options.class,
+          UiOptions.class,
           CommonCommandOptions.class,
           ClientOptions.class,
           // Skylark options aren't applicable to all commands, but making them a common option

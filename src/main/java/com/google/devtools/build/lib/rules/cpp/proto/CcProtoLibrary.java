@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcSkylarkApiProvider;
 
 /** Part of the implementation of cc_proto_library. */
@@ -31,7 +32,7 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-
+    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     if (ruleContext.getPrerequisites("deps", TARGET).size() != 1) {
       ruleContext.throwWithAttributeError(
           "deps",

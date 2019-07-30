@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -29,9 +30,17 @@ import com.google.devtools.build.lib.packages.RuleClass;
  * Rule definition for genquery the rule.
  */
 public final class GenQueryRule implements RuleDefinition {
+
+  /** Adds {@link GenQueryRule} and its dependencies to the provided builder. */
+  public static void register(ConfiguredRuleClassProvider.Builder builder) {
+    builder.addConfigurationFragment(new GenQueryConfiguration.Loader());
+    builder.addRuleDefinition(new GenQueryRule());
+  }
+
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .requiresConfigurationFragments(GenQueryConfiguration.class)
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(scope) -->
         The scope of the query. The query is not allowed to touch targets outside the transitive
         closure of these targets.

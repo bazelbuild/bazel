@@ -163,7 +163,7 @@ public class RemoteActionInputFetcherTest {
     Path p = execRoot.getRelative(artifactRoot.getExecPath()).getRelative("file1");
     FileSystemUtils.writeContent(p, StandardCharsets.UTF_8, "hello world");
     Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
-    FileArtifactValue f = FileArtifactValue.create(a);
+    FileArtifactValue f = FileArtifactValue.createForTesting(a);
     MetadataProvider metadataProvider = new StaticMetadataProvider(ImmutableMap.of(a, f));
     AbstractRemoteActionCache remoteCache =
         new StaticRemoteActionCache(options, digestUtil, new HashMap<>());

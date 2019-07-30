@@ -6,7 +6,7 @@
 ${util.providerSummary($providerName, $providerInfo)}
 </pre>
 
-${providerInfo.docString}
+${util.htmlEscape($providerInfo.docString)}
 
 #if (!$providerInfo.fieldInfoList.isEmpty())
 #[[###]]# Fields

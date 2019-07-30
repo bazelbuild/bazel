@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -30,14 +28,21 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Consumer;
 
 /** Looks up values under {@link TraversalInfo}s of given roots in a {@link WalkableGraph}. */
 public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
 
-  public Iterable<PathFragment> getPackagesFromRoots(
+  private static final Comparator<TraversalInfo> TRAVERSAL_INFO_COMPARATOR =
+      Comparator.comparing(ti -> ti.rootedDir.getRootRelativePath());
+
+  @Override
+  public void streamPackagesFromRoots(
+      Consumer<PathFragment> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
@@ -46,39 +51,34 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    // If we found a TargetsBelowDirectory pattern in the universe that contains this directory,
-    // then we can look for packages in and under it in the graph. If we didn't find one, then the
-    // directory wasn't in the universe, so return an empty list.
-    ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
     for (Root root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
       TraversalInfo info =
           new TraversalInfo(rootedDir, blacklistedSubdirectories, excludedSubdirectories);
-      collectPackagesUnder(graph, eventHandler, repository, ImmutableSet.of(info), builder);
+      TreeSet<TraversalInfo> dirsToCheckForPackages = new TreeSet<>(TRAVERSAL_INFO_COMPARATOR);
+      dirsToCheckForPackages.add(info);
+      collectPackagesUnder(results, graph, eventHandler, repository, dirsToCheckForPackages);
     }
-    return builder.build();
   }
 
   private void collectPackagesUnder(
+      Consumer<PathFragment> results,
       WalkableGraph graph,
       ExtendedEventHandler eventHandler,
       final RepositoryName repository,
-      Set<TraversalInfo> traversals,
-      ImmutableList.Builder<PathFragment> builder)
+      TreeSet<TraversalInfo> dirsToCheckForPackages)
       throws InterruptedException {
+    // NOTE: Maps.asMap returns a Map<T> view whose entrySet() order matches the underlying Set<T>.
     Map<TraversalInfo, SkyKey> traversalToKeyMap =
         Maps.asMap(
-            traversals,
-            new Function<TraversalInfo, SkyKey>() {
-              @Override
-              public SkyKey apply(TraversalInfo traversalInfo) {
-                return CollectPackagesUnderDirectoryValue.key(
-                    repository, traversalInfo.rootedDir, traversalInfo.blacklistedSubdirectories);
-              }
-            });
+            dirsToCheckForPackages,
+            traversalInfo ->
+                CollectPackagesUnderDirectoryValue.key(
+                    repository, traversalInfo.rootedDir, traversalInfo.blacklistedSubdirectories));
     Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
 
-    ImmutableSet.Builder<TraversalInfo> subdirTraversalBuilder = ImmutableSet.builder();
+    // NOTE: Use a TreeSet to ensure a deterministic (sorted) iteration order when we recurse.
+    TreeSet<TraversalInfo> subdirsToCheckForPackages = new TreeSet<>(TRAVERSAL_INFO_COMPARATOR);
     for (Map.Entry<TraversalInfo, SkyKey> entry : traversalToKeyMap.entrySet()) {
       TraversalInfo info = entry.getKey();
       SkyKey key = entry.getValue();
@@ -87,7 +87,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
           (CollectPackagesUnderDirectoryValue) val;
       if (collectPackagesValue != null) {
         if (collectPackagesValue.isDirectoryPackage()) {
-          builder.add(info.rootedDir.getRootRelativePath());
+          results.accept(info.rootedDir.getRootRelativePath());
         }
 
         if (collectPackagesValue.getErrorMessage() != null) {
@@ -110,7 +110,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
                     .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
                     .collect(toImmutableSet());
             if (!excludedSubdirectoriesBeneathThisSubdirectory.contains(subdirectoryRelativePath)) {
-              subdirTraversalBuilder.add(
+              subdirsToCheckForPackages.add(
                   new TraversalInfo(
                       subdirectory,
                       blacklistedSubdirectoriesBeneathThisSubdirectory,
@@ -121,23 +121,22 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       }
     }
 
-    ImmutableSet<TraversalInfo> subdirTraversals = subdirTraversalBuilder.build();
-    if (!subdirTraversals.isEmpty()) {
-      collectPackagesUnder(graph, eventHandler, repository, subdirTraversals, builder);
+    if (!subdirsToCheckForPackages.isEmpty()) {
+      collectPackagesUnder(results, graph, eventHandler, repository, subdirsToCheckForPackages);
     }
   }
 
   private static final class TraversalInfo {
-    private final RootedPath rootedDir;
+    final RootedPath rootedDir;
     // Set of blacklisted directories. The graph is assumed to be prepopulated with
     // CollectPackagesUnderDirectoryValue nodes whose keys have blacklisted packages embedded in
     // them. Therefore, we need to be careful to request and use the same sort of keys here in our
     // traversal.
-    private final ImmutableSet<PathFragment> blacklistedSubdirectories;
+    final ImmutableSet<PathFragment> blacklistedSubdirectories;
     // Set of directories, targets under which should be excluded from the traversal results.
     // Excluded directory information isn't part of the graph keys in the prepopulated graph, so we
     // need to perform the filtering ourselves.
-    private final ImmutableSet<PathFragment> excludedSubdirectories;
+    final ImmutableSet<PathFragment> excludedSubdirectories;
 
     private TraversalInfo(
         RootedPath rootedDir,

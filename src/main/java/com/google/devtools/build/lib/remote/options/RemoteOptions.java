@@ -17,12 +17,15 @@ package com.google.devtools.build.lib.remote.options;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
+import java.util.Map.Entry;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
@@ -68,6 +71,20 @@ public final class RemoteOptions extends OptionsBase {
               + "If no schema is provided we'll default to grpc. "
               + "See https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
+
+  @Option(
+      name = "remote_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a HTTP header that will be included in requests: --remote_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list. This flag"
+              + "is currently only implemented for the HTTP protocol.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteHeaders;
 
   @Option(
       name = "remote_timeout",
@@ -217,8 +234,10 @@ public final class RemoteOptions extends OptionsBase {
       converter = RemoteOutputsStrategyConverter.class,
       help =
           "If set to 'minimal' doesn't download any remote build outputs to the local machine, "
-              + "except the ones required by local actions. This option can significantly reduce"
-              + " build times if network bandwidth is a bottleneck.")
+              + "except the ones required by local actions. If set to 'toplevel' behaves like"
+              + "'minimal' except that it also downloads outputs of top level targets to the local "
+              + "machine. Both options can significantly reduce build times if network bandwidth "
+              + "is a bottleneck.")
   public RemoteOutputsMode remoteOutputsMode;
 
   /** Outputs strategy flag parser */
@@ -227,6 +246,42 @@ public final class RemoteOptions extends OptionsBase {
       super(RemoteOutputsMode.class, "download remote outputs");
     }
   }
+
+  @Option(
+      name = "experimental_remote_download_minimal",
+      defaultValue = "null",
+      expansion = {
+        "--experimental_inmemory_jdeps_files",
+        "--experimental_inmemory_dotd_files",
+        "--experimental_remote_download_outputs=minimal"
+      },
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Does not download any remote build outputs to the local machine. This flag is a "
+              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
+              + "--experimental_inmemory_dotd_files and "
+              + "--experimental_remote_download_outputs=minimal.")
+  public Void remoteOutputsMinimal;
+
+  @Option(
+      name = "experimental_remote_download_toplevel",
+      defaultValue = "null",
+      expansion = {
+        "--experimental_inmemory_jdeps_files",
+        "--experimental_inmemory_dotd_files",
+        "--experimental_remote_download_outputs=toplevel"
+      },
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Only downloads remote outputs of top level targets to the local machine. This flag is a "
+              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
+              + "--experimental_inmemory_dotd_files and "
+              + "--experimental_remote_download_outputs=toplevel.")
+  public Void remoteOutputsToplevel;
 
   @Option(
       name = "remote_result_cache_priority",

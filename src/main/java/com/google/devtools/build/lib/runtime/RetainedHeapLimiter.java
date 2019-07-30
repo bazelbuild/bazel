@@ -143,9 +143,10 @@ class RetainedHeapLimiter implements NotificationListener {
             // Assume we got here from a GC initiated by the other branch.
             String exitMsg =
                 String.format(
-                    "RetainedHeapLimiter forcing exit due to GC thrashing: tenured space "
-                        + "%s out of %s (>%s%%) occupied after back-to-back full GCs",
-                    space.getUsed(), space.getMax(), occupiedHeapPercentageThreshold.getAsInt());
+                    "RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back full "
+                        + "GCs, the tenured space is more than %s%% occupied (%s out of a tenured "
+                        + "space size of %s)",
+                    occupiedHeapPercentageThreshold.getAsInt(), space.getUsed(), space.getMax());
             System.err.println(exitMsg);
             logger.atInfo().log(exitMsg);
             // Exits the runtime.
@@ -153,7 +154,8 @@ class RetainedHeapLimiter implements NotificationListener {
           } else if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
               > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
             logger.atInfo().log(
-                "Triggering a full GC with %s out of %s used", space.getUsed(), space.getMax());
+                "Triggering a full GC with %s tenured space used out of a tenured space size of %s",
+                space.getUsed(), space.getMax());
             // Force a full stop-the-world GC and see if it can get us below the threshold.
             System.gc();
             lastTriggeredGcInMilliseconds.set(System.currentTimeMillis());

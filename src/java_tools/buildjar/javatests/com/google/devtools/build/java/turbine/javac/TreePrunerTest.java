@@ -24,7 +24,6 @@ import com.sun.tools.javac.parser.JavacParser;
 import com.sun.tools.javac.parser.ParserFactory;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
-import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.util.Context;
 import java.io.IOError;
 import java.io.IOException;
@@ -60,16 +59,11 @@ public class TreePrunerTest {
     }
   }
 
-  JCVariableDecl parseField(String line) {
-    JCCompilationUnit unit = parseLines("class T {", line, "}");
-    JCClassDecl classDecl = (JCClassDecl) getOnlyElement(unit.defs);
-    return (JCVariableDecl) getOnlyElement(classDecl.defs);
-  }
-
   String printPruned(String line) {
-    JCVariableDecl tree = parseField(line);
-    TreePruner.prune(context, tree);
-    return tree.toString();
+    JCCompilationUnit unit = parseLines("class T {", line, "}");
+    TreePruner.prune(context, unit);
+    JCClassDecl classDecl = (JCClassDecl) getOnlyElement(unit.defs);
+    return getOnlyElement(classDecl.defs).toString();
   }
 
   @Test
@@ -328,6 +322,31 @@ public class TreePrunerTest {
       "        Inner(OuterInstance outer) {",
       "            outer.super();",
       "        }",
+      "    }",
+      "}",
+    };
+    assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
+  @Test
+  public void unusedImport() {
+    String[] lines = {
+      "package p;",
+      "import com.google.common.collect.ImmutableMap;",
+      "public class Test {",
+      "  public Test() {",
+      "    ImmutableMap<String, String> map = ImmutableMap.of();",
+      "  }",
+      "}",
+    };
+    JCCompilationUnit tree = parseLines(lines);
+    TreePruner.prune(context, tree);
+    String[] expected = {
+      "package p;", //
+      "",
+      "public class Test {",
+      "    ",
+      "    public Test() {",
       "    }",
       "}",
     };

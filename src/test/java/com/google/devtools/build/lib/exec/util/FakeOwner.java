@@ -34,11 +34,21 @@ public final class FakeOwner implements ActionExecutionMetadata {
   private final String mnemonic;
   private final String progressMessage;
   @Nullable private final String ownerLabel;
+  @Nullable private final PlatformInfo platform;
 
-  public FakeOwner(String mnemonic, String progressMessage, @Nullable String ownerLabel) {
+  public FakeOwner(
+      String mnemonic,
+      String progressMessage,
+      @Nullable String ownerLabel,
+      @Nullable PlatformInfo platform) {
     this.mnemonic = mnemonic;
     this.progressMessage = progressMessage;
     this.ownerLabel = ownerLabel;
+    this.platform = platform;
+  }
+
+  public FakeOwner(String mnemonic, String progressMessage, @Nullable String ownerLabel) {
+    this(mnemonic, progressMessage, ownerLabel, null);
   }
 
   public FakeOwner(String mnemonic, String progressMessage) {
@@ -168,6 +178,6 @@ public final class FakeOwner implements ActionExecutionMetadata {
   @Nullable
   @Override
   public PlatformInfo getExecutionPlatform() {
-    return null;
+    return platform;
   }
 }

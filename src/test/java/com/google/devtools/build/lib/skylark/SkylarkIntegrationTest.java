@@ -3076,6 +3076,43 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPartitionDefaultParameter() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=false");
+
+    scratch.file("test/extension.bzl", "y = ['abc'.partition(), 'abc'.rpartition()]");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testDisabledPartitionDefaultParameter() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=true");
+
+    scratch.file("test/extension.bzl", "y = 'abc'.partition()");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("parameter 'sep' has no default value");
+  }
+
+  @Test
+  public void testDisabledPartitionDefaultParameter2() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=true");
+
+    scratch.file("test/extension.bzl", "y = 'abc'.rpartition()");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("parameter 'sep' has no default value");
+  }
+
+  @Test
   public void testUnknownStringEscapesForbidden() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_restrict_string_escapes=true");
 
@@ -3121,6 +3158,46 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
 
     getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testIdentifierAssignmentFromOuterScope() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=false");
+
+    scratch.file("test/extension.bzl", "a = []", "def f(): a += [1]", "y = f()");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testIdentifierAssignmentFromOuterScope2() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "a = [1, 2, 3]",
+        "def f(): a[0] = 9",
+        "y = f()",
+        "fail() if a[0] != 9 else None");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testIdentifierAssignmentFromOuterScopeForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=true");
+
+    scratch.file("test/extension.bzl", "a = []", "def f(): a += [1]", "y = f()");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("local variable 'a' is referenced before assignment");
   }
 
   @Test

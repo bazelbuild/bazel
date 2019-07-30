@@ -139,11 +139,20 @@ public class OutputDirectoryLinksUtils {
   // Links to create, delete, and use for pretty-printing.
   // Note that the order in which items appear in this list controls priority for getPrettyPath.
   // It will try each link as a prefix from first to last.
-  private static final ImmutableList<SymlinkDefinition> LINK_DEFINITIONS =
+  private static final ImmutableList<SymlinkDefinition> LINK_DEFINITIONS_WITH_GENFILES =
       ImmutableList.of(
           new ConfigSymlink("bin", BuildConfiguration::getBinDirectory),
           new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory),
           new ConfigSymlink("genfiles", BuildConfiguration::getGenfilesDirectory),
+          OutputSymlink.PRODUCT_NAME,
+          OutputSymlink.SYMLINK_PREFIX,
+          ExecRootSymlink.INSTANCE);
+
+  // The genfiles symlink will be removed in the future.
+  private static final ImmutableList<SymlinkDefinition> LINK_DEFINITIONS_WITHOUT_GENFILES =
+      ImmutableList.of(
+          new ConfigSymlink("bin", BuildConfiguration::getBinDirectory),
+          new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory),
           OutputSymlink.PRODUCT_NAME,
           OutputSymlink.SYMLINK_PREFIX,
           ExecRootSymlink.INSTANCE);
@@ -177,7 +186,8 @@ public class OutputDirectoryLinksUtils {
       EventHandler eventHandler,
       Set<BuildConfiguration> targetConfigs,
       String symlinkPrefix,
-      String productName) {
+      String productName,
+      boolean createGenfilesSymlink) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
@@ -188,7 +198,9 @@ public class OutputDirectoryLinksUtils {
     String workspaceBaseName = workspace.getBaseName();
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
 
-    for (SymlinkDefinition definition : LINK_DEFINITIONS) {
+    List<SymlinkDefinition> defs =
+        createGenfilesSymlink ? LINK_DEFINITIONS_WITH_GENFILES : LINK_DEFINITIONS_WITHOUT_GENFILES;
+    for (SymlinkDefinition definition : defs) {
       String symlinkName = definition.getLinkName(symlinkPrefix, productName, workspaceBaseName);
       if (!createdLinks.add(symlinkName)) {
         // already created a link by this name
@@ -221,7 +233,11 @@ public class OutputDirectoryLinksUtils {
   public static PathPrettyPrinter getPathPrettyPrinter(
       String symlinkPrefix, String productName, Path workspaceDirectory, Path workingDirectory) {
     return new PathPrettyPrinter(
-        LINK_DEFINITIONS, symlinkPrefix, productName, workspaceDirectory, workingDirectory);
+        LINK_DEFINITIONS_WITH_GENFILES,
+        symlinkPrefix,
+        productName,
+        workspaceDirectory,
+        workingDirectory);
   }
 
   /**
@@ -243,7 +259,7 @@ public class OutputDirectoryLinksUtils {
     List<String> failures = new ArrayList<>();
 
     String workspaceBaseName = workspace.getBaseName();
-    for (SymlinkDefinition link : LINK_DEFINITIONS) {
+    for (SymlinkDefinition link : LINK_DEFINITIONS_WITH_GENFILES) {
       removeLink(
           workspace, link.getLinkName(symlinkPrefix, productName, workspaceBaseName), failures);
     }

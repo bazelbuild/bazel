@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 @SkylarkModule(
     name = "CcToolchainConfigInfo",
     namespace = true,
-    category = SkylarkModuleCategory.BUILTIN,
+    category = SkylarkModuleCategory.PROVIDER,
     doc =
         "Additional layer of configurability for C++ rules. Encapsulates platform-dependent "
             + "specifics of C++ actions through features and action configs. It is used to "
@@ -38,6 +38,11 @@ public interface CcToolchainConfigInfoApi extends StructApi {
   String getProto();
 
   /** Provider class for {@link CcToolchainConfigInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @SkylarkModule(
+      name = "Provider",
+      // This object is documented via the CcInfo documentation and the docuemntation of its
+      // callable function.
+      documented = false,
+      doc = "")
   public interface Provider extends ProviderApi {}
 }

@@ -534,16 +534,22 @@ public final class ConfigurationResolver {
       Map<PackageValue.Key, PackageValue> buildSettingPackages,
       ExtendedEventHandler eventHandler)
       throws TransitionException {
-    BuildOptions fromOptionsWithDefaults =
-        addDefaultStarlarkOptions(
-            fromOptions,
-            StarlarkTransition.getDefaultInputValues(buildSettingPackages, transition));
+    boolean doesStarlarkTransition = StarlarkTransition.doesStarlarkTransition(transition);
+    if (doesStarlarkTransition) {
+      fromOptions =
+          addDefaultStarlarkOptions(
+              fromOptions,
+              StarlarkTransition.getDefaultInputValues(buildSettingPackages, transition));
+    }
 
     // TODO(bazel-team): safety-check that this never mutates fromOptions.
-    List<BuildOptions> result = transition.apply(fromOptionsWithDefaults);
+    List<BuildOptions> result = transition.apply(fromOptions);
 
-    StarlarkTransition.replayEvents(eventHandler, transition);
-    return StarlarkTransition.validate(transition, buildSettingPackages, result);
+    if (doesStarlarkTransition) {
+      StarlarkTransition.replayEvents(eventHandler, transition);
+      result = StarlarkTransition.validate(transition, buildSettingPackages, result);
+    }
+    return result;
   }
 
   private static BuildOptions addDefaultStarlarkOptions(

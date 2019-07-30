@@ -826,9 +826,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:foobar || fail "Failed to build //a:foobar"
 
   (! [[ -f bazel-bin/a/foo.txt ]] && ! [[ -f bazel-bin/a/foobar.txt ]]) \
@@ -851,9 +849,7 @@ EOF
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:fail && fail "Expected test failure" || true
 
   [[ -f bazel-bin/a/fail.txt ]] \
@@ -884,9 +880,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:remote || fail "Failed to build //a:remote"
 
   (! [[ -f bazel-bin/a/remote.txt ]]) \
@@ -895,9 +889,7 @@ EOF
   bazel build \
     --genrule_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:local || fail "Failed to build //a:local"
 
   localtxt="bazel-bin/a/local.txt"
@@ -924,9 +916,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:remote >& $TEST_log || fail "Failed to build //a:remote"
 
   expect_log "1 process: 1 remote"
@@ -934,8 +924,6 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
     --experimental_remote_download_outputs=all \
     //a:remote >& $TEST_log || fail "Failed to build //a:remote"
 
@@ -991,9 +979,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     //a:substitute-buchgr >& $TEST_log || fail "Failed to build //a:substitute-buchgr"
 
   # The genrule //a:generate-template should run remotely and //a:substitute-buchgr
@@ -1031,9 +1017,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=toplevel \
+    --experimental_remote_download_toplevel \
     //a:foobar || fail "Failed to build //a:foobar"
 
   (! [[ -f bazel-bin/a/foo.txt ]]) \
@@ -1049,17 +1033,69 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=toplevel \
+    --experimental_remote_download_toplevel \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
   expect_log "1 process: 1 remote cache hit"
 
   [[ -f bazel-bin/a/foobar.txt ]] \
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
+}
 
+function test_download_toplevel_test_rule() {
+  # Test that when using --experimental_remote_download_outputs=toplevel with bazel test only
+  # the test.log and test.xml file are downloaded but not the test binary. However when building
+  # a test then the test binary should be downloaded.
 
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_test(
+  name = 'test',
+  srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello test!" << std::endl; return 0; }
+EOF
+
+  # When invoking bazel test only test.log and test.xml should be downloaded.
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=toplevel \
+    //a:test >& $TEST_log || fail "Failed to test //a:test with remote execution"
+
+  (! [[ -f bazel-bin/a/test ]]) \
+  || fail "Expected test binary bazel-bin/a/test to not be downloaded"
+
+  [[ -f bazel-testlogs/a/test/test.log ]] \
+  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+
+  [[ -f bazel-testlogs/a/test/test.xml ]] \
+  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+
+  bazel clean
+
+  # When invoking bazel build the test binary should be downloaded.
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=toplevel \
+    //a:test >& $TEST_log || fail "Failed to build //a:test with remote execution"
+
+  ([[ -f bazel-bin/a/test ]]) \
+  || fail "Expected test binary bazel-bin/a/test to be downloaded"
 }
 
 function test_downloads_minimal_bep() {
@@ -1087,9 +1123,7 @@ EOF
 
   bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=minimal \
+    --experimental_remote_download_minimal \
     --build_event_text_file=$TEST_log \
     //a:foo //a:success_test || fail "Failed to test //a:foo //a:success_test"
 

@@ -180,66 +180,57 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
-  public static FileArtifactValue create(Artifact artifact, FileValue fileValue)
+  public static FileArtifactValue createForSourceArtifact(Artifact artifact, FileValue fileValue)
       throws IOException {
+    Preconditions.checkState(artifact.isSourceArtifact());
+    Preconditions.checkState(!artifact.isConstantMetadata());
     boolean isFile = fileValue.isFile();
-    FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
     return create(
         artifact.getPath(),
         isFile,
         isFile ? fileValue.getSize() : 0,
-        proxy,
+        isFile ? fileValue.realFileStateValue().getContentsProxy() : null,
         isFile ? fileValue.getDigest() : null,
-        !artifact.isConstantMetadata());
+        /* isShareable=*/ true);
   }
 
-  public static FileArtifactValue create(Artifact artifact, ArtifactFileMetadata metadata)
+  @VisibleForTesting
+  public static FileArtifactValue createForTesting(Artifact artifact, ArtifactFileMetadata metadata)
       throws IOException {
     boolean isFile = metadata.isFile();
-    FileContentsProxy proxy = getProxyFromFileStateValue(metadata.realFileStateValue());
     return create(
         artifact.getPath(),
         isFile,
         isFile ? metadata.getSize() : 0,
-        proxy,
+        isFile ? metadata.getContentsProxy() : null,
         isFile ? metadata.getDigest() : null,
         !artifact.isConstantMetadata());
   }
 
-  public static FileArtifactValue create(
-      Artifact artifact,
-      ArtifactPathResolver resolver,
-      ArtifactFileMetadata fileValue,
-      @Nullable byte[] injectedDigest)
-      throws IOException {
-    boolean isFile = fileValue.isFile();
-    FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
-    return create(
-        resolver.toPath(artifact),
-        isFile,
-        isFile ? fileValue.getSize() : 0,
-        proxy,
-        injectedDigest,
-        !artifact.isConstantMetadata());
+  public static FileArtifactValue createFromInjectedDigest(
+      ArtifactFileMetadata metadata, @Nullable byte[] digest, boolean isShareable) {
+    return createForNormalFile(
+        digest, metadata.getContentsProxy(), metadata.getSize(), isShareable);
   }
 
   @VisibleForTesting
-  public static FileArtifactValue create(Artifact artifact) throws IOException {
-    return create(artifact.getPath(), !artifact.isConstantMetadata());
+  public static FileArtifactValue createForTesting(Artifact artifact) throws IOException {
+    return createFromFileSystem(artifact.getPath(), !artifact.isConstantMetadata());
   }
 
-  public static FileArtifactValue createShareable(Path path) throws IOException {
-    return create(path, /*isShareable=*/ true);
+  public static FileArtifactValue createFromFileSystem(Path path) throws IOException {
+    return createFromFileSystem(path, /*isShareable=*/ true);
   }
 
-  public static FileArtifactValue create(Path path, boolean isShareable) throws IOException {
+  public static FileArtifactValue createFromFileSystem(Path path, boolean isShareable)
+      throws IOException {
     // Caution: there's a race condition between stating the file and computing the
     // digest. We need to stat first, since we're using the stat to detect changes.
     // We follow symlinks here to be consistent with getDigest.
-    return create(path, path.stat(Symlinks.FOLLOW), isShareable);
+    return createFromStat(path, path.stat(Symlinks.FOLLOW), isShareable);
   }
 
-  public static FileArtifactValue create(Path path, FileStatus stat, boolean isShareable)
+  public static FileArtifactValue createFromStat(Path path, FileStatus stat, boolean isShareable)
       throws IOException {
     return create(
         path, stat.isFile(), stat.getSize(), FileContentsProxy.create(stat), null, isShareable);
@@ -263,7 +254,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       digest = DigestUtils.getDigestOrFail(path, size);
     }
     Preconditions.checkState(digest != null, path);
-    return createNormalFile(digest, proxy, size, isShareable);
+    return createForNormalFile(digest, proxy, size, isShareable);
   }
 
   public static FileArtifactValue createForVirtualActionInput(byte[] digest, long size) {
@@ -271,25 +262,27 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   @VisibleForTesting
-  public static FileArtifactValue createNormalFile(
+  public static FileArtifactValue createForNormalFile(
       byte[] digest, @Nullable FileContentsProxy proxy, long size, boolean isShareable) {
     return isShareable
         ? new RegularFileArtifactValue(digest, proxy, size)
         : new UnshareableRegularFileArtifactValue(digest, proxy, size);
   }
 
-  public static FileArtifactValue createNormalFile(
+  public static FileArtifactValue createFromMetadata(
       ArtifactFileMetadata artifactMetadata, boolean isShareable) {
-    FileContentsProxy proxy = getProxyFromFileStateValue(artifactMetadata.realFileStateValue());
-    return createNormalFile(
-        artifactMetadata.getDigest(), proxy, artifactMetadata.getSize(), isShareable);
+    return createForNormalFile(
+        artifactMetadata.getDigest(),
+        artifactMetadata.getContentsProxy(),
+        artifactMetadata.getSize(),
+        isShareable);
   }
 
-  public static FileArtifactValue createDirectoryWithHash(byte[] digest) {
+  public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
     return new HashedDirectoryArtifactValue(digest);
   }
 
-  public static FileArtifactValue createDirectory(long mtime) {
+  public static FileArtifactValue createForDirectoryWithMtime(long mtime) {
     return new DirectoryArtifactValue(mtime);
   }
 
@@ -299,7 +292,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   public static FileArtifactValue createProxy(byte[] digest) {
     Preconditions.checkNotNull(digest);
-    return createNormalFile(digest, /*proxy=*/ null, /*size=*/ 0, /*isShareable=*/ true);
+    return createForNormalFile(digest, /*proxy=*/ null, /*size=*/ 0, /*isShareable=*/ true);
   }
 
   private static final class DirectoryArtifactValue extends FileArtifactValue {
@@ -663,15 +656,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     public boolean wasModifiedSinceDigest(Path path) {
       throw new UnsupportedOperationException();
     }
-  }
-
-  private static FileContentsProxy getProxyFromFileStateValue(FileStateValue value) {
-    if (value instanceof FileStateValue.RegularFileStateValue) {
-      return ((FileStateValue.RegularFileStateValue) value).getContentsProxy();
-    } else if (value instanceof FileStateValue.SpecialFileStateValue) {
-      return ((FileStateValue.SpecialFileStateValue) value).getContentsProxy();
-    }
-    return null;
   }
 
   private static final class SingletonMarkerValue extends FileArtifactValue implements Singleton {

@@ -24,34 +24,35 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A value that corresponds to the metadata for an artifact, which may be a file or directory or
- * symlink or non-existent file, fully accounting for symlinks (e.g. proper dependencies on ancestor
- * symlinks so as to be incrementally correct).
+ * A value that represents a file for the purposes of up-to-dateness checks of actions.
  *
- * <p>Note that the existence of this object does not imply that the file exists on the filesystem.
- * Values for missing files may be created on purpose in order to facilitate incremental builds in
- * the case those files have reappeared.
+ * <p>It always stands for an actual file. In particular, tree artifacts and middlemen do not have a
+ * corresponding {@link ArtifactFileMetadata}. However, the file is not necessarily present in the
+ * file system; this happens when intermediate build outputs are not downloaded (and maybe when an
+ * input artifact of an action is missing?)
  *
- * <p>Very similar to {@link FileValue}, but contains strictly less information: does not have a
- * {@link com.google.devtools.build.lib.vfs.RootedPath}, since execution never needs to access the
- * filesystem via this object.
+ * <p>It makes its main appearance in {@code ActionExecutionValue.artifactData}. It has two main
+ * uses:
+ *
+ * <ul>
+ *   <li>This is how dependent actions get hold of the output metadata of their generated inputs. In
+ *       this case, it will be transformed into a {@link FileArtifactValue} by {@code
+ *       ArtifactFunction}.
+ *   <li>This is how {@code FileSystemValueChecker} figures out which actions need to be invalidated
+ *       (just propagating the invalidation up from leaf nodes is not enough, because the output
+ *       tree may have been changed while Blaze was not looking)
+ * </ul>
+ *
+ * <p>It would probably be possible to unify this and {@link FileArtifactValue} since they contain
+ * much the same data. However, {@link FileArtifactValue} has a few other uses that are do not map
+ * easily to {@link ArtifactFileMetadata}, mostly relating to ActionFS.
  */
 @Immutable
 @ThreadSafe
 public abstract class ArtifactFileMetadata {
   /**
-   * Exists to accommodate the control flow of {@link
-   * com.google.devtools.build.lib.skyframe.ActionMetadataHandler#getMetadata}.
-   *
-   * <p>{@link com.google.devtools.build.lib.skyframe.ActionMetadataHandler#getMetadata} always
-   * checks {@link com.google.devtools.build.lib.skyframe.OutputStore#getArtifactData} before
-   * checking {@link com.google.devtools.build.lib.skyframe.OutputStore#getAdditionalOutputData} so
-   * some placeholder value is needed to allow an injected {@link FileArtifactValue} to be returned.
-   *
-   * <p>Similarly, {@link
-   * com.google.devtools.build.lib.skyframe.ActionExecutionValue#getAllFileValues} replaces this
-   * placeholder with metadata from {@link
-   * com.google.devtools.build.lib.skyframe.ActionExecutionValue#additionalOutputData}.
+   * Used as as placeholder in {@code OutputStore.artifactData} for artifacts that have entries in
+   * {@code OutputStore.additionalOutputData}.
    */
   @AutoCodec public static final ArtifactFileMetadata PLACEHOLDER = new PlaceholderFileValue();
 
@@ -72,8 +73,7 @@ public abstract class ArtifactFileMetadata {
    * file. If so, its parent directory is guaranteed to exist.
    */
   public boolean isFile() {
-    return realFileStateValue().getType() == FileStateType.REGULAR_FILE
-        || realFileStateValue().getType() == FileStateType.SPECIAL_FILE;
+    return realFileStateValue().getType() == FileStateType.REGULAR_FILE;
   }
 
   /**
@@ -92,7 +92,11 @@ public abstract class ArtifactFileMetadata {
     return realFileStateValue().getType() == FileStateType.DIRECTORY;
   }
 
-  public abstract FileStateValue realFileStateValue();
+  protected abstract FileStateValue realFileStateValue();
+
+  public FileContentsProxy getContentsProxy() {
+    return realFileStateValue().getContentsProxy();
+  }
 
   public long getSize() {
     Preconditions.checkState(isFile(), this);
@@ -119,29 +123,14 @@ public abstract class ArtifactFileMetadata {
     return fp.getFingerprint();
   }
 
-  public static ArtifactFileMetadata value(
-      PathFragment pathFragment,
-      FileStateValue fileStateValue,
-      PathFragment realPathFragment,
-      FileStateValue realFileStateValue) {
-    Preconditions.checkState(pathFragment.isAbsolute(), pathFragment);
-    Preconditions.checkState(realPathFragment.isAbsolute(), realPathFragment);
-    if (pathFragment.equals(realPathFragment)) {
-      Preconditions.checkState(
-          fileStateValue.getType() != FileStateType.SYMLINK,
-          "path: %s, fileStateValue: %s, realPath: %s, realFileStateValue: %s",
-          pathFragment,
-          fileStateValue,
-          realPathFragment,
-          realFileStateValue);
-      return new Regular(pathFragment, fileStateValue);
-    } else {
-      if (fileStateValue.getType() == FileStateType.SYMLINK) {
-        return new Symlink(realPathFragment, realFileStateValue, fileStateValue.getSymlinkTarget());
-      } else {
-        return new DifferentRealPath(realPathFragment, realFileStateValue);
-      }
-    }
+  public static ArtifactFileMetadata forRegularFile(
+      PathFragment pathFragment, FileStateValue fileStateValue) {
+    return new Regular(pathFragment, fileStateValue);
+  }
+
+  public static ArtifactFileMetadata forSymlink(
+      PathFragment resolvedPath, FileStateValue resolvedFileStateValue, PathFragment linkTarget) {
+    return new Symlink(resolvedPath, resolvedFileStateValue, linkTarget);
   }
 
   /**
@@ -161,6 +150,11 @@ public abstract class ArtifactFileMetadata {
     @Override
     public FileStateValue realFileStateValue() {
       return fileStateValue;
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      return fileStateValue.getContentsProxy();
     }
 
     @Override
@@ -197,68 +191,22 @@ public abstract class ArtifactFileMetadata {
     }
   }
 
-  /**
-   * Base class for {@link ArtifactFileMetadata}s for files whose fully resolved path is different
-   * than the requested path. For example, this is the case for the path "foo/bar/baz" if at least
-   * one of 'foo', 'foo/bar', or 'foo/bar/baz' is a symlink.
-   */
-  private static class DifferentRealPath extends ArtifactFileMetadata {
-    protected final PathFragment realPath;
-    protected final FileStateValue realFileStateValue;
+  /** Implementation of {@link ArtifactFileMetadata} for files that are symlinks. */
+  private static final class Symlink extends ArtifactFileMetadata {
+    private final PathFragment linkTarget;
+    private final PathFragment realPath;
+    private final FileStateValue realFileStateValue;
 
-    DifferentRealPath(PathFragment realPath, FileStateValue realFileStateValue) {
-      this.realPath = Preconditions.checkNotNull(realPath);
-      this.realFileStateValue = Preconditions.checkNotNull(realFileStateValue);
-    }
-
-    @Override
-    public BigInteger getFingerprint() {
-      BigInteger original = super.getFingerprint();
-      BigIntegerFingerprint fp = new BigIntegerFingerprint();
-      fp.addBigIntegerOrdered(original);
-      fp.addString(getClass().getCanonicalName());
-      fp.addPath(realPath);
-      fp.addBigIntegerOrdered(realFileStateValue.getValueFingerprint());
-      return fp.getFingerprint();
+    private Symlink(
+        PathFragment realPath, FileStateValue realFileStateValue, PathFragment linkTarget) {
+      this.realPath = realPath;
+      this.realFileStateValue = realFileStateValue;
+      this.linkTarget = linkTarget;
     }
 
     @Override
     public FileStateValue realFileStateValue() {
       return realFileStateValue;
-    }
-
-    @SuppressWarnings("EqualsGetClass") // Only subclass should never be equal to this class.
-    @Override
-    public boolean equals(Object obj) {
-      if (obj == null) {
-        return false;
-      }
-      if (obj.getClass() != DifferentRealPath.class) {
-        return false;
-      }
-      DifferentRealPath other = (DifferentRealPath) obj;
-      return realPath.equals(other.realPath) && realFileStateValue.equals(other.realFileStateValue);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(realPath, realFileStateValue);
-    }
-
-    @Override
-    public String toString() {
-      return realPath + ", " + realFileStateValue + " (symlink ancestor)";
-    }
-  }
-
-  /** Implementation of {@link ArtifactFileMetadata} for files that are symlinks. */
-  private static final class Symlink extends DifferentRealPath {
-    private final PathFragment linkTarget;
-
-    private Symlink(
-        PathFragment realPath, FileStateValue realFileStateValue, PathFragment linkTarget) {
-      super(realPath, realFileStateValue);
-      this.linkTarget = linkTarget;
     }
 
     @Override
@@ -308,8 +256,14 @@ public abstract class ArtifactFileMetadata {
         new BigIntegerFingerprint().addString("PlaceholderFileValue").getFingerprint();
 
     private PlaceholderFileValue() {}
+
     @Override
     public FileStateValue realFileStateValue() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
       throw new UnsupportedOperationException();
     }
 

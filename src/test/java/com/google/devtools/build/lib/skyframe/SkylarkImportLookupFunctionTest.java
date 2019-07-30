@@ -294,8 +294,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "Label '//a:b/b.bzl' crosses boundary of subpackage 'a/b' (perhaps you meant to put "
-                + "the colon here: '//a/b:b.bzl'?)");
+            "Label '//a:b/b.bzl' is invalid because 'a/b' is a subpackage; perhaps you meant to"
+                + " put the colon here: '//a/b:b.bzl'?");
   }
 
   @Test
@@ -321,8 +321,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "Label '//a/b:c/c.bzl' crosses boundary of subpackage 'a/b/c' (perhaps you meant to "
-                + "put the colon here: '//a/b/c:c.bzl'?)");
+            "Label '//a/b:c/c.bzl' is invalid because 'a/b/c' is a subpackage; perhaps you meant"
+                + " to put the colon here: '//a/b/c:c.bzl'?");
   }
 
   @Test
@@ -347,8 +347,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "Label '//a/c:c/c.bzl' crosses boundary of package 'a' (perhaps you meant to put the "
-                + "colon here: '//a:c/c/c.bzl'?)");
+            "Label '//a/c:c/c.bzl' is invalid because 'a/c' is not a package; perhaps you meant to "
+                + "put the colon here: '//a:c/c/c.bzl'?");
   }
 
   @Test

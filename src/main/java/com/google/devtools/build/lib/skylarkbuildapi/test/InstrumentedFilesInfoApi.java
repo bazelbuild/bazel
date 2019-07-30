@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 /** Contains information about instrumented files sources and instrumentation metadata. */
 @SkylarkModule(
     name = "InstrumentedFilesInfo",
-    category = SkylarkModuleCategory.NONE,
+    category = SkylarkModuleCategory.PROVIDER,
     doc =
         "Contains information about instrumented file sources and instrumentation metadata "
             + "for purposes of code coverage. Rule targets which return an instance of this "

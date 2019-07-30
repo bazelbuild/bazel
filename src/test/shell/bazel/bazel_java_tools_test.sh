@@ -189,4 +189,36 @@ EOF
   bazel build @local_java_tools//:toolchain || fail "toolchain failed to build"
 }
 
+function test_java_tools_singlejar_builds() {
+  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
+  local java_tools_zip_file_url="file://${java_tools_rlocation}"
+  if "$is_windows"; then
+        java_tools_zip_file_url="file:///${java_tools_rlocation}"
+  fi
+  cat >WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "local_java_tools",
+    urls = ["${java_tools_zip_file_url}"]
+)
+EOF
+  bazel build @local_java_tools//:singlejar_cc_bin || fail "singlejar failed to build"
+}
+
+function test_java_tools_ijar_builds() {
+  local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
+  local java_tools_zip_file_url="file://${java_tools_rlocation}"
+  if "$is_windows"; then
+        java_tools_zip_file_url="file:///${java_tools_rlocation}"
+  fi
+  cat >WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+name = "local_java_tools",
+    urls = ["${java_tools_zip_file_url}"]
+)
+EOF
+  bazel build @local_java_tools//:ijar_cc_binary || fail "ijar failed to build"
+}
+
 run_suite "Java tools archive tests"

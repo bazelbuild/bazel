@@ -469,7 +469,21 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
             matches = false;
             continue;
           }
-          if (!configurationValue.equals(convertedSpecifiedValue)) {
+
+          if (configurationValue instanceof List) {
+            // If the build_setting is a list, we use the same semantics as for multi-value native
+            // flags: if *any* entry in the list matches the config_setting's expected entry, it's
+            // a match. In other words, config_setting(flag_values {"//foo": "bar"} matches
+            // //foo=["bar", "baz"].
+
+            // If the config_setting expects "foo", convertedSpecifiedValue converts it to the
+            // flag's native type, which produces ["foo"]. So unpack that again.
+            Object specifiedUnpacked =
+                Iterables.getOnlyElement((Iterable<?>) convertedSpecifiedValue);
+            if (!((List<?>) configurationValue).contains(specifiedUnpacked)) {
+              matches = false;
+            }
+          } else if (!configurationValue.equals(convertedSpecifiedValue)) {
             matches = false;
           }
         } else {

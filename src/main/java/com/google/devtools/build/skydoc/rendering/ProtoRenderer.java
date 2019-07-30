@@ -15,6 +15,7 @@
 package com.google.devtools.build.skydoc.rendering;
 
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
@@ -64,6 +65,14 @@ public class ProtoRenderer {
   public void writeModuleInfo(BufferedOutputStream outputStream) throws IOException {
     ModuleInfo build = moduleInfo.build();
     build.writeTo(outputStream);
+  }
+
+  /** Appends {@link AspectInfo} protos to a {@link ModuleInfo.Builder}. */
+  public ProtoRenderer appendAspectInfos(Collection<AspectInfo> aspectInfos) {
+    for (AspectInfo aspectInfo : aspectInfos) {
+      moduleInfo.addAspectInfo(aspectInfo);
+    }
+    return this;
   }
 
   public ModuleInfo.Builder getModuleInfo() {

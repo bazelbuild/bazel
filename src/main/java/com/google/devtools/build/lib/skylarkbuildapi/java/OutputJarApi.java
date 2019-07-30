@@ -20,14 +20,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 
-/**
- * A tuple of a java classes jar and its associated source and interface archives.
- */
+/** A tuple of a java classes jar and its associated source and interface archives. */
 @SkylarkModule(
-  name = "java_output",
-  category = SkylarkModuleCategory.NONE,
-  doc = "Java classes jar, together with their associated source and interface archives."
-)
+    name = "java_output",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "Java classes jar, together with their associated source and interface archives.")
 public interface OutputJarApi<FileT extends FileApi> {
 
   @SkylarkCallable(

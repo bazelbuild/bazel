@@ -111,7 +111,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     Map<String, FileArtifactValue> digestBuilder = new HashMap<>();
     for (PathFragment child : children) {
       FileArtifactValue subdigest =
-          FileArtifactValue.createShareable(tree.getPath().getRelative(child));
+          FileArtifactValue.createFromFileSystem(tree.getPath().getRelative(child));
       digestBuilder.put(child.getPathString(), subdigest);
     }
     assertThat(DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe())
@@ -292,7 +292,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           ArtifactFileMetadata fileValue =
               ActionMetadataHandler.fileMetadataFromArtifact(suboutput, null, null);
           fileData.put(suboutput, fileValue);
-          treeArtifactData.put(suboutput, FileArtifactValue.create(suboutput, fileValue));
+          treeArtifactData.put(suboutput, FileArtifactValue.createForTesting(suboutput, fileValue));
         } catch (IOException e) {
           throw new SkyFunctionException(e, Transience.TRANSIENT) {};
         }

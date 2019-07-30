@@ -923,6 +923,16 @@ EOF
 
     bazel build --incompatible_remap_main_repo=true //toolchains/... \
           || fail "expected success"
+
+    echo; echo Without remapping of main repo; echo
+    # Regression test for invalidation of `--incompabtile_remap_main_repo`
+    # (https://github.com/bazelbuild/bazel/issues/8937). As
+    # building without remapping works on a clean checkout, it should also work
+    # on a running bazel.
+    bazel build --incompatible_remap_main_repo=false //toolchains/... \
+          || fail "expected success"
+
 }
+
 
 run_suite "workspace tests"

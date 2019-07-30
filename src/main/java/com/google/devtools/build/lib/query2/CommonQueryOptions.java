@@ -80,6 +80,18 @@ public class CommonQueryOptions extends OptionsBase {
               + "specified in the BUILD file but added by bazel.")
   public boolean includeImplicitDeps;
 
+  @Option(
+      name = "nodep_deps",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "If enabled, deps from \"nodep\" attributes will be included in the dependency graph "
+              + "over which the query operates. A common example of a \"nodep\" attribute is "
+              + "\"visibility\". Run and parse the output of `info build-language` to learn about "
+              + "all the \"nodep\" attributes in the build language.")
+  public boolean includeNoDepDeps;
+
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);
@@ -88,6 +100,9 @@ public class CommonQueryOptions extends OptionsBase {
     }
     if (!includeImplicitDeps) {
       settings.add(Setting.NO_IMPLICIT_DEPS);
+    }
+    if (!includeNoDepDeps) {
+      settings.add(Setting.NO_NODEP_DEPS);
     }
     return settings;
   }
@@ -152,6 +167,14 @@ public class CommonQueryOptions extends OptionsBase {
               + "This option is applicable to --output=proto."
   )
   public List<String> protoOutputRuleAttributes = ImmutableList.of("all");
+
+  @Option(
+      name = "proto:rule_inputs_and_outputs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether or not to populate the rule_input and rule_output fields.")
+  public boolean protoIncludeRuleInputsAndOutputs;
 
   /** An enum converter for {@code  AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {

@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

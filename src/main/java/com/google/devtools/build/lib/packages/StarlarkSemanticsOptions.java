@@ -189,6 +189,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleAllowTagsPropagation;
 
   @Option(
+      name = "incompatible_assignment_identifiers_have_local_scope",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, LHS identifiers in assignment statements become local to the "
+              + "the block containing the statement, and mask similarly named variables in "
+              + "outer scopes.")
+  public boolean incompatibleAssignmentIdentifiersHaveLocalScope;
+
+  @Option(
       name = "incompatible_depset_union",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -242,6 +257,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       },
       help = "Unused. Will be removed in future versions of Bazel.")
   public boolean incompatibleDisableObjcProviderResources;
+
+  @Option(
+      name = "incompatible_disable_partition_default_parameter",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the default value `' '` for the parameter `sep` of `string.partion` and"
+              + " `string.rpartition` will be disabled.")
+  public boolean incompatibleDisablePartitionDefaultParameter;
 
   // For Bazel, this flag is a no-op. Bazel doesn't support built-in third party license checking
   // (see https://github.com/bazelbuild/bazel/issues/7444).
@@ -709,7 +738,11 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisallowSplitEmptySeparator(incompatibleDisallowSplitEmptySeparator)
             .incompatibleDisallowDictLookupUnhashableKeys(
                 incompatibleDisallowDictLookupUnhashableKeys)
+            .incompatibleDisablePartitionDefaultParameter(
+                incompatibleDisablePartitionDefaultParameter)
             .incompatibleAllowTagsPropagation(incompatibleAllowTagsPropagation)
+            .incompatibleAssignmentIdentifiersHaveLocalScope(
+                incompatibleAssignmentIdentifiersHaveLocalScope)
             .build();
     return INTERNER.intern(semantics);
   }

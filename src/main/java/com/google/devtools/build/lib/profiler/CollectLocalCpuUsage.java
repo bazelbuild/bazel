@@ -26,13 +26,13 @@ public class CollectLocalCpuUsage extends Thread {
 
   private volatile boolean stopCpuUsage;
   private long cpuProfileStartMillis;
-  private CpuUsageTimeSeries localCpuUsage;
+  private TimeSeries localCpuUsage;
 
   @Override
   public void run() {
     stopCpuUsage = false;
     cpuProfileStartMillis = System.currentTimeMillis();
-    localCpuUsage = new CpuUsageTimeSeries(cpuProfileStartMillis, BUCKET_SIZE_MILLIS);
+    localCpuUsage = new TimeSeries(cpuProfileStartMillis, BUCKET_SIZE_MILLIS);
     OperatingSystemMXBean bean =
         (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
     long previousTimeMillis = System.currentTimeMillis();

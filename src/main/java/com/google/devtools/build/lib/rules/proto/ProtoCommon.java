@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -45,6 +47,11 @@ public class ProtoCommon {
   private ProtoCommon() {
     throw new UnsupportedOperationException();
   }
+
+  // Keep in sync with the migration label in
+  // https://github.com/bazelbuild/rules_proto/blob/master/proto/defs.bzl.
+  private static final String PROTO_RULES_MIGRATION_LABEL =
+      "__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
 
   /**
    * Gets the direct sources of a proto library. If protoSources is not empty, the value is just
@@ -458,6 +465,28 @@ public class ProtoCommon {
 
   private static boolean isConfiguredTargetInSamePackage(RuleContext ruleContext, Label source) {
     return ruleContext.getLabel().getPackageIdentifier().equals(source.getPackageIdentifier());
+  }
+
+  public static void checkRuleHasValidMigrationTag(RuleContext ruleContext)
+      throws RuleErrorException {
+    if (!ruleContext.getFragment(ProtoConfiguration.class).loadProtoRulesFromBzl()) {
+      return;
+    }
+
+    if (!hasValidMigrationTag(ruleContext)) {
+      ruleContext.ruleError(
+          "The native Protobuf rules are deprecated. Please load "
+              + ruleContext.getRule().getRuleClass()
+              + " from the rules_proto repository."
+              + " See http://github.com/bazelbuild/rules_proto.");
+    }
+  }
+
+  private static boolean hasValidMigrationTag(RuleContext ruleContext) {
+    return ruleContext
+        .attributes()
+        .get("tags", Type.STRING_LIST)
+        .contains(PROTO_RULES_MIGRATION_LABEL);
   }
 
   /**

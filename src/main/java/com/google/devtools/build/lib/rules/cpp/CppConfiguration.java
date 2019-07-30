@@ -694,4 +694,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public boolean disableNoCopts() {
     return cppOptions.disableNoCopts;
   }
+
+  public boolean loadCcRulesFromBzl() {
+    return cppOptions.loadCcRulesFromBzl;
+  }
 }

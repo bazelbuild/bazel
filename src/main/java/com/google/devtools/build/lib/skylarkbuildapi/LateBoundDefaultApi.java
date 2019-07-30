@@ -15,17 +15,19 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
-/**
- * The interface for late bound defaults in Skylark.
- */
-@SkylarkModule(name = "LateBoundDefault",
-    doc = "Represents a late-bound default attribute value of type 'Label'. "
-        + "The value of a LateBoundDefault is only resolvable in the context of a rule "
-        + "implementation function, and depends on the current build configuration. For example, a "
-        + "LateBoundDefault might represent the Label of the java toolchain in the current build "
-        + "configuration. "
-        + "<p>See <a href=\"globals.html#configuration_field\">configuration_field</a> for "
-        + "example usage.")
+/** The interface for late bound defaults in Skylark. */
+@SkylarkModule(
+    name = "LateBoundDefault",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "Represents a late-bound default attribute value of type 'Label'. The value of a"
+            + " LateBoundDefault is only resolvable in the context of a rule implementation"
+            + " function, and depends on the current build configuration. For example, a"
+            + " LateBoundDefault might represent the Label of the java toolchain in the current"
+            + " build configuration. <p>See <a"
+            + " href=\"globals.html#configuration_field\">configuration_field</a> for example"
+            + " usage.")
 public interface LateBoundDefaultApi extends SkylarkValue {}

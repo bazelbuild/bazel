@@ -31,6 +31,19 @@ write_file(
     is_executable = True,
 )
 
+# These exports are needed for Starlark tooling to work on files that
+# transitive load these ones. Ideally they would be bzl_library targets, but we
+# don't have access to Skylib here. See
+# https://github.com/bazelbuild/skydoc/issues/166.
+exports_files([
+    "python_version.bzl",
+    "srcs_version.bzl",
+    "toolchain.bzl",
+    "utils.bzl",
+    # write_file.bzl fortunately doesn't need to be exposed because it's only
+    # used in this BUILD file.
+])
+
 # This target can be used to inspect the current Python major version. To use,
 # put it in the `flag_values` attribute of a `config_setting` and test it
 # against the values "PY2" or "PY3". It will always match one or the other.

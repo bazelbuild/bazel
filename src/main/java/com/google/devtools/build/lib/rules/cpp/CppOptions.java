@@ -904,6 +904,20 @@ public class CppOptions extends FragmentOptions {
               + " https://github.com/bazelbuild/bazel/issues/8706 for details.")
   public boolean disableNoCopts;
 
+  @Option(
+      name = "incompatible_load_cc_rules_from_bzl",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, direct usage of the native C++ and some Objc rules is disabled. Please use "
+              + "the Starlark rules instead https://github.com/bazelbuild/rules_cc")
+  public boolean loadCcRulesFromBzl;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -961,6 +975,7 @@ public class CppOptions extends FragmentOptions {
     host.useSpecificToolFiles = useSpecificToolFiles;
     host.disableStaticCcToolchains = disableStaticCcToolchains;
     host.disableNoCopts = disableNoCopts;
+    host.loadCcRulesFromBzl = loadCcRulesFromBzl;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;

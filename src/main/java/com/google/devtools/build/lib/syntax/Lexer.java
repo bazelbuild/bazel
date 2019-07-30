@@ -52,6 +52,9 @@ public final class Lexer {
           .put('*', TokenKind.STAR_EQUALS)
           .put('/', TokenKind.SLASH_EQUALS)
           .put('%', TokenKind.PERCENT_EQUALS)
+          .put('^', TokenKind.CARET_EQUALS)
+          .put('&', TokenKind.AMPERSAND_EQUALS)
+          .put('|', TokenKind.PIPE_EQUALS)
           .build();
 
   private final EventHandler eventHandler;
@@ -809,10 +812,26 @@ public final class Lexer {
           popParen();
           break;
         case '>':
-          setToken(TokenKind.GREATER, pos - 1, pos);
+          if (lookaheadIs(0, '>') && lookaheadIs(1, '=')) {
+            setToken(TokenKind.GREATER_GREATER_EQUALS, pos - 1, pos + 2);
+            pos += 2;
+          } else if (lookaheadIs(0, '>')) {
+            setToken(TokenKind.GREATER_GREATER, pos - 1, pos + 1);
+            pos += 1;
+          } else {
+            setToken(TokenKind.GREATER, pos - 1, pos);
+          }
           break;
         case '<':
-          setToken(TokenKind.LESS, pos - 1, pos);
+          if (lookaheadIs(0, '<') && lookaheadIs(1, '=')) {
+            setToken(TokenKind.LESS_LESS_EQUALS, pos - 1, pos + 2);
+            pos += 2;
+          } else if (lookaheadIs(0, '<')) {
+            setToken(TokenKind.LESS_LESS, pos - 1, pos + 1);
+            pos += 1;
+          } else {
+            setToken(TokenKind.LESS, pos - 1, pos);
+          }
           break;
         case ':':
           setToken(TokenKind.COLON, pos - 1, pos);
@@ -834,6 +853,15 @@ public final class Lexer {
           break;
         case '%':
           setToken(TokenKind.PERCENT, pos - 1, pos);
+          break;
+        case '~':
+          setToken(TokenKind.TILDE, pos - 1, pos);
+          break;
+        case '&':
+          setToken(TokenKind.AMPERSAND, pos - 1, pos);
+          break;
+        case '^':
+          setToken(TokenKind.CARET, pos - 1, pos);
           break;
         case '/':
           if (lookaheadIs(0, '/') && lookaheadIs(1, '=')) {

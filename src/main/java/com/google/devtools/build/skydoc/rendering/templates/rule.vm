@@ -6,7 +6,7 @@
 ${util.ruleSummary($ruleName, $ruleInfo)}
 </pre>
 
-${ruleInfo.docString}
+${util.htmlEscape($ruleInfo.docString)}
 
 #[[###]]# Attributes
 

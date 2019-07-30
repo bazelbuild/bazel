@@ -31,6 +31,7 @@ import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
@@ -94,6 +95,7 @@ public final class SkydocTest extends SkylarkTestCase {
                     Label.parseAbsoluteUnchecked("//test:test.bzl"),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
+                    ImmutableMap.builder(),
                     ImmutableMap.builder()));
 
     assertThat(expected).hasMessageThat().contains("Starlark evaluation error");
@@ -124,6 +126,7 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
         ImmutableMap.builder(),
+        ImmutableMap.builder(),
         ImmutableMap.builder());
     Map<String, RuleInfo> ruleInfos = ruleInfoMap.build();
     assertThat(ruleInfos).hasSize(1);
@@ -148,8 +151,20 @@ public final class SkydocTest extends SkylarkTestCase {
         .collect(Collectors.toList());
   }
 
+  private static Iterable<String> getAttrNames(AspectInfo aspectInfo) {
+    return aspectInfo.getAttributeList().stream()
+        .map(attr -> attr.getName())
+        .collect(Collectors.toList());
+  }
+
   private static Iterable<AttributeType> getAttrTypes(RuleInfo ruleInfo) {
     return ruleInfo.getAttributeList().stream()
+        .map(attr -> attr.getType())
+        .collect(Collectors.toList());
+  }
+
+  private static Iterable<AttributeType> getAttrTypes(AspectInfo aspectInfo) {
+    return aspectInfo.getAttributeList().stream()
         .map(attr -> attr.getType())
         .collect(Collectors.toList());
   }
@@ -187,6 +202,7 @@ public final class SkydocTest extends SkylarkTestCase {
         StarlarkSemantics.DEFAULT_SEMANTICS,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
+        ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
@@ -230,6 +246,7 @@ public final class SkydocTest extends SkylarkTestCase {
         StarlarkSemantics.DEFAULT_SEMANTICS,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
+        ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
@@ -279,6 +296,7 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableMap.builder(),
+        ImmutableMap.builder(),
         ImmutableMap.builder());
 
     Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
@@ -306,6 +324,7 @@ public final class SkydocTest extends SkylarkTestCase {
         StarlarkSemantics.DEFAULT_SEMANTICS,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
+        ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
@@ -343,6 +362,7 @@ public final class SkydocTest extends SkylarkTestCase {
                     Label.parseAbsoluteUnchecked("//test:main.bzl"),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
+                    ImmutableMap.builder(),
                     ImmutableMap.builder()));
 
     assertThat(expected).hasMessageThat().contains("cycle with test/main.bzl");
@@ -375,7 +395,8 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
-        functionInfoBuilder);
+        functionInfoBuilder,
+        ImmutableMap.builder());
 
     UserDefinedFunction checkSourcesFn = functionInfoBuilder.build().get("check_sources");
     DocstringParseException expected =
@@ -417,7 +438,8 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
-        funcInfoMap);
+        funcInfoMap,
+        ImmutableMap.builder());
 
     Map<String, UserDefinedFunction> functions = funcInfoMap.build();
     assertThat(functions).hasSize(1);
@@ -455,6 +477,7 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         providerInfoMap,
+        ImmutableMap.builder(),
         ImmutableMap.builder());
 
     Map<String, ProviderInfo> providers = providerInfoMap.build();
@@ -481,5 +504,47 @@ public final class SkydocTest extends SkylarkTestCase {
     return providerInfo.getFieldInfoList().stream()
         .map(field -> field.getDocString())
         .collect(Collectors.toList());
+  }
+
+  @Test
+  public void testAspectInfo() throws Exception {
+    scratch.file(
+        "/test/test.bzl",
+        "def my_aspect_impl(ctx):\n"
+            + "    return []\n"
+            + "\n"
+            + "my_aspect = aspect(\n"
+            + "    implementation = my_aspect_impl,\n"
+            + "    doc = \"This is my aspect. It does stuff.\",\n"
+            + "    attr_aspects = [\"deps\"],\n"
+            + "    attrs = {\n"
+            + "        \"first\": attr.label(mandatory = True, allow_single_file = True),\n"
+            + "        \"second\": attr.string_dict(mandatory = True),\n"
+            + "        \"_third\": attr.label(mandatory = True, allow_single_file = True),\n"
+            + "    },\n"
+            + ")");
+
+    ImmutableMap.Builder<String, AspectInfo> aspectInfoMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        aspectInfoMap);
+    Map<String, AspectInfo> aspectInfos = aspectInfoMap.build();
+    assertThat(aspectInfos).hasSize(1);
+
+    ModuleInfo moduleInfo =
+        new ProtoRenderer().appendAspectInfos(aspectInfos.values()).getModuleInfo().build();
+    AspectInfo aspectInfo = moduleInfo.getAspectInfo(0);
+    assertThat(aspectInfo.getAspectName()).isEqualTo("my_aspect");
+    assertThat(aspectInfo.getDocString()).isEqualTo("This is my aspect. It does stuff.");
+    assertThat(getAttrNames(aspectInfo)).containsExactly("name", "first", "second").inOrder();
+    assertThat(getAttrTypes(aspectInfo))
+        .containsExactly(AttributeType.NAME, AttributeType.LABEL, AttributeType.STRING_DICT)
+        .inOrder();
+    assertThat(aspectInfo.getAspectAttributeList()).containsExactly("deps");
   }
 }

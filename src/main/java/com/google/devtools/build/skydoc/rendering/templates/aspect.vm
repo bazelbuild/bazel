@@ -1,0 +1,56 @@
+<a name="#${aspectName}"></a>
+
+#[[##]]# ${aspectName}
+
+<pre>
+${util.aspectSummary($aspectName, $aspectInfo)}
+</pre>
+
+$aspectInfo.getDocString()
+
+#[[###]]# Aspect Attributes
+
+#if (!$aspectInfo.getAspectAttributeList().isEmpty())
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+#foreach ($aspectAttribute in $aspectInfo.getAspectAttributeList())
+    <tr id="${aspectName}-${aspectAttribute}">
+      <td><code>${aspectAttribute}</code></td>
+      <td>
+        String; required.
+#end
+      </td>
+    </tr>
+#end
+  </tbody>
+</table>
+
+#[[###]]# Attributes
+
+#if (!$aspectInfo.getAttributeList().isEmpty())
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+#foreach ($attribute in $aspectInfo.getAttributeList())
+    <tr id="${aspectName}-${attribute.name}">
+      <td><code>${attribute.name}</code></td>
+      <td>
+        ${util.attributeTypeString($attribute)}; ${util.mandatoryString($attribute)}
+#if (!$attribute.docString.isEmpty())
+        <p>
+          ${attribute.docString.trim()}
+        </p>
+#end
+      </td>
+    </tr>
+#end
+  </tbody>
+</table>
+#end

@@ -58,7 +58,7 @@ public class CppCompileActionBuilder {
   private Artifact outputFile;
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
-  private PathFragment tempOutputFile;
+  @Nullable private PathFragment tempOutputFile;
   private Artifact dotdFile;
   private Artifact gcnoFile;
   private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
@@ -140,6 +140,7 @@ public class CppCompileActionBuilder {
     this.builtinIncludeDirectories = other.builtinIncludeDirectories;
   }
 
+  @Nullable
   public PathFragment getTempOutputFile() {
     return tempOutputFile;
   }

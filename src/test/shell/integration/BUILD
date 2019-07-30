@@ -148,9 +148,9 @@ sh_test(
 )
 
 sh_test(
-    name = "experimental_ui_test",
+    name = "ui_test",
     size = "large",
-    srcs = ["experimental_ui_test.sh"],
+    srcs = ["ui_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
@@ -341,16 +341,6 @@ sh_test(
     name = "skylark_flag_test",
     size = "medium",
     srcs = ["skylark_flag_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
-
-sh_test(
-    name = "ui_test",
-    size = "medium",
-    srcs = ["ui_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",

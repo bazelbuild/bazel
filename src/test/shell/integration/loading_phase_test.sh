@@ -360,7 +360,7 @@ function test_disallow_load_labels_to_cross_package_boundaries() {
   echo "b = 42" > "$pkg"/foo/a/b/b.bzl
 
   bazel query "$pkg/foo:BUILD" >& "$TEST_log" && fail "Expected failure"
-  expect_log "Label '//$pkg/foo/a:b/b.bzl' crosses boundary of subpackage '$pkg/foo/a/b'"
+  expect_log "Label '//$pkg/foo/a:b/b.bzl' is invalid because '$pkg/foo/a/b' is a subpackage"
 }
 
 function test_package_loading_errors_in_target_parsing() {

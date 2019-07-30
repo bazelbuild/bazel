@@ -25,12 +25,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  */
 @SkylarkModule(
     name = "exec_result",
-    category = SkylarkModuleCategory.NONE,
+    category = SkylarkModuleCategory.BUILTIN,
     doc =
         "A structure storing result of repository_ctx.execute() method. It contains the standard"
             + " output stream content, the standard error stream content and the execution return"
-            + " code."
-)
+            + " code.")
 public interface SkylarkExecutionResultApi {
   @SkylarkCallable(
       name = "return_code",

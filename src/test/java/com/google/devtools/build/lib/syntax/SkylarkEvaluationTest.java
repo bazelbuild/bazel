@@ -1446,11 +1446,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructAccessOfMethod() throws Exception {
-    new SkylarkTest()
-        .update("mock", new Mock())
-        .testIfExactError(
-            "object of type 'Mock' has no field 'function', however, a method of that name exists",
-            "v = mock.function");
+    new SkylarkTest().update("mock", new Mock()).testStatement("v = mock.function", null);
   }
 
   @Test
@@ -1508,7 +1504,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest("--incompatible_depset_union=false")
         .testStatement("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
         .testStatement("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
-        .testIfExactError("unsupported operand type(s) for |: 'int' and 'int'", "2 | 4");
+        .testIfExactError("unsupported operand type(s) for |: 'int' and 'bool'", "2 | False");
   }
 
   @Test
@@ -1894,15 +1890,16 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testGetattrMethods() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .setUp("a = getattr(mock, 'struct_field', 'no')",
-            "b = getattr(mock, 'function', 'no')",
-            "c = getattr(mock, 'is_empty', 'no')",
-            "d = getattr('str', 'replace', 'no')",
-            "e = getattr(mock, 'other', 'no')\n")
+        .setUp(
+            "a = str(getattr(mock, 'struct_field', 'no'))",
+            "b = str(getattr(mock, 'function', 'no'))",
+            "c = str(getattr(mock, 'is_empty', 'no'))",
+            "d = str(getattr('str', 'replace', 'no'))",
+            "e = str(getattr(mock, 'other', 'no'))\n")
         .testLookup("a", "a")
-        .testLookup("b", "no")
-        .testLookup("c", "no")
-        .testLookup("d", "no")
+        .testLookup("b", "<built-in function function>")
+        .testLookup("c", "<built-in function is_empty>")
+        .testLookup("d", "<built-in function replace>")
         .testLookup("e", "no");
   }
 

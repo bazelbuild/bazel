@@ -47,10 +47,4 @@ public class FakeProviderApi extends BaseFunction implements ProviderApi {
 
   @Override
   public void repr(SkylarkPrinter printer) {}
-
-  @Override
-  public boolean equals(@Nullable Object other) {
-    // Use exact object matching.
-    return this == other;
-  }
 }

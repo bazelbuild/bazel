@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -74,6 +75,7 @@ public final class TestProvider implements TransitiveInfoProvider {
     private final ImmutableList<Artifact.DerivedArtifact> testStatusArtifacts;
     private final ImmutableList<Artifact> coverageArtifacts;
     private final FilesToRunProvider coverageReportGenerator;
+    private final ImmutableList<ActionInput> outputs;
 
     /**
      * Don't call this directly. Instead use {@link
@@ -86,7 +88,8 @@ public final class TestProvider implements TransitiveInfoProvider {
         String testRuleClass,
         ImmutableList<Artifact.DerivedArtifact> testStatusArtifacts,
         ImmutableList<Artifact> coverageArtifacts,
-        FilesToRunProvider coverageReportGenerator) {
+        FilesToRunProvider coverageReportGenerator,
+        ImmutableList<ActionInput> outputs) {
       this.runs = runs;
       this.shards = shards;
       this.timeout = timeout;
@@ -94,6 +97,7 @@ public final class TestProvider implements TransitiveInfoProvider {
       this.testStatusArtifacts = testStatusArtifacts;
       this.coverageArtifacts = coverageArtifacts;
       this.coverageReportGenerator = coverageReportGenerator;
+      this.outputs = outputs;
     }
 
     /**
@@ -144,6 +148,11 @@ public final class TestProvider implements TransitiveInfoProvider {
      */
     public FilesToRunProvider getCoverageReportGenerator() {
       return coverageReportGenerator;
+    }
+
+    /** Returns the list of mandatory and optional test outputs. */
+    public ImmutableList<ActionInput> getOutputs() {
+      return outputs;
     }
   }
 }

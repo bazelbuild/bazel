@@ -22,14 +22,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.io.IOException;
 
-/**
- * A structure representing a file to be used inside a repository.
- */
+/** A structure representing a file to be used inside a repository. */
 @SkylarkModule(
     name = "path",
-    category = SkylarkModuleCategory.NONE,
-    doc = "A structure representing a file to be used inside a repository."
-)
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "A structure representing a file to be used inside a repository.")
 public interface RepositoryPathApi<RepositoryPathApiT extends RepositoryPathApi<?>>
     extends SkylarkValue {
 

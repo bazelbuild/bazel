@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.FileArtifactValue.create;
+import static com.google.devtools.build.lib.actions.FileArtifactValue.createForTesting;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -152,8 +152,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     inputs.addAll(((AggregatingArtifactValue) value).getTreeArtifacts());
     assertThat(inputs)
         .containsExactly(
-            Pair.of(input1, create(input1)),
-            Pair.of(input2, create(input2)),
+            Pair.of(input1, createForTesting(input1)),
+            Pair.of(input2, createForTesting(input2)),
             Pair.of(tree, ((TreeArtifactValue) evaluateArtifactValue(tree))));
   }
 
@@ -273,7 +273,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     writeFile(path, "contents");
     TreeArtifactValue treeArtifactValue =
         TreeArtifactValue.create(
-            ImmutableMap.of(treeFileArtifact, FileArtifactValue.create(treeFileArtifact)));
+            ImmutableMap.of(
+                treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact)));
     Artifact.DerivedArtifact artifact3 = createDerivedArtifact("three");
     FilesetOutputSymlink filesetOutputSymlink =
         FilesetOutputSymlink.createForTesting(
@@ -431,15 +432,17 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
               (SpecialArtifact) output, PathFragment.create("child1"));
           TreeFileArtifact treeFileArtifact2 = ActionInputHelper.treeFileArtifact(
               (SpecialArtifact) output, PathFragment.create("child2"));
-          TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(ImmutableMap.of(
-              treeFileArtifact1, FileArtifactValue.create(treeFileArtifact1),
-              treeFileArtifact2, FileArtifactValue.create(treeFileArtifact2)));
+          TreeArtifactValue treeArtifactValue =
+              TreeArtifactValue.create(
+                  ImmutableMap.of(
+                      treeFileArtifact1, FileArtifactValue.createForTesting(treeFileArtifact1),
+                      treeFileArtifact2, FileArtifactValue.createForTesting(treeFileArtifact2)));
           treeArtifactData.put(output, treeArtifactValue);
         } else if (action.getActionType() == MiddlemanType.NORMAL) {
           ArtifactFileMetadata fileValue =
               ActionMetadataHandler.fileMetadataFromArtifact(output, null, null);
           artifactData.put(output, fileValue);
-          additionalOutputData.put(output, FileArtifactValue.create(output, fileValue));
+          additionalOutputData.put(output, FileArtifactValue.createForTesting(output, fileValue));
        } else {
           additionalOutputData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
         }

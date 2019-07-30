@@ -93,10 +93,15 @@ public final class SkylarkDocumentationProcessor {
     // - Modules in both categories are displayed under "Global Modules" (except for the global
     // module itself).
     List<String> globalFunctions = new ArrayList<>();
+    List<String> globalConstants = new ArrayList<>();
     SkylarkModuleDoc globalModule = findGlobalModule(modulesByCategory);
     for (SkylarkMethodDoc method : globalModule.getMethods()) {
       if (method.documented()) {
-        globalFunctions.add(method.getName());
+        if (method.isCallable()) {
+          globalFunctions.add(method.getName());
+        } else {
+          globalConstants.add(method.getName());
+        }
       }
     }
 
@@ -112,7 +117,12 @@ public final class SkylarkDocumentationProcessor {
 
     Collections.sort(globalModules, us);
     writeOverviewPage(
-        outputDir, globalModule.getName(), globalFunctions, globalModules, modulesByCategory);
+        outputDir,
+        globalModule.getName(),
+        globalFunctions,
+        globalConstants,
+        globalModules,
+        modulesByCategory);
   }
 
   private static SkylarkModuleDoc findGlobalModule(
@@ -161,6 +171,7 @@ public final class SkylarkDocumentationProcessor {
       String outputDir,
       String globalModuleName,
       List<String> globalFunctions,
+      List<String> globalConstants,
       List<String> globalModules,
       Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesPerCategory)
       throws IOException {
@@ -168,6 +179,7 @@ public final class SkylarkDocumentationProcessor {
     Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_OVERVIEW_TEMPLATE);
     page.add("global_name", globalModuleName);
     page.add("global_functions", globalFunctions);
+    page.add("global_constants", globalConstants);
     page.add("global_modules", globalModules);
     page.add("modules", modulesPerCategory);
     page.write(skylarkDocPath);

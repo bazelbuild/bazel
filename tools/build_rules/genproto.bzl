@@ -16,6 +16,8 @@ limitations under the License.
 This is a quick and dirty rule to make Bazel compile itself. Do not use.
 """
 
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
 proto_filetype = [".proto"]
 
 def cc_grpc_library(name, src):
@@ -45,7 +47,7 @@ def cc_grpc_library(name, src):
         outs = [basename + ".grpc.pb.h", basename + ".grpc.pb.cc", basename + ".pb.cc", basename + ".pb.h"],
     )
 
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = [basename + ".grpc.pb.cc", basename + ".pb.cc"],
         hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],

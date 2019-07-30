@@ -1918,4 +1918,27 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             + "this attribute has unsupported character '/'",
         "objc_library(name = 'foo/bar', srcs = ['foo.m'])");
   }
+
+  @Test
+  public void testObjcLibraryLoadedThroughMacro() throws Exception {
+    setupTestObjcLibraryLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testObjcLibraryNotLoadedThroughMacro() throws Exception {
+    setupTestObjcLibraryLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestObjcLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "objc_library"),
+        "objc_library(name='a', srcs=['a.cc'])");
+  }
 }

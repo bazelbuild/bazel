@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.remote;
 import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.remote.blobstore.CombinedDiskHttpBlobStore;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
-import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
-import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
-import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.disk.CombinedDiskHttpBlobStore;
+import com.google.devtools.build.lib.remote.disk.OnDiskBlobStore;
+import com.google.devtools.build.lib.remote.http.HttpBlobStore;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -88,13 +89,18 @@ public final class SimpleBlobStoreFactory {
               uri,
               options.remoteTimeout,
               options.remoteMaxConnections,
+              ImmutableList.copyOf(options.remoteHeaders),
               creds);
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteProxy);
         }
       } else {
         return HttpBlobStore.create(
-            uri, options.remoteTimeout, options.remoteMaxConnections, creds);
+            uri,
+            options.remoteTimeout,
+            options.remoteMaxConnections,
+            ImmutableList.copyOf(options.remoteHeaders),
+            creds);
       }
     } catch (Exception e) {
       throw new RuntimeException(e);

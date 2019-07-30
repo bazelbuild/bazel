@@ -117,9 +117,9 @@ You can also tell Bazel where to find the Python binary and the C++ compiler:
   See the [Build C++ section](#build_cpp) below.
 
 <a name="build_cpp"></a>
-### Build C++
+### Build C++ with MSVC
 
-To build C++ targets, you need:
+To build C++ targets with MSVC, you need:
 
 *   The Visual C++ compiler.
 
@@ -211,6 +211,62 @@ C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
 
 To build and use Dynamically Linked Libraries (DLL files), see [this
 example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
+
+### Build C++ with Clang
+
+From 0.29.0, Bazel supports building with LLVM's MSVC-compatible compiler driver (`clang-cl.exe`).
+
+**Requirement**: To build with Clang, you have to install **both**
+[LLVM](http://releases.llvm.org/download.html) and Visual C++ Build tools, because although we use
+`clang-cl.exe` as compiler, we still need to link to Visual C++ libraries.
+
+Bazel can automatically detect LLVM installation on your system, or you can explicitly tell
+Bazel where LLVM is installed by `BAZEL_LLVM`.
+
+*   `BAZEL_LLVM` the LLVM installation directory
+
+    ```
+    set BAZEL_LLVM=C:\Program Files\LLVM
+    ```
+
+To enable the Clang toolchain for building C++, there are several situations.
+
+* In bazel 0.28 and older: Clang is not supported.
+
+* In Bazel 0.29.0: You can enable the Clang toolchain by a build flag `--compiler=clang-cl`.
+  This is deprecated and will be removed in Bazel 1.0.
+
+* From Bazel 1.0: You have to add a platform target to your build file (eg. the top level BUILD file):
+    ```
+    platform(
+        name = "x64_windows-clang-cl",
+        constraint_values = [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:windows",
+            "@bazel_tools//tools/cpp:clang-cl",
+        ],
+    )
+    ```
+    Then you can enable the Clang toolchain by either of the following two ways:
+    * Specify the following build flags:
+
+    ```
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
+    ```
+
+    * Register the platform and toolchain in your WORKSPACE file:
+
+    ```
+    register_execution_platforms(
+        ":x64_windows-clang-cl"
+    )
+
+    register_toolchains(
+        "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",
+    )
+    ```
+
+    The reason we have those two ways is because [--incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260) flag.
 
 ### Build Java
 

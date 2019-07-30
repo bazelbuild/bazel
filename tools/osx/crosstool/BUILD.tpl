@@ -1,6 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@local_config_cc_toolchains//:osx_archs.bzl", "OSX_TOOLS_ARCHS")
+load("@rules_cc//cc:defs.bzl", "cc_toolchain_suite", "cc_library")
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
 # Reexporting osx_arch.bzl for backwards compatibility

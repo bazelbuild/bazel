@@ -211,12 +211,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testGetAttrWithMethods() throws Exception {
-    String msg =
-        "object of type 'string' has no attribute 'count', however, "
-            + "a method of that name exists";
+    String msg = "object of type 'string' has no attribute 'cnt'";
     new SkylarkTest()
-        .testIfExactError(msg, "getattr('a string', 'count')")
-        .testStatement("getattr('a string', 'count', 'default')", "default");
+        .testIfExactError(msg, "getattr('a string', 'cnt')")
+        .testStatement("getattr('a string', 'cnt', 'default')", "default");
   }
 
   @Test
@@ -731,7 +729,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("range(start_or_stop=3, stop_or_none=9, step=2)", "range(3, 9, 2)")
         .testStatement("hasattr(x=depset(), name='union')", Boolean.TRUE)
         .testStatement("bool(x=3)", Boolean.TRUE)
-        .testStatement("getattr(x='hello', name='count', default='default')", "default")
+        .testStatement("getattr(x='hello', name='cnt', default='default')", "default")
         .testEval(
             "dir(x={})",
             "[\"clear\", \"get\", \"items\", \"keys\","

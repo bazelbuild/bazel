@@ -18,9 +18,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /** Info object propagating information about protocol buffer sources. */
-@SkylarkModule(name = "ProtoInfo", doc = "")
+@SkylarkModule(
+    name = "ProtoInfo",
+    category = SkylarkModuleCategory.PROVIDER,
+    doc =
+        "Encapsulates information provided by <a href=\""
+            + "../../be/protocol-buffer.html#proto_library\">proto_library.</a>"
+            + "<p>"
+            + "Please consider using `load(\"@rules_proto//proto:defs.bzl\", \"ProtoInfo\")` "
+            + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto.\">"
+            + "rules_proto</a>"
+            + "</p>")
 public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
   /** Provider class for {@link ProtoInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
@@ -62,9 +73,8 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
       name = "direct_descriptor_set",
       doc =
           "The <a href=\""
-              + "https://github.com/google/protobuf/search?q=%22message+FileDescriptorSet%22+path%3A%2Fsrc"
-              + "\">FileDescriptorSet</a> of the direct sources. "
-              + "If no srcs, contains an empty file.",
+              + "https://github.com/google/protobuf/search?q=%22message+FileDescriptorSet%22+path%3A%2Fsrc\">FileDescriptorSet</a>"
+              + " of the direct sources. If no srcs, contains an empty file.",
       structField = true)
   public FileT getDirectDescriptorSet();
 
@@ -72,11 +82,10 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
       name = "transitive_descriptor_sets",
       doc =
           "A set of <a href=\""
-              + "https://github.com/google/protobuf/search?q=%22message+FileDescriptorSet%22+path%3A%2Fsrc"
-              + "\">FileDescriptorSet</a> files of all dependent proto_library rules, "
-              + "and this one's. "
-              + "This is not the same as passing --include_imports to proto-compiler. "
-              + "Will be empty if no dependencies.",
+              + "https://github.com/google/protobuf/search?q=%22message+FileDescriptorSet%22+path%3A%2Fsrc\">FileDescriptorSet</a>"
+              + " files of all dependent proto_library rules, and this one's. This is not the same"
+              + " as passing --include_imports to proto-compiler. Will be empty if no"
+              + " dependencies.",
       structField = true)
   public NestedSet<FileT> getTransitiveDescriptorSets();
 

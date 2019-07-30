@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.SpawnLogContext;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -110,7 +111,9 @@ public final class SpawnLogModule extends BlazeModule {
       return;
     }
 
-    spawnLogContext = new SpawnLogContext(env.getExecRoot(), outStream);
+    spawnLogContext =
+        new SpawnLogContext(
+            env.getExecRoot(), outStream, env.getOptions().getOptions(RemoteOptions.class));
   }
 
   @Override

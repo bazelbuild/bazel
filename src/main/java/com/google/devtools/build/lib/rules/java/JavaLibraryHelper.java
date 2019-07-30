@@ -56,6 +56,7 @@ public final class JavaLibraryHelper {
   private JavaPluginInfoProvider plugins = JavaPluginInfoProvider.empty();
   private ImmutableList<String> javacOpts = ImmutableList.of();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
+  private final List<Artifact> additionalOutputs = new ArrayList<>();
 
   /** @see {@link #setCompilationStrictDepsMode}. */
   private StrictDepsMode strictDepsMode = StrictDepsMode.ERROR;
@@ -115,6 +116,11 @@ public final class JavaLibraryHelper {
 
   public JavaLibraryHelper addExport(JavaCompilationArgsProvider provider) {
     exports.add(provider);
+    return this;
+  }
+
+  public JavaLibraryHelper addAdditionalOutputs(Iterable<Artifact> outputs) {
+    Iterables.addAll(additionalOutputs, outputs);
     return this;
   }
 
@@ -185,7 +191,8 @@ public final class JavaLibraryHelper {
         createOutputSourceJar,
         outputSourceJar,
         /* javaInfoBuilder= */ null,
-        ImmutableList.of()); // ignored when javaInfoBuilder is null
+        ImmutableList.of(), // ignored when javaInfoBuilder is null
+        ImmutableList.of());
   }
 
   public JavaCompilationArtifacts build(
@@ -196,11 +203,14 @@ public final class JavaLibraryHelper {
       boolean createOutputSourceJar,
       @Nullable Artifact outputSourceJar,
       @Nullable JavaInfo.Builder javaInfoBuilder,
-      Iterable<JavaGenJarsProvider> transitiveJavaGenJars) {
+      Iterable<JavaGenJarsProvider> transitiveJavaGenJars,
+      ImmutableList<Artifact> additionalJavaBaseInputs) {
+
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     Preconditions.checkState(
         !createOutputSourceJar || outputSourceJar != null,
         "outputSourceJar cannot be null when createOutputSourceJar is true");
+
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
     attributes.addSourceJars(sourceJars);
     attributes.addSourceFiles(sourceFiles);
@@ -210,6 +220,7 @@ public final class JavaLibraryHelper {
     attributes.setInjectingRuleKind(injectingRuleKind);
     attributes.setSourcePath(sourcePathEntries);
     JavaCommon.addPlugins(attributes, plugins);
+    attributes.addAdditionalOutputs(additionalOutputs);
 
     for (Artifact resource : resources) {
       attributes.addResource(
@@ -223,7 +234,13 @@ public final class JavaLibraryHelper {
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
-            ruleContext, semantics, javacOpts, attributes, javaToolchainProvider, hostJavabase);
+            ruleContext,
+            semantics,
+            javacOpts,
+            attributes,
+            javaToolchainProvider,
+            hostJavabase,
+            additionalJavaBaseInputs);
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(output);
 
     Artifact genSourceJar = null;

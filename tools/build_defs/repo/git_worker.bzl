@@ -109,7 +109,7 @@ def _update(ctx, git_repo):
         update_submodules(ctx, git_repo)
 
 def init(ctx, git_repo):
-    cl = ["git", "init", git_repo.directory]
+    cl = ["git", "init", str(git_repo.directory)]
     st = ctx.execute(cl, environment = ctx.os.environ)
     if st.return_code != 0:
         _error(ctx.name, cl, st.stderr)

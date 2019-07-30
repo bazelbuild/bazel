@@ -22,13 +22,15 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.function.Consumer;
 
 /** Looks up {@link RecursivePkgValue}s of given roots in a {@link WalkableGraph}. */
 public class RecursivePkgValueRootPackageExtractor implements RootPackageExtractor {
 
-  public Iterable<PathFragment> getPackagesFromRoots(
+  @Override
+  public void streamPackagesFromRoots(
+      Consumer<PathFragment> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
@@ -37,14 +39,12 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-
     ImmutableSet filteredBlacklistedSubdirectories =
         ImmutableSet.copyOf(
             Iterables.filter(
                 blacklistedSubdirectories,
                 path -> !path.equals(directory) && path.startsWith(directory)));
 
-    LinkedHashSet<PathFragment> packageNames = new LinkedHashSet<>();
     for (Root root : roots) {
       // Note: no need to check if lookup == null because it will never be null.
       // {@link RecursivePkgFunction} handles all errors in a keep_going build.
@@ -68,11 +68,9 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
         if (!Iterables.any(
             excludedSubdirectories,
             excludedSubdirectory -> packageNamePathFragment.startsWith(excludedSubdirectory))) {
-          packageNames.add(packageNamePathFragment);
+          results.accept(packageNamePathFragment);
         }
       }
     }
-
-    return packageNames;
   }
 }

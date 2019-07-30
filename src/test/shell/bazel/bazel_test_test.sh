@@ -144,6 +144,50 @@ EOF
   expect_log "ws: bar$"
 }
 
+function test_run_under_external_label_with_options() {
+  mkdir -p testing run || fail "mkdir testing run failed"
+  cat <<EOF > run/BUILD
+sh_binary(
+  name='under', srcs=['under.sh'],
+  visibility=["//visibility:public"],
+)
+EOF
+
+touch run/WORKSPACE
+
+  cat <<EOF > run/under.sh
+#!/bin/sh
+echo running under @run//:under "\$*"
+EOF
+  chmod u+x run/under.sh
+
+  cat <<EOF > testing/passing_test.sh
+#!/bin/sh
+exit 0
+EOF
+  chmod u+x testing/passing_test.sh
+
+  cat <<EOF > testing/BUILD
+sh_test(
+  name = "passing_test" ,
+  srcs = [ "passing_test.sh" ])
+EOF
+
+  cat <<EOF > WORKSPACE
+local_repository(
+    name = "run",
+    path = "./run",
+)
+EOF
+
+  bazel test //testing:passing_test --run_under='@run//:under -c' \
+    --test_output=all >& $TEST_log || fail "Expected success"
+
+  expect_log 'running under @run//:under -c testing/passing_test'
+  expect_log 'passing_test *PASSED'
+  expect_log '1 test passes.$'
+}
+
 function test_run_under_label_with_options() {
   mkdir -p testing run || fail "mkdir testing run failed"
   cat <<EOF > run/BUILD
@@ -179,8 +223,7 @@ EOF
 }
 
 # This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
-# this environment and cause --experimental_ui to be turned on, which causes
-# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
+# this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
   mkdir -p testing || fail "mkdir testing failed"
   echo "sh_test(name='t1', srcs=['t1.sh'])" > testing/BUILD
@@ -538,8 +581,7 @@ function test_detailed_test_summary() {
 }
 
 # This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
-# this environment and cause --experimental_ui to be turned on, which causes
-# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
+# this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
   cat >BUILD <<EOF
 sh_test(name = "flaky", flaky = True, srcs = ["flaky.sh"])

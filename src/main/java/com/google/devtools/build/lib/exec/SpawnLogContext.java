@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -24,20 +26,17 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.File;
-import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
@@ -66,10 +65,13 @@ public class SpawnLogContext implements ActionContext {
   private static final Logger logger = Logger.getLogger(SpawnLogContext.class.getName());
   private final Path execRoot;
   private final MessageOutputStream executionLog;
+  @Nullable private final RemoteOptions remoteOptions;
 
-  public SpawnLogContext(Path execRoot, MessageOutputStream executionLog) {
+  public SpawnLogContext(
+      Path execRoot, MessageOutputStream executionLog, @Nullable RemoteOptions remoteOptions) {
     this.execRoot = execRoot;
     this.executionLog = executionLog;
+    this.remoteOptions = remoteOptions;
   }
 
   /** Log the executed spawn to the output stream. */
@@ -79,7 +81,7 @@ public class SpawnLogContext implements ActionContext {
       SortedMap<PathFragment, ActionInput> inputMap,
       Duration timeout,
       SpawnResult result)
-      throws IOException {
+      throws IOException, ExecException {
     SortedMap<Path, ActionInput> existingOutputs = listExistingOutputs(spawn);
     SpawnExec.Builder builder = SpawnExec.newBuilder();
     builder.addAllCommandArgs(spawn.getArguments());
@@ -127,10 +129,10 @@ public class SpawnLogContext implements ActionContext {
     }
     builder.setRemotable(Spawns.mayBeExecutedRemotely(spawn));
 
-    PlatformInfo execPlatform = spawn.getExecutionPlatform();
-    if (execPlatform != null && execPlatform.remoteExecutionProperties() != null) {
-      builder.setPlatform(
-          buildPlatform(execPlatform.label(), execPlatform.remoteExecutionProperties()));
+    Platform execPlatform =
+        PlatformUtils.getPlatformProto(spawn.getExecutionPlatform(), remoteOptions);
+    if (execPlatform != null) {
+      builder.setPlatform(buildPlatform(execPlatform));
     }
     if (result.status() != SpawnResult.Status.SUCCESS) {
       builder.setStatus(result.status().toString());
@@ -154,17 +156,10 @@ public class SpawnLogContext implements ActionContext {
     executionLog.close();
   }
 
-  private static Platform buildPlatform(Label platformLabel, @Nullable String platformDescription) {
-    Platform.Builder platformBuilder = Platform.newBuilder();
-    try {
-      if (platformDescription != null) {
-        TextFormat.getParser().merge(platformDescription, platformBuilder);
-      }
-    } catch (ParseException e) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to parse remote_execution_properties from platform %s", platformLabel),
-          e);
+  private static Protos.Platform buildPlatform(Platform platform) {
+    Protos.Platform.Builder platformBuilder = Protos.Platform.newBuilder();
+    for (Platform.Property p : platform.getPropertiesList()) {
+      platformBuilder.addPropertiesBuilder().setName(p.getName()).setValue(p.getValue());
     }
     return platformBuilder.build();
   }

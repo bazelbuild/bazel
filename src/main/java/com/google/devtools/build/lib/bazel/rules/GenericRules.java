@@ -44,7 +44,7 @@ public class GenericRules implements RuleSet {
     builder.addRuleDefinition(new AliasRule());
     builder.addRuleDefinition(new BazelFilegroupRule());
     builder.addRuleDefinition(new TestSuiteRule());
-    builder.addRuleDefinition(new GenQueryRule());
+    GenQueryRule.register(builder);
     builder.addRuleDefinition(new LabelBuildSettingRule());
     builder.addRuleDefinition(new LabelBuildFlagRule());
 

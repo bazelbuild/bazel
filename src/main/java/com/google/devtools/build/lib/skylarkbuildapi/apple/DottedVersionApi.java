@@ -21,16 +21,15 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /**
- * Interface for a value representing a version with multiple components, separated by periods,
- * such as "1.2.3.4".
- **/
+ * Interface for a value representing a version with multiple components, separated by periods, such
+ * as "1.2.3.4".
+ */
 @SkylarkModule(
     name = "DottedVersion",
-    category = SkylarkModuleCategory.NONE,
+    category = SkylarkModuleCategory.BUILTIN,
     doc =
         "A value representing a version with multiple components, separated by periods, such as "
-            + "1.2.3.4."
-)
+            + "1.2.3.4.")
 public interface DottedVersionApi<SelfT extends DottedVersionApi<?>>
     extends SkylarkValue, Comparable<SelfT> {
 

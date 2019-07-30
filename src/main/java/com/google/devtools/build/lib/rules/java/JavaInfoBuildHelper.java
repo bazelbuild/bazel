@@ -374,6 +374,8 @@ final class JavaInfoBuildHelper {
       SkylarkList<JavaInfo> exports,
       SkylarkList<JavaInfo> plugins,
       SkylarkList<JavaInfo> exportedPlugins,
+      SkylarkList<Artifact> annotationProcessorAdditionalInputs,
+      SkylarkList<Artifact> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
@@ -384,6 +386,7 @@ final class JavaInfoBuildHelper {
       Location location,
       Environment environment)
       throws EvalException {
+
     if (sourceJars.isEmpty()
         && sourceFiles.isEmpty()
         && exports.isEmpty()
@@ -402,6 +405,7 @@ final class JavaInfoBuildHelper {
             .addSourceFiles(sourceFiles)
             .addResources(resources)
             .setSourcePathEntries(sourcepathEntries)
+            .addAdditionalOutputs(annotationProcessorAdditionalOutputs)
             .setJavacOpts(
                 ImmutableList.<String>builder()
                     .addAll(toolchainProvider.getJavacOptions(skylarkRuleContext.getRuleContext()))
@@ -440,7 +444,8 @@ final class JavaInfoBuildHelper {
             // added to javaInfoBuilder for this target.
             NestedSetBuilder.wrap(
                 Order.STABLE_ORDER,
-                JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class)));
+                JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class)),
+            annotationProcessorAdditionalInputs.getImmutableList());
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);

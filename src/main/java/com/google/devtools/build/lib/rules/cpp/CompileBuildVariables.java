@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequen
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
+import java.util.Map;
 
 /** Enum covering all build variables we create for all various {@link CppCompileAction}. */
 public enum CompileBuildVariables {
@@ -135,11 +137,14 @@ public enum CompileBuildVariables {
       Iterable<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines) {
     try {
-      return setupVariablesOrThrowEvalException(
+      if (usePic
+          && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
+          && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
+        throw new EvalException(Location.BUILTIN, CcCommon.PIC_CONFIGURATION_ERROR);
+      }
+      return setupVariables(
           featureConfiguration,
-          ccToolchainProvider,
-          buildOptions,
-          cppConfiguration,
+          ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration),
           sourceFile,
           outputFile,
           gcnoFile,
@@ -194,16 +199,105 @@ public enum CompileBuildVariables {
       Iterable<String> frameworkIncludeDirs,
       Iterable<String> defines)
       throws EvalException {
-    Preconditions.checkNotNull(directModuleMaps);
-    Preconditions.checkNotNull(includeDirs);
-    Preconditions.checkNotNull(quoteIncludeDirs);
-    Preconditions.checkNotNull(systemIncludeDirs);
-    Preconditions.checkNotNull(frameworkIncludeDirs);
-    Preconditions.checkNotNull(defines);
-    CcToolchainVariables.Builder buildVariables =
-        CcToolchainVariables.builder(
-            ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration));
+    if (usePic
+        && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
+        && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
+      throw new EvalException(Location.BUILTIN, CcCommon.PIC_CONFIGURATION_ERROR);
+    }
+    return setupVariables(
+        featureConfiguration,
+        ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration),
+        sourceFile,
+        outputFile,
+        gcnoFile,
+        isUsingFission,
+        dwoFile,
+        ltoIndexingFile,
+        includes,
+        userCompileFlags,
+        cppModuleMap,
+        usePic,
+        fakeOutputFile,
+        fdoStamp,
+        dotdFileExecPath,
+        variablesExtensions,
+        additionalBuildVariables,
+        directModuleMaps,
+        includeDirs,
+        quoteIncludeDirs,
+        systemIncludeDirs,
+        frameworkIncludeDirs,
+        defines);
+  }
 
+  private static CcToolchainVariables setupVariables(
+      FeatureConfiguration featureConfiguration,
+      CcToolchainVariables parent,
+      String sourceFile,
+      String outputFile,
+      String gcnoFile,
+      boolean isUsingFission,
+      String dwoFile,
+      String ltoIndexingFile,
+      ImmutableList<String> includes,
+      Iterable<String> userCompileFlags,
+      CppModuleMap cppModuleMap,
+      boolean usePic,
+      String fakeOutputFile,
+      String fdoStamp,
+      String dotdFileExecPath,
+      ImmutableList<VariablesExtension> variablesExtensions,
+      ImmutableMap<String, String> additionalBuildVariables,
+      Iterable<Artifact> directModuleMaps,
+      Iterable<String> includeDirs,
+      Iterable<String> quoteIncludeDirs,
+      Iterable<String> systemIncludeDirs,
+      Iterable<String> frameworkIncludeDirs,
+      Iterable<String> defines) {
+    CcToolchainVariables.Builder buildVariables = CcToolchainVariables.builder(parent);
+    setupCommonVariablesInternal(
+        buildVariables,
+        featureConfiguration,
+        includes,
+        cppModuleMap,
+        fdoStamp,
+        variablesExtensions,
+        additionalBuildVariables,
+        directModuleMaps,
+        includeDirs,
+        quoteIncludeDirs,
+        systemIncludeDirs,
+        frameworkIncludeDirs,
+        defines);
+    setupSpecificVariables(
+        buildVariables,
+        sourceFile,
+        outputFile,
+        gcnoFile,
+        dwoFile,
+        isUsingFission,
+        ltoIndexingFile,
+        userCompileFlags,
+        fakeOutputFile,
+        dotdFileExecPath,
+        usePic,
+        ImmutableMap.of());
+    return buildVariables.build();
+  }
+
+  public static void setupSpecificVariables(
+      CcToolchainVariables.Builder buildVariables,
+      String sourceFile,
+      String outputFile,
+      String gcnoFile,
+      String dwoFile,
+      boolean isUsingFission,
+      String ltoIndexingFile,
+      Iterable<String> userCompileFlags,
+      String fakeOutputFile,
+      String dotdFileExecPath,
+      boolean usePic,
+      Map<String, String> additionalBuildVariables) {
     buildVariables.addStringSequenceVariable(
         USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
@@ -222,6 +316,81 @@ public enum CompileBuildVariables {
     if (dotdFileExecPath != null) {
       buildVariables.addStringVariable(DEPENDENCY_FILE.getVariableName(), dotdFileExecPath);
     }
+
+    if (gcnoFile != null) {
+      buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
+    }
+
+    if (dwoFile != null) {
+      buildVariables.addStringVariable(PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile);
+    }
+
+    if (isUsingFission) {
+      buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
+    }
+
+    if (ltoIndexingFile != null) {
+      buildVariables.addStringVariable(
+          LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexingFile);
+    }
+
+    if (usePic) {
+      buildVariables.addStringVariable(PIC.getVariableName(), "");
+    }
+
+    buildVariables.addAllStringVariables(additionalBuildVariables);
+  }
+
+  public static void setupCommonVariables(
+      CcToolchainVariables.Builder buildVariables,
+      FeatureConfiguration featureConfiguration,
+      List<String> includes,
+      CppModuleMap cppModuleMap,
+      String fdoStamp,
+      List<VariablesExtension> variablesExtensions,
+      Map<String, String> additionalBuildVariables,
+      Iterable<Artifact> directModuleMaps,
+      Iterable<PathFragment> includeDirs,
+      Iterable<PathFragment> quoteIncludeDirs,
+      Iterable<PathFragment> systemIncludeDirs,
+      Iterable<PathFragment> frameworkIncludeDirs,
+      Iterable<String> defines) {
+    setupCommonVariablesInternal(
+        buildVariables,
+        featureConfiguration,
+        includes,
+        cppModuleMap,
+        fdoStamp,
+        variablesExtensions,
+        additionalBuildVariables,
+        directModuleMaps,
+        getSafePathStrings(includeDirs),
+        getSafePathStrings(quoteIncludeDirs),
+        getSafePathStrings(systemIncludeDirs),
+        getSafePathStrings(frameworkIncludeDirs),
+        defines);
+  }
+
+  private static void setupCommonVariablesInternal(
+      CcToolchainVariables.Builder buildVariables,
+      FeatureConfiguration featureConfiguration,
+      List<String> includes,
+      CppModuleMap cppModuleMap,
+      String fdoStamp,
+      List<VariablesExtension> variablesExtensions,
+      Map<String, String> additionalBuildVariables,
+      Iterable<Artifact> directModuleMaps,
+      Iterable<String> includeDirs,
+      Iterable<String> quoteIncludeDirs,
+      Iterable<String> systemIncludeDirs,
+      Iterable<String> frameworkIncludeDirs,
+      Iterable<String> defines) {
+    Preconditions.checkNotNull(directModuleMaps);
+    Preconditions.checkNotNull(includeDirs);
+    Preconditions.checkNotNull(quoteIncludeDirs);
+    Preconditions.checkNotNull(systemIncludeDirs);
+    Preconditions.checkNotNull(frameworkIncludeDirs);
+    Preconditions.checkNotNull(defines);
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
       // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
@@ -266,36 +435,10 @@ public enum CompileBuildVariables {
 
     buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);
 
-    if (usePic) {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.PIC)
-          && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-        throw new EvalException(Location.BUILTIN, CcCommon.PIC_CONFIGURATION_ERROR);
-      }
-      buildVariables.addStringVariable(PIC.getVariableName(), "");
-    }
-
-    if (gcnoFile != null) {
-      buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
-    }
-
-    if (isUsingFission) {
-      buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
-    }
-    if (dwoFile != null) {
-      buildVariables.addStringVariable(PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile);
-    }
-
-    if (ltoIndexingFile != null) {
-      buildVariables.addStringVariable(
-          LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexingFile);
-    }
-
     buildVariables.addAllStringVariables(additionalBuildVariables);
     for (VariablesExtension extension : variablesExtensions) {
       extension.addVariables(buildVariables);
     }
-
-    return buildVariables.build();
   }
 
   /** Get the safe path strings for a list of paths to use in the build variables. */

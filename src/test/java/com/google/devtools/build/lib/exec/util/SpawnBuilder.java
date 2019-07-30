@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +40,7 @@ public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
   @Nullable private String ownerLabel;
+  @Nullable private PlatformInfo platform;
   private final List<String> args;
   private final Map<String, String> environment = new HashMap<>();
   private final Map<String, String> executionInfo = new HashMap<>();
@@ -54,7 +56,7 @@ public final class SpawnBuilder {
   }
 
   public Spawn build() {
-    ActionExecutionMetadata owner = new FakeOwner(mnemonic, progressMessage, ownerLabel);
+    ActionExecutionMetadata owner = new FakeOwner(mnemonic, progressMessage, ownerLabel, platform);
     return new SimpleSpawn(
         owner,
         ImmutableList.copyOf(args),
@@ -66,6 +68,11 @@ public final class SpawnBuilder {
         /*tools=*/ ImmutableList.<Artifact>of(),
         ImmutableList.copyOf(outputs),
         ResourceSet.ZERO);
+  }
+
+  public SpawnBuilder withPlatform(PlatformInfo platform) {
+    this.platform = platform;
+    return this;
   }
 
   public SpawnBuilder withMnemonic(String mnemonic) {

@@ -205,13 +205,19 @@ function test_download_multiple() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
+  local file1="${server_dir}/file1.txt"
   local file2="${server_dir}/file2.txt"
-  echo "second contents here" > "${file2}"
+  echo "contents here" > "${file1}"
+  echo "contents here" > "${file2}"
+  sha256=$(sha256sum "${file2}" | head -c 64)
 
   # Start HTTP server with Python
+  ls -al "${server_dir}"
+  sha256sum "${file2}"
+
   startup_server "${server_dir}"
 
-  set_workspace_command "repository_ctx.download([\"http://localhost:${fileserver_port}/file1.txt\",\"http://localhost:${fileserver_port}/file2.txt\"], \"out_for_list.txt\")"
+  set_workspace_command "repository_ctx.download([\"http://localhost:${fileserver_port}/file1.txt\",\"http://localhost:${fileserver_port}/file2.txt\"], \"out_for_list.txt\", sha256='${sha256}')"
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
@@ -240,6 +246,7 @@ function test_download_integrity_sha256() {
 
   set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
 
+  echo 'build --incompatible_disallow_unverified_http_downloads' >> .bazelrc
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
@@ -263,11 +270,13 @@ function test_download_integrity_sha512() {
   sha512_py='import base64, hashlib, sys; print(base64.b64encode(hashlib.sha512(sys.stdin.read()).digest()))'
   file_integrity="sha512-$(cat "${file}" | python -c "${sha512_py}")"
 
+
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
   set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
 
+  echo 'build --incompatible_disallow_unverified_http_downloads' >> .bazelrc
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
@@ -277,6 +286,37 @@ function test_download_integrity_sha512() {
   ensure_contains_exactly 'output: "file.txt"' 1
   ensure_contains_exactly "sha256: " 0
   ensure_contains_exactly "integrity: \"${file_integrity}\"" 1
+}
+
+function test_download_integrity_malformed() {
+  # Verify that a malformed value for integrity leads to a failing build
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local file="${server_dir}/file.txt"
+  startup_server "${server_dir}"
+  echo 'build --incompatible_disallow_unverified_http_downloads' >> .bazelrc
+  echo "file contents here" > "${file}"
+
+  # Unsupported checksum algorithm
+  file_integrity="This is no a checksum algorithm"
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+  bazel build //:test > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  expect_log "${file_integrity}"
+  expect_log "[Uu]nsupported checksum algorithm"
+
+  # Syntactically invalid checksum
+  file_integrity="sha512-ThisIsNotASha512Hash"
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+  bazel build //:test > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  expect_log "${file_integrity}"
+  expect_log "[Ii]nvalid.*checksum"
+
+  # Syntactically correct, but incorrect value
+  file_integrity="sha512-cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+  bazel build //:test > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  expect_log "${file_integrity}"
+  expect_log "[Ii]nvalid.*checksum"
 }
 
 function test_download_then_extract() {

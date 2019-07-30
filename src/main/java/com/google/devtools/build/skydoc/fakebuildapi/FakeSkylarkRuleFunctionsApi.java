@@ -32,19 +32,21 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /**
  * Fake implementation of {@link SkylarkRuleFunctionsApi}.
@@ -60,6 +62,8 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
   private final List<ProviderInfoWrapper> providerInfoList;
 
+  private final List<AspectInfoWrapper> aspectInfoList;
+
   /**
    * Constructor.
    *
@@ -67,11 +71,16 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
    *     will be added
    * @param providerInfoList the list of {@link ProviderInfo} objects to which provider() invocation
    *     information will be added
+   * @param aspectInfoList the list of {@link AspectInfo} objects to which aspect() invocation
+   *     information will be added
    */
   public FakeSkylarkRuleFunctionsApi(
-      List<RuleInfoWrapper> ruleInfoList, List<ProviderInfoWrapper> providerInfoList) {
+      List<RuleInfoWrapper> ruleInfoList,
+      List<ProviderInfoWrapper> providerInfoList,
+      List<AspectInfoWrapper> aspectInfoList) {
     this.ruleInfoList = ruleInfoList;
     this.providerInfoList = providerInfoList;
+    this.aspectInfoList = aspectInfoList;
   }
 
   @Override
@@ -138,7 +147,6 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Environment funcallEnv,
       StarlarkContext context)
       throws EvalException {
-    List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Runtime.NONE) {
       SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
@@ -146,7 +154,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     }
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
-    attrInfos =
+    List<AttributeInfo> attrInfos =
         attrsMapBuilder.build().entrySet().stream()
             .filter(entry -> !entry.getKey().startsWith("_"))
             .map(entry -> entry.getValue().asAttributeInfo(entry.getKey()))
@@ -186,7 +194,39 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Object attrs, SkylarkList<?> requiredAspectProvidersArg, SkylarkList<?> providesArg,
       SkylarkList<?> fragments, SkylarkList<?> hostFragments, SkylarkList<?> toolchains, String doc,
       FuncallExpression ast, Environment funcallEnv) throws EvalException {
-    return new FakeSkylarkAspect();
+    FakeSkylarkAspect fakeAspect = new FakeSkylarkAspect();
+    ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
+    if (attrs != null && attrs != Runtime.NONE) {
+      SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
+      attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
+    }
+
+    attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
+    List<AttributeInfo> attrInfos =
+        attrsMapBuilder.build().entrySet().stream()
+            .filter(entry -> !entry.getKey().startsWith("_"))
+            .map(entry -> entry.getValue().asAttributeInfo(entry.getKey()))
+            .collect(Collectors.toList());
+    attrInfos.sort(new AttributeNameComparator());
+
+    List<String> aspectAttrs = new ArrayList<>();
+    if (attributeAspects != null) {
+      aspectAttrs = attributeAspects.getContents(String.class, "aspectAttrs");
+    }
+
+    aspectAttrs =
+        aspectAttrs.stream().filter(entry -> !entry.startsWith("_")).collect(Collectors.toList());
+
+    // Only the Builder is passed to AspectInfoWrapper as the aspect name is not yet available.
+    AspectInfo.Builder aspectInfo =
+        AspectInfo.newBuilder()
+            .setDocString(doc)
+            .addAllAttribute(attrInfos)
+            .addAllAspectAttribute(aspectAttrs);
+
+    aspectInfoList.add(new AspectInfoWrapper(fakeAspect, ast.getLocation(), aspectInfo));
+
+    return fakeAspect;
   }
 
   /**
@@ -202,12 +242,6 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
     public RuleDefinitionIdentifier() {
       super("RuleDefinitionIdentifier" + idCounter++);
-    }
-
-    @Override
-    public boolean equals(@Nullable Object other) {
-      // Use exact object matching.
-      return this == other;
     }
   }
 

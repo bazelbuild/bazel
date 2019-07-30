@@ -483,9 +483,7 @@ public class PackageCacheTest extends FoundationTestCase {
 
     // now:
     assertPackageLoadingFails(
-        "pkg",
-        "Label '//pkg:x/y.cc' crosses boundary of subpackage 'pkg/x' "
-            + "(perhaps you meant to put the colon here: '//pkg/x:y.cc'?)");
+        "pkg", "Label '//pkg:x/y.cc' is invalid because 'pkg/x' is a subpackage");
   }
 
   @Test
@@ -508,8 +506,8 @@ public class PackageCacheTest extends FoundationTestCase {
     assertLabelValidity(false, "//c:d/x");
     assertPackageLoadingFails(
         "c",
-        "Label '//c:d/x' crosses boundary of subpackage 'c/d' (have you deleted c/d/BUILD? "
-            + "If so, use the --deleted_packages=c/d option)");
+        "Label '//c:d/x' is invalid because 'c/d' is a subpackage; have you deleted c/d/BUILD? "
+            + "If so, use the --deleted_packages=c/d option");
 
     assertThat(getPackageManager().isPackage(reporter, PackageIdentifier.createInMainRepo("c/d")))
         .isTrue();

@@ -23,14 +23,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
  * code on Apple platforms.
  */
 @SkylarkModule(
-  name = "apple_bitcode_mode",
-  category = SkylarkModuleCategory.NONE,
-  doc =
-      "The Bitcode mode to use when compiling Objective-C and Swift code on Apple platforms. "
-          + "Possible values are:<br><ul>"
-          + "<li><code>'none'</code></li>"
-          + "<li><code>'embedded'</code></li>"
-          + "<li><code>'embedded_markers'</code></li>"
-          + "</ul>"
-)
+    name = "apple_bitcode_mode",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "The Bitcode mode to use when compiling Objective-C and Swift code on Apple platforms. "
+            + "Possible values are:<br><ul>"
+            + "<li><code>'none'</code></li>"
+            + "<li><code>'embedded'</code></li>"
+            + "<li><code>'embedded_markers'</code></li>"
+            + "</ul>")
 public interface AppleBitcodeModeApi extends SkylarkValue {}

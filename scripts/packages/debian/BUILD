@@ -4,7 +4,7 @@ filegroup(
     visibility = ["//scripts:__subpackages__"],
 )
 
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
+load("@rules_pkg//:pkg.bzl", "pkg_deb", "pkg_tar")
 
 pkg_tar(
     name = "bazel-bin",

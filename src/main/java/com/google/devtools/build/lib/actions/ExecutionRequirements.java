@@ -19,6 +19,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Rule;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -176,14 +177,24 @@ public class ExecutionRequirements {
    */
   public static final String NO_CACHE = "no-cache";
 
+  /** Disables remote caching of a spawn. Note: does not disable remote execution */
+  public static final String NO_REMOTE_CACHE = "no-remote-cache";
+
+  /** Disables remote execution of a spawn. Note: does not disable remote caching */
+  public static final String NO_REMOTE_EXEC = "no-remote-exec";
+
+  /**
+   * Disables both remote execution and remote caching of a spawn. This is the equivalent of using
+   * no-remote-cache and no-remote-exec together.
+   */
+  public static final String NO_REMOTE = "no-remote";
+
   /** Disables local sandboxing of a spawn. */
   public static final String LEGACY_NOSANDBOX = "nosandbox";
 
   /** Disables local sandboxing of a spawn. */
   public static final String NO_SANDBOX = "no-sandbox";
 
-  /** Disables remote execution of a spawn. */
-  public static final String NO_REMOTE = "no-remote";
 
   /**
    * Enables networking for a spawn if possible (only if sandboxing is enabled and if the sandbox
@@ -208,4 +219,10 @@ public class ExecutionRequirements {
 
   /** Use this to request eager fetching of a single remote output into local memory. */
   public static final String REMOTE_EXECUTION_INLINE_OUTPUTS = "internal-inline-outputs";
+
+  public static boolean maybeExecutedRemotely(Set<String> executionRequirements) {
+    return !executionRequirements.contains(ExecutionRequirements.LOCAL)
+        && !executionRequirements.contains(ExecutionRequirements.NO_REMOTE)
+        && !executionRequirements.contains(ExecutionRequirements.NO_REMOTE_EXEC);
+  }
 }

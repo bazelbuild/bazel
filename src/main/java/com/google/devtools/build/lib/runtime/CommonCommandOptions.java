@@ -255,6 +255,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableCpuUsageProfiling;
 
   @Option(
+      name = "experimental_profile_action_counts",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If set, Bazel will add action counts at the top of the JSON profile.")
+  public boolean enableActionCountProfile;
+
+  @Option(
       name = "experimental_profile_additional_tasks",
       converter = ProfilerTaskConverter.class,
       defaultValue = "none",
@@ -273,16 +281,6 @@ public class CommonCommandOptions extends OptionsBase {
           "Slims down the size of the JSON profile by merging events if the profile gets "
               + " too large.")
   public boolean enableJsonProfileDiet;
-
-  // TODO(twerth): Remove after Blaze is released with cl/248143034.
-  @Option(
-      name = "experimental_json_profile_metadata",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      help = "Deprecated no-op.")
-  public boolean enableJsonMetadata;
 
   @Option(
       name = "profile",

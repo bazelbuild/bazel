@@ -22,9 +22,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 /** A Skylark structure to deliver information about the system we are running on. */
 @SkylarkModule(
     name = "repository_os",
-    category = SkylarkModuleCategory.NONE,
-    doc = "Various data about the current platform Bazel is running on."
-)
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "Various data about the current platform Bazel is running on.")
 public interface SkylarkOSApi {
   @SkylarkCallable(name = "environ", structField = true, doc = "The list of environment variables.")
   public ImmutableMap<String, String> getEnvironmentVariables();

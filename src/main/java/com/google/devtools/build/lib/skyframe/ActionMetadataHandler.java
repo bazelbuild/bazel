@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -231,7 +232,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
       if (!fileMetadata.exists()) {
         throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
       }
-      return FileArtifactValue.createNormalFile(fileMetadata, !artifact.isConstantMetadata());
+      return FileArtifactValue.createFromMetadata(fileMetadata, !artifact.isConstantMetadata());
     }
 
     // No existing metadata; this can happen if the output metadata is not injected after a spawn
@@ -259,7 +260,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
    * See {@link OutputStore#getAllAdditionalOutputData} for why we sometimes need to store
    * additional data, even for normal (non-middleman) artifacts.
    */
-  @Nullable
   private FileArtifactValue maybeStoreAdditionalData(
       Artifact artifact, ArtifactFileMetadata data, @Nullable byte[] injectedDigest)
       throws IOException {
@@ -271,17 +271,38 @@ public final class ActionMetadataHandler implements MetadataHandler {
     if (isFile && !artifact.hasParent() && data.getDigest() != null) {
       // We do not need to store the FileArtifactValue separately -- the digest is in the file value
       // and that is all that is needed for this file's metadata.
-      return FileArtifactValue.createNormalFile(data, !artifact.isConstantMetadata());
+      return FileArtifactValue.createFromMetadata(data, !artifact.isConstantMetadata());
     }
-    // Unfortunately, the ArtifactFileMetadata does not contain enough information for us to
-    // calculate the corresponding FileArtifactValue -- either the metadata must use the modified
-    // time, which we do not expose in the ArtifactFileMetadata, or the ArtifactFileMetadata didn't
-    // store the digest So we store the metadata separately.
-    // Use the ArtifactFileMetadata's digest if no digest was injected, or if the file can't be
-    // digested.
-    injectedDigest = injectedDigest != null || !isFile ? injectedDigest : data.getDigest();
-    FileArtifactValue value = FileArtifactValue.create(artifact, artifactPathResolver, data,
-        injectedDigest);
+
+    final FileArtifactValue value;
+
+    if (data.isDirectory()) {
+      // This branch is taken when the output of an action is a directory:
+      //   - A Fileset (in this case, Blaze is correct)
+      //   - A directory someone created in a local action (in this case, changes under the
+      //     directory may not be detected since we use the mtime of the directory for
+      //     up-to-dateness checks)
+      //   - A symlink to a source directory due to Filesets
+      value =
+          FileArtifactValue.createForDirectoryWithMtime(
+              artifactPathResolver.toPath(artifact).getLastModifiedTime());
+    } else {
+      // Unfortunately, the ArtifactFileMetadata does not contain enough information for us to
+      // calculate the corresponding FileArtifactValue -- either the metadata must use the modified
+      // time, which we do not expose in the ArtifactFileMetadata, or the ArtifactFileMetadata
+      // didn't store the digest So we store the metadata separately.
+      // Use the ArtifactFileMetadata's digest if no digest was injected, or if the file can't be
+      // digested.
+      if (injectedDigest == null) {
+        injectedDigest =
+            DigestUtils.getDigestOrFail(artifactPathResolver.toPath(artifact), data.getSize());
+      }
+
+      value =
+          FileArtifactValue.createFromInjectedDigest(
+              data, injectedDigest, !artifact.isConstantMetadata());
+    }
+
     store.putAdditionalOutputData(artifact, value);
     return metadataFromValue(value);
   }
@@ -587,6 +608,9 @@ public final class ActionMetadataHandler implements MetadataHandler {
       @Nullable FileStatusWithDigest statNoFollow,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
+    Preconditions.checkState(!artifact.isTreeArtifact());
+    Preconditions.checkState(!artifact.isMiddlemanArtifact());
+
     Path path = artifactPathResolver.toPath(artifact);
     PathFragment pathFragment = path.asFragment();
     RootedPath rootedPath =
@@ -596,38 +620,35 @@ public final class ActionMetadataHandler implements MetadataHandler {
     if (statNoFollow == null) {
       statNoFollow = FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW));
       if (statNoFollow == null) {
-        return ArtifactFileMetadata.value(
-            pathFragment,
-            FileStateValue.NONEXISTENT_FILE_STATE_NODE,
-            pathFragment,
-            FileStateValue.NONEXISTENT_FILE_STATE_NODE);
+        return ArtifactFileMetadata.forRegularFile(
+            pathFragment, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
       }
     }
-    Path realPath = path;
+
+    FileStateValue fileStateValue =
+        FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
+    if (!statNoFollow.isSymbolicLink()) {
+      return ArtifactFileMetadata.forRegularFile(path.asFragment(), fileStateValue);
+    }
+
     // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat
-    // done by the latter.
-    if (statNoFollow.isSymbolicLink()) {
-      realPath = path.resolveSymbolicLinks();
-      // We need to protect against symlink cycles since ArtifactFileMetadata#value assumes it's
-      // dealing with a
-      // file that's not in a symlink cycle.
-      if (realPath.equals(path)) {
-        throw new IOException("symlink cycle");
-      }
+    // done by the latter.  We need to protect against symlink cycles since
+    // ArtifactFileMetadata#value assumes it's dealing with a file that's not in a symlink cycle.
+    Path realPath = path.resolveSymbolicLinks();
+    if (realPath.equals(path)) {
+      throw new IOException("symlink cycle");
     }
+
     RootedPath realRootedPath =
         RootedPath.toRootedPathMaybeUnderRoot(
             realPath,
             ImmutableList.of(artifactPathResolver.transformRoot(artifact.getRoot().getRoot())));
-    FileStateValue fileStateValue =
-        FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
+
     // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
     // and is a source file (since changes to those are checked separately).
-    FileStateValue realFileStateValue = realPath.equals(path)
-        ? fileStateValue
-        : FileStateValue.create(realRootedPath, tsgm);
-    return ArtifactFileMetadata.value(
-        pathFragment, fileStateValue, realPath.asFragment(), realFileStateValue);
+    FileStateValue realFileStateValue = FileStateValue.create(realRootedPath, tsgm);
+    return ArtifactFileMetadata.forSymlink(
+        realPath.asFragment(), realFileStateValue, fileStateValue.getSymlinkTarget());
   }
 
   private void setPathReadOnlyAndExecutable(Artifact artifact) throws IOException {

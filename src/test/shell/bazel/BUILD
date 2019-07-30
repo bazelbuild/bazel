@@ -257,6 +257,35 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
 
 [
     sh_test(
+        name = "bazel_java_test_jdk" + java_version + "_prebuilt_toolchain_head",
+        size = "large",
+        timeout = "eternal",
+        srcs = ["bazel_java_test.sh"],
+        args = [
+            # --java_toolchain
+            "@local_java_tools//:prebuilt_toolchain",
+            # java_tools zip to test
+            "src/java_tools_java" + java_version + ".zip",
+            # --javabase value
+        ] + select({
+            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
+            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
+            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+        }),
+        data = [
+            ":test-deps",
+            "//src:java_tools_java" + java_version + "_zip",
+            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+            "@bazel_tools//tools/bash/runfiles",
+        ],
+        exec_compatible_with = ["//:highcpu_machine"],
+    )
+    for java_version in JAVA_VERSIONS
+]
+
+[
+    sh_test(
         name = "bazel_java_test_local_java_tools_jdk" + java_version,
         size = "large",
         timeout = "eternal",
@@ -832,16 +861,12 @@ sh_test(
 
 sh_test(
     name = "bazel_docker_sandboxing_test",
-    timeout = "eternal",
     srcs = ["bazel_docker_sandboxing_test.sh"],
-    args = ["$(location //:bazel-distfile)"],
     data = [
         ":test-deps",
-        "//:bazel-distfile",
     ],
     tags = [
         "local",
-        "manual",
         "no_windows",
     ],
 )

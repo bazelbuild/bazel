@@ -19,3 +19,5 @@
 # Ignore jekyll build output.
 /production
 /.sass-cache
+# Bazelisk version file
+.bazelversion

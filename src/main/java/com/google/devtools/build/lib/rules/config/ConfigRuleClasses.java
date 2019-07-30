@@ -154,9 +154,6 @@ public class ConfigRuleClasses {
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
           The set of configuration values that match this rule (expressed as Bazel flags)
 
-          <i>(Dictionary mapping flags to expected values, both expressed as strings;
-             mandatory)</i>
-
           <p>This rule inherits the configuration of the configured target that
             references it in a <code>select</code> statement. It is considered to
             "match" a Bazel invocation if, for every entry in the dictionary, its
@@ -193,14 +190,9 @@ public class ConfigRuleClasses {
           The same as <a href="${link config_setting.values}"><code>values</code></a> but
           specifically for the <code>--define</code> flag.
 
-          <p><code>--define</code> is special for two reasons:
-
-          <ol>
-            <li>It's the primary interface Bazel has today for declaring user-definable settings.
-            </li>
-            <li>Its syntax (<code>--define KEY=VAL</code>) means <code>KEY=VAL</code> is
-            a <i>value</i> from a Bazel flag perspective.</li>
-          </ol>
+          <p><code>--define</code> is special because its syntax (<code>--define KEY=VAL</code>)
+            means <code>KEY=VAL</code> is a <i>value</i> from a Bazel flag perspective.
+          </p>
 
           <p>That means:
 
@@ -225,7 +217,7 @@ public class ConfigRuleClasses {
                 })
           </pre>
 
-          <p>corrrectly matches <code>bazel build //foo --define a=1 --define b=2</code>.
+          <p>correctly matches <code>bazel build //foo --define a=1 --define b=2</code>.
 
           <p><code>--define</code> can still appear in
           <a href="${link config_setting.values}"><code>values</code></a> with normal flag syntax,
@@ -234,6 +226,13 @@ public class ConfigRuleClasses {
           .add(
               attr(DEFINE_SETTINGS_ATTRIBUTE, STRING_DICT)
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+
+          /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(flag_values) -->
+          The same as <a href="${link config_setting.values}"><code>values</code></a> but
+          for <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+          Starlark-defined flags</a>.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+
           // Originally this attribute was a map of feature flags targets -> feature flag values,
           // the latter of which are always strings. Now it also includes starlark build setting
           // targets -> starlark build setting values. In other places in the starlark configuration
@@ -243,7 +242,6 @@ public class ConfigRuleClasses {
           // label->object dict is not an option for attribute types right now.
           .add(
               attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
-                  .undocumented("the feature flag feature has not yet been launched")
                   .allowedFileTypes()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(constraint_values) -->
@@ -349,11 +347,18 @@ public class ConfigRuleClasses {
     match invocations using either form.
   </p>
 
-  <p>The currently endorsed method for creating custom conditions that can't be expressed through
-    dedicated build flags is through the <code>--define</code> flag. Use this flag with caution:
-    it's not ideal and only endorsed for lack of a currently better workaround. See the
-    <a href="${link common-definitions#configurable-attributes}">
-    Configurable attributes</a> section for more discussion.
+  <p>
+    If a flag takes multiple values (like <code>--define a=b --define c=d</code> or a list-typed
+    <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+    Starlark flag</a>), a <code>config_setting</code> that expects <code>"foo"</code> matches if
+    <code>"foo"</code> is present <i>anywhere</i> in the actual list.
+  </p>
+
+  <p>If you need to define conditions that aren't modeled by built-in Bazel flags, use
+  <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+  Starlark-defined flags</a>. You can also use <code>--define</code>, but this offers weaker
+  support and is not recommended. See <a href="${link common-definitions#configurable-attributes}">
+  for more discussion.
   </p>
 
   <p>Avoid repeating identical <code>config_setting</code> definitions in different packages.

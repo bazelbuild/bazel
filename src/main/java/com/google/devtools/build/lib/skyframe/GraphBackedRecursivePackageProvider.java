@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 /**
@@ -207,7 +208,8 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   }
 
   @Override
-  public Iterable<PathFragment> getPackagesUnderDirectory(
+  public void streamPackagesUnderDirectory(
+      Consumer<PackageIdentifier> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
@@ -218,7 +220,8 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
         checkValidDirectoryAndGetRoots(
             repository, directory, blacklistedSubdirectories, excludedSubdirectories);
 
-    return rootPackageExtractor.getPackagesFromRoots(
+    rootPackageExtractor.streamPackagesFromRoots(
+        path -> results.accept(PackageIdentifier.create(repository, path)),
         graph,
         roots,
         eventHandler,
