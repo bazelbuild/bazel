@@ -55,30 +55,6 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-function test_rules_cc_can_be_overridden() {
-  # We test that a custom repository can override @rules_cc in their
-  # WORKSPACE file.
-  mkdir -p rules_cc_can_be_overridden || fail "couldn't create directory"
-  touch rules_cc_can_be_overridden/BUILD || \ fail "couldn't touch BUILD file"
-  cat > rules_cc_can_be_overridden/WORKSPACE <<EOF
-local_repository(
-  name = 'rules_cc',
-  path = '../override',
-)
-EOF
-  add_default_rules_to_workspace rules_cc_can_be_overridden/WORKSPACE
-
-  mkdir -p override || fail "couldn't create override directory"
-  touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
-  cat > override/BUILD <<EOF
-filegroup(name = 'yolo')
-EOF
-
-  cd rules_cc_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build @rules_cc//:yolo &> $TEST_log || \
-    fail "Bazel failed to build @rules_cc"
-}
-
 function test_rules_cc_repository_builds_itself() {
   # We test that a built-in @rules_cc repository is buildable.
   bazel build @rules_cc//cc/... &> $TEST_log \

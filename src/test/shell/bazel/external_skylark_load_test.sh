@@ -57,14 +57,12 @@ EOF
 load("@external_repo//external_pkg:macro_def.bzl", "macro")
 macro(name="macro_instance")
 EOF
-  add_default_rules_to_workspace ${WORKSPACE
 
   mkdir ${WORKSPACE_DIR}/another_local_pkg
   touch ${WORKSPACE_DIR}/another_local_pkg/BUILD
   cat > ${WORKSPACE_DIR}/another_local_pkg/local_constants.bzl <<EOF
 OUTPUT_STRING = "LOCAL!"
 EOF
-  add_default_rules_to_workspace ${WORKSPACE
 
   mkdir ${external_repo}/external_pkg
   touch ${external_repo}/external_pkg/BUILD

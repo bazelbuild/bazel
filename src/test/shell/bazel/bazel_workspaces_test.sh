@@ -254,7 +254,7 @@ function test_download_integrity_sha256() {
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
   ensure_contains_exactly 'output: "file.txt"' 1
-  ensure_contains_exactly "sha256: " 0
+  ensure_contains_exactly "sha256: " 1
   ensure_contains_exactly "integrity: \"${file_integrity}\"" 1
 }
 
@@ -284,7 +284,7 @@ function test_download_integrity_sha512() {
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
   ensure_contains_exactly 'output: "file.txt"' 1
-  ensure_contains_exactly "sha256: " 0
+  ensure_contains_exactly "sha256: " 1
   ensure_contains_exactly "integrity: \"${file_integrity}\"" 1
 }
 
@@ -347,7 +347,7 @@ function test_download_then_extract() {
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.zip\"" 1
   ensure_contains_exactly 'output: "downloaded_file.zip"' 1
   ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
-  ensure_contains_exactly 'extract_event' 1
+  ensure_contains_exactly 'extract_event' 2
   ensure_contains_exactly 'archive: "downloaded_file.zip"' 1
   ensure_contains_exactly 'output: "out_dir"' 1
   ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
@@ -384,7 +384,7 @@ function test_download_then_extract_tar() {
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.tar.gz\"" 1
   ensure_contains_exactly 'output: "downloaded_file.tar.gz"' 1
   ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
-  ensure_contains_exactly 'extract_event' 1
+  ensure_contains_exactly 'extract_event' 2
   ensure_contains_exactly 'archive: "downloaded_file.tar.gz"' 1
   ensure_contains_exactly 'output: "out_dir"' 1
   ensure_contains_exactly 'strip_prefix: "data_dir/"' 1
@@ -413,7 +413,7 @@ function test_download_and_extract() {
 
   ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
-  ensure_contains_exactly 'download_and_extract_event' 1
+  ensure_contains_exactly 'download_and_extract_event' 2
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_and_extract.zip\"" 1
   ensure_contains_exactly 'output: "out_dir"' 1
   ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
@@ -431,11 +431,11 @@ function test_file() {
   ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
 
-  # There are 3 file_event in external:repo as it is currently set up
-  ensure_contains_exactly 'file_event' 3
+  # There are 4 file_event in external:repo as it is currently set up
+  ensure_contains_exactly 'file_event' 4
   ensure_contains_exactly 'path: ".*filefile.sh"' 1
   ensure_contains_exactly 'content: "echo filefile"' 1
-  ensure_contains_exactly 'executable: true' 1
+  ensure_contains_exactly 'executable: true' 2
 }
 
 function test_file_nonascii() {
@@ -446,10 +446,10 @@ function test_file_nonascii() {
   ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
 
-  # There are 3 file_event in external:repo as it is currently set up
-  ensure_contains_exactly 'file_event' 3
+  # There are 4 file_event in external:repo as it is currently set up
+  ensure_contains_exactly 'file_event' 4
   ensure_contains_exactly 'path: ".*filefile.sh"' 1
-  ensure_contains_exactly 'executable: true' 1
+  ensure_contains_exactly 'executable: true' 2
 
   # This test file is in UTF-8, so the string passed to file() is UTF-8.
   # Protobuf strings are Unicode encoded in UTF-8, so the logged text
@@ -514,7 +514,7 @@ function test_os() {
 
   ensure_contains_exactly 'location: .*repos.bzl:2:9' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
-  ensure_contains_exactly 'os_event' 1
+  ensure_contains_exactly 'os_event' 5
 }
 
 function test_symlink() {
@@ -543,7 +543,7 @@ function test_template() {
   ensure_contains_exactly 'template: ".*template_in.txt"' 1
   ensure_contains_exactly 'key: "subKey"' 1
   ensure_contains_exactly 'value: "subVal"' 1
-  ensure_contains_exactly 'executable: true' 1
+  ensure_contains_exactly 'executable: true' 2
 }
 
 function test_which() {

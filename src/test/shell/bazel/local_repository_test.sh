@@ -464,7 +464,7 @@ function test_override_workspace_file() {
   cat > "$bar/WORKSPACE" <<EOF
 workspace(name = "foo")
 EOF
-  add_default_rules_to_workspace "$bar/WORKSPACE
+  add_default_rules_to_workspace "$bar/WORKSPACE"
 
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 new_local_repository(

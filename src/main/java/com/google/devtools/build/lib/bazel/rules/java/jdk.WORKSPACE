@@ -254,7 +254,7 @@ maybe(
 maybe(
     http_archive,
     "rules_cc",
-    sha256 = "ae512d0a148f319ed51ea3d795db7e7d83839136b86977f2f27eba302269d76f",
+    sha256 = "fd3c6f282990133d1920f2df06562e060fdd190a6175ea340b3bf34ae69cfa94",
     urls = [
       "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip"
     ],

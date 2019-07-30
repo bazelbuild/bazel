@@ -458,8 +458,18 @@ function add_rules_cc_to_workspace() {
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
+    name = "com_google_googletest",
+    sha256 = "0fb00ff413f6b9b80ccee44a374ca7a18af7315aea72a43c62f2acd1ca74e9b5",
+    strip_prefix = "googletest-f13bbe2992d188e834339abe6f715b2b2f840a77",
+    urls = [
+        "https://mirror.bazel.build/github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
+        "https://github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
+    ],
+)
+
+http_archive(
     name = "rules_cc",
-    sha256 = "ae512d0a148f319ed51ea3d795db7e7d83839136b86977f2f27eba302269d76f",
+    sha256 = "fd3c6f282990133d1920f2df06562e060fdd190a6175ea340b3bf34ae69cfa94",
     strip_prefix = "rules_cc-plf-moving-tools",
     urls = [
         "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",

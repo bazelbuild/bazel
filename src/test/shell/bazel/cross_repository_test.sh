@@ -254,12 +254,10 @@ EOF
   cat > pkg/WORKSPACE/BUILD <<EOF
 exports_files(['ext.bzl'])
 EOF
-  add_default_rules_to_workspace pkg/WORKSPACE
 
   cat > pkg/WORKSPACE/ext.bzl <<EOF
 VALUE = 'a value'
 EOF
-  add_default_rules_to_workspace pkg/WORKSPACE
 
   # These should succeed, they use the correct label.
   bazel build //pkg/WORKSPACE:all || fail "build should succeed"
