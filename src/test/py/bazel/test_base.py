@@ -409,9 +409,11 @@ class TestBase(unittest.TestCase):
               TestBase.GetEnv('BAZEL_SH',
                               'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
       }
-      java_home = TestBase.GetEnv('JAVA_HOME', '')
-      if java_home:
-        env['JAVA_HOME'] = java_home
+      for k in ['JAVA_HOME', 'BAZEL_VC', 'BAZEL_VS', 'BAZEL_VC_FULL_VERSION',
+                'BAZEL_WINSDK_FULL_VERSION']:
+        v = TestBase.GetEnv(k, '')
+        if v:
+          env[k] = v
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
 
