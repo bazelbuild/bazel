@@ -40,6 +40,22 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  # Disable MSYS path conversion that converts path-looking command arguments to
+  # Windows paths (even if they arguments are not in fact paths).
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
 function _create_pkg() {
   # Define dummy CPU and OS constraints (cpu1 and cpu2, and os1 and os2).
   # Also define platforms for each combination.
@@ -82,8 +98,8 @@ windows_resource_compiler_toolchain(
 # Need a genrule because of https://github.com/bazelbuild/bazel/issues/9023
 genrule(
     name = "rc-gen",
-    outs = ["rc-gen.sh"],
-    srcs = ["rc-src.sh"],
+    outs = ["rc-gen.bat"],
+    srcs = ["rc-src.bat"],
     executable = True,
     cmd = "cp $< \$@",
 )
@@ -98,7 +114,28 @@ toolchain(
 )
 eof
 
-  cat > "toolchains/rc-src.sh" <<'eof'
+  # On Windows, we write a Batch script. On other platforms, a shell script.
+  # File extension must be .bat on Windows, and it doesn't matter on other
+  # platforms.
+  if "$is_windows"; then
+    cat > "toolchains/rc-src.bat" <<'eof'
+@echo off
+setlocal enabledelayedexpansion
+
+for %%i in (%*) do (
+  set j=%%i
+  if "!j:~0,3!" == "/fo" (set out=!j:~3!)
+  if "!j:~-2!" == "rc" (set src=!j!)
+)
+set out=%out:/=\%
+echo out=%out%
+
+echo src=%src:/=\%>%out% 
+echo out=%out%>>%out% 
+dir /s /b /o:n *.dat>>%out% 
+eof
+  else
+    cat > "toolchains/rc-src.bat" <<'eof'
 #!/bin/bash
 for a in $*; do
   if [[ "$a" =~ /fo.* ]]; then
@@ -109,15 +146,16 @@ for a in $*; do
 done
 
 cat > "$out" <<EOF
-src=$(basename "$src")
-out=$(basename "$out")
-inputs=$(echo $(find -name '*.dat' -exec basename {} \; | sort))
+src=$src
+out=$out
+$(find -name '*.dat' | sort)
 EOF
 eof
-  chmod +x "toolchains/rc-src.sh"
+  fi
+  chmod +x "toolchains/rc-src.bat"
 
-  # Define a windows_resources rule we'll try to build with various exec and target platform
-  # combinations.
+  # Define a windows_resources rule we'll try to build with various exec and
+  # target platform combinations.
   cat > "BUILD" <<'eof'
 load("@io_bazel//src/main/res:win_res.bzl", "windows_resources")
 
@@ -141,15 +179,16 @@ function _symlink_res_toolchain_files() {
 
 function _assert_outputs() {
   [[ -e bazel-bin/foo.res ]] || fail "missing output"
-  cat bazel-bin/foo.res 
   grep -q "src=foo.rc" "bazel-bin/foo.res" || fail "bad output"
-  grep -q "out=foo.res" "bazel-bin/foo.res" || fail "bad output"
-  grep -q "inputs=res1.dat res2.dat" "bazel-bin/foo.res" || fail "bad output"
+  grep -q "out=.*\bfoo.res" "bazel-bin/foo.res" || fail "bad output"
+  grep -q ".*\bres1.dat$" "bazel-bin/foo.res" || fail "bad output"
+  grep -q ".*\bres2.dat$" "bazel-bin/foo.res" || fail "bad output"
 
   [[ -e bazel-bin/bar.res ]] || fail "missing output"
   grep -q "src=bar.rc" "bazel-bin/bar.res" || fail "bad output"
-  grep -q "out=bar.res" "bazel-bin/bar.res" || fail "bad output"
-  grep -q "inputs=res1.dat res2.dat" "bazel-bin/bar.res" || fail "bad output"
+  grep -q "out=.*\bbar.res" "bazel-bin/bar.res" || fail "bad output"
+  grep -q ".*\bres1.dat$" "bazel-bin/bar.res" || fail "bad output"
+  grep -q ".*\bres2.dat$" "bazel-bin/bar.res" || fail "bad output"
 }
 
 function _assert_no_outputs() {
