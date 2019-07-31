@@ -1,5 +1,6 @@
 # Packaging
 
+load("//tools/python:private/defs.bzl", "py_library", "py_binary")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 

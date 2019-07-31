@@ -1,3 +1,5 @@
+load("//tools/python:private/defs.bzl", "py_library", "py_test")
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
