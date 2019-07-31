@@ -43,6 +43,9 @@ public class Utils {
     try {
       return f.get();
     } catch (ExecutionException e) {
+      if (e.getCause() instanceof InterruptedException) {
+        throw (InterruptedException) e.getCause();
+      }
       if (e.getCause() instanceof IOException) {
         throw (IOException) e.getCause();
       }

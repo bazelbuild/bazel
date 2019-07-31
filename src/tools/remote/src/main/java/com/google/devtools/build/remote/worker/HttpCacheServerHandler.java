@@ -15,6 +15,7 @@
 package com.google.devtools.build.remote.worker;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -114,12 +115,14 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
 
   private static void sendError(
       ChannelHandlerContext ctx, FullHttpRequest request, HttpResponseStatus status) {
+    ByteBuf data = Unpooled.copiedBuffer("Failure: " + status + "\r\n", CharsetUtil.UTF_8);
     FullHttpResponse response =
         new DefaultFullHttpResponse(
             HttpVersion.HTTP_1_1,
             status,
-            Unpooled.copiedBuffer("Failure: " + status + "\r\n", CharsetUtil.UTF_8));
+            data);
     response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
+    response.headers().set(HttpHeaderNames.CONTENT_LENGTH, data.readableBytes());
     ChannelFuture future = ctx.writeAndFlush(response);
 
     if (!HttpUtil.isKeepAlive(request)) {

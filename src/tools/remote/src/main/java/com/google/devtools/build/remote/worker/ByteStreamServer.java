@@ -232,9 +232,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
         try {
           Digest d = digestUtil.compute(temp);
-          try (InputStream in = temp.getInputStream()) {
-            cache.uploadStream(d, in);
-          }
+          cache.uploadFile(d, temp);
           try {
             temp.delete();
           } catch (IOException e) {

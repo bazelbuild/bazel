@@ -25,5 +25,7 @@ java_test(
         "//third_party:mockito",
         "//third_party:netty",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )
