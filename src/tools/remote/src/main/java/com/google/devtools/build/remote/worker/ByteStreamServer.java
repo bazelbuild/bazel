@@ -231,7 +231,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
         try {
           Digest d = digestUtil.compute(temp);
-          cache.uploadFile(d, temp);
+          getFromFuture(cache.uploadFile(d, temp));
           try {
             temp.delete();
           } catch (IOException e) {

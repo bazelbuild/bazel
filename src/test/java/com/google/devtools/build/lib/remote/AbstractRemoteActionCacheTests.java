@@ -1168,6 +1168,16 @@ public class AbstractRemoteActionCacheTests {
     }
 
     @Override
+    protected ListenableFuture<Void> uploadFile(Digest digest, Path path) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
       SettableFuture<Void> result = SettableFuture.create();
       ListenableFuture<byte[]> downloadResult = downloadResults.get(digest);
