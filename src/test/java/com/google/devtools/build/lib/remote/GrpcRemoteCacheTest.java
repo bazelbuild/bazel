@@ -443,73 +443,6 @@ public class GrpcRemoteCacheTest {
     assertThat(execRoot.getRelative("a/bar/wobble/qux").isExecutable()).isFalse();
   }
 
-  @Test
-  public void testUploadBlobCacheHitWithRetries() throws Exception {
-    final GrpcRemoteCache client = newClient();
-    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
-    serviceRegistry.addService(
-        new ContentAddressableStorageImplBase() {
-          private int numErrors = 4;
-
-          @Override
-          public void findMissingBlobs(
-              FindMissingBlobsRequest request,
-              StreamObserver<FindMissingBlobsResponse> responseObserver) {
-            if (numErrors-- <= 0) {
-              responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
-              responseObserver.onCompleted();
-            } else {
-              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
-            }
-          }
-        });
-    assertThat(client.uploadBlob("abcdefg".getBytes(UTF_8))).isEqualTo(digest);
-  }
-
-  @Test
-  public void testUploadBlobSingleChunk() throws Exception {
-    final GrpcRemoteCache client = newClient();
-    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
-    serviceRegistry.addService(
-        new ContentAddressableStorageImplBase() {
-          @Override
-          public void findMissingBlobs(
-              FindMissingBlobsRequest request,
-              StreamObserver<FindMissingBlobsResponse> responseObserver) {
-            responseObserver.onNext(
-                FindMissingBlobsResponse.newBuilder().addMissingBlobDigests(digest).build());
-            responseObserver.onCompleted();
-          }
-        });
-    serviceRegistry.addService(
-        new ByteStreamImplBase() {
-          @Override
-          public StreamObserver<WriteRequest> write(
-              final StreamObserver<WriteResponse> responseObserver) {
-            return new StreamObserver<WriteRequest>() {
-              @Override
-              public void onNext(WriteRequest request) {
-                assertThat(request.getResourceName()).contains(digest.getHash());
-                assertThat(request.getFinishWrite()).isTrue();
-                assertThat(request.getData().toStringUtf8()).isEqualTo("abcdefg");
-              }
-
-              @Override
-              public void onCompleted() {
-                responseObserver.onNext(WriteResponse.newBuilder().setCommittedSize(7).build());
-                responseObserver.onCompleted();
-              }
-
-              @Override
-              public void onError(Throwable t) {
-                fail("An error occurred: " + t);
-              }
-            };
-          }
-        });
-    assertThat(client.uploadBlob("abcdefg".getBytes(UTF_8))).isEqualTo(digest);
-  }
-
   static class TestChunkedRequestObserver implements StreamObserver<WriteRequest> {
     private final StreamObserver<WriteResponse> responseObserver;
     private final String contents;
@@ -557,46 +490,6 @@ public class GrpcRemoteCacheTest {
     public void onError(Throwable t) {
       fail("An error occurred: " + t);
     }
-  }
-
-  private Answer<StreamObserver<WriteRequest>> blobChunkedWriteAnswer(
-      final String contents, final int chunkSize) {
-    return new Answer<StreamObserver<WriteRequest>>() {
-      @Override
-      @SuppressWarnings("unchecked")
-      public StreamObserver<WriteRequest> answer(InvocationOnMock invocation) {
-        return new TestChunkedRequestObserver(
-            (StreamObserver<WriteResponse>) invocation.getArguments()[0], contents, chunkSize);
-      }
-    };
-  }
-
-  @Test
-  public void testUploadBlobMultipleChunks() throws Exception {
-    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdef");
-    serviceRegistry.addService(
-        new ContentAddressableStorageImplBase() {
-          @Override
-          public void findMissingBlobs(
-              FindMissingBlobsRequest request,
-              StreamObserver<FindMissingBlobsResponse> responseObserver) {
-            responseObserver.onNext(
-                FindMissingBlobsResponse.newBuilder().addMissingBlobDigests(digest).build());
-            responseObserver.onCompleted();
-          }
-        });
-
-    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
-    serviceRegistry.addService(mockByteStreamImpl);
-    for (int chunkSize = 1; chunkSize <= 6; ++chunkSize) {
-      GrpcRemoteCache client = newClient();
-      Chunker.setDefaultChunkSizeForTesting(chunkSize);
-      when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
-          .thenAnswer(blobChunkedWriteAnswer("abcdef", chunkSize));
-      assertThat(client.uploadBlob("abcdef".getBytes(UTF_8))).isEqualTo(digest);
-    }
-    Mockito.verify(mockByteStreamImpl, Mockito.times(6))
-        .write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
   }
 
   @Test
