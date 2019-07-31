@@ -305,7 +305,9 @@ public final class CommandHelper {
    */
   @Nullable
   public static Artifact commandHelperScriptMaybe(
-      RuleContext ruleCtx, String command, CommandConstructor constructor) {
+      RuleContext ruleCtx,
+      String command,
+      CommandConstructor constructor) {
     if (command.length() <= maxCommandLength) {
       return null;
     } else {
