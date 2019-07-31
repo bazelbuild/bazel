@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.CommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -167,13 +168,11 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     if (ruleContext.hasErrors()) {
       return null;
     }
-    List<String> argv =
-        commandHelper.buildCommandLine(
-            shExecutable,
-            command,
-            inputs,
-            ".genrule_script.sh",
-            ImmutableMap.copyOf(executionInfo));
+
+    CommandConstructor constructor = CommandHelper.buildBashCommandConstructor(
+        executionInfo, shExecutable, ".genrule_script.sh");
+
+    List<String> argv = commandHelper.buildCommandLine(command, inputs, constructor);
 
     if (isStampingEnabled(ruleContext)) {
       inputs.add(ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact());
