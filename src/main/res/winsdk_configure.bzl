@@ -16,11 +16,11 @@
 
 Usage:
 
-    load("//src/main/res:local_config_winsdk.bzl", "local_config_winsdk")
+    load("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
 
-    local_config_winsdk(name = "local_winsdk")
+    winsdk_configure(name = "local_config_winsdk")
 
-    load("@local_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains")
+    load("@local_config_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains")
 
     register_local_rc_exe_toolchains()
 """
@@ -153,7 +153,7 @@ def _impl(repository_ctx):
         executable = False,
     )
 
-local_config_winsdk = repository_rule(
+winsdk_configure = repository_rule(
     implementation = _impl,
     local = True,
     environ = list(MSVC_ENVVARS),

@@ -626,6 +626,16 @@ sh_test(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
+sh_test(
+    name = "resource_compiler_toolchain_test",
+    srcs = ["resource_compiler_toolchain_test.sh"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+    data = [
+        ":test-deps",
+        "//src/main/res:srcs_for_testing",
+    ],
+)
+
 ########################################################################
 # Test suites.
 

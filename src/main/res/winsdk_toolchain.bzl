@@ -60,7 +60,7 @@ windows_resource_compiler_toolchain = rule(
     implementation = _impl,
     attrs = {
         "rc_exe": attr.label(
-            allow_single_file = True,
+            allow_files = True,
             executable = True,
             cfg = "host",
             doc = "Label of the resource compiler (or a wrapper script)",

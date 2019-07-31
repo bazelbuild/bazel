@@ -16,9 +16,6 @@
 
 load(":winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE")
 
-def _as_path(p):
-    return str(p).replace("/", "\\")
-
 def _replace_ext(n, e):
     i = n.rfind(".")
     if i > 0:
@@ -29,18 +26,12 @@ def _replace_ext(n, e):
 def _compile_rc(ctx, rc_exe, rc_file, extra_inputs):
     """Compiles a single RC file to RES."""
     out = ctx.actions.declare_file(_replace_ext(rc_file.basename, ".res"))
-    args = ctx.actions.args()
-    args.add("/nologo")
-    args.add(_as_path(out.path), format = "/fo%s")
-    args.add(_as_path(rc_file.path))
-
     ctx.actions.run(
         inputs = [rc_file] + extra_inputs,
         outputs = [out],
         executable = rc_exe,
-        arguments = [args],
+        arguments = ["/nologo", "/fo%s" % out.path, rc_file.path],
         mnemonic = "WindowsRc",
-        progress_message = "Compiling resources %s" % rc_file.basename,
     )
     return out
 
@@ -58,7 +49,8 @@ def _windows_resources_impl(ctx):
         additional_inputs = compiled_resources,
         user_link_flags = link_flags,
     )
-    return [CcInfo(linking_context = linking_context)]
+    return [DefaultInfo(files = depset(compiled_resources)),
+            CcInfo(linking_context = linking_context)]
 
 windows_resources = rule(
     implementation = _windows_resources_impl,

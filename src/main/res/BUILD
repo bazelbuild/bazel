@@ -6,6 +6,18 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+filegroup(
+    name = "srcs_for_testing",
+    testonly = 1,
+    srcs = [
+        "BUILD",
+        "win_res.bzl",
+        "winsdk_configure.bzl",
+        "winsdk_toolchain.bzl",
+    ],
+    visibility = ["//src/test/shell/integration:__pkg__"],
+)
+
 # The toolchain type for every resource compiler toolchain.
 #
 # toolchain() rules must reference this by absolute label with repository
