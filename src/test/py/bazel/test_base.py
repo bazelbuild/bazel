@@ -126,14 +126,19 @@ class TestBase(unittest.TestCase):
     return self.GetCcRulesRepoRule()
 
   def GetCcRulesRepoRule(self):
+    sha256 = '36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89'
+    strip_pfx = 'rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c'
+    url1 = ('https://mirror.bazel.build/github.com/bazelbuild/rules_cc/'
+            'archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip')
+    url2 = ('https://github.com/bazelbuild/rules_cc/'
+            'archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip')
     return [
-        'http_archive(', '    name = "rules_cc",', '    sha256 = '
-        '"36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",',
-        '    strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",',
-        '    urls = [',
-        '        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",',
-        '        "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",',
-        '    ],', ')'
+        'http_archive(',
+        '    name = "rules_cc",',
+        '    sha256 = "%s",' % sha256,
+        '    strip_prefix = "%s",' % strip_pfx,
+        '    urls = ["%s", "%s"],' % (url1, url2),
+        ')',
     ]
 
   @staticmethod
@@ -409,9 +414,13 @@ class TestBase(unittest.TestCase):
               TestBase.GetEnv('BAZEL_SH',
                               'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
       }
-      java_home = TestBase.GetEnv('JAVA_HOME', '')
-      if java_home:
-        env['JAVA_HOME'] = java_home
+      for k in [
+          'JAVA_HOME', 'BAZEL_VC', 'BAZEL_VS', 'BAZEL_VC_FULL_VERSION',
+          'BAZEL_WINSDK_FULL_VERSION'
+      ]:
+        v = TestBase.GetEnv(k, '')
+        if v:
+          env[k] = v
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
 
