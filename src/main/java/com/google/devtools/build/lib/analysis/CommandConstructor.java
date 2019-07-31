@@ -23,12 +23,14 @@ import com.google.devtools.build.lib.actions.Artifact;
  */
 public interface CommandConstructor {
 
-  // Given a string of command, return the arguments to run the command.
-  ImmutableList<String> buildCommandLineSimpleArgv(String command);
+  /** Given a string of command, return the arguments to run the command.
+   * eg. For Bash command, asExecArgv("foo bar") -> ["/bin/bash", "-c", "foo bar"]
+   * */
+  ImmutableList<String> asExecArgv(String command);
 
-  // Write the command to a script and return the artifact of the script.
-  Artifact buildCommandLineArtifact(RuleContext ruleContext, String command);
+  /** Given an artifact of a script, return the arguments to run this command. */
+  ImmutableList<String> asExecArgv(Artifact scriptFileArtifact);
 
-  // Given an artifact of a script, return the arguments to run this command.
-  ImmutableList<String> buildCommandLineArgvWithArtifact(Artifact scriptFileArtifact);
+  /** Write the command to a script and return the artifact of the script. */
+  Artifact commandAsScript(RuleContext ruleContext, String command);
 }

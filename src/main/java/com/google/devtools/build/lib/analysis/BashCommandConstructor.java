@@ -22,31 +22,31 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 /**
  * The class for constructing command line for Bash.
  */
-public class BashCommandConstructor implements CommandConstructor {
+public final class BashCommandConstructor implements CommandConstructor {
 
   private final PathFragment shellPath;
-  private final String scriptPostFix;
+  private final String scriptNameSuffix;
 
-  BashCommandConstructor(PathFragment shellPath, String scriptPostFix) {
+  BashCommandConstructor(PathFragment shellPath, String scriptNameSuffix) {
     this.shellPath = shellPath;
-    this.scriptPostFix = scriptPostFix;
+    this.scriptNameSuffix = scriptNameSuffix;
   }
 
   @Override
-  public ImmutableList<String> buildCommandLineArgvWithArtifact(Artifact scriptFileArtifact) {
+  public ImmutableList<String> asExecArgv(Artifact scriptFileArtifact) {
     return ImmutableList.of(shellPath.getPathString(), scriptFileArtifact.getExecPathString());
   }
 
   @Override
-  public Artifact buildCommandLineArtifact(RuleContext ruleContext, String command) {
-    String scriptFileName = ruleContext.getTarget().getName() + scriptPostFix;
-    String scriptFileContents = "#!/bin/bash\n" + command;
-    return FileWriteAction.createFile(
-        ruleContext, scriptFileName, scriptFileContents, /*executable=*/true);
+  public ImmutableList<String> asExecArgv(String command) {
+    return ImmutableList.of(shellPath.getPathString(), "-c", command);
   }
 
   @Override
-  public ImmutableList<String> buildCommandLineSimpleArgv(String command) {
-    return ImmutableList.of(shellPath.getPathString(), "-c", command);
+  public Artifact commandAsScript(RuleContext ruleContext, String command) {
+    String scriptFileName = ruleContext.getTarget().getName() + scriptNameSuffix;
+    String scriptFileContents = "#!/bin/bash\n" + command;
+    return FileWriteAction.createFile(
+        ruleContext, scriptFileName, scriptFileContents, /*executable=*/true);
   }
 }
