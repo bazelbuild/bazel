@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import build.bazel.remote.execution.v2.Platform;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,9 +26,9 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link PlatformUtils } */
 @RunWith(JUnit4.class)
 public final class PlatformUtilsTest {
-  @Test
-  public void testParsePlatformSortsProperties() throws Exception {
-    String s =
+  private static RemoteOptions remoteOptions() {
+    RemoteOptions remoteOptions = new RemoteOptions();
+    remoteOptions.remoteDefaultPlatformProperties =
         String.join(
             "\n",
             "properties: {",
@@ -38,19 +39,38 @@ public final class PlatformUtilsTest {
             " name: \"a\"",
             " value: \"1\"",
             "}");
-    RemoteOptions remoteOptions = new RemoteOptions();
-    remoteOptions.remoteDefaultPlatformProperties = s;
 
+    return remoteOptions;
+  }
+
+  @Test
+  public void testParsePlatformSortsProperties() throws Exception {
     Platform expected =
         Platform.newBuilder()
             .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
             .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
             .build();
-    assertThat(PlatformUtils.getPlatformProto(null, remoteOptions)).isEqualTo(expected);
+    assertThat(PlatformUtils.getPlatformProto(null, remoteOptions())).isEqualTo(expected);
   }
 
   @Test
   public void testParsePlatformHandlesNull() throws Exception {
     assertThat(PlatformUtils.getPlatformProto(null, null)).isEqualTo(null);
+  }
+
+  @Test
+  public void testParsePlatformSortsProperties_ExecProperties() throws Exception {
+    // execProperties are chosen even if there are remoteOptions
+    ImmutableMap<String, String> map = ImmutableMap.of("aa", "99", "zz", "66", "dd", "11");
+    PlatformInfo platformInfo = PlatformInfo.builder().setExecProperties(map).build();
+
+    Platform expected =
+        Platform.newBuilder()
+            .addProperties(Platform.Property.newBuilder().setName("aa").setValue("99"))
+            .addProperties(Platform.Property.newBuilder().setName("dd").setValue("11"))
+            .addProperties(Platform.Property.newBuilder().setName("zz").setValue("66"))
+            .build();
+    // execProperties are sorted by key
+    assertThat(PlatformUtils.getPlatformProto(platformInfo, remoteOptions())).isEqualTo(expected);
   }
 }
