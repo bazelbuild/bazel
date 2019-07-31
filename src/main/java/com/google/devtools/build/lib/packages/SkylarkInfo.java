@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -95,6 +96,13 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
   /** Returns true if this provider is schemaful (array-based), false otherwise. */
   public boolean isCompact() {
     return getLayout() != null;
+  }
+
+  @Override
+  public Object getValue(Location loc, StarlarkSemantics starlarkSemantics, String name)
+      throws EvalException {
+    // By default, a SkylarkInfo's field values are not affected by the Starlark semantics.
+    return getValue(name);
   }
 
   /**

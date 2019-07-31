@@ -233,6 +233,23 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDepsetIsNotIterable;
 
   @Option(
+      name = "incompatible_disable_target_provider_fields",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, disable the ability to access providers on 'target' objects via field "
+              + "syntax. Use provider-key syntax instead. For example, instead of using "
+              + "`ctx.attr.dep.my_info` to access `my_info` from inside a rule implementation "
+              + "function, use `ctx.attr.dep[MyInfo]`. See "
+              + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
+  public boolean incompatibleDisableTargetProviderFields;
+
+  @Option(
       name = "incompatible_disable_deprecated_attr_params",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -702,6 +719,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
             .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
             .incompatibleDepsetUnion(incompatibleDepsetUnion)
+            .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)
             .incompatibleDisableThirdPartyLicenseChecking(
                 incompatibleDisableThirdPartyLicenseChecking)
             .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)

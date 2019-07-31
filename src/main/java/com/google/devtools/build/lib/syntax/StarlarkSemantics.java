@@ -148,6 +148,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDepsetUnion();
 
+  public abstract boolean incompatibleDisableTargetProviderFields();
+
   public abstract boolean incompatibleDisableThirdPartyLicenseChecking();
 
   public abstract boolean incompatibleDisableDeprecatedAttrParams();
@@ -263,6 +265,7 @@ public abstract class StarlarkSemantics {
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(true)
           .incompatibleDepsetUnion(true)
+          .incompatibleDisableTargetProviderFields(false)
           .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(true)
           .incompatibleDisableObjcProviderResources(true)
@@ -330,6 +333,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
 
     public abstract Builder incompatibleDepsetUnion(boolean value);
+
+    public abstract Builder incompatibleDisableTargetProviderFields(boolean value);
 
     public abstract Builder incompatibleDisableThirdPartyLicenseChecking(boolean value);
 
