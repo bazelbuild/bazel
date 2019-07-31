@@ -112,20 +112,16 @@ import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
-import com.google.devtools.build.skydoc.rendering.FunctionUtil;
-import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
 import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -165,16 +161,6 @@ public class SkydocMain {
   private final SkylarkFileAccessor fileAccessor;
   private final List<String> depRoots;
   private final String workspaceName;
-  private static final String HEADER_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/header.vm";
-  private static final String RULE_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
-  private static final String PROVIDER_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/provider.vm";
-  private static final String FUNCTION_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/func.vm";
-  private static final String ASPECT_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/aspect.vm";
 
   public SkydocMain(SkylarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
     this.fileAccessor = fileAccessor;
@@ -265,19 +251,7 @@ public class SkydocMain {
             .writeModuleInfo(out);
       }
     } else if (skydocOptions.outputFormat == OutputFormat.MARKDOWN) {
-      MarkdownRenderer renderer =
-          new MarkdownRenderer(
-              HEADER_TEMPLATE_PATH,
-              RULE_TEMPLATE_PATH,
-              PROVIDER_TEMPLATE_PATH,
-              FUNCTION_TEMPLATE_PATH,
-              ASPECT_TEMPLATE_PATH);
-      try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
-        printWriter.println(renderer.renderMarkdownHeader());
-        printRuleInfos(printWriter, renderer, filteredRuleInfos);
-        printProviderInfos(printWriter, renderer, filteredProviderInfos);
-        printUserDefinedFunctions(printWriter, renderer, filteredUserDefinedFunctions);
-      }
+      throw new IllegalArgumentException("Skydoc Binary only outputs raw proto format.");
     }
   }
 
@@ -294,64 +268,6 @@ public class SkydocMain {
     return false;
   }
 
-  private static void printRuleInfos(
-      PrintWriter printWriter, MarkdownRenderer renderer, Map<String, RuleInfo> ruleInfos)
-      throws IOException {
-    for (Entry<String, RuleInfo> ruleInfoEntry : ruleInfos.entrySet()) {
-      printRuleInfo(printWriter, renderer, ruleInfoEntry.getKey(), ruleInfoEntry.getValue());
-      printWriter.println();
-    }
-  }
-
-  private static void printProviderInfos(
-      PrintWriter printWriter, MarkdownRenderer renderer, Map<String, ProviderInfo> providerInfos)
-      throws IOException {
-    for (Entry<String, ProviderInfo> entry : providerInfos.entrySet()) {
-      ProviderInfo providerInfo = entry.getValue();
-      printProviderInfo(printWriter, renderer, entry.getKey(), providerInfo);
-      printWriter.println();
-    }
-  }
-
-  private static void printUserDefinedFunctions(
-      PrintWriter printWriter,
-      MarkdownRenderer renderer,
-      Map<String, UserDefinedFunction> userDefinedFunctions)
-      throws IOException {
-
-    for (Entry<String, UserDefinedFunction> entry : userDefinedFunctions.entrySet()) {
-      try {
-        UserDefinedFunctionInfo functionInfo =
-            FunctionUtil.fromNameAndFunction(entry.getKey(), entry.getValue());
-        printUserDefinedFunctionInfo(printWriter, renderer, functionInfo);
-        printWriter.println();
-      } catch (DocstringParseException exception) {
-        System.err.println(exception.getMessage());
-        System.err.println();
-      }
-    }
-  }
-
-  private static void printRuleInfo(
-      PrintWriter printWriter, MarkdownRenderer renderer, String exportedName, RuleInfo ruleInfo)
-      throws IOException {
-    printWriter.println(renderer.render(exportedName, ruleInfo));
-  }
-
-  private static void printProviderInfo(
-      PrintWriter printWriter,
-      MarkdownRenderer renderer,
-      String exportedName,
-      ProviderInfo providerInfo)
-      throws IOException {
-    printWriter.println(renderer.render(exportedName, providerInfo));
-  }
-
-  private static void printUserDefinedFunctionInfo(
-      PrintWriter printWriter, MarkdownRenderer renderer, UserDefinedFunctionInfo functionInfo)
-      throws IOException {
-    printWriter.println(renderer.render(functionInfo));
-  }
 
   /**
    * Evaluates/interprets the skylark file at a given path and its transitive skylark dependencies

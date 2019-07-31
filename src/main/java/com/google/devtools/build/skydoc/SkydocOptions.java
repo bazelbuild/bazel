@@ -50,7 +50,7 @@ public class SkydocOptions extends OptionsBase {
 
   @Option(
       name = "output_format",
-      defaultValue = "markdown",
+      defaultValue = "proto",
       converter = OutputFormatConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
