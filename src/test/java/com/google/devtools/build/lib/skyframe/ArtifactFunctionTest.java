@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -263,8 +262,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     ActionLookupData dummyData = ActionLookupData.create(ALL_OWNER, 0);
     Artifact.DerivedArtifact artifact1 = createDerivedArtifact("one");
     Artifact.DerivedArtifact artifact2 = createDerivedArtifact("two");
-    ArtifactFileMetadata metadata1 =
-        ActionMetadataHandler.fileMetadataFromArtifact(artifact1, null, null);
+    FileArtifactValue metadata1 =
+        ActionMetadataHandler.fileArtifactValueFromArtifact(artifact1, null, null);
     SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly("tree");
     treeArtifact.setGeneratingActionKey(dummyData);
     TreeFileArtifact treeFileArtifact = ActionInputHelper.treeFileArtifact(treeArtifact, "subpath");
@@ -281,7 +280,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT);
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.create(
-            ImmutableMap.of(artifact1, metadata1, artifact2, ArtifactFileMetadata.PLACEHOLDER),
+            ImmutableMap.of(artifact1, metadata1, artifact2, FileArtifactValue.PLACEHOLDER),
             ImmutableMap.of(treeArtifact, treeArtifactValue),
             ImmutableMap.of(artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableList.of(filesetOutputSymlink),
@@ -289,7 +288,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             true);
     ActionExecutionValue valueWithFingerprint =
         ActionExecutionValue.create(
-            ImmutableMap.of(artifact1, metadata1, artifact2, ArtifactFileMetadata.PLACEHOLDER),
+            ImmutableMap.of(artifact1, metadata1, artifact2, FileArtifactValue.PLACEHOLDER),
             ImmutableMap.of(treeArtifact, treeArtifactValue),
             ImmutableMap.of(artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableList.of(filesetOutputSymlink),
@@ -417,7 +416,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private static class SimpleActionExecutionFunction implements SkyFunction {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-      Map<Artifact, ArtifactFileMetadata> artifactData = new HashMap<>();
+      Map<Artifact, FileArtifactValue> artifactData = new HashMap<>();
       Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
       Map<Artifact, FileArtifactValue> additionalOutputData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
@@ -439,10 +438,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                       treeFileArtifact2, FileArtifactValue.createForTesting(treeFileArtifact2)));
           treeArtifactData.put(output, treeArtifactValue);
         } else if (action.getActionType() == MiddlemanType.NORMAL) {
-          ArtifactFileMetadata fileValue =
-              ActionMetadataHandler.fileMetadataFromArtifact(output, null, null);
+          FileArtifactValue fileValue =
+              ActionMetadataHandler.fileArtifactValueFromArtifact(output, null, null);
           artifactData.put(output, fileValue);
-          additionalOutputData.put(output, FileArtifactValue.createForTesting(output, fileValue));
+          additionalOutputData.put(
+              output, FileArtifactValue.injectDigestForTesting(output, fileValue));
        } else {
           additionalOutputData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
         }

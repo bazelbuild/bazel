@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -729,14 +728,14 @@ public class FilesystemValueCheckerTest {
   // Presently these appear to be untested.
 
   private ActionExecutionValue actionValue(Action action, boolean forceDigest) {
-    Map<Artifact, ArtifactFileMetadata> artifactData = new HashMap<>();
+    Map<Artifact, FileArtifactValue> artifactData = new HashMap<>();
     for (Artifact output : action.getOutputs()) {
       try {
         Path path = output.getPath();
         FileStatusWithDigest stat =
             forceDigest ? statWithDigest(path, path.statIfFound(Symlinks.NOFOLLOW)) : null;
         artifactData.put(
-            output, ActionMetadataHandler.fileMetadataFromArtifact(output, stat, null));
+            output, ActionMetadataHandler.fileArtifactValueFromArtifact(output, stat, null));
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
@@ -764,7 +763,7 @@ public class FilesystemValueCheckerTest {
   }
 
   private ActionExecutionValue actionValueWithTreeArtifacts(List<TreeFileArtifact> contents) {
-    Map<Artifact, ArtifactFileMetadata> fileData = new HashMap<>();
+    Map<Artifact, FileArtifactValue> fileData = new HashMap<>();
     Map<Artifact, Map<TreeFileArtifact, FileArtifactValue>> directoryData = new HashMap<>();
 
     for (TreeFileArtifact output : contents) {
@@ -775,9 +774,9 @@ public class FilesystemValueCheckerTest {
           dirDatum = new HashMap<>();
           directoryData.put(output.getParent(), dirDatum);
         }
-        ArtifactFileMetadata fileValue =
-            ActionMetadataHandler.fileMetadataFromArtifact(output, null, null);
-        dirDatum.put(output, FileArtifactValue.createForTesting(output, fileValue));
+        FileArtifactValue fileValue =
+            ActionMetadataHandler.fileArtifactValueFromArtifact(output, null, null);
+        dirDatum.put(output, FileArtifactValue.injectDigestForTesting(output, fileValue));
         fileData.put(output, fileValue);
       } catch (IOException e) {
         throw new IllegalStateException(e);
@@ -822,7 +821,7 @@ public class FilesystemValueCheckerTest {
   private ActionExecutionValue actionValueWithRemoteArtifact(
       Artifact output, RemoteFileArtifactValue value) {
     return ActionExecutionValue.create(
-        Collections.singletonMap(output, ArtifactFileMetadata.PLACEHOLDER),
+        Collections.singletonMap(output, FileArtifactValue.PLACEHOLDER),
         ImmutableMap.of(),
         Collections.singletonMap(output, value),
         /* outputSymlinks= */ null,

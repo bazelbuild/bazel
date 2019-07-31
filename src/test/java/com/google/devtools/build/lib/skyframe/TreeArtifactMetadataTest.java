@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -279,7 +278,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      Map<Artifact, ArtifactFileMetadata> fileData = new HashMap<>();
+      Map<Artifact, FileArtifactValue> fileData = new HashMap<>();
       Map<TreeFileArtifact, FileArtifactValue> treeArtifactData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
@@ -289,10 +288,11 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       for (PathFragment subpath : testTreeArtifactContents) {
         try {
           TreeFileArtifact suboutput = ActionInputHelper.treeFileArtifact(output, subpath);
-          ArtifactFileMetadata fileValue =
-              ActionMetadataHandler.fileMetadataFromArtifact(suboutput, null, null);
+          FileArtifactValue fileValue =
+              ActionMetadataHandler.fileArtifactValueFromArtifact(suboutput, null, null);
           fileData.put(suboutput, fileValue);
-          treeArtifactData.put(suboutput, FileArtifactValue.createForTesting(suboutput, fileValue));
+          treeArtifactData.put(
+              suboutput, FileArtifactValue.injectDigestForTesting(suboutput, fileValue));
         } catch (IOException e) {
           throw new SkyFunctionException(e, Transience.TRANSIENT) {};
         }

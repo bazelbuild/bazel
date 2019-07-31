@@ -23,17 +23,14 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.BigIntegerFingerprint;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.math.BigInteger;
 import java.util.Comparator;
@@ -64,9 +61,9 @@ public class ActionExecutionValue implements SkyValue {
    * checked quickly against the actual filesystem on incremental builds.
    *
    * <p>If additional metadata is not needed here over what is in {@link #additionalOutputData}, the
-   * value will be {@link ArtifactFileMetadata#PLACEHOLDER}.
+   * value will be {@link FileArtifactValue#PLACEHOLDER}.
    */
-  private final ImmutableMap<Artifact, ArtifactFileMetadata> artifactData;
+  private final ImmutableMap<Artifact, FileArtifactValue> artifactData;
 
   /** The TreeArtifactValue of all TreeArtifacts output by this Action. */
   private final ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData;
@@ -87,7 +84,7 @@ public class ActionExecutionValue implements SkyValue {
   @Nullable private transient BigInteger valueFingerprint;
 
   /**
-   * @param artifactData Map from Artifacts to corresponding {@link ArtifactFileMetadata}.
+   * @param artifactData Map from Artifacts to corresponding {@link FileArtifactValue}.
    * @param treeArtifactData All tree artifact data.
    * @param additionalOutputData Map from Artifacts to values if the FileArtifactValue for this
    *     artifact cannot be derived from the corresponding FileValue (see {@link
@@ -97,7 +94,7 @@ public class ActionExecutionValue implements SkyValue {
    * @param discoveredModules cpp modules discovered
    */
   private ActionExecutionValue(
-      Map<Artifact, ArtifactFileMetadata> artifactData,
+      Map<Artifact, FileArtifactValue> artifactData,
       Map<Artifact, TreeArtifactValue> treeArtifactData,
       Map<Artifact, FileArtifactValue> additionalOutputData,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
@@ -124,7 +121,7 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   static ActionExecutionValue create(
-      Map<Artifact, ArtifactFileMetadata> artifactData,
+      Map<Artifact, FileArtifactValue> artifactData,
       Map<Artifact, TreeArtifactValue> treeArtifactData,
       Map<Artifact, FileArtifactValue> additionalOutputData,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
@@ -155,7 +152,7 @@ public class ActionExecutionValue implements SkyValue {
    * @return The data for each non-middleman output of this action, in the form of the {@link
    *     FileValue} that would be created for the file if it were to be read from disk.
    */
-  ArtifactFileMetadata getData(Artifact artifact) {
+  FileArtifactValue getData(Artifact artifact) {
     Preconditions.checkState(!additionalOutputData.containsKey(artifact),
         "Should not be requesting data for already-constructed FileArtifactValue: %s", artifact);
     return artifactData.get(artifact);
@@ -171,7 +168,7 @@ public class ActionExecutionValue implements SkyValue {
    *     returned by {@link #getData}. Primarily needed by {@link FilesystemValueChecker}, also
    *     called by {@link ArtifactFunction} when aggregating a {@link TreeArtifactValue}.
    */
-  Map<Artifact, ArtifactFileMetadata> getAllFileValues() {
+  Map<Artifact, FileArtifactValue> getAllFileValues() {
     return Maps.transformEntries(artifactData, this::transformIfPlaceholder);
   }
 
@@ -202,7 +199,7 @@ public class ActionExecutionValue implements SkyValue {
           .forEach(
               (entry) -> {
                 fp.addPath(entry.getKey().getExecPath());
-                fp.addBigIntegerOrdered(entry.getValue().getFingerprint());
+                fp.addBigIntegerOrdered(entry.getValue().getValueFingerprint());
               });
       sortMapByArtifactExecPathAndStream(treeArtifactData)
           .forEach(
@@ -265,12 +262,11 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   /** Transforms PLACEHOLDER values into normal instances. */
-  private ArtifactFileMetadata transformIfPlaceholder(
-      Artifact artifact, ArtifactFileMetadata value) {
+  private FileArtifactValue transformIfPlaceholder(Artifact artifact, FileArtifactValue value) {
     Preconditions.checkState(!artifact.isTreeArtifact());
     Preconditions.checkState(!artifact.isMiddlemanArtifact());
 
-    if (value != ArtifactFileMetadata.PLACEHOLDER) {
+    if (value != FileArtifactValue.PLACEHOLDER) {
       return value;
     }
 
@@ -279,11 +275,8 @@ public class ActionExecutionValue implements SkyValue {
             additionalOutputData.get(artifact),
             "Placeholder without corresponding FileArtifactValue for: %s",
             artifact);
-    FileStateValue.RegularFileStateValue fileStateValue =
-        new FileStateValue.RegularFileStateValue(
-            metadata.getSize(), metadata.getDigest(), /*contentsProxy=*/ null);
-    PathFragment pathFragment = artifact.getPath().asFragment();
-    return ArtifactFileMetadata.forRegularFile(pathFragment, fileStateValue);
+
+    return metadata;
   }
 
   /**
@@ -293,7 +286,7 @@ public class ActionExecutionValue implements SkyValue {
   private static final class CrossServerUnshareableActionExecutionValue
       extends ActionExecutionValue {
     CrossServerUnshareableActionExecutionValue(
-        Map<Artifact, ArtifactFileMetadata> artifactData,
+        Map<Artifact, FileArtifactValue> artifactData,
         Map<Artifact, TreeArtifactValue> treeArtifactData,
         Map<Artifact, FileArtifactValue> additionalOutputData,
         @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,

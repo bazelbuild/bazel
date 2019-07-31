@@ -193,6 +193,21 @@ public final class ActionInputMapTest {
     }
 
     @Override
+    public boolean isRemote() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isMarkerValue() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     @SuppressWarnings("EqualsHashCode")
     public boolean equals(Object o) {
       if (!(o instanceof TestMetadata)) {
