@@ -25,27 +25,27 @@ public class BatchCommandConstructor implements CommandConstructor {
 
   // `cmd.exe` exists at C:\Windows\System32, which is in the default PATH on Windows.
   private static final String BATCH_BIN = "cmd.exe";
-  private String scriptPostFix;
+  private String scriptNameSuffix;
 
-  BatchCommandConstructor(String scriptPostFix) {
-    this.scriptPostFix = scriptPostFix;
+  BatchCommandConstructor(String scriptNameSuffix) {
+    this.scriptNameSuffix = scriptNameSuffix;
   }
 
   @Override
-  public ImmutableList<String> buildCommandLineSimpleArgv(String command) {
+  public ImmutableList<String> asExecArgv(String command) {
     return ImmutableList.of(BATCH_BIN, "/c", command);
   }
 
   @Override
-  public Artifact buildCommandLineArtifact(RuleContext ruleContext, String command) {
-    String scriptFileName = ruleContext.getTarget().getName() + this.scriptPostFix;
-    String scriptFileContents = "@echo off\n" + command;
-    return FileWriteAction.createFile(
-        ruleContext, scriptFileName, scriptFileContents, /*executable=*/true);
+  public ImmutableList<String> asExecArgv(Artifact scriptFileArtifact) {
+    return this.asExecArgv(scriptFileArtifact.getExecPathString().replace('/', '\\'));
   }
 
   @Override
-  public ImmutableList<String> buildCommandLineArgvWithArtifact(Artifact scriptFileArtifact) {
-    return buildCommandLineSimpleArgv(scriptFileArtifact.getExecPathString().replace('/', '\\'));
+  public Artifact commandAsScript(RuleContext ruleContext, String command) {
+    String scriptFileName = ruleContext.getTarget().getName() + this.scriptNameSuffix;
+    String scriptFileContents = "@echo off\n" + command;
+    return FileWriteAction.createFile(
+        ruleContext, scriptFileName, scriptFileContents, /*executable=*/true);
   }
 }

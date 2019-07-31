@@ -36,28 +36,28 @@ public class PowershellCommandConstructor implements CommandConstructor {
       //    https://stackoverflow.com/questions/40098771
       "$PSDefaultParameterValues['*:Encoding'] = 'utf8'",
   };
-  private String scriptPostFix;
+  private String scriptNameSuffix;
 
-  PowershellCommandConstructor(String scriptPostFix) {
-    this.scriptPostFix = scriptPostFix;
+  PowershellCommandConstructor(String scriptNameSuffix) {
+    this.scriptNameSuffix = scriptNameSuffix;
   }
 
   @Override
-  public ImmutableList<String> buildCommandLineSimpleArgv(String command) {
+  public ImmutableList<String> asExecArgv(String command) {
     return ImmutableList.of(POWERSHELL_BIN, "/c", String.join("; ", POWERSHELL_SETUP_COMMANDS) + "; " + command);
   }
 
   @Override
-  public Artifact buildCommandLineArtifact(RuleContext ruleContext, String command) {
-    String scriptFileName = ruleContext.getTarget().getName() + scriptPostFix;
-    return FileWriteAction.createFile(
-        ruleContext, scriptFileName, command, /*executable=*/true);
+  public ImmutableList<String> asExecArgv(Artifact scriptFileArtifact) {
+    // Powershell doesn't search for the current directory by default, we need to always add
+    // ".\" prefix to a relative path.
+    return this.asExecArgv(".\\" + scriptFileArtifact.getExecPathString().replace('/', '\\'));
   }
 
   @Override
-  public ImmutableList<String> buildCommandLineArgvWithArtifact(Artifact scriptFileArtifact) {
-    // Powershell doesn't search for the current directory by default, we need to always add
-    // ".\" prefix to a relative path.
-    return buildCommandLineSimpleArgv(".\\" + scriptFileArtifact.getExecPathString().replace('/', '\\'));
+  public Artifact commandAsScript(RuleContext ruleContext, String command) {
+    String scriptFileName = ruleContext.getTarget().getName() + scriptNameSuffix;
+    return FileWriteAction.createFile(
+        ruleContext, scriptFileName, command, /*executable=*/true);
   }
 }
