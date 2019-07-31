@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import java.util.Arrays;
 
 /**
- * The class for constructing command line for Batch.
+ * The class for constructing command line for Batch on Windows.
  */
-public final class BatchCommandConstructor implements CommandConstructor {
+public final class WindowsBatchCommandConstructor implements CommandConstructor {
 
   // `cmd.exe` exists at C:\Windows\System32, which is in the default PATH on Windows.
   private static final String CMD_EXE = "cmd.exe";
@@ -35,7 +35,7 @@ public final class BatchCommandConstructor implements CommandConstructor {
   };
   private String scriptNameSuffix;
 
-  BatchCommandConstructor(String scriptNameSuffix) {
+  WindowsBatchCommandConstructor(String scriptNameSuffix) {
     this.scriptNameSuffix = scriptNameSuffix;
   }
 

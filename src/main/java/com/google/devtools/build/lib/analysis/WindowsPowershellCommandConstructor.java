@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 
 /**
- * The class for constructing command line for Powershell.
+ * The class for constructing command line for Powershell on Windows.
  */
-public final class PowershellCommandConstructor implements CommandConstructor {
+public final class WindowsPowershellCommandConstructor implements CommandConstructor {
 
   // `powershell.exe` exists at C:\Windows\System32\WindowsPowerShell\v1.0,
   // which is in the default PATH on Windows.
@@ -41,7 +41,7 @@ public final class PowershellCommandConstructor implements CommandConstructor {
       );
   private String scriptNameSuffix;
 
-  PowershellCommandConstructor(String scriptNameSuffix) {
+  WindowsPowershellCommandConstructor(String scriptNameSuffix) {
     this.scriptNameSuffix = scriptNameSuffix;
   }
 

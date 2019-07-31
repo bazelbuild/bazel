@@ -34,8 +34,8 @@ test_suite(
 
 java_test(
     name = "bazel-rules-tests",
-    srcs = glob(["rules/**/*.java"], exclude = ["rules/genrule/GenRuleWindowsTest.java"]) + select({
-        "//src:windows": ["rules/genrule/GenRuleWindowsTest.java"],
+    srcs = glob(["rules/**/*.java"], exclude = ["rules/genrule/GenRuleWindowsConfiguredTargetTest.java"]) + select({
+        "//src:windows": ["rules/genrule/GenRuleWindowsConfiguredTargetTest.java"],
         "//conditions:default": [],
     }),
     resources = [

@@ -359,11 +359,11 @@ public final class CommandHelper {
     return new BashCommandConstructor(shellPath(executionInfo, shExecutable), scriptPostFix);
   }
 
-  public static BatchCommandConstructor buildBatchCommandConstructor(String scriptPostFix) {
-    return new BatchCommandConstructor(scriptPostFix);
+  public static WindowsBatchCommandConstructor buildWindowsBatchCommandConstructor(String scriptPostFix) {
+    return new WindowsBatchCommandConstructor(scriptPostFix);
   }
 
-  public static PowershellCommandConstructor buildPowershellCommandConstructor(String scriptPostFix) {
-    return new PowershellCommandConstructor(scriptPostFix);
+  public static WindowsPowershellCommandConstructor buildWindowsPowershellCommandConstructor(String scriptPostFix) {
+    return new WindowsPowershellCommandConstructor(scriptPostFix);
   }
 }

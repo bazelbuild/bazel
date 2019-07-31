@@ -213,11 +213,11 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     CommandConstructor constructor;
     switch (cmdType) {
       case WINDOWS_BATCH:
-        constructor = CommandHelper.buildBatchCommandConstructor(
+        constructor = CommandHelper.buildWindowsBatchCommandConstructor(
             ".genrule_script.bat");
         break;
       case WINDOWS_POWERSHELL:
-        constructor = CommandHelper.buildPowershellCommandConstructor(
+        constructor = CommandHelper.buildWindowsPowershellCommandConstructor(
             ".genrule_script.ps1");
         break;
       case BASH:
