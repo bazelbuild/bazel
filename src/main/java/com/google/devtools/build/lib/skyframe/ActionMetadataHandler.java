@@ -647,8 +647,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
     // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
     // and is a source file (since changes to those are checked separately).
     FileStateValue realFileStateValue = FileStateValue.create(realRootedPath, tsgm);
-    return ArtifactFileMetadata.forSymlink(
-        realPath.asFragment(), realFileStateValue, fileStateValue.getSymlinkTarget());
+    return ArtifactFileMetadata.forRegularFile(realPath.asFragment(), realFileStateValue);
   }
 
   private void setPathReadOnlyAndExecutable(Artifact artifact) throws IOException {

@@ -63,25 +63,12 @@ public abstract class ArtifactFileMetadata {
     return realFileStateValue().getType() != FileStateType.NONEXISTENT;
   }
 
-  /** Returns true if the original path is a symlink; the target path can never be a symlink. */
-  public boolean isSymlink() {
-    return false;
-  }
-
   /**
    * Returns true if this value corresponds to a file or symlink to an existing regular or special
    * file. If so, its parent directory is guaranteed to exist.
    */
   public boolean isFile() {
     return realFileStateValue().getType() == FileStateType.REGULAR_FILE;
-  }
-
-  /**
-   * Returns true if this value corresponds to a file or symlink to an existing special file. If so,
-   * its parent directory is guaranteed to exist.
-   */
-  public boolean isSpecialFile() {
-    return realFileStateValue().getType() == FileStateType.SPECIAL_FILE;
   }
 
   /**
@@ -112,10 +99,14 @@ public abstract class ArtifactFileMetadata {
   /** Returns a quick fingerprint via a BigInteger */
   public BigInteger getFingerprint() {
     BigIntegerFingerprint fp = new BigIntegerFingerprint();
-    fp.addBoolean(exists());
-    fp.addBoolean(isSpecialFile());
-    fp.addBoolean(isDirectory());
-    fp.addBoolean(isFile());
+
+    // TODO(lberki): This could be replaced with addLong(getType().ordinal())
+    // at the cost of making the order of elements in the enum affecting the fingerprint.
+    fp.addBoolean(realFileStateValue().getType() == FileStateType.NONEXISTENT);
+    fp.addBoolean(realFileStateValue().getType() == FileStateType.SPECIAL_FILE);
+    fp.addBoolean(realFileStateValue().getType() == FileStateType.DIRECTORY);
+    fp.addBoolean(realFileStateValue().getType() == FileStateType.REGULAR_FILE);
+
     if (isFile()) {
       fp.addLong(getSize());
       fp.addDigestedBytes(getDigest());
@@ -128,33 +119,24 @@ public abstract class ArtifactFileMetadata {
     return new Regular(pathFragment, fileStateValue);
   }
 
-  public static ArtifactFileMetadata forSymlink(
-      PathFragment resolvedPath, FileStateValue resolvedFileStateValue, PathFragment linkTarget) {
-    return new Symlink(resolvedPath, resolvedFileStateValue, linkTarget);
-  }
-
-  /**
-   * Implementation of {@link ArtifactFileMetadata} for files whose fully resolved path is the same
-   * as the requested path. For example, this is the case for the path "foo/bar/baz" if neither
-   * 'foo' nor 'foo/bar' nor 'foo/bar/baz' are symlinks.
-   */
+  /** Non-stub implementation of {@link ArtifactFileMetadata}. */
   private static final class Regular extends ArtifactFileMetadata {
     private final PathFragment realPath;
-    private final FileStateValue fileStateValue;
+    private final FileStateValue realFileStateValue;
 
-    Regular(PathFragment realPath, FileStateValue fileStateValue) {
+    Regular(PathFragment realPath, FileStateValue realFileStateValue) {
       this.realPath = Preconditions.checkNotNull(realPath);
-      this.fileStateValue = Preconditions.checkNotNull(fileStateValue);
+      this.realFileStateValue = Preconditions.checkNotNull(realFileStateValue);
     }
 
     @Override
     public FileStateValue realFileStateValue() {
-      return fileStateValue;
+      return realFileStateValue;
     }
 
     @Override
     public FileContentsProxy getContentsProxy() {
-      return fileStateValue.getContentsProxy();
+      return realFileStateValue.getContentsProxy();
     }
 
     @Override
@@ -166,17 +148,17 @@ public abstract class ArtifactFileMetadata {
         return false;
       }
       Regular other = (Regular) obj;
-      return realPath.equals(other.realPath) && fileStateValue.equals(other.fileStateValue);
+      return realPath.equals(other.realPath) && realFileStateValue.equals(other.realFileStateValue);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(realPath, fileStateValue);
+      return Objects.hash(realPath, realFileStateValue);
     }
 
     @Override
     public String toString() {
-      return realPath + ", " + fileStateValue;
+      return realPath + ", " + realFileStateValue;
     }
 
     @Override
@@ -186,68 +168,8 @@ public abstract class ArtifactFileMetadata {
       fp.addBigIntegerOrdered(original);
       fp.addString(getClass().getCanonicalName());
       fp.addPath(realPath);
-      fp.addBigIntegerOrdered(fileStateValue.getValueFingerprint());
+      fp.addBigIntegerOrdered(realFileStateValue.getValueFingerprint());
       return fp.getFingerprint();
-    }
-  }
-
-  /** Implementation of {@link ArtifactFileMetadata} for files that are symlinks. */
-  private static final class Symlink extends ArtifactFileMetadata {
-    private final PathFragment linkTarget;
-    private final PathFragment realPath;
-    private final FileStateValue realFileStateValue;
-
-    private Symlink(
-        PathFragment realPath, FileStateValue realFileStateValue, PathFragment linkTarget) {
-      this.realPath = realPath;
-      this.realFileStateValue = realFileStateValue;
-      this.linkTarget = linkTarget;
-    }
-
-    @Override
-    public FileStateValue realFileStateValue() {
-      return realFileStateValue;
-    }
-
-    @Override
-    public BigInteger getFingerprint() {
-      BigInteger original = super.getFingerprint();
-      BigIntegerFingerprint fp = new BigIntegerFingerprint();
-      fp.addBigIntegerOrdered(original);
-      fp.addString(getClass().getCanonicalName());
-      fp.addPath(linkTarget);
-      return fp.getFingerprint();
-    }
-
-    @Override
-    public boolean isSymlink() {
-      return true;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (obj == null) {
-        return false;
-      }
-      if (obj.getClass() != Symlink.class) {
-        return false;
-      }
-      Symlink other = (Symlink) obj;
-      return realPath.equals(other.realPath)
-          && realFileStateValue.equals(other.realFileStateValue)
-          && linkTarget.equals(other.linkTarget);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(realPath, realFileStateValue, linkTarget, Boolean.TRUE);
-    }
-
-    @Override
-    public String toString() {
-      return String.format(
-          "symlink (real_path=%s, real_state=%s, link_value=%s)",
-          realPath, realFileStateValue, linkTarget);
     }
   }
 
