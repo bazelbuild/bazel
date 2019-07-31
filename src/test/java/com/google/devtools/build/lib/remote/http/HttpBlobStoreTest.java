@@ -31,6 +31,9 @@ import com.google.api.client.util.Preconditions;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.protobuf.ByteString;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -63,7 +66,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -89,6 +91,8 @@ import org.mockito.Mockito;
 /** Tests for {@link HttpBlobStore}. */
 @RunWith(Parameterized.class)
 public class HttpBlobStoreTest {
+
+  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
   private static ServerChannel createServer(
       Class<? extends ServerChannel> serverChannelClass,
@@ -290,8 +294,7 @@ public class HttpBlobStoreTest {
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
-      ByteArrayInputStream in = new ByteArrayInputStream(data);
-      blobStore.put("key", data.length, in);
+      getFromFuture(blobStore.uploadBlob(DIGEST_UTIL.compute(data), ByteString.copyFrom(data)));
       fail("Exception expected");
     } finally {
       testServer.stop(server);
@@ -346,9 +349,8 @@ public class HttpBlobStoreTest {
 
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-      byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
-      ByteArrayInputStream in = new ByteArrayInputStream(data);
-      IOException e = assertThrows(IOException.class, () -> blobStore.put("key", data.length, in));
+      ByteString data = ByteString.copyFrom("File Contents", Charsets.US_ASCII);
+      IOException e = assertThrows(IOException.class, () -> getFromFuture(blobStore.uploadBlob(DIGEST_UTIL.compute(data.toByteArray()), data)));
       assertThat(e.getCause()).isInstanceOf(TooLongFrameException.class);
     } finally {
       testServer.stop(server);
@@ -402,8 +404,7 @@ public class HttpBlobStoreTest {
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
-      ByteArrayInputStream in = new ByteArrayInputStream(data);
-      blobStore.put("key", data.length, in);
+      blobStore.uploadBlob(DIGEST_UTIL.compute(data), ByteString.copyFrom(data)).get();
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
       verify(credentials, times(2)).hasRequestMetadata();
@@ -456,7 +457,8 @@ public class HttpBlobStoreTest {
 
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-      blobStore.put("key", 1, new ByteArrayInputStream(new byte[] {0}));
+      byte[] oneByte = new byte[] {0};
+      getFromFuture(blobStore.uploadBlob(DIGEST_UTIL.compute(oneByte), ByteString.copyFrom(oneByte)));
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);

@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.http;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.ByteString;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -67,6 +71,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -103,6 +108,8 @@ import javax.net.ssl.SSLEngine;
 public final class HttpBlobStore implements SimpleBlobStore {
   private static final Pattern INVALID_TOKEN_ERROR =
       Pattern.compile("\\s*error\\s*=\\s*\"?invalid_token\"?");
+
+  private final ConcurrentHashMap<String, Boolean> storedBlobs = new ConcurrentHashMap<>();
 
   private final EventLoopGroup eventLoop;
   private final ChannelPool channelPool;
@@ -532,14 +539,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
     return get(actionKey, out, false);
   }
 
-  @Override
-  public void put(String key, long length, InputStream in)
-      throws IOException, InterruptedException {
-    put(key, length, in, true);
-  }
-
   @SuppressWarnings("FutureReturnValueIgnored")
-  private void put(String key, long length, InputStream in, boolean casUpload)
+  private void uploadBlocking(String key, long length, InputStream in, boolean casUpload)
       throws IOException, InterruptedException {
     InputStream wrappedIn =
         new FilterInputStream(in) {
@@ -552,34 +553,62 @@ public final class HttpBlobStore implements SimpleBlobStore {
         };
     UploadCommand upload = new UploadCommand(uri, casUpload, key, wrappedIn, length);
     Channel ch = null;
-    try {
-      ch = acquireUploadChannel();
-      ChannelFuture uploadFuture = ch.writeAndFlush(upload);
-      uploadFuture.sync();
-    } catch (Exception e) {
-      // e can be of type HttpException, because Netty uses Unsafe.throwException to re-throw a
-      // checked exception that hasn't been declared in the method signature.
-      if (e instanceof HttpException) {
-        HttpResponse response = ((HttpException) e).response();
-        if (authTokenExpired(response)) {
-          refreshCredentials();
-          // The error is due to an auth token having expired. Let's try again.
-          if (!reset(in)) {
-            // The InputStream can't be reset and thus we can't retry as most likely
-            // bytes have already been read from the InputStream.
-            throw e;
+    boolean success = false;
+    if (storedBlobs.putIfAbsent((casUpload ? "cas/" : "ac/") + key, true) == null) {
+      try {
+        ch = acquireUploadChannel();
+        ChannelFuture uploadFuture = ch.writeAndFlush(upload);
+        uploadFuture.sync();
+        success = true;
+      } catch (Exception e) {
+        // e can be of type HttpException, because Netty uses Unsafe.throwException to re-throw a
+        // checked exception that hasn't been declared in the method signature.
+        if (e instanceof HttpException) {
+          HttpResponse response = ((HttpException) e).response();
+          if (authTokenExpired(response)) {
+            refreshCredentials();
+            // The error is due to an auth token having expired. Let's try again.
+            if (!reset(in)) {
+              // The InputStream can't be reset and thus we can't retry as most likely
+              // bytes have already been read from the InputStream.
+              throw e;
+            }
+            putAfterCredentialRefresh(upload);
+            success = true;
+            return;
           }
-          putAfterCredentialRefresh(upload);
-          return;
+        }
+        throw e;
+      } finally {
+        if (!success) {
+          storedBlobs.remove(key);
+        }
+        in.close();
+        if (ch != null) {
+          releaseUploadChannel(ch);
         }
       }
-      throw e;
-    } finally {
-      in.close();
-      if (ch != null) {
-        releaseUploadChannel(ch);
-      }
     }
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
+    try (InputStream in = file.getInputStream()) {
+      uploadBlocking(digest.getHash(), digest.getSizeBytes(), in, /* casUpload= */ true);
+    } catch (IOException | InterruptedException e) {
+      return Futures.immediateFailedFuture(e);
+    }
+    return Futures.immediateFuture(null);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+    try (InputStream in = data.newInput()) {
+      uploadBlocking(digest.getHash(), digest.getSizeBytes(), in, /* casUpload= */ true);
+    } catch (IOException | InterruptedException e) {
+      return Futures.immediateFailedFuture(e);
+    }
+    return Futures.immediateFuture(null);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -613,7 +642,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   public void putActionResult(String actionKey, byte[] data)
       throws IOException, InterruptedException {
     try (InputStream in = new ByteArrayInputStream(data)) {
-      put(actionKey, data.length, in, false);
+      uploadBlocking(actionKey, data.length, in, false);
     }
   }
 

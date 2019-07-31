@@ -22,5 +22,8 @@ java_library(
         "//third_party:auth",
         "//third_party:guava",
         "//third_party:netty",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+        "//third_party/protobuf:protobuf_java",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )

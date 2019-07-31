@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
@@ -340,8 +341,17 @@ final class ExecutionServer extends ExecutionImplBase {
       }
     }
     byte[] stdout = cmdResult.getStdout();
+    if (stdout.length > 0) {
+      Digest stdoutDigest = digestUtil.compute(stdout);
+      cache.uploadBlob(stdoutDigest, ByteString.copyFrom(stdout));
+      result.setStdoutDigest(stdoutDigest);
+    }
     byte[] stderr = cmdResult.getStderr();
-    cache.uploadOutErr(result, stdout, stderr);
+    if (stderr.length > 0) {
+      Digest stderrDigest = digestUtil.compute(stderr);
+      result.setStderrDigest(stderrDigest);
+    }
+
     ActionResult finalResult = result.setExitCode(exitCode).build();
     resp.setResult(finalResult);
     if (errStatus != null) {
