@@ -402,6 +402,18 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     }
   }
 
+  @Override
+  protected ListenableFuture<Void> uploadFile(Digest digest, Path path) {
+    return uploader.uploadBlobAsync(HashCode.fromString(digest.getHash()),
+        Chunker.builder().setInput(digest.getSizeBytes(), path).build(), /* forceUpload= */ true);
+  }
+
+  @Override
+  protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+    return uploader.uploadBlobAsync(HashCode.fromString(digest.getHash()),
+        Chunker.builder().setInput(data.toByteArray()).build(), /* forceUpload= */ true);
+  }
+
   void upload(
       Path execRoot,
       ActionKey actionKey,
@@ -422,39 +434,52 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     manifest.setStdoutStderr(outErr);
     manifest.addAction(actionKey, action, command);
 
-    Map<HashCode, Chunker> filesToUpload = Maps.newHashMap();
-
     Map<Digest, Path> digestToFile = manifest.getDigestToFile();
-    Map<Digest, Chunker> digestToChunkers = manifest.getDigestToChunkers();
+    Map<Digest, ByteString> digestToBlobs = manifest.getDigestToBlobs();
     Collection<Digest> digests = new ArrayList<>();
     digests.addAll(digestToFile.keySet());
-    digests.addAll(digestToChunkers.keySet());
+    digests.addAll(digestToBlobs.keySet());
 
     ImmutableSet<Digest> digestsToUpload = getMissingDigests(digests);
+    ImmutableList.Builder<ListenableFuture<Void>> uploads = ImmutableList.builder();
     for (Digest digest : digestsToUpload) {
-      Chunker chunker;
       Path file = digestToFile.get(digest);
       if (file != null) {
-        chunker = Chunker.builder().setInput(digest.getSizeBytes(), file).build();
+        uploads.add(uploadFile(digest, file));
       } else {
-        chunker = digestToChunkers.get(digest);
-        if (chunker == null) {
+        ByteString blob = digestToBlobs.get(digest);
+        if (blob == null) {
           String message = "FindMissingBlobs call returned an unknown digest: " + digest;
           throw new IOException(message);
         }
+        uploads.add(uploadBlob(digest, blob));
       }
-      filesToUpload.put(HashCode.fromString(digest.getHash()), chunker);
     }
 
-    if (!filesToUpload.isEmpty()) {
-      uploader.uploadBlobs(filesToUpload, /*forceUpload=*/true);
-    }
+    waitForUploads(uploads.build());
 
     if (manifest.getStderrDigest() != null) {
       result.setStderrDigest(manifest.getStderrDigest());
     }
     if (manifest.getStdoutDigest() != null) {
       result.setStdoutDigest(manifest.getStdoutDigest());
+    }
+  }
+
+  private void waitForUploads(List<ListenableFuture<Void>> uploads) throws IOException,
+      InterruptedException {
+    try {
+      for (ListenableFuture<Void> upload : uploads) {
+        upload.get();
+      }
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      Throwables.propagateIfInstanceOf(cause, IOException.class);
+      Throwables.propagateIfInstanceOf(cause, InterruptedException.class);
+      if (cause instanceof StatusRuntimeException) {
+        throw new IOException(cause);
+      }
+      Throwables.propagate(cause);
     }
   }
 

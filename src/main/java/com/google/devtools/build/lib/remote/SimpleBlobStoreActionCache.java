@@ -44,7 +44,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -92,12 +91,12 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     upload(result, actionKey, action, command, execRoot, files, /* uploadAction= */ true);
     if (outErr.getErrorPath().exists()) {
       Digest stdErrDigest = digestUtil.compute(outErr.getErrorPath());
-      uploadFile(stdErrDigest, outErr.getOutputPath());
+      getFromFuture(uploadFile(stdErrDigest, outErr.getOutputPath()));
       result.setStderrDigest(stdErrDigest);
     }
     if (outErr.getOutputPath().exists()) {
       Digest stdoutDigest = digestUtil.compute(outErr.getOutputPath());
-      uploadFile(stdoutDigest, outErr.getOutputPath());
+      getFromFuture(uploadFile(stdoutDigest, outErr.getOutputPath()));
       result.setStdoutDigest(stdoutDigest);
     }
     blobStore.putActionResult(actionKey.getDigest().getHash(), result.build().toByteArray());
@@ -125,30 +124,22 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     }
 
     for (Map.Entry<Digest, Path> entry : manifest.getDigestToFile().entrySet()) {
-      uploadFile(entry.getKey(), entry.getValue());
+      getFromFuture(uploadFile(entry.getKey(), entry.getValue()));
     }
 
-    for (Map.Entry<Digest, Chunker> entry : manifest.getDigestToChunkers().entrySet()) {
-      uploadBlob(entry.getKey(), entry.getValue().next().getData());
+    for (Map.Entry<Digest, ByteString> entry : manifest.getDigestToBlobs().entrySet()) {
+      uploadBlob(entry.getKey(), entry.getValue());
     }
   }
 
-  public void uploadFile(Digest digest, Path file) throws IOException, InterruptedException {
-    try {
-      blobStore.uploadFile(digest, file).get();
-    } catch (ExecutionException e) {
-      Throwables.propagateIfPossible(e.getCause(), IOException.class, InterruptedException.class);
-      throw new IOException(String.format("Uploading of file '%s' failed: %s", file.getPathString(), e.getCause()));
-    }
+  @Override
+  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
+    return blobStore.uploadFile(digest, file);
   }
 
-  public void uploadBlob(Digest digest, ByteString data) throws IOException, InterruptedException {
-    try {
-      blobStore.uploadBlob(digest, data).get();
-    } catch (ExecutionException e) {
-      Throwables.propagateIfPossible(e.getCause(), IOException.class, InterruptedException.class);
-      throw new IOException(String.format("Uploading of blob with digest '%s' failed: %s", digest, e.getCause()));
-    }
+  @Override
+  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+    return blobStore.uploadBlob(digest, data);
   }
 
   public boolean containsKey(Digest digest) throws IOException, InterruptedException {
