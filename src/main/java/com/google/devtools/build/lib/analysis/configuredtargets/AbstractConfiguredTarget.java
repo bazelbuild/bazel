@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
@@ -36,20 +37,23 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
- * An abstract implementation of ConfiguredTarget in which all properties are
- * assigned trivial default values.
+ * An abstract implementation of ConfiguredTarget in which all properties are assigned trivial
+ * default values.
  */
 public abstract class AbstractConfiguredTarget
-    implements ConfiguredTarget, VisibilityProvider, ClassObject {
+    implements ConfiguredTarget, VisibilityProvider, SkylarkClassObject {
   private final Label label;
   private final BuildConfigurationValue.Key configurationKey;
 
@@ -61,6 +65,18 @@ public abstract class AbstractConfiguredTarget
   // Accessors for Skylark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
   private static final String DEFAULT_RUNFILES_FIELD = "default_runfiles";
+
+  // A set containing all field names which may be specially handled (and thus may not be
+  // attributed to normal user-specified providers).
+  private static final ImmutableSet<String> SPECIAL_FIELD_NAMES =
+      ImmutableSet.of(
+          LABEL_FIELD,
+          FILES_FIELD,
+          DEFAULT_RUNFILES_FIELD,
+          DATA_RUNFILES_FIELD,
+          FilesToRunProvider.SKYLARK_NAME,
+          OutputGroupInfo.SKYLARK_NAME,
+          RuleConfiguredTarget.ACTIONS_FIELD_NAME);
 
   public AbstractConfiguredTarget(Label label, BuildConfigurationValue.Key configurationKey) {
     this(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -106,10 +122,33 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
+  public Object getValue(Location loc, StarlarkSemantics semantics, String name)
+      throws EvalException {
+    if (semantics.incompatibleDisableTargetProviderFields()
+        && !SPECIAL_FIELD_NAMES.contains(name)) {
+      throw new EvalException(
+          loc,
+          "Accessing providers via the field syntax on structs is "
+              + "deprecated and will be removed soon. It may be temporarily re-enabled by setting "
+              + "--incompatible_disable_target_provider_fields=false. See "
+              + "https://github.com/bazelbuild/bazel/issues/9014 for details.");
+    }
+    return getValue(name);
+  }
+
+  @Override
   public Object getValue(String name) {
     switch (name) {
       case LABEL_FIELD:
         return getLabel();
+      case RuleConfiguredTarget.ACTIONS_FIELD_NAME:
+        // Depending on subclass, the 'actions' field will either be unsupported or of type
+        // java.util.List, which needs to be converted to SkylarkList before being returned.
+        Object result = get(name);
+        if (result != null) {
+          result = SkylarkType.convertToSkylark(result, (Mutability) null);
+        }
+        return result;
       default:
         return get(name);
     }
@@ -207,9 +246,6 @@ public abstract class AbstractConfiguredTarget
    */
   @Override
   public final Object get(String providerKey) {
-    if (OutputGroupInfo.SKYLARK_NAME.equals(providerKey)) {
-      return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-    }
     switch (providerKey) {
       case FILES_FIELD:
         return getDefaultProvider().getFiles();

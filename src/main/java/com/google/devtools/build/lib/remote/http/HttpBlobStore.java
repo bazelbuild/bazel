@@ -277,8 +277,11 @@ public final class HttpBlobStore implements SimpleBlobStore {
                     "timeout-handler",
                     new IdleTimeoutHandler(timeoutSeconds, WriteTimeoutException.INSTANCE));
                 p.addLast(new HttpResponseDecoder());
-                // The 10KiB limit was chosen at random. We only expect HTTP servers to respond with
-                // an error message in the body and that should always be less than 10KiB.
+                // The 10KiB limit was chosen arbitrarily. We only expect HTTP servers to respond
+                // with an error message in the body, and that should always be less than 10KiB. If
+                // the response is larger than 10KiB, HttpUploadHandler will catch the
+                // TooLongFrameException that HttpObjectAggregator throws and convert it to an
+                // IOException.
                 p.addLast(new HttpObjectAggregator(10 * 1024));
                 p.addLast(new HttpRequestEncoder());
                 p.addLast(new ChunkedWriteHandler());

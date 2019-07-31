@@ -133,7 +133,7 @@ public final class DotExpression extends Expression {
 
     if (objValue instanceof SkylarkClassObject) {
       try {
-        return ((SkylarkClassObject) objValue).getValue(name);
+        return ((SkylarkClassObject) objValue).getValue(loc, env.getSemantics(), name);
       } catch (IllegalArgumentException ex) {
         throw new EvalException(loc, ex);
       }

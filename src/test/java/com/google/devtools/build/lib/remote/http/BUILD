@@ -18,6 +18,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/remote/http",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:api_client",
         "//third_party:auth",
         "//third_party:guava",

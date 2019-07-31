@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.Set;
@@ -40,8 +39,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 class OutputStore {
 
-  private final ConcurrentMap<Artifact, ArtifactFileMetadata> artifactData =
-      new ConcurrentHashMap<>();
+  private final ConcurrentMap<Artifact, FileArtifactValue> artifactData = new ConcurrentHashMap<>();
 
   private final ConcurrentMap<Artifact, TreeArtifactValue> treeArtifactData =
       new ConcurrentHashMap<>();
@@ -55,21 +53,21 @@ class OutputStore {
   private final Set<Artifact> injectedFiles = Sets.newConcurrentHashSet();
 
   @Nullable
-  final ArtifactFileMetadata getArtifactData(Artifact artifact) {
+  final FileArtifactValue getArtifactData(Artifact artifact) {
     return artifactData.get(artifact);
   }
 
-  void putArtifactData(Artifact artifact, ArtifactFileMetadata value) {
+  void putArtifactData(Artifact artifact, FileArtifactValue value) {
     artifactData.put(artifact, value);
   }
 
   /**
    * Returns data for output files that was computed during execution.
    *
-   * <p>The value is {@link ArtifactFileMetadata#PLACEHOLDER} if the artifact's metadata is not
-   * fully captured in {@link #additionalOutputData}.
+   * <p>The value is {@link FileArtifactValue#PLACEHOLDER} if the artifact's metadata is not fully
+   * captured in {@link #additionalOutputData}.
    */
-  final ImmutableMap<Artifact, ArtifactFileMetadata> getAllArtifactData() {
+  final ImmutableMap<Artifact, FileArtifactValue> getAllArtifactData() {
     return ImmutableMap.copyOf(artifactData);
   }
 
@@ -111,7 +109,7 @@ class OutputStore {
    *   <li>If the filesystem does not possess fast digests, then we will have additional output data
    *       for practically every artifact, since we will need to store their digests.
    *   <li>If we have a remote execution service injecting metadata, then we will just store that
-   *       metadata here, and put {@link ArtifactFileMetadata#PLACEHOLDER} objects into {@link
+   *       metadata here, and put {@link FileArtifactValue#PLACEHOLDER} objects into {@link
    *       #outputArtifactData} if the filesystem supports fast digests, and the actual metadata if
    *       the filesystem does not support fast digests.
    *   <li>If the filesystem has fast digests <i>but</i> there is no remote execution injecting
@@ -123,13 +121,13 @@ class OutputStore {
    * populated. Locally executed actions are the exception to this rule inside Google.
    *
    * <p>Moreover, there are some artifacts that are always stored here. First, middleman artifacts
-   * have no corresponding {@link ArtifactFileMetadata}. Second, directories' metadata contain their
-   * mtimes, which the {@link ArtifactFileMetadata} does not expose, so that has to be stored
+   * have no corresponding {@link FileArtifactValue}. Second, directories' metadata contain their
+   * mtimes, which the {@link FileArtifactValue} does not expose, so that has to be stored
    * separately.
    *
    * <p>Note that for files that need digests, we can't easily inject the digest in the {@link
-   * ArtifactFileMetadata} because it would complicate equality-checking on subsequent builds -- if
-   * our filesystem doesn't do fast digests, the comparison value would not have a digest.
+   * FileArtifactValue} because it would complicate equality-checking on subsequent builds -- if our
+   * filesystem doesn't do fast digests, the comparison value would not have a digest.
    */
   final ImmutableMap<Artifact, FileArtifactValue> getAllAdditionalOutputData() {
     return ImmutableMap.copyOf(additionalOutputData);
@@ -167,7 +165,7 @@ class OutputStore {
 
     // While `artifactValue` carries the important information, consumers also require an entry in
     // `artifactData` so a `PLACEHOLDER` is added to `artifactData`.
-    artifactData.put(output, ArtifactFileMetadata.PLACEHOLDER);
+    artifactData.put(output, FileArtifactValue.PLACEHOLDER);
     additionalOutputData.put(output, artifactValue);
   }
 

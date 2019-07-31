@@ -40,6 +40,7 @@ exports_files([
     "srcs_version.bzl",
     "toolchain.bzl",
     "utils.bzl",
+    "private/defs.bzl",
     # write_file.bzl fortunately doesn't need to be exposed because it's only
     # used in this BUILD file.
 ])

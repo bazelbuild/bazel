@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
@@ -218,7 +218,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
     // Check for existing metadata. It may have been injected. In either case, this method is called
     // from SkyframeActionExecutor to make sure that we have metadata for all action outputs, as the
     // results are then stored in Skyframe (and the action cache).
-    ArtifactFileMetadata fileMetadata = store.getArtifactData(artifact);
+    FileArtifactValue fileMetadata = store.getArtifactData(artifact);
     if (fileMetadata != null) {
       // Non-middleman artifacts should only have additionalOutputData if they have
       // outputArtifactData. We don't assert this because of concurrency possibilities, but at least
@@ -229,10 +229,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
       if (value != null) {
         return metadataFromValue(value);
       }
-      if (!fileMetadata.exists()) {
+      if (fileMetadata.getType() == FileStateType.NONEXISTENT) {
         throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
       }
-      return FileArtifactValue.createFromMetadata(fileMetadata, !artifact.isConstantMetadata());
+      return fileMetadata;
     }
 
     // No existing metadata; this can happen if the output metadata is not injected after a spawn
@@ -247,7 +247,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
     //
     // We only cache nonexistence here, not file system errors. It is unlikely that the file will be
     // requested from this cache too many times.
-    fileMetadata = constructArtifactFileMetadata(artifact, /*statNoFollow=*/ null);
+    fileMetadata = constructFileArtifactValue(artifact, /*statNoFollow=*/ null);
     return maybeStoreAdditionalData(artifact, fileMetadata, null);
   }
 
@@ -261,22 +261,22 @@ public final class ActionMetadataHandler implements MetadataHandler {
    * additional data, even for normal (non-middleman) artifacts.
    */
   private FileArtifactValue maybeStoreAdditionalData(
-      Artifact artifact, ArtifactFileMetadata data, @Nullable byte[] injectedDigest)
+      Artifact artifact, FileArtifactValue data, @Nullable byte[] injectedDigest)
       throws IOException {
-    if (!data.exists()) {
+    if (data.getType() == FileStateType.NONEXISTENT) {
       // Nonexistent files should only occur before executing an action.
       throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
     }
-    boolean isFile = data.isFile();
+    boolean isFile = data.getType() == FileStateType.REGULAR_FILE;
     if (isFile && !artifact.hasParent() && data.getDigest() != null) {
       // We do not need to store the FileArtifactValue separately -- the digest is in the file value
       // and that is all that is needed for this file's metadata.
-      return FileArtifactValue.createFromMetadata(data, !artifact.isConstantMetadata());
+      return data;
     }
 
     final FileArtifactValue value;
 
-    if (data.isDirectory()) {
+    if (data.getType() == FileStateType.DIRECTORY) {
       // This branch is taken when the output of an action is a directory:
       //   - A Fileset (in this case, Blaze is correct)
       //   - A directory someone created in a local action (in this case, changes under the
@@ -382,14 +382,14 @@ public final class ActionMetadataHandler implements MetadataHandler {
     for (TreeFileArtifact treeFileArtifact : contents) {
       FileArtifactValue cachedValue = store.getAdditionalOutputData(treeFileArtifact);
       if (cachedValue == null) {
-        ArtifactFileMetadata fileMetadata = store.getArtifactData(treeFileArtifact);
+        FileArtifactValue fileMetadata = store.getArtifactData(treeFileArtifact);
         // This is similar to what's present in getRealMetadataForArtifact, except
         // we get back the ArtifactFileMetadata, not the metadata.
         // We do not cache exceptions besides nonexistence here, because it is unlikely that the
         // file will be requested from this cache too many times.
         if (fileMetadata == null) {
           try {
-            fileMetadata = constructArtifactFileMetadata(treeFileArtifact, /*statNoFollow=*/ null);
+            fileMetadata = constructFileArtifactValue(treeFileArtifact, /*statNoFollow=*/ null);
           } catch (FileNotFoundException e) {
             String errorMessage = String.format(
                 "Failed to resolve relative path %s inside TreeArtifact %s. "
@@ -450,10 +450,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
     // Assumption: any non-Artifact output is 'virtual' and should be ignored here.
     if (output instanceof Artifact) {
       final Artifact artifact = (Artifact) output;
-      // We have to add the artifact to injectedFiles before calling constructArtifactFileMetadata
+      // We have to add the artifact to injectedFiles before calling constructFileArtifactValue
       // to avoid duplicate chmod calls.
       store.injectedFiles().add(artifact);
-      ArtifactFileMetadata fileMetadata;
+      FileArtifactValue fileMetadata;
       try {
         // This call may do an unnecessary call to Path#getFastDigest to see if the digest is
         // readily available. We cannot pass the digest in, though, because if it is not available
@@ -461,8 +461,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
         // created for the
         // same file, because the other one will be missing its digest.
         fileMetadata =
-            constructArtifactFileMetadata(
-                artifact, FileStatusWithDigestAdapter.adapt(statNoFollow));
+            constructFileArtifactValue(artifact, FileStatusWithDigestAdapter.adapt(statNoFollow));
         // Ensure the digest supplied matches the actual digest if it exists.
         byte[] fileDigest = fileMetadata.getDigest();
         if (fileDigest != null && !Arrays.equals(digest, fileDigest)) {
@@ -574,10 +573,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
   }
 
   /**
-   * Constructs a new {@link ArtifactFileMetadata}, saves it, and checks inconsistent data. This
-   * calls chmod on the file if we're in executionMode.
+   * Constructs a new {@link FileArtifactValue}, saves it, and checks inconsistent data. This calls
+   * chmod on the file if we're in executionMode.
    */
-  private ArtifactFileMetadata constructArtifactFileMetadata(
+  private FileArtifactValue constructFileArtifactValue(
       Artifact artifact, @Nullable FileStatusWithDigest statNoFollow) throws IOException {
     // We first chmod the output files before we construct the FileContentsProxy. The proxy may use
     // ctime, which is affected by chmod.
@@ -586,23 +585,47 @@ public final class ActionMetadataHandler implements MetadataHandler {
       setPathReadOnlyAndExecutable(artifact);
     }
 
-    ArtifactFileMetadata value =
-        fileMetadataFromArtifact(
+    FileArtifactValue value =
+        fileArtifactValueFromArtifact(
             artifact, artifactPathResolver, statNoFollow, getTimestampGranularityMonitor(artifact));
     store.putArtifactData(artifact, value);
     return value;
   }
 
+  private static FileArtifactValue fileArtifactValueFromStat(
+      RootedPath rootedPath,
+      FileStatusWithDigest stat,
+      boolean isConstantMetadata,
+      TimestampGranularityMonitor tsgm)
+      throws IOException {
+    if (stat == null) {
+      return FileArtifactValue.MISSING_FILE_MARKER;
+    }
+
+    FileStateValue fileStateValue = FileStateValue.createWithStatNoFollow(rootedPath, stat, tsgm);
+
+    if (stat.isDirectory()) {
+      return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
+    } else {
+      return FileArtifactValue.createForNormalFile(
+          fileStateValue.getDigest(),
+          fileStateValue.getContentsProxy(),
+          stat.getSize(),
+          !isConstantMetadata);
+    }
+  }
+
   @VisibleForTesting
-  static ArtifactFileMetadata fileMetadataFromArtifact(
+  static FileArtifactValue fileArtifactValueFromArtifact(
       Artifact artifact,
       @Nullable FileStatusWithDigest statNoFollow,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
-    return fileMetadataFromArtifact(artifact, ArtifactPathResolver.IDENTITY, statNoFollow, tsgm);
+    return fileArtifactValueFromArtifact(
+        artifact, ArtifactPathResolver.IDENTITY, statNoFollow, tsgm);
   }
 
-  private static ArtifactFileMetadata fileMetadataFromArtifact(
+  private static FileArtifactValue fileArtifactValueFromArtifact(
       Artifact artifact,
       ArtifactPathResolver artifactPathResolver,
       @Nullable FileStatusWithDigest statNoFollow,
@@ -611,31 +634,25 @@ public final class ActionMetadataHandler implements MetadataHandler {
     Preconditions.checkState(!artifact.isTreeArtifact());
     Preconditions.checkState(!artifact.isMiddlemanArtifact());
 
-    Path path = artifactPathResolver.toPath(artifact);
-    PathFragment pathFragment = path.asFragment();
-    RootedPath rootedPath =
+    Path pathNoFollow = artifactPathResolver.toPath(artifact);
+    RootedPath rootedPathNoFollow =
         RootedPath.toRootedPath(
             artifactPathResolver.transformRoot(artifact.getRoot().getRoot()),
             artifact.getRootRelativePath());
     if (statNoFollow == null) {
-      statNoFollow = FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW));
-      if (statNoFollow == null) {
-        return ArtifactFileMetadata.forRegularFile(
-            pathFragment, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
-      }
+      statNoFollow = FileStatusWithDigestAdapter.adapt(pathNoFollow.statIfFound(Symlinks.NOFOLLOW));
     }
 
-    FileStateValue fileStateValue =
-        FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
-    if (!statNoFollow.isSymbolicLink()) {
-      return ArtifactFileMetadata.forRegularFile(path.asFragment(), fileStateValue);
+    if (statNoFollow == null || !statNoFollow.isSymbolicLink()) {
+      return fileArtifactValueFromStat(
+          rootedPathNoFollow, statNoFollow, artifact.isConstantMetadata(), tsgm);
     }
 
     // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat
     // done by the latter.  We need to protect against symlink cycles since
     // ArtifactFileMetadata#value assumes it's dealing with a file that's not in a symlink cycle.
-    Path realPath = path.resolveSymbolicLinks();
-    if (realPath.equals(path)) {
+    Path realPath = pathNoFollow.resolveSymbolicLinks();
+    if (realPath.equals(pathNoFollow)) {
       throw new IOException("symlink cycle");
     }
 
@@ -646,9 +663,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
     // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
     // and is a source file (since changes to those are checked separately).
-    FileStateValue realFileStateValue = FileStateValue.create(realRootedPath, tsgm);
-    return ArtifactFileMetadata.forSymlink(
-        realPath.asFragment(), realFileStateValue, fileStateValue.getSymlinkTarget());
+    FileStatus realStat = realRootedPath.asPath().statIfFound(Symlinks.NOFOLLOW);
+    FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.adapt(realStat);
+    return fileArtifactValueFromStat(
+        realRootedPath, realStatWithDigest, artifact.isConstantMetadata(), tsgm);
   }
 
   private void setPathReadOnlyAndExecutable(Artifact artifact) throws IOException {

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 load("//tools/config:common_settings.bzl", "bool_flag")
+load("//tools/python:private/defs.bzl", "py_library", "py_binary", "py_test")
 
 licenses(["notice"])  # Apache 2.0
 

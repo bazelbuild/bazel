@@ -25,10 +25,10 @@ import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
+import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
-import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 
 /**
  * Implementation of Bazel-specific behavior in Android rules.

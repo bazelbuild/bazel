@@ -477,19 +477,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     }
     return digest;
   }
-
-  Digest uploadBlob(byte[] blob) throws IOException, InterruptedException {
-    Digest digest = digestUtil.compute(blob);
-    ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
-    if (!missing.isEmpty()) {
-      uploader.uploadBlob(
-          HashCode.fromString(digest.getHash()),
-          Chunker.builder().setInput(blob).build(),
-          /* forceUpload=*/ true);
-    }
-    return digest;
-  }
-
+  
   // Execution Cache API
 
   @Override

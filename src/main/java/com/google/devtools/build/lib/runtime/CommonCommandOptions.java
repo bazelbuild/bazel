@@ -166,25 +166,25 @@ public class CommonCommandOptions extends OptionsBase {
   // TODO(b/67895628) Stop reading ids from the environment after the compatibility window has
   // passed.
   @Option(
-    name = "invocation_id",
-    defaultValue = "",
-    converter = UUIDConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "Unique identifier for the command being run."
-  )
+      name = "invocation_id",
+      defaultValue = "",
+      converter = UUIDConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Unique identifier, in UUID format, for the command being run. If explicitly specified"
+              + " uniqueness must be ensured by the caller. The UUID is printed to stderr, the BEP"
+              + " and remote execution protocol.")
   public UUID invocationId;
 
   @Option(
-    name = "build_request_id",
-    defaultValue = "",
-    converter = PrefixedUUIDConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "Unique identifier for the build being run."
-  )
+      name = "build_request_id",
+      defaultValue = "",
+      converter = PrefixedUUIDConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "Unique string identifier for the build being run.")
   public String buildRequestId;
 
   @Option(

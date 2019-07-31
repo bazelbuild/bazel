@@ -30,7 +30,6 @@ java_library(
         "JavaToolchain.java",
         "JavaToolchainAliasRule.java",
         "JavaToolchainRule.java",
-        "ProguardHelper.java",
         "ProguardLibrary.java",
         "ProguardLibraryRule.java",
         "ProguardSpecProvider.java",

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
@@ -75,76 +74,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     ERROR
   }
 
-  /**
-   * Values for the --java_optimization_mode option, which controls how Proguard is run over binary
-   * and test targets. Note that for the moment this has no effect when building library targets.
-   */
-  public enum JavaOptimizationMode {
-    /** Proguard is used iff top-level target has {@code proguard_specs} attribute. */
-    LEGACY,
-    /**
-     * No link-time optimizations are applied, regardless of the top-level target's attributes. In
-     * practice this mode skips Proguard completely, rather than invoking Proguard as a no-op.
-     */
-    NOOP("-dontshrink", "-dontoptimize", "-dontobfuscate"),
-    /**
-     * Symbols have different names except where configured not to rename. This mode is primarily
-     * intended to aid in identifying missing configuration directives that prevent symbols accessed
-     * reflectively etc. from being renamed or removed.
-     */
-    RENAME("-dontshrink", "-dontoptimize"),
-    /**
-     * "Quickly" produce small binary typically without changing code structure. In practice this
-     * mode removes unreachable code and uses short symbol names except where configured not to
-     * rename or remove. This mode should build faster than {@link #OPTIMIZE_MINIFY} and may hence
-     * be preferable during development.
-     */
-    FAST_MINIFY("-dontoptimize"),
-    /**
-     * Produce fully optimized binary with short symbol names and unreachable code removed. Unlike
-     * {@link #FAST_MINIFY}, this mode may apply code transformations, in addition to removing and
-     * renaming code as the configuration allows, to produce a more compact binary. This mode should
-     * be preferable for producing and testing release binaries.
-     */
-    OPTIMIZE_MINIFY;
-
-    private final String proguardDirectives;
-
-    JavaOptimizationMode(String... donts) {
-      StringBuilder proguardDirectives = new StringBuilder();
-      for (String dont : donts) {
-        checkArgument(dont.startsWith("-dont"), "invalid Proguard directive: %s", dont);
-        proguardDirectives.append(dont).append('\n');
-      }
-      this.proguardDirectives = proguardDirectives.toString();
-    }
-
-    /** Returns additional Proguard directives necessary for this mode (can be empty). */
-    public String getImplicitProguardDirectives() {
-      return proguardDirectives;
-    }
-
-    /**
-     * Returns true if all affected targets should produce mappings from original to renamed symbol
-     * names, regardless of the proguard_generate_mapping attribute. This should be the case for all
-     * modes that force symbols to be renamed. By contrast, the {@link #NOOP} mode will never
-     * produce a mapping file since no symbols are ever renamed.
-     */
-    public boolean alwaysGenerateOutputMapping() {
-      switch (this) {
-        case LEGACY:
-        case NOOP:
-          return false;
-        case RENAME:
-        case FAST_MINIFY:
-        case OPTIMIZE_MINIFY:
-          return true;
-        default:
-          throw new AssertionError("Unexpected mode: " + this);
-      }
-    }
-  }
-
   private final ImmutableList<String> commandLineJavacFlags;
   private final Label javaLauncherLabel;
   private final boolean useIjars;
@@ -166,7 +95,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
-  private final JavaOptimizationMode javaOptimizationMode;
   private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
   private final boolean enforceProguardFileExtension;
   private final Label toolchainLabel;
@@ -205,7 +133,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.bundleTranslations = javaOptions.bundleTranslations;
     this.toolchainLabel = javaOptions.javaToolchain;
     this.runtimeLabel = javaOptions.javaBase;
-    this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.isDisallowStrictDepsForJpl = javaOptions.isDisallowStrictDepsForJpl;
@@ -409,15 +336,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   /** Returns the label of the {@code java_runtime} rule representing the JVM in use. */
   public Label getRuntimeLabel() {
     return runtimeLabel;
-  }
-
-  /**
-   * Returns the --java_optimization_mode flag setting. Note that running with a different mode over
-   * the same binary or test target typically invalidates the cached output Jar for that target, but
-   * since Proguard doesn't run on libraries, the outputs for library targets remain valid.
-   */
-  public JavaOptimizationMode getJavaOptimizationMode() {
-    return javaOptimizationMode;
   }
 
   /** Returns ordered list of optimizers to run. */

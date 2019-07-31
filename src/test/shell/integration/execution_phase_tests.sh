@@ -308,4 +308,56 @@ EOF
   assert_equals "${exp_nfiles}" "${soft}"
 }
 
+function test_action_symlink_output_change_detected() {
+  mkdir -p a
+  WORKSPACE="$PWD"
+  echo "same" > same1
+  echo "same" > same2
+  echo "different" > different
+
+  cat > a/BUILD <<EOF
+genrule(
+  name = "a",
+  srcs = [],
+  outs = ["ao"],
+  local = 1,
+  cmd = "touch $WORKSPACE/arun && ln -s $WORKSPACE/same1 \$@",
+)
+
+genrule(
+  name = "b",
+  srcs = ["ao"],
+  outs = ["bo"],
+  local = 1,
+  cmd = "touch $WORKSPACE/brun && touch \$@",
+)
+EOF
+
+  bazel build //a:b || fail "build failed"
+  [[ -r brun ]] || fail "b was not run"
+
+  rm -f bazel-genfiles/a/ao arun brun
+  bazel build //a:b || fail "build failed"
+  [[ -r arun ]] || fail "a was not run"
+  [[ -r brun ]] && fail "b was run"
+
+  rm -fr bazel-genfiles/a/ao arun brun
+  ln -s "$WORKSPACE/same2" bazel-genfiles/a/ao
+  bazel build //a:b || fail "build failed"
+  # Only the contents of target of the symlink should matter, where the symlink
+  # points to should not
+  [[ -r arun ]] && fail "a was run"
+  [[ -r brun ]] && fail "b was run"
+
+  rm -fr bazel-genfiles/a/ao arun brun
+  ln -s "$WORKSPACE/different" bazel-genfiles/a/ao
+  bazel build //a:b || fail "build failed"
+  # If the symlink points to a file with different contents, the action should
+  # be re-run
+  [[ -r arun ]] || fail "a was not run"
+  [[ -r brun ]] && fail "b was run"
+
+  :  # So the exit code of the test is not inferred from that of "-r" above
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."

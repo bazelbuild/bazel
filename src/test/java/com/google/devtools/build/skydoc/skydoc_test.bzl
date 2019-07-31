@@ -30,7 +30,8 @@ def skydoc_test(
         deps = [],
         whitelisted_symbols = [],
         semantic_flags = [],
-        format = "markdown"):
+        format = "markdown",
+        **kwargs):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
     The test target is named "{name}_e2e_test".
@@ -54,7 +55,9 @@ def skydoc_test(
           <code>--incompatible_foo_semantic=false</code>, then this attribute should contain
           "--incompatible_foo_semantic=false"
       format: The format of the output file.
-    """
+      **kwargs: A dictionary of input template names mapped to template file path for which documentation is generated.
+      """
+
     actual_generated_doc = "%s_output.txt" % name
 
     # Skydoc requires an absolute input file label to both load the target file and
@@ -90,4 +93,5 @@ def skydoc_test(
         stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc"),
         semantic_flags = semantic_flags,
         format = format,
+        **kwargs
     )

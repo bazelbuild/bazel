@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -77,6 +76,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -146,7 +146,7 @@ public class ActionExecutionFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    Map<String, String> clientEnv = CompactHashMap.create();
+    Map<String, String> clientEnv = new HashMap<>();
     for (Map.Entry<SkyKey, SkyValue> entry : clientEnvLookup.entrySet()) {
       ClientEnvironmentValue envValue = (ClientEnvironmentValue) entry.getValue();
       if (envValue.getValue() != null) {
@@ -519,7 +519,7 @@ public class ActionExecutionFunction implements SkyFunction {
           keysRequested,
           execPaths);
       // Create SkyKeys list based on execPaths.
-      Map<PathFragment, SkyKey> depKeys = CompactHashMap.create();
+      Map<PathFragment, SkyKey> depKeys = new HashMap<>();
       for (PathFragment path : execPaths) {
         PathFragment parent =
             Preconditions.checkNotNull(
@@ -545,7 +545,7 @@ public class ActionExecutionFunction implements SkyFunction {
         return null;
       }
 
-      Map<PathFragment, Root> result = CompactHashMap.create();
+      Map<PathFragment, Root> result = new HashMap<>();
       for (PathFragment path : execPaths) {
         if (!depKeys.containsKey(path)) {
           continue;
@@ -695,7 +695,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     // Make sure this is a regular HashMap rather than ImmutableMapBuilder so that we are safe
     // in case of collisions.
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings = CompactHashMap.create();
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings = new HashMap<>();
     for (Artifact actionInput : action.getInputs()) {
       if (!actionInput.isFileset()) {
         continue;
@@ -980,8 +980,8 @@ public class ActionExecutionFunction implements SkyFunction {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
     S inputArtifactData = actionInputMapSinkFactory.apply(populateInputData ? inputDeps.size() : 0);
     Map<Artifact, Collection<Artifact>> expandedArtifacts =
-        CompactHashMap.createWithExpectedSize(populateInputData ? 128 : 0);
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = CompactHashMap.create();
+        new HashMap<>(populateInputData ? 128 : 0);
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
 
     ActionExecutionException firstActionExecutionException = null;
     for (Artifact input : allInputs) {

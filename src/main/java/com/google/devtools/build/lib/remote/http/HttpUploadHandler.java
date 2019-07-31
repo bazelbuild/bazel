@@ -19,6 +19,7 @@ import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpChunkedInput;
@@ -121,6 +122,8 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable t) {
     if (t instanceof WriteTimeoutException) {
       super.exceptionCaught(ctx, new UploadTimeoutException(path, contentLength));
+    } else if (t instanceof TooLongFrameException) {
+      super.exceptionCaught(ctx, new IOException(t));
     } else {
       super.exceptionCaught(ctx, t);
     }

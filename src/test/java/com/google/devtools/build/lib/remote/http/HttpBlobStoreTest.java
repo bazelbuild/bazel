@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.http;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -52,6 +53,7 @@ import io.netty.channel.kqueue.KQueueServerDomainSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.unix.DomainSocketAddress;
+import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
@@ -64,6 +66,7 @@ import io.netty.handler.codec.http.HttpVersion;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -313,6 +316,40 @@ public class HttpBlobStoreTest {
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
       fail("Exception expected");
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
+  public void uploadResponseTooLarge() throws Exception {
+    ServerChannel server = null;
+    try {
+      server =
+          testServer.start(
+              new SimpleChannelInboundHandler<FullHttpRequest>() {
+                @Override
+                protected void channelRead0(
+                    ChannelHandlerContext channelHandlerContext, FullHttpRequest request) {
+                  ByteBuf longMessage =
+                      channelHandlerContext.alloc().buffer(50000).writerIndex(50000);
+                  DefaultFullHttpResponse response =
+                      new DefaultFullHttpResponse(
+                          HttpVersion.HTTP_1_1,
+                          HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                          longMessage);
+                  channelHandlerContext
+                      .writeAndFlush(response)
+                      .addListener(ChannelFutureListener.CLOSE);
+                }
+              });
+
+      Credentials credentials = newCredentials();
+      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
+      ByteArrayInputStream in = new ByteArrayInputStream(data);
+      IOException e = assertThrows(IOException.class, () -> blobStore.put("key", data.length, in));
+      assertThat(e.getCause()).isInstanceOf(TooLongFrameException.class);
     } finally {
       testServer.stop(server);
     }

@@ -553,6 +553,11 @@ public class ActionCacheChecker {
     }
 
     @Override
+    public FileContentsProxy getContentsProxy() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public long getSize() {
       return 0;
     }
