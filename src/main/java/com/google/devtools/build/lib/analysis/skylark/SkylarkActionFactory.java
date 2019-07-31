@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
+import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
@@ -324,10 +325,12 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
       String helperScriptSuffix = String.format(".run_shell_%d.sh", runShellOutputCounter++);
       String command = (String) commandUnchecked;
-      Artifact helperScript =
-          CommandHelper.shellCommandHelperScriptMaybe(
-              ruleContext, command, helperScriptSuffix, executionInfo);
       PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+      BashCommandConstructor constructor =
+          CommandHelper.buildBashCommandConstructor(
+              executionInfo, shExecutable, helperScriptSuffix);
+      Artifact helperScript =
+          CommandHelper.commandHelperScriptMaybe(ruleContext, command, constructor);
       if (helperScript == null) {
         builder.setShellCommand(shExecutable, command);
       } else {
