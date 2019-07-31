@@ -356,4 +356,12 @@ public final class CommandHelper {
       Map<String, String> executionInfo, PathFragment shExecutable, String scriptPostFix) {
     return new BashCommandConstructor(shellPath(executionInfo, shExecutable), scriptPostFix);
   }
+
+  public static BatchCommandConstructor buildBatchCommandConstructor(String scriptPostFix) {
+    return new BatchCommandConstructor(scriptPostFix);
+  }
+
+  public static PowershellCommandConstructor buildPowershellCommandConstructor(String scriptPostFix) {
+    return new PowershellCommandConstructor(scriptPostFix);
+  }
 }

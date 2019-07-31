@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -153,6 +154,28 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
 
     String expected = "echo \"Hello, world.\" >" + messageArtifact.getExecPathString();
+    assertThat(shellAction.getArguments().get(0)).isEqualTo(
+        targetConfig.getFragment(ShellConfiguration.class).getShellExecutable().getPathString());
+    assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
+    assertCommandEquals(expected, shellAction.getArguments().get(2));
+  }
+
+  @Test
+  public void testCmdBashIsPreferred() throws Exception {
+    scratch.file(
+        "genrule1/BUILD",
+        "genrule(name = 'hello_world',",
+        "outs = ['message.txt'],",
+        "cmd  = 'echo \"Hello, default cmd.\" >$(location message.txt)',",
+        "cmd_bash  = 'echo \"Hello, Bash cmd.\" >$(location message.txt)')");
+
+    Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
+    SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
+
+    assertThat(shellAction).isNotNull();
+    assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
+
+    String expected = "echo \"Hello, Bash cmd.\" >" + messageArtifact.getExecPathString();
     assertThat(shellAction.getArguments().get(0)).isEqualTo(
         targetConfig.getFragment(ShellConfiguration.class).getShellExecutable().getPathString());
     assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
@@ -633,5 +656,31 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     Artifact execTool = getOnlyElement(getGeneratingAction(out).getTools());
     // This is the output dir fragment for the execution transition.
     assertThat(execTool.getExecPathString()).contains("-exec-");
+  }
+
+  @Test
+  public void testMissingCmdAttributeError() throws Exception {
+    checkError(
+        "foo",
+        "bar",
+        "missing value for `cmd` attribute in genrule, you can also set `cmd_ps` or `cmd_bat` on Windows and `cmd_bash` on other platforms.",
+        "genrule(name='bar',"
+            + "      srcs = [],"
+            + "      outs=['out'])");
+  }
+
+  @Test
+  public void testMissingCmdAttributeErrorOnNonWindowsPlatform() throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+    checkError(
+        "foo",
+        "bar",
+        "missing value for `cmd` attribute in genrule, you can also set `cmd_ps` or `cmd_bat` on Windows and `cmd_bash` on other platforms.",
+        "genrule(name='bar',"
+            + "      srcs = [],"
+            + "      outs=['out'],"
+            + "      cmd_bat='echo hello > $(@)')");
   }
 }
