@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -174,4 +175,44 @@ public class PlatformInfoApiTest extends PlatformTestCase {
         lines.toArray(new String[] {}));
   }
 
+  @Test
+  public void testPlatform_execProperties() throws Exception {
+    ImmutableMap<String, String> props = ImmutableMap.of("k1", "v1", "k2", "v2");
+    platformBuilder("//foo:my_platform").setExecProperties(props).write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isEqualTo(props);
+  }
+
+  @Test
+  public void testPlatform_execProperties_parent() throws Exception {
+    ImmutableMap<String, String> props = ImmutableMap.of("k1", "v1", "k2", "v2");
+    platformBuilder("//foo:parent_platform").setExecProperties(props).write();
+    platformBuilder("//foo:my_platform").setParent("//foo:parent_platform").write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isEqualTo(props);
+  }
+
+  @Test
+  public void testPlatform_execProperties_parent_mixed() throws Exception {
+    ImmutableMap<String, String> propsParent = ImmutableMap.of("k1", "v1", "k2", "v2");
+    ImmutableMap<String, String> propsChild = ImmutableMap.of("k2", "child_v2", "k3", "child_v3");
+    platformBuilder("//foo:parent_platform").setExecProperties(propsParent).write();
+    platformBuilder("//foo:my_platform")
+        .setParent("//foo:parent_platform")
+        .setExecProperties(propsChild)
+        .write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    ImmutableMap<String, String> expected =
+        ImmutableMap.of("k1", "v1", "k2", "child_v2", "k3", "child_v3");
+    assertThat(platformInfo.execProperties()).isEqualTo(expected);
+  }
 }

@@ -90,7 +90,7 @@ public class PlatformInfo extends NativeInfo
     return remoteExecutionProperties;
   }
 
-  // TODO(agoulti): expose this in the Starlark API
+  @Override
   public ImmutableMap<String, String> execProperties() {
     return execProperties;
   }

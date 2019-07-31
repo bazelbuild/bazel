@@ -31,6 +31,7 @@ public class PlatformRule implements RuleDefinition {
   public static final String CONSTRAINT_VALUES_ATTR = "constraint_values";
   public static final String PARENTS_PLATFORM_ATTR = "parents";
   public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
+  public static final String EXEC_PROPS_ATTR = "exec_properties";
   static final String HOST_PLATFORM_ATTR = "host_platform";
   static final String TARGET_PLATFORM_ATTR = "target_platform";
   static final String CPU_CONSTRAINTS_ATTR = "cpu_constraints";
@@ -69,6 +70,8 @@ public class PlatformRule implements RuleDefinition {
                 .mandatoryProviders(PlatformInfo.PROVIDER.id()))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
+        DEPRECATED. Please use exec_properties attribute instead.
+
         A string used to configure a remote execution platform. Actual builds make no attempt to
         interpret this, it is treated as opaque data that can be used by a specific SpawnRunner.
         This can include data from the parent platform's "remote_execution_properties" attribute,
@@ -76,6 +79,19 @@ public class PlatformRule implements RuleDefinition {
         <a href="#platform_inheritance">Platform Inheritance</a> for details.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING))
+
+        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(exec_properties) -->
+        A map of strings used to configure a remote execution platform. Bazel makes no attempt
+        to interpret this, it is treated as opaque data that's forwarded via the remote execution
+        protocol.
+
+        This includes any data from the parent platform's <code>exec_properties</code> attributes.
+        If the child and parent platform define the same keys, the child's values are kept.
+
+        This attribute is a full replacement for the deprecated
+        <code>remote_execution_properties</code>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr(EXEC_PROPS_ATTR, Type.STRING_DICT))
 
         // Undocumented. Indicates that this platform should auto-configure the platform constraints
         // based on the current host OS and CPU settings.

@@ -78,5 +78,42 @@ function test_incompatible_use_platforms_repo_for_constraints() {
   expect_log "Constraints from @bazel_tools//platforms have been removed."
 }
 
+
+function test_platform_accessor() {
+  cat > rules.bzl <<'EOF'
+def _impl(ctx):
+  platform = ctx.attr.platform[platform_common.PlatformInfo]
+  properties = platform.exec_properties
+  print("The properties are:", properties)
+  return []
+
+print_props = rule(
+  implementation = _impl,
+  attrs = {
+      'platform': attr.label(providers = [platform_common.PlatformInfo]),
+  }
+)
+EOF
+  cat > BUILD << 'EOF'
+load("//:rules.bzl", "print_props")
+
+print_props(
+    name = "a",
+    platform = ":my_platform",
+)
+
+platform(
+    name = "my_platform",
+    exec_properties = {
+        "key": "value",
+        "key2": "value2",
+        }
+)
+EOF
+
+  bazel build --experimental_platforms_api=true :a &> $TEST_log || fail "Build failed"
+  grep 'The properties are: {"key2": "value2", "key": "value"}' $TEST_log || fail "Did not find expected properties"
+}
+
 run_suite "platform mapping test"
 

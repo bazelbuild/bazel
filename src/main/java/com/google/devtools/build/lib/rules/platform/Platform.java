@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.List;
+import java.util.Map;
 
 /** Defines a platform for execution contexts. */
 public class Platform implements RuleConfiguredTargetFactory {
@@ -76,6 +78,10 @@ public class Platform implements RuleConfiguredTargetFactory {
     String remoteExecutionProperties =
         ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING);
     platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
+
+    Map<String, String> execProperties =
+        ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Type.STRING_DICT);
+    platformBuilder.setExecProperties(ImmutableMap.copyOf(execProperties));
 
     PlatformInfo platformInfo;
     try {
