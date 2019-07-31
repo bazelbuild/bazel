@@ -628,6 +628,7 @@ public class ExecutionTool {
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
                 .build()),
+        env.getTopDownActionCache(),
         request.getPackageCacheOptions().checkOutputFiles
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,

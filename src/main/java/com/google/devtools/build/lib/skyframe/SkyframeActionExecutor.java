@@ -148,6 +148,7 @@ public final class SkyframeActionExecutor {
   private ExtendedEventHandler progressSuppressingEventHandler;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
   private ActionCacheChecker actionCacheChecker;
+  @Nullable private TopDownActionCache topDownActionCache;
   private final Profiler profiler = Profiler.instance();
 
   // We keep track of actions already executed this build in order to avoid executing a shared
@@ -402,6 +403,7 @@ public final class SkyframeActionExecutor {
       Executor executor,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
+      TopDownActionCache topDownActionCache,
       OutputService outputService) {
     this.reporter = Preconditions.checkNotNull(reporter);
     this.executorEngine = Preconditions.checkNotNull(executor);
@@ -413,6 +415,7 @@ public final class SkyframeActionExecutor {
     this.lostDiscoveredInputsMap = Maps.newConcurrentMap();
     this.hadExecutionError = false;
     this.actionCacheChecker = Preconditions.checkNotNull(actionCacheChecker);
+    this.topDownActionCache = topDownActionCache;
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
@@ -479,6 +482,7 @@ public final class SkyframeActionExecutor {
     this.completedAndResetActions = null;
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
+    this.topDownActionCache = null;
   }
 
   /**
@@ -581,6 +585,10 @@ public final class SkyframeActionExecutor {
     return progressEventBehavior.equals(ProgressEventBehavior.EMIT)
         ? reporter
         : progressSuppressingEventHandler;
+  }
+
+  TopDownActionCache getTopDownActionCache() {
+    return topDownActionCache;
   }
 
   /**

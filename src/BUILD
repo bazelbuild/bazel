@@ -430,6 +430,7 @@ filegroup(
         "//src/java_tools/singlejar:srcs",
         "//src/main/cpp:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
+        "//src/main/java/com/google/devtools/build/lib/actionsketch:srcs",
         "//src/main/java/com/google/devtools/build/lib:srcs",
         "//src/main/java/com/google/devtools/build/lib/includescanning:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
