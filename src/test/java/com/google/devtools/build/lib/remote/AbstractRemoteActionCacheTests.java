@@ -711,14 +711,11 @@ public class AbstractRemoteActionCacheTests {
             () ->
                 cache.download(
                     result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+
     assertThat(e.getSuppressed()).hasLength(1);
     assertThat(e.getSuppressed()[0]).isInstanceOf(IOException.class);
     assertThat(e.getSuppressed()[0]).hasMessageThat().isEqualTo("file3 failed");
-    assertThat(cache.getNumSuccessfulDownloads()).isEqualTo(1);
-    assertThat(cache.getNumFailedDownloads()).isEqualTo(2);
-    assertThat(cache.getDownloadQueueSize()).isEqualTo(3);
     assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("file2 failed");
-    verify(outputFilesLocker, never()).lock();
   }
 
   @Test
