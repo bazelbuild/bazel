@@ -180,7 +180,7 @@ public final class BazelPyRuleClasses {
                           + " to the configuration"))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(python_version) -->
           Whether to build this target (and its transitive <code>deps</code>) for Python 2 or Python
-          3. Valid values are <code>"PY2"</code> (the default) and <code>"PY3"</code>.
+          3. Valid values are <code>"PY2"</code> and <code>"PY3"</code> (the default).
 
           <p>Under the old semantics
           (<code>--incompatible_allow_python_version_transitions=false</code>), the Python version
