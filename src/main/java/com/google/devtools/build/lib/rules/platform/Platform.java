@@ -81,7 +81,9 @@ public class Platform implements RuleConfiguredTargetFactory {
 
     Map<String, String> execProperties =
         ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Type.STRING_DICT);
-    platformBuilder.setExecProperties(ImmutableMap.copyOf(execProperties));
+    if (execProperties != null && !execProperties.isEmpty()) {
+      platformBuilder.setExecProperties(ImmutableMap.copyOf(execProperties));
+    }
 
     PlatformInfo platformInfo;
     try {
@@ -89,6 +91,8 @@ public class Platform implements RuleConfiguredTargetFactory {
     } catch (ConstraintCollection.DuplicateConstraintException e) {
       throw ruleContext.throwWithAttributeError(
           PlatformRule.CONSTRAINT_VALUES_ATTR, e.getMessage());
+    } catch (PlatformInfo.ExecPropertiesException e) {
+      throw ruleContext.throwWithAttributeError(PlatformRule.EXEC_PROPS_ATTR, e.getMessage());
     }
 
     return new RuleConfiguredTargetBuilder(ruleContext)

@@ -237,13 +237,40 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
+    private void checkRemoteExecutionProperties() throws ExecPropertiesException {
+      if (execProperties != null && !Strings.isNullOrEmpty(remoteExecutionProperties)) {
+        throw new ExecPropertiesException(
+            "Platform contains both remote_execution_properties and exec_properties. Prefer"
+                + " exec_properties over the deprecated remote_execution_properties.");
+      }
+      if (execProperties != null
+          && parent != null
+          && !Strings.isNullOrEmpty(parent.remoteExecutionProperties())) {
+        throw new ExecPropertiesException(
+            "Platform specifies exec_properties but its parent "
+                + parent.label()
+                + " specifies remote_execution_properties. Prefer exec_properties over the"
+                + " deprecated remote_execution_properties.");
+      }
+      if (!Strings.isNullOrEmpty(remoteExecutionProperties)
+          && parent != null
+          && !parent.execProperties().isEmpty()) {
+        throw new ExecPropertiesException(
+            "Platform specifies remote_execution_properties but its parent specifies"
+                + " exec_properties. Prefer exec_properties over the deprecated"
+                + " remote_execution_properties.");
+      }
+    }
+
     /**
      * Returns the new {@link PlatformInfo} instance.
      *
      * @throws DuplicateConstraintException if more than one constraint value exists for the same
      *     constraint setting
      */
-    public PlatformInfo build() throws DuplicateConstraintException {
+    public PlatformInfo build() throws DuplicateConstraintException, ExecPropertiesException {
+      checkRemoteExecutionProperties();
+
       // Merge the remote execution properties.
       String remoteExecutionProperties =
           mergeRemoteExecutionProperties(parent, this.remoteExecutionProperties);
@@ -314,5 +341,12 @@ public class PlatformInfo extends NativeInfo
   @Override
   public int hashCode() {
     return Objects.hash(label, constraints, remoteExecutionProperties);
+  }
+
+  /** Exception that indicates something is wrong in exec_properties configuration. */
+  public static class ExecPropertiesException extends Exception {
+    ExecPropertiesException(String message) {
+      super(message);
+    }
   }
 }
