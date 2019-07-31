@@ -82,8 +82,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
   enum CommandType {
     BASH,
-    BATCH,
-    POWERSHELL,
+    WINDOWS_BATCH,
+    WINDOWS_POWERSHELL,
   }
 
   private static Pair<CommandType, String> determineCommandTypeAndAttribute(RuleContext ruleContext) {
@@ -91,10 +91,10 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     // TODO(pcloudy): This should match the execution platform instead of using OS.getCurrent()
     if (OS.getCurrent() == OS.WINDOWS) {
       if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
-        return Pair.of(CommandType.POWERSHELL, "cmd_ps");
+        return Pair.of(CommandType.WINDOWS_POWERSHELL, "cmd_ps");
       }
       if (attributeMap.isAttributeValueExplicitlySpecified("cmd_bat")) {
-        return Pair.of(CommandType.BATCH, "cmd_bat");
+        return Pair.of(CommandType.WINDOWS_BATCH, "cmd_bat");
       }
     }
     if (attributeMap.isAttributeValueExplicitlySpecified("cmd_bash")) {
@@ -151,7 +151,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     CommandType cmdType = cmdTypeAndAttr.first;
     String cmdAttr = cmdTypeAndAttr.second;
-    boolean expandToWindowsPath = cmdType != CommandType.BASH;
+    boolean expandToWindowsPath = cmdType == CommandType.WINDOWS_BATCH;
 
     String baseCommand = ruleContext.attributes().get(cmdAttr, Type.STRING);
 
@@ -212,11 +212,11 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     CommandConstructor constructor;
     switch (cmdType) {
-      case BATCH:
+      case WINDOWS_BATCH:
         constructor = CommandHelper.buildBatchCommandConstructor(
             ".genrule_script.bat");
         break;
-      case POWERSHELL:
+      case WINDOWS_POWERSHELL:
         constructor = CommandHelper.buildPowershellCommandConstructor(
             ".genrule_script.ps1");
         break;

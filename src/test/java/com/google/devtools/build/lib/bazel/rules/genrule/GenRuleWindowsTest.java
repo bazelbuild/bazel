@@ -28,9 +28,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class GenRuleWindowsTest extends BuildViewTestCase {
 
-  private static final Pattern BATCH_COMMAND_PATTERN =
-      Pattern.compile("(?<command>.*)");
-
   private static final Pattern POWERSHELL_COMMAND_PATTERN =
       Pattern.compile(".*'utf8';\\s+(?<command>.*)");
 
@@ -41,10 +38,6 @@ public class GenRuleWindowsTest extends BuildViewTestCase {
       command = m.group("command");
     }
     assertThat(command).isEqualTo(expected);
-  }
-
-  private void assertBatchCommandEquals(String expected, String command) {
-    assertCommandEquals(expected, command, BATCH_COMMAND_PATTERN);
   }
 
   private void assertPowershellCommandEquals(String expected, String command) {
@@ -73,8 +66,9 @@ public class GenRuleWindowsTest extends BuildViewTestCase {
 
     String expected = "echo \"Hello, Batch cmd.\" >" + getWindowsPath(messageArtifact);
     assertThat(shellAction.getArguments().get(0)).isEqualTo("cmd.exe");
-    assertThat(shellAction.getArguments().get(1)).isEqualTo("/c");
-    assertBatchCommandEquals(expected, shellAction.getArguments().get(2));
+    int last = shellAction.getArguments().size() - 1;
+    assertThat(shellAction.getArguments().get(last - 1)).isEqualTo("/c");
+    assertThat(expected).isEqualTo(shellAction.getArguments().get(last));
   }
 
   @Test
@@ -94,7 +88,7 @@ public class GenRuleWindowsTest extends BuildViewTestCase {
     assertThat(shellAction).isNotNull();
     assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
 
-    String expected = "echo \"Hello, Powershell cmd.\" >" + getWindowsPath(messageArtifact);
+    String expected = "echo \"Hello, Powershell cmd.\" >" + messageArtifact.getExecPathString();
     assertThat(shellAction.getArguments().get(0)).isEqualTo("powershell.exe");
     assertThat(shellAction.getArguments().get(1)).isEqualTo("/c");
     assertPowershellCommandEquals(expected, shellAction.getArguments().get(2));
@@ -116,8 +110,9 @@ public class GenRuleWindowsTest extends BuildViewTestCase {
 
     String expected = "bazel-out\\k8-fastbuild\\bin\\genrule1\\hello_world.genrule_script.bat";
     assertThat(shellAction.getArguments().get(0)).isEqualTo("cmd.exe");
-    assertThat(shellAction.getArguments().get(1)).isEqualTo("/c");
-    assertPowershellCommandEquals(expected, shellAction.getArguments().get(2));
+    int last = shellAction.getArguments().size() - 1;
+    assertThat(shellAction.getArguments().get(last - 1)).isEqualTo("/c");
+    assertPowershellCommandEquals(expected, shellAction.getArguments().get(last));
   }
 
   @Test

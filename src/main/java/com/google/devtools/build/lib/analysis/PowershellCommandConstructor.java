@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -21,21 +22,23 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 /**
  * The class for constructing command line for Powershell.
  */
-public class PowershellCommandConstructor implements CommandConstructor {
+public final class PowershellCommandConstructor implements CommandConstructor {
 
-  // `powershell.exe` exists at C:\Windows\System32\WindowsPowerShell\v1.0, which is in the default
-  // PATH on Windows.
+  // `powershell.exe` exists at C:\Windows\System32\WindowsPowerShell\v1.0,
+  // which is in the default PATH on Windows.
+  // We currently don't support Powershell on Linux/macOS, although Powershell is available on
+  // those platforms.
   private static final String POWERSHELL_BIN = "powershell.exe";
-  private static final String[] POWERSHELL_SETUP_COMMANDS = {
+  private static final String POWERSHELL_SETUP_COMMANDS = Joiner.on("; ").join(
       // 1. Use Set-ExecutionPolicy to allow users to run scripts unsigned.
       "Set-ExecutionPolicy -Scope CurrentUser RemoteSigned",
-      // 2. Set $errorActionPreference to Stop so that we exit immediately if a command fails.
-      //    This ensures the command doesn't succeed with wrong result.
+      // 2. Set $errorActionPreference to Stop so that we exit immediately if a CmdLet fails,
+      //    but when an external command fails, it will still continue.
       "$errorActionPreference='Stop'",
       // 3. Change the default encoding to utf-8, by default it was utf-16.
       //    https://stackoverflow.com/questions/40098771
-      "$PSDefaultParameterValues['*:Encoding'] = 'utf8'",
-  };
+      "$PSDefaultParameterValues['*:Encoding'] = 'utf8'"
+      );
   private String scriptNameSuffix;
 
   PowershellCommandConstructor(String scriptNameSuffix) {
@@ -44,7 +47,7 @@ public class PowershellCommandConstructor implements CommandConstructor {
 
   @Override
   public ImmutableList<String> asExecArgv(String command) {
-    return ImmutableList.of(POWERSHELL_BIN, "/c", String.join("; ", POWERSHELL_SETUP_COMMANDS) + "; " + command);
+    return ImmutableList.of(POWERSHELL_BIN, "/c", POWERSHELL_SETUP_COMMANDS + "; " + command);
   }
 
   @Override

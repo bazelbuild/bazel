@@ -190,12 +190,26 @@ public class GenRuleBaseRule implements RuleDefinition {
             This command only applies on Windows.
           </li>
           <li>
-            The command runs with `cmd.exe /c`.
+            The command runs with `cmd.exe /c` with the following default arguments:
+            <ul>
+              <li>
+                `/S` - strip first and last quotes and execute everything else as is.
+              </li>
+              <li>
+                `/E:ON` - enable extended command set.
+              </li>
+              <li>
+                `/V:ON` - enable delayed variable expansion
+              </li>
+              <li>
+                `/D` - ignore AutoRun registry entries.
+              </li>
+            </ul>
           </li>
           <li>
             After <a href="${link make-variables#location}">$(location)</a> and
             <a href="${link make-variables}">"Make" variable</a> substitution, the paths will be
-            expanded to Windows style paths (with forward slash).
+            expanded to Windows style paths (with backslash).
           </li>
         </ul>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -213,11 +227,6 @@ public class GenRuleBaseRule implements RuleDefinition {
           <li>
             The command runs with `powershell.exe /c`.
           </li>
-          <li>
-            After <a href="${link make-variables#location}">$(location)</a> and
-            <a href="${link make-variables}">"Make" variable</a> substitution, the paths will be
-            expanded to Windows style paths (with forward slash).
-          </li>
         </ul>
         <p> To make Powershell easier to use and less error-prone, we run the following
             commands to set up the environment before executing Powershell command in genrule.
@@ -227,7 +236,9 @@ public class GenRuleBaseRule implements RuleDefinition {
             `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` is set to allow running unsigned scripts.
           </li>
           <li>
-            `$errorActionPreference='Stop';` is set so that the action exits immediately if a command fails (in case there are multiple commands separated by `;`).
+            In case there are multiple commands separated by `;`, `$errorActionPreference='Stop';`
+            is set so that the action exits immediately if a CmdLet fails, but this doesn't work for
+            external command.
           </li>
           <li>
             `$PSDefaultParameterValues['*:Encoding'] = 'utf8'` is set to change the default encoding from utf-16 to utf-8.

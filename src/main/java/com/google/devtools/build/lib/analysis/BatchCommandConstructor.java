@@ -18,13 +18,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 
+import java.util.Arrays;
+
 /**
  * The class for constructing command line for Batch.
  */
-public class BatchCommandConstructor implements CommandConstructor {
+public final class BatchCommandConstructor implements CommandConstructor {
 
   // `cmd.exe` exists at C:\Windows\System32, which is in the default PATH on Windows.
-  private static final String BATCH_BIN = "cmd.exe";
+  private static final String CMD_EXE = "cmd.exe";
+  private static final String[] CMD_EXE_DEFAULT_ARGS = {
+      "/S",      // strip first and last quotes and execute everything else as is.
+      "/E:ON",   // enable extended command set.
+      "/V:ON",   // enable delayed variable expansion
+      "/D",      // ignore AutoRun registry entries.
+  };
   private String scriptNameSuffix;
 
   BatchCommandConstructor(String scriptNameSuffix) {
@@ -33,7 +41,9 @@ public class BatchCommandConstructor implements CommandConstructor {
 
   @Override
   public ImmutableList<String> asExecArgv(String command) {
-    return ImmutableList.of(BATCH_BIN, "/c", command);
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    builder.add(CMD_EXE).addAll(Arrays.asList(CMD_EXE_DEFAULT_ARGS)).add("/c").add(command);
+    return builder.build();
   }
 
   @Override
