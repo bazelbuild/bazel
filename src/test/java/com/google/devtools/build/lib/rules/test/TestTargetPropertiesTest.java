@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.test;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -49,5 +50,24 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
             .getTestProperties()
             .getLocalResourceUsage(testAction.getOwner().getLabel(), false);
     assertThat(localResourceUsage.getCpuUsage()).isEqualTo(4.0);
+  }
+
+  @Test
+  public void testTestWithExclusiveDisablesRemoteExecution() throws Exception {
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        "sh_test(",
+        "  name = 'test',",
+        "  size = 'small',",
+        "  srcs = ['test.sh'],",
+        "  tags = ['exclusive'],",
+        ")");
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+    assertThat(testAction.getExecutionInfo()).containsKey(ExecutionRequirements.NO_REMOTE_EXEC);
+    assertThat(testAction.getExecutionInfo()).hasSize(1);
   }
 }
