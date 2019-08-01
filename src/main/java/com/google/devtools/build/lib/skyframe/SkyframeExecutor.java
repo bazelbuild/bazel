@@ -2519,10 +2519,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         return null;
       }
       ActionLookupValue actionLookupValue = result.get(generatingActionKey.getActionLookupKey());
-      int actionIndex = generatingActionKey.getActionIndex();
-      return actionLookupValue.isActionTemplate(actionIndex)
-          ? actionLookupValue.getActionTemplate(actionIndex)
-          : actionLookupValue.getAction(actionIndex);
+      return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
     }
   }
 

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanTyp
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -454,7 +455,8 @@ class ArtifactFunction implements SkyFunction {
 
     boolean isTemplateActionForTreeArtifact() {
       return artifact.isTreeArtifact()
-          && actionLookupValue.isActionTemplate(artifact.getGeneratingActionKey().getActionIndex());
+          && actionLookupValue.getActions().get(artifact.getGeneratingActionKey().getActionIndex())
+              instanceof ActionTemplate;
     }
 
     /**
