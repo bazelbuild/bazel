@@ -41,9 +41,11 @@ import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -288,11 +290,17 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       for (PathFragment subpath : testTreeArtifactContents) {
         try {
           TreeFileArtifact suboutput = ActionInputHelper.treeFileArtifact(output, subpath);
-          FileArtifactValue fileValue =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(suboutput, null, null);
-          fileData.put(suboutput, fileValue);
-          treeArtifactData.put(
-              suboutput, FileArtifactValue.injectDigestForTesting(suboutput, fileValue));
+          Path path = suboutput.getPath();
+          FileArtifactValue noDigest =
+              ActionMetadataHandler.fileArtifactValueFromArtifact(
+                  suboutput,
+                  FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                  null);
+          FileArtifactValue withDigest =
+              FileArtifactValue.createFromInjectedDigest(
+                  noDigest, path.getDigest(), !output.isConstantMetadata());
+          fileData.put(suboutput, withDigest);
+          treeArtifactData.put(suboutput, withDigest);
         } catch (IOException e) {
           throw new SkyFunctionException(e, Transience.TRANSIENT) {};
         }
@@ -303,7 +311,6 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       return ActionExecutionValue.create(
           fileData,
           ImmutableMap.of(output, treeArtifactValue),
-          ImmutableMap.<Artifact, FileArtifactValue>of(),
           /*outputSymlinks=*/ null,
           /*discoveredModules=*/ null,
           /*actionDependsOnBuildId=*/ false);

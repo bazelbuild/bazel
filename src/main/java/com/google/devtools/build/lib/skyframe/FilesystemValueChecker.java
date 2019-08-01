@@ -308,7 +308,7 @@ public class FilesystemValueChecker {
           try {
             FileArtifactValue newData =
                 ActionMetadataHandler.fileArtifactValueFromArtifact(artifact, stat, tsgm);
-            if (!newData.equals(lastKnownData)) {
+            if (newData.couldBeModifiedSince(lastKnownData)) {
               updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1);
               modifiedOutputFilesCounter.getAndIncrement();
               dirtyKeys.add(key);
@@ -406,7 +406,7 @@ public class FilesystemValueChecker {
     for (Map.Entry<Artifact, FileArtifactValue> entry : actionValue.getAllFileValues().entrySet()) {
       Artifact file = entry.getKey();
       FileArtifactValue lastKnownData = entry.getValue();
-      if (shouldCheckFile(knownModifiedOutputFiles, file)) {
+      if (!file.isMiddlemanArtifact() && shouldCheckFile(knownModifiedOutputFiles, file)) {
         try {
           FileArtifactValue fileMetadata =
               ActionMetadataHandler.fileArtifactValueFromArtifact(file, null, tsgm);
@@ -414,7 +414,7 @@ public class FilesystemValueChecker {
           boolean lastSeenRemotely = (fileValue != null) && fileValue.isRemote();
           boolean trustRemoteValue =
               fileMetadata.getType() == FileStateType.NONEXISTENT && lastSeenRemotely;
-          if (!trustRemoteValue && !fileMetadata.equals(lastKnownData)) {
+          if (!trustRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
             updateIntraBuildModifiedCounter(
                 fileMetadata.getType() != FileStateType.NONEXISTENT
                     ? file.getPath().getLastModifiedTime(Symlinks.FOLLOW)

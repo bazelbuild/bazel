@@ -56,13 +56,6 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public abstract class FileArtifactValue implements SkyValue, HasDigest {
-
-  /**
-   * Used as as placeholder in {@code OutputStore.artifactData} for artifacts that have entries in
-   * {@code OutputStore.additionalOutputData}.
-   */
-  @AutoCodec public static final FileArtifactValue PLACEHOLDER = new PlaceholderFileValue();
-
   /**
    * The type of the underlying file system object. If it is a regular file, then it is guaranteed
    * to have a digest. Otherwise it does not have a digest.
@@ -71,8 +64,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   /**
    * Returns a digest of the content of the underlying file system object; must always return a
-   * non-null value for instances of type {@link FileStateType#REGULAR_FILE}. Otherwise may return
-   * null.
+   * non-null value for instances of type {@link FileStateType#REGULAR_FILE} that are owned by an
+   * {@code ActionExecutionValue}.
    *
    * <p>All instances of this interface must either have a digest or return a last-modified time.
    * Clients should prefer using the digest for content identification (e.g., for caching), and only
@@ -92,6 +85,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * and should be called.
    */
   public abstract long getModifiedTime();
+
+  // TODO(lberki): This is only used by FileArtifactValue itself. It seems possible to remove this.
+  public abstract FileContentsProxy getContentsProxy();
 
   @Nullable
   @Override
@@ -120,6 +116,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return this instanceof Singleton;
   }
 
+  /** Returns {@code true} if the file only exists remotely. */
+  public boolean isRemote() {
+    return false;
+  }
+
   /**
    * Provides a best-effort determination whether the file was changed since the digest was
    * computed. This method performs file system I/O, so may be expensive. It's primarily intended to
@@ -127,11 +128,28 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * that the file was modified since the digest was computed. Better not upload if we are not sure
    * that the cache entry is reliable.
    */
+  // TODO(lberki): This is very similar to couldBeModifiedSince(). Check if we can unify these.
   public abstract boolean wasModifiedSinceDigest(Path path) throws IOException;
 
-  /** Returns {@code true} if the file only exists remotely. */
-  public boolean isRemote() {
-    return false;
+  /**
+   * Returns whether the two {@link FileArtifactValue} instances could be considered the same for
+   * purposes of action invalidation.
+   */
+  // TODO(lberki): This is very similar to wasModifiedSinceDigest(). Check if we can unify these.
+  public boolean couldBeModifiedSince(FileArtifactValue lastKnown) {
+    if (this instanceof Singleton || lastKnown instanceof Singleton) {
+      return true;
+    }
+
+    if (getType() != lastKnown.getType()) {
+      return true;
+    }
+
+    if (getDigest() != null && lastKnown.getDigest() != null) {
+      return !Arrays.equals(getDigest(), lastKnown.getDigest()) || getSize() != lastKnown.getSize();
+    } else {
+      return getModifiedTime() != lastKnown.getModifiedTime();
+    }
   }
 
   @Override
@@ -168,8 +186,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return Long.hashCode(getModifiedTime());
     }
   }
-
-  public abstract FileContentsProxy getContentsProxy();
 
   /**
    * Marker interface for singleton implementations of this class.
@@ -384,7 +400,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+    public boolean wasModifiedSinceDigest(Path path) {
       // TODO(ulfjack): Ideally, we'd attempt to detect intra-build modifications here. I'm
       // consciously deferring work here as this code will most likely change again, and we're
       // already doing better than before by detecting inter-build modifications.
@@ -394,6 +410,16 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this).add("digest", digest).toString();
+    }
+
+    @Override
+    public boolean couldBeModifiedSince(FileArtifactValue o) {
+      if (!(o instanceof HashedDirectoryArtifactValue)) {
+        return true;
+      }
+
+      HashedDirectoryArtifactValue lastKnown = (HashedDirectoryArtifactValue) o;
+      return !Arrays.equals(digest, lastKnown.digest);
     }
 
     @Override
@@ -468,6 +494,24 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           .add("size", size)
           .add("proxy", proxy)
           .toString();
+    }
+
+    @Override
+    public boolean couldBeModifiedSince(FileArtifactValue o) {
+      if (!(o instanceof RegularFileArtifactValue)) {
+        return true;
+      }
+
+      RegularFileArtifactValue lastKnown = (RegularFileArtifactValue) o;
+      if (size != lastKnown.size || dataIsShareable() != lastKnown.dataIsShareable()) {
+        return true;
+      }
+
+      if (digest != null && lastKnown.digest != null) {
+        return !Arrays.equals(digest, lastKnown.digest);
+      } else {
+        return !Objects.equals(proxy, lastKnown.proxy);
+      }
     }
 
     @Override
@@ -718,7 +762,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+    public boolean wasModifiedSinceDigest(Path path) {
       return false;
     }
 
@@ -768,63 +812,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public String toString() {
       return "OMITTED_FILE_MARKER";
-    }
-  }
-
-  private static final class PlaceholderFileValue extends FileArtifactValue implements Singleton {
-    private static final BigInteger FINGERPRINT =
-        new BigIntegerFingerprint().addString("PlaceholderFileValue").getFingerprint();
-
-    private PlaceholderFileValue() {}
-
-    @Override
-    public long getSize() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public byte[] getDigest() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BigInteger getValueFingerprint() {
-      return FINGERPRINT;
-    }
-
-    @Override
-    public String toString() {
-      return "PlaceholderFileValue:Singleton";
-    }
-
-    @Override
-    public FileStateType getType() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getModifiedTime() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean wasModifiedSinceDigest(Path path) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isRemote() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isMarkerValue() {
-      throw new UnsupportedOperationException();
     }
   }
 }

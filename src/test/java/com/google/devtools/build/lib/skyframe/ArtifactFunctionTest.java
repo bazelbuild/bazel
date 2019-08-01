@@ -261,7 +261,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   public void actionExecutionValueSerialization() throws Exception {
     ActionLookupData dummyData = ActionLookupData.create(ALL_OWNER, 0);
     Artifact.DerivedArtifact artifact1 = createDerivedArtifact("one");
-    Artifact.DerivedArtifact artifact2 = createDerivedArtifact("two");
     FileArtifactValue metadata1 =
         ActionMetadataHandler.fileArtifactValueFromArtifact(artifact1, null, null);
     SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly("tree");
@@ -280,17 +279,15 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT);
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.create(
-            ImmutableMap.of(artifact1, metadata1, artifact2, FileArtifactValue.PLACEHOLDER),
+            ImmutableMap.of(artifact1, metadata1, artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableMap.of(treeArtifact, treeArtifactValue),
-            ImmutableMap.of(artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableList.of(filesetOutputSymlink),
             null,
             true);
     ActionExecutionValue valueWithFingerprint =
         ActionExecutionValue.create(
-            ImmutableMap.of(artifact1, metadata1, artifact2, FileArtifactValue.PLACEHOLDER),
+            ImmutableMap.of(artifact1, metadata1, artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableMap.of(treeArtifact, treeArtifactValue),
-            ImmutableMap.of(artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableList.of(filesetOutputSymlink),
             null,
             true);
@@ -418,7 +415,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       Map<Artifact, FileArtifactValue> artifactData = new HashMap<>();
       Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
-      Map<Artifact, FileArtifactValue> additionalOutputData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
           (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
@@ -440,11 +436,9 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         } else if (action.getActionType() == MiddlemanType.NORMAL) {
           FileArtifactValue fileValue =
               ActionMetadataHandler.fileArtifactValueFromArtifact(output, null, null);
-          artifactData.put(output, fileValue);
-          additionalOutputData.put(
-              output, FileArtifactValue.injectDigestForTesting(output, fileValue));
+          artifactData.put(output, FileArtifactValue.injectDigestForTesting(output, fileValue));
        } else {
-          additionalOutputData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
+          artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
         }
       } catch (IOException e) {
         throw new IllegalStateException(e);
@@ -452,7 +446,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       return ActionExecutionValue.create(
           artifactData,
           treeArtifactData,
-          additionalOutputData,
           /*outputSymlinks=*/ null,
           /*discoveredModules=*/ null,
           /*actionDependsOnBuildId=*/ false);

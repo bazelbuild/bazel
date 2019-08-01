@@ -295,7 +295,8 @@ class ArtifactFunction implements SkyFunction {
       return value;
     }
     FileArtifactValue data =
-        Preconditions.checkNotNull(actionValue.getData(artifact), "%s %s", artifact, actionValue);
+        Preconditions.checkNotNull(
+            actionValue.getArtifactValue(artifact), "%s %s", artifact, actionValue);
     Preconditions.checkNotNull(
         data.getDigest(), "Digest should already have been calculated for %s (%s)", artifact, data);
     // Directories are special-cased because their mtimes are used, so should have been constructed

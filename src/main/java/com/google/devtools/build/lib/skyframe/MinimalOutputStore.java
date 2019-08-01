@@ -25,16 +25,12 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
  * be worthwhile.
  */
 final class MinimalOutputStore extends OutputStore {
-
   @Override
-  void putAdditionalOutputData(Artifact artifact, FileArtifactValue value) {
+  void putArtifactData(Artifact artifact, FileArtifactValue value) {
     if (value.isMarkerValue()) {
-      super.putAdditionalOutputData(artifact, value);
+      super.putArtifactData(artifact, value);
     }
   }
-
-  @Override
-  void putArtifactData(Artifact artifact, FileArtifactValue value) {}
 
   @Override
   void addTreeArtifactContents(Artifact artifact, TreeFileArtifact contents) {}

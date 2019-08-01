@@ -71,10 +71,7 @@ import javax.annotation.Nullable;
  * run, to gather information about the outputs. Second, it is accessed by {@link ArtifactFunction}s
  * in order to construct {@link FileArtifactValue}s, and by this class itself to generate {@link
  * TreeArtifactValue}s. Third, the {@link FilesystemValueChecker} uses it to determine the set of
- * output files to check for inter-build modifications. Because all these use cases are slightly
- * different, we must occasionally store two versions of the data for a value. See {@link
- * OutputStore#getAllAdditionalOutputData} for elaboration on the difference between these cases,
- * and see the javadoc for the various internal maps to see what is stored where.
+ * output files to check for inter-build modifications.
  */
 @VisibleForTesting
 public final class ActionMetadataHandler implements MetadataHandler {
@@ -188,12 +185,12 @@ public final class ActionMetadataHandler implements MetadataHandler {
     } else if (artifact.isMiddlemanArtifact()) {
       // A middleman artifact's data was either already injected from the action cache checker using
       // #setDigestForVirtualArtifact, or it has the default middleman value.
-      value = store.getAdditionalOutputData(artifact);
+      value = store.getArtifactData(artifact);
       if (value != null) {
         return metadataFromValue(value);
       }
       value = FileArtifactValue.DEFAULT_MIDDLEMAN;
-      store.putAdditionalOutputData(artifact, value);
+      store.putArtifactData(artifact, value);
       return metadataFromValue(value);
     } else if (artifact.isTreeArtifact()) {
       TreeArtifactValue setValue = getTreeArtifactValue((SpecialArtifact) artifact);
@@ -220,19 +217,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
     // results are then stored in Skyframe (and the action cache).
     FileArtifactValue fileMetadata = store.getArtifactData(artifact);
     if (fileMetadata != null) {
-      // Non-middleman artifacts should only have additionalOutputData if they have
-      // outputArtifactData. We don't assert this because of concurrency possibilities, but at least
-      // we don't check additionalOutputData unless we expect that we might see the artifact there.
-      value = store.getAdditionalOutputData(artifact);
-      // If additional output data is present for this artifact, we use it in preference to the
-      // usual calculation.
-      if (value != null) {
-        return metadataFromValue(value);
-      }
-      if (fileMetadata.getType() == FileStateType.NONEXISTENT) {
-        throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
-      }
-      return fileMetadata;
+      return metadataFromValue(fileMetadata);
     }
 
     // No existing metadata; this can happen if the output metadata is not injected after a spawn
@@ -256,10 +241,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
     return inputArtifactData.getInput(execPath);
   }
 
-  /**
-   * See {@link OutputStore#getAllAdditionalOutputData} for why we sometimes need to store
-   * additional data, even for normal (non-middleman) artifacts.
-   */
   private FileArtifactValue maybeStoreAdditionalData(
       Artifact artifact, FileArtifactValue data, @Nullable byte[] injectedDigest)
       throws IOException {
@@ -303,7 +284,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
               data, injectedDigest, !artifact.isConstantMetadata());
     }
 
-    store.putAdditionalOutputData(artifact, value);
+    store.putArtifactData(artifact, value);
     return metadataFromValue(value);
   }
 
@@ -311,7 +292,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
   public void setDigestForVirtualArtifact(Artifact artifact, Md5Digest md5Digest) {
     Preconditions.checkArgument(artifact.isMiddlemanArtifact(), artifact);
     Preconditions.checkNotNull(md5Digest, artifact);
-    store.putAdditionalOutputData(
+    store.putArtifactData(
         artifact, FileArtifactValue.createProxy(md5Digest.getDigestBytesUnsafe()));
   }
 
@@ -380,32 +361,30 @@ public final class ActionMetadataHandler implements MetadataHandler {
         Maps.newHashMapWithExpectedSize(contents.size());
 
     for (TreeFileArtifact treeFileArtifact : contents) {
-      FileArtifactValue cachedValue = store.getAdditionalOutputData(treeFileArtifact);
-      if (cachedValue == null) {
-        FileArtifactValue fileMetadata = store.getArtifactData(treeFileArtifact);
-        // This is similar to what's present in getRealMetadataForArtifact, except
-        // we get back the ArtifactFileMetadata, not the metadata.
-        // We do not cache exceptions besides nonexistence here, because it is unlikely that the
-        // file will be requested from this cache too many times.
-        if (fileMetadata == null) {
-          try {
-            fileMetadata = constructFileArtifactValue(treeFileArtifact, /*statNoFollow=*/ null);
-          } catch (FileNotFoundException e) {
-            String errorMessage = String.format(
-                "Failed to resolve relative path %s inside TreeArtifact %s. "
-                + "The associated file is either missing or is an invalid symlink.",
-                treeFileArtifact.getParentRelativePath(),
-                treeFileArtifact.getParent().getExecPathString());
-            throw new IOException(errorMessage, e);
-          }
+      FileArtifactValue fileMetadata = store.getArtifactData(treeFileArtifact);
+      // This is similar to what's present in getRealMetadataForArtifact, except
+      // we get back the ArtifactFileMetadata, not the metadata.
+      // We do not cache exceptions besides nonexistence here, because it is unlikely that the
+      // file will be requested from this cache too many times.
+      if (fileMetadata == null) {
+        try {
+          fileMetadata = constructFileArtifactValue(treeFileArtifact, /*statNoFollow=*/ null);
+        } catch (FileNotFoundException e) {
+          String errorMessage =
+              String.format(
+                  "Failed to resolve relative path %s inside TreeArtifact %s. "
+                      + "The associated file is either missing or is an invalid symlink.",
+                  treeFileArtifact.getParentRelativePath(),
+                  treeFileArtifact.getParent().getExecPathString());
+          throw new IOException(errorMessage, e);
         }
 
         // A minor hack: maybeStoreAdditionalData will force the data to be stored via
         // store.putAdditionalOutputData, if the underlying OutputStore supports it.
-        cachedValue = maybeStoreAdditionalData(treeFileArtifact, fileMetadata, null);
+        fileMetadata = maybeStoreAdditionalData(treeFileArtifact, fileMetadata, null);
       }
 
-      values.put(treeFileArtifact, cachedValue);
+      values.put(treeFileArtifact, fileMetadata);
     }
 
     return TreeArtifactValue.create(values);
@@ -537,7 +516,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
     if (output instanceof Artifact) {
       Artifact artifact = (Artifact) output;
       Preconditions.checkState(omittedOutputs.add(artifact), artifact);
-      store.putAdditionalOutputData(artifact, FileArtifactValue.OMITTED_FILE_MARKER);
+      store.putArtifactData(artifact, FileArtifactValue.OMITTED_FILE_MARKER);
     }
   }
 
