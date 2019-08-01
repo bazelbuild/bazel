@@ -55,10 +55,6 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-JAVA_TOOLCHAIN="$1"; shift
-add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
-add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
-
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
     if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
@@ -71,11 +67,10 @@ if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
-if [[ $# -gt 0 ]]; then
-    JAVABASE_VALUE="$1"; shift
-    add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
-    add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
-fi
+for option in "$@"
+do
+  add_to_bazelrc "build ${option}"
+done
 
 function set_up() {
     cat >>WORKSPACE <<EOF
@@ -266,7 +261,7 @@ java_custom_library = rule(
     "deps": attr.label_list(),
     "exports": attr.label_list(),
     "resources": attr.label_list(allow_files=True),
-    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:current_java_toolchain")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -448,7 +443,7 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
-    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:current_java_toolchain")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -525,7 +520,7 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
-    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:current_java_toolchain")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -1444,7 +1439,7 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "jar": attr.label(allow_files=True),
-    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:current_java_toolchain")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -1485,7 +1480,7 @@ my_rule = rule(
   implementation = _impl,
   attrs = {
     "compile_time_jars": attr.label_list(allow_files=True),
-    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:current_java_toolchain")),
   }
 )
 EOF

@@ -185,8 +185,9 @@ sh_test(
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
     args = [
-        "@bazel_tools//tools/jdk:toolchain",
         "released",
+        "--java_toolchain=@bazel_tools//tools/jdk:toolchain",
+        "--host_java_toolchain=@bazel_tools//tools/jdk:toolchain",
     ],
     data = [
         ":test-deps",
@@ -201,20 +202,40 @@ sh_test(
     size = "large",
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
-    args = select({
-        "//src/conditions:darwin": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
-        "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
-        "//src/conditions:windows": ["@remote_java_tools_javac9_test_windows//:toolchain"],
-        "//src/conditions:linux_x86_64": ["@remote_java_tools_javac9_test_linux//:toolchain"],
-    }) + [
-        # java_tools zip to test
-        "released",
-        # --javabase value
-    ] + select({
-        "//src/conditions:darwin": ["@openjdk9_darwin_archive//:runtime"],
-        "//src/conditions:darwin_x86_64": ["@openjdk9_darwin_archive//:runtime"],
-        "//src/conditions:windows": ["@openjdk9_windows_archive//:runtime"],
-        "//src/conditions:linux_x86_64": ["@openjdk9_linux_archive//:runtime"],
+    args = ["released"] + ["--toolchain_resolution_debug"] + select({
+        "//src/conditions:darwin": [
+            "--java_toolchain=@remote_java_tools_javac9_test_darwin//:toolchain",
+            "--host_java_toolchain=@remote_java_tools_javac9_test_darwin//:toolchain",
+        ],
+        "//src/conditions:darwin_x86_64": [
+            "--java_toolchain=@remote_java_tools_javac9_test_darwin//:toolchain",
+            "--host_java_toolchain=@remote_java_tools_javac9_test_darwin//:toolchain",
+        ],
+        "//src/conditions:windows": [
+            "--java_toolchain=@remote_java_tools_javac9_test_windows//:toolchain",
+            "--host_java_toolchain=@remote_java_tools_javac9_test_windows//:toolchain",
+        ],
+        "//src/conditions:linux_x86_64": [
+            "--java_toolchain=@remote_java_tools_javac9_test_linux//:toolchain",
+            "--host_java_toolchain=@remote_java_tools_javac9_test_linux//:toolchain",
+        ],
+    })  + select({
+        "//src/conditions:darwin": [
+            "--javabase=@openjdk9_darwin_archive//:runtime",
+            "--host_javabase=@openjdk9_darwin_archive//:runtime",
+        ],
+        "//src/conditions:darwin_x86_64": [
+            "--javabase=@openjdk9_darwin_archive//:runtime",
+            "--host_javabase=@openjdk9_darwin_archive//:runtime",
+        ],
+        "//src/conditions:windows": [
+            "--javabase=@openjdk9_windows_archive//:runtime",
+            "--host_javabase=@openjdk9_windows_archive//:runtime",
+        ],
+        "//src/conditions:linux_x86_64": [
+            "--javabase=@openjdk9_linux_archive//:runtime",
+            "--host_javabase=@openjdk9_linux_archive//:runtime",
+        ],
     }),
     data = [
         ":test-deps",
@@ -233,16 +254,27 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
         timeout = "eternal",
         srcs = ["bazel_java_test.sh"],
         args = [
-            # --java_toolchain
-            "@local_java_tools//:toolchain",
             # java_tools zip to test
             "src/java_tools_java" + java_version + ".zip",
-            # --javabase value
+            "--java_toolchain=@local_java_tools//:toolchain",
+            "--host_java_toolchain=@local_java_tools//:toolchain",
         ] + select({
-            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+            "//src/conditions:darwin": [
+                "--javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+            ],
+            "//src/conditions:darwin_x86_64": [
+                "--javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+            ],
+            "//src/conditions:windows": [
+                "--javabase=@openjdk" + java_version + "_windows_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_windows_archive//:runtime",
+            ],
+            "//src/conditions:linux_x86_64": [
+                "--javabase=@openjdk" + java_version + "_linux_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_linux_archive//:runtime",
+            ],
         }),
         data = [
             ":test-deps",
@@ -262,16 +294,28 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
         timeout = "eternal",
         srcs = ["bazel_java_test.sh"],
         args = [
-            # --java_toolchain
-            "@local_java_tools//:prebuilt_toolchain",
             # java_tools zip to test
             "src/java_tools_java" + java_version + ".zip",
-            # --javabase value
+            # --java_toolchain
+            "--java_toolchain=@local_java_tools//:prebuilt_toolchain",
+            "--host_java_toolchain=@local_java_tools//:prebuilt_toolchain",
         ] + select({
-            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+            "//src/conditions:darwin": [
+                "--javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+            ],
+            "//src/conditions:darwin_x86_64": [
+                "--javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+            ],
+            "//src/conditions:windows": [
+                "--javabase=@openjdk" + java_version + "_windows_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_windows_archive//:runtime",
+            ],
+            "//src/conditions:linux_x86_64": [
+                "--javabase=@openjdk" + java_version + "_linux_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_linux_archive//:runtime",
+            ],
         }),
         data = [
             ":test-deps",
@@ -291,16 +335,28 @@ JAVA_VERSIONS = ("9", "10", "11", "12")
         timeout = "eternal",
         srcs = ["bazel_java_test.sh"],
         args = [
-            # --java_toolchain
-            "@local_java_tools//:toolchain",
             # java_tools zip to test
             "$(LOCAL_JAVA_TOOLS_ZIP_URL)",
+            "--java_toolchain=@local_java_tools//:toolchain",
+            "--host_java_toolchain=@local_java_tools//:toolchain",
             # --javabase value
         ] + select({
-            "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:darwin_x86_64": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
-            "//src/conditions:windows": ["@openjdk" + java_version + "_windows_archive//:runtime"],
-            "//src/conditions:linux_x86_64": ["@openjdk" + java_version + "_linux_archive//:runtime"],
+            "//src/conditions:darwin": [
+                "--javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+            ],
+            "//src/conditions:darwin_x86_64": [
+                "--javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_darwin_archive//:runtime",
+            ],
+            "//src/conditions:windows": [
+                "--javabase=@openjdk" + java_version + "_windows_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_windows_archive//:runtime",
+            ],
+            "//src/conditions:linux_x86_64": [
+                "--javabase=@openjdk" + java_version + "_linux_archive//:runtime",
+                "--host_javabase=@openjdk" + java_version + "_linux_archive//:runtime",
+            ],
         }),
         data = [
             ":test-deps",
