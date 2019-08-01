@@ -529,7 +529,9 @@ function write_workspace_file() {
 workspace(name = '$WORKSPACE_NAME')
 EOF
   add_rules_cc_to_workspace "WORKSPACE"
+  add_rules_java_to_workspace "WORKSPACE"
   add_rules_pkg_to_workspace "WORKSPACE"
+  add_rules_proto_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace
 }
