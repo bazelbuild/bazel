@@ -49,32 +49,20 @@ function write_workspace() {
   fi
 
   cat >> "$workspace"WORKSPACE << EOF
-# proto_library, cc_proto_library, and java_proto_library rules implicitly
-# depend on @com_google_protobuf for protoc and proto runtimes.
-# This statement defines the @com_google_protobuf repo.
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-# skylib is used by protobuf
 http_archive(
-    name = "bazel_skylib",
-    sha256 = "54ee22e5b9f0dd2b42eb8a6c1878dee592cfe8eb33223a7dbbc583a383f6ee1a",
-    strip_prefix = "bazel-skylib-0.6.0",
+    name = "rules_proto",
+    strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+    sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/0.6.0.zip",
-        "https://github.com/bazelbuild/bazel-skylib/archive/0.6.0.zip",
-    ],
-    type = "zip",
-)
-
-http_archive(
-    name = "com_google_protobuf",
-    strip_prefix = "protobuf-7b28271a61a3da0a37f6fda399b0c4c86464e5b3",
-    sha256 = "d625beb4a43304409429a0466bb4fb44c89f7e7d90aeced972b8a61dbe92c80b",
-    urls = [
-        "https://mirror.bazel.build/github.com/google/protobuf/archive/7b28271a61a3da0a37f6fda399b0c4c86464e5b3.zip",
-        "https://github.com/google/protobuf/archive/7b28271a61a3da0a37f6fda399b0c4c86464e5b3.zip",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/97d8af4dc474595af3900dd85cb3a29ad28cc313.zip",
+        "https://github.com/bazelbuild/rules_proto/97d8af4dc474595af3900dd85cb3a29ad28cc313.zip",
     ],
 )
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+rules_proto_dependencies()
+rules_proto_toolchains()
 
 # java_lite_proto_library rules implicitly depend on @com_google_protobuf_javalite//:javalite_toolchain,
 # which is the JavaLite proto runtime (base classes and common utilities).
@@ -116,6 +104,9 @@ function write_setup() {
   proto_library_name=$1
   proto_source_root=$2
   include_macro=$3
+  if [ "${include_macro}" -eq "" ]; then
+    include_macro="load('@rules_proto//proto:defs.bzl', 'proto_library')"
+  fi
 
   cat > x/person/BUILD << EOF
 package(default_visibility = ["//visibility:public"])
@@ -163,6 +154,7 @@ EOF
   mkdir -p x/phonebook
 
   cat > x/phonebook/BUILD << EOF
+$include_macro
 $proto_library_name(
   name = "phonebook",
   srcs = ["phonebook.proto"],
@@ -194,6 +186,7 @@ function write_regression_setup() {
   touch proto_library/BUILD
 
   cat > proto_library/src/BUILD << EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
     name = "all",
     srcs = glob(["*.proto"]),
@@ -262,6 +255,7 @@ function write_workspaces_setup() {
   touch a/b/BUILD
   cat > a/b/src/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
+load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
@@ -301,6 +295,7 @@ EOF
 
   cat > c/d/src/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
+load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
@@ -339,8 +334,9 @@ export_files(["proto_library_macro.bzl])
 EOF
 
   cat > macros/proto_library_macro.bzl << EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
 def proto_library_macro(name, srcs, deps = []):
-  native.proto_library(
+  proto_library(
       name = name,
       srcs = srcs,
       deps = deps,
@@ -439,6 +435,7 @@ function test_cc_proto_library() {
   write_workspace ""
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(name='p', srcs=['p.proto'])
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -467,6 +464,7 @@ function test_cc_proto_library_import_prefix_stripping() {
   write_workspace ""
   mkdir -p a/dir
   cat > a/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(name='p', srcs=['dir/p.proto'], strip_import_prefix='/a')
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -505,6 +503,7 @@ EOF
 
   mkdir -p e/f/bad
   cat > e/f/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
   name = "f",
   strip_import_prefix = "bad",
@@ -525,6 +524,7 @@ EOF
 
   mkdir -p g/bad
   cat > g/BUILD << EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
   name = 'g',
   strip_import_prefix = "/g/bad",
@@ -545,6 +545,7 @@ EOF
 
   mkdir -p h
   cat > h/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
   name = "h",
   srcs = ["h.proto"],

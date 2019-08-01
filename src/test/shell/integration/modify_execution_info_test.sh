@@ -167,7 +167,7 @@ EOF
   cat >> "$pkg/BUILD" <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_library")
-load("@rules_proto//proto:defs.bzl", "proto_binary")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 
 skylark_shell(
   name = "shelly",
