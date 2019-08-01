@@ -32,17 +32,7 @@ import org.junit.runners.JUnit4;
 public class ProtoLangToolchainTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
-    scratch.file("proto/BUILD");
-    scratch.file(
-        "proto/defs.bzl",
-        "def _add_tags(kargs):",
-        "    if 'tags' in kargs:",
-        "        kargs['tags'] += ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
-        "    else:",
-        "        kargs['tags'] = ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
-        "    return kargs",
-        "",
-        "def proto_lang_toolchain(**kargs): native.proto_lang_toolchain(**_add_tags(kargs))");
+    ProtoTestHelper.setupWorkspace(this);
   }
 
   @Test
@@ -56,7 +46,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
     scratch.file(
         "foo/BUILD",
-        "load('//proto:defs.bzl', 'proto_lang_toolchain')",
+        ProtoTestHelper.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
         "    command_line = 'cmd-line',",
@@ -86,7 +76,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void optionalFieldsAreEmpty() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "load('//proto:defs.bzl', 'proto_lang_toolchain')",
+        ProtoTestHelper.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
         "    command_line = 'cmd-line',",
