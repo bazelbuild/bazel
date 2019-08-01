@@ -4121,6 +4121,32 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testUseSingleJarForFilteredLibraryJars() throws Exception {
+    useConfiguration("--experimental_filter_library_jar_with_program_jar=true");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_library(name = 'l1',",
+        "                srcs = ['Maps.java'],",
+        "                neverlink = 1)",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l1'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
+        "                                 'proguard-spec2.pro'])");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    SpawnAction action =
+        (SpawnAction)
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar");
+
+    checkProguardLibJars(
+        action,
+        targetConfig.getBinFragment()
+            + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars_filtered.jar");
+  }
+
+  @Test
   public void testOnlyOneLibraryJar() throws Exception {
     scratch.file("java/com/google/android/hello/BUILD",
         "android_binary(name = 'b',",

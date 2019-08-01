@@ -330,6 +330,25 @@ public final class ProguardHelper {
       libraryJars = ImmutableList.of(combinedLibraryJar);
     }
 
+    boolean filterLibraryJarWithProgramJar =
+        ruleContext.getFragment(AndroidConfiguration.class).filterLibraryJarWithProgramJar();
+
+    if (filterLibraryJarWithProgramJar) {
+      Artifact libraryJar = Iterables.getOnlyElement(libraryJars);
+
+      Artifact filteredLibraryJar =
+          getProguardTempArtifact(ruleContext, "combined_library_jars_filtered.jar");
+
+      new ZipFilterBuilder(ruleContext)
+          .setInputZip(libraryJar)
+          .setOutputZip(filteredLibraryJar)
+          .addFilterZips(ImmutableList.of(programJar))
+          .setCheckHashMismatchMode(ZipFilterBuilder.CheckHashMismatchMode.NONE)
+          .build();
+
+      libraryJars = ImmutableList.of(filteredLibraryJar);
+    }
+
     if (optimizationPasses == null) {
       // Run proguard as a single step.
       SpawnAction.Builder proguardAction = new SpawnAction.Builder();

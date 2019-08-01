@@ -990,6 +990,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
                 + "solely on matching class and package name, ignoring hash values.")
     public boolean alwaysFilterDuplicateClassesFromAndroidTest;
 
+    @Option(
+        name = "experimental_filter_library_jar_with_program_jar",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+        help =
+            "Filter the ProGuard ProgramJar to remove any classes also present in the LibraryJar.")
+    public boolean filterLibraryJarWithProgramJar;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -1085,6 +1094,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
+  private final boolean filterLibraryJarWithProgramJar;
 
   // Incompatible changes
   private final boolean incompatibleUseAapt2ByDefault;
@@ -1140,6 +1150,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.removeRClassesFromInstrumentationTestJar;
     this.alwaysFilterDuplicateClassesFromAndroidTest =
         options.alwaysFilterDuplicateClassesFromAndroidTest;
+    this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
 
     // Make the value of --android_aapt aapt2 if --incompatible_use_aapt2_by_default is enabled
     // and --android_aapt = AUTO
@@ -1399,5 +1410,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   public boolean alwaysFilterDuplicateClassesFromAndroidTest() {
     return alwaysFilterDuplicateClassesFromAndroidTest;
+  }
+
+  public boolean filterLibraryJarWithProgramJar() {
+    return filterLibraryJarWithProgramJar;
   }
 }
