@@ -128,7 +128,7 @@ class TestBase(unittest.TestCase):
   def GetCcRulesRepoRule(self):
     return [
         'http_archive(', '    name = "rules_cc",', '    sha256 = '
-        '"fd3c6f282990133d1920f2df06562e060fdd190a6175ea340b3bf34ae69cfa94",',
+        '"280037eb6318d6bcca48b6d9aff7a70bc27000ab677e33f53873ddef9902bc2c",',
         '    strip_prefix = "rules_cc-plf-moving-tools",',
         '    urls = [',
         '        "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",',
