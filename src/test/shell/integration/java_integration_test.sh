@@ -277,7 +277,7 @@ toolchain(
 )
 platform(
     name = 'platform',
-    parents = ['@bazel_tools//platforms:host_platform'],
+    parents = ['@local_config_platform//:host'],
     constraint_values = [':constraint'],
 )
 EOF
@@ -308,6 +308,7 @@ EOF
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
       "$stamp_arg" --javabase="//$pkg/jvm:runtime" \
+      --incompatible_auto_configure_host_platform \
       --extra_toolchains="//$pkg/jvm:all,//tools/jdk:all" \
       --platforms="//$pkg/jvm:platform" \
       "$embed_label" >&"$TEST_log" \

@@ -121,6 +121,7 @@ public class TestConstants {
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
       ImmutableList.of(
           "--target_platform_fallback=@bazel_tools//platforms:default_target",
+          "--platforms=@bazel_tools//platforms:default_target",
           "--host_platform=@bazel_tools//platforms:default_host",
           // TODO(#7903): Remove once our own tests are migrated.
           "--incompatible_py3_is_default=false",
