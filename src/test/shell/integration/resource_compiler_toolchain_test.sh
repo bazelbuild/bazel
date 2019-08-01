@@ -148,7 +148,7 @@ done
 cat > "$out" <<EOF
 src=$src
 out=$out
-$(find -name '*.dat' | sort)
+$(find . -name '*.dat' | sort)
 EOF
 eof
   fi
