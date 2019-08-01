@@ -478,7 +478,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
-          .add("digest", BaseEncoding.base16().lowerCase().encode(digest))
+          .add(
+              "digest",
+              digest == null ? "(null)" : BaseEncoding.base16().lowerCase().encode(digest))
           .add("size", size)
           .add("proxy", proxy)
           .toString();
@@ -486,6 +488,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public boolean couldBeModifiedSince(FileArtifactValue o) {
+      if (digest != null && o.getDigest() != null) {
+        // TODO(lberki): This sometimes compares between RemoteFileArtifactValue and
+        // RegularFileArtifactValue. Pretty unintuitive, that.
+        return !Arrays.equals(digest, o.getDigest()) || getSize() != o.getSize();
+      }
+
       if (!(o instanceof RegularFileArtifactValue)) {
         return true;
       }
@@ -495,11 +503,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         return true;
       }
 
-      if (digest != null && lastKnown.digest != null) {
-        return !Arrays.equals(digest, lastKnown.digest);
-      } else {
-        return !Objects.equals(proxy, lastKnown.proxy);
-      }
+      return !Objects.equals(proxy, lastKnown.proxy);
     }
 
     @Override
@@ -562,6 +566,17 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public FileContentsProxy getContentsProxy() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean couldBeModifiedSince(FileArtifactValue o) {
+      if (digest != null && o.getDigest() != null) {
+        // TODO(lberki): This sometimes compares between RemoteFileArtifactValue and
+        // RegularFileArtifactValue. Pretty unintuitive, that.
+        return !Arrays.equals(digest, o.getDigest()) || getSize() != o.getSize();
+      }
+
+      return true;
     }
 
     @Override
