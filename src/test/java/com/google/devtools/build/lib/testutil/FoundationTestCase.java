@@ -171,7 +171,7 @@ public abstract class FoundationTestCase {
         "toolchain(",
         "    name = 'java_toolchain',",
         "    toolchain = ':toolchain',",
-        "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/jdk:toolchain_type',",
+        "    toolchain_type = '@rules_java//java/toolchains/javac:toolchain_type',",
         "    target_compatible_with = [':constraint'],",
         ")",
         "platform(",

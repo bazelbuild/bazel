@@ -272,7 +272,7 @@ constraint_value(
 toolchain(
     name = 'java_runtime_toolchain',
     toolchain = ':runtime',
-    toolchain_type = '@bazel_tools//tools/jdk:runtime_toolchain_type',
+    toolchain_type = '@rules_java//java/toolchains/runtime:toolchain_type',
     target_compatible_with = [':constraint'],
 )
 platform(

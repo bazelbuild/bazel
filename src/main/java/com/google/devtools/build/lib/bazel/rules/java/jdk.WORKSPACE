@@ -242,12 +242,11 @@ http_archive(
 maybe(
     http_archive,
     "rules_java",
-    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+    sha256 = "89794de7ea4146ac2a7b8341606ec74b1b185356b04c4f7f5ded0af57fd0e301",
+    strip_prefix = "rules_java-d6c2f58d05a19c6043488e79e8c384fed7260578",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "https://github.com/bazelbuild/rules_java/archive/d6c2f58d05a19c6043488e79e8c384fed7260578.zip"
     ],
-    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
 )
 
 # Needed only because of java_tools.
