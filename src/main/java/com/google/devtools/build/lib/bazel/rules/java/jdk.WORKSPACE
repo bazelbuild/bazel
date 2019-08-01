@@ -242,10 +242,10 @@ http_archive(
 maybe(
     http_archive,
     "rules_java",
-    sha256 = "89794de7ea4146ac2a7b8341606ec74b1b185356b04c4f7f5ded0af57fd0e301",
+    #sha256 = "89794de7ea4146ac2a7b8341606ec74b1b185356b04c4f7f5ded0af57fd0e301",
     strip_prefix = "rules_java-d6c2f58d05a19c6043488e79e8c384fed7260578",
     urls = [
-        "https://github.com/bazelbuild/rules_java/archive/d6c2f58d05a19c6043488e79e8c384fed7260578.zip"
+        "https://github.com/bazelbuild/rules_java/archive/1da23726bf21067c26b92d3619e95ce88d1db125.zip"
     ],
 )
 load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
