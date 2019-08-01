@@ -1171,3 +1171,13 @@ sh_test(
     data = [":test-deps"],
     tags = ["no_windows"],
 )
+
+sh_test(
+    name = "resource_compiler_toolchain_test",
+    srcs = ["resource_compiler_toolchain_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/main/res:srcs_for_testing",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

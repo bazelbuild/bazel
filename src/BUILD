@@ -1,6 +1,6 @@
 # Packaging
 
-load("//tools/python:private/defs.bzl", "py_library", "py_binary")
+load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 
@@ -429,6 +429,7 @@ filegroup(
         "//src/java_tools/junitrunner:srcs",
         "//src/java_tools/singlejar:srcs",
         "//src/main/cpp:srcs",
+        "//src/main/res:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib/actionsketch:srcs",
         "//src/main/java/com/google/devtools/build/lib:srcs",
@@ -444,6 +445,7 @@ filegroup(
         "//src/main/tools:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
+        "//src/test/res:srcs",
         "//src/test/native:srcs",
         "//src/test/starlark:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
@@ -510,6 +512,7 @@ test_suite(
         "//src/test/java/com/google/devtools/common/options:all_windows_tests",
         "//src/test/native:all_windows_tests",
         "//src/test/py/bazel:all_windows_tests",
+        "//src/test/res:all_windows_tests",
         "//src/test/shell:all_windows_tests",
         "//src/tools/launcher:all_windows_tests",
         "//src/tools/singlejar:all_windows_tests",
