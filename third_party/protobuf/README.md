@@ -43,6 +43,11 @@ You will create and merge the following Pull Requests.
     copy the `licenses` declaration and the `srcs` filegroup to the corresponding file under
     `third_party/protobuf/<new_proto>`.
 
+1.  Modify the new protobuf to be compatible with #9006 (until upstream protobuf migrates):
+    In the `BUILD`, `protobuf.bzl`, and `six.BUILD` files under `third_party/protobuf/<new_proto>`,
+    copy the line that loads from `@rules_python` along with its explanatory comment, from the
+    corresponding files in the old proto directory. (See also #9019.)
+
 1.  In `third_party/protobuf/<new_proto>/BUILD`, in the `srcs` filegroup rule, update the version
     number referring to the newly added `srcs` rules.
 

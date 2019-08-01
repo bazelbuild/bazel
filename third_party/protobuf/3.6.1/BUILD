@@ -21,6 +21,8 @@ config_setting(
 
 load(":protobuf.bzl", "py_proto_library")
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
+# Needed for #9006. Hopefully a future upstream version will include this line.
+load("@rules_python//python:defs.bzl", "py_library")
 
 filegroup(
     name = "srcs",
