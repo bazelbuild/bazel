@@ -61,12 +61,12 @@ source scripts/bootstrap/bootstrap.sh
 new_step 'Building Bazel with Bazel'
 display "."
 log "Building output/bazel"
-# We set host and target platform directly since the defaults in @bazel_tools
-# have not yet been generated.
+# We set host and target platform directly because we are building for the local
+# host.
 bazel_build "src:bazel_nojdk${EXE_EXT}" \
   --action_env=PATH \
-  --host_platform=@bazel_tools//platforms:host_platform \
-  --platforms=@bazel_tools//platforms:target_platform \
+  --host_platform=@local_config_platform//:host \
+  --platforms=@local_config_platform//:host \
   || fail "Could not build Bazel"
 bazel_bin_path="$(get_bazel_bin_path)/src/bazel_nojdk${EXE_EXT}"
 [ -e "$bazel_bin_path" ] \

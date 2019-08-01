@@ -301,6 +301,7 @@ EOF
   cat <<EOF >${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE
 local_repository(name = 'bazel_tools', path = '${BAZEL_TOOLS_REPO}')
 bind(name = "cc_toolchain", actual = "@bazel_tools//tools/cpp:default-toolchain")
+local_config_platform(name = 'local_config_platform')
 EOF
 
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.Bazel" \
