@@ -217,20 +217,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         /* isShareable=*/ true);
   }
 
-  @VisibleForTesting
-  public static FileArtifactValue injectDigestForTesting(
-      Artifact artifact, FileArtifactValue source) throws IOException {
-    boolean isFile = source.getType() == FileStateType.REGULAR_FILE;
-    FileContentsProxy proxy = source.getContentsProxy();
-    return create(
-        artifact.getPath(),
-        isFile,
-        isFile ? source.getSize() : 0,
-        proxy,
-        isFile ? source.getDigest() : null,
-        !artifact.isConstantMetadata());
-  }
-
   public static FileArtifactValue createFromInjectedDigest(
       FileArtifactValue metadata, @Nullable byte[] digest, boolean isShareable) {
     return createForNormalFile(

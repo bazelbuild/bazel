@@ -43,11 +43,13 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -434,9 +436,16 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                       treeFileArtifact2, FileArtifactValue.createForTesting(treeFileArtifact2)));
           treeArtifactData.put(output, treeArtifactValue);
         } else if (action.getActionType() == MiddlemanType.NORMAL) {
-          FileArtifactValue fileValue =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(output, null, null);
-          artifactData.put(output, FileArtifactValue.injectDigestForTesting(output, fileValue));
+          Path path = output.getPath();
+          FileArtifactValue noDigest =
+              ActionMetadataHandler.fileArtifactValueFromArtifact(
+                  output,
+                  FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                  null);
+          FileArtifactValue withDigest =
+              FileArtifactValue.createFromInjectedDigest(
+                  noDigest, path.getDigest(), !output.isConstantMetadata());
+          artifactData.put(output, withDigest);
        } else {
           artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
         }
