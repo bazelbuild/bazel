@@ -103,13 +103,15 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   private void copyFilesFromRulesCc(MockToolsConfig config) throws IOException {
-    String directoryPath = BlazeTestUtils.runfilesDir() + "/rules_cc/cc";
-    Files.walk(Paths.get(directoryPath), FileVisitOption.FOLLOW_LINKS).forEach(
+    Runfiles runfiles = Runfiles.create();
+    java.nio.file.Path actualDirectoryPath = Paths.get(runfiles.rlocation("rules_cc/cc/BUILD")).getParent();
+
+    Files.walk(actualDirectoryPath, FileVisitOption.FOLLOW_LINKS).forEach(
         x -> {
           if (Files.isDirectory(x)) {
             return;
           }
-          java.nio.file.Path newPath = Paths.get(BlazeTestUtils.runfilesDir() + "/rules_cc").relativize(x);
+          java.nio.file.Path newPath = actualDirectoryPath.getParent().relativize(x);
           try {
             String contents;
             /**
