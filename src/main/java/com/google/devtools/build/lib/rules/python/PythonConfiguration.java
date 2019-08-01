@@ -55,6 +55,9 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   // TODO(brandjon): Remove this once migration to Python toolchains is complete.
   private final boolean useToolchains;
 
+  // TODO(brandjon): Remove this once migration for native rule access is complete.
+  private final boolean loadPythonRulesFromBzl;
+
   private final boolean windowsEscapePythonArgs;
 
   PythonConfiguration(
@@ -67,6 +70,7 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
       boolean py2OutputsAreSuffixed,
       boolean disallowLegacyPyProvider,
       boolean useToolchains,
+      boolean loadPythonRulesFromBzl,
       boolean windowsEscapePythonArgs) {
     this.version = version;
     this.defaultVersion = defaultVersion;
@@ -77,6 +81,7 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
     this.py2OutputsAreSuffixed = py2OutputsAreSuffixed;
     this.disallowLegacyPyProvider = disallowLegacyPyProvider;
     this.useToolchains = useToolchains;
+    this.loadPythonRulesFromBzl = loadPythonRulesFromBzl;
     this.windowsEscapePythonArgs = windowsEscapePythonArgs;
   }
 
@@ -191,6 +196,17 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean useToolchains() {
     return useToolchains;
+  }
+
+  /**
+   * Returns true if native Python rules should fail at analysis time when the magic tag, {@code
+   * __PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__}, is not present.
+   *
+   * <p>This tag is set by the macros in bazelbuild/rules_python and should not be used anywhere
+   * else.
+   */
+  public boolean loadPythonRulesFromBzl() {
+    return loadPythonRulesFromBzl;
   }
 
   public boolean windowsEscapePythonArgs() {
