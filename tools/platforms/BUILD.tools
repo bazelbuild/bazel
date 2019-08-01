@@ -6,6 +6,8 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+load("@rules_java//java/constraints:constraints.bzl", "REMOTE_JDK11_CONSTRAINTS")
+
 alias(
     name = "cpu",
     actual = "@platforms//cpu:cpu",
@@ -83,8 +85,7 @@ platform(name = "default_platform")
 # internal build configurations, and so shouldn't be accessed by other packages.
 platform(
     name = "host_platform",
-    constraint_values = [
-    ],
+    constraint_values = REMOTE_JDK11_CONSTRAINTS,
     cpu_constraints = [
         "@platforms//cpu:x86_32",
         "@platforms//cpu:x86_64",
