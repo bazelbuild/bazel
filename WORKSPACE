@@ -79,6 +79,16 @@ new_local_repository(
     path = "./third_party/protobuf/3.6.1/",
 )
 
+# This is a mock version of bazelbuild/rules_python that contains only
+# @rules_python//python:defs.bzl. It is used by protobuf.
+# TODO(#9029): We could potentially replace this with the real @rules_python.
+new_local_repository(
+    name = "rules_python",
+    path = "./third_party/rules_python",
+    build_file = "//third_party/rules_python:BUILD",
+    workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
+)
+
 local_repository(
     name = "googleapis",
     path = "./third_party/googleapis/",
