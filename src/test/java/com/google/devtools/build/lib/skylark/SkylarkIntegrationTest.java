@@ -3293,6 +3293,46 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testHashFrozenList() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=false");
+    scratch.file("test/extension.bzl", "y = []");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'y')", "{y: 1}", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testHashFrozenListForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=true");
+    scratch.file("test/extension.bzl", "y = []");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'y')", "{y: 1}", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("unhashable type: 'list'");
+  }
+
+  @Test
+  public void testHashFrozenDeepMutableForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=true");
+    scratch.file("test/extension.bzl", "y = {}");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'y')",
+        "{('a', (y,), True): None}",
+        "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("unhashable type: 'tuple'");
+  }
+
+  @Test
   public void testNoOutputsError() throws Exception {
     scratch.file(
         "test/skylark/test_rule.bzl",

@@ -100,16 +100,34 @@ public final class EvalUtils {
 
   /**
    * Checks that an Object is a valid key for a Skylark dict.
+   *
    * @param o an Object to validate
    * @throws EvalException if o is not a valid key
    */
-  public static void checkValidDictKey(Object o) throws EvalException {
+  public static void checkValidDictKey(Object o, Environment env) throws EvalException {
     // TODO(bazel-team): check that all recursive elements are both Immutable AND Comparable.
-    if (isImmutable(o)) {
+    if (env != null && env.getSemantics().incompatibleDisallowHashingFrozenMutables()) {
+      if (isHashable(o)) {
+        return;
+      }
+    } else if (isImmutable(o)) {
       return;
     }
     // Same error message as Python (that makes it a TypeError).
     throw new EvalException(null, Printer.format("unhashable type: '%r'", o.getClass()));
+  }
+
+  /**
+   * Is this object known or assumed to be recursively hashable by Skylark?
+   *
+   * @param o an Object
+   * @return true if the object is known to be a hashable value.
+   */
+  public static boolean isHashable(Object o) {
+    if (o instanceof SkylarkValue) {
+      return ((SkylarkValue) o).isHashable();
+    }
+    return isImmutable(o.getClass());
   }
 
   /**
