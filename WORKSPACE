@@ -422,13 +422,9 @@ http_archive(
 
 http_archive(
     name = "bazel_skylib",
-    # Commit f83cb8dd6f5658bc574ccd873e25197055265d1c of 2018-11-26
-    sha256 = "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
-    strip_prefix = "bazel-skylib-f83cb8dd6f5658bc574ccd873e25197055265d1c",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-        "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-    ],
+    type = "tar.gz",
+    url = "https://github.com/bazelbuild/bazel-skylib/releases/download/0.9.0/bazel_skylib-0.9.0.tar.gz",
+    sha256 = "1dde365491125a3db70731e25658dfdd3bc5dbdfd11b840b3e987ecf043c7ca0",
 )
 
 # Note that skydoc depends on being called io_bazel_skydoc (and not just skydoc)
