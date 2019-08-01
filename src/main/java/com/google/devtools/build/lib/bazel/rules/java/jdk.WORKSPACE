@@ -248,6 +248,9 @@ maybe(
         "https://github.com/bazelbuild/rules_java/archive/d6c2f58d05a19c6043488e79e8c384fed7260578.zip"
     ],
 )
+load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
+rules_java_dependencies()
+rules_java_toolchains()
 
 # Needed only because of java_tools.
 maybe(
