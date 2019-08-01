@@ -20,6 +20,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 test_result_recorded() {
+  init_test_distdir
   mkdir result_recorded && cd result_recorded
   rm -rf fetchrepo
   mkdir fetchrepo
@@ -122,7 +123,6 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
-  add_default_rules_to_workspace WORKSPACE
 
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
@@ -157,7 +157,6 @@ EOF
 load("//:workspace.bzl", "repo")
 repo()
 EOF
-  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "out",
@@ -200,7 +199,6 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
-  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "out",
@@ -251,7 +249,6 @@ EOF
 load("//:workspace.bzl", "repo")
 repo()
 EOF
-  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "out",
@@ -299,7 +296,6 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
-  add_default_rules_to_workspace followbranch/WORKSPACE
   cat > followbranch/BUILD <<'EOF'
 genrule(
   name = "out",
@@ -308,7 +304,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  (cd followbranch && bazel build :out \
+  (cd followbranch && bazel build --distdir=${EXTREPODIR}/test_WORKSPACE/distdir :out \
        && cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}")
   expect_log 'Hello Stable World'
 
@@ -350,7 +346,6 @@ http_archive(
   urls=["file://${EXTREPODIR}/a.zip"],
 )
 EOF
-  add_default_rules_to_workspace main/WORKSPACE
   touch main/BUILD
 
   cd main
@@ -450,9 +445,8 @@ load("//:rule.bzl", "trivial_rule")
 trivial_rule(name = "a")
 trivial_rule(name = "b")
 EOF
-  add_default_rules_to_workspace WORKSPACE
 
-  bazel build @a//... @b//...
+  bazel build --distdir=${EXTREPODIR}/test_WORKSPACE/distdir @a//... @b//...
   echo; echo sync run; echo
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
@@ -489,7 +483,6 @@ load("//does/not:exist.bzl", "randomfunction")
 
 radomfunction(name="foo")
 EOF
-  add_default_rules_to_workspace WORKSPACE
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir > "${TEST_log}" 2>&1 && fail "Expected failure" || :
   expect_log '//does/not:exist.bzl'
 }
@@ -552,7 +545,6 @@ load("//:indirect.bzl", "call")
 
 call(trivial_rule, name="foo")
 EOF
-  add_default_rules_to_workspace WORKSPACE
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
 
@@ -604,7 +596,6 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
-  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "out",
@@ -646,7 +637,6 @@ http_archive(
   build_file="@//:exit.BUILD",
 )
 EOF
-  add_default_rules_to_workspace WORKSPACE
   echo 'exports_files(["file.txt"])' > exit.BUILD
   cat > BUILD <<'EOF'
 genrule(
@@ -698,7 +688,6 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
-  add_default_rules_to_workspace followbranch/WORKSPACE
   cat > followbranch/BUILD <<'EOF'
 genrule(
   name = "out",
@@ -735,6 +724,7 @@ create_sample_repository() {
   # - a BUILD file linked from the main repository
   # - a symlink to ., and
   # - danling absolute and reproducible symlink.
+  init_test_distdir
   touch BUILD
   cat > rule.bzl <<'EOF'
 def _trivial_rule_impl(ctx):
@@ -754,7 +744,6 @@ load("//:rule.bzl", "trivial_rule")
 
 trivial_rule(name="foo", build_file="@//:BUILD.remote")
 EOF
-  add_default_rules_to_workspace WORKSPACE
 }
 
 test_hash_included_and_reproducible() {
@@ -831,7 +820,6 @@ load("//:rule.bzl", "time_rule")
 
 time_rule(name="timestamprepo")
 EOF
-  add_default_rules_to_workspace WORKSPACE
 
     bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
     bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_hash_file=`pwd`/resolved.bzl \
@@ -871,7 +859,6 @@ http_archive(
 load("@rulerepo//:rule.bzl", "trivial_rule")
 trivial_rule(name="a")
 EOF
-  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -923,7 +910,6 @@ http_archive(
   urls=["file://${EXTREPODIR}/metadatarepo.zip"],
 )
 EOF
-   add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -979,7 +965,6 @@ sleep_rule(name="a", sleep=1)
 sleep_rule(name="c", sleep=3)
 sleep_rule(name="b", sleep=5)
 EOF
-  add_default_rules_to_workspace WORKSPACE
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=repo.bzl
   bazel build //:order
@@ -993,7 +978,6 @@ sleep_rule(name="a", sleep=5)
 sleep_rule(name="c", sleep=3)
 sleep_rule(name="b", sleep=1)
 EOF
-  add_default_rules_to_workspace WORKSPACE
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=repo.bzl
   bazel build //:order
@@ -1030,7 +1014,6 @@ new_local_repository(name="newlocal", path="../newlocal",
                      build_file_content='exports_files(["data.txt"])')
 bind(name="bound", actual="//target_to_be_bound:data.txt")
 EOF
-  add_default_rules_to_workspace WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "it",
@@ -1041,10 +1024,12 @@ genrule(
 )
 EOF
 
-  bazel build //:it || fail "Expected success"
+  bazel build --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+        //:it || fail "Expected success"
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=resolved.bzl
+
   echo > WORKSPACE # remove workspace, only work from the resolved file
   bazel clean --expunge
   echo; cat resolved.bzl; echo
@@ -1055,6 +1040,7 @@ EOF
 test_hidden_symbols() {
   # Verify that the resolved file can be used for building, even if it
   # legitimately contains a private symbol
+  init_test_distdir
   mkdir main
   cd main
   cat > BUILD <<'EOF'
@@ -1087,7 +1073,6 @@ load("//:repo.bzl", "data_repo")
 
 data_repo("foo")
 EOF
-  add_default_rules_to_workspace WORKSPACE
 
   bazel build --experimental_repository_resolved_file=resolved.bzl //:it
   echo > WORKSPACE # remove workspace, only work from the resolved file
@@ -1174,7 +1159,6 @@ load("//:first/path/foo.bzl", "foo")
 
 foo()
 EOF
-  add_default_rules_to_workspace WORKSPACE
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=resolved.bzl
@@ -1206,6 +1190,15 @@ EOF
   expect_log "WORKSPACE:3"
   expect_log "first/path/foo.bzl:4"
   expect_log "another/directory/bar.bzl:4"
+}
+
+init_test_distdir() {
+  # Verify that the resolved file can be used for building, even if it
+  # legitimately contains a private symbol
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+        --experimental_repository_resolved_file=resolved.bzl
 }
 
 run_suite "workspace_resolved_test tests"

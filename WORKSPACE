@@ -484,6 +484,8 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/rules_cc
         "plf-moving-tools.zip",
+        # com_google_googletest
+        "f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -513,6 +515,8 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_cc
         "plf-moving-tools.zip": "fd3c6f282990133d1920f2df06562e060fdd190a6175ea340b3bf34ae69cfa94",
+        # com_google_googletest
+        "f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz": "0fb00ff413f6b9b80ccee44a374ca7a18af7315aea72a43c62f2acd1ca74e9b5",
     },
     urls = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -550,6 +554,10 @@ distdir_tar(
         # bazelbuild/rules_cc
         "plf-moving-tools.zip": [
             "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",
+        ],
+        "f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz": [
+            "https://mirror.bazel.build/github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
+            "https://github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
         ],
     },
 )

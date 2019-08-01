@@ -56,6 +56,16 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
     mockEmbeddedTools(embeddedBinaries);
     fetchExternalRepo(RepositoryName.create("@bazel_tools"));
+
+    file("WORKSPACE", "local_repository(name = 'rules_cc', path='rules_cc')");
+
+    file("rules_cc/WORKSPACE", "workspace(name = 'rules_cc')");
+    file("rules_cc/cc/private/toolchain/BUILD", "");
+    file("rules_cc/cc/private/toolchain/cc_configure.bzl",
+        "def cc_configure(*args, **kwargs):",
+        "    pass");
+    RepositoryName rulesCcRepoName = RepositoryName.create("@rules_cc");
+    fetchExternalRepo(rulesCcRepoName);
   }
 
   private void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
@@ -116,7 +126,8 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void simpleLocalRepositoryPackage() throws Exception {
-    file("WORKSPACE", "local_repository(name = 'r', path='r')");
+    file("WORKSPACE", "local_repository(name = 'r', path='r')",
+        "local_repository(name = 'rules_cc', path='rules_cc')");
     file("r/WORKSPACE", "workspace(name = 'r')");
     file("r/good/BUILD", "sh_library(name = 'good')");
     RepositoryName rRepoName = RepositoryName.create("@r");
@@ -137,7 +148,8 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     file(
         "WORKSPACE",
         "new_local_repository(name = 'r', path = '/r', "
-            + "build_file_content = 'sh_library(name = \"good\")')");
+            + "build_file_content = 'sh_library(name = \"good\")')",
+        "local_repository(name = 'rules_cc', path='rules_cc')");
     fs.getPath("/r").createDirectoryAndParents();
     RepositoryName rRepoName = RepositoryName.create("@r");
     fetchExternalRepo(rRepoName);

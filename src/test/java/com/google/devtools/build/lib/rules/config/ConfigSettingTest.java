@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -446,6 +447,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
   @Test
   public void selectForDefaultCrosstoolTop() throws Exception {
     String crosstoolTop = TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain";
+    if (AnalysisMock.get().isThisBazel()) {
+      crosstoolTop = "@rules_cc//cc/private/toolchain:toolchain";
+    }
     scratchConfiguredTarget("a", "a",
         "config_setting(name='cs', values={'crosstool_top': '" + crosstoolTop + "'})",
         "sh_library(name='a', srcs=['a.sh'], deps=select({':cs': []}))");
