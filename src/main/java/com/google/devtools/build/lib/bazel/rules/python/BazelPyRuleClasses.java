@@ -119,7 +119,7 @@ public final class BazelPyRuleClasses {
           you can run the <code>find_requirements</code> aspect on your target:
           <pre>
           bazel build &lt;your target&gt; \
-              --aspects=@bazel_tools//tools/python:srcs_version.bzl%find_requirements \
+              --aspects=@rules_python//python:defs.bzl%find_requirements \
               --output_groups=pyversioninfo
           </pre>
           This will build a file with the suffix <code>-pyversioninfo.txt</code> giving information
@@ -195,8 +195,8 @@ public final class BazelPyRuleClasses {
           this one.
 
           <p>If you want to <code>select()</code> on the current Python version, you can inspect the
-          value of <code>@bazel_tools//tools/python:python_version</code>. See
-          <a href="https://github.com/bazelbuild/bazel/blob/4b74ea9a3f81b7ed30562f1689827b5488884c86/tools/python/BUILD#L33">here</a>
+          value of <code>@rules_python//python:python_version</code>. See
+          <a href="https://github.com/bazelbuild/rules_python/blob/120590e2f2b66e5590bf4dc8ebef9c5338984775/python/BUILD#L43">here</a>
           for more information.
 
           <p><b>Bug warning:</b> This attribute sets the version for which Bazel builds your target,
