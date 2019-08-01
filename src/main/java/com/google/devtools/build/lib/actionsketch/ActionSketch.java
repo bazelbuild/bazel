@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actionsketch;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.ByteString;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -27,7 +28,7 @@ import javax.annotation.Nullable;
  * all transitively consumed input files, as well as a transitive hash of all action keys.
  */
 @AutoValue
-public abstract class ActionSketch {
+public abstract class ActionSketch implements SkyValue {
   public static final int BIGINTEGER_ENCODED_LENGTH = /*length=*/ 1 + /*payload=*/ 17;
   public static final int MAX_BYTES = /*hashes=*/ 2 * BIGINTEGER_ENCODED_LENGTH;
 

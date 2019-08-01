@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actionsketch.ActionSketch;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -100,6 +101,7 @@ import javax.annotation.Nullable;
  * </ol>
  */
 public class ActionExecutionFunction implements SkyFunction {
+
   private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BlazeDirectories directories;
@@ -151,6 +153,19 @@ public class ActionExecutionFunction implements SkyFunction {
       ClientEnvironmentValue envValue = (ClientEnvironmentValue) entry.getValue();
       if (envValue.getValue() != null) {
         clientEnv.put((String) entry.getKey().argument(), envValue.getValue());
+      }
+    }
+
+    ActionSketch sketch = null;
+    TopDownActionCache topDownActionCache = skyframeActionExecutor.getTopDownActionCache();
+    if (topDownActionCache != null) {
+      sketch = (ActionSketch) env.getValue(ActionSketchFunction.key(actionLookupData));
+      if (sketch == null) {
+        return null;
+      }
+      ActionExecutionValue actionExecutionValue = topDownActionCache.get(sketch);
+      if (actionExecutionValue != null) {
+        return actionExecutionValue.transformForSharedAction(action.getOutputs());
       }
     }
 
@@ -289,6 +304,9 @@ public class ActionExecutionFunction implements SkyFunction {
 
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
+    if (sketch != null && result.dataIsShareable()) {
+      topDownActionCache.put(sketch, result);
+    }
     return result;
   }
 

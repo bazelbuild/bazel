@@ -23,6 +23,7 @@ import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Utilities for accessing platform properties. */
@@ -43,7 +44,11 @@ public final class PlatformUtils {
 
     Platform.Builder platformBuilder = Platform.newBuilder();
 
-    if (executionPlatform != null
+    if (executionPlatform != null && !executionPlatform.execProperties().isEmpty()) {
+      for (Map.Entry<String, String> entry : executionPlatform.execProperties().entrySet()) {
+        platformBuilder.addPropertiesBuilder().setName(entry.getKey()).setValue(entry.getValue());
+      }
+    } else if (executionPlatform != null
         && !Strings.isNullOrEmpty(executionPlatform.remoteExecutionProperties())) {
       // Try and get the platform info from the execution properties.
       try {
@@ -70,10 +75,11 @@ public final class PlatformUtils {
     }
 
     // Sort the properties.
-    List<Platform.Property> properties = platformBuilder.getPropertiesList();
+    List<Platform.Property> properties =
+        Ordering.from(Comparator.comparing(Platform.Property::getName))
+            .sortedCopy(platformBuilder.getPropertiesList());
     platformBuilder.clearProperties();
-    platformBuilder.addAllProperties(
-        Ordering.from(Comparator.comparing(Platform.Property::getName)).sortedCopy(properties));
+    platformBuilder.addAllProperties(properties);
     return platformBuilder.build();
   }
 }
