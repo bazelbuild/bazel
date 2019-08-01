@@ -260,5 +260,3 @@ maybe(
     ],
     strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",
 )
-
-register_toolchains("@bazel_tools//tools/jdk:all")
