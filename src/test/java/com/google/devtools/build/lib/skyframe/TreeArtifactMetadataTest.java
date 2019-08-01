@@ -112,7 +112,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     Map<String, FileArtifactValue> digestBuilder = new HashMap<>();
     for (PathFragment child : children) {
       FileArtifactValue subdigest =
-          FileArtifactValue.createFromFileSystem(tree.getPath().getRelative(child));
+          FileArtifactValue.createForTesting(tree.getPath().getRelative(child));
       digestBuilder.put(child.getPathString(), subdigest);
     }
     assertThat(DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe())

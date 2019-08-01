@@ -1018,7 +1018,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             && ((Artifact) skyKey.argument()).isTreeArtifact()) {
           return TreeArtifactValue.create(allTreeFiles);
         }
-        return FileArtifactValue.createFromFileSystem(((Artifact) skyKey.argument()).getPath());
+        return FileArtifactValue.createForTesting(((Artifact) skyKey.argument()).getPath());
       } catch (IOException e) {
         throw new SkyFunctionException(e, Transience.PERSISTENT){};
       }
@@ -1031,7 +1031,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
 
     public void addNewTreeFileArtifact(TreeFileArtifact input) throws IOException {
-      allTreeFiles.put(input, FileArtifactValue.createFromFileSystem(input.getPath()));
+      allTreeFiles.put(input, FileArtifactValue.createForTesting(input.getPath()));
     }
   }
 

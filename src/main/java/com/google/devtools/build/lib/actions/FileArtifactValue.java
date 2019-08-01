@@ -225,19 +225,21 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   @VisibleForTesting
   public static FileArtifactValue createForTesting(Artifact artifact) throws IOException {
-    return createFromFileSystem(artifact.getPath(), !artifact.isConstantMetadata());
-  }
-
-  public static FileArtifactValue createFromFileSystem(Path path) throws IOException {
-    return createFromFileSystem(path, /*isShareable=*/ true);
-  }
-
-  public static FileArtifactValue createFromFileSystem(Path path, boolean isShareable)
-      throws IOException {
+    Path path = artifact.getPath();
+    boolean isShareable = !artifact.isConstantMetadata();
     // Caution: there's a race condition between stating the file and computing the
     // digest. We need to stat first, since we're using the stat to detect changes.
     // We follow symlinks here to be consistent with getDigest.
     return createFromStat(path, path.stat(Symlinks.FOLLOW), isShareable);
+  }
+
+  @VisibleForTesting
+  public static FileArtifactValue createForTesting(Path path) throws IOException {
+    /*isShareable=*/
+    // Caution: there's a race condition between stating the file and computing the
+    // digest. We need to stat first, since we're using the stat to detect changes.
+    // We follow symlinks here to be consistent with getDigest.
+    return createFromStat(path, path.stat(Symlinks.FOLLOW), true);
   }
 
   public static FileArtifactValue createFromStat(Path path, FileStatus stat, boolean isShareable)
