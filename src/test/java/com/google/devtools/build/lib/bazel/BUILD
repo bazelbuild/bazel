@@ -34,7 +34,13 @@ test_suite(
 
 java_test(
     name = "bazel-rules-tests",
-    srcs = glob(["rules/**/*.java"]),
+    srcs = glob(
+        ["rules/**/*.java"],
+        exclude = ["rules/genrule/GenRuleWindowsConfiguredTargetTest.java"],
+    ) + select({
+        "//src:windows": ["rules/genrule/GenRuleWindowsConfiguredTargetTest.java"],
+        "//conditions:default": [],
+    }),
     resources = [
         "//tools/android:android_sdk_repository_template.bzl",
         "//tools/build_defs/cc:action_names.bzl",

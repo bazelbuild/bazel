@@ -196,6 +196,13 @@ py_test(
     deps = [":test_base"],
 )
 
+py_test(
+    name = "genrule_test",
+    size = "medium",
+    srcs = ["genrule_test.py"],
+    deps = [":test_base"],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [
