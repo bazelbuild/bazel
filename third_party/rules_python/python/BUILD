@@ -1,5 +1,5 @@
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//visibility:public"],
+    visibility = ["//third_party/rules_python:__pkg__"],
 )
