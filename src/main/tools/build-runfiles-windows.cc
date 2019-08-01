@@ -240,37 +240,7 @@ class RunfilesCreator {
   }
 
   bool DoesCreatingSymlinkNeedAdminPrivilege(const wstring& runfiles_base_dir) {
-    wstring dummy_link = runfiles_base_dir + L"\\dummy_link";
-    wstring dummy_target = runfiles_base_dir + L"\\dummy_target";
-
-    // Try creating symlink without admin privilege.
-    if (CreateSymbolicLinkW(dummy_link.c_str(), dummy_target.c_str(),
-                            SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
-      DeleteFileOrDie(dummy_link);
-      return false;
-    }
-
-    // Try creating symlink with admin privilege
-    if (CreateSymbolicLinkW(dummy_link.c_str(), dummy_target.c_str(), 0)) {
-      DeleteFileOrDie(dummy_link);
-      return true;
-    }
-
-    // If we couldn't create symlink, print out an error message and exit.
-    if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD) {
-      die(L"CreateSymbolicLinkW failed:\n%hs\n",
-          "Bazel needs to create symlink for building runfiles tree.\n"
-          "Creating symlink on Windows requires either of the following:\n"
-          "    1. Program is running with elevated privileges (Admin rights).\n"
-          "    2. The system version is Windows 10 Creators Update (1703) or "
-          "later and "
-          "developer mode is enabled.",
-          GetLastErrorString().c_str());
-    } else {
-      die(L"CreateSymbolicLinkW failed: %hs", GetLastErrorString().c_str());
-    }
-
-    return true;
+    return false;
   }
 
   // This function scan the current directory, remove all
@@ -377,11 +347,16 @@ class RunfilesCreator {
         DWORD create_dir = 0;
         if (blaze_util::IsDirectoryW(it.second.c_str())) {
           create_dir = SYMBOLIC_LINK_FLAG_DIRECTORY;
-        }
-        if (!CreateSymbolicLinkW(it.first.c_str(), it.second.c_str(),
-                                 privilege_flag | create_dir)) {
-          die(L"CreateSymbolicLinkW failed (%s -> %s): %hs", it.first.c_str(),
-              it.second.c_str(), GetLastErrorString().c_str());
+          if (!CreateSymbolicLinkW(it.first.c_str(), it.second.c_str(),
+                                   privilege_flag | create_dir)) {
+            die(L"CreateSymbolicLinkW failed (%s -> %s): %hs", it.first.c_str(),
+                it.second.c_str(), GetLastErrorString().c_str());
+          }
+        } else {
+          if (!CreateHardLinkW(it.first.c_str(), it.second.c_str(), nullptr)) {
+            die(L"CreateHardLinkW failed (%s -> %s): %hs", it.first.c_str(),
+                it.second.c_str(), GetLastErrorString().c_str());
+          }
         }
       }
     }
