@@ -92,13 +92,13 @@ public abstract class BlackBoxTestEnvironment {
             ")",
             "http_archive(",
             "    name = 'rules_proto',",
-            "    sha256 = '88b0a90433866b44bb4450d4c30bc5738b8c4f9c9ba14e9661deb123f56a833d',",
-            "    strip_prefix = 'rules_proto-b0cc14be5da05168b01db282fe93bdf17aa2b9f4',",
+            "    sha256 = '602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208',",
+            "    strip_prefix = 'rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313',",
             "    urls = [",
             "        'https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/"
-                + "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.zip',",
+                + "97d8af4dc474595af3900dd85cb3a29ad28cc313.zip',",
             "        'https://github.com/bazelbuild/rules_proto/archive/"
-                + "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.zip',",
+                + "97d8af4dc474595af3900dd85cb3a29ad28cc313.zip',",
             "    ],",
             ")");
   }
