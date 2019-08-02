@@ -530,6 +530,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         help = "Use dex2oat in parallel to possibly speed up android_test.")
     public boolean useParallelDex2Oat;
 
+    @Option(
+        name = "break_build_on_parallel_dex2oat_failure",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help =
+            "If true dex2oat action failures will cause the build to break "
+                + "instead of executing dex2oat during test runtime.")
+    public boolean breakBuildOnParallelDex2OatFailure;
+
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     @Option(
@@ -1083,6 +1094,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean useAapt2ForRobolectric;
   private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
+  private final boolean breakBuildOnParallelDex2OatFailure;
   private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
   private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
@@ -1132,6 +1144,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.useAapt2ForRobolectric = options.useAapt2ForRobolectric;
     this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
+    this.breakBuildOnParallelDex2OatFailure = options.breakBuildOnParallelDex2OatFailure;
     this.omitResourcesInfoProviderFromAndroidBinary =
         options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
@@ -1330,6 +1343,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean useParallelDex2Oat() {
     return useParallelDex2Oat;
+  }
+
+  @Override
+  public boolean breakBuildOnParallelDex2OatFailure() {
+    return breakBuildOnParallelDex2OatFailure;
   }
 
   @Override
