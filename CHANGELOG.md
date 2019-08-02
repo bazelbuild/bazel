@@ -1484,7 +1484,7 @@ Cherry picks:
 [0.20 is a migration window for the following changes](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+label%3Amigration-0.20)
 
   - [--incompatible_use_jdk10_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6661)
-  - [--incompatible_use_remotejdk_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6656)
+  - [--incompatible_use_remote_jdk_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6656)
   - [--incompatible_disable_sysroot_from_configuration](https://github.com/bazelbuild/bazel/issues/6565)
   - [--incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite](https://github.com/bazelbuild/bazel/issues/6537)
   - [--incompatible_disable_depset_in_cc_user_flags](https://github.com/bazelbuild/bazel/issues/6383)
@@ -1493,7 +1493,7 @@ Cherry picks:
 [Breaking changes in the next release (0.21)](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+label%3Abreaking-change-0.21)
 
   - [--incompatible_use_jdk10_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6661)
-  - [--incompatible_use_remotejdk_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6656)
+  - [--incompatible_use_remote_jdk_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6656)
   - [--incompatible_disable_sysroot_from_configuration](https://github.com/bazelbuild/bazel/issues/6565)
   - [--incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite](https://github.com/bazelbuild/bazel/issues/6537)
   - [--incompatible_disable_depset_in_cc_user_flags](https://github.com/bazelbuild/bazel/issues/6383)

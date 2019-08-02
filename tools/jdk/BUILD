@@ -223,13 +223,13 @@ remote_java_tools_filegroup(
 alias(
     name = "proguard",
     actual = select({
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:proguard",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:proguard",
-        "//src/conditions:windows": "@remote_java_tools_windows//:proguard",
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:proguard",
+        "//src/conditions:darwin": "@remotejava_tools_javac11_macos//:proguard",
+        "//src/conditions:darwin_x86_64": "@remotejava_tools_javac11_macos//:proguard",
+        "//src/conditions:windows": "@remotejava_tools_javac11_windows//:proguard",
+        "//src/conditions:linux_x86_64": "@remotejava_tools_javac11_linux//:proguard",
         # On different platforms the linux repository can be used because the
         # proguard deploy jar is platform-agnostic.
-        "//conditions:default": "@remote_java_tools_linux//tools/jdk:proguard",
+        "//conditions:default": "@remotejava_tools_javac11_linux//tools/jdk:proguard",
     }),
 )
 
@@ -309,10 +309,10 @@ default_java_toolchain(
 alias(
     name = "toolchain",
     actual = select({
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
+        "//src/conditions:darwin": "@remotejava_tools_javac11_macos//:toolchain",
+        "//src/conditions:darwin_x86_64": "@remotejava_tools_javac11_macos//:toolchain",
+        "//src/conditions:windows": "@remotejava_tools_javac11_windows//:toolchain",
+        "//src/conditions:linux_x86_64": "@remotejava_tools_javac11_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
     }),
 )
@@ -320,10 +320,10 @@ alias(
 alias(
     name = "remote_toolchain",
     actual = select({
-        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
-        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
-        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
+        "//src/conditions:darwin": "@remotejava_tools_javac11_macos//:toolchain",
+        "//src/conditions:darwin_x86_64": "@remotejava_tools_javac11_macos//:toolchain",
+        "//src/conditions:windows": "@remotejava_tools_javac11_windows//:toolchain",
+        "//src/conditions:linux_x86_64": "@remotejava_tools_javac11_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
     }),
 )
@@ -426,11 +426,11 @@ alias(
     name = "remote_jdk",
     actual = select(
         {
-            "//src/conditions:darwin": "@remotejdk_macos//:jdk",
-            "//src/conditions:darwin_x86_64": "@remotejdk_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk_win//:jdk",
-            "//src/conditions:linux_aarch64": "@remotejdk_linux_aarch64//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk_linux//:jdk",
+            "//src/conditions:darwin": "@remote_jdk9_macos//:jdk",
+            "//src/conditions:darwin_x86_64": "@remote_jdk9_macos//:jdk",
+            "//src/conditions:windows": "@remote_jdk9_windows//:jdk",
+            "//src/conditions:linux_aarch64": "@remote_jdk9_linux_aarch64//:jdk",
+            "//src/conditions:linux_x86_64": "@remote_jdk9_linux//:jdk",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",
@@ -443,11 +443,11 @@ alias(
     name = "remote_jdk10",
     actual = select(
         {
-            "//src/conditions:darwin": "@remotejdk10_macos//:jdk",
-            "//src/conditions:darwin_x86_64": "@remotejdk10_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk10_win//:jdk",
-            "//src/conditions:linux_aarch64": "@remotejdk10_linux_aarch64//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk10_linux//:jdk",
+            "//src/conditions:darwin": "@remote_jdk10_macos//:jdk",
+            "//src/conditions:darwin_x86_64": "@remote_jdk10_macos//:jdk",
+            "//src/conditions:windows": "@remote_jdk10_win//:jdk",
+            "//src/conditions:linux_aarch64": "@remote_jdk10_linux_aarch64//:jdk",
+            "//src/conditions:linux_x86_64": "@remote_jdk10_linux//:jdk",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",
@@ -460,11 +460,11 @@ alias(
     name = "remote_jdk11",
     actual = select(
         {
-            "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
-            "//src/conditions:darwin_x86_64": "@remotejdk11_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk11_win//:jdk",
-            "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
+            "//src/conditions:darwin": "@remote_jdk11_macos//:jdk",
+            "//src/conditions:darwin_x86_64": "@remote_jdk11_macos//:jdk",
+            "//src/conditions:windows": "@remote_jdk11_win//:jdk",
+            "//src/conditions:linux_aarch64": "@remote_jdk11_linux_aarch64//:jdk",
+            "//src/conditions:linux_x86_64": "@remote_jdk11_linux//:jdk",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",

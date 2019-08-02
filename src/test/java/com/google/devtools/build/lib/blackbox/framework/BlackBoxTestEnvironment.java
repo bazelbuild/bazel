@@ -92,8 +92,8 @@ public abstract class BlackBoxTestEnvironment {
             ")",
             "http_archive(",
             "    name = 'rules_java',",
-            "    strip_prefix = 'rules_java-3105ad0a46e211c1b23d24c3ca46e352c4d6bfb8',",
-            "    urls = ['https://github.com/bazelbuild/rules_java/archive/3105ad0a46e211c1b23d24c3ca46e352c4d6bfb8.zip'],",
+            "    strip_prefix = 'rules_java-3cfac971c0fcc7783c50457ca8f3079caa571a96',",
+            "    urls = ['https://github.com/bazelbuild/rules_java/archive/3cfac971c0fcc7783c50457ca8f3079caa571a96.zip'],",
             ")"
         );
   }

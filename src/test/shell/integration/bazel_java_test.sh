@@ -72,16 +72,16 @@ EOF
   # Note that this will change in the future but is the current state.
   bazel aquery --output=text //java:javalib >& $TEST_log
   expect_not_log "exec external/embedded_jdk/bin/java"
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/remote_jdk11_.*/bin/java"
 
   bazel aquery --output=text --host_javabase=//:host_javabase \
     //java:javalib >& $TEST_log
   expect_log "exec .*foobar/bin/java"
-  expect_not_log "exec external/remotejdk_.*/bin/java"
+  expect_not_log "exec external/remote_jdk_.*/bin/java"
 
   bazel aquery --output=text --incompatible_use_jdk11_as_host_javabase \
     //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/remote_jdk11_.*/bin/java"
 }
 
 function test_javabase() {
@@ -209,8 +209,8 @@ EOF
   expect_not_log "foo"
   expect_not_log "bar"
   expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk_"
-  expect_not_log "remotejdk11_"
+  expect_not_log "remote_jdk_"
+  expect_not_log "remote_jdk11_"
 
   # Test the genrule that specifically depends on :bar_runtime.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps \
@@ -218,8 +218,8 @@ EOF
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk_"
-  expect_not_log "remotejdk11_"
+  expect_not_log "remote_jdk_"
+  expect_not_log "remote_jdk11_"
 
   # Setting the javabase should not change the use of :bar_runtime from the
   # roolchains attribute.
@@ -228,8 +228,8 @@ EOF
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk_"
-  expect_not_log "remotejdk11_"
+  expect_not_log "remote_jdk_"
+  expect_not_log "remote_jdk11_"
 }
 
 run_suite "Tests of specifying custom server_javabase/host_javabase and javabase."
