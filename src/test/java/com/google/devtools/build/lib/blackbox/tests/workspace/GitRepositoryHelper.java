@@ -98,6 +98,18 @@ class GitRepositoryHelper {
   }
 
   /**
+   * Deletes the local branch with the specified name.
+   *
+   * @param branchName branch name
+   * @throws Exception related to the invocation of the external git process (like IOException or
+   *     TimeoutException) or ProcessRunnerException if the process returned not expected return
+   *     code.
+   */
+  void deleteBranch(String branchName) throws Exception {
+    runGit("branch", "-D", branchName);
+  }
+
+  /**
    * Checks out specified revision or reference.
    *
    * @param ref reference to check out
