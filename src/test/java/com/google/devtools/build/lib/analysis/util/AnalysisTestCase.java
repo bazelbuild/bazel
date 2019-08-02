@@ -181,7 +181,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
-
     useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
 

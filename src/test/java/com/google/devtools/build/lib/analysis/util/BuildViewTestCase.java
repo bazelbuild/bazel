@@ -223,11 +223,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
     initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ true);
-    rewriteWorkspace(
-        "local_repository(name = 'rules_java', path = '/rules_java_workspace/')",
-        "register_toolchains('@rules_java//java/toolchains/runtime:all')",
-        "register_toolchains('@rules_java//java/toolchains/javac:all')"
-    );
   }
 
   public void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
@@ -255,25 +250,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         "",
         "def http_file(**kwargs):",
         "  pass");
-    mockToolsConfig.create("/rules_java_workspace/WORKSPACE", "workspace(name = 'rules_java')");
-    mockToolsConfig.create(
-        "/rules_java_workspace/java/toolchains/runtime/BUILD",
-        "toolchain_type(name = 'toolchain_type')",
-        "toolchain(",
-        "    name = 'local_jdk',",
-        "    toolchain = '@bazel_tools//tools/jdk:jdk',",
-        "    toolchain_type = '@rules_java//java/toolchains/runtime:toolchain_type',",
-        "    )"
-    );
-    mockToolsConfig.create(
-        "/rules_java_workspace/java/toolchains/javac/BUILD",
-        "toolchain_type(name = 'toolchain_type')",
-        "toolchain(",
-        "    name = 'javac_toolchain',",
-        "    toolchain = '@bazel_tools//tools/jdk:toolchain',",
-        "    toolchain_type = '@rules_java//java/toolchains/javac:toolchain_type',",
-        "    )"
-    );
     initializeMockClient();
 
     packageCacheOptions = parsePackageCacheOptions();

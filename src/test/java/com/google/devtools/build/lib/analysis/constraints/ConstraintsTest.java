@@ -47,6 +47,11 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("config/BUILD",
         "config_setting(name = 'a', values = {'define': 'mode=a'})",
         "config_setting(name = 'b', values = {'define': 'mode=b'})");
+    rewriteWorkspace(
+        "local_repository(name = 'rules_java', path = '/rules_java_workspace/')",
+        "register_toolchains('@rules_java//java/toolchains/runtime:all')",
+        "register_toolchains('@rules_java//java/toolchains/javac:all')"
+    );
   }
 
   /**
