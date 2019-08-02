@@ -146,45 +146,17 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     if (getDigest() != null && lastKnown.getDigest() != null) {
+      // If we know the digests, we can tell with certainty whether the file has changed.
       return !Arrays.equals(getDigest(), lastKnown.getDigest()) || getSize() != lastKnown.getSize();
     } else {
-      return getModifiedTime() != lastKnown.getModifiedTime();
+      // If not, we assume by default that the file has changed, but individual implementations
+      // might know better. For example, regular local files can be compared by ctime or mtime.
+      return couldBeModifiedByMetadata(lastKnown);
     }
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof FileArtifactValue)) {
-      return false;
-    }
-    if ((this instanceof Singleton) || (o instanceof Singleton)) {
-      return false;
-    }
-    FileArtifactValue m = (FileArtifactValue) o;
-    if (getType() != m.getType()) {
-      return false;
-    }
-    if (getDigest() != null) {
-      return Arrays.equals(getDigest(), m.getDigest()) && getSize() == m.getSize();
-    } else {
-      return getModifiedTime() == m.getModifiedTime();
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    if (this instanceof Singleton) {
-      return System.identityHashCode(this);
-    }
-    // Hash digest by content, not reference.
-    if (getDigest() != null) {
-      return 37 * Long.hashCode(getSize()) + Arrays.hashCode(getDigest());
-    } else {
-      return Long.hashCode(getModifiedTime());
-    }
+  protected boolean couldBeModifiedByMetadata(FileArtifactValue lastKnown) {
+    return true;
   }
 
   /**
@@ -310,6 +282,21 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof DirectoryArtifactValue)) {
+        return false;
+      }
+
+      DirectoryArtifactValue that = (DirectoryArtifactValue) o;
+      return mtime == that.mtime;
+    }
+
+    @Override
+    public int hashCode() {
+      return Long.hashCode(mtime);
+    }
+
+    @Override
     public FileStateType getType() {
       return FileStateType.DIRECTORY;
     }
@@ -355,10 +342,26 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   private static final class HashedDirectoryArtifactValue extends FileArtifactValue {
+
     private final byte[] digest;
 
     private HashedDirectoryArtifactValue(byte[] digest) {
       this.digest = digest;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof HashedDirectoryArtifactValue)) {
+        return false;
+      }
+
+      HashedDirectoryArtifactValue that = (HashedDirectoryArtifactValue) o;
+      return Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(digest);
     }
 
     @Override
@@ -399,36 +402,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     public String toString() {
       return MoreObjects.toStringHelper(this).add("digest", digest).toString();
     }
-
-    @Override
-    public boolean couldBeModifiedSince(FileArtifactValue o) {
-      if (!(o instanceof HashedDirectoryArtifactValue)) {
-        return true;
-      }
-
-      HashedDirectoryArtifactValue lastKnown = (HashedDirectoryArtifactValue) o;
-      return !Arrays.equals(digest, lastKnown.digest);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof HashedDirectoryArtifactValue)) {
-        return false;
-      }
-      HashedDirectoryArtifactValue r = (HashedDirectoryArtifactValue) o;
-      return Arrays.equals(digest, r.digest);
-    }
-
-    @Override
-    public int hashCode() {
-      return Arrays.hashCode(digest);
-    }
   }
 
   private static class RegularFileArtifactValue extends FileArtifactValue {
+
     private final byte[] digest;
     @Nullable private final FileContentsProxy proxy;
     private final long size;
@@ -438,6 +415,24 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.digest = digest;
       this.proxy = proxy;
       this.size = size;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof RegularFileArtifactValue)) {
+        return false;
+      }
+
+      RegularFileArtifactValue that = (RegularFileArtifactValue) o;
+      return Arrays.equals(digest, that.digest)
+          && Objects.equals(proxy, that.proxy)
+          && size == that.size
+          && dataIsShareable() == that.dataIsShareable();
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), proxy, size, dataIsShareable());
     }
 
     @Override
@@ -487,45 +482,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public boolean couldBeModifiedSince(FileArtifactValue o) {
-      if (digest != null && o.getDigest() != null) {
-        // TODO(lberki): This sometimes compares between RemoteFileArtifactValue and
-        // RegularFileArtifactValue. Pretty unintuitive, that.
-        return !Arrays.equals(digest, o.getDigest()) || getSize() != o.getSize();
-      }
-
+    protected boolean couldBeModifiedByMetadata(FileArtifactValue o) {
       if (!(o instanceof RegularFileArtifactValue)) {
         return true;
       }
 
       RegularFileArtifactValue lastKnown = (RegularFileArtifactValue) o;
-      if (size != lastKnown.size || dataIsShareable() != lastKnown.dataIsShareable()) {
-        return true;
-      }
-
-      return !Objects.equals(proxy, lastKnown.proxy);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof RegularFileArtifactValue)) {
-        return false;
-      }
-      RegularFileArtifactValue r = (RegularFileArtifactValue) o;
-      return Arrays.equals(digest, r.digest)
-          && Objects.equals(proxy, r.proxy)
-          && size == r.size
-          && dataIsShareable() == r.dataIsShareable();
-    }
-
-    @Override
-    public int hashCode() {
-      return (proxy != null ? 127 * proxy.hashCode() : 0)
-          + 37 * Long.hashCode(getSize())
-          + Arrays.hashCode(getDigest());
+      return size != lastKnown.size || !Objects.equals(proxy, lastKnown.proxy);
     }
   }
 
@@ -554,6 +517,23 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof RemoteFileArtifactValue)) {
+        return false;
+      }
+
+      RemoteFileArtifactValue that = (RemoteFileArtifactValue) o;
+      return Arrays.equals(digest, that.digest)
+          && size == that.size
+          && locationIndex == that.locationIndex;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, dataIsShareable());
+    }
+
+    @Override
     public FileStateType getType() {
       return FileStateType.REGULAR_FILE;
     }
@@ -566,17 +546,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public FileContentsProxy getContentsProxy() {
       throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean couldBeModifiedSince(FileArtifactValue o) {
-      if (digest != null && o.getDigest() != null) {
-        // TODO(lberki): This sometimes compares between RemoteFileArtifactValue and
-        // RegularFileArtifactValue. Pretty unintuitive, that.
-        return !Arrays.equals(digest, o.getDigest()) || getSize() != o.getSize();
-      }
-
-      return true;
     }
 
     @Override
@@ -623,6 +592,21 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private InlineFileArtifactValue(byte[] data, byte[] digest) {
       this.data = Preconditions.checkNotNull(data);
       this.digest = Preconditions.checkNotNull(digest);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof InlineFileArtifactValue)) {
+        return false;
+      }
+
+      InlineFileArtifactValue that = (InlineFileArtifactValue) o;
+      return Arrays.equals(digest, that.digest) && dataIsShareable() == that.dataIsShareable();
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), dataIsShareable());
     }
 
     private InlineFileArtifactValue(byte[] bytes) {
@@ -700,6 +684,23 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.execPath = Preconditions.checkNotNull(execPath);
       this.digest = Preconditions.checkNotNull(digest);
       this.size = size;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof SourceFileArtifactValue)) {
+        return false;
+      }
+
+      SourceFileArtifactValue that = (SourceFileArtifactValue) o;
+      return Objects.equals(execPath, that.execPath)
+          && Arrays.equals(digest, that.digest)
+          && size == that.size;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(execPath, Arrays.hashCode(digest), size);
     }
 
     public PathFragment getExecPath() {
