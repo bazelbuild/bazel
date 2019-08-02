@@ -86,18 +86,11 @@ public final class GoogleAuthUtils {
     return target.replace("grpcs://", "").replace("grpc://", "");
   }
 
-  // TODO(ishikhman) remove options.tlsEnabled flag usage when an incompatible flag is flipped
   private static boolean isTlsEnabled(String target, AuthAndTLSOptions options) {
-    if (options.incompatibleTlsEnabledRemoved && options.tlsEnabled) {
-      throw new IllegalArgumentException("flag --tls_enabled was not found");
-    }
-    if (options.incompatibleTlsEnabledRemoved) {
-      // 'grpcs://' or empty prefix => TLS-enabled
-      // when no schema prefix is provided in URL, bazel will treat it as a gRPC request with TLS
-      // enabled
-      return !target.startsWith("grpc://");
-    }
-    return target.startsWith("grpcs") || options.tlsEnabled;
+    // 'grpcs://' or empty prefix => TLS-enabled
+    // when no schema prefix is provided in URL, bazel will treat it as a gRPC request with TLS
+    // enabled
+    return !target.startsWith("grpc://");
   }
 
   private static SslContext createSSlContext(@Nullable String rootCert) throws IOException {
