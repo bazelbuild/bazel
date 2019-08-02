@@ -119,9 +119,21 @@ def add_origin(ctx, git_repo, remote):
 
 def fetch(ctx, git_repo):
     if not git_repo.fetch_ref:
-        # We need to explicitly specify to fetch all branches, otherwise only HEAD-reachable
-        # is fetched.
-        _git_maybe_shallow(ctx, git_repo, "fetch", "--all")
+        # We need to explicitly specify to fetch all branches and tags, otherwise only
+        # HEAD-reachable is fetched.
+        # The semantics of --tags flag of git-fetch have changed in Git 1.9, from 1.9 it means
+        # "everything that is already specified and all tags"; before 1.9, it used to mean
+        # "ignore what is specified and fetch all tags".
+        # The arguments below work correctly for both before 1.9 and after 1.9,
+        # as we directly specify the list of references to fetch.
+        _git_maybe_shallow(
+            ctx,
+            git_repo,
+            "fetch",
+            "origin",
+            "refs/heads/*:refs/remotes/origin/*",
+            "refs/tags/*:refs/tags/*",
+        )
     else:
         _git_maybe_shallow(ctx, git_repo, "fetch", "origin", git_repo.fetch_ref)
 
