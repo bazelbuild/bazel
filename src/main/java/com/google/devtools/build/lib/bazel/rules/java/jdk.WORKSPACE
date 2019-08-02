@@ -243,9 +243,9 @@ maybe(
     http_archive,
     "rules_java",
     #sha256 = "89794de7ea4146ac2a7b8341606ec74b1b185356b04c4f7f5ded0af57fd0e301",
-    strip_prefix = "rules_java-1da23726bf21067c26b92d3619e95ce88d1db125",
+    strip_prefix = "rules_java-3105ad0a46e211c1b23d24c3ca46e352c4d6bfb8",
     urls = [
-        "https://github.com/bazelbuild/rules_java/archive/1da23726bf21067c26b92d3619e95ce88d1db125.zip"
+        "https://github.com/bazelbuild/rules_java/archive/3105ad0a46e211c1b23d24c3ca46e352c4d6bfb8.zip"
     ],
 )
 load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")

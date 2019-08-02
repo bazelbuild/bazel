@@ -67,8 +67,18 @@ local_repository(
 )
 EOF
 
-  mkdir -p override || fail "couldn't create override directory"
+  mkdir -p override/java || fail "couldn't create override directory"
   touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
+  touch override/java/BUILD || fail "couldn't touch override/java/BUILD"
+  touch override/java/repositories.bzl || fail "couldn't touch override/java/BUILD"
+  cat > override/java/repositories.bzl <<EOF
+def rules_java_dependencies():
+  pass
+
+def rules_java_toolchains():
+  pass
+EOF
+
   cat > override/BUILD <<EOF
 filegroup(name = 'yolo')
 EOF
