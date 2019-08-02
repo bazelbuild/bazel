@@ -243,7 +243,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       };
 
   @Override
-  public Provider provider(String doc, Object fields, Location location) throws EvalException {
+  public Provider provider(String doc, Object fields, Location location, Environment env)
+      throws EvalException {
     Iterable<String> fieldNames = null;
     if (fields instanceof SkylarkList<?>) {
       @SuppressWarnings("unchecked")
@@ -260,7 +261,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           "Expected list of strings or dictionary of string -> string for 'fields'");
       fieldNames = dict.keySet();
     }
-    return SkylarkProvider.createUnexportedSchemaful(fieldNames, location);
+    return SkylarkProvider.createUnexportedSchemaful(
+        fieldNames, location, env.getSemantics().experimentalFunctionEqualityByLocation());
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties

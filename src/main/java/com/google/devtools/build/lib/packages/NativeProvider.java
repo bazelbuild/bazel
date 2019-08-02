@@ -78,7 +78,7 @@ public abstract class NativeProvider<V extends InfoInterface> extends ProviderFr
       Class<V> valueClass,
       String name,
       FunctionSignature.WithValues<Object, SkylarkType> signature) {
-    super(name, signature, Location.BUILTIN);
+    super(name, signature, Location.BUILTIN, /* equalityByLocation */ false);
     Class<? extends NativeProvider<?>> clazz = (Class<? extends NativeProvider<?>>) getClass();
     key = new NativeKey(name, clazz);
     this.valueClass = valueClass;

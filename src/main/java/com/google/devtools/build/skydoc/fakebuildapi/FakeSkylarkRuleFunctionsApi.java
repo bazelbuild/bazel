@@ -84,7 +84,8 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public ProviderApi provider(String doc, Object fields, Location location) throws EvalException {
+  public ProviderApi provider(String doc, Object fields, Location location, Environment env)
+      throws EvalException {
     FakeProviderApi fakeProvider = new FakeProviderApi();
     // Field documentation will be output preserving the order in which the fields are listed.
     ImmutableList.Builder<ProviderFieldInfo> providerFieldInfos = ImmutableList.builder();

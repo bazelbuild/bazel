@@ -172,7 +172,8 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disable_partition_default_parameter=" + rand.nextBoolean(),
         "--incompatible_assignment_identifiers_have_local_scope=" + rand.nextBoolean(),
         "--incompatible_disallow_hashing_frozen_mutables=" + rand.nextBoolean(),
-        "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
+        "--internal_skylark_flag_test_canary=" + rand.nextBoolean(),
+        "--experimental_function_equality_by_location=" + rand.nextBoolean());
   }
 
   /**
@@ -233,6 +234,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleAssignmentIdentifiersHaveLocalScope(rand.nextBoolean())
         .incompatibleDisallowHashingFrozenMutables(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
+        .experimentalFunctionEqualityByLocation(rand.nextBoolean())
         .build();
   }
 

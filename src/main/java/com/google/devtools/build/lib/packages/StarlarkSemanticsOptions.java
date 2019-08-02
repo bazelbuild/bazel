@@ -704,6 +704,15 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       help = "If set to true, unknown string escapes like `\\a` become rejected.")
   public boolean incompatibleRestrictStringEscapes;
 
+  @Option(
+      name = "experimental_function_equality_by_location",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help =
+          "If set to true, two Starlark functions defined at the same place are considered equal.")
+  public boolean experimentalFunctionEqualityByLocation;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -774,6 +783,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleAssignmentIdentifiersHaveLocalScope(
                 incompatibleAssignmentIdentifiersHaveLocalScope)
             .incompatibleDisallowHashingFrozenMutables(incompatibleDisallowHashingFrozenMutables)
+            .experimentalFunctionEqualityByLocation(experimentalFunctionEqualityByLocation)
             .build();
     return INTERNER.intern(semantics);
   }

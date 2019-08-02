@@ -81,7 +81,8 @@ public class SkylarkInfoTest {
   @Test
   public void givenLayoutTakesPrecedenceOverProviderLayout() throws Exception {
     SkylarkProvider provider =
-        SkylarkProvider.createUnexportedSchemaful(ImmutableList.of("f1", "f2"), Location.BUILTIN);
+        SkylarkProvider.createUnexportedSchemaful(
+            ImmutableList.of("f1", "f2"), Location.BUILTIN, /* equalityByLocation */ false);
     SkylarkInfo info =
         SkylarkInfo.createSchemaful(
             provider, invertedLayoutF2F1, new Object[]{5, 4}, Location.BUILTIN);
