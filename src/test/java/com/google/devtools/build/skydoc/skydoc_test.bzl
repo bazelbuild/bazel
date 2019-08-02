@@ -43,7 +43,6 @@ def skydoc_test(
           in this test.
       golden_file: The label string of the golden file containing the documentation when skydoc
           is run on the input file.
-      skydoc: The label string of the skydoc binary.
       deps: A list of label strings of skylark file dependencies of the input_file.
       whitelisted_symbols: A list of strings representing top-level symbols in the input file
           to generate documentation for. If empty, documentation for all top-level symbols

@@ -40,7 +40,7 @@ public class RendererOptions extends OptionsBase {
 
   @Option(
       name = "header_template",
-      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/header.vm",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       help =
@@ -50,7 +50,7 @@ public class RendererOptions extends OptionsBase {
 
   @Option(
       name = "rule_template",
-      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/rule.vm",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       help =
@@ -60,7 +60,7 @@ public class RendererOptions extends OptionsBase {
 
   @Option(
       name = "provider_template",
-      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/provider.vm",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       help =
@@ -70,7 +70,7 @@ public class RendererOptions extends OptionsBase {
 
   @Option(
       name = "func_template",
-      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/func.vm",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       help =
@@ -80,7 +80,7 @@ public class RendererOptions extends OptionsBase {
 
   @Option(
       name = "aspect_template",
-      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/aspect.vm",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       help =
