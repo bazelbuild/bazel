@@ -451,7 +451,7 @@ http_archive(
 
 http_archive(
     name = "rules_java",
-#    sha256 = "89794de7ea4146ac2a7b8341606ec74b1b185356b04c4f7f5ded0af57fd0e301",
+    sha256 = "13800f95f03b542932a8e29417b988ae04c6b8395e8e50597ec92934bbbc58d7",
     strip_prefix = "rules_java-3105ad0a46e211c1b23d24c3ca46e352c4d6bfb8",
     urls = [
         "https://github.com/bazelbuild/rules_java/archive/3105ad0a46e211c1b23d24c3ca46e352c4d6bfb8.zip"
