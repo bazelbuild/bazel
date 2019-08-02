@@ -36,11 +36,10 @@ public class UserDefinedFunction extends BaseFunction {
   public UserDefinedFunction(
       String name,
       Location location,
-      boolean equalityByLocation,
       FunctionSignature.WithValues<Object, SkylarkType> signature,
       ImmutableList<Statement> statements,
       Environment.GlobalFrame definitionGlobals) {
-    super(name, signature, location, equalityByLocation);
+    super(name, signature, location);
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;
   }

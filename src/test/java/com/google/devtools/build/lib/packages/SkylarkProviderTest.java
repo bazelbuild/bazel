@@ -71,9 +71,8 @@ public final class SkylarkProviderTest {
 
   @Test
   public void schemafulProvider_Instantiation() throws Exception {
-    SkylarkProvider provider =
-        SkylarkProvider.createUnexportedSchemaful(
-            ImmutableList.of("a", "b", "c"), /*location=*/ null, false);
+    SkylarkProvider provider = SkylarkProvider.createUnexportedSchemaful(
+        ImmutableList.of("a", "b", "c"), /*location=*/ null);
     SkylarkInfo info = instantiateWithA1B2C3(provider);
     assertThat(info.isCompact()).isTrue();
     assertHasExactlyValuesA1B2C3(info);
@@ -87,9 +86,8 @@ public final class SkylarkProviderTest {
 
   @Test
   public void schemafulProvider_GetFields() throws Exception {
-    SkylarkProvider provider =
-        SkylarkProvider.createUnexportedSchemaful(
-            ImmutableList.of("a", "b", "c"), /*location=*/ null, false);
+    SkylarkProvider provider = SkylarkProvider.createUnexportedSchemaful(
+        ImmutableList.of("a", "b", "c"), /*location=*/ null);
     assertThat(provider.getFields()).containsExactly("a", "b", "c").inOrder();
   }
 

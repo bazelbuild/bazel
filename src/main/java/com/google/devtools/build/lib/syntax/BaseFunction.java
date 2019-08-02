@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -56,7 +55,6 @@ import javax.annotation.Nullable;
 // (that FuncallExpression must supply), optimizing for the all-positional and all-keyword cases.
 // Also, use better pure maps to minimize map O(n) re-creation events when processing keyword maps.
 public abstract class BaseFunction implements StarlarkFunction {
-  private final boolean equalityByLocation;
 
   /**
    * The name of the function.
@@ -132,7 +130,7 @@ public abstract class BaseFunction implements StarlarkFunction {
    * {@link #getName}; otherwise it must be non-null.
    */
   public BaseFunction(@Nullable String name) {
-    this(name, null, null, false);
+    this.name = name;
   }
 
   /**
@@ -145,12 +143,10 @@ public abstract class BaseFunction implements StarlarkFunction {
   public BaseFunction(
       @Nullable String name,
       @Nullable FunctionSignature.WithValues<Object, SkylarkType> signature,
-      @Nullable Location location,
-      boolean equalityByLocation) {
-    this.name = name;
+      @Nullable Location location) {
+    this(name);
     this.signature = signature;
     this.location = location;
-    this.equalityByLocation = equalityByLocation;
   }
 
   /**
@@ -162,7 +158,7 @@ public abstract class BaseFunction implements StarlarkFunction {
   public BaseFunction(
       @Nullable String name,
       @Nullable FunctionSignature.WithValues<Object, SkylarkType> signature) {
-    this(name, signature, null, false);
+    this(name, signature, null);
   }
 
   /**
@@ -172,7 +168,7 @@ public abstract class BaseFunction implements StarlarkFunction {
    * @param signature the signature, without default values or types
    */
   public BaseFunction(@Nullable String name, FunctionSignature signature) {
-    this(name, FunctionSignature.WithValues.create(signature), null, false);
+    this(name, FunctionSignature.WithValues.create(signature), null);
   }
 
   /**
@@ -182,9 +178,8 @@ public abstract class BaseFunction implements StarlarkFunction {
    * @param defaultValues a list of default values for the optional arguments to be configured.
    */
   public BaseFunction(@Nullable String name, @Nullable Iterable<Object> defaultValues) {
-    this.name = name;
+    this(name);
     this.unconfiguredDefaultValues = defaultValues;
-    this.equalityByLocation = false;
   }
 
   /** Get parameter documentation as a list corresponding to each parameter */
@@ -577,32 +572,6 @@ public abstract class BaseFunction implements StarlarkFunction {
     }
     builder.append(")");
     return builder.toString();
-  }
-
-  @Override
-  public boolean equals(@Nullable Object other) {
-    if (equalityByLocation) {
-      if (other instanceof BaseFunction) {
-        BaseFunction that = (BaseFunction) other;
-        // In theory, the location alone unambiguously identifies a given function. However, in
-        // some test cases the location might not have a valid value, thus we also check the name.
-        return Objects.equals(this.getName(), that.getName())
-            && Objects.equals(this.location, that.location);
-      } else {
-        return false;
-      }
-    } else {
-      return super.equals(other);
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    if (equalityByLocation) {
-      return Objects.hash(getName(), location);
-    } else {
-      return super.hashCode();
-    }
   }
 
   @Nullable

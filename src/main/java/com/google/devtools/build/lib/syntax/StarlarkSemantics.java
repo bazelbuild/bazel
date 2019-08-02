@@ -222,8 +222,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowHashingFrozenMutables();
 
-  public abstract boolean experimentalFunctionEqualityByLocation();
-
   @Memoized
   @Override
   public abstract int hashCode();
@@ -306,7 +304,6 @@ public abstract class StarlarkSemantics {
           .incompatibleAllowTagsPropagation(false)
           .incompatibleAssignmentIdentifiersHaveLocalScope(false)
           .incompatibleDisallowHashingFrozenMutables(false)
-          .experimentalFunctionEqualityByLocation(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -412,8 +409,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleAssignmentIdentifiersHaveLocalScope(boolean value);
 
     public abstract Builder incompatibleDisallowHashingFrozenMutables(boolean value);
-
-    public abstract Builder experimentalFunctionEqualityByLocation(boolean value);
 
     public abstract StarlarkSemantics build();
   }

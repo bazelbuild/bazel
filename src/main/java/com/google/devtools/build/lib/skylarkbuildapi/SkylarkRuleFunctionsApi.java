@@ -86,10 +86,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             defaultValue = "None")
       },
-      useLocation = true,
-      useEnvironment = true)
-  public ProviderApi provider(String doc, Object fields, Location location, Environment env)
-      throws EvalException;
+      useLocation = true)
+  public ProviderApi provider(String doc, Object fields, Location location) throws EvalException;
 
   @SkylarkCallable(
       name = "rule",

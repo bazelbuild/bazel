@@ -42,9 +42,8 @@ abstract class ProviderFromFunction extends BaseFunction implements Provider {
   protected ProviderFromFunction(
       @Nullable String name,
       FunctionSignature.WithValues<Object, SkylarkType> signature,
-      Location location,
-      boolean equalityByLocation) {
-    super(name, signature, location, equalityByLocation);
+      Location location) {
+    super(name, signature, location);
   }
 
   public SkylarkProviderIdentifier id() {

@@ -75,10 +75,8 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
    * @param location the location of the Skylark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
-  @VisibleForTesting
   public static SkylarkProvider createUnexportedSchemaless(Location location) {
-    return new SkylarkProvider(
-        /*key=*/ null, /*fields=*/ null, location, /* equalityByLocation */ false);
+    return new SkylarkProvider(/*key=*/ null, /*fields=*/ null, location);
   }
 
   /**
@@ -92,12 +90,9 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
    *     Location#BUILTIN})
    */
   public static SkylarkProvider createUnexportedSchemaful(
-      Iterable<String> fields, Location location, boolean equalityByLocation) {
+      Iterable<String> fields, Location location) {
     return new SkylarkProvider(
-        /*key=*/ null,
-        fields == null ? null : ImmutableList.copyOf(fields),
-        location,
-        equalityByLocation);
+        /*key=*/ null, fields == null ? null : ImmutableList.copyOf(fields), location);
   }
 
   /**
@@ -107,9 +102,8 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
    * @param location the location of the Skylark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
-  @VisibleForTesting
   public static SkylarkProvider createExportedSchemaless(SkylarkKey key, Location location) {
-    return new SkylarkProvider(key, /*fields=*/ null, location, /* equalityByLocation */ false);
+    return new SkylarkProvider(key, /*fields=*/ null, location);
   }
 
   /**
@@ -121,14 +115,9 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
    * @param location the location of the Skylark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
-  @VisibleForTesting
   public static SkylarkProvider createExportedSchemaful(
       SkylarkKey key, Iterable<String> fields, Location location) {
-    return new SkylarkProvider(
-        key,
-        fields == null ? null : ImmutableList.copyOf(fields),
-        location, /* equalityByLocation */
-        false);
+    return new SkylarkProvider(key, fields == null ? null : ImmutableList.copyOf(fields), location);
   }
 
   /**
@@ -138,13 +127,10 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
    * is schemaless.
    */
   private SkylarkProvider(
-      @Nullable SkylarkKey key,
-      @Nullable ImmutableList<String> fields,
-      Location location,
-      boolean equalityByLocation) {
+      @Nullable SkylarkKey key, @Nullable ImmutableList<String> fields, Location location) {
     // We override getName() in order to use the name that is assigned when export() is called.
     // Hence BaseFunction's constructor gets a null name.
-    super(/*name=*/ null, buildSignature(fields), location, equalityByLocation);
+    super(/*name=*/ null, buildSignature(fields), location);
     this.layout = fields == null ? null : new Layout(fields);
     this.key = key;  // possibly null
     this.errorMessageFormatForUnknownField =

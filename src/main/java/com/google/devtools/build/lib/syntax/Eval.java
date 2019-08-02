@@ -126,7 +126,6 @@ public class Eval {
         new UserDefinedFunction(
             node.getIdentifier().getName(),
             node.getIdentifier().getLocation(),
-            env.getSemantics().experimentalFunctionEqualityByLocation(),
             FunctionSignature.WithValues.create(sig, defaultValues, /*types=*/ null),
             node.getStatements(),
             env.getGlobals()));
