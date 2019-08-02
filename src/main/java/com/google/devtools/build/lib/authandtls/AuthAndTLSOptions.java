@@ -76,7 +76,7 @@ public class AuthAndTLSOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_tls_enabled_removed",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
