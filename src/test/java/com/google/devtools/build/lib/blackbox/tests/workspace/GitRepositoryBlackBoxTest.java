@@ -214,8 +214,6 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     ProcessResult result = bazel.shouldFail().build("@ext//:write_text");
     assertThat(result.errString()).contains(
         "error running 'git fetch --all' while working with @ext:");
-    assertThat(result.errString()).contains(""
-        + "fatal: '/some_path' does not appear to be a git repository");
     assertThat(result.errString()).contains(
         "fatal: Could not read from remote repository.");
   }
