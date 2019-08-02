@@ -31,6 +31,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Fake implementation of {@link RepositoryModuleApi}.
@@ -94,6 +95,12 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
     public RepositoryRuleDefinitionIdentifier() {
       super("RepositoryRuleDefinitionIdentifier" + idCounter++);
+    }
+
+    @Override
+    public boolean equals(@Nullable Object other) {
+      // Use exact object matching.
+      return this == other;
     }
   }
 }

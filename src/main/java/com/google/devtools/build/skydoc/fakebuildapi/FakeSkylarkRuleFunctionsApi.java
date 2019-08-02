@@ -47,6 +47,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Fake implementation of {@link SkylarkRuleFunctionsApi}.
@@ -242,6 +243,12 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
     public RuleDefinitionIdentifier() {
       super("RuleDefinitionIdentifier" + idCounter++);
+    }
+
+    @Override
+    public boolean equals(@Nullable Object other) {
+      // Use exact object matching.
+      return this == other;
     }
   }
 
