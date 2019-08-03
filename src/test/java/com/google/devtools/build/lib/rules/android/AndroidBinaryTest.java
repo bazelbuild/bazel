@@ -877,6 +877,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testResourceShrinkingAction() throws Exception {
+    useConfiguration("--android_aapt=aapt");
+
     scratch.file("java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
         "               srcs = ['Foo.java'],",
@@ -933,8 +935,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceCycleShrinking() throws Exception {
-    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
+  public void testResourceCycleShrinkingWithAapt() throws Exception {
+    useConfiguration("--android_aapt=aapt", "--experimental_android_resource_cycle_shrinking=true");
+
     checkError(
         "java/a",
         "a",
@@ -1326,6 +1329,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFilteredResourcesInvalidFilter() throws Exception {
+    // This test is an analysis-time check with aapt.
+    useConfiguration("--android_aapt=aapt");
+
     String badQualifier = "invalid-qualifier";
 
     checkError(
@@ -1340,6 +1346,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFilteredResourcesInvalidResourceDir() throws Exception {
+    // This test is an analysis-time check with aapt.
+    useConfiguration("--android_aapt=aapt");
+
     String badQualifierDir = "values-invalid-qualifier";
 
     checkError(
@@ -1358,10 +1367,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     List<String> resources =
         ImmutableList.of("res/values/foo.xml", "res/values-en/foo.xml", "res/values-fr/foo.xml");
     String dir = "java/r/android";
-
-    mockAndroidSdkWithAapt2();
-
-    useConfiguration("--android_sdk=//sdk:sdk");
 
     ConfiguredTarget binary =
         scratchConfiguredTarget(
@@ -1390,6 +1395,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFilteredResourcesSimple() throws Exception {
+    useConfiguration("--android_aapt=aapt");
+
     testDirectResourceFiltering(
         "en",
         /* unexpectedQualifiers= */ ImmutableList.of("fr"),
@@ -1678,6 +1685,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
       String folderType,
       String suffix)
       throws Exception {
+    // Filtering is done at the analysis time for aapt.
+    useConfiguration("--android_aapt=aapt");
 
     List<String> unexpectedResources = new ArrayList<>();
     for (String qualifier : unexpectedQualifiers) {
@@ -1757,6 +1766,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFilteredTransitiveResources() throws Exception {
+    // Filtering is done at analysis time for aapt.
+    useConfiguration("--android_aapt=aapt");
+
     String matchingResource = "res/values-en/foo.xml";
     String unqualifiedResource = "res/values/foo.xml";
     String notMatchingResource = "res/values-fr/foo.xml";
@@ -1799,6 +1811,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFilteredTransitiveResourcesDifferentDensities() throws Exception {
+    // Filtering is done at analysis time for aapt.
+    useConfiguration("--android_aapt=aapt");
+
     String dir = "java/r/android";
 
     ConfiguredTarget binary =
@@ -1846,6 +1861,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFilteredResourcesAllFilteredOut() throws Exception {
+    // Filtering is done at analysis time for aapt.
+    useConfiguration("--android_aapt=aapt");
+
     String dir = "java/r/android";
 
     final String keptBaseDir = "partly_filtered_dir";
@@ -2097,6 +2115,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testUseRClassGeneratorMultipleDeps() throws Exception {
+    // This test assumes using aapt.
+    useConfiguration("--android_aapt=aapt");
+
     scratch.file(
         "java/r/android/BUILD",
         "android_library(name = 'lib1',",
@@ -2531,6 +2552,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_sdk(",
         "    name = 'sdk',",
         "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
         "    adb = 'adb',",
         "    aidl = 'aidl',",
         "    android_jar = 'android.jar',",
@@ -2569,6 +2591,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    name = 'sdk',",
         "    build_tools_version = '24.0.0',",
         "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
         "    adb = 'adb',",
         "    aidl = 'aidl',",
         "    android_jar = 'android.jar',",
@@ -3579,39 +3602,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAapt2WithoutAndroidSdk() throws Exception {
-    useConfiguration("--android_aapt=aapt2");
-    checkError(
-        "java/a",
-        "a",
-        "aapt2 processing requested but not available on the android_sdk",
-        "android_binary(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = [ 'res/values/values.xml' ], ",
-        "    aapt_version = 'aapt2'",
-        ")");
-  }
-
-  @Test
-  public void testAapt2FlagWithoutAndroidSdk() throws Exception {
-    useConfiguration("--android_aapt=aapt2");
-    checkError(
-        "java/a",
-        "a",
-        "aapt2 processing requested but not available on the android_sdk",
-        "android_binary(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = [ 'res/values/values.xml' ], ",
-        ")");
-  }
-
-  @Test
   public void testAapt2WithAndroidSdk() throws Exception {
-    mockAndroidSdkWithAapt2();
     scratch.file(
         "java/a/BUILD",
         "android_binary(",
@@ -3622,17 +3613,20 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    aapt_version = 'aapt2'",
         ")");
 
-    useConfiguration("--android_sdk=//sdk:sdk");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     Artifact apk = getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_APK);
 
     assertThat(getGeneratingSpawnActionArgs(apk))
-        .containsAtLeast("--aapt2", "sdk/aapt2", "--tool", "AAPT2_PACKAGE");
+        .containsAtLeast(
+            "--aapt2",
+            // The path to aapt2 is different between Blaze and Bazel, so we omit it here.
+            // It's safe to do so as we've already checked for the `--aapt2` flag.
+            "--tool",
+            "AAPT2_PACKAGE");
   }
 
   @Test
   public void testAapt2WithAndroidSdkAndDependencies() throws Exception {
-    mockAndroidSdkWithAapt2();
     scratch.file(
         "java/b/BUILD",
         "android_library(",
@@ -3653,7 +3647,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    aapt_version = 'aapt2'",
         ")");
 
-    useConfiguration("--android_sdk=//sdk:sdk");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
 
@@ -3664,7 +3657,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     SpawnAction apkAction = getGeneratingSpawnAction(apk);
     assertThat(getGeneratingSpawnActionArgs(apk))
-        .containsAtLeast("--aapt2", "sdk/aapt2", "--tool", "AAPT2_PACKAGE");
+        .containsAtLeast(
+            "--aapt2",
+            // The path to aapt2 is different between Blaze and Bazel, so we omit it here.
+            // It's safe to do so as we've already checked for the `--aapt2` flag.
+            "--tool",
+            "AAPT2_PACKAGE");
 
     assertThat(apkAction.getInputs())
         .contains(
@@ -3678,7 +3676,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testAapt2ResourceShrinkingAction() throws Exception {
-    mockAndroidSdkWithAapt2();
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
@@ -3690,7 +3687,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               shrink_resources = 1,",
         "               proguard_specs = ['proguard-spec.pro'],)");
 
-    useConfiguration("--android_sdk=//sdk:sdk");
     ConfiguredTargetAndData targetAndData =
         getConfiguredTargetAndData("//java/com/google/android/hello:hello");
     ConfiguredTarget binary = targetAndData.getConfiguredTarget();
@@ -3742,9 +3738,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testAapt2ResourceCycleShrinking() throws Exception {
-    mockAndroidSdkWithAapt2();
-    useConfiguration(
-        "--android_sdk=//sdk:sdk", "--experimental_android_resource_cycle_shrinking=true");
+    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
@@ -3775,9 +3769,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testAapt2ResourceCycleShinkingWithoutResourceShrinking() throws Exception {
-    mockAndroidSdkWithAapt2();
-    useConfiguration(
-        "--android_sdk=//sdk:sdk", "--experimental_android_resource_cycle_shrinking=true");
+    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
     checkError(
         "java/a",
         "a",
@@ -4340,7 +4332,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testSkipParsingActionFlagGetsPropagated() throws Exception {
-    mockAndroidSdkWithAapt2();
     scratch.file(
         "java/b/BUILD",
         "android_library(",
@@ -4361,7 +4352,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    aapt_version = 'aapt2'",
         ")");
 
-    useConfiguration("--android_sdk=//sdk:sdk", "--experimental_skip_parsing_action");
+    useConfiguration("--experimental_skip_parsing_action");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
 
@@ -4384,7 +4375,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void alwaysSkipParsingActionWithAapt2() throws Exception {
-    mockAndroidSdkWithAapt2();
     scratch.file(
         "java/b/BUILD",
         "android_library(",
@@ -4405,7 +4395,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    aapt_version = 'aapt2'",
         ")");
 
-    useConfiguration("--android_sdk=//sdk:sdk");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
 
@@ -4428,7 +4417,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testAapt1BuildsWithAapt2Sdk() throws Exception {
-    mockAndroidSdkWithAapt2();
     scratch.file(
         "java/b/BUILD",
         "android_library(",
@@ -4449,7 +4437,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    aapt_version = 'aapt'",
         ")");
 
-    useConfiguration("--android_sdk=//sdk:sdk", "--experimental_skip_parsing_action");
+    useConfiguration("--android_aapt=aapt", "--experimental_skip_parsing_action");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
 

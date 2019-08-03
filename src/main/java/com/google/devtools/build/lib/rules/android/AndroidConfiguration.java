@@ -707,19 +707,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public ManifestMergerOrder manifestMergerOrder;
 
     @Option(
-      name = "android_aapt",
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      },
-      converter = AndroidAaptConverter.class,
-      help =
-          "Selects the version of androidAaptVersion to use for android_binary rules."
-              + "Flag to help the test and transition to aapt2."
-    )
+        name = "android_aapt",
+        defaultValue = "aapt2",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        converter = AndroidAaptConverter.class,
+        help =
+            "Selects the version of androidAaptVersion to use for android_binary rules."
+                + "Flag to help the test and transition to aapt2.")
     public AndroidAaptVersion androidAaptVersion;
 
     @Option(
@@ -969,7 +968,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
         },
-        defaultValue = "false",
+        defaultValue = "true",
         help =
             "Switch the Android rules to use aapt2 by default for resource processing. "
                 + "To resolve issues when migrating your app to build with aapt2, see "

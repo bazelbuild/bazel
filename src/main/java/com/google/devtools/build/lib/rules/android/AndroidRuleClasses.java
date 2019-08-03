@@ -854,6 +854,9 @@ public final class AndroidRuleClasses {
           .add(attr("manifest_values", STRING_DICT))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(aapt_version) -->
           Select the version of aapt for this rule.<br/>
+
+          This attribute only takes effect if you set `--android_aapt=auto`.<br/>
+
           Possible values:
           <ul>
               <li><code>aapt_version = "aapt"</code>: Use aapt (deprecated).</li>
