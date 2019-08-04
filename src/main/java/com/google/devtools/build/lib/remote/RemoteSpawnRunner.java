@@ -335,7 +335,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
-    if (!executionOptions.materializeParamFiles) {
+    if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
     }
     for (ActionInput actionInput : spawn.getInputFiles()) {

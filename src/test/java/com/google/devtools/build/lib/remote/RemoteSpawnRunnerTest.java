@@ -813,8 +813,21 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void testMaterializeParamFiles() throws Exception {
-    ExecutionOptions executionOptions =
-        Options.parse(ExecutionOptions.class, "--materialize_param_files").getOptions();
+    testParamFilesAreMaterializedForFlag("--materialize_param_files");
+  }
+
+  @Test
+  public void testMaterializeParamFilesIsImpliedBySubcommands() throws Exception {
+    testParamFilesAreMaterializedForFlag("--subcommands");
+  }
+
+  @Test
+  public void testMaterializeParamFilesIsImpliedByVerboseFailures() throws Exception {
+    testParamFilesAreMaterializedForFlag("--verbose_failures");
+  }
+
+  private void testParamFilesAreMaterializedForFlag(String flag) throws Exception {
+    ExecutionOptions executionOptions = Options.parse(ExecutionOptions.class, flag).getOptions();
     executionOptions.materializeParamFiles = true;
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(

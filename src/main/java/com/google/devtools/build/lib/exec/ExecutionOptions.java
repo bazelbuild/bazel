@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -134,8 +135,16 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Writes intermediate parameter files to output tree even when using "
-              + "remote action execution. Useful when debugging actions. ")
+              + "remote action execution. Useful when debugging actions. "
+              + "This is implied by --subcommands or --verbose_failures.")
   public boolean materializeParamFiles;
+
+  public boolean shouldMaterializeParamFiles() {
+    // Implied by --subcommands or --verbose_failures
+    return materializeParamFiles
+        || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE
+        || verboseFailures;
+  }
 
   @Option(
     name = "verbose_failures",
