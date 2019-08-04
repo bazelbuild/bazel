@@ -5,6 +5,14 @@ licenses(["notice"])  # Apache 2.0
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_proto_library")
 load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_toolchain")
 
+SUPRESSED_WARNINGS = select({
+    ":windows": [],
+    "//conditions:default": [
+        "-Wno-error",
+        "-Wno-old-style-cast",
+    ],
+})
+
 java_toolchain(
     name = "toolchain",
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
@@ -412,6 +420,7 @@ cc_binary(
         "java_tools/ijar/classfile.cc",
         "java_tools/ijar/ijar.cc",
     ],
+    copts = SUPRESSED_WARNINGS,
     # Remove dependency on @bazel_tools//tools/cpp:malloc, which avoid /Iexternal/tools being used
     # in compiling actions.
     malloc = ":malloc",
@@ -435,6 +444,7 @@ cc_library(
         "java_tools/ijar/mapped_file.h",
         "java_tools/ijar/zip.h",
     ],
+    copts = SUPRESSED_WARNINGS,
     include_prefix = "third_party",
     strip_include_prefix = "java_tools",
     deps = [
@@ -459,6 +469,7 @@ cc_library(
         "java_tools/ijar/common.h",
         "java_tools/ijar/platform_utils.h",
     ],
+    copts = SUPRESSED_WARNINGS,
     include_prefix = "third_party",
     strip_include_prefix = "java_tools",
     visibility = ["//visibility:private"],
@@ -581,6 +592,7 @@ cc_library(
     name = "strings",
     srcs = ["java_tools/src/main/cpp/util/strings.cc"],
     hdrs = ["java_tools/src/main/cpp/util/strings.h"],
+    copts = SUPRESSED_WARNINGS,
     # Automatically propagate the symbol definition to rules depending on this.
     defines = [
         "BLAZE_OPENSOURCE",
@@ -592,6 +604,7 @@ cc_library(
 cc_library(
     name = "blaze_exit_code",
     hdrs = ["java_tools/src/main/cpp/util/exit_code.h"],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
 )
 
@@ -599,6 +612,7 @@ cc_library(
     name = "port",
     srcs = ["java_tools/src/main/cpp/util/port.cc"],
     hdrs = ["java_tools/src/main/cpp/util/port.h"],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
 )
 
@@ -606,6 +620,7 @@ cc_library(
     name = "logging",
     srcs = ["java_tools/src/main/cpp/util/logging.cc"],
     hdrs = ["java_tools/src/main/cpp/util/logging.h"],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
         ":blaze_exit_code",
@@ -620,6 +635,7 @@ cc_library(
         "java_tools/ijar/common.h",
         "java_tools/ijar/zlib_client.h",
     ],
+    copts = SUPRESSED_WARNINGS,
     include_prefix = "third_party",
     strip_include_prefix = "java_tools",
     deps = ["//java_tools/zlib"],
@@ -632,6 +648,7 @@ cc_binary(
     srcs = [
         "java_tools/src/tools/singlejar/singlejar_main.cc",
     ],
+    copts = SUPRESSED_WARNINGS,
     linkopts = select({
         ":freebsd": ["-lm"],
         "//conditions:default": [],
@@ -653,6 +670,7 @@ cc_binary(
     srcs = [
         "java_tools/src/tools/singlejar/singlejar_local_main.cc",
     ],
+    copts = SUPRESSED_WARNINGS,
     linkopts = select({
         ":freebsd": ["-lm"],
         "//conditions:default": [],
@@ -678,6 +696,7 @@ cc_library(
         ":transient_bytes",
         ":zip_headers",
     ],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
         "//java_tools/zlib",
@@ -698,6 +717,7 @@ cc_library(
     name = "desugar_checking",
     srcs = ["java_tools/src/tools/singlejar/desugar_checking.cc"],
     hdrs = ["java_tools/src/tools/singlejar/desugar_checking.h"],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
         ":combiners",
@@ -708,6 +728,7 @@ cc_library(
 cc_library(
     name = "diag",
     hdrs = ["java_tools/src/tools/singlejar/diag.h"],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     visibility = ["//visibility:private"],
 )
@@ -715,6 +736,7 @@ cc_library(
 cc_library(
     name = "singlejar_port",
     hdrs = ["java_tools/src/tools/singlejar/port.h"],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     visibility = ["//visibility:private"],
 )
@@ -727,6 +749,7 @@ cc_library(
                ":windows": ["java_tools/src/tools/singlejar/mapped_file_windows.inc"],
                "//conditions:default": ["java_tools/src/tools/singlejar/mapped_file_posix.inc"],
            }),
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     visibility = ["//visibility:private"],
     deps = [
@@ -745,6 +768,7 @@ cc_library(
         "java_tools/src/tools/singlejar/input_jar.h",
         "java_tools/src/tools/singlejar/zip_headers.h",
     ],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
         ":diag",
@@ -759,6 +783,7 @@ cc_library(
         "java_tools/src/tools/singlejar/options.h",
     ],
     hdrs = ["java_tools/src/tools/singlejar/options.h"],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
         ":diag",
@@ -774,6 +799,7 @@ cc_library(
         ":zip_headers",
     ],
     hdrs = ["java_tools/src/tools/singlejar/output_jar.h"],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
         ":combiners",
@@ -790,6 +816,7 @@ cc_library(
 cc_library(
     name = "token_stream",
     hdrs = ["java_tools/src/tools/singlejar/token_stream.h"],
+    copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
         ":diag",
