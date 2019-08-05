@@ -266,6 +266,9 @@ public class BuildView {
               new MakeEnvironmentEvent(
                   configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
     }
+    for (BuildConfiguration targetConfig : configurations.getTargetConfigurations()) {
+      eventBus.post(targetConfig.toBuildEvent());
+    }
 
     Collection<TargetAndConfiguration> topLevelTargetsWithConfigs =
         topLevelTargetsWithConfigsResult.getTargetsAndConfigs();
