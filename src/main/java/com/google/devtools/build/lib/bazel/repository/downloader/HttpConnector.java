@@ -185,11 +185,6 @@ class HttpConnector {
         throw e;
       } catch (IllegalArgumentException e) {
         throw new UnrecoverableHttpException(e.getMessage());
-      } catch (SocketTimeoutException e) {
-        // SocketTimeoutExceptions are InterruptedExceptions; however they do not signify
-        // an external interruption, but simply a failed download due to some server timing
-        // out. So rethrow them as ordinary IOExceptions.
-        throw new IOException(e.getMessage(), e);
       } catch (IOException e) {
         if (connection != null) {
           // If we got here, it means we might not have consumed the entire payload of the
@@ -214,7 +209,12 @@ class HttpConnector {
           throw e;
         }
         if (++retries == MAX_RETRIES) {
-          if (!(e instanceof SocketTimeoutException)) {
+          if (e instanceof SocketTimeoutException) {
+            // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
+            // an external interruption, but simply a failed download due to some server timing
+            // out. So rethrow them as ordinary IOExceptions.
+            e = new IOException(e.getMessage(), e);
+          } else {
             eventHandler
                 .handle(Event.progress(format("Error connecting to %s: %s", url, e.getMessage())));
           }
