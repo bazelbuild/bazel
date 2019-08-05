@@ -77,7 +77,7 @@ EOF
   bazel aquery --output=text --host_javabase=//:host_javabase \
     //java:javalib >& $TEST_log
   expect_log "exec .*foobar/bin/java"
-  expect_not_log "exec external/remotejdk_.*/bin/java"
+  expect_not_log "exec external/remote_jdk_.*/bin/java"
 
   bazel aquery --output=text --incompatible_use_jdk11_as_host_javabase \
     //java:javalib >& $TEST_log
@@ -209,7 +209,7 @@ EOF
   expect_not_log "foo"
   expect_not_log "bar"
   expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk_"
+  expect_not_log "remote_jdk_"
   expect_not_log "remotejdk11_"
 
   # Test the genrule that specifically depends on :bar_runtime.
@@ -218,7 +218,7 @@ EOF
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk_"
+  expect_not_log "remote_jdk_"
   expect_not_log "remotejdk11_"
 
   # Setting the javabase should not change the use of :bar_runtime from the
@@ -228,7 +228,7 @@ EOF
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk_"
+  expect_not_log "remote_jdk_"
   expect_not_log "remotejdk11_"
 }
 

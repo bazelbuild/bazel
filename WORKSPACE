@@ -130,7 +130,7 @@ distdir_tar(
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "de5b585b1367463ac42b44db85447189301dc5e1.zip",
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
         # bazelbuild/bazel-toolchains
@@ -155,7 +155,7 @@ distdir_tar(
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
         # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+        "de5b585b1367463ac42b44db85447189301dc5e1.zip": "af7eb0fcbc518f88e66d239de428fc87e919514c96ab09589bfee756381db297",
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
         # bazelbuild/bazel-toolchains
@@ -207,9 +207,9 @@ distdir_tar(
             "https://github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         ],
         # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "de5b585b1367463ac42b44db85447189301dc5e1.zip": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/de5b585b1367463ac42b44db85447189301dc5e1.zip",
+            "https://github.com/bazelbuild/rules_java/archive/de5b585b1367463ac42b44db85447189301dc5e1.zip",
         ],
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": [
@@ -465,11 +465,11 @@ http_archive(
 
 http_archive(
     name = "rules_java",
-    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
+    sha256 = "af7eb0fcbc518f88e66d239de428fc87e919514c96ab09589bfee756381db297",
+    strip_prefix = "rules_java-de5b585b1367463ac42b44db85447189301dc5e1",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/de5b585b1367463ac42b44db85447189301dc5e1.zip",
+        "https://github.com/bazelbuild/rules_java/archive/de5b585b1367463ac42b44db85447189301dc5e1.zip",
     ],
 )
 
@@ -512,7 +512,7 @@ distdir_tar(
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "de5b585b1367463ac42b44db85447189301dc5e1.zip",
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
         # bazelbuild/rules_proto
@@ -543,7 +543,7 @@ distdir_tar(
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
         # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+        "de5b585b1367463ac42b44db85447189301dc5e1.zip": "af7eb0fcbc518f88e66d239de428fc87e919514c96ab09589bfee756381db297",
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
         # bazelbuild/rules_proto
@@ -578,9 +578,9 @@ distdir_tar(
             "https://github.com/bazelbuild/platforms/archive/441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         ],
         # bazelbuild/rules_java
-        "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "de5b585b1367463ac42b44db85447189301dc5e1.zip": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/de5b585b1367463ac42b44db85447189301dc5e1.zip",
+            "https://github.com/bazelbuild/rules_java/archive/de5b585b1367463ac42b44db85447189301dc5e1.zip",
         ],
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": [
