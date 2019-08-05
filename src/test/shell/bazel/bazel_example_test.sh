@@ -55,6 +55,7 @@ function set_up() {
 workspace(name = "io_bazel")
 EOF
   add_rules_cc_to_workspace WORKSPACE
+  add_rules_java_to_workspace WORKSPACE
 }
 
 #

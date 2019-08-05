@@ -465,6 +465,22 @@ http_archive(
 EOF
 }
 
+function add_rules_java_to_workspace() {
+cat >> "$1"<<EOF
+http_archive(
+    name = "rules_java",
+    sha256 = "ba17c64af5106e99f3f8780bf36707bb8c4a4d75ce8cc6bfadf20d0999946871",
+    strip_prefix = "rules_java-3cfac971c0fcc7783c50457ca8f3079caa571a96",
+    urls = [
+        "https://github.com/bazelbuild/rules_java/archive/3cfac971c0fcc7783c50457ca8f3079caa571a96.zip"
+    ],
+)
+load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
+rules_java_dependencies()
+rules_java_toolchains()
+EOF
+}
+
 # TODO(https://github.com/bazelbuild/bazel/issues/8986): Build this dynamically
 # from //WORKSPACE
 function add_rules_pkg_to_workspace() {
@@ -486,6 +502,7 @@ function create_workspace_with_default_repos() {
   touch "$1"
   add_rules_cc_to_workspace "$1"
   add_rules_pkg_to_workspace "$1"
+  add_rules_java_to_workspace "$1"
   echo "$1"
 }
 
@@ -496,6 +513,7 @@ workspace(name = '$WORKSPACE_NAME')
 EOF
   add_rules_cc_to_workspace "WORKSPACE"
   add_rules_pkg_to_workspace "WORKSPACE"
+  add_rules_java_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace
 }

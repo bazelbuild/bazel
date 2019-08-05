@@ -108,7 +108,7 @@ distdir_tar(
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        "bazel_skylib-0.9.0.tar.gz",
         "java_tools_javac11_linux-v4.0.zip",
         "java_tools_javac11_windows-v4.0.zip",
         "java_tools_javac11_darwin-v4.0.zip",
@@ -133,7 +133,7 @@ distdir_tar(
     dirname = "derived/distdir",
     sha256 = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
+        "bazel_skylib-0.9.0.tar.gz": "1dde365491125a3db70731e25658dfdd3bc5dbdfd11b840b3e987ecf043c7ca0",
         "java_tools_javac11_linux-v4.0.zip": "96e223094a12c842a66db0bb7bb6866e88e26e678f045842911f9bd6b47161f5",
         "java_tools_javac11_windows-v4.0.zip": "a1de51447b2ba2eab923d589ba6c72c289c16e6091e6a3bb3e67a05ef4ad200c",
         "java_tools_javac11_darwin-v4.0.zip": "fbf5bf22e9aab9c622e4c8c59314a1eef5ea09eafc5672b4f3250dc0b971bbcc",
@@ -160,9 +160,8 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
             "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         ],
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        "bazel_skylib-0.9.0.tar.gz": [
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/0.9.0/bazel_skylib-0.9.0.tar.gz",
         ],
         "java_tools_javac11_linux-v4.0.zip": [
             "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_linux-v4.0.zip",
@@ -198,7 +197,6 @@ distdir_tar(
         ],
         # bazelbuild/rules_java
         "3cfac971c0fcc7783c50457ca8f3079caa571a96.zip": [
-#            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/3cfac971c0fcc7783c50457ca8f3079caa571a96.zip",
             "https://github.com/bazelbuild/rules_java/archive/3cfac971c0fcc7783c50457ca8f3079caa571a96.zip",
         ],
         # bazelbuild/rules_cc
@@ -478,9 +476,10 @@ http_archive(
 distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
-        "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz",
-        "zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules.tar.gz",
-        "zulu9.0.7.1-jdk9.0.7-win_x64-allmodules.zip",
+        "bazel_skylib-0.9.0.tar.gz",
+        "zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz",
+#        "zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz",
+#        "zulu9.0.7.1-jdk9.0.7-win_x64.zip",
         "jdk9-server-release-1708.tar.xz",
         "zulu10.2+3-jdk10.0.1-linux_x64-allmodules.tar.gz",
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz",
@@ -509,9 +508,10 @@ distdir_tar(
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
-        "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": "f27cb933de4f9e7fe9a703486cf44c84bc8e9f138be0c270c9e5716a32367e87",
-        "zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules.tar.gz": "404e7058ff91f956612f47705efbee8e175a38b505fb1b52d8c1ea98718683de",
-        "zulu9.0.7.1-jdk9.0.7-win_x64-allmodules.zip": "e738829017f107e7a7cd5069db979398ec3c3f03ef56122f89ba38e7374f63ed",
+        "bazel_skylib-0.9.0.tar.gz": "1dde365491125a3db70731e25658dfdd3bc5dbdfd11b840b3e987ecf043c7ca0",
+        "zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz": "45f2dfbee93b91b1468cf81d843fc6d9a47fef1f831c0b7ceff4f1eb6e6851c8",
+#        "zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz": "404e7058ff91f956612f47705efbee8e175a38b505fb1b52d8c1ea98718683de",
+#        "zulu9.0.7.1-jdk9.0.7-win_x64.zip": "e738829017f107e7a7cd5069db979398ec3c3f03ef56122f89ba38e7374f63ed",
         "jdk9-server-release-1708.tar.xz": "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
         "zulu10.2+3-jdk10.0.1-linux_x64-allmodules.tar.gz": "57fad3602e74c79587901d6966d3b54ef32cb811829a2552163185d5064fe9b5",
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz": "e669c9a897413d855b550b4e39d79614392e6fb96f494e8ef99a34297d9d85d3",
@@ -539,9 +539,10 @@ distdir_tar(
         "b0cc14be5da05168b01db282fe93bdf17aa2b9f4.tar.gz": "88b0a90433866b44bb4450d4c30bc5738b8c4f9c9ba14e9661deb123f56a833d",
     },
     urls = {
-        "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
-        "zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules.tar.gz"],
-        "zulu9.0.7.1-jdk9.0.7-win_x64-allmodules.zip": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64-allmodules.zip"],
+        "bazel_skylib-0.9.0.tar.gz": ["https://github.com/bazelbuild/bazel-skylib/releases/download/0.9.0/bazel_skylib-0.9.0.tar.gz"],
+        "zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz"],
+#        "zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz"],
+#        "zulu9.0.7.1-jdk9.0.7-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64.zip"],
         "jdk9-server-release-1708.tar.xz": ["https://mirror.bazel.build/openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz"],
         "zulu10.2+3-jdk10.0.1-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-linux_x64-allmodules.tar.gz"],
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz"],
@@ -568,7 +569,6 @@ distdir_tar(
         ],
         # bazelbuild/rules_java
         "3cfac971c0fcc7783c50457ca8f3079caa571a96.zip": [
-#            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/3cfac971c0fcc7783c50457ca8f3079caa571a96.zip",
             "https://github.com/bazelbuild/rules_java/archive/3cfac971c0fcc7783c50457ca8f3079caa571a96.zip",
         ],
         # bazelbuild/rules_cc

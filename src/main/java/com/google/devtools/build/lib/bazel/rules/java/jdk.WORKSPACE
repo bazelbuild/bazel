@@ -90,8 +90,18 @@ maybe(
         "https://github.com/bazelbuild/rules_java/archive/3cfac971c0fcc7783c50457ca8f3079caa571a96.zip"
     ],
 )
-load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
-rules_java_dependencies()
+maybe(
+        http_archive,
+        name = "bazel_skylib",
+        type = "tar.gz",
+        url = "https://github.com/bazelbuild/bazel-skylib/releases/download/0.9.0/bazel_skylib-0.9.0.tar.gz",
+        sha256 = "1dde365491125a3db70731e25658dfdd3bc5dbdfd11b840b3e987ecf043c7ca0",
+    )
+load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains", "remote_jdk11_repos", "java_tools_javac11_repos")
+#rules_java_dependencies()
+remote_jdk11_repos()
+java_tools_javac11_repos()
+#_bazel_skylib()
 rules_java_toolchains()
 
 # Needed only because of java_tools.

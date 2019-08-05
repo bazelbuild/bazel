@@ -123,6 +123,7 @@ function test_env_vars() {
 workspace(name = "bar")
 EOF
   add_rules_cc_to_workspace WORKSPACE
+  add_rules_java_to_workspace WORKSPACE
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh

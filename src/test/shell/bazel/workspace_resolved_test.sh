@@ -445,7 +445,7 @@ trivial_rule(name = "a")
 trivial_rule(name = "b")
 EOF
 
-  bazel build @a//... @b//...
+  bazel build --distdir=${EXTREPODIR}/test_WORKSPACE/distdir @a//... @b//...
   echo; echo sync run; echo
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
