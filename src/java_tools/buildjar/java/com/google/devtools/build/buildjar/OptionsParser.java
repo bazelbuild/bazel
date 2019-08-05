@@ -185,6 +185,10 @@ public final class OptionsParser {
         case "--processors":
           collectProcessorArguments(processorNames, argQueue, "-");
           break;
+        case "--builtin_processors":
+          // TODO(b/138842734): add support for built-in processors
+          collectProcessorArguments(new ArrayList<>(), argQueue, "-");
+          break;
         case "--extclasspath":
         case "--extdir":
           collectFlagArguments(extClassPath, argQueue, "-");

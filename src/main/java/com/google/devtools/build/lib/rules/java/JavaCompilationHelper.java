@@ -240,6 +240,7 @@ public final class JavaCompilationHelper {
     builder.setTempDirectory(tempDir(classJar, label));
     builder.setClassDirectory(classDir(classJar, label));
     builder.setPlugins(attributes.plugins().plugins());
+    builder.setBuiltinProcessorNames(javaToolchain.getHeaderCompilerBuiltinProcessors());
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());

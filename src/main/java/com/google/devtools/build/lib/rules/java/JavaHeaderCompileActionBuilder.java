@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -235,13 +236,21 @@ public class JavaHeaderCompileActionBuilder {
       compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    // The compilation uses API-generating annotation processors and has to fall back to
-    // javac-turbine.
+    // Enable the direct classpath optimization if there are no annotation processors.
     // N.B. we only check if the processor classes are empty, we don't care if there is plugin
     // data or dependencies if there are no annotation processors to run. This differs from
     // javac where java_plugin may be used with processor_class unset to declare Error Prone
     // plugins.
-    boolean requiresAnnotationProcessing = !plugins.processorClasses().isEmpty();
+    boolean useDirectClasspath = plugins.processorClasses().isEmpty();
+
+    // Use the optimized 'direct' implementation if it is available, and either there are no
+    // annotation processors or they are built in to the tool and listed in
+    // java_toolchain.header_compiler_direct_processors.
+    boolean useHeaderCompilerDirect =
+        javaToolchain.getHeaderCompilerDirect() != null
+            && javaToolchain
+                .getHeaderCompilerBuiltinProcessors()
+                .containsAll(plugins.processorClasses().toSet());
 
     SpawnAction.Builder builder = new SpawnAction.Builder();
 
@@ -263,7 +272,7 @@ public class JavaHeaderCompileActionBuilder {
     builder.addInputs(sourceFiles);
 
     FilesToRunProvider headerCompiler =
-        (!requiresAnnotationProcessing && javaToolchain.getHeaderCompilerDirect() != null)
+        useHeaderCompilerDirect
             ? javaToolchain.getHeaderCompilerDirect()
             : javaToolchain.getHeaderCompiler();
     // The header compiler is either a jar file that needs to be executed using
@@ -318,9 +327,7 @@ public class JavaHeaderCompileActionBuilder {
       builder.addResultConsumer(createResultConsumer(outputDepsProto));
     }
 
-    // The action doesn't require annotation processing, so use the non-javac-based turbine
-    // implementation.
-    if (!requiresAnnotationProcessing) {
+    if (useDirectClasspath) {
       NestedSet<Artifact> classpath;
       if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
         classpath = directJars;
@@ -346,13 +353,23 @@ public class JavaHeaderCompileActionBuilder {
     // annotation processing.
 
     builder.addTransitiveInputs(classpathEntries);
-    builder.addTransitiveInputs(plugins.processorClasspath());
-    builder.addTransitiveInputs(plugins.data());
+    if (!useHeaderCompilerDirect) {
+      builder.addTransitiveInputs(plugins.processorClasspath());
+      builder.addTransitiveInputs(plugins.data());
+    }
     builder.addTransitiveInputs(compileTimeDependencyArtifacts);
 
     commandLine.addExecPaths("--classpath", classpathEntries);
     commandLine.addAll("--processors", plugins.processorClasses());
-    commandLine.addExecPaths("--processorpath", plugins.processorClasspath());
+    commandLine.addAll(
+        "--builtin_processors",
+        Sets.intersection(
+            plugins.processorClasses().toSet(),
+            javaToolchain.getHeaderCompilerBuiltinProcessors()));
+    commandLine.addAll("--processors", plugins.processorClasses());
+    if (!useHeaderCompilerDirect) {
+      commandLine.addExecPaths("--processorpath", plugins.processorClasspath());
+    }
     if (strictJavaDeps != StrictDepsMode.OFF) {
       commandLine.addExecPaths("--direct_dependencies", directJars);
       if (!compileTimeDependencyArtifacts.isEmpty()) {
