@@ -92,7 +92,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     upload(result, actionKey, action, command, execRoot, files, /* uploadAction= */ true);
     if (outErr.getErrorPath().exists()) {
       Digest stdErrDigest = digestUtil.compute(outErr.getErrorPath());
-      uploadFile(stdErrDigest, outErr.getOutputPath());
+      uploadFile(stdErrDigest, outErr.getErrorPath());
       result.setStderrDigest(stdErrDigest);
     }
     if (outErr.getOutputPath().exists()) {
