@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.BazelMockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
@@ -283,6 +284,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/bazel_tools_workspace/objcproto/empty.cc");
     config.create("/bazel_tools_workspace/objcproto/well_known_type.proto");
 
+    MockPlatformSupport.setup(config);
     ccSupport().setup(config);
     pySupport().setup(config);
   }
