@@ -167,47 +167,50 @@ public class GenRuleBaseRule implements RuleDefinition {
           </li>
         </ul>
         <p>
-        This is the fallback of `cmd_bash`, `cmd_ps` and `cmd_bat`, if none of them are applicable.
+        This is the fallback of <code>cmd_bash</code>, <code>cmd_ps</code> and <code>cmd_bat</code>,
+        if none of them are applicable.
         </p>
         <p>
         If the command line length exceeds the platform limit (64K on Linux/macOS, 8K on Windows),
         then genrule will write the command to a script and execute that script to work around. This
-        applies to all cmd attributes (`cmd`, `cmd_bash`, `cmd_ps`, `cmd_bat`).
+        applies to all cmd attributes (<code>cmd</code>, <code>cmd_bash</code>, <code>cmd_ps</code>,
+        <code>cmd_bat</code>).
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("cmd", STRING))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(cmd_bash) -->
         The Bash command to run.
-        <p> This attribute has higher priority than `cmd`. The command is expanded and runs in
-            the exact same way as the `cmd` attribute.
+        <p> This attribute has higher priority than <code>cmd</code>. The command is expanded and
+            runs in the exact same way as the <code>cmd</code> attribute.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("cmd_bash", STRING))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(cmd_bat) -->
         The Batch command to run on Windows.
-        <p> This attribute has higher priority than `cmd` and `cmd_bash`. The command runs in
-            the similar way as the `cmd` attribute, with the following differences:
+        <p> This attribute has higher priority than <code>cmd</code> and <code>cmd_bash</code>.
+            The command runs in the similar way as the <code>cmd</code> attribute, with the
+            following differences:
         </p>
         <ul>
           <li>
-            This command only applies on Windows.
+            This attribute only applies on Windows.
           </li>
           <li>
-            The command runs with `cmd.exe /c` with the following default arguments:
+            The command runs with <code>cmd.exe /c</code> with the following default arguments:
             <ul>
               <li>
-                `/S` - strip first and last quotes and execute everything else as is.
+                <code>/S</code> - strip first and last quotes and execute everything else as is.
               </li>
               <li>
-                `/E:ON` - enable extended command set.
+                <code>/E:ON</code> - enable extended command set.
               </li>
               <li>
-                `/V:ON` - enable delayed variable expansion
+                <code>/V:ON</code> - enable delayed variable expansion
               </li>
               <li>
-                `/D` - ignore AutoRun registry entries.
+                <code>/D</code> - ignore AutoRun registry entries.
               </li>
             </ul>
           </li>
@@ -222,15 +225,16 @@ public class GenRuleBaseRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(cmd_ps) -->
         The Powershell command to run on Windows.
-        <p> This attribute has higher priority than `cmd`, `cmd_bash` and `cmd_bat`. The command
-            runs in the similar way as the `cmd` attribute, with the following differences:
+        <p> This attribute has higher priority than <code>cmd</code>, <code>cmd_bash</code> and
+            <code>cmd_bat</code>. The command runs in the similar way as the <code>cmd</code>
+            attribute, with the following differences:
         </p>
         <ul>
           <li>
-            This command only applies on Windows.
+            This attribute only applies on Windows.
           </li>
           <li>
-            The command runs with `powershell.exe /c`.
+            The command runs with <code>powershell.exe /c</code>.
           </li>
         </ul>
         <p> To make Powershell easier to use and less error-prone, we run the following
@@ -238,16 +242,16 @@ public class GenRuleBaseRule implements RuleDefinition {
         </p>
         <ul>
           <li>
-            `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` is set to allow running unsigned
-            scripts.
+            <code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code> - allow running
+            unsigned scripts.
           </li>
           <li>
-            In case there are multiple commands separated by `;`, `$errorActionPreference='Stop';`
-            is set so that the action exits immediately if a CmdLet fails, but this doesn't work for
-            external command.
+            <code>$errorActionPreference='Stop'</code> - In case there are multiple commands
+            separated by <code>;</code>, the action exits immediately if a Powershell CmdLet fails,
+            but this does <strong>NOT</strong> work for external command.
           </li>
           <li>
-            `$PSDefaultParameterValues['*:Encoding'] = 'utf8'` is set to change the default
+            <code>$PSDefaultParameterValues['*:Encoding'] = 'utf8'</code> - change the default
             encoding from utf-16 to utf-8.
           </li>
         </ul>
