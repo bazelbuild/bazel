@@ -80,7 +80,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
+      throws InterruptedException, ActionConflictException {
     AttributeMap attributes = NonconfigurableAttributeMapper.of(ruleContext.getRule());
 
     // Get the built-in Blaze flag settings that match this rule.
@@ -322,14 +322,17 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   /**
    * For single-value options, returns true iff the option's value matches the expected value.
    *
-   * <p>For multi-value List options, returns true iff any of the option's values matches the
-   * expected value. This means, e.g. "--tool_tag=foo --tool_tag=bar" would match the expected
-   * condition { 'tool_tag': 'bar' }.
+   * <p>For multi-value List options returns true iff any of the option's values matches the
+   * expected value(s). This means "--ios_multi_cpus=a --ios_multi_cpus=b --ios_multi_cpus=c"
+   * matches the expected conditions {'ios_multi_cpus': 'a' } and { 'ios_multi_cpus': 'b,c' } but
+   * not { 'ios_multi_cpus': 'd' }.
    *
    * <p>For multi-value Map options, returns true iff the last instance with the same key as the
-   * expected key has the same value. This means, e.g. "--define foo=1 --define bar=2" would match {
-   * 'define': 'foo=1' }, but "--define foo=1 --define bar=2 --define foo=3" would not match. Note
-   * that the definition of --define states that the last instance takes precedence.
+   * expected key has the same value. This means "--define foo=1 --define bar=2" matches { 'define':
+   * 'foo=1' }, but "--define foo=1 --define bar=2 --define foo=3" doesn't match. Note that the
+   * definition of --define states that the last instance takes precedence. Also note that there's
+   * no options-parsing support for multiple values in a single clause, e.g. { 'define':
+   * 'foo=1,bar=2' } expands to { "foo": "1,bar=2" }, not {"foo": 1, "bar": "2"}.
    */
   private static boolean optionMatches(
       TransitiveOptionDetails options, String optionName, Object expectedValue) {
@@ -352,24 +355,22 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       return actualList.isEmpty() && expectedList.isEmpty();
     }
 
-    // We're expecting a single value of a multi-value type: the options parser still embeds
-    // that single value within a List container. Retrieve it here.
-    Object expectedSingleValue = Iterables.getOnlyElement(expectedList);
-
     // Multi-value map:
     if (actualList.get(0) instanceof Map.Entry) {
-      Map.Entry<?, ?> expectedEntry = (Map.Entry<?, ?>) expectedSingleValue;
+      // The config_setting's expected value *must* be a single map entry (see method comments).
+      Object expectedListValue = Iterables.getOnlyElement(expectedList);
+      Map.Entry<?, ?> expectedEntry = (Map.Entry<?, ?>) expectedListValue;
       for (Map.Entry<?, ?> actualEntry : Lists.reverse((List<Map.Entry<?, ?>>) actualList)) {
         if (actualEntry.getKey().equals(expectedEntry.getKey())) {
           // Found a key match!
           return actualEntry.getValue().equals(expectedEntry.getValue());
         }
       }
-      return false; // Never found any matching key.
+      return false;
     }
 
     // Multi-value list:
-    return actualList.contains(expectedSingleValue);
+    return actualList.containsAll(expectedList);
   }
 
   private static final class UserDefinedFlagMatch {

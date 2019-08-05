@@ -331,47 +331,60 @@ public class ConfigRuleClasses {
   )
   </pre>
 
-  In all these cases, it is possible for the configuration state to change during the build, for
-  instance if a dependency of a target needs to be built for a different platform than the target
-  itself. This means that even when a <code>config_setting</code> does not match the top-level
-  command-line flags, it may still match a deeper part of the build, and vice versa.
+  In all these cases, it's possible for the configuration to change within the build, for example if
+  a target needs to be built for a different platform than its dep. This means that even when a
+  <code>config_setting</code> doesn't match the top-level command-line flags, it may still match
+  some build targets.
 
   <h4 id="config_setting_notes">Notes</h4>
+  <ul>
+    <li>See <a href="${link select}">select</a> for what happens when multiple
+       <code>config_setting</code>s match the current configuration state.
+    </li>
 
-  <p>See <a href="${link select}">select</a> for what happens when multiple
-     <code>config_setting</code>s match the current configuration state.
-  </p>
+    <li>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.
+      <code>-c</code>), <code>values</code> definitions must use the full form. These automatically
+      match invocations using either form.
+    </li>
 
-  <p>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.
-    <code>-c</code>), <code>values</code> definitions must use the full form. These automatically
-    match invocations using either form.
-  </p>
+    <li>
+      If a flag takes multiple values (like <code>--copt=-Da --copt=-Db</code> or a list-typed
+      <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+      Starlark flag</a>), <code>values = { "flag": "a" }</code> matches if <code>"a"</code> is
+      present <i>anywhere</i> in the actual list.
 
-  <p>
-    If a flag takes multiple values (like <code>--define a=b --define c=d</code> or a list-typed
-    <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
-    Starlark flag</a>), a <code>config_setting</code> that expects <code>"foo"</code> matches if
-    <code>"foo"</code> is present <i>anywhere</i> in the actual list.
-  </p>
+      <p>
+        <code>values = { "myflag": "a,b" }</code> works the same way: this matches
+        <code>--myflag=a --myflag=b</code>, <code>--myflag=a --myflag=b --myflag=c</code>,
+        <code>--myflag=a,b</code>, and <code>--myflag=c,b,a</code>. Exact semantics vary between
+        flags. For example, <code>--copt</code> doesn't support multiple values <i>in the same
+        instance</i>: <code>--copt=a,b</code> produces <code>["a,b"]</code> while <code>--copt=a
+        --copt=b</code> produces <code>["a", "b"]</code> (so <code>values = { "copt": "a,b" }</code>
+        matches the former but not the latter). But <code>--ios_multi_cpus</code> (for Apple rules)
+        <i>does</i>: <code>-ios_multi_cpus=a,b</code> and <code>ios_multi_cpus=a --ios_multi_cpus=b
+        </code> both produce <code>["a", "b"]</code>. Check flag definitions and test your
+        conditions carefully to verify exact expectations.
+      </p>
+    </li>
 
-  <p>If you need to define conditions that aren't modeled by built-in Bazel flags, use
-  <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
-  Starlark-defined flags</a>. You can also use <code>--define</code>, but this offers weaker
-  support and is not recommended. See <a href="${link common-definitions#configurable-attributes}">
-  for more discussion.
-  </p>
+    <li>If you need to define conditions that aren't modeled by built-in Bazel flags, use
+      <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+      Starlark-defined flags</a>. You can also use <code>--define</code>, but this offers weaker
+      support and is not recommended. See
+      <a href="${link common-definitions#configurable-attributes}"> for more discussion.
+    </li>
 
-  <p>Avoid repeating identical <code>config_setting</code> definitions in different packages.
-    Instead, prefer to reference a common <code>config_setting</code> target that is defined in a
-    single package.
-  </p>
+    <li>Avoid repeating identical <code>config_setting</code> definitions in different packages.
+      Instead, reference a common <code>config_setting</code> that defined in a canonical package.
+    </li>
 
-  <p><a href="general.html#config_setting.values"><code>values</code></a>,
-     <a href="general.html#config_setting.define_values"><code>define_values</code></a>, and
-     <a href="general.html#config_setting.constraint_values"><code>constraint_values</code></a>
-     can be used in any combination in the same <code>config_setting</code> but at least one must be
-     set for any given <code>config_setting</code>.
-  </p>
+    <li><a href="general.html#config_setting.values"><code>values</code></a>,
+       <a href="general.html#config_setting.define_values"><code>define_values</code></a>, and
+       <a href="general.html#config_setting.constraint_values"><code>constraint_values</code></a>
+       can be used in any combination in the same <code>config_setting</code> but at least one must
+       be set for any given <code>config_setting</code>.
+    </li>
+  </ul>
   <!-- #END_BLAZE_RULE -->*/
 
   /** Rule definition for Android's config_feature_flag rule. */
