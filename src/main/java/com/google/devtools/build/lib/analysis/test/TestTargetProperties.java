@@ -88,11 +88,8 @@ public class TestTargetProperties {
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
-    if (TargetUtils.isLocalTestRule(rule)) {
+    if (TargetUtils.isLocalTestRule(rule) || TargetUtils.isExclusiveTestRule(rule)) {
       executionInfo.put(ExecutionRequirements.LOCAL, "");
-    }
-    if (TargetUtils.isExclusiveTestRule(rule)) {
-      executionInfo.put(ExecutionRequirements.NO_REMOTE_EXEC, "");
     }
 
     if (executionRequirements != null) {
