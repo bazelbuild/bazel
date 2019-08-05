@@ -168,8 +168,7 @@ public class ExecutionTool {
             .getSpawnActionContextMapsBuilder()
             .build(
                 actionContextProviders,
-                options.testStrategy,
-                options.incompatibleListBasedExecutionStrategySelection);
+                options.testStrategy);
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new ExecutorInitException(

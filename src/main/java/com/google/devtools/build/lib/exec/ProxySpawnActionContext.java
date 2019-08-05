@@ -30,19 +30,16 @@ import java.util.stream.Collectors;
 public final class ProxySpawnActionContext implements SpawnActionContext {
 
   private final SpawnActionContextMaps spawnActionContextMaps;
-  private final boolean listBasedExecutionStrategySelection;
 
   /**
    * Creates a new {@link ProxySpawnActionContext}.
    *
    * @param spawnActionContextMaps The {@link SpawnActionContextMaps} to use to decide which {@link
    *     SpawnActionContext} should execute a given {@link Spawn} during {@link #exec}.
-   * @param listBasedExecutionStrategySelection
    */
   public ProxySpawnActionContext(
-      SpawnActionContextMaps spawnActionContextMaps, boolean listBasedExecutionStrategySelection) {
+      SpawnActionContextMaps spawnActionContextMaps) {
     this.spawnActionContextMaps = spawnActionContextMaps;
-    this.listBasedExecutionStrategySelection = listBasedExecutionStrategySelection;
   }
 
   @Override
@@ -83,30 +80,19 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
     List<SpawnActionContext> strategies =
         spawnActionContextMaps.getSpawnActionContexts(spawn, eventHandler);
 
-    if (listBasedExecutionStrategySelection) {
-      strategies =
-          strategies.stream()
-              .filter(spawnActionContext -> spawnActionContext.canExec(spawn))
-              .collect(Collectors.toList());
-    }
+    strategies =
+        strategies.stream()
+            .filter(spawnActionContext -> spawnActionContext.canExec(spawn))
+            .collect(Collectors.toList());
 
     if (strategies.isEmpty()) {
-      // TODO(ishikhman): remove with --incompatible_list_based_execution_strategy_selection
-      if (listBasedExecutionStrategySelection) {
-        throw new UserExecException(
-            String.format(
-                "No usable spawn strategy found for spawn with mnemonic %s.  Your"
-                    + " --spawn_strategy, --genrule_strategy or --strategy flags are probably too"
-                    + " strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
-                    + " migration advice",
-                spawn.getMnemonic()));
-      } else {
-        throw new UserExecException(
-            String.format(
-                "No usable spawn strategy found for spawn with mnemonic %s."
-                    + " Are your --spawn_strategy or --strategy flags too strict?",
-                spawn.getMnemonic()));
-      }
+      throw new UserExecException(
+          String.format(
+              "No usable spawn strategy found for spawn with mnemonic %s.  Your"
+                  + " --spawn_strategy, --genrule_strategy or --strategy flags are probably too"
+                  + " strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
+                  + " migration advice",
+              spawn.getMnemonic()));
     }
 
     return strategies;
