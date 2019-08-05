@@ -212,8 +212,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     ProcessResult result = bazel.shouldFail().build("@ext//:write_text");
-    assertThat(result.errString()).contains(
-        "error running 'git fetch --all' while working with @ext:");
+    assertThat(result.errString()).contains("error running 'git fetch");
     assertThat(result.errString()).contains(
         "fatal: Could not read from remote repository.");
   }
