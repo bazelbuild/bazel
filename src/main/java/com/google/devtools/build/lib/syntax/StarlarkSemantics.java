@@ -301,7 +301,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowSplitEmptySeparator(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
           .incompatibleDisablePartitionDefaultParameter(false)
-          .incompatibleAllowTagsPropagation(false)
+          .incompatibleAllowTagsPropagation(true)
           .incompatibleAssignmentIdentifiersHaveLocalScope(false)
           .incompatibleDisallowHashingFrozenMutables(false)
           .build();
