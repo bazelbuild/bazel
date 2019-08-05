@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -315,22 +316,20 @@ public class SimpleBlobStoreActionCacheTest {
     final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
     final SimpleBlobStoreActionCache client = newClient(map);
 
-    ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(
-        result,
+    ActionResult result = client.upload(
         DIGEST_UTIL.asActionKey(actionDigest),
         action,
         cmd,
         execRoot,
-        ImmutableList.<Path>of(fooFile, barDir),
-        /* uploadAction= */ true);
+        ImmutableList.of(fooFile, barDir),
+        new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
-    assertThat(result.build()).isEqualTo(expectedResult.build());
+    assertThat(result).isEqualTo(expectedResult.build());
 
     assertThat(map.keySet())
-        .containsExactly(
+        .containsAtLeast(
             fooDigest.getHash(),
             quxDigest.getHash(),
             barDigest.getHash(),
@@ -402,12 +401,11 @@ public class SimpleBlobStoreActionCacheTest {
 
   private ActionResult uploadDirectory(SimpleBlobStoreActionCache client, List<Path> outputs)
       throws Exception {
-    ActionResult.Builder result = ActionResult.newBuilder();
     Action action = Action.getDefaultInstance();
     ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
     Command cmd = Command.getDefaultInstance();
-    client.upload(result, actionKey, action, cmd, execRoot, outputs, /* uploadAction= */ true);
-    return result.build();
+    return client.upload(actionKey, action, cmd, execRoot, outputs,
+        new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")));
   }
 
   @Test

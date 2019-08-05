@@ -14,35 +14,30 @@
 
 package com.google.devtools.build.lib.remote;
 
-import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Collection;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -77,60 +72,6 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   }
 
   @Override
-  public void upload(
-      SimpleBlobStore.ActionKey actionKey,
-      Action action,
-      Command command,
-      Path execRoot,
-      Collection<Path> files,
-      FileOutErr outErr)
-      throws ExecException, IOException, InterruptedException {
-    ActionResult.Builder result = ActionResult.newBuilder();
-    upload(result, actionKey, action, command, execRoot, files, /* uploadAction= */ true);
-    if (outErr.getErrorPath().exists()) {
-      Digest stdErrDigest = digestUtil.compute(outErr.getErrorPath());
-      getFromFuture(uploadFile(stdErrDigest, outErr.getErrorPath()));
-      result.setStderrDigest(stdErrDigest);
-    }
-    if (outErr.getOutputPath().exists()) {
-      Digest stdoutDigest = digestUtil.compute(outErr.getOutputPath());
-      getFromFuture(uploadFile(stdoutDigest, outErr.getOutputPath()));
-      result.setStdoutDigest(stdoutDigest);
-    }
-    blobStore.putActionResult(actionKey, result.build());
-  }
-
-  public void upload(
-      ActionResult.Builder result,
-      SimpleBlobStore.ActionKey actionKey,
-      Action action,
-      Command command,
-      Path execRoot,
-      Collection<Path> files,
-      boolean uploadAction)
-      throws ExecException, IOException, InterruptedException {
-    UploadManifest manifest =
-        new UploadManifest(
-            digestUtil,
-            result,
-            execRoot,
-            options.incompatibleRemoteSymlinks,
-            options.allowSymlinkUpload);
-    manifest.addFiles(files);
-    if (uploadAction) {
-      manifest.addAction(actionKey, action, command);
-    }
-
-    for (Map.Entry<Digest, Path> entry : manifest.getDigestToFile().entrySet()) {
-      getFromFuture(uploadFile(entry.getKey(), entry.getValue()));
-    }
-
-    for (Map.Entry<Digest, ByteString> entry : manifest.getDigestToBlobs().entrySet()) {
-      getFromFuture(uploadBlob(entry.getKey(), entry.getValue()));
-    }
-  }
-
-  @Override
   public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     return blobStore.uploadFile(digest, file);
   }
@@ -138,6 +79,11 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   @Override
   public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
     return blobStore.uploadBlob(digest, data);
+  }
+
+  @Override
+  protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests) {
+    return ImmutableSet.copyOf(digests);
   }
 
   public boolean containsKey(Digest digest) throws IOException, InterruptedException {

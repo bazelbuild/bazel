@@ -38,6 +38,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -1150,20 +1151,12 @@ public class AbstractRemoteActionCacheTests {
 
     @Nullable
     @Override
-    ActionResult getCachedActionResult(ActionKey actionKey)
-        throws IOException, InterruptedException {
+    ActionResult getCachedActionResult(ActionKey actionKey) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    void upload(
-        ActionKey actionKey,
-        Action action,
-        Command command,
-        Path execRoot,
-        Collection<Path> files,
-        FileOutErr outErr)
-        throws ExecException, IOException, InterruptedException {
+    protected void setCachedActionResult(ActionKey actionKey, ActionResult action) {
       throw new UnsupportedOperationException();
     }
 
@@ -1175,6 +1168,11 @@ public class AbstractRemoteActionCacheTests {
     @Override
     protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests) {
+      return null;
     }
 
     @Override

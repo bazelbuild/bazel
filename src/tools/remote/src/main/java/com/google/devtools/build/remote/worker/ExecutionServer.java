@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
@@ -284,84 +285,80 @@ final class ExecutionServer extends ExecutionImplBase {
     long startTime = System.currentTimeMillis();
     CommandResult cmdResult = null;
 
-    FutureCommandResult futureCmdResult = null;
-    try {
-      futureCmdResult = cmd.executeAsync();
-    } catch (CommandException e) {
-      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
-    }
+    String uuid = UUID.randomUUID().toString();
+    Path stdout = execRoot.getChild("stdout-" + uuid);
+    Path stderr = execRoot.getChild("stderr-" + uuid);
+    try (FileOutErr outErr = new FileOutErr(stdout, stderr)) {
 
-    if (futureCmdResult != null) {
+      FutureCommandResult futureCmdResult = null;
       try {
-        cmdResult = futureCmdResult.get();
-      } catch (AbnormalTerminationException e) {
-        cmdResult = e.getResult();
+        futureCmdResult = cmd.executeAsync(outErr.getOutputStream(), outErr.getErrorStream());
+      } catch (CommandException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
       }
-    }
 
-    long timeoutMillis =
-        action.hasTimeout()
-            ? Durations.toMillis(action.getTimeout())
-            : TimeUnit.MINUTES.toMillis(15);
-    boolean wasTimeout =
-        (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
-            || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
-    final int exitCode;
-    Status errStatus = null;
-    ExecuteResponse.Builder resp = ExecuteResponse.newBuilder();
-    if (wasTimeout) {
-      final String errMessage =
-          String.format(
-              "Command:\n%s\nexceeded deadline of %f seconds.",
-              Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
-      logger.warning(errMessage);
-      errStatus =
-          Status.newBuilder()
-              .setCode(Code.DEADLINE_EXCEEDED.getNumber())
-              .setMessage(errMessage)
-              .build();
-      exitCode = LOCAL_EXEC_ERROR;
-    } else if (cmdResult == null) {
-      exitCode = LOCAL_EXEC_ERROR;
-    } else {
-      exitCode = cmdResult.getTerminationStatus().getRawExitCode();
-    }
+      if (futureCmdResult != null) {
+        try {
+          cmdResult = futureCmdResult.get();
+        } catch (AbnormalTerminationException e) {
+          cmdResult = e.getResult();
+        }
+      }
 
-    ActionResult.Builder result = ActionResult.newBuilder();
-    boolean setResult = exitCode == 0 && !action.getDoNotCache();
-    try {
-      cache.upload(result, actionKey, action, command, execRoot, outputs, setResult);
-    } catch (ExecException e) {
-      if (errStatus == null) {
+      long timeoutMillis =
+          action.hasTimeout()
+              ? Durations.toMillis(action.getTimeout())
+              : TimeUnit.MINUTES.toMillis(15);
+      boolean wasTimeout =
+          (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
+              || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
+      final int exitCode;
+      Status errStatus = null;
+      ExecuteResponse.Builder resp = ExecuteResponse.newBuilder();
+      if (wasTimeout) {
+        final String errMessage =
+            String.format(
+                "Command:\n%s\nexceeded deadline of %f seconds.",
+                Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
+        logger.warning(errMessage);
         errStatus =
             Status.newBuilder()
-                .setCode(Code.FAILED_PRECONDITION.getNumber())
-                .setMessage(e.getMessage())
+                .setCode(Code.DEADLINE_EXCEEDED.getNumber())
+                .setMessage(errMessage)
                 .build();
+        exitCode = LOCAL_EXEC_ERROR;
+      } else if (cmdResult == null) {
+        exitCode = LOCAL_EXEC_ERROR;
+      } else {
+        exitCode = cmdResult.getTerminationStatus().getRawExitCode();
       }
-    }
-    byte[] stdout = cmdResult.getStdout();
-    if (stdout.length > 0) {
-      Digest stdoutDigest = digestUtil.compute(stdout);
-      getFromFuture(cache.uploadBlob(stdoutDigest, ByteString.copyFrom(stdout)));
-      result.setStdoutDigest(stdoutDigest);
-    }
-    byte[] stderr = cmdResult.getStderr();
-    if (stderr.length > 0) {
-      Digest stderrDigest = digestUtil.compute(stderr);
-      getFromFuture(cache.uploadBlob(stderrDigest, ByteString.copyFrom(stderr)));
-      result.setStderrDigest(stderrDigest);
-    }
 
-    ActionResult finalResult = result.setExitCode(exitCode).build();
-    resp.setResult(finalResult);
-    if (errStatus != null) {
-      resp.setStatus(errStatus);
-      throw new ExecutionStatusException(errStatus, resp.build());
-    } else if (setResult) {
-      cache.setCachedActionResult(actionKey, finalResult);
+      ActionResult result = null;
+      try {
+        result = cache.upload(actionKey, action, command, execRoot, outputs, outErr, exitCode);
+      } catch (ExecException e) {
+        if (errStatus == null) {
+          errStatus =
+              Status.newBuilder()
+                  .setCode(Code.FAILED_PRECONDITION.getNumber())
+                  .setMessage(e.getMessage())
+                  .build();
+        }
+      }
+
+      if (result == null) {
+        result = ActionResult.newBuilder().setExitCode(exitCode).build();
+      }
+
+      resp.setResult(result);
+
+      if (errStatus != null) {
+        resp.setStatus(errStatus);
+        throw new ExecutionStatusException(errStatus, resp.build());
+      }
+
+      return result;
     }
-    return finalResult;
   }
 
   // Returns true if the OS being run on is Windows (or some close approximation thereof).

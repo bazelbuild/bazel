@@ -166,17 +166,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
         || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
   }
 
-  private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
-      FindMissingBlobsRequest request) throws IOException, InterruptedException {
-    Context ctx = Context.current();
-    try {
-      return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    }
-  }
-
-  private ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
+  protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
       throws IOException, InterruptedException {
     if (Iterables.isEmpty(digests)) {
       return ImmutableSet.of();
@@ -206,6 +196,16 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       throw new RuntimeException(cause);
     }
     return result.build();
+  }
+
+  private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
+      FindMissingBlobsRequest request) throws IOException, InterruptedException {
+    Context ctx = Context.current();
+    try {
+      return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
+    } catch (StatusRuntimeException e) {
+      throw new IOException(e);
+    }
   }
 
   /**
@@ -377,32 +377,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   @Override
-  public void upload(
-      ActionKey actionKey,
-      Action action,
-      Command command,
-      Path execRoot,
-      Collection<Path> files,
-      FileOutErr outErr)
-      throws ExecException, IOException, InterruptedException {
-    ActionResult.Builder result = ActionResult.newBuilder();
-    upload(execRoot, actionKey, action, command, files, outErr, result);
-    try {
-      retrier.execute(
-          () ->
-              acBlockingStub()
-                  .updateActionResult(
-                      UpdateActionResultRequest.newBuilder()
-                          .setInstanceName(options.remoteInstanceName)
-                          .setActionDigest(actionKey.getDigest())
-                          .setActionResult(result)
-                          .build()));
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    }
-  }
-
-  @Override
   protected ListenableFuture<Void> uploadFile(Digest digest, Path path) {
     return uploader.uploadBlobAsync(
         HashCode.fromString(digest.getHash()),
@@ -411,82 +385,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   @Override
-  protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
-    return uploader.uploadBlobAsync(
-        HashCode.fromString(digest.getHash()),
-        Chunker.builder().setInput(data.toByteArray()).build(),
-        /* forceUpload= */ true);
-  }
-
-  void upload(
-      Path execRoot,
-      ActionKey actionKey,
-      Action action,
-      Command command,
-      Collection<Path> files,
-      FileOutErr outErr,
-      ActionResult.Builder result)
-      throws ExecException, IOException, InterruptedException {
-    UploadManifest manifest =
-        new UploadManifest(
-            digestUtil,
-            result,
-            execRoot,
-            options.incompatibleRemoteSymlinks,
-            options.allowSymlinkUpload);
-    manifest.addFiles(files);
-    manifest.setStdoutStderr(outErr);
-    manifest.addAction(actionKey, action, command);
-
-    Map<Digest, Path> digestToFile = manifest.getDigestToFile();
-    Map<Digest, ByteString> digestToBlobs = manifest.getDigestToBlobs();
-    Collection<Digest> digests = new ArrayList<>();
-    digests.addAll(digestToFile.keySet());
-    digests.addAll(digestToBlobs.keySet());
-
-    ImmutableSet<Digest> digestsToUpload = getMissingDigests(digests);
-    ImmutableList.Builder<ListenableFuture<Void>> uploads = ImmutableList.builder();
-    for (Digest digest : digestsToUpload) {
-      Path file = digestToFile.get(digest);
-      if (file != null) {
-        uploads.add(uploadFile(digest, file));
-      } else {
-        ByteString blob = digestToBlobs.get(digest);
-        if (blob == null) {
-          String message = "FindMissingBlobs call returned an unknown digest: " + digest;
-          throw new IOException(message);
-        }
-        uploads.add(uploadBlob(digest, blob));
-      }
-    }
-
-    waitForUploads(uploads.build());
-
-    if (manifest.getStderrDigest() != null) {
-      result.setStderrDigest(manifest.getStderrDigest());
-    }
-    if (manifest.getStdoutDigest() != null) {
-      result.setStdoutDigest(manifest.getStdoutDigest());
-    }
-  }
-
-  private static void waitForUploads(List<ListenableFuture<Void>> uploads)
-      throws IOException, InterruptedException {
-    try {
-      for (ListenableFuture<Void> upload : uploads) {
-        upload.get();
-      }
-    } catch (ExecutionException e) {
-      // TODO(buchgr): Add support for cancellation and factor this method out to be shared
-      // between ByteStreamUploader as well.
-      Throwable cause = e.getCause();
-      Throwables.throwIfInstanceOf(cause, IOException.class);
-      Throwables.throwIfInstanceOf(cause, InterruptedException.class);
-      if (cause != null) {
-        throw new IOException(cause);
-      }
-      throw new IOException(e);
-    }
+  protected ListenableFuture<Void>  uploadBlob(Digest digest, ByteString data) {
+    return uploader.uploadBlobAsync(HashCode.fromString(digest.getHash()),
+        Chunker.builder().setInput(data.toByteArray()).build(), /* forceUpload= */ true);
   }
 
   // Execution Cache API
@@ -508,6 +409,23 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
         // Return null to indicate that it was a cache miss.
         return null;
       }
+      throw new IOException(e);
+    }
+  }
+
+  @Override
+  protected void setCachedActionResult(ActionKey actionKey, ActionResult result) throws IOException, InterruptedException {
+    try {
+      retrier.execute(
+          () ->
+              acBlockingStub()
+                  .updateActionResult(
+                      UpdateActionResultRequest.newBuilder()
+                          .setInstanceName(options.remoteInstanceName)
+                          .setActionDigest(actionKey.getDigest())
+                          .setActionResult(result)
+                          .build()));
+    } catch (StatusRuntimeException e) {
       throw new IOException(e);
     }
   }
