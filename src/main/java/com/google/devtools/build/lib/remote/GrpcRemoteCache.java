@@ -38,6 +38,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -418,7 +419,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
             options.incompatibleRemoteSymlinks,
             options.allowSymlinkUpload);
     manifest.addFiles(files);
-    manifest.setStdoutStderr(outErr);
     manifest.addAction(actionKey, action, command);
 
     Map<HashCode, Chunker> filesToUpload = Maps.newHashMap();
@@ -449,12 +449,33 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       uploader.uploadBlobs(filesToUpload, /*forceUpload=*/true);
     }
 
-    if (manifest.getStderrDigest() != null) {
-      result.setStderrDigest(manifest.getStderrDigest());
+    // TODO(olaola): inline small stdout/stderr here.
+    if (outErr.getErrorPath().exists()) {
+      Digest stderr = uploadFileContents(outErr.getErrorPath());
+      result.setStderrDigest(stderr);
     }
-    if (manifest.getStdoutDigest() != null) {
-      result.setStdoutDigest(manifest.getStdoutDigest());
+    if (outErr.getOutputPath().exists()) {
+      Digest stdout = uploadFileContents(outErr.getOutputPath());
+      result.setStdoutDigest(stdout);
     }
+  }
+
+  /**
+   * Put the file contents cache if it is not already in it. No-op if the file is already stored in
+   * cache. The given path must be a full absolute path.
+   *
+   * @return The key for fetching the file contents blob from cache.
+   */
+  private Digest uploadFileContents(Path file) throws IOException, InterruptedException {
+    Digest digest = digestUtil.compute(file);
+    ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
+    if (!missing.isEmpty()) {
+      uploader.uploadBlob(
+          HashCode.fromString(digest.getHash()),
+          Chunker.builder().setInput(digest.getSizeBytes(), file).build(),
+          /* forceUpload=*/ true);
+    }
+    return digest;
   }
   
   // Execution Cache API
