@@ -79,7 +79,7 @@ def patch(ctx):
     """Implementation of patching an already extracted repository.
 
     This rule is inteded to be used in the implementation function of a
-    repository rule. It assuumes that the parameters `patches`, `patch_tool`,
+    repository rule. It assumes that the parameters `patches`, `patch_tool`,
     `patch_args`, `patch_cmds` and `patch_cmds_win` are present in `ctx.attr`.
 
     Args:
