@@ -472,6 +472,8 @@ http_archive(
         "https://github.com/bazelbuild/rules_java/archive/de5b585b1367463ac42b44db85447189301dc5e1.zip",
     ],
 )
+load("@rules_java//java:repositories.bzl", "rules_java_dependencies")
+rules_java_dependencies()
 
 http_archive(
     name = "rules_proto",

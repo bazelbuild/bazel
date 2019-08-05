@@ -92,10 +92,6 @@ maybe(
     ],
     strip_prefix = "rules_java-de5b585b1367463ac42b44db85447189301dc5e1",
 )
-load("@rules_java//java:repositories.bzl", "remote_jdk9_repos", "remote_jdk11_repos", "java_tools_javac11_repos")
-remote_jdk9_repos()
-remote_jdk11_repos()
-java_tools_javac11_repos()
 
 # Needed only because of java_tools.
 maybe(
