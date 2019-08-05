@@ -223,13 +223,13 @@ remote_java_tools_filegroup(
 alias(
     name = "proguard",
     actual = select({
-        "//src/conditions:darwin": "@remotejava_tools_javac11_macos//:proguard",
-        "//src/conditions:darwin_x86_64": "@remotejava_tools_javac11_macos//:proguard",
-        "//src/conditions:windows": "@remotejava_tools_javac11_windows//:proguard",
-        "//src/conditions:linux_x86_64": "@remotejava_tools_javac11_linux//:proguard",
+        "//src/conditions:darwin": "@remote_java_tools_javac11_macos//:proguard",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_javac11_macos//:proguard",
+        "//src/conditions:windows": "@remote_java_tools_javac11_windows//:proguard",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_javac11_linux//:proguard",
         # On different platforms the linux repository can be used because the
         # proguard deploy jar is platform-agnostic.
-        "//conditions:default": "@remotejava_tools_javac11_linux//tools/jdk:proguard",
+        "//conditions:default": "@remote_java_tools_javac11_linux//tools/jdk:proguard",
     }),
 )
 
@@ -309,10 +309,10 @@ default_java_toolchain(
 alias(
     name = "toolchain",
     actual = select({
-        "//src/conditions:darwin": "@remotejava_tools_javac11_macos//:toolchain",
-        "//src/conditions:darwin_x86_64": "@remotejava_tools_javac11_macos//:toolchain",
-        "//src/conditions:windows": "@remotejava_tools_javac11_windows//:toolchain",
-        "//src/conditions:linux_x86_64": "@remotejava_tools_javac11_linux//:toolchain",
+        "//src/conditions:darwin": "@remote_java_tools_javac11_macos//:toolchain",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_javac11_macos//:toolchain",
+        "//src/conditions:windows": "@remote_java_tools_javac11_windows//:toolchain",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_javac11_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
     }),
 )
@@ -320,10 +320,10 @@ alias(
 alias(
     name = "remote_toolchain",
     actual = select({
-        "//src/conditions:darwin": "@remotejava_tools_javac11_macos//:toolchain",
-        "//src/conditions:darwin_x86_64": "@remotejava_tools_javac11_macos//:toolchain",
-        "//src/conditions:windows": "@remotejava_tools_javac11_windows//:toolchain",
-        "//src/conditions:linux_x86_64": "@remotejava_tools_javac11_linux//:toolchain",
+        "//src/conditions:darwin": "@remote_java_tools_javac11_macos//:toolchain",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_javac11_macos//:toolchain",
+        "//src/conditions:windows": "@remote_java_tools_javac11_windows//:toolchain",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_javac11_linux//:toolchain",
         "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
     }),
 )

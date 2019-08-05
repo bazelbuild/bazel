@@ -16,16 +16,16 @@
 
 def _get_args(target, attr, **kwargs):
     workspace_target_dict = {
-        "//src/conditions:linux_x86_64": ["@remotejava_tools_javac11_linux//" + target],
-        "//src/conditions:darwin": ["@remotejava_tools_javac11_macos//" + target],
-        "//src/conditions:darwin_x86_64": ["@remotejava_tools_javac11_macos//" + target],
-        "//src/conditions:windows": ["@remotejava_tools_javac11_windows//" + target],
+        "//src/conditions:linux_x86_64": ["@remote_java_tools_javac11_linux//" + target],
+        "//src/conditions:darwin": ["@remote_java_tools_javac11_macos//" + target],
+        "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac11_macos//" + target],
+        "//src/conditions:windows": ["@remote_java_tools_javac11_windows//" + target],
         # On different platforms the linux repository can be used.
         # The deploy jars inside the linux repository are platform-agnostic.
         # The ijar target inside the repository identifies the different
         # platform and builds ijar from source instead of returning the
         # precompiled binary.
-        "//conditions:default": ["@remotejava_tools_javac11_linux//" + target],
+        "//conditions:default": ["@remote_java_tools_javac11_linux//" + target],
     }
     workspace_target_select = select(workspace_target_dict)
     args = dict({attr: workspace_target_select})
