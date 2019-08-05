@@ -38,9 +38,7 @@ public class CollectTestSuitesInPackageFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    CollectTestSuitesInPackageValue.Key argument =
-        (CollectTestSuitesInPackageValue.Key) skyKey.argument();
-    PackageIdentifier packageId = argument.getPackageId();
+    PackageIdentifier packageId = (PackageIdentifier) skyKey.argument();
     PackageValue packageValue = (PackageValue) env.getValue(PackageValue.key(packageId));
     if (env.valuesMissing()) {
       return null;
