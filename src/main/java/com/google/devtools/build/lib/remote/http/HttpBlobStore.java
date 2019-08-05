@@ -106,6 +106,9 @@ import javax.net.ssl.SSLEngine;
  * <p>The implementation currently does not support transfer encoding chunked.
  */
 public final class HttpBlobStore implements SimpleBlobStore {
+
+  public static final String AC_PREFIX = "ac/";
+  public static final String CAS_PREFIX = "cas/";
   private static final Pattern INVALID_TOKEN_ERROR =
       Pattern.compile("\\s*error\\s*=\\s*\"?invalid_token\"?");
 
@@ -554,7 +557,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
     UploadCommand upload = new UploadCommand(uri, casUpload, key, wrappedIn, length);
     Channel ch = null;
     boolean success = false;
-    if (storedBlobs.putIfAbsent((casUpload ? "cas/" : "ac/") + key, true) == null) {
+    if (storedBlobs.putIfAbsent((casUpload ? CAS_PREFIX : AC_PREFIX) + key, true) == null) {
       try {
         ch = acquireUploadChannel();
         ChannelFuture uploadFuture = ch.writeAndFlush(upload);

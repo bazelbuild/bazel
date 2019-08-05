@@ -17,8 +17,10 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/http",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party:api_client",
         "//third_party:auth",
         "//third_party:guava",
@@ -26,6 +28,6 @@ java_test(
         "//third_party:netty",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

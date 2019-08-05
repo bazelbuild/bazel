@@ -27,12 +27,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.api.client.util.Preconditions;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.remote.worker.http.HttpCacheServerHandler;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -73,12 +75,15 @@ import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -262,6 +267,38 @@ public class HttpBlobStoreTest {
     } else {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());
+    }
+  }
+
+  @Test
+  public void testUploadAtMostOnce() throws Exception {
+    ServerChannel server = null;
+    try {
+      ConcurrentHashMap<String, byte[]> cacheContents  = new ConcurrentHashMap<>();
+      server = testServer.start(new HttpCacheServerHandler(cacheContents));
+
+      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1,
+          /* credentials= */ null);
+
+      ByteString data = ByteString.copyFrom("foo bar", StandardCharsets.UTF_8);
+      Digest digest = DIGEST_UTIL.compute(data.toByteArray());
+      blobStore.uploadBlob(digest, data).get();
+
+      assertThat(cacheContents).hasSize(1);
+      String cacheKey = "/cas/" + digest.getHash();
+      assertThat(cacheContents).containsKey(cacheKey);
+      assertThat(cacheContents.get(cacheKey)).isEqualTo(data.toByteArray());
+
+      // Clear the remote cache contents
+      cacheContents.clear();
+
+      blobStore.uploadBlob(digest, data).get();
+
+      // Nothing should have been uploaded again.
+      assertThat(cacheContents).isEmpty();
+
+    } finally {
+      testServer.stop(server);
     }
   }
 

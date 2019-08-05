@@ -11,11 +11,12 @@ filegroup(
 )
 
 java_test(
-    name = "worker",
+    name = "http",
     srcs = glob(["*.java"]),
-    test_class = "com.google.devtools.build.remote.worker.HttpCacheServerHandlerTest",
+    test_class = "com.google.devtools.build.remote.worker.http.HttpCacheServerHandlerTest",
     deps = [
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party:junit4",
         "//third_party:truth",
     ],
