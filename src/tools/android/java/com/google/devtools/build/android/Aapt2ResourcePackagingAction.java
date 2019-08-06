@@ -208,6 +208,11 @@ public class Aapt2ResourcePackagingAction {
       if (options.resourcesOutput != null) {
         packagedResources.asArchive().writeTo(options.resourcesOutput, /* compress= */ false);
       }
+      if (aaptConfigOptions.resourcePathShorteningMapOutput != null) {
+        copy(
+            packagedResources.resourcePathShorteningMap(),
+            aaptConfigOptions.resourcePathShorteningMapOutput);
+      }
     }
   }
 

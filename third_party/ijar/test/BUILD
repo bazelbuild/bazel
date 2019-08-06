@@ -1,5 +1,3 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
-
 package(default_visibility = ["//visibility:__pkg__"])
 
 licenses(["notice"])  # Apache License 2.0

@@ -134,6 +134,7 @@ public class ResourceLinker {
 
   private final ListeningExecutorService executorService;
   private final Path workingDirectory;
+  private final Path resourcePathShorteningMap;
 
   private List<StaticLibrary> linkAgainst = ImmutableList.of();
 
@@ -160,6 +161,7 @@ public class ResourceLinker {
     this.aapt2 = aapt2;
     this.executorService = executorService;
     this.workingDirectory = workingDirectory;
+    this.resourcePathShorteningMap = workingDirectory.resolve("resource_path_shortening.map");
   }
 
   public static ResourceLinker create(
@@ -544,6 +546,8 @@ public class ResourceLinker {
             .thenAdd("--target-densities", densities.stream().collect(Collectors.joining(",")))
             .when(enableResourcePathShortening)
             .thenAdd("--enable-resource-path-shortening")
+            .when(enableResourcePathShortening)
+            .thenAdd("--resource-path-shortening-map", resourcePathShorteningMap)
             .add("-o", optimized)
             .add(binary.toString())
             .execute(String.format("Optimizing %s", compiled.getManifest())));
@@ -559,6 +563,12 @@ public class ResourceLinker {
       Path mainDexProguard = workingDirectory.resolve("proguard.maindex.cfg");
       Path javaSourceDirectory = Files.createDirectories(workingDirectory.resolve("java"));
       Path resourceIds = workingDirectory.resolve("ids.txt");
+      if (Files.notExists(resourcePathShorteningMap)) {
+        // We need to produce a path shortening map file regardless of whether shortening was
+        // activated with the --define flag. If we've reached here, it means the optimization was
+        // not performed, so output an empty file.
+        Files.createFile(resourcePathShorteningMap);
+      }
       try (ProtoApk protoApk =
           linkProtoApk(
               compiled, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory, resourceIds)) {
@@ -570,6 +580,7 @@ public class ResourceLinker {
             rTxt,
             proguardConfig,
             mainDexProguard,
+            resourcePathShorteningMap,
             javaSourceDirectory,
             resourceIds,
             extractAttributes(compiled),

@@ -17,6 +17,7 @@ package com.google.devtools.build.android.aapt2;
 
 import com.android.repository.Revision;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
+import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -27,7 +28,7 @@ import com.google.devtools.common.options.TriState;
 import java.nio.file.Path;
 import java.util.List;
 
-/** Aaprt2 specific configuration options. */
+/** Aapt2 specific configuration options. */
 public class Aapt2ConfigOptions extends OptionsBase {
   @Option(
     name = "aapt2",
@@ -88,14 +89,24 @@ public class Aapt2ConfigOptions extends OptionsBase {
   public TriState conditionalKeepRules;
 
   @Option(
-    name = "uncompressedExtensions",
-    defaultValue = "",
-    converter = CommaSeparatedOptionListConverter.class,
-    category = "config",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "A list of file extensions not to compress."
-  )
+      name = "resourcePathShorteningMapOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Path to write the map of old resource paths to shortened paths, if resource path"
+              + " shortening is enabled.")
+  public Path resourcePathShorteningMapOutput;
+
+  @Option(
+      name = "uncompressedExtensions",
+      defaultValue = "",
+      converter = CommaSeparatedOptionListConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A list of file extensions not to compress.")
   public List<String> uncompressedExtensions;
 
   @Option(

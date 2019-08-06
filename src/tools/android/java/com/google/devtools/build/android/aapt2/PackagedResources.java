@@ -31,6 +31,8 @@ public abstract class PackagedResources {
 
   public abstract Path mainDexProguard();
 
+  public abstract Path resourcePathShorteningMap();
+
   public abstract Path javaSourceDirectory();
 
   abstract Path resourceIds();
@@ -45,6 +47,7 @@ public abstract class PackagedResources {
       Path rTxt,
       Path proguardConfig,
       Path mainDexProguard,
+      Path resourcePathShorteningMap,
       Path javaSourceDirectory,
       Path resourceIds,
       Path attributes,
@@ -55,6 +58,7 @@ public abstract class PackagedResources {
         rTxt,
         proguardConfig,
         mainDexProguard,
+        resourcePathShorteningMap,
         javaSourceDirectory,
         resourceIds,
         attributes,
