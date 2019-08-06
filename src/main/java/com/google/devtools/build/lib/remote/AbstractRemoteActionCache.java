@@ -640,8 +640,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     private final Path execRoot;
     private final boolean allowSymlinks;
     private final boolean uploadSymlinks;
-    private final Map<Digest, Path> digestToFile;
-    private final Map<Digest, Chunker> digestToChunkers;
+    private final Map<Digest, Path> digestToFile = new HashMap<>();
+    private final Map<Digest, Chunker> digestToChunkers = new HashMap<>();
+    private Digest stderrDigest;
+    private Digest stdoutDigest;
 
     /**
      * Create an UploadManifest from an ActionResult builder and an exec root. The ActionResult
@@ -658,9 +660,17 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       this.execRoot = execRoot;
       this.uploadSymlinks = uploadSymlinks;
       this.allowSymlinks = allowSymlinks;
+    }
 
-      this.digestToFile = new HashMap<>();
-      this.digestToChunkers = new HashMap<>();
+    public void setStdoutStderr(FileOutErr outErr) throws IOException {
+      if (outErr.getErrorPath().exists()) {
+        stderrDigest = digestUtil.compute(outErr.getErrorPath());
+        addFile(stderrDigest, outErr.getErrorPath());
+      }
+      if (outErr.getOutputPath().exists()) {
+        stdoutDigest = digestUtil.compute(outErr.getOutputPath());
+        addFile(stdoutDigest, outErr.getOutputPath());
+      }
     }
 
     /**
@@ -745,6 +755,16 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
      */
     public Map<Digest, Chunker> getDigestToChunkers() {
       return digestToChunkers;
+    }
+
+    @Nullable
+    public Digest getStdoutDigest() {
+      return stdoutDigest;
+    }
+
+    @Nullable
+    public Digest getStderrDigest() {
+      return stderrDigest;
     }
 
     private void addFileSymbolicLink(Path file, PathFragment target) throws IOException {
