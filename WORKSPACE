@@ -386,11 +386,11 @@ http_archive(
 
 http_archive(
     name = "bazel_toolchains",
-    sha256 = "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
-    strip_prefix = "bazel-toolchains-0.27.1",
+    sha256 = "d8c2f20deb2f6143bac792d210db1a4872102d81529fe0ea3476c1696addd7ff",
+    strip_prefix = "bazel-toolchains-0.28.3",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
     ],
 )
 
