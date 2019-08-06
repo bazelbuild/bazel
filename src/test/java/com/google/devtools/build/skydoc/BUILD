@@ -67,6 +67,7 @@ java_test(
 
 skydoc_test(
     name = "input_template_test",
+    aspect_template = "testdata/input_template_test/aspect.vm",
     func_template = "testdata/input_template_test/func.vm",
     golden_file = "testdata/input_template_test/golden.txt",
     header_template = "testdata/input_template_test/header.vm",
