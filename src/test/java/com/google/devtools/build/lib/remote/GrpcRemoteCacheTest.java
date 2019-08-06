@@ -90,6 +90,7 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -626,7 +627,7 @@ public class GrpcRemoteCacheTest {
   }
 
   @Test
-  public void testUploadCacheHits() throws Exception {
+  public void testUpload() throws Exception {
     final GrpcRemoteCache client = newClient();
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -639,6 +640,15 @@ public class GrpcRemoteCacheTest {
     final Digest cmdDigest = DIGEST_UTIL.compute(command.toByteArray());
     Action action = Action.newBuilder().setCommandDigest(cmdDigest).build();
     final Digest actionDigest = DIGEST_UTIL.compute(action.toByteArray());
+
+    outErr.getOutputStream().write("foo out".getBytes(UTF_8));
+    outErr.getOutputStream().close();
+    outErr.getErrorStream().write("foo err".getBytes(UTF_8));
+    outErr.getOutputStream().close();
+
+    final Digest stdoutDigest = DIGEST_UTIL.compute(outErr.getOutputPath());
+    final Digest stderrDigest = DIGEST_UTIL.compute(outErr.getErrorPath());
+
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
           @Override
@@ -646,7 +656,8 @@ public class GrpcRemoteCacheTest {
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
             assertThat(request.getBlobDigestsList())
-                .containsExactly(cmdDigest, actionDigest, fooDigest, barDigest);
+                .containsExactly(cmdDigest, actionDigest, fooDigest, barDigest, stdoutDigest,
+                    stderrDigest);
             // Nothing is missing.
             responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
             responseObserver.onCompleted();
@@ -663,6 +674,8 @@ public class GrpcRemoteCacheTest {
         outErr,
         result);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.setStdoutDigest(stdoutDigest);
+    expectedResult.setStderrDigest(stderrDigest);
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult
         .addOutputFilesBuilder()

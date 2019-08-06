@@ -665,11 +665,11 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     public void setStdoutStderr(FileOutErr outErr) throws IOException {
       if (outErr.getErrorPath().exists()) {
         stderrDigest = digestUtil.compute(outErr.getErrorPath());
-        addFile(stderrDigest, outErr.getErrorPath());
+        digestToFile.put(stderrDigest, outErr.getErrorPath());
       }
       if (outErr.getOutputPath().exists()) {
         stdoutDigest = digestUtil.compute(outErr.getOutputPath());
-        addFile(stdoutDigest, outErr.getOutputPath());
+        digestToFile.put(stdoutDigest, outErr.getOutputPath());
       }
     }
 
