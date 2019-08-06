@@ -68,8 +68,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
         AndroidSdkProvider.fromRuleContext(ruleContext),
         shouldThrowIfNotOnWhitelist(ruleContext, "allow_proguard_apply_dictionary"),
         shouldThrowIfNotOnWhitelist(ruleContext, "allow_proguard_apply_mapping"),
-        shouldThrowIfNotOnWhitelist(ruleContext, "allow_resource_conflicts")
-            || androidConfig.throwOnResourceConflict(),
+        shouldThrowIfNotOnWhitelist(ruleContext, "allow_resource_conflicts"),
         androidConfig.useDataBindingV2());
   }
 

@@ -1091,7 +1091,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean exportsManifestDefault;
   private final AndroidAaptVersion androidAaptVersion;
   private final boolean useAapt2ForRobolectric;
-  private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
   private final boolean breakBuildOnParallelDex2OatFailure;
   private final boolean omitResourcesInfoProviderFromAndroidBinary;
@@ -1141,7 +1140,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.useAapt2ForRobolectric = options.useAapt2ForRobolectric;
-    this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
     this.breakBuildOnParallelDex2OatFailure = options.breakBuildOnParallelDex2OatFailure;
     this.omitResourcesInfoProviderFromAndroidBinary =
@@ -1362,11 +1360,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean useAapt2ForRobolectric() {
     return useAapt2ForRobolectric;
-  }
-
-  @Override
-  public boolean throwOnResourceConflict() {
-    return throwOnResourceConflict;
   }
 
   @Override

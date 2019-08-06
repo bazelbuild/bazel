@@ -173,17 +173,6 @@ public interface AndroidConfigurationApi {
       documented = false)
   boolean useAapt2ForRobolectric();
 
-  /**
-   * @deprecated control resource conflicts with the <code>allow_resource_conflicts</code> whitelist
-   */
-  @Deprecated
-  @SkylarkCallable(
-      name = "throw_on_resource_conflict",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean throwOnResourceConflict();
-
   @SkylarkCallable(
       name = "omit_resources_info_provider_from_android_binary",
       structField = true,

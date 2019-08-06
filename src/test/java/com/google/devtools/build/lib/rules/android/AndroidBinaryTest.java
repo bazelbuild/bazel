@@ -1940,22 +1940,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(resourceProcessingArgs).containsAtLeast("--resourceConfigs", "ar-rXB,en,en-rXA");
   }
 
-  @Test
-  public void testThrowOnResourceConflictFlagGetsPropagated() throws Exception {
-    scratch.file(
-        "java/r/android/BUILD",
-        "android_binary(",
-        "  name = 'r',",
-        "  manifest = 'AndroidManifest.xml',",
-        "  resource_files = ['res/values/foo.xml'],",
-        ")");
-    useConfiguration("--experimental_android_throw_on_resource_conflict");
-    ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
-
-    List<String> resourceProcessingArgs = resourceArguments(getValidatedResources(binary));
-    assertThat(resourceProcessingArgs).contains("--throwOnResourceConflict");
-  }
-
   /**
    * Gets the paths of matching artifacts contained within a resource container
    *
