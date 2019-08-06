@@ -131,7 +131,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   @Override
   public boolean canExec(Spawn spawn) {
-    return Spawns.supportsWorkers(spawn);
+    return Spawns.supportsWorkers(spawn) || Spawns.supportsMultiplexWorkers(spawn);
   }
 
   private SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
