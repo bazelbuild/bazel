@@ -26,7 +26,6 @@ using std::wstring;
 
 static constexpr const char* PYTHON_BIN_PATH = "python_bin_path";
 static constexpr const char* USE_ZIP_FILE = "use_zip_file";
-static constexpr const char* WINDOWS_STYLE_ESCAPE_JVM_FLAGS = "escape_args";
 
 ExitCode PythonBinaryLauncher::Launch() {
   wstring python_binary = this->GetLaunchInfoByKey(PYTHON_BIN_PATH);
@@ -64,13 +63,10 @@ ExitCode PythonBinaryLauncher::Launch() {
   // Replace the first argument with python file path
   args[0] = python_file;
 
-  wstring (*const escape_arg_func)(const wstring&) =
-      this->GetLaunchInfoByKey(WINDOWS_STYLE_ESCAPE_JVM_FLAGS) == L"1"
-          ? WindowsEscapeArg2
-          : WindowsEscapeArg;
+  wstring (*const escape_arg_func)(const wstring&) = WindowsEscapeArg2;
 
   for (int i = 1; i < args.size(); i++) {
-    args[i] = escape_arg_func(args[i]);
+    args[i] = WindowsEscapeArg2(args[i]);
   }
 
   return this->LaunchProcess(python_binary, args);

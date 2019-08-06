@@ -256,27 +256,6 @@ void AssertSubprocessReceivesArgsAsIntended(
   }
 }
 
-TEST_F(LaunchUtilTest, WindowsEscapeArgTest) {
-  // List of arguments with their expected WindowsEscapeArg-encoded version.
-  AssertSubprocessReceivesArgsAsIntended(
-      WindowsEscapeArg,
-      {
-          // Each pair is:
-          // - first: argument to pass (and expected output from subprocess)
-          // - second: expected WindowsEscapeArg-encoded string
-          {L"foo", L"foo"},
-          {L"", L"\"\""},
-          {L" ", L"\" \""},
-          {L"foo\\bar", L"foo\\bar"},
-          {L"C:\\foo\\bar\\", L"C:\\foo\\bar\\"},
-          // TODO(laszlocsomor): fix WindowsEscapeArg to use correct escaping
-          // semantics (not Bash semantics) and add more tests. The example
-          // below is
-          // escaped incorrectly.
-          // {L"C:\\foo bar\\", L"\"C:\\foo bar\\\""},
-      });
-}
-
 TEST_F(LaunchUtilTest, WindowsEscapeArg2Test) {
   AssertSubprocessReceivesArgsAsIntended(
       WindowsEscapeArg2,
