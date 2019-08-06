@@ -167,25 +167,6 @@ py_binary(
 eof
 }
 
-# Asserts that the $TEST_log contains bad py_binary args.
-#
-# This assertion guards (and demonstrates) the status quo.
-#
-# See create_build_file_with_many_args() and create_py_file_that_prints_args().
-function assert_bad_output_of_the_program_with_many_args() {
-  expect_log 'arg1=()'
-  expect_log 'arg2=( )'
-  expect_log 'arg3=(")'
-  expect_log 'arg4=("\\)'
-  # arg5 and arg6 already stumble. No need to assert more.
-  expect_log 'arg5=(\\)'
-  expect_log 'arg6=(\\ with)'
-  # To illustrate the bug again, these args match those in the bug report:
-  # https://github.com/bazelbuild/bazel/issues/7958
-  expect_log 'arg40=(a)'
-  expect_log 'arg41=(b\\ c)'
-}
-
 # Asserts that the $TEST_log contains all py_binary args as argN=(VALUE).
 #
 # See create_build_file_with_many_args() and create_py_file_that_prints_args().
@@ -242,27 +223,6 @@ function assert_good_output_of_the_program_with_many_args() {
 # TESTS
 # ----------------------------------------------------------------------
 
-function test_args_escaping_disabled_on_windows() {
-  local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
-  mkdir -p "$ws"
-  create_workspace_with_default_repos "$ws/WORKSPACE"
-
-  create_py_file_that_prints_args "$ws"
-  create_build_file_with_many_args "$ws"
-
-  ( cd "$ws"
-    bazel run --verbose_failures --noincompatible_windows_escape_python_args \
-      :x &>"$TEST_log" || fail "expected success"
-  )
-  if "$is_windows"; then
-    # On Windows, the target runs but prints bad output.
-    assert_bad_output_of_the_program_with_many_args
-  else
-    # On other platforms, the program runs fine and prints correct output.
-    assert_good_output_of_the_program_with_many_args
-  fi
-}
-
 function test_args_escaping() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
@@ -273,13 +233,12 @@ function test_args_escaping() {
 
   # On all platforms, the target prints good output.
   ( cd "$ws"
-    bazel run --verbose_failures --incompatible_windows_escape_python_args \
-      :x &>"$TEST_log" || fail "expected success"
+    bazel run --verbose_failures :x &>"$TEST_log" || fail "expected success"
   )
   assert_good_output_of_the_program_with_many_args
 }
 
-function test_untokenizable_args_when_escaping_is_disabled() {
+function test_untokenizable_args() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
   create_workspace_with_default_repos "$ws/WORKSPACE"
@@ -287,27 +246,8 @@ function test_untokenizable_args_when_escaping_is_disabled() {
   create_py_file_that_prints_args "$ws"
   create_build_file_for_untokenizable_args "$ws"
 
-  # On all platforms, Bazel can build the target.
   ( cd "$ws"
-    if bazel build --verbose_failures --noincompatible_windows_escape_python_args \
-        :cannot_tokenize 2>"$TEST_log"; then
-      fail "expected failure"
-    fi
-  )
-  expect_log "unterminated quotation"
-}
-
-function test_untokenizable_args_when_escaping_is_enabled() {
-  local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
-  mkdir -p "$ws"
-  create_workspace_with_default_repos "$ws/WORKSPACE"
-
-  create_py_file_that_prints_args "$ws"
-  create_build_file_for_untokenizable_args "$ws"
-
-  local -r flag="--incompatible_windows_escape_python_args"
-  ( cd "$ws"
-    bazel run --verbose_failures "$flag" :cannot_tokenize \
+    bazel run --verbose_failures :cannot_tokenize \
       2>"$TEST_log" && fail "expected failure" || true
   )
   expect_log "ERROR:.*in args attribute of py_binary rule.*unterminated quotation"
@@ -363,27 +303,7 @@ run_host_configured = rule(
 eof
 
   ( cd "$ws"
-    bazel build --verbose_failures --noincompatible_windows_escape_python_args \
-      :x &>"$TEST_log" || fail "expected success"
-    cat bazel-bin/x.out >> "$TEST_log"
-  )
-  if "$is_windows"; then
-    # This output is wrong, but expected on Windows with
-    # --noincompatible_windows_escape_python_args.
-    expect_log 'arg2=(a)'
-    expect_log 'arg3=()'
-    expect_log 'arg4=("b \\c z)'
-  else
-    # This output is right.
-    expect_log 'arg2=(a)'
-    expect_log 'arg3=()'
-    expect_log 'arg4=("b \\"c)'
-    expect_log 'arg5=(z)'
-  fi
-
-  ( cd "$ws"
-    bazel build --verbose_failures --incompatible_windows_escape_python_args \
-      :x &>"$TEST_log" || fail "expected success"
+    bazel build --verbose_failures :x &>"$TEST_log" || fail "expected success"
     cat bazel-bin/x.out >> "$TEST_log"
   )
   # This output is right.

@@ -53,11 +53,6 @@ std::wstring BashEscapeArg(const std::wstring& arg);
 // This escaping lets us safely pass arguments to subprocesses created with
 // CreateProcessW. (The escaping rules are a bit complex, look at the function
 // implementation.)
-std::wstring WindowsEscapeArg(const std::wstring& arg);
-
-// TODO(laszlocsomor): Delete WindowsEscapeArg and use WindowsEscapeArg2.
-// WindowsEscapeArg escapes incorrectly while WindowsEscapeArg2 escapes
-// correctly.
 std::wstring WindowsEscapeArg2(const std::wstring& arg);
 
 // Convert a path to an absolute Windows path with \\?\ prefix.

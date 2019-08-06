@@ -58,8 +58,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   // TODO(brandjon): Remove this once migration for native rule access is complete.
   private final boolean loadPythonRulesFromBzl;
 
-  private final boolean windowsEscapePythonArgs;
-
   PythonConfiguration(
       PythonVersion version,
       PythonVersion defaultVersion,
@@ -70,8 +68,7 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
       boolean py2OutputsAreSuffixed,
       boolean disallowLegacyPyProvider,
       boolean useToolchains,
-      boolean loadPythonRulesFromBzl,
-      boolean windowsEscapePythonArgs) {
+      boolean loadPythonRulesFromBzl) {
     this.version = version;
     this.defaultVersion = defaultVersion;
     this.buildPythonZip = buildPythonZip;
@@ -82,7 +79,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
     this.disallowLegacyPyProvider = disallowLegacyPyProvider;
     this.useToolchains = useToolchains;
     this.loadPythonRulesFromBzl = loadPythonRulesFromBzl;
-    this.windowsEscapePythonArgs = windowsEscapePythonArgs;
   }
 
   /**
@@ -207,9 +203,5 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean loadPythonRulesFromBzl() {
     return loadPythonRulesFromBzl;
-  }
-
-  public boolean windowsEscapePythonArgs() {
-    return windowsEscapePythonArgs;
   }
 }

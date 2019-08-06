@@ -256,18 +256,13 @@ public class BazelPythonSemantics implements PythonSemantics {
           // unix. See also https://github.com/bazelbuild/bazel/issues/7947#issuecomment-491385802.
           pythonBinary,
           executable,
-          /*useZipFile=*/ buildPythonZip,
-          /*windowsEscapePythonArgs=*/ config.windowsEscapePythonArgs());
+          /*useZipFile=*/ buildPythonZip);
     }
   }
 
   /** Registers an action to create a Windows Python launcher at {@code pythonLauncher}. */
   private static void createWindowsExeLauncher(
-      RuleContext ruleContext,
-      String pythonBinary,
-      Artifact pythonLauncher,
-      boolean useZipFile,
-      boolean windowsEscapePythonArgs)
+      RuleContext ruleContext, String pythonBinary, Artifact pythonLauncher, boolean useZipFile)
       throws InterruptedException {
     LaunchInfo launchInfo =
         LaunchInfo.builder()
@@ -278,7 +273,6 @@ public class BazelPythonSemantics implements PythonSemantics {
                 ruleContext.getConfiguration().runfilesEnabled() ? "1" : "0")
             .addKeyValuePair("python_bin_path", pythonBinary)
             .addKeyValuePair("use_zip_file", useZipFile ? "1" : "0")
-            .addKeyValuePair("escape_args", windowsEscapePythonArgs ? "1" : "0")
             .build();
     LauncherFileWriteAction.createAndRegister(ruleContext, pythonLauncher, launchInfo);
   }
