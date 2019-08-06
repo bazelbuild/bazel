@@ -268,8 +268,13 @@ public class ActionExecutionContext implements Closeable {
     if (owner == null) {
       reason = spawn.getResourceOwner().prettyPrint();
     } else {
-      reason = Label.print(owner.getLabel())
-          + " [" + spawn.getResourceOwner().prettyPrint() + "]";
+      reason =
+          Label.print(owner.getLabel())
+              + " ["
+              + spawn.getResourceOwner().prettyPrint()
+              + ", configuration: "
+              + owner.getConfigurationChecksum()
+              + "]";
     }
     String message = Spawns.asShellCommand(spawn, getExecRoot(), showSubcommands.prettyPrintArgs);
     getEventHandler().handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
