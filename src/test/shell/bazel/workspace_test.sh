@@ -274,6 +274,18 @@ EOF
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
   assert_contains "override" bazel-genfiles/external/o/gen.out
+
+  bazel build @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "original" bazel-genfiles/external/o/gen.out
+
+  # For multiple override options, the latest should win
+  bazel build --override_repository=o=/ignoreme \
+        --override_repository="o=$PWD/override" \
+        @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" bazel-genfiles/external/o/gen.out
+
 }
 
 function test_workspace_addition_change() {
