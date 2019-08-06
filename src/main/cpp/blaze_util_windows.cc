@@ -52,6 +52,7 @@
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
+#include "src/tools/launcher/util/launcher_util.h"
 
 namespace blaze {
 
@@ -477,9 +478,6 @@ namespace {
 
 // Max command line length is per CreateProcess documentation
 // (https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx)
-//
-// Quoting rules are described here:
-// https://blogs.msdn.microsoft.com/twistylittlepassagesallalike/2011/04/23/everyone-quotes-command-line-arguments-the-wrong-way/
 
 static const int MAX_CMDLINE_LENGTH = 32768;
 
@@ -487,7 +485,7 @@ struct CmdLine {
   WCHAR cmdline[MAX_CMDLINE_LENGTH];
 };
 static void CreateCommandLine(CmdLine* result, const string& exe,
-                              const std::vector<string>& args_vector) {
+                              const std::vector<std::wstring>& wargs_vector) {
   std::wstringstream cmdline;
   string short_exe;
   if (!exe.empty()) {
@@ -501,7 +499,7 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
   }
 
   bool first = true;
-  for (const auto& s : args_vector) {
+  for (const std::wstring& wa : wargs_vector) {
     if (first) {
       // Skip first argument, it is equal to 'exe'.
       first = false;
@@ -509,42 +507,7 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
     } else {
       cmdline << L' ';
     }
-
-    bool has_space = s.find(" ") != string::npos;
-
-    if (has_space) {
-      cmdline << L'\"';
-    }
-
-    wstring ws = blaze_util::CstringToWstring(s.c_str()).get();
-    std::wstring::const_iterator it = ws.begin();
-    while (it != ws.end()) {
-      wchar_t ch = *it++;
-      switch (ch) {
-        case L'"':
-          // Escape double quotes
-          cmdline << L"\\\"";
-          break;
-
-        case L'\\':
-          if (it == ws.end()) {
-            // Backslashes at the end of the string are quoted if we add quotes
-            cmdline << (has_space ? L"\\\\" : L"\\");
-          } else {
-            // Backslashes everywhere else are quoted if they are followed by a
-            // quote or a backslash
-            cmdline << (*it == L'"' || *it == L'\\' ? L"\\\\" : L"\\");
-          }
-          break;
-
-        default:
-          cmdline << ch;
-      }
-    }
-
-    if (has_space) {
-      cmdline << L'\"';
-    }
+    cmdline << wa;
   }
 
   wstring cmdline_str = cmdline.str();
@@ -722,8 +685,16 @@ int ExecuteDaemon(const string& exe,
   STARTUPINFOEXW startupInfoEx = {0};
   lpAttributeList->InitStartupInfoExW(&startupInfoEx);
 
+  std::vector<std::wstring> wesc_args_vector;
+  wesc_args_vector.reserve(args_vector.size());
+  for (const string& a : args_vector) {
+    std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
+    std::wstring wesc = bazel::launcher::WindowsEscapeArg2(wa);
+    wesc_args_vector.push_back(wesc);
+  }
+
   CmdLine cmdline;
-  CreateCommandLine(&cmdline, exe, args_vector);
+  CreateCommandLine(&cmdline, exe, wesc_args_vector);
 
   BOOL ok;
   {
@@ -771,11 +742,12 @@ int ExecuteDaemon(const string& exe,
 // Run the given program in the current working directory, using the given
 // argument vector, wait for it to finish, then exit ourselves with the exitcode
 // of that program.
-void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
+static void ExecuteProgram(const string& exe,
+                           const std::vector<std::wstring>& wargs_vector) {
   std::wstring wexe = blaze_util::CstringToWstring(exe.c_str()).get();
 
   CmdLine cmdline;
-  CreateCommandLine(&cmdline, "", args_vector);
+  CreateCommandLine(&cmdline, "", wargs_vector);
 
   bazel::windows::WaitableProcess proc;
   std::wstring werror;
@@ -794,6 +766,35 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
         << ") failed: " << blaze_util::WstringToCstring(werror.c_str()).get();
   }
   exit(x);
+}
+
+void ExecuteServerJvm(const string& exe,
+                      const std::vector<string>& server_jvm_args) {
+  std::vector<std::wstring> wargs;
+  wargs.reserve(server_jvm_args.size());
+  for (const string& a : server_jvm_args) {
+    std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
+    std::wstring wesc = bazel::launcher::WindowsEscapeArg2(wa);
+    wargs.push_back(wesc);
+  }
+
+  ExecuteProgram(exe, wargs);
+}
+
+void ExecuteRunRequest(const string& exe,
+                       const std::vector<string>& run_request_args) {
+  std::vector<std::wstring> wargs;
+  wargs.reserve(run_request_args.size());
+  std::wstringstream joined;
+  for (const string& a : run_request_args) {
+    std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
+    // The arguments are already escaped (Bash-style or Windows-style, depending
+    // on --[no]incompatible_windows_bashless_run_command).
+    wargs.push_back(wa);
+    joined << L' ' << wa;
+  }
+
+  ExecuteProgram(exe, wargs);
 }
 
 const char kListSeparator = ';';

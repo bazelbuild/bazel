@@ -680,7 +680,7 @@ static void RunBatchMode(
 
   {
     WithEnvVars env_obj(PrepareEnvironmentForJvm());
-    ExecuteProgram(server_exe, jvm_args_vector);
+    ExecuteServerJvm(server_exe, jvm_args_vector);
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "execv of '" << server_exe << "' failed: " << GetLastErrorString();
   }
@@ -2014,7 +2014,7 @@ unsigned int BlazeServer::Communicate(
     // Execute the requested program, but before doing so, flush everything
     // we still have to say.
     fflush(NULL);
-    ExecuteProgram(request.argv(0), argv);
+    ExecuteRunRequest(request.argv(0), argv);
   }
 
   // We'll exit with exit code SIGPIPE on Unixes due to PropagateSignalOnExit()
