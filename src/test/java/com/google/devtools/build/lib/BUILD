@@ -1459,6 +1459,18 @@ java_test(
     ],
 )
 
+java_library(
+    name = "proto_testutils",
+    testonly = 1,
+    srcs = [
+        "rules/proto/ProtoTestHelper.java",
+    ],
+    deps = [
+        ":analysis_testutil",
+        ":testutil",
+    ],
+)
+
 java_test(
     name = "ProtoCompileActionBuilderTest",
     srcs = ["rules/proto/ProtoCompileActionBuilderTest.java"],
@@ -1487,6 +1499,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":guava_junit_truth",
+        ":proto_testutils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:util",
@@ -1501,6 +1514,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":guava_junit_truth",
+        ":proto_testutils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:util",

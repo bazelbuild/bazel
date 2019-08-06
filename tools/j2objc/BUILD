@@ -1,3 +1,5 @@
+load("@rules_proto//proto:defs.bzl", "proto_lang_toolchain")
+
 package(default_visibility = ["//visibility:public"])
 
 exports_files(glob(["**"]))
