@@ -14,6 +14,16 @@
 
 """Configure local Resource Compilers for every available target platform.
 
+Platform support:
+
+- Linux/macOS/non-Windows: this repository rule is almost a no-op.
+  It generates an empty BUILD file, and does not actually discover any
+  toolchains. The register_local_rc_exe_toolchains() method is a no-op.
+
+- Windows: this repository rule discovers the Windows SDK path, the installed
+  rc.exe compilers. The register_local_rc_exe_toolchains() registers a toolchain
+  for each rc.exe compiler.
+
 Usage:
 
     load("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
@@ -46,6 +56,9 @@ def _find_rc_exes(root):
     return result
 
 def _find_all_rc_exe(repository_ctx):
+    if not repository_ctx.os.name.startswith("windows"):
+        return {}
+
     vc = find_vc_path(repository_ctx)
     if vc:
         env = setup_vc_env_vars(
