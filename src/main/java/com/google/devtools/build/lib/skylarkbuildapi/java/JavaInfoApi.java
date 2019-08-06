@@ -49,10 +49,10 @@ public interface JavaInfoApi <FileT extends FileApi> extends StructApi {
 
   @SkylarkCallable(
       name = "transitive_compile_time_jars",
-      doc = "Depset of compile time jars recusrively required by this target. See `compile_jars` "
-          + "for more details.",
-      structField = true
-  )
+      doc =
+          "Depset of compile time jars recursively required by this target. See `compile_jars` "
+              + "for more details.",
+      structField = true)
   public SkylarkNestedSet getTransitiveCompileTimeJars();
 
   @SkylarkCallable(
