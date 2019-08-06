@@ -1,7 +1,7 @@
 load(
     "//tools/build_rules:test_rules.bzl",
-    "rule_test",
     "file_test",
+    "rule_test",
 )
 load("//tools/python:private/defs.bzl", "py_test")
 
