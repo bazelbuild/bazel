@@ -70,14 +70,14 @@ public interface JavaInfoApi <FileT extends FileApi> extends StructApi {
 
   @SkylarkCallable(
       name = "full_compile_jars",
-      doc = "Returns the full compile time jars required by this target directly. They can be <ul>"
-          + "<li> the corresponding normal full jars of the ijars returned by `compile_jars`</li>"
-          + "<li> the normal full jars returned by `compile_jars`</li></ul>"
-          + "Note: `compile_jars` can return a mix of ijars and normal full jars. In that case, "
-          + "`full_compile_jars` returns the corresponding full jars of the ijars and the remaining"
-          + "normal full jars in `compile_jars`.",
-      structField = true
-  )
+      doc =
+          "Returns the full compile time jars required by this target directly. They can be"
+              + " <ul><li> the corresponding normal full jars of the ijars returned by"
+              + " `compile_jars`</li><li> the normal full jars returned by"
+              + " `compile_jars`</li></ul>Note: `compile_jars` can return a mix of ijars and"
+              + " normal full jars. In that case, `full_compile_jars` returns the corresponding"
+              + " full jars of the ijars and the remaining normal full jars in `compile_jars`.",
+      structField = true)
   public SkylarkNestedSet getFullCompileTimeJars();
 
   @SkylarkCallable(
