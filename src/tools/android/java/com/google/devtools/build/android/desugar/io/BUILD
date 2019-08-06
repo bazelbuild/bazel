@@ -1,6 +1,8 @@
 # Description:
 #   Tool for desugaring Java constructs not supported by Android tools or devices.
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_library")
+
 java_library(
     name = "io",
     srcs = glob(["*.java"]),

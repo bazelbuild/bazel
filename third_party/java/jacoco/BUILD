@@ -3,6 +3,8 @@
 #
 # http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.3/jacoco-0.8.3.zip
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_import")
+
 licenses(["reciprocal"])  # EPL 1.0 (Eclipse Public License)
 
 exports_files(["LICENSE"])

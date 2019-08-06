@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_test")
+
 package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])

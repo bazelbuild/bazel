@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_binary", "java_library", "java_test")
+
 package(
     default_visibility = [
         ":__subpackages__",

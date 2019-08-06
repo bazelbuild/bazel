@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_library")
+
 # Description:
 #   Testing tools for the devtools-common options parser.
 package(

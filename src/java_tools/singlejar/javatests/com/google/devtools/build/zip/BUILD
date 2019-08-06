@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_library", "java_test")
+
 # Description:
 #   Tests for Zip
 package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"])

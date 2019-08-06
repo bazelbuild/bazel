@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_toolchain")
+
 """Bazel rules for creating Java toolchains."""
 
 JDK8_JVM_OPTS = [
@@ -84,8 +86,7 @@ def default_java_toolchain(name, **kwargs):
 
     toolchain_args = dict(DEFAULT_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(kwargs)
-
-    native.java_toolchain(
+    java_toolchain(
         name = name,
         **toolchain_args
     )

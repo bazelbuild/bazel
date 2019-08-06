@@ -1,6 +1,8 @@
 # Description:
 #   Collection of dex utilities used in the bazel android actions.
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_library")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

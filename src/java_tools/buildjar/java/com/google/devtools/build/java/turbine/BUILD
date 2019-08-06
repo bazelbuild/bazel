@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_binary")
+
 package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 java_binary(

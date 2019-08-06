@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_import")
+
 licenses(["notice"])  # Apache v2
 
 package(

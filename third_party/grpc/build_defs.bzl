@@ -3,6 +3,8 @@ You need to load the rules in your BUILD file for use, like:
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 """
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_library")
+
 def _path_ignoring_repository(f):
     if (len(f.owner.workspace_root) == 0):
         return f.short_path
@@ -102,7 +104,7 @@ def java_grpc_library(name, srcs, deps, enable_deprecated = None, visibility = N
         ],
         **kwargs
     )
-    native.java_library(
+    java_library(
         name = name,
         srcs = [gensource_name],
         visibility = visibility,

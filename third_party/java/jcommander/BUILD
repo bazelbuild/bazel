@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_import")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])

@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_binary", "java_library")
+
 package(
     default_visibility = [
         "//tools/test/CoverageOutputGenerator/javatests/com/google/devtools/coverageoutputgenerator:__pkg__",

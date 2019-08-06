@@ -1,5 +1,7 @@
 # Protos of the Actions for Android rules.
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_proto_library")
+
 package(default_visibility = ["//visibility:public"])
 
 load("@rules_proto//proto:defs.bzl", "proto_library")

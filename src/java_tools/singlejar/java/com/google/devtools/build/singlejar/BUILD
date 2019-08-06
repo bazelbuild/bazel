@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_binary", "java_library")
+
 # Description:
 #   SingleJar combines multiple zip files and additional files
 #   into a single zip file.

@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_proto_library")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
@@ -254,6 +256,7 @@ proto_library(
     name = "google_api_auth_proto",
     srcs = ["google/api/auth.proto"],
     deps = [
-       ":google_api_annotations_proto",
-       "@com_google_protobuf//:descriptor_proto"],
+        ":google_api_annotations_proto",
+        "@com_google_protobuf//:descriptor_proto",
+    ],
 )

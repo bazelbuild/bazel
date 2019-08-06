@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_import")
+
 """A collection of macros that retrieve targets from the remote java tools."""
 
 def _get_args(target, attr, **kwargs):
@@ -38,4 +40,4 @@ def remote_java_tools_filegroup(name, target, **kwargs):
 
 def remote_java_tools_java_import(name, target, **kwargs):
     args = _get_args(target, "jars", **kwargs)
-    native.java_import(name = name, **args)
+    java_import(name = name, **args)

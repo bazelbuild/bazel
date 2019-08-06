@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_proto_library")
+
 package(
     default_visibility = [
         "//src/main/java/com/google/devtools/build/skydoc:__subpackages__",

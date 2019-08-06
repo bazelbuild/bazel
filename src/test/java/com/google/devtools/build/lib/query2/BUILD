@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_library")
+
 package(
     default_testonly = 1,
     default_visibility = [

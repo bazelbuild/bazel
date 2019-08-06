@@ -13,6 +13,7 @@
 # limitations under the License.
 
 def proto_alias(name, version):
-  native.alias(
-      name = name,
-      actual = "//third_party/protobuf/" + version + ":" + name)
+    native.alias(
+        name = name,
+        actual = "//third_party/protobuf/" + version + ":" + name,
+    )

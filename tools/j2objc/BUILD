@@ -1,3 +1,4 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_binary")
 load("@rules_proto//proto:defs.bzl", "proto_lang_toolchain")
 
 package(default_visibility = ["//visibility:public"])

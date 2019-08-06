@@ -4,6 +4,8 @@
 # the WORKSPACE file in the same directory with this BUILD file for an
 # example.
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_binary", "java_lite_proto_library", "java_proto_library")
+
 # For each .proto file, a proto_library target should be defined. This target
 # is not bound to any particular language. Instead, it defines the dependency
 # graph of the .proto files (i.e., proto imports) and serves as the provider

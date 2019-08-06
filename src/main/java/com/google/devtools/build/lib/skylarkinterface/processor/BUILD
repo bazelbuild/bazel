@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_plugin")
+
 # Description:
 #   A preprocessor for skylarkinterface annotations.
 package(default_visibility = [

@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_library", "java_plugin")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(

@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_library")
+
 # Description:
 #   This is the extension package to support desugaring try-with-resources statements.
 package(

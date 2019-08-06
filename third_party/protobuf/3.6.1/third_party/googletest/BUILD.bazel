@@ -65,7 +65,7 @@ cc_library(
             "googlemock/src/gmock_main.cc",
         ],
     ),
-    hdrs =glob([
+    hdrs = glob([
         "googletest/include/gtest/*.h",
         "googlemock/include/gmock/*.h",
     ]),

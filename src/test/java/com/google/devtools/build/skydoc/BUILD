@@ -1,3 +1,4 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_test")
 load(":skydoc_test.bzl", "skydoc_test")
 
 package(

@@ -1,5 +1,7 @@
 # Tests for the trimming support classes.
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_library", "java_test")
+
 package(
     default_testonly = 1,
 )

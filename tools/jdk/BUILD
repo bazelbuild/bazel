@@ -1,3 +1,4 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_import", "java_runtime", "java_toolchain")
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "JDK8_JVM_OPTS",

@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_import", "java_library")
+
 # Description:
 #   Test data for testing dependency checking.
 package(

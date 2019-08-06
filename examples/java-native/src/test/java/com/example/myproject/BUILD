@@ -1,3 +1,5 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_test")
+
 java_test(
     name = "hello",
     srcs = ["TestHello.java"],
