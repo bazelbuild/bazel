@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
-import com.google.devtools.build.skydoc.SkydocOptions.OutputFormat;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
@@ -241,7 +240,6 @@ public class SkydocMain {
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
 
-    if (skydocOptions.outputFormat == OutputFormat.PROTO) {
       try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputPath))) {
         new ProtoRenderer()
             .appendRuleInfos(filteredRuleInfos.values())
@@ -250,9 +248,6 @@ public class SkydocMain {
             .appendAspectInfos(filteredAspectInfos.values())
             .writeModuleInfo(out);
       }
-    } else if (skydocOptions.outputFormat == OutputFormat.MARKDOWN) {
-      throw new IllegalArgumentException("Skydoc Binary only outputs raw proto format.");
-    }
   }
 
   private static boolean validSymbolName(ImmutableSet<String> symbolNames, String symbolName) {
@@ -267,8 +262,6 @@ public class SkydocMain {
     }
     return false;
   }
-
-
   /**
    * Evaluates/interprets the skylark file at a given path and its transitive skylark dependencies
    * using a fake build API and collects information about all rule definitions made in the root
