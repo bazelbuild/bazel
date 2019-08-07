@@ -23,11 +23,13 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
+#include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
 
 using std::string;
+using ::testing::HasSubstr;
 
 class BlazeUtilTest : public ::testing::Test {
  protected:
@@ -113,7 +115,7 @@ TEST_F(BlazeUtilTest, TestSearchNullaryEmptyCase) {
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnaryEmptyCase) {
-  ASSERT_STREQ(nullptr, SearchUnaryOption({}, "--flag"));
+  ASSERT_STREQ(nullptr, SearchUnaryOption({}, "--flag", false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchNullaryForEmpty) {
@@ -165,50 +167,71 @@ TEST_F(BlazeUtilTest, TestSearchNullaryLastFlagWins) {
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnaryForEmpty) {
-  ASSERT_STREQ(nullptr, SearchUnaryOption({"bazel", "build", ":target"}, ""));
+  ASSERT_STREQ(nullptr, SearchUnaryOption({"bazel", "build", ":target"}, "",
+                                          false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnaryFlagNotPresent) {
   ASSERT_STREQ(nullptr,
-               SearchUnaryOption({"bazel", "build", ":target"}, "--flag"));
+               SearchUnaryOption({"bazel", "build", ":target"}, "--flag",
+                                 false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnaryStartupOptionWithEquals) {
   ASSERT_STREQ("value",
                SearchUnaryOption({"bazel", "--flag=value", "build", ":target"},
-                                 "--flag"));
+                                 "--flag", false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnaryStartupOptionWithoutEquals) {
   ASSERT_STREQ("value",
                SearchUnaryOption(
-                   {"bazel", "--flag", "value", "build", ":target"}, "--flag"));
+                   {"bazel", "--flag", "value", "build", ":target"}, "--flag",
+                   false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWithEquals) {
   ASSERT_STREQ("value",
                SearchUnaryOption(
-                   {"bazel", "build", ":target", "--flag", "value"}, "--flag"));
+                   {"bazel", "build", ":target", "--flag", "value"}, "--flag",
+                   false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWithoutEquals) {
   ASSERT_STREQ("value",
                SearchUnaryOption(
-                   {"bazel", "build", ":target", "--flag=value"}, "--flag"));
+                   {"bazel", "build", ":target", "--flag=value"}, "--flag",
+                   false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnarySkipsAfterDashDashWithEquals) {
   ASSERT_STREQ(nullptr,
                SearchUnaryOption(
                    {"bazel", "build", ":target", "--", "--flag", "value"},
-                   "--flag"));
+                   "--flag", false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnarySkipsAfterDashDashWithoutEquals) {
   ASSERT_STREQ(nullptr,
                SearchUnaryOption(
                    {"bazel", "build", ":target", "--", "--flag=value"},
-                   "--flag"));
+                   "--flag", false));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWarnsAboutDuplicates) {
+  testing::internal::CaptureStderr();
+  for (int i = 0; i < 2; ++i) {
+    bool warn_if_dupe = (i == 0);
+    ASSERT_STREQ("v1",
+                 SearchUnaryOption(
+                     {"foo", "--flag", "v1", "bar", "--flag=v2"}, "--flag",
+                     warn_if_dupe));
+
+    if (warn_if_dupe) {
+      std::string stderr_output = testing::internal::GetCapturedStderr();
+      EXPECT_THAT(stderr_output, HasSubstr("--flag is given more than once"));
+    }
+  }
 }
 
 }  // namespace blaze
