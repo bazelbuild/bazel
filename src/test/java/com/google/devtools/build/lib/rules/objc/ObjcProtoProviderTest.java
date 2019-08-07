@@ -44,7 +44,7 @@ public class ObjcProtoProviderTest extends ObjcRuleTestCase {
   @Test
   public void emptyProvider() {
     ObjcProtoProvider empty = new ObjcProtoProvider.Builder().build();
-    assertThat(empty.getProtoGroups()).isEmpty();
+    assertThat(empty.getProtoFiles()).isEmpty();
   }
 
   @Test
@@ -52,9 +52,9 @@ public class ObjcProtoProviderTest extends ObjcRuleTestCase {
     Artifact foo = getTestArtifact("foo");
     ObjcProtoProvider onlyPropagates =
         new ObjcProtoProvider.Builder()
-            .addProtoGroup(NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER, foo))
+            .addProtoFiles(NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER, foo))
             .build();
-    assertThat(Iterables.concat(onlyPropagates.getProtoGroups())).containsExactly(foo);
+    assertThat(Iterables.concat(onlyPropagates.getProtoFiles())).containsExactly(foo);
   }
 
   @Test
@@ -67,21 +67,21 @@ public class ObjcProtoProviderTest extends ObjcRuleTestCase {
 
     ObjcProtoProvider base1 =
         new ObjcProtoProvider.Builder()
-            .addProtoGroup(NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER, foo))
+            .addProtoFiles(NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER, foo))
             .addPortableProtoFilters(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER, baz))
             .addProtobufHeaders(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER, header))
             .build();
 
     ObjcProtoProvider base2 =
         new ObjcProtoProvider.Builder()
-            .addProtoGroup(NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER, bar))
+            .addProtoFiles(NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER, bar))
             .addProtobufHeaderSearchPaths(
                 NestedSetBuilder.<PathFragment>create(Order.LINK_ORDER, searchPath))
             .build();
 
     ObjcProtoProvider depender =
         new ObjcProtoProvider.Builder().addTransitive(ImmutableList.of(base1, base2)).build();
-    assertThat(Iterables.concat(depender.getProtoGroups())).containsExactly(foo, bar);
+    assertThat(Iterables.concat(depender.getProtoFiles())).containsExactly(foo, bar);
     assertThat(depender.getPortableProtoFilters()).containsExactly(baz);
     assertThat(depender.getProtobufHeaders()).containsExactly(header);
     assertThat(depender.getProtobufHeaderSearchPaths()).containsExactly(searchPath);
