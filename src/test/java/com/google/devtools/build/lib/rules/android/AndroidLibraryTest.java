@@ -842,7 +842,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "android_sdk(",
         "    name = 'sdk',",
         "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
         "    adb = 'adb',",
         "    aidl = 'aidl',",
         "    aidl_lib = ':aidl_lib',",
@@ -1393,7 +1392,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
                 .getActionForArtifactEndingWith(artifacts,
                     "/" + resources.getJavaSourceJar().getFilename());
     assertThat(resourceParserAction.getMnemonic()).isEqualTo("AndroidResourceParser");
-    assertThat(resourceClassJarAction.getMnemonic()).isEqualTo("AndroidCompiledResourceMerger");
+    assertThat(resourceClassJarAction.getMnemonic()).isEqualTo("AndroidResourceMerger");
     assertThat(resourceSrcJarAction.getMnemonic()).isEqualTo("AndroidResourceValidator");
     // Validator also generates an R.txt.
     assertThat(resourceSrcJarAction.getOutputs()).contains(resources.getRTxt());

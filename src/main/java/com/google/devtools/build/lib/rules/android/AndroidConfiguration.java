@@ -708,7 +708,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
     @Option(
         name = "android_aapt",
-        defaultValue = "aapt2",
+        defaultValue = "auto",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {
           OptionEffectTag.AFFECTS_OUTPUTS,
@@ -968,7 +968,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
         },
-        defaultValue = "true",
+        defaultValue = "false",
         help =
             "Switch the Android rules to use aapt2 by default for resource processing. "
                 + "To resolve issues when migrating your app to build with aapt2, see "

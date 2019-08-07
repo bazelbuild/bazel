@@ -42,7 +42,7 @@ android_binary(
 )
 EOF
   cat > java/com/example/AndroidManifest.xml <<EOF
-<manifest xmlns:android='http://schemas.android.com/apk/res/android' package='com.example' />
+<manifest package="com.example"/>
 EOF
   cat > java/com/example/ILib.aidl <<EOF
 package com.example;

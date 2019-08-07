@@ -52,9 +52,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import org.junit.Before;
 
 /** Common methods shared between Android related {@link BuildViewTestCase}s. */
 public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
+
+  @Before
+  public void setup() throws Exception {
+    // Force tests to use aapt to unblock global aapt2 migration, until these
+    // tests are migrated to use aapt2.
+    // TODO(jingwen): https://github.com/bazelbuild/bazel/issues/6907
+    useConfiguration("--android_aapt=aapt");
+  }
 
   protected Iterable<Artifact> getNativeLibrariesInApk(ConfiguredTarget target) {
     return Iterables.filter(
@@ -446,4 +455,31 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         .isNull();
   }
 
+  /**
+   * Creates a mock SDK with aapt2.
+   *
+   * <p>You'll need to use a configuration pointing to it, such as "--android_sdk=//sdk:sdk", to use
+   * it.
+   */
+  public void mockAndroidSdkWithAapt2() throws Exception {
+    scratch.file(
+        "sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
+        ")");
+  }
 }

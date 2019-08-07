@@ -57,6 +57,9 @@ public class AndroidAssetsTest extends ResourceTestBase {
 
   @Test
   public void testParseAapt2() throws Exception {
+    mockAndroidSdkWithAapt2();
+    useConfiguration("--android_sdk=//sdk:sdk");
+
     RuleContext ruleContext = getRuleContext();
     AndroidAssets assets = getLocalAssets();
 
@@ -155,6 +158,9 @@ public class AndroidAssetsTest extends ResourceTestBase {
 
   @Test
   public void testMergeAapt2() throws Exception {
+    mockAndroidSdkWithAapt2();
+    useConfiguration("--android_sdk=//sdk:sdk");
+
     RuleContext ruleContext = getRuleContext();
     ParsedAndroidAssets parsed =
         getLocalAssets().parse(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT2);
