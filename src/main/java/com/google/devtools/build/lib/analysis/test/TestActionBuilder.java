@@ -232,6 +232,9 @@ public final class TestActionBuilder {
     Artifact collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
 
+    int runsPerTest =
+        config.getFragment(TestConfiguration.class).getRunsPerTestForLabel(ruleContext.getLabel());
+
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
       collectCoverageScript = ruleContext.getHostPrerequisiteArtifact("$collect_coverage_script");
@@ -302,16 +305,23 @@ public final class TestActionBuilder {
       Artifact instrumentedFileManifest =
           InstrumentedFileManifestAction.getInstrumentedFileManifest(ruleContext,
               instrumentedFiles.getInstrumentedFiles(), metadataFiles);
-      executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,
-          executable, instrumentedFileManifest, shards);
+      executionSettings =
+          new TestTargetExecutionSettings(
+              ruleContext,
+              runfilesSupport,
+              executable,
+              instrumentedFileManifest,
+              shards,
+              runsPerTest);
       inputsBuilder.add(instrumentedFileManifest);
       // TODO(ulfjack): Is this even ever set? If yes, does this cost us a lot of memory?
       for (Pair<String, String> coverageEnvEntry : instrumentedFiles.getCoverageEnvironment()) {
         extraTestEnv.put(coverageEnvEntry.getFirst(), coverageEnvEntry.getSecond());
       }
     } else {
-      executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,
-          executable, null, shards);
+      executionSettings =
+          new TestTargetExecutionSettings(
+              ruleContext, runfilesSupport, executable, null, shards, runsPerTest);
     }
 
     extraTestEnv.putAll(extraEnv);
@@ -322,9 +332,6 @@ public final class TestActionBuilder {
         inputsBuilder.add(runUnderExecutable);
       }
     }
-
-    int runsPerTest =
-        config.getFragment(TestConfiguration.class).getRunsPerTestForLabel(ruleContext.getLabel());
 
     Iterable<Artifact> inputs = inputsBuilder.build();
     int shardRuns = (shards > 0 ? shards : 1);
