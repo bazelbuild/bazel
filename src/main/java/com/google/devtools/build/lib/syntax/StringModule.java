@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.commons.lang.StringUtils;
 
 /**
  * Skylark String module.
@@ -281,25 +282,15 @@ public final class StringModule {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             doc = "The maximum number of replacements.")
-      },
-      useLocation = true)
+      })
   public String replace(
-      String self, String oldString, String newString, Object maxSplitO, Location loc)
+      String self, String oldString, String newString, Object maxSplitO)
       throws EvalException {
-    StringBuffer sb = new StringBuffer();
-    Integer maxSplit =
-        Type.INTEGER.convertOptional(
-            maxSplitO, "'maxsplit' argument of 'replace'", /*label*/ null, Integer.MAX_VALUE);
-    try {
-      Matcher m = Pattern.compile(oldString, Pattern.LITERAL).matcher(self);
-      for (int i = 0; i < maxSplit && m.find(); i++) {
-        m.appendReplacement(sb, Matcher.quoteReplacement(newString));
-      }
-      m.appendTail(sb);
-    } catch (IllegalStateException e) {
-      throw new EvalException(loc, e.getMessage() + " in call to replace");
+    int maxSplit = -1;
+    if (maxSplitO != Runtime.NONE && (Integer) maxSplitO >= 0) {
+      maxSplit = (Integer) maxSplitO;
     }
-    return sb.toString();
+    return StringUtils.replace(self, oldString, newString, maxSplit);
   }
 
   @SkylarkCallable(

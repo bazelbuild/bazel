@@ -491,6 +491,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party:apache_commons_lang",
     ],
 )
 

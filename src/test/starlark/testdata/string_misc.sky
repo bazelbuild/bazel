@@ -41,6 +41,9 @@ assert_eq('b$()n$()n$()'.replace('$()', '$($())'), "b$($())n$($())n$($())")
 assert_eq('b\\n\\n\\'.replace('\\', '$()'), "b$()n$()n$()")
 
 assert_eq('banana'.replace('a', 'e', 2), "benena")
+assert_eq('banana'.replace('a', 'e', 0), "banana")
+assert_eq('banana'.replace('a', 'e', -1), "benene")
+assert_eq('banana'.replace('a', 'e', -10), "benene")
 
 # index, rindex
 assert_eq('banana'.index('na'), 2)
