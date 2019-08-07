@@ -57,15 +57,13 @@ public interface JavaInfoApi <FileT extends FileApi> extends StructApi {
 
   @SkylarkCallable(
       name = "compile_jars",
-      doc = "Returns the compile time jars required by this target directly. They can be: <ul>"
-          + "<li> interface jars (ijars), if an ijar tool was used, either by calling "
-          + "java_common.create_provider(use_ijar=True, ...) or by passing --use_ijars on the "
-          + "command line for native Java rules and `java_common.compile`</li>"
-          + "<li> normal full jars, if no ijar action was requested</li>"
-          + "<li> both ijars and normal full jars, if this provider was created by merging two or "
-          + "more providers created with different ijar requests </li> </ul>",
-      structField = true
-  )
+      doc =
+          "Returns the compile time jars required by this target directly. They can be: <ul><li>"
+              + " interface jars (ijars), if an ijar tool was used</li><li> normal full jars, if"
+              + " no ijar action was requested</li><li> both ijars and normal full jars, if this"
+              + " provider was created by merging two or more providers created with different"
+              + " ijar requests </li> </ul>",
+      structField = true)
   public SkylarkNestedSet getCompileTimeJars();
 
   @SkylarkCallable(
