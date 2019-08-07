@@ -134,7 +134,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
         # bazelbuild/bazel-toolchains
-        "0.27.1.tar.gz",
+        "0.28.3.tar.gz",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz",
         # bazelbuild/rules_proto
@@ -159,7 +159,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
         # bazelbuild/bazel-toolchains
-        "0.27.1.tar.gz": "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
+        "0.28.3.tar.gz": "d8c2f20deb2f6143bac792d210db1a4872102d81529fe0ea3476c1696addd7ff",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz": "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
         # bazelbuild/rules_proto
@@ -217,9 +217,9 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
         ],
         # bazelbuild/bazel-toolchains
-        "0.27.1.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
+        "0.28.3.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
         ],
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz": [
@@ -386,11 +386,11 @@ http_archive(
 
 http_archive(
     name = "bazel_toolchains",
-    sha256 = "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
-    strip_prefix = "bazel-toolchains-0.27.1",
+    sha256 = "d8c2f20deb2f6143bac792d210db1a4872102d81529fe0ea3476c1696addd7ff",
+    strip_prefix = "bazel-toolchains-0.28.3",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
     ],
 )
 

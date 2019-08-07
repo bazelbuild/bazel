@@ -27,7 +27,10 @@ java_library(
 
 filegroup(
     name = "template_files",
-    srcs = glob([
-        "templates/*.vm",
-    ]),
+    srcs = glob(
+        [
+            "templates/*.vm",
+        ],
+        allow_empty = True,
+    ),
 )
