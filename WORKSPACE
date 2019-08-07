@@ -123,7 +123,7 @@ distdir_tar(
         "java_tools_javac11_windows-v4.0.zip",
         "java_tools_javac11_darwin-v4.0.zip",
         "coverage_output_generator-v1.0.zip",
-        "41c28e43dffbae39c52dd4b91932d1209e5a8893.tar.gz",
+        "542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "0.16.2.zip",
         "android_tools_pkg-0.8.tar.gz",
@@ -148,7 +148,7 @@ distdir_tar(
         "java_tools_javac11_windows-v4.0.zip": "a1de51447b2ba2eab923d589ba6c72c289c16e6091e6a3bb3e67a05ef4ad200c",
         "java_tools_javac11_darwin-v4.0.zip": "fbf5bf22e9aab9c622e4c8c59314a1eef5ea09eafc5672b4f3250dc0b971bbcc",
         "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
-        "41c28e43dffbae39c52dd4b91932d1209e5a8893.tar.gz": "fdc34621839104b57363a258eab9d821b02ff7837923cfe7fb6fd67182780829",
+        "542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz": "1a90e8b0c01c9ec82fc1836c55813a8de79fc0667ed64cfa64fb0cca81a3195d",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
         "android_tools_pkg-0.8.tar.gz": "a9eac6e1b27d5549edaaa724b20eb1cdae6253b84f44d5744c30372bd523cfcd",  # built at 5dd956930fba6201a820f82a738dbb72f6cfab52
@@ -186,9 +186,9 @@ distdir_tar(
         "coverage_output_generator-v1.0.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip",
         ],
-        "41c28e43dffbae39c52dd4b91932d1209e5a8893.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/41c28e43dffbae39c52dd4b91932d1209e5a8893.tar.gz",
-            "https://github.com/bazelbuild/skydoc/archive/41c28e43dffbae39c52dd4b91932d1209e5a8893.tar.gz",
+        "542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
+            "https://github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
         ],
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
@@ -445,11 +445,11 @@ http_archive(
 # to work without being patched, as it hard-codes this name in its sources.
 http_archive(
     name = "io_bazel_skydoc",
-    sha256 = "fdc34621839104b57363a258eab9d821b02ff7837923cfe7fb6fd67182780829",
-    strip_prefix = "skydoc-41c28e43dffbae39c52dd4b91932d1209e5a8893",
+    sha256 = "1a90e8b0c01c9ec82fc1836c55813a8de79fc0667ed64cfa64fb0cca81a3195d",
+    strip_prefix = "skydoc-542f1a436e0503111c04f29d8ab341c170c9ad1a",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/41c28e43dffbae39c52dd4b91932d1209e5a8893.tar.gz",
-        "https://github.com/bazelbuild/skydoc/archive/41c28e43dffbae39c52dd4b91932d1209e5a8893.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
+        "https://github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
     ],
 )
 
