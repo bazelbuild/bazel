@@ -43,11 +43,8 @@ import com.google.common.io.ByteStreams;
 import com.google.common.xml.XmlEscapers;
 import com.google.devtools.build.android.AndroidResourceOutputs.UniqueZipBuilder;
 import com.google.protobuf.ByteString;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
+
+import java.io.*;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -226,7 +223,17 @@ public class ProtoApk implements Closeable {
 
   /** The apk as path. */
   public Path asApkPath() {
-    return Paths.get(uri.toString().substring("jar:".length() + 1));
+    String pathString = uri.toString().substring("jar:".length() + 1);
+
+    // On Windows, the fully qualified URI looks like:
+    // jar:////C:/Users/user/AppData/Local/Temp/android_resources_tmp12318742536955859612/linked/bin.-pb.apk
+    //
+    // We want "C:/Users...".
+    if (pathString.startsWith("///")) {
+      pathString = pathString.substring("///".length());
+    }
+
+    return Paths.get(pathString);
   }
 
   /** Thrown when errors occur during proto apk processing. */

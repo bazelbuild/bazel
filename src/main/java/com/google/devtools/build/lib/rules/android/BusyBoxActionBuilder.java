@@ -223,21 +223,15 @@ public final class BusyBoxActionBuilder {
   /**
    * Adds an efficient flag and inputs based on transitive values.
    *
-   * <p>Each value will be separated on the command line by the host-specific path separator.
+   * <p>Each value will be separated on the command line by the ':' character, the option parser's
+   * PathListConverter delimiter.
    *
    * <p>Unlike other transitive input methods in this class, this method adds the values to both the
    * command line and the list of inputs.
    */
   public BusyBoxActionBuilder addTransitiveVectoredInput(
       @CompileTimeConstant String arg, NestedSet<Artifact> values) {
-    commandLine.addExecPaths(
-        arg,
-        VectorArg.join(
-                dataContext
-                    .getActionConstructionContext()
-                    .getConfiguration()
-                    .getHostPathSeparator())
-            .each(values));
+    commandLine.addExecPaths(arg, VectorArg.join(":").each(values));
     inputs.addTransitive(values);
     return this;
   }
