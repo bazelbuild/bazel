@@ -547,4 +547,53 @@ public final class SkydocTest extends SkylarkTestCase {
         .inOrder();
     assertThat(aspectInfo.getAspectAttributeList()).containsExactly("deps");
   }
+
+  @Test
+  public void testProvidersForAttributes() throws Exception {
+    scratch.file(
+        "/test/test.bzl",
+        "\n"
+            + "def my_rule_impl(ctx):\n"
+            + "    return struct()\n"
+            + "MyInfo = provider()\n"
+            + "my_rule = rule(\n"
+            + "    implementation = my_rule_impl,\n"
+            + "    attrs = {\n"
+            + "        \"deps\": attr.label_list(\n"
+            + "            doc = \"\"\"\n"
+            + "                   A list of dependencies.\n"
+            + "                   \"\"\",\n"
+            + "            providers = [MyInfo],\n"
+            + "            allow_files = False,"
+            + "          )"
+            + "    },"
+            + ")\n");
+
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
+    ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
+        ruleInfoMap,
+        providerInfoMap,
+        ImmutableMap.builder(),
+        ImmutableMap.builder());
+
+    Map<String, RuleInfo> rules = ruleInfoMap.build();
+    Map<String, ProviderInfo> providers = providerInfoMap.build();
+
+    ModuleInfo moduleInfo =
+        new ProtoRenderer()
+            .appendRuleInfos(rules.values())
+            .appendProviderInfos(providers.values())
+            .getModuleInfo()
+            .build();
+    RuleInfo ruleInfo = moduleInfo.getRuleInfo(0);
+    ProviderInfo providerInfo = moduleInfo.getProviderInfo(0);
+
+    assertThat(getAttrNames(ruleInfo)).containsExactly("name", "deps").inOrder();
+    assertThat(ruleInfo.getAttribute(1).getProviderNameGroupList()).hasSize(1);
+    assertThat(providerInfo.getProviderName()).isEqualTo("MyInfo");
+  }
 }
