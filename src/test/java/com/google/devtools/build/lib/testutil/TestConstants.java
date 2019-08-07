@@ -115,11 +115,13 @@ public class TestConstants {
       ImmutableList.of();
 
   /**
-   * Flags that must be set for Bazel to work properly, if the default values are unusable for
-   * some reason.
+   * Flags that must be set for Bazel to work properly, if the default values are unusable for some
+   * reason.
    */
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
       ImmutableList.of(
+          "--target_platform_fallback=@bazel_tools//platforms:default_target",
+          "--host_platform=@bazel_tools//platforms:default_host",
           // TODO(#7903): Remove once our own tests are migrated.
           "--incompatible_py3_is_default=false",
           "--incompatible_py2_outputs_are_suffixed=false",
@@ -143,7 +145,7 @@ public class TestConstants {
   public static final String LOCAL_CONFIG_PLATFORM_PATH = "/local_config_platform_workspace";
 
   public static final String PLATFORM_LABEL =
-      PLATFORM_PACKAGE_ROOT + ":host_platform + " + PLATFORM_PACKAGE_ROOT + ":target_platform";
+      PLATFORM_PACKAGE_ROOT + ":default_host + " + PLATFORM_PACKAGE_ROOT + ":default_target";
 
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {
