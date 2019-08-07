@@ -190,6 +190,30 @@ java_library_srcs(
     deps = [":remote_execution_log_java_proto"],
 )
 
+proto_library(
+    name = "remote_repository_cache_proto",
+    srcs = ["remote_repository_cache.proto"],
+    deps = [
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_proto",
+    ],
+)
+
+java_proto_library(
+    name = "remote_repository_cache_java_proto",
+    deps = [":remote_repository_cache_proto"],
+)
+
+java_grpc_library(
+    name = "remote_repository_cache_java_grpc",
+    srcs = [":remote_repository_cache_proto"],
+    deps = [":remote_repository_cache_java_proto"],
+)
+
+java_library_srcs(
+    name = "remote_repository_cache_java_proto_srcs",
+    deps = [":remote_repository_cache_java_proto"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
