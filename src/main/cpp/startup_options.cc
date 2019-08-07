@@ -36,39 +36,13 @@ namespace blaze {
 using std::string;
 using std::vector;
 
-StartupFlag::~StartupFlag() {}
-
-bool UnaryStartupFlag::NeedsParameter() const {
-  return true;
-}
-
-bool UnaryStartupFlag::IsValid(const std::string &arg) const {
-  // The second argument of GetUnaryOption is not relevant to determine
-  // whether the option is unary or not, hence we set it to the empty string
-  // by default.
-  //
-  // TODO(lpino): Improve GetUnaryOption to only require the arg and the
-  // option we are looking for.
-  return GetUnaryOption(arg.c_str(), "", ("--" + name_).c_str()) != NULL;
-}
-
-bool NullaryStartupFlag::NeedsParameter() const {
-  return false;
-}
-
-bool NullaryStartupFlag::IsValid(const std::string &arg) const {
-  return GetNullaryOption(arg.c_str(), ("--" + name_).c_str()) ||
-      GetNullaryOption(arg.c_str(), ("--no" + name_).c_str());
-}
-
 void StartupOptions::RegisterNullaryStartupFlag(const std::string &flag_name) {
-  valid_startup_flags.insert(std::unique_ptr<NullaryStartupFlag>(
-      new NullaryStartupFlag(flag_name)));
+  valid_nullary_startup_flags_.insert(std::string("--") + flag_name);
+  valid_nullary_startup_flags_.insert(std::string("--no") + flag_name);
 }
 
 void StartupOptions::RegisterUnaryStartupFlag(const std::string &flag_name) {
-  valid_startup_flags.insert(std::unique_ptr<UnaryStartupFlag>(
-      new UnaryStartupFlag(flag_name)));
+  valid_unary_startup_flags_.insert(std::string("--") + flag_name);
 }
 
 StartupOptions::StartupOptions(const string &product_name,
@@ -172,22 +146,32 @@ string StartupOptions::GetLowercaseProductName() const {
   return lowercase_product_name;
 }
 
-bool StartupOptions::IsNullary(const string& arg) const {
-  for (const auto& flag : valid_startup_flags) {
-    if (!flag->NeedsParameter() && flag->IsValid(arg)) {
-      return true;
-    }
+bool StartupOptions::IsUnary(const string &arg) const {
+  std::string::size_type i = arg.find_first_of('=');
+  if (i == std::string::npos) {
+    return valid_unary_startup_flags_.find(arg) !=
+           valid_unary_startup_flags_.end();
+  } else {
+    return valid_unary_startup_flags_.find(arg.substr(0, i)) !=
+           valid_unary_startup_flags_.end();
   }
-  return false;
 }
 
-bool StartupOptions::IsUnary(const string& arg) const {
-  for (const auto& flag : valid_startup_flags) {
-    if (flag->NeedsParameter() && flag->IsValid(arg)) {
-      return true;
+bool StartupOptions::IsNullary(const string &arg) const {
+  std::string::size_type i = arg.find_first_of('=');
+  if (i == std::string::npos) {
+    return valid_nullary_startup_flags_.find(arg) !=
+           valid_nullary_startup_flags_.end();
+  } else {
+    std::string f = arg.substr(0, i);
+    if (valid_nullary_startup_flags_.find(f) !=
+        valid_nullary_startup_flags_.end()) {
+      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+          << "In argument '" << arg << "': option '" << f
+          << "' does not take a value.";
     }
+    return false;
   }
-  return false;
 }
 
 void StartupOptions::AddExtraOptions(vector<string> *result) const {

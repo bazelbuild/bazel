@@ -16,6 +16,8 @@
 
 #include <stdlib.h>
 
+#include <memory>
+
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/test/cpp/test_util.h"
