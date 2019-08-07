@@ -11,26 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.query2;
+package com.google.devtools.build.lib.concurrent;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.BlockingStack;
-import com.google.devtools.build.lib.concurrent.ErrorClassifier;
-import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.engine.Callback;
-import com.google.devtools.build.lib.query2.engine.QueryException;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 /**
  * A helper class for performing a custom visitation on the Skyframe graph, using {@link
@@ -39,26 +30,37 @@ import java.util.concurrent.TimeUnit;
  * <p>The visitor uses an AbstractQueueVisitor backed by a ThreadPoolExecutor with a thread pool NOT
  * part of the global query evaluation pool to avoid starvation.
  *
- * <p>The visitation starts with {@link SkyKey}s via {@link #visitAndWaitForCompletion} which is
- * then converted to {@link VisitationKeyT} through {@link #preprocessInitialVisit}.
+ * <p>The visitation starts with {@link InputT}s via {@link #visitAndWaitForCompletion} which is
+ * then converted to {@link VisitKeyT} through {@link #preprocessInitialVisit}.
  *
- * @param <VisitationKeyT> the type of objects to visit
+ * @param <InputT> the type of objects provided to initialize visitation
+ * @param <VisitKeyT> the type of objects to visit
  * @param <OutputKeyT> the type of the key used to reference a result value
  * @param <OutputResultT> the type of visitation results to process
+ * @param <ExceptionT> the exception type that can be thrown during visitation and the callback
+ * @param <CallbackT> the callback type accepting {@code OutputResultT} and may throw {@code
+ *     ExceptionT}
  */
 @ThreadSafe
-public abstract class ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT> {
-  protected final Callback<OutputResultT> callback;
+public abstract class ParallelVisitor<
+    InputT,
+    VisitKeyT,
+    OutputKeyT,
+    OutputResultT,
+    ExceptionT extends Exception,
+    CallbackT extends ThreadSafeBatchCallback<OutputResultT, ExceptionT>> {
+  protected final CallbackT callback;
+  protected final Class<ExceptionT> exceptionClass;
   private final int visitBatchSize;
   private final int processResultsBatchSize;
-
+  protected final int resultBatchSize;
   private final VisitingTaskExecutor executor;
 
   /**
    * A queue to store pending visits. These should be unique wrt {@link
    * #noteAndReturnUniqueVisitationKeys}.
    */
-  private final LinkedBlockingQueue<VisitationKeyT> visitQueue = new LinkedBlockingQueue<>();
+  private final LinkedBlockingQueue<VisitKeyT> visitQueue = new LinkedBlockingQueue<>();
 
   /**
    * The max time interval between two scheduling passes in milliseconds. A scheduling pass is
@@ -88,21 +90,22 @@ public abstract class ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT>
    *
    * <p>TODO(shazh): Revisit the choice of task target based on real-prod performance.
    */
-  private static final long MIN_PENDING_TASKS = 3L * SkyQueryEnvironment.DEFAULT_THREAD_COUNT;
+  private final long minPendingTasks;
 
   /**
    * Fail fast on RuntimeExceptions, including {@code RuntimeInterruptedException} and {@code
-   * RuntimeQueryException}, which result from InterruptedException and QueryException.
+   * RuntimeCheckedException}, which result from InterruptedException and {@code <ExceptionT>}.
    *
    * <p>Doesn't log for {@code RuntimeInterruptedException}, which is expected when evaluations are
-   * interrupted, or {@code RuntimeQueryException}, which happens when expected query failures
-   * occur.
+   * interrupted, or {@code RuntimeCheckedException}, which happens when expected visitation
+   * failures occur.
    */
-  static final ErrorClassifier PARALLEL_VISITOR_ERROR_CLASSIFIER =
+  private static final ErrorClassifier PARALLEL_VISITOR_ERROR_CLASSIFIER =
       new ErrorClassifier() {
         @Override
         protected ErrorClassification classifyException(Exception e) {
-          if (e instanceof RuntimeInterruptedException || e instanceof RuntimeQueryException) {
+          if (e instanceof RuntimeInterruptedException
+              || e instanceof ParallelVisitor.RuntimeCheckedException) {
             return ErrorClassification.CRITICAL;
           } else if (e instanceof RuntimeException) {
             return ErrorClassification.CRITICAL_AND_LOG;
@@ -112,132 +115,148 @@ public abstract class ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT>
         }
       };
 
-  /** All visitors share a single global fixed thread pool. */
-  private static final ExecutorService FIXED_THREAD_POOL_EXECUTOR =
-      new ThreadPoolExecutor(
-          /*corePoolSize=*/ Math.max(1, SkyQueryEnvironment.DEFAULT_THREAD_COUNT),
-          /*maximumPoolSize=*/ Math.max(1, SkyQueryEnvironment.DEFAULT_THREAD_COUNT),
-          /*keepAliveTime=*/ 1,
-          /*units=*/ TimeUnit.SECONDS,
-          /*workQueue=*/ new BlockingStack<Runnable>(),
-          new ThreadFactoryBuilder().setNameFormat("parallel-visitor %d").build());
-
   protected ParallelVisitor(
-      Callback<OutputResultT> callback, int visitBatchSize, int processResultsBatchSize) {
+      CallbackT callback,
+      Class<ExceptionT> exceptionClass,
+      int visitBatchSize,
+      int processResultsBatchSize,
+      long minPendingTasks,
+      int batchCallbackSize,
+      ExecutorService executor) {
     this.callback = callback;
+    this.exceptionClass = exceptionClass;
     this.visitBatchSize = visitBatchSize;
     this.processResultsBatchSize = processResultsBatchSize;
+    this.resultBatchSize = batchCallbackSize;
     this.executor =
-        new VisitingTaskExecutor(FIXED_THREAD_POOL_EXECUTOR, PARALLEL_VISITOR_ERROR_CLASSIFIER);
+        new VisitingTaskExecutor(executor, PARALLEL_VISITOR_ERROR_CLASSIFIER, batchCallbackSize);
+    this.minPendingTasks = minPendingTasks;
   }
 
   /** Factory for {@link ParallelVisitor} instances. */
-  public interface Factory<VisitationKeyT, OutputKeyT, OutputResultT> {
-    ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT> create();
+  public interface Factory<
+      InputT,
+      VisitKeyT,
+      OutputKeyT,
+      OutputResultT,
+      ExceptionT extends Exception,
+      CallbackT extends ThreadSafeBatchCallback<OutputResultT, ExceptionT>> {
+    ParallelVisitor<InputT, VisitKeyT, OutputKeyT, OutputResultT, ExceptionT, CallbackT> create();
   }
 
   protected abstract Iterable<OutputResultT> outputKeysToOutputValues(
-      Iterable<OutputKeyT> targetKeys) throws QueryException, InterruptedException;
-
-  /**
-   * Returns a {@link Callback} which kicks off a parallel visitation when {@link Callback#process}
-   * is invoked.
-   */
-  public static Callback<Target> createParallelVisitorCallback(
-      Factory<?, ?, Target> visitorFactory) {
-    return new ParallelVisitorCallback(visitorFactory);
-  }
+      Iterable<OutputKeyT> targetKeys) throws ExceptionT, InterruptedException;
 
   /** An object to hold keys to visit and keys ready for processing. */
   protected final class Visit {
     private final Iterable<OutputKeyT> keysToUseForResult;
-    private final Iterable<VisitationKeyT> keysToVisit;
+    private final Iterable<VisitKeyT> keysToVisit;
 
-    public Visit(Iterable<OutputKeyT> keysToUseForResult, Iterable<VisitationKeyT> keysToVisit) {
+    public Visit(Iterable<OutputKeyT> keysToUseForResult, Iterable<VisitKeyT> keysToVisit) {
       this.keysToUseForResult = keysToUseForResult;
       this.keysToVisit = keysToVisit;
     }
   }
 
-  public void visitAndWaitForCompletion(Iterable<SkyKey> keys)
-      throws QueryException, InterruptedException {
+  public void visitAndWaitForCompletion(Iterable<InputT> keys)
+      throws ExceptionT, InterruptedException {
     noteAndReturnUniqueVisitationKeys(preprocessInitialVisit(keys)).forEach(visitQueue::add);
     executor.visitAndWaitForCompletion();
   }
 
   /** Gets the {@link Visit} representing the local visitation of the given {@code values}. */
-  protected abstract Visit getVisitResult(Iterable<VisitationKeyT> values)
-      throws QueryException, InterruptedException;
+  protected abstract Visit getVisitResult(Iterable<VisitKeyT> values)
+      throws ExceptionT, InterruptedException;
 
-  /**
-   * Transforms the initial input {@link SkyKey}s to {@link VisitationKeyT} to start the visitation.
-   */
-  protected abstract Iterable<VisitationKeyT> preprocessInitialVisit(Iterable<SkyKey> skyKeys);
+  /** Transforms the initial input {@link InputT}s to {@link VisitKeyT} to start the visitation. */
+  protected abstract Iterable<VisitKeyT> preprocessInitialVisit(Iterable<InputT> inputs);
 
   /**
    * Returns the values that have never been visited before in {@link #getVisitResult}.
    *
    * <p>Used to dedupe visitations before adding them to {@link #visitQueue}.
    */
-  protected abstract Iterable<VisitationKeyT> noteAndReturnUniqueVisitationKeys(
-      Iterable<VisitationKeyT> prospectiveVisitationKeys) throws QueryException;
+  protected abstract Iterable<VisitKeyT> noteAndReturnUniqueVisitationKeys(
+      Iterable<VisitKeyT> prospectiveVisitationKeys) throws ExceptionT;
 
   /** Gets tasks to visit pending keys. */
-  protected Iterable<Task> getVisitTasks(Collection<VisitationKeyT> pendingKeysToVisit)
-      throws InterruptedException, QueryException {
-    ImmutableList.Builder<Task> builder = ImmutableList.builder();
-    for (Iterable<VisitationKeyT> keysToVisitBatch :
+  protected Iterable<Task<ExceptionT>> getVisitTasks(Collection<VisitKeyT> pendingKeysToVisit)
+      throws InterruptedException, ExceptionT {
+    ImmutableList.Builder<Task<ExceptionT>> builder = ImmutableList.builder();
+    for (Iterable<VisitKeyT> keysToVisitBatch :
         Iterables.partition(pendingKeysToVisit, visitBatchSize)) {
-      builder.add(new VisitTask(keysToVisitBatch));
+      builder.add(new VisitTask(keysToVisitBatch, exceptionClass));
     }
 
     return builder.build();
   }
 
-  /** A {@link Runnable} which handles {@link QueryException} and {@link InterruptedException}. */
-  protected abstract static class Task implements Runnable {
+  /** A {@link Runnable} which handles {@link ExceptionT} and {@link InterruptedException}. */
+  protected abstract static class Task<ExceptionT extends Exception> implements Runnable {
+    protected final Class<ExceptionT> exceptionClass;
+
+    Task(Class<ExceptionT> exceptionClass) {
+      this.exceptionClass = exceptionClass;
+    }
 
     @Override
     public void run() {
       try {
         process();
-      } catch (QueryException e) {
-        throw new RuntimeQueryException(e);
       } catch (InterruptedException e) {
         throw new RuntimeInterruptedException(e);
+      } catch (RuntimeException e) {
+        // Rethrow all RuntimeExceptions so they aren't caught by the following "catch Exception".
+        throw e;
+      } catch (Exception e) {
+        // We can't "catch (ExceptionT e)" in Java. Instead we catch all checked exceptions and
+        // double-check the type at runtime using the real ExceptionT class object.
+        Preconditions.checkArgument(
+            exceptionClass.isInstance(e),
+            "got checked exception type %s, expected %s. Thrown exception: %s\nStack Trace: %s",
+            e.getClass(),
+            exceptionClass,
+            e.getMessage(),
+            Throwables.getStackTraceAsString(e));
+        throw new RuntimeCheckedException(e);
       }
     }
 
-    abstract void process() throws QueryException, InterruptedException;
+    abstract void process() throws ExceptionT, InterruptedException;
   }
 
-  class VisitTask extends Task {
-    private final Iterable<VisitationKeyT> keysToVisit;
+  /** A task to visit a batch of {@link VisitKeyT keys}. */
+  public class VisitTask extends Task<ExceptionT> {
+    private final Iterable<VisitKeyT> keysToVisit;
 
-    VisitTask(Iterable<VisitationKeyT> keysToVisit) {
+    public VisitTask(Iterable<VisitKeyT> keysToVisit, Class<ExceptionT> exceptionClass) {
+      super(exceptionClass);
       this.keysToVisit = keysToVisit;
     }
 
     @Override
-    void process() throws QueryException, InterruptedException {
+    void process() throws ExceptionT, InterruptedException {
       Visit visit = getVisitResult(keysToVisit);
       for (Iterable<OutputKeyT> keysToUseForResultBatch :
           Iterables.partition(visit.keysToUseForResult, processResultsBatchSize)) {
-        executor.execute(new GetAndProcessUniqueResultsTask(keysToUseForResultBatch));
+        executor.execute(
+            new GetAndProcessUniqueResultsTask(keysToUseForResultBatch, exceptionClass));
       }
       noteAndReturnUniqueVisitationKeys(visit.keysToVisit).forEach(visitQueue::add);
     }
   }
 
-  private class GetAndProcessUniqueResultsTask extends Task {
+  private class GetAndProcessUniqueResultsTask extends Task<ExceptionT> {
     private final Iterable<OutputKeyT> uniqueKeysToUseForResult;
 
-    private GetAndProcessUniqueResultsTask(Iterable<OutputKeyT> uniqueKeysToUseForResult) {
+    private GetAndProcessUniqueResultsTask(
+        Iterable<OutputKeyT> uniqueKeysToUseForResult, Class<ExceptionT> exceptionClass) {
+      super(exceptionClass);
       this.uniqueKeysToUseForResult = uniqueKeysToUseForResult;
     }
 
     @Override
-    protected void process() throws QueryException, InterruptedException {
+    protected void process() throws ExceptionT, InterruptedException {
       callback.process(outputKeysToOutputValues(uniqueKeysToUseForResult));
     }
   }
@@ -247,19 +266,23 @@ public abstract class ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT>
    * scheduler for parallel visitations.
    */
   private class VisitingTaskExecutor extends AbstractQueueVisitor {
-    private VisitingTaskExecutor(ExecutorService executor, ErrorClassifier errorClassifier) {
+    private final int batchCallbackSize;
+
+    private VisitingTaskExecutor(
+        ExecutorService executor, ErrorClassifier errorClassifier, int batchCallbackSize) {
       super(
           /*executorService=*/ executor,
           // Leave the thread pool active for other current and future callers.
           /*shutdownOnCompletion=*/ false,
           /*failFastOnException=*/ true,
           /*errorClassifier=*/ errorClassifier);
+      this.batchCallbackSize = batchCallbackSize;
     }
 
-    private void visitAndWaitForCompletion() throws QueryException, InterruptedException {
+    private void visitAndWaitForCompletion() throws ExceptionT, InterruptedException {
       // The scheduler keeps running until either of the following two conditions are met.
       //
-      // 1. Errors (QueryException or InterruptedException) occurred and visitations should fail
+      // 1. Errors (ExceptionT or InterruptedException) occurred and visitations should fail
       //    fast.
       // 2. There is no pending visit in the queue and no pending task running.
       while (!mustJobsBeStopped() && moreWorkToDo()) {
@@ -268,10 +291,9 @@ public abstract class ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT>
         //
         // 1. The number of pending tasks is low. We schedule new tasks to avoid wasting CPU.
         // 2. The process queue size is large.
-        if (getTaskCount() < MIN_PENDING_TASKS
-            || visitQueue.size() >= SkyQueryEnvironment.BATCH_CALLBACK_SIZE) {
+        if (getTaskCount() < minPendingTasks || visitQueue.size() >= batchCallbackSize) {
 
-          Collection<VisitationKeyT> pendingKeysToVisit = new ArrayList<>(visitQueue.size());
+          Collection<VisitKeyT> pendingKeysToVisit = new ArrayList<>(visitQueue.size());
           visitQueue.drainTo(pendingKeysToVisit);
           for (Task task : getVisitTasks(pendingKeysToVisit)) {
             execute(task);
@@ -282,9 +304,9 @@ public abstract class ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT>
           Thread.sleep(SCHEDULING_INTERVAL_MILLISECONDS);
         } catch (InterruptedException e) {
           // If the main thread waiting for completion of the visitation is interrupted, we should
-          // gracefully terminate all running and pending tasks before exit. If QueryException
+          // gracefully terminate all running and pending tasks before exit. If ExceptionT
           // occurred in any of the worker thread, awaitTerminationAndPropagateErrorsIfAny
-          // propagates the QueryException instead of InterruptedException.
+          // propagates the ExceptionT instead of InterruptedException.
           setInterrupted();
           awaitTerminationAndPropagateErrorsIfAny();
         }
@@ -306,43 +328,22 @@ public abstract class ParallelVisitor<VisitationKeyT, OutputKeyT, OutputResultT>
       return getTaskCount() > 0 || !visitQueue.isEmpty();
     }
 
-    private void awaitTerminationAndPropagateErrorsIfAny()
-        throws QueryException, InterruptedException {
+    // We check against Class<ExceptionT> before creating RuntimeCheckedException.
+    @SuppressWarnings("unchecked")
+    private void awaitTerminationAndPropagateErrorsIfAny() throws ExceptionT, InterruptedException {
       try {
         awaitTermination(/*interruptWorkers=*/ true);
-      } catch (RuntimeQueryException e) {
-        throw (QueryException) e.getCause();
+      } catch (RuntimeCheckedException e) {
+        throw (ExceptionT) e.getCause();
       } catch (RuntimeInterruptedException e) {
         throw (InterruptedException) e.getCause();
       }
     }
   }
 
-  /**
-   * A {@link Callback} whose {@link Callback#process} method kicks off a visitation via a fresh
-   * {@link ParallelVisitor} instance.
-   */
-  private static class ParallelVisitorCallback implements Callback<Target> {
-    private final ParallelVisitor.Factory<?, ?, Target> visitorFactory;
-
-    private ParallelVisitorCallback(ParallelVisitor.Factory<?, ?, Target> visitorFactory) {
-      this.visitorFactory = visitorFactory;
-    }
-
-    @Override
-    public void process(Iterable<Target> partialResult)
-        throws QueryException, InterruptedException {
-      ParallelVisitor<?, ?, Target> visitor = visitorFactory.create();
-      // TODO(b/131109214): It's not ideal to have an operation like this in #process that blocks on
-      // another, potentially expensive computation. Refactor to something like "processAsync".
-      visitor.visitAndWaitForCompletion(
-          SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(partialResult));
-    }
-  }
-
-  private static class RuntimeQueryException extends RuntimeException {
-    private RuntimeQueryException(QueryException queryException) {
-      super(queryException);
+  private static class RuntimeCheckedException extends RuntimeException {
+    private RuntimeCheckedException(Exception checkedException) {
+      super(checkedException);
     }
   }
 

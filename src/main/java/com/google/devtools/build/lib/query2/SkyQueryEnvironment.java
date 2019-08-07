@@ -1065,11 +1065,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       target -> TransitiveTraversalValue.key(target.getLabel());
 
   /** A strict (i.e. non-lazy) variant of {@link #makeTransitiveTraversalKeys}. */
-  public static Iterable<SkyKey> makeTransitiveTraversalKeysStrict(Iterable<Target> targets) {
+  public static <T extends Target> Iterable<SkyKey> makeTransitiveTraversalKeysStrict(
+      Iterable<T> targets) {
     return ImmutableList.copyOf(makeTransitiveTraversalKeys(targets));
   }
 
-  private static Iterable<SkyKey> makeTransitiveTraversalKeys(Iterable<Target> targets) {
+  private static <T extends Target> Iterable<SkyKey> makeTransitiveTraversalKeys(
+      Iterable<T> targets) {
     return Iterables.transform(targets, TARGET_TO_SKY_KEY);
   }
 
