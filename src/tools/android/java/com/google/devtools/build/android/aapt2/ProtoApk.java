@@ -226,7 +226,7 @@ public class ProtoApk implements Closeable {
 
   /** The apk as path. */
   public Path asApkPath() {
-    return Paths.get(uri.toString().substring("jar:".length() + 1));
+    return Paths.get(uri);
   }
 
   /** Thrown when errors occur during proto apk processing. */
