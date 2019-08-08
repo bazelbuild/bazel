@@ -286,9 +286,23 @@ public final class StringModule {
   public String replace(
       String self, String oldString, String newString, Object maxSplitO)
       throws EvalException {
-    int maxSplit = -1;
-    if (maxSplitO != Runtime.NONE && (Integer) maxSplitO >= 0) {
-      maxSplit = (Integer) maxSplitO;
+    int maxSplit = Integer.MAX_VALUE;
+    if (maxSplitO != Runtime.NONE) {
+      maxSplit = Math.max(0, (Integer) maxSplitO);
+    }
+    if (oldString.equals("")) {
+      StringBuilder sb = new StringBuilder();
+      for (int i = 0; i < self.length(); i++) {
+        if (maxSplit > 0) {
+          sb.append(newString);
+          maxSplit--;
+        }
+        sb.append(self.charAt(i));
+      }
+      if (maxSplit > 0) {
+        sb.append(newString);
+      }
+      return sb.toString();
     }
     return StringUtils.replace(self, oldString, newString, maxSplit);
   }
