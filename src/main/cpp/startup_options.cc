@@ -49,6 +49,13 @@ void StartupOptions::RegisterNullaryStartupFlagNoRc(
   no_rc_nullary_startup_flags_.insert(std::string("--no") + flag_name);
 }
 
+void StartupOptions::RegisterSpecialNullaryStartupFlag(
+    const std::string &flag_name, SpecialNullaryFlagHandler handler) {
+  RegisterNullaryStartupFlag(flag_name, nullptr);
+  special_nullary_startup_flags_[std::string("--") + flag_name] = handler;
+  special_nullary_startup_flags_[std::string("--no") + flag_name] = handler;
+}
+
 void StartupOptions::RegisterUnaryStartupFlag(const std::string &flag_name) {
   valid_unary_startup_flags_.insert(std::string("--") + flag_name);
 }
@@ -207,9 +214,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   const char* value = NULL;
 
   if (IsNullary(argstr)) {
-    // 'argstr' is either "--foo" or "--nofoo", and 'target' is the pointer to
-    // the bool storing the flag's value.
-    bool* target = all_nullary_startup_flags_[argstr];
     // 'enabled' is true if 'argstr' is "--foo", and false if it's "--nofoo".
     bool enabled = (argstr.compare(0, 4, "--no") != 0);
     if (no_rc_nullary_startup_flags_.find(argstr) !=
@@ -221,7 +225,14 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
         return blaze_exit_code::BAD_ARGV;
       }
     }
-    *target = enabled;
+    if (special_nullary_startup_flags_.find(argstr) !=
+        special_nullary_startup_flags_.end()) {
+      special_nullary_startup_flags_[argstr](enabled);
+    } else {
+      // 'argstr' is either "--foo" or "--nofoo", and the map entry is the
+      // pointer to the bool storing the flag's value.
+      *all_nullary_startup_flags_[argstr] = enabled;
+    }
     // Use the key "foo" for 'argstr' of "--foo" / "--nofoo".
     option_sources[argstr.substr(enabled ? 2 : 4)] = rcfile;
     *is_space_separated = false;

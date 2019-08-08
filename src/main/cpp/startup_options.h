@@ -18,6 +18,7 @@
 #include <sys/qos.h>
 #endif
 
+#include <functional>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -289,6 +290,11 @@ class StartupOptions {
   void RegisterNullaryStartupFlagNoRc(const std::string& flag_name,
                                       bool* value);
 
+  typedef std::function<void(bool)> SpecialNullaryFlagHandler;
+
+  void RegisterSpecialNullaryStartupFlag(const std::string &flag_name,
+                                         SpecialNullaryFlagHandler handler);
+
  private:
   // Parses a single argument, either from the command line or from the .blazerc
   // "startup" options.
@@ -327,6 +333,14 @@ class StartupOptions {
   // Contains positive and negative names (e.g. "--master_bazelrc" and
   // "--nomaster_bazelrc") of flags that must not appear in .bazelrc files.
   std::unordered_set<std::string> no_rc_nullary_startup_flags_;
+
+  // Subset of 'all_nullary_startup_flags_'.
+  // Contains positive and negative names (e.g. "--master_bazelrc" and
+  // "--nomaster_bazelrc") of flags that have a special handler.
+  // Can be used for tri-state flags where omitting the flag completely means
+  // leaving the tri-state as "auto".
+  std::unordered_map<std::string, SpecialNullaryFlagHandler>
+      special_nullary_startup_flags_;
 
   // Startup flags that expect a value, e.g. "bazelrc".
   // Valid uses are "--bazelrc=foo" and "--bazelrc foo".
