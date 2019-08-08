@@ -150,6 +150,18 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLocalDefinesAndMakeVariables() throws Exception {
+    ConfiguredTarget l =
+        scratchConfiguredTarget(
+            "a",
+            "l",
+            "cc_library(name='l', srcs=['l.cc'], local_defines=['V=$(FOO)'], toolchains=[':v'])",
+            "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
+    assertThat(l.get(CcInfo.PROVIDER).getCcCompilationContext().getNonTransitiveDefines())
+        .contains("V=BAR");
+  }
+
+  @Test
   public void testMisconfiguredCrosstoolRaisesErrorWhenLinking() throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -1177,6 +1189,30 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     CppCompileAction action = getCppCompileAction("//foo");
     // Inherited defines come first.
     assertContainsSublist(action.getCompilerOptions(), ImmutableList.of("-DBAR", "-DFOO"));
+  }
+
+  @Test
+  public void testLocalDefinesNotPassedTransitively() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'bar',",
+        "    defines = ['TRANSITIVE_BAR'],",
+        "    local_defines = ['LOCAL_BAR'],",
+        ")",
+        "cc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.cc'],",
+        "    defines = ['TRANSITIVE_FOO'],",
+        "    local_defines = ['LOCAL_FOO'],",
+        "    deps = [':bar'],",
+        ")");
+    CppCompileAction action = getCppCompileAction("//foo");
+    // Inherited defines come first.
+    assertContainsSublist(
+        action.getCompilerOptions(),
+        ImmutableList.of("-DTRANSITIVE_BAR", "-DTRANSITIVE_FOO", "-DLOCAL_FOO"));
+    assertThat(action.getCompilerOptions()).doesNotContain("-DLOCAL_BAR");
   }
 
   // Regression test - setting "-shared" caused an exception when computing the link command.

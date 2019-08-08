@@ -138,6 +138,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   @Override
+  public SkylarkNestedSet getSkylarkNonTransitiveDefines() {
+    return SkylarkNestedSet.of(
+        String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
+  }
+
+  @Override
   public SkylarkNestedSet getSkylarkHeaders() {
     return SkylarkNestedSet.of(Artifact.class, getDeclaredIncludeSrcs());
   }
@@ -400,12 +406,19 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   /**
-   * Returns the set of defines needed to compile this target (possibly empty
-   * but never null). This includes definitions from the transitive deps closure
-   * for the target. The order of the returned collection is deterministic.
+   * Returns the set of defines needed to compile this target. This includes definitions from the
+   * transitive deps closure for the target. The order of the returned collection is deterministic.
    */
   public ImmutableList<String> getDefines() {
     return commandLineCcCompilationContext.defines;
+  }
+
+  /**
+   * Returns the set of defines needed to compile this target. This doesn't include definitions from
+   * the transitive deps closure for the target.
+   */
+  ImmutableList<String> getNonTransitiveDefines() {
+    return commandLineCcCompilationContext.localDefines;
   }
 
   /**
@@ -481,18 +494,21 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final ImmutableList<PathFragment> systemIncludeDirs;
     private final ImmutableList<PathFragment> frameworkIncludeDirs;
     private final ImmutableList<String> defines;
+    private final ImmutableList<String> localDefines;
 
     CommandLineCcCompilationContext(
         ImmutableList<PathFragment> includeDirs,
         ImmutableList<PathFragment> quoteIncludeDirs,
         ImmutableList<PathFragment> systemIncludeDirs,
         ImmutableList<PathFragment> frameworkIncludeDirs,
-        ImmutableList<String> defines) {
+        ImmutableList<String> defines,
+        ImmutableList<String> localDefines) {
       this.includeDirs = includeDirs;
       this.quoteIncludeDirs = quoteIncludeDirs;
       this.systemIncludeDirs = systemIncludeDirs;
       this.frameworkIncludeDirs = frameworkIncludeDirs;
       this.defines = defines;
+      this.localDefines = localDefines;
     }
   }
 
@@ -524,6 +540,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
     private final Set<Artifact> directModuleMaps = new LinkedHashSet<>();
     private final Set<String> defines = new LinkedHashSet<>();
+    private final Set<String> localDefines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
     private boolean propagateModuleMapAsActionInput = true;
@@ -733,6 +750,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
+    /** Adds multiple non-transitive defines. */
+    public Builder addNonTransitiveDefines(Iterable<String> defines) {
+      Iterables.addAll(this.localDefines, defines);
+      return this;
+    }
+
     /** Sets the C++ module map. */
     public Builder setCppModuleMap(CppModuleMap cppModuleMap) {
       this.cppModuleMap = cppModuleMap;
@@ -806,7 +829,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
               ImmutableList.copyOf(quoteIncludeDirs),
               ImmutableList.copyOf(systemIncludeDirs),
               ImmutableList.copyOf(frameworkIncludeDirs),
-              ImmutableList.copyOf(defines)),
+              ImmutableList.copyOf(defines),
+              ImmutableList.copyOf(localDefines)),
           // TODO(b/110873917): We don't have the middle man compilation prerequisite, therefore, we
           // use the compilation prerequisites as they were passed to the builder, i.e. we use every
           // header instead of a middle man.
