@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -182,8 +183,9 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
    * Deserializes a list of serialized resource paths to a {@link
    * com.google.devtools.build.android.ParsedAndroidData}.
    */
-  public static ParsedAndroidData deserializeSymbolsToData(List<Path> symbolPaths)
-      throws IOException {
+  // NB: this is not just visible for testing, it's *only* used in a test.
+  @VisibleForTesting
+  static ParsedAndroidData deserializeSymbolsToData(List<Path> symbolPaths) throws IOException {
     AndroidParsedDataDeserializer deserializer = create();
     final ListeningExecutorService executorService =
         MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(15));
@@ -203,12 +205,5 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
       aggregator.aggregateAndMaybeThrow(deserializing);
     }
     return deserializedDataBuilder.build();
-  }
-
-  public static ParsedAndroidData deserializeSingleAndroidData(SerializedAndroidData data) {
-    final ParsedAndroidData.Builder builder = ParsedAndroidData.Builder.newBuilder();
-    final AndroidParsedDataDeserializer deserializer = create();
-    data.deserialize(deserializer, builder.consumers());
-    return builder.build();
   }
 }
