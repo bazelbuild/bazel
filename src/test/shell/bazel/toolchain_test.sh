@@ -1003,7 +1003,6 @@ sample_rule = rule(
   implementation = _impl,
   attrs = {},
   toolchains = ['//toolchain:test_toolchain'],
-  execution_platform_constraints_allowed = True,
 )
 EOF
 
@@ -1074,7 +1073,6 @@ sample_rule = rule(
     '//platforms:value2',
   ],
   toolchains = ['//toolchain:test_toolchain'],
-  execution_platform_constraints_allowed = True,
 )
 EOF
 
@@ -1453,7 +1451,6 @@ sample_rule = rule(
   attrs = {
     "dep": attr.label(cfg = 'exec'),
   },
-  execution_platform_constraints_allowed = True,
 )
 
 def _display_platform_impl(ctx):
