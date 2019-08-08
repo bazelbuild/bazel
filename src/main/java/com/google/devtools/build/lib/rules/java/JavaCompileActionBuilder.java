@@ -74,7 +74,8 @@ public final class JavaCompileActionBuilder {
   @ThreadCompatible
   @Immutable
   @AutoCodec
-  static class JavaCompileExtraActionInfoSupplier {
+  static class JavaCompileExtraActionInfoSupplier
+      implements JavaCompileAction.ExtraActionInfoSupplier {
 
     private final Artifact outputJar;
 
@@ -118,7 +119,8 @@ public final class JavaCompileActionBuilder {
       this.javacOpts = javacOpts;
     }
 
-    public void extend(ExtraActionInfo.Builder builder, List<String> arguments) {
+    @Override
+    public void extend(ExtraActionInfo.Builder builder, ImmutableList<String> arguments) {
       JavaCompileInfo.Builder info =
           JavaCompileInfo.newBuilder()
               .addAllSourceFile(Artifact.toExecPaths(sourceFiles))

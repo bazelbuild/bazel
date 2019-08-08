@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.rules.java.JavaCompileActionBuilder.JavaCompileExtraActionInfoSupplier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -106,7 +105,7 @@ public class JavaCompileAction extends AbstractAction
   private final Artifact outputDepsProto;
   private final JavaClasspathMode classpathMode;
 
-  private final JavaCompileExtraActionInfoSupplier extraActionInfoSupplier;
+  @Nullable private final ExtraActionInfoSupplier extraActionInfoSupplier;
 
   public JavaCompileAction(
       String mnemonic,
@@ -122,7 +121,7 @@ public class JavaCompileAction extends AbstractAction
       NestedSet<Artifact> directJars,
       NestedSet<Artifact> outputs,
       ImmutableMap<String, String> executionInfo,
-      JavaCompileExtraActionInfoSupplier extraActionInfoSupplier,
+      ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
       CommandLine flagLine,
       BuildConfiguration configuration,
@@ -209,6 +208,16 @@ public class JavaCompileAction extends AbstractAction
             Iterables.filter(
                 transitiveCollection, input -> direct.contains(input.getExecPathString())));
     return new ReducedClasspath(reducedJars, transitiveCollection.size());
+  }
+
+  /**
+   * Simpliar to {@link
+   * com.google.devtools.build.lib.analysis.actions.SpawnAction.ExtraActionInfoSupplier} but
+   * additionally includes the spawn arguments, which change between direct and fallback
+   * invocations.
+   */
+  interface ExtraActionInfoSupplier {
+    void extend(ExtraActionInfo.Builder builder, ImmutableList<String> arguments);
   }
 
   static class ReducedClasspath {
