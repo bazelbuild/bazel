@@ -440,10 +440,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  /**
-   * Sets the strictness of Java dependency checking, see {@link
-   * com.google.devtools.build.lib.analysis.config.StrictDepsMode}.
-   */
+  /** Sets the strictness of Java dependency checking, see {@link StrictDepsMode}. */
   public JavaCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictDeps) {
     strictJavaDeps = strictDeps;
     return this;
