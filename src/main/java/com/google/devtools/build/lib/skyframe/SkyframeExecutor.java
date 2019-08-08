@@ -556,8 +556,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldUnblockCpuWorkWhenFetchingDeps,
             defaultBuildOptions,
             configuredTargetProgress,
-            nonceVersion,
-            trimmingCache));
+            nonceVersion));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
