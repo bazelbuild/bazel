@@ -358,15 +358,14 @@ public class JavaCompileAction extends AbstractAction
       first = appendCount(sb, first, sourceFiles.size(), "source file");
       appendCount(sb, first, sourceJars.size(), "source jar");
       sb.append(")");
-      sb.append(getProcessorNames(plugins.processorClasses()));
+      appendProcessorNames(sb, plugins.processorClasses());
       return sb.toString();
     }
 
-    private static String getProcessorNames(NestedSet<String> processorClasses) {
+    private static void appendProcessorNames(StringBuilder sb, NestedSet<String> processorClasses) {
       if (processorClasses.isEmpty()) {
-        return "";
+        return;
       }
-      StringBuilder sb = new StringBuilder();
       List<String> shortNames = new ArrayList<>();
       for (String name : processorClasses) {
         // Annotation processor names are qualified class names. Omit the package part for the
@@ -378,7 +377,6 @@ public class JavaCompileAction extends AbstractAction
       sb.append(" and running annotation processors (");
       Joiner.on(", ").appendTo(sb, shortNames);
       sb.append(")");
-      return sb.toString();
     }
 
     /**
