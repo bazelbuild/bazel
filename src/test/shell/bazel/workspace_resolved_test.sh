@@ -1118,27 +1118,20 @@ EOF
 }
 
 test_local_config_platform_recorded() {
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
   # Verify that the auto-generated local_config_platform repo is
   # recorded in the resolved file
   mkdir main
   cd main
+  # Clear out the WORKSPACE.
   cat >> WORKSPACE <<EOF
 EOF
-  cat > BUILD <<'EOF'
-genrule(
-  name = "it",
-  srcs = ["data.txt"],
-  outs = ["it.txt"],
-  cmd = "cp $< $@",
-)
-EOF
-  touch data.txt
-  # Turn on the new host platforms so the repository is used.
-  bazel build \
-      --incompatible_auto_configure_host_platform \
-      --experimental_repository_resolved_file=resolved.bzl \
-       -- \
-       //:it
+  touch BUILD
+  bazel sync \
+      --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+      --experimental_repository_resolved_file=resolved.bzl
   echo; cat resolved.bzl; echo
 
   grep 'local_config_platform' resolved.bzl \
