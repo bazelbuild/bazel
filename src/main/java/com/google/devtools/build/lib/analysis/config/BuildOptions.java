@@ -66,6 +66,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -1154,12 +1155,14 @@ public final class BuildOptions implements Cloneable, Serializable {
           int optionsDiffSize = byteStringOut.size();
           bytes = byteStringOut.toByteString();
           cache.putBytesFromOptionsDiff(diff, bytes);
-          logger.info(
-              "Serialized OptionsDiffForReconstruction "
-                  + diff.toString()
-                  + ". Diff took "
-                  + optionsDiffSize
-                  + " bytes.");
+          if (logger.isLoggable(Level.FINE)) {
+            logger.fine(
+                "Serialized OptionsDiffForReconstruction "
+                    + diff
+                    + ". Diff took "
+                    + optionsDiffSize
+                    + " bytes.");
+          }
         }
         codedOut.writeBytesNoTag(bytes);
       }
