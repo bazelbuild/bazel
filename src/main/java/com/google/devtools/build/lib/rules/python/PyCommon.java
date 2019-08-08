@@ -67,8 +67,22 @@ import javax.annotation.Nullable;
 /** A helper class for analyzing a Python configured target. */
 public final class PyCommon {
 
+  /** Deprecated name of the version attribute. */
   public static final String DEFAULT_PYTHON_VERSION_ATTRIBUTE = "default_python_version";
+  /** Name of the version attribute. */
   public static final String PYTHON_VERSION_ATTRIBUTE = "python_version";
+
+  /**
+   * Name of the tag used by bazelbuild/rules_python to signal that a rule was instantiated through
+   * that repo.
+   */
+  private static final String MAGIC_TAG = "__PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
+  /**
+   * Names of native rules that must be instantiated through bazelbuild/rules_python when {@code
+   * --incompatible_load_python_rules_from_bzl} is enabled.
+   */
+  private static final ImmutableList<String> RULES_REQUIRING_MAGIC_TAG =
+      ImmutableList.of("py_library", "py_binary", "py_test", "py_runtime");
 
   /**
    * Returns the Python version based on the {@code python_version} and {@code
@@ -207,6 +221,7 @@ public final class PyCommon {
     validateTargetPythonVersionAttr(PYTHON_VERSION_ATTRIBUTE);
     validateOldVersionAttrNotUsedIfDisabled();
     validateLegacyProviderNotUsedIfDisabled();
+    maybeValidateLoadedFromBzl();
   }
 
   /** Returns the parsed value of the "srcs_version" attribute. */
@@ -601,6 +616,35 @@ public final class PyCommon {
   }
 
   /**
+   * If {@code --incompatible_load_python_rules_from_bzl} is enabled, reports a rule error if the
+   * rule is one of the ones that has a redirect in bazelbuild/rules_python, and either 1) the magic
+   * tag {@code __PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__} is not present, or 2) the target
+   * was not created in a macro.
+   *
+   * <p>No-op otherwise.
+   */
+  private void maybeValidateLoadedFromBzl() {
+    if (!ruleContext.getFragment(PythonConfiguration.class).loadPythonRulesFromBzl()) {
+      return;
+    }
+    String ruleName = ruleContext.getRule().getRuleClass();
+    if (!RULES_REQUIRING_MAGIC_TAG.contains(ruleName)) {
+      return;
+    }
+
+    boolean hasMagicTag =
+        ruleContext.attributes().get("tags", Type.STRING_LIST).contains(MAGIC_TAG);
+    if (!hasMagicTag || !ruleContext.getRule().wasCreatedByMacro()) {
+      ruleContext.ruleError(
+          "Direct access to the native Python rules is deprecated. Please load "
+              + ruleName
+              + " from the rules_python repository. See http://github.com/bazelbuild/rules_python "
+              + "and https://github.com/bazelbuild/bazel/issues/9006. You can temporarily bypass "
+              + "this error by setting --incompatible_load_python_rules_from_bzl=false.");
+    }
+  }
+
+  /**
    * Under the new version semantics ({@code --incompatible_allow_python_version_transitions=true}),
    * if the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
@@ -620,11 +664,14 @@ public final class PyCommon {
     if (!ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
       return false;
     }
+    // TODO(8996): Update URL to point to rules_python's docs instead of the Bazel site.
     String errorTemplate =
         "This target is being built for Python %s but (transitively) includes Python %s-only "
             + "sources. You can get diagnostic information about which dependencies introduce this "
             + "version requirement by running the `find_requirements` aspect. For more info see "
-            + "the documentation for the `srcs_version` attribute.";
+            + "the documentation for the `srcs_version` attribute: "
+            + "https://docs.bazel.build/versions/master/be/python.html#py_binary.srcs_version";
+
     String error = null;
     if (version == PythonVersion.PY2 && hasPy3OnlySources) {
       error = String.format(errorTemplate, "2", "3");

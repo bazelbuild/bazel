@@ -668,6 +668,13 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void testSubdirSymlinkCycle() throws Exception {
+    writeBuildFiles1();
+    helper.ensureSymbolicLink("a/s", "s");
+    assertThat(evalToString("a/...:*")).isEqualTo(A_AB_FILES);
+  }
+
+  @Test
   public void testCycleInSubpackage() throws Exception {
     writeFile("a/BUILD", "sh_library(name = 'a', deps = [':dep'])", "sh_library(name = 'dep')");
     writeFile("a/subdir/BUILD", "sh_library(name = 'cycletarget', deps = ['cycletarget'])");
@@ -768,6 +775,32 @@ public abstract class AbstractQueryTest<T> {
       throws Exception {
     helper.setQuerySettings(settings);
     assertThat(eval(actual)).containsExactlyElementsIn(eval(expected));
+  }
+
+  private void runNodepDepsTest(boolean expectVisibilityDep, Setting... settings) throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 't1', deps = [':t2'], visibility = [':pg'])",
+        "sh_library(name = 't2')",
+        "package_group(name = 'pg')");
+
+    helper.setQuerySettings(settings);
+
+    if (expectVisibilityDep) {
+      assertThat(eval("deps(//foo:t1)")).contains(Iterables.getOnlyElement(eval("//foo:pg")));
+    } else {
+      assertThat(eval("deps(//foo:t1)")).doesNotContain(Iterables.getOnlyElement(eval("//foo:pg")));
+    }
+  }
+
+  @Test
+  public void testNodepDeps_DefaultIsTrue() throws Exception {
+    runNodepDepsTest(/*expectVisibilityDep=*/ true);
+  }
+
+  @Test
+  public void testNodepDeps_False() throws Exception {
+    runNodepDepsTest(/*expectVisibilityDep=*/ false, Setting.NO_NODEP_DEPS);
   }
 
   @Test
@@ -960,6 +993,18 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "kiwi/BUILD", "package(default_visibility=['//mango:mango'])", "sh_library(name='kiwi')");
     writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
+
+    Set<T> result = eval("deps(//kiwi:kiwi)" + getDependencyCorrection());
+    assertThat(result).isEqualTo(eval("//mango:mango + //kiwi:kiwi"));
+  }
+
+  @Test
+  public void testDefaultVisibilityReturnedInDeps_NonEmptyDependencyFilter() throws Exception {
+    writeFile(
+        "kiwi/BUILD", "package(default_visibility=['//mango:mango'])", "sh_library(name='kiwi')");
+    writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
+
+    helper.setQuerySettings(Setting.NO_HOST_DEPS);
 
     Set<T> result = eval("deps(//kiwi:kiwi)" + getDependencyCorrection());
     assertThat(result).isEqualTo(eval("//mango:mango + //kiwi:kiwi"));

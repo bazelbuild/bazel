@@ -20,15 +20,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
-/**
- * Interface for a module associated with creating efficient command lines.
- */
+/** Interface for a module associated with creating efficient command lines. */
 @SkylarkModule(
     name = "cmd_helper",
     namespace = true,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Deprecated. Module for creating memory efficient command lines."
-)
+    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
+    doc = "Deprecated. Module for creating memory efficient command lines.")
 public interface SkylarkCommandLineApi {
 
   @SkylarkCallable(

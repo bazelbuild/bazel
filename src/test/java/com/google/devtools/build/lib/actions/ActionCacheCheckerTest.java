@@ -338,7 +338,7 @@ public class ActionCacheCheckerTest {
       if (!(input instanceof Artifact)) {
         return null;
       }
-      return FileArtifactValue.create((Artifact) input);
+      return FileArtifactValue.createForTesting((Artifact) input);
     }
 
     @Override

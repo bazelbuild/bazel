@@ -159,7 +159,7 @@ class Path {
   Path() {}
   Path(const Path& other) : path_(other.path_) {}
   Path(Path&& other) : path_(std::move(other.path_)) {}
-  Path& operator=(const Path& other) = delete;
+  Path& operator=(const Path& other) = default;
   const std::wstring& Get() const { return path_; }
   bool Set(const std::wstring& path);
 
@@ -319,6 +319,17 @@ std::wstring AsMixedPath(const std::wstring& path) {
   return value;
 }
 
+bool IsReadableFile(const Path& p) {
+  HANDLE h = CreateFileW(AddUncPrefixMaybe(p).c_str(), GENERIC_READ,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (h == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+  CloseHandle(h);
+  return true;
+}
+
 // Gets an environment variable's value.
 // Returns:
 // - true, if the envvar is defined and successfully fetched, or it's empty or
@@ -414,6 +425,46 @@ bool GetCwd(Path* result) {
     LogErrorWithValue(__LINE__, "Failed to get current directory", err);
     return false;
   }
+}
+
+bool ChdirToRunfiles(const Path& abs_exec_root, const Path& abs_test_srcdir) {
+  Path dir = abs_test_srcdir;
+  std::wstring preserve_cwd;
+  if (!GetEnv(L"RUNTEST_PRESERVE_CWD", &preserve_cwd)) {
+    return false;
+  }
+  if (preserve_cwd.empty()) {
+    std::wstring workspace;
+    if (!GetEnv(L"TEST_WORKSPACE", &workspace)) {
+      return false;
+    }
+    if (!workspace.empty()) {
+      Path joined;
+      if (!joined.Set(dir.Get() + L"\\" + workspace)) {
+        LogErrorWithArg2(__LINE__, "Could not join paths", dir.Get(),
+                         workspace);
+        return false;
+      }
+      dir = joined;
+    }
+  } else {
+    dir = abs_exec_root;
+  }
+  dir.Absolutize(abs_exec_root);
+
+  // Non-sandboxed commands run in the exec_root, where they have access to the
+  // entire source tree. By chdir'ing to the runfiles root, tests only have
+  // direct access to their runfiles tree (if it exists), i.e. to their declared
+  // dependencies.
+  std::wstring coverage_dir;
+  if (!GetEnv(L"COVERAGE_DIR", &coverage_dir) || coverage_dir.empty()) {
+    if (!SetCurrentDirectoryW(dir.Get().c_str())) {
+      DWORD err = GetLastError();
+      LogErrorWithArgAndValue(__LINE__, "Could not chdir", dir.Get(), err);
+      return false;
+    }
+  }
+  return true;
 }
 
 // Set USER as required by the Bazel Test Encyclopedia.
@@ -524,7 +575,8 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
     // manifest file to find their runfiles.
     Path runfiles_mf;
     if (!runfiles_mf.Set(test_srcdir.Get() + L"\\MANIFEST") ||
-        !SetPathEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf)) {
+        (IsReadableFile(runfiles_mf) &&
+         !SetPathEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf))) {
       return false;
     }
   }
@@ -1121,7 +1173,7 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
     }
 
     std::wstring workspace;
-    if (!GetWorkspaceName(&workspace)) {
+    if (!GetEnv(L"TEST_WORKSPACE", &workspace) || workspace.empty()) {
       LogError(__LINE__, "Failed to read %TEST_WORKSPACE%");
       return false;
     }
@@ -1852,6 +1904,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
       !PrintTestLogStartMarker() || !GetCwd(&exec_root) ||
       !FindTestBinary(argv0, exec_root, test_path_arg, &test_path) ||
       !ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
+      !ChdirToRunfiles(exec_root, srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
       !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||

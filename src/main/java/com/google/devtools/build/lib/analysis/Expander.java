@@ -55,7 +55,8 @@ public final class Expander {
    */
   private Expander withLocations(boolean execPaths, boolean allowData) {
     TemplateContext newTemplateContext =
-        new LocationTemplateContext(templateContext, ruleContext, labelMap, execPaths, allowData);
+        new LocationTemplateContext(
+            templateContext, ruleContext, labelMap, execPaths, allowData, false);
     return new Expander(ruleContext, newTemplateContext, labelMap);
   }
 
@@ -79,10 +80,16 @@ public final class Expander {
    * Returns a new instance that also expands locations, passing the given location map, as well as
    * {@code execPaths} to the underlying {@link LocationTemplateContext}.
    */
-  public Expander withExecLocations(ImmutableMap<Label, ImmutableCollection<Artifact>> locations) {
+  public Expander withExecLocations(
+      ImmutableMap<Label, ImmutableCollection<Artifact>> locations, boolean windowsPath) {
     TemplateContext newTemplateContext =
-        new LocationTemplateContext(templateContext, ruleContext, locations, true, false);
+        new LocationTemplateContext(
+            templateContext, ruleContext, locations, true, false, windowsPath);
     return new Expander(ruleContext, newTemplateContext);
+  }
+
+  public Expander withExecLocations(ImmutableMap<Label, ImmutableCollection<Artifact>> locations) {
+    return withExecLocations(locations, false);
   }
 
   /**

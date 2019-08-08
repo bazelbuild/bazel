@@ -26,10 +26,12 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.CommandCompleteEvent;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
@@ -40,8 +42,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -374,23 +374,10 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return stdOut.toString().trim();
   }
 
-  private Optional<String> dockerContainerFromSpawn(Spawn spawn) {
-    Platform platform = null;
-    // TODO(philwo) Figure out if this is the right mechanism to specify a Docker image per action.
-    String platformDescription = spawn.getExecutionPlatform().remoteExecutionProperties();
-    if (platformDescription != null) {
-      try {
-        Platform.Builder platformBuilder = Platform.newBuilder();
-        TextFormat.getParser().merge(platformDescription, platformBuilder);
-        platform = platformBuilder.build();
-      } catch (ParseException e) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Failed to parse remote_execution_properties from platform %s",
-                spawn.getExecutionPlatform().label()),
-            e);
-      }
-    }
+  private Optional<String> dockerContainerFromSpawn(Spawn spawn) throws ExecException {
+    Platform platform =
+        PlatformUtils.getPlatformProto(
+            spawn.getExecutionPlatform(), cmdEnv.getOptions().getOptions(RemoteOptions.class));
 
     if (platform != null) {
       try {

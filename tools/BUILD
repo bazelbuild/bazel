@@ -85,3 +85,8 @@ test_suite(
     ],
     visibility = ["//src:__pkg__"],
 )
+
+sh_binary(
+    name = "upload_bazel_mirror",
+    srcs = ["upload_bazel_mirror.sh"],
+)

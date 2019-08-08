@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(
     default_visibility = ["//src:__subpackages__"],
 )
@@ -20,7 +22,7 @@ java_binary(
         # ... but only on JDK >= 9
         "-XX:+IgnoreUnrecognizedVMOptions",
     ],
-    main_class = "com.google.devtools.build.skydoc.RendererMain",
+    main_class = "com.google.devtools.build.skydoc.renderer.RendererMain",
     visibility = ["//visibility:public"],
     runtime_deps = [
         ":renderer_lib",

@@ -6,6 +6,14 @@ nav: docs
 <!-- /versions/0.12.3/baz.md -> ["0.12.3", "baz.md"] -->
 {% assign versioned_url_parts = page.url | split: '/' | shift | shift %}
 {% assign current_version = versioned_url_parts.first %}
+{% assign version_components = current_version | split: '.' %}
+{% if version_components.size < 2 %}
+{%   assign major_version = "master" %}
+{%   assign minor_version = "master" %}
+{% else % }
+{%   assign major_version = version_components[0] | plus:0 %}
+{%   assign minor_version = version_components[1] | plus:0 %}
+{% endif %}
 
 <!DOCTYPE html>
 <html lang="en" itemscope itemtype="https://schema.org/WebPage">
@@ -67,6 +75,12 @@ nav: docs
                    <li><a href="/versions/{{ current_version }}/ide.html">Integrating with IDEs</a></li>
                 </ul>
               </li>
+
+              {% if major_version == "master" or major_version > 0 or minor_version > 28 %}
+              <li class="sidebar-nav">
+                <a href="/versions/{{ current_version }}/updating-bazel.html">Updating Bazel</a>
+              </li>
+              {% endif %}
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"

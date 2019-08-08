@@ -40,14 +40,15 @@ function test_proguard() {
   cat > java/com/bin/BUILD <<EOF
 android_binary(
   name = 'bin',
-  srcs = ['Bin.java', 'NotUsed.java'],
+  srcs = ['Bin.java', 'NotUsed.java', 'Renamed.java', 'Filtered.java'],
   manifest = 'AndroidManifest.xml',
   proguard_specs = ['proguard.config'],
   deps = [':lib'],
 )
 android_library(
   name = 'lib',
-  srcs = ['Lib.java'],
+  srcs = ['Lib.java', 'Filtered.java'],
+  neverlink = 1,
 )
 EOF
   cat > java/com/bin/AndroidManifest.xml <<EOF
@@ -56,14 +57,22 @@ EOF
   cat > java/com/bin/Bin.java <<EOF
 package com.bin;
 public class Bin {
-  public Lib getLib() {
-    return new Lib();
+  public Renamed getLib() {
+    return new Renamed();
   }
 }
+EOF
+  cat > java/com/bin/Filtered.java <<EOF
+package com.bin;
+public class Filtered {}
 EOF
   cat > java/com/bin/NotUsed.java <<EOF
 package com.bin;
 public class NotUsed {}
+EOF
+  cat > java/com/bin/Renamed.java <<EOF
+package com.bin;
+public class Renamed {}
 EOF
   cat > java/com/bin/Lib.java <<EOF
 package com.bin;
@@ -74,15 +83,23 @@ EOF
   public *;
 }
 EOF
-  assert_build //java/com/bin
+  bazel build --experimental_filter_library_jar_with_program_jar -s --verbose_failures //java/com/bin || fail "Failed to build //java/com/bin"
+
+  filtered_lib=$(zipinfo -1  bazel-bin/java/com/bin/proguard/bin/legacy_bin_combined_library_jars_filtered.jar)
+  # Don't assert on the size of the library jar, because it contains the jdk runtime.
+  assert_one_of $filtered_lib "com/bin/Lib.class"
+  assert_not_one_of $filtered_lib "com/bin/Filtered.class"
+
   output_classes=$(zipinfo -1 bazel-bin/java/com/bin/bin_proguard.jar)
   assert_equals 3 $(wc -w <<< $output_classes)
   assert_one_of $output_classes "META-INF/MANIFEST.MF"
   assert_one_of $output_classes "com/bin/Bin.class"
   # Not kept by proguard
-  assert_not_one_of $output_classes "com/bin/Unused.class"
-  # This is renamed by proguard to something else
+  assert_not_one_of $output_classes "com/bin/NotUsed.class"
+  # This was in ProGuard's library_jars, not in the jar under optimization.
   assert_not_one_of $output_classes "com/bin/Lib.class"
+  # This is renamed by proguard to something else
+  assert_not_one_of $output_classes "com/bin/Renamed.class"
 }
 
 run_suite "Android integration tests for Proguard"

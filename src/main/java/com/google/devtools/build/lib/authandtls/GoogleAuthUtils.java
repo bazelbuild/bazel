@@ -50,7 +50,7 @@ public final class GoogleAuthUtils {
     Preconditions.checkNotNull(interceptors);
 
     final SslContext sslContext =
-        isTlsEnabled(target, options) ? createSSlContext(options.tlsCertificate) : null;
+        isTlsEnabled(target) ? createSSlContext(options.tlsCertificate) : null;
 
     String targetUrl = convertTargetScheme(target);
 
@@ -58,7 +58,7 @@ public final class GoogleAuthUtils {
       NettyChannelBuilder builder =
           NettyChannelBuilder.forTarget(targetUrl)
               .negotiationType(
-                  isTlsEnabled(target, options) ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
+                  isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
               .defaultLoadBalancingPolicy("round_robin")
               .intercept(interceptors);
       if (sslContext != null) {
@@ -86,18 +86,11 @@ public final class GoogleAuthUtils {
     return target.replace("grpcs://", "").replace("grpc://", "");
   }
 
-  // TODO(ishikhman) remove options.tlsEnabled flag usage when an incompatible flag is flipped
-  private static boolean isTlsEnabled(String target, AuthAndTLSOptions options) {
-    if (options.incompatibleTlsEnabledRemoved && options.tlsEnabled) {
-      throw new IllegalArgumentException("flag --tls_enabled was not found");
-    }
-    if (options.incompatibleTlsEnabledRemoved) {
-      // 'grpcs://' or empty prefix => TLS-enabled
-      // when no schema prefix is provided in URL, bazel will treat it as a gRPC request with TLS
-      // enabled
-      return !target.startsWith("grpc://");
-    }
-    return target.startsWith("grpcs") || options.tlsEnabled;
+  private static boolean isTlsEnabled(String target) {
+    // 'grpcs://' or empty prefix => TLS-enabled
+    // when no schema prefix is provided in URL, bazel will treat it as a gRPC request with TLS
+    // enabled
+    return !target.startsWith("grpc://");
   }
 
   private static SslContext createSSlContext(@Nullable String rootCert) throws IOException {

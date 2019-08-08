@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -110,11 +111,13 @@ final class RemoteSpawnCache implements SpawnCache {
     this.topLevelOutputs = Preconditions.checkNotNull(topLevelOutputs, "topLevelOutputs");
   }
 
-
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException {
-    if (!Spawns.mayBeCached(spawn) || !Spawns.mayBeExecutedRemotely(spawn)) {
+    if (!Spawns.mayBeCached(spawn)
+        || (!Spawns.mayBeCachedRemotely(spawn) && isRemoteCache(options))) {
+      // returning SpawnCache.NO_RESULT_NO_STORE in case the caching is disabled or in case
+      // the remote caching is disabled and the only configured cache is remote.
       return SpawnCache.NO_RESULT_NO_STORE;
     }
     boolean checkCache = options.remoteAcceptCached;
@@ -129,9 +132,7 @@ final class RemoteSpawnCache implements SpawnCache {
     Digest merkleTreeRoot = merkleTree.getRootDigest();
 
     // Get the remote platform properties.
-    Platform platform =
-        RemoteSpawnRunner.parsePlatform(
-            spawn.getExecutionPlatform(), options.remoteDefaultPlatformProperties);
+    Platform platform = PlatformUtils.getPlatformProto(spawn.getExecutionPlatform(), options);
 
     Command command =
         RemoteSpawnRunner.buildCommand(
@@ -291,5 +292,9 @@ final class RemoteSpawnCache implements SpawnCache {
       reportedErrors.add(evt.getMessage());
       cmdlineReporter.handle(evt);
     }
+  }
+
+  private static boolean isRemoteCache(RemoteOptions options) {
+    return !isNullOrEmpty(options.remoteCache);
   }
 }

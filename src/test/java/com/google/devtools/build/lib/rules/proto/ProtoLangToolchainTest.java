@@ -23,12 +23,18 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class ProtoLangToolchainTest extends BuildViewTestCase {
+  @Before
+  public void setUp() throws Exception {
+    ProtoTestHelper.setupWorkspace(this);
+  }
+
   @Test
   public void protoToolchain() throws Exception {
     scratch.file(
@@ -40,6 +46,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
     scratch.file(
         "foo/BUILD",
+        ProtoTestHelper.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
         "    command_line = 'cmd-line',",
@@ -69,6 +76,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void optionalFieldsAreEmpty() throws Exception {
     scratch.file(
         "foo/BUILD",
+        ProtoTestHelper.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
         "    command_line = 'cmd-line',",

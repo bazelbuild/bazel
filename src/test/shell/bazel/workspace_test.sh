@@ -284,6 +284,66 @@ EOF
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
   assert_contains "override" bazel-genfiles/external/o/gen.out
+
+  bazel build @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "original" bazel-genfiles/external/o/gen.out
+
+  # For multiple override options, the latest should win
+  bazel build --override_repository=o=/ignoreme \
+        --override_repository="o=$PWD/override" \
+        @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" bazel-genfiles/external/o/gen.out
+
+}
+
+function test_workspace_override_starlark(){
+  mkdir -p original
+  create_workspace_with_default_repos original/WORKSPACE
+  cat > original/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    cmd = "echo 'original' > $@",
+    outs = ["gen.out"],
+)
+EOF
+  tar cvf original.tar original
+  rm -rf original
+
+  mkdir -p override
+  create_workspace_with_default_repos override/WORKSPACE
+  cat > override/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    cmd = "echo 'override' > $@",
+    outs = ["gen.out"],
+)
+EOF
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "o",
+    url = "file://$PWD/original.tar",
+    strip_prefix = "original",
+)
+EOF
+  bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" bazel-genfiles/external/o/gen.out
+
+  bazel build @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "original" bazel-genfiles/external/o/gen.out
+
+  bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" bazel-genfiles/external/o/gen.out
+
+  bazel build @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "original" bazel-genfiles/external/o/gen.out
 }
 
 function test_workspace_addition_change() {

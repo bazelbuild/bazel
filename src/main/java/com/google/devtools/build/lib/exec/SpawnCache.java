@@ -162,7 +162,8 @@ public interface SpawnCache extends ActionContext {
    * object is for the cache to store expensive intermediate values (such as the cache key) that are
    * needed both for the lookup and the subsequent store operation.
    *
-   * <p>The lookup must not succeed for non-cachable spawns. See {@link Spawns#mayBeCached()}.
+   * <p>The lookup must not succeed for non-cachable spawns. See {@link Spawns#mayBeCached()} and
+   * {@link Spawns#mayBeCachedRemotely}.
    *
    * <p>Note that cache stores may be disabled, in which case the returned {@link CacheHandle}
    * instance's {@link CacheHandle#store} is a no-op.

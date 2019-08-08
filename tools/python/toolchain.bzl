@@ -15,6 +15,7 @@
 """Definitions related to the Python toolchain."""
 
 load(":utils.bzl", "expand_pyversion_template")
+load(":private/defs.bzl", "py_runtime")
 
 def _py_runtime_pair_impl(ctx):
     if ctx.attr.py2_runtime != None:
@@ -76,7 +77,7 @@ Example usage:
 ```python
 # In your BUILD file...
 
-load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+load("@rules_python//python:defs.bzl", "py_runtime_pair")
 
 py_runtime(
     name = "my_py2_runtime",
@@ -100,7 +101,7 @@ toolchain(
     name = "my_toolchain",
     target_compatible_with = <...>,
     toolchain = ":my_py_runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+    toolchain_type = "@rules_python//python:toolchain_type",
 )
 ```
 
@@ -159,28 +160,28 @@ def define_autodetecting_toolchain(
     # have to use a workaround to allow it to be depended on by py_runtime. See
     # https://github.com/bazelbuild/bazel/issues/4286#issuecomment-475661317.
 
-    native.py_runtime(
+    py_runtime(
         name = "_autodetecting_py2_runtime",
         interpreter = ":py2wrapper.sh",
         python_version = "PY2",
         visibility = ["//visibility:private"],
     )
 
-    native.py_runtime(
+    py_runtime(
         name = "_autodetecting_py3_runtime",
         interpreter = ":py3wrapper.sh",
         python_version = "PY3",
         visibility = ["//visibility:private"],
     )
 
-    native.py_runtime(
+    py_runtime(
         name = "_autodetecting_py2_runtime_nonstrict",
         interpreter = ":py2wrapper_nonstrict.sh",
         python_version = "PY2",
         visibility = ["//visibility:private"],
     )
 
-    native.py_runtime(
+    py_runtime(
         name = "_autodetecting_py3_runtime_nonstrict",
         interpreter = ":py3wrapper_nonstrict.sh",
         python_version = "PY3",
@@ -190,7 +191,7 @@ def define_autodetecting_toolchain(
     # This is a dummy runtime whose interpreter_path triggers the native rule
     # logic to use the legacy behavior on Windows.
     # TODO(#7844): Remove this target.
-    native.py_runtime(
+    py_runtime(
         name = "_sentinel_py2_runtime",
         interpreter_path = "/_magic_pyruntime_sentinel_do_not_use",
         python_version = "PY2",

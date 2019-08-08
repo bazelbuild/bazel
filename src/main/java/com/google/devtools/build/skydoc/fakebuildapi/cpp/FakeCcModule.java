@@ -175,7 +175,8 @@ public class FakeCcModule
       Object includes,
       Object quoteIncludes,
       Object frameworkIncludes,
-      Object defines)
+      Object defines,
+      Object localDefines)
       throws EvalException {
     return null;
   }
@@ -201,6 +202,7 @@ public class FakeCcModule
       SkylarkList<String> includes,
       SkylarkList<String> quoteIncludes,
       SkylarkList<String> defines,
+      SkylarkList<String> localDefines,
       SkylarkList<String> systemIncludes,
       SkylarkList<String> frameworkIncludes,
       SkylarkList<String> userCompileFlags,

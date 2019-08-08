@@ -18,6 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -35,8 +36,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -199,21 +203,60 @@ public class HttpDownloader {
     HttpConnectorMultiplexer multiplexer =
         new HttpConnectorMultiplexer(eventHandler, connector, httpStreamFactory, clock, sleeper);
 
-    // Connect to the best mirror and download the file, while reporting progress to the CLI.
-    semaphore.acquire();
+    // Iterate over urls and download the file falling back to the next url if previous failed,
+    // while reporting progress to the CLI.
     boolean success = false;
-    try (HttpStream payload = multiplexer.connect(urls, checksum, authHeaders);
-        OutputStream out = destination.getOutputStream()) {
-      ByteStreams.copy(payload, out);
-      success = true;
-    } catch (InterruptedIOException e) {
-      throw new InterruptedException();
-    } catch (IOException e) {
-      throw new IOException(
-          "Error downloading " + urls + " to " + destination + ": " + e.getMessage());
-    } finally {
-      semaphore.release();
-      eventHandler.post(new FetchEvent(urls.get(0).toString(), success));
+
+    List<IOException> ioExceptions = ImmutableList.of();
+
+    for (URL url : urls) {
+      semaphore.acquire();
+
+      try (HttpStream payload =
+              multiplexer.connect(Collections.singletonList(url), checksum, authHeaders);
+          OutputStream out = destination.getOutputStream()) {
+        try {
+          ByteStreams.copy(payload, out);
+        } catch (SocketTimeoutException e) {
+          // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
+          // an external interruption, but simply a failed download due to some server timing
+          // out. So rethrow them as ordinary IOExceptions.
+          throw new IOException(e);
+        }
+        success = true;
+        break;
+      } catch (InterruptedIOException e) {
+        throw new InterruptedException(e.getMessage());
+      } catch (IOException e) {
+        if (ioExceptions.isEmpty()) {
+          ioExceptions = new ArrayList<>(1);
+        }
+        ioExceptions.add(e);
+        eventHandler.handle(
+            Event.warn("Download from " + url + " failed: " + e.getClass() + " " + e.getMessage()));
+        continue;
+      } finally {
+        semaphore.release();
+        eventHandler.post(new FetchEvent(url.toString(), success));
+      }
+    }
+
+    if (!success) {
+      final IOException exception =
+          new IOException(
+              "Error downloading "
+                  + urls
+                  + " to "
+                  + destination
+                  + (ioExceptions.isEmpty()
+                      ? ""
+                      : ": " + Iterables.getLast(ioExceptions).getMessage()));
+
+      for (IOException cause : ioExceptions) {
+        exception.addSuppressed(cause);
+      }
+
+      throw exception;
     }
 
     if (isCachingByProvidedChecksum) {

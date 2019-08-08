@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -87,6 +88,7 @@ public final class CommandEnvironment {
   private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private long commandStartTime;
   private OutputService outputService;
+  private TopDownActionCache topDownActionCache;
   private Path workingDirectory;
   private String workspaceName;
   private boolean haveSetupPackageCache = false;
@@ -490,6 +492,11 @@ public final class CommandEnvironment {
     return workspace.getPersistentActionCache(reporter);
   }
 
+  /** Returns the top-down action cache to use, or null. */
+  public TopDownActionCache getTopDownActionCache() {
+    return topDownActionCache;
+  }
+
   /**
    * An array of String values useful if Blaze crashes. For now, just returns the build id as soon
    * as it is determined.
@@ -633,6 +640,8 @@ public final class CommandEnvironment {
 
     outputService = null;
     BlazeModule outputModule = null;
+    topDownActionCache = null;
+    BlazeModule topDownCachingModule = null;
     if (command.builds()) {
       for (BlazeModule module : runtime.getBlazeModules()) {
         OutputService moduleService = module.getOutputService();
@@ -645,6 +654,18 @@ public final class CommandEnvironment {
           }
           outputService = moduleService;
           outputModule = module;
+        }
+
+        TopDownActionCache moduleCache = module.getTopDownActionCache();
+        if (moduleCache != null) {
+          if (topDownActionCache != null) {
+            throw new IllegalStateException(
+                String.format(
+                    "More than one module (%s and %s) returns a top down action cache",
+                    module.getClass(), topDownCachingModule.getClass()));
+          }
+          topDownActionCache = moduleCache;
+          topDownCachingModule = module;
         }
       }
     }

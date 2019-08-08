@@ -19,9 +19,8 @@
 #endif
 
 #include <map>
-#include <memory>
-#include <set>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -30,40 +29,6 @@
 namespace blaze {
 
 class WorkspaceLayout;
-
-// Represents a single startup flag (or startup option).
-class StartupFlag {
- public:
-  virtual ~StartupFlag() = 0;
-  virtual bool NeedsParameter() const = 0;
-  virtual bool IsValid(const std::string& arg) const = 0;
-};
-
-// A startup flag that doesn't expect a value.
-// For instance, NullaryStartupFlag("master_bazelrc") is used to represent
-// "--master_bazelrc" and "--nomaster_bazelrc".
-class NullaryStartupFlag : public StartupFlag {
- public:
-  NullaryStartupFlag(const std::string& name) : name_(name) {}
-  bool IsValid(const std::string& arg) const override;
-  bool NeedsParameter() const override;
-
- private:
-  const std::string name_;
-};
-
-// A startup flag that expects a value.
-// For instance, UnaryStartupFlag("bazelrc") is used to represent
-// "--bazelrc=foo" or "--bazelrc foo".
-class UnaryStartupFlag : public StartupFlag {
- public:
-  UnaryStartupFlag(const std::string& name) : name_(name) {}
-  bool IsValid(const std::string& arg) const override;
-  bool NeedsParameter() const override;
-
- private:
-  const std::string name_;
-};
 
 // A startup flag tagged with its origin, either an rc file or the empty
 // string for the ones specified in the command line.
@@ -342,8 +307,13 @@ class StartupOptions {
   // The server javabase to be used (computed lazily).
   mutable std::string default_server_javabase_;
 
-  // Contains the collection of startup flags that Bazel accepts.
-  std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
+  // Startup flags that don't expect a value, e.g. "master_bazelrc".
+  // Valid uses are "--master_bazelrc" are "--nomaster_bazelrc".
+  std::unordered_set<std::string> valid_nullary_startup_flags_;
+
+  // Startup flags that expect a value, e.g. "bazelrc".
+  // Valid uses are "--bazelrc=foo" and "--bazelrc foo".
+  std::unordered_set<std::string> valid_unary_startup_flags_;
 };
 
 }  // namespace blaze

@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+
 package(
     default_visibility = [
         ":__subpackages__",
@@ -1427,8 +1429,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1469,6 +1473,18 @@ java_test(
     ],
 )
 
+java_library(
+    name = "proto_testutils",
+    testonly = 1,
+    srcs = [
+        "rules/proto/ProtoTestHelper.java",
+    ],
+    deps = [
+        ":analysis_testutil",
+        ":testutil",
+    ],
+)
+
 java_test(
     name = "ProtoCompileActionBuilderTest",
     srcs = ["rules/proto/ProtoCompileActionBuilderTest.java"],
@@ -1498,6 +1514,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":guava_junit_truth",
+        ":proto_testutils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:util",
@@ -1513,6 +1530,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":guava_junit_truth",
+        ":proto_testutils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:util",

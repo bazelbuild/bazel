@@ -33,13 +33,11 @@ import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -48,9 +46,8 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -72,8 +69,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Message;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import io.grpc.Context;
 import io.grpc.Status.Code;
 import java.io.IOException;
@@ -82,7 +77,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -162,10 +156,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
-    if (!Spawns.mayBeExecutedRemotely(spawn)) {
-      return execLocally(spawn, context);
-    }
-    boolean spawnCachable = Spawns.mayBeCached(spawn);
+
+    boolean spawnCacheableRemotely = Spawns.mayBeCachedRemotely(spawn);
+    boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCacheableRemotely;
+    boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCacheableRemotely;
 
     context.report(ProgressStatus.EXECUTING, getName());
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
@@ -175,8 +169,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     maybeWriteParamFilesLocally(spawn);
 
     // Get the remote platform properties.
-    Platform platform =
-        parsePlatform(spawn.getExecutionPlatform(), remoteOptions.remoteDefaultPlatformProperties);
+    Platform platform = PlatformUtils.getPlatformProto(spawn.getExecutionPlatform(), remoteOptions);
 
     Command command =
         buildCommand(
@@ -184,11 +177,13 @@ public class RemoteSpawnRunner implements SpawnRunner {
     Digest commandHash = digestUtil.compute(command);
     Action action =
         buildAction(
-            commandHash,
-            merkleTree.getRootDigest(),
-            context.getTimeout(),
-            Spawns.mayBeCached(spawn));
+            commandHash, merkleTree.getRootDigest(), context.getTimeout(), spawnCacheableRemotely);
     ActionKey actionKey = digestUtil.computeActionKey(action);
+
+    if (!Spawns.mayBeExecutedRemotely(spawn)) {
+      return execLocallyAndUpload(
+          spawn, context, inputMap, actionKey, action, command, uploadLocalResults);
+    }
 
     // Look up action cache, and reuse the action output if it is found.
     Context withMetadata =
@@ -196,9 +191,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
     Context previous = withMetadata.attach();
     Profiler prof = Profiler.instance();
     try {
-      boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCachable;
-      boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCachable;
-
       try {
         // Try to lookup the action in the action cache.
         ActionResult cachedResult;
@@ -230,7 +222,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       if (remoteExecutor == null) {
         // Remote execution is disabled and so execute the spawn on the local machine.
         return execLocallyAndUpload(
-            spawn, context, inputMap, remoteCache, actionKey, action, command, uploadLocalResults);
+            spawn, context, inputMap, actionKey, action, command, uploadLocalResults);
       }
 
       ExecuteRequest.Builder requestBuilder =
@@ -253,13 +245,17 @@ public class RemoteSpawnRunner implements SpawnRunner {
             () -> {
               ExecuteRequest request = requestBuilder.build();
 
-              // Upload the command and all the inputs into the remote cache.
-              try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
-                Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
-                additionalInputs.put(actionKey.getDigest(), action);
-                additionalInputs.put(commandHash, command);
-                remoteCache.ensureInputsPresent(merkleTree, additionalInputs, execRoot);
+              // Upload the command and all the inputs into the remote cache, if remote caching
+              // is enabled and not disabled using tags, {@see Spawns#mayBeCachedRemotely}
+              if (spawnCacheableRemotely) {
+                try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
+                  Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
+                  additionalInputs.put(actionKey.getDigest(), action);
+                  additionalInputs.put(commandHash, command);
+                  remoteCache.ensureInputsPresent(merkleTree, additionalInputs, execRoot);
+                }
               }
+
               ExecuteResponse reply;
               try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
                 reply = remoteExecutor.executeRemotely(request);
@@ -339,7 +335,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
-    if (!executionOptions.materializeParamFiles) {
+    if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
     }
     for (ActionInput actionInput : spawn.getInputFiles()) {
@@ -405,7 +401,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(
-          spawn, context, inputMap, remoteCache, actionKey, action, command, uploadLocalResults);
+          spawn, context, inputMap, actionKey, action, command, uploadLocalResults);
     }
     return handleError(cause, context.getFileOutErr(), actionKey, context);
   }
@@ -471,50 +467,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return action.build();
   }
 
-  @Nullable
-  static Platform parsePlatform(
-      @Nullable PlatformInfo executionPlatform, @Nullable String defaultPlatformProperties)
-      throws UserExecException {
-    if (executionPlatform == null && Strings.isNullOrEmpty(defaultPlatformProperties)) {
-      return null;
-    }
-
-    Platform.Builder platformBuilder = Platform.newBuilder();
-
-    if (executionPlatform != null
-        && !Strings.isNullOrEmpty(executionPlatform.remoteExecutionProperties())) {
-      // Try and get the platform info from the execution properties.
-      try {
-        TextFormat.getParser()
-            .merge(executionPlatform.remoteExecutionProperties(), platformBuilder);
-      } catch (ParseException e) {
-        throw new UserExecException(
-            String.format(
-                "Failed to parse remote_execution_properties from platform %s",
-                executionPlatform.label()),
-            e);
-      }
-    } else if (!Strings.isNullOrEmpty(defaultPlatformProperties)) {
-      // Try and use the provided default value.
-      try {
-        TextFormat.getParser().merge(defaultPlatformProperties, platformBuilder);
-      } catch (ParseException e) {
-        throw new UserExecException(
-            String.format(
-                "Failed to parse --remote_default_platform_properties %s",
-                defaultPlatformProperties),
-            e);
-      }
-    }
-
-    // Sort the properties.
-    List<Platform.Property> properties = platformBuilder.getPropertiesList();
-    platformBuilder.clearProperties();
-    platformBuilder.addAllProperties(
-        Ordering.from(Comparator.comparing(Platform.Property::getName)).sortedCopy(properties));
-    return platformBuilder.build();
-  }
-
   static Command buildCommand(
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
@@ -573,7 +525,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionContext context,
       SortedMap<PathFragment, ActionInput> inputMap,
-      AbstractRemoteActionCache remoteCache,
       ActionKey actionKey,
       Action action,
       Command command,

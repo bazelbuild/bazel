@@ -16,6 +16,7 @@ package com.google.devtools.build.skydoc.rendering;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
@@ -45,6 +46,7 @@ public class MarkdownRenderer {
   private final String ruleTemplateFilename;
   private final String providerTemplateFilename;
   private final String functionTemplateFilename;
+  private final String aspectTemplateFilename;
 
   private final VelocityEngine velocityEngine;
 
@@ -52,12 +54,14 @@ public class MarkdownRenderer {
       String headerTemplate,
       String ruleTemplate,
       String providerTemplate,
-      String functionTemplate) {
+      String functionTemplate,
+      String aspectTemplate) {
     this.headerTemplateFilename = headerTemplate;
     this.ruleTemplateFilename = ruleTemplate;
     this.providerTemplateFilename = providerTemplate;
     this.functionTemplateFilename = functionTemplate;
-    
+    this.aspectTemplateFilename = aspectTemplate;
+
     this.velocityEngine = new VelocityEngine();
     velocityEngine.setProperty("resource.loader", "classpath, jar");
     velocityEngine.setProperty("classpath.resource.loader.class",
@@ -142,6 +146,25 @@ public class MarkdownRenderer {
     return stringWriter.toString();
   }
 
+  /**
+   * Returns a markdown rendering of aspect documentation for the given aspect information object
+   * with the given aspect name.
+   */
+  public String render(String aspectName, AspectInfo aspectInfo) throws IOException {
+    VelocityContext context = new VelocityContext();
+    context.put("util", new MarkdownUtil());
+    context.put("aspectName", aspectName);
+    context.put("aspectInfo", aspectInfo);
+
+    StringWriter stringWriter = new StringWriter();
+    Reader reader = readerFromPath(aspectTemplateFilename);
+    try {
+      velocityEngine.evaluate(context, stringWriter, aspectTemplateFilename, reader);
+    } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
+      throw new IOException(e);
+    }
+    return stringWriter.toString();
+  }
   /**
    * Returns a reader from the given path.
    *

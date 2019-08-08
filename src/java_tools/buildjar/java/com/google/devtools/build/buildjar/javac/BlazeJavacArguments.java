@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar.javac;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import java.nio.file.Path;
 import javax.annotation.Nullable;
@@ -44,6 +45,8 @@ public abstract class BlazeJavacArguments {
 
   /** The compilation source path. */
   public abstract ImmutableList<Path> sourcePath();
+
+  public abstract ImmutableSet<String> builtinProcessors();
 
   /** The classpath to load processors from. */
   public abstract ImmutableList<Path> processorPath();
@@ -78,6 +81,7 @@ public abstract class BlazeJavacArguments {
         .sourcePath(ImmutableList.of())
         .processors(null)
         .sourceOutput(null)
+        .builtinProcessors(ImmutableSet.of())
         .processorPath(ImmutableList.of())
         .plugins(ImmutableList.of());
   }
@@ -100,6 +104,8 @@ public abstract class BlazeJavacArguments {
     Builder sourceFiles(ImmutableList<Path> sourceFiles);
 
     Builder processors(ImmutableList<Processor> processors);
+
+    Builder builtinProcessors(ImmutableSet<String> builtinProcessors);
 
     Builder sourceOutput(Path sourceOutput);
 

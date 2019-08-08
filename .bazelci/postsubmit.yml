@@ -287,6 +287,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_released"
       - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_head"
       - "-//src/test/shell/bazel:bazel_java_test_jdk10_toolchain_head"
+      # Docker sandboxing needs Docker installed
+      - "-//src/test/shell/bazel:bazel_docker_sandboxing_test"
     include_json_profile:
       - build
       - test

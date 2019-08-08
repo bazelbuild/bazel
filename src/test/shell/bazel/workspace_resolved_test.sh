@@ -1122,6 +1122,34 @@ EOF
       || fail "execution platform not registered in resolved file"
 }
 
+test_local_config_platform_recorded() {
+  # Verify that the auto-generated local_config_platform repo is
+  # recorded in the resolved file
+  mkdir main
+  cd main
+  cat >> WORKSPACE <<EOF
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["data.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  touch data.txt
+  # Turn on the new host platforms so the repository is used.
+  bazel build \
+      --incompatible_auto_configure_host_platform \
+      --experimental_repository_resolved_file=resolved.bzl \
+       -- \
+       //:it
+  echo; cat resolved.bzl; echo
+
+  grep 'local_config_platform' resolved.bzl \
+      || fail "local_config_platform in resolved file"
+}
+
 test_definition_location_recorded() {
   # Verify that for Starlark repositories the location of the definition
   # is recorded in the resolved file.

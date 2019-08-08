@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.IterablesChain;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -1055,7 +1056,7 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public Iterable<Artifact> getAllowedDerivedInputs() {
-    HashSet<Artifact> result = new HashSet<>();
+    Set<Artifact> result = CompactHashSet.create();
     addNonSources(result, mandatoryInputs);
     addNonSources(result, additionalPrunableHeaders);
     addNonSources(result, inputsForInvalidation);
@@ -1086,7 +1087,7 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
-  private static void addNonSources(HashSet<Artifact> result, Iterable<Artifact> artifacts) {
+  private static void addNonSources(Set<Artifact> result, Iterable<Artifact> artifacts) {
     for (Artifact a : artifacts) {
       if (!a.isSourceArtifact()) {
         result.add(a);

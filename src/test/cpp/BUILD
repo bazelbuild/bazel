@@ -138,5 +138,5 @@ test_suite(
         ":windows_tests",
         "//src/test/cpp/util:all_windows_tests",
     ],
-    visibility = ["//src/test:__pkg__"],
+    visibility = ["//src:__pkg__"],
 )

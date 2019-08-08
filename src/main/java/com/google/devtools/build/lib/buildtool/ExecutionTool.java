@@ -166,10 +166,7 @@ public class ExecutionTool {
     spawnActionContextMaps =
         builder
             .getSpawnActionContextMapsBuilder()
-            .build(
-                actionContextProviders,
-                options.testStrategy,
-                options.incompatibleListBasedExecutionStrategySelection);
+            .build(actionContextProviders, options.testStrategy);
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new ExecutorInitException(
@@ -277,7 +274,8 @@ public class ExecutionTool {
           getReporter(),
           targetConfigurations,
           request.getBuildOptions().getSymlinkPrefix(productName),
-          productName);
+          productName,
+          !request.getBuildOptions().incompatibleSkipGenfilesSymlink);
     }
 
     ActionCache actionCache = getActionCache();
@@ -627,6 +625,7 @@ public class ExecutionTool {
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
                 .build()),
+        env.getTopDownActionCache(),
         request.getPackageCacheOptions().checkOutputFiles
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,

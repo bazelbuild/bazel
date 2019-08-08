@@ -119,6 +119,9 @@ public interface AttributeMap {
    */
   Collection<DepEdge> visitLabels() throws InterruptedException;
 
+  /** Same as {@link #visitLabels()} but for a single attribute. */
+  Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException;
+
   /**
    * {@code (Label, Attribute)} pair describing a dependency edge.
    *

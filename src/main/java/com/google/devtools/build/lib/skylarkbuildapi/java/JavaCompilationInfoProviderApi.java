@@ -21,14 +21,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * Info object for compilation information for java rules.
- */
+/** Info object for compilation information for java rules. */
 @SkylarkModule(
-  name = "java_compilation_info",
-  category = SkylarkModuleCategory.NONE,
-  doc = "Provides access to compilation information for Java rules."
-)
+    name = "java_compilation_info",
+    category = SkylarkModuleCategory.PROVIDER,
+    doc = "Provides access to compilation information for Java rules.")
 public interface JavaCompilationInfoProviderApi<FileT extends FileApi> {
 
   @SkylarkCallable(name = "javac_options", structField = true, doc = "Options to java compiler.")

@@ -607,4 +607,13 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   @Override
   @Test
   public void testVisibleWithPackageGroupWithNonPackageGroupIncludes() throws Exception {}
+
+  // We don't support --nodep_deps=false.
+  @Override
+  @Test
+  public void testNodepDeps_False() throws Exception {}
+
+  // package_group instances have a null configuration and are filtered out by --host_deps=false.
+  @Test
+  public void testDefaultVisibilityReturnedInDeps_NonEmptyDependencyFilter() throws Exception {}
 }

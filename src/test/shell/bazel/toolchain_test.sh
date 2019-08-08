@@ -1489,6 +1489,79 @@ EOF
   expect_log "//demo:dep target platform: //platforms:platform2"
 }
 
+function test_config_setting_with_constraints {
+  cat >> BUILD <<EOF
+constraint_setting(name = "setting1")
+constraint_value(name = "value1", constraint_setting = ":setting1")
+constraint_value(name = "value2", constraint_setting = ":setting1")
+platform(name = "platform1",
+  constraint_values = [":value1"],
+)
+platform(name = "platform2",
+  constraint_values = [":value2"],
+)
+
+config_setting(name = "config1",
+  constraint_values = [":value1"],
+)
+config_setting(name = "config2",
+  constraint_values = [":value2"],
+)
+
+genrule(name = "demo",
+  outs = ["demo.log"],
+  cmd = select({
+    ":config1": "echo 'config1 selected' > \$@",
+    ":config2": "echo 'config2 selected' > \$@",
+  }),
+)
+EOF
+
+  bazel build --platforms=//:platform1 //:demo &> $TEST_log || fail "Build failed"
+  grep "config1 selected" bazel-bin/demo.log || fail "config1 expected"
+  bazel build --platforms=//:platform2 //:demo &> $TEST_log || fail "Build failed"
+  grep "config2 selected" bazel-bin/demo.log || fail "config2 expected"
+}
+
+function test_config_setting_with_constraints_alias {
+  cat >> BUILD <<EOF
+constraint_setting(name = "setting1")
+constraint_value(name = "value1", constraint_setting = ":setting1")
+constraint_value(name = "value2", constraint_setting = ":setting1")
+platform(name = "platform1",
+  constraint_values = [":value1"],
+)
+platform(name = "platform2",
+  constraint_values = [":value2"],
+)
+
+alias(name = "alias1", actual = ":value1")
+alias(name = "alias1a", actual = ":alias1")
+alias(name = "alias2", actual = ":value2")
+alias(name = "alias2a", actual = ":alias2")
+
+config_setting(name = "config1",
+  constraint_values = [":alias1a"],
+)
+config_setting(name = "config2",
+  constraint_values = [":alias2a"],
+)
+
+genrule(name = "demo",
+  outs = ["demo.log"],
+  cmd = select({
+    ":config1": "echo 'config1 selected' > \$@",
+    ":config2": "echo 'config2 selected' > \$@",
+  }),
+)
+EOF
+
+  bazel build --platforms=//:platform1 //:demo &> $TEST_log || fail "Build failed"
+  grep "config1 selected" bazel-bin/demo.log || fail "config1 expected"
+  bazel build --platforms=//:platform2 //:demo &> $TEST_log || fail "Build failed"
+  grep "config2 selected" bazel-bin/demo.log || fail "config2 expected"
+}
+
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
 run_suite "toolchain tests"

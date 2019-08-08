@@ -237,7 +237,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
               treeArtifact, childRelativePath);
       scratch.file(treeFileArtifact.getPath().toString(), childRelativePath);
       // We do not care about the FileArtifactValues in this test.
-      treeFileArtifactMap.put(treeFileArtifact, FileArtifactValue.create(treeFileArtifact));
+      treeFileArtifactMap.put(
+          treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
     }
 
     artifactValueMap.put(

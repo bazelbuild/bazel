@@ -16,11 +16,22 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
 
-/**
- * Fake implementation of {@link SkylarkAspectApi}.
- */
-public class FakeSkylarkAspect implements SkylarkAspectApi {
+/** Fake implementation of {@link SkylarkAspectApi}. */
+public class FakeSkylarkAspect extends BaseFunction implements SkylarkAspectApi {
+
+  /**
+   * Each fake is constructed with a unique name, controlled by this counter being the name suffix.
+   */
+  private static int idCounter = 0;
+
+  public FakeSkylarkAspect() {
+    super(
+        "AspectIdentifier" + idCounter++,
+        FunctionSignature.WithValues.create(FunctionSignature.KWARGS));
+  }
 
   @Override
   public void repr(SkylarkPrinter printer) {}

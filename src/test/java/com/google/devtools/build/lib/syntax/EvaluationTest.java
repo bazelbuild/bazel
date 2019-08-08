@@ -62,7 +62,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("8 % 3", 2)
         .testIfErrorContains("unsupported operand type(s) for %: 'int' and 'string'", "3 % 'foo'")
         .testStatement("-5", -5)
-        .testIfErrorContains("unsupported operand type for -: 'string'", "-'foo'");
+        .testIfErrorContains("unsupported unary operation: -string", "-'foo'");
   }
 
   @Test

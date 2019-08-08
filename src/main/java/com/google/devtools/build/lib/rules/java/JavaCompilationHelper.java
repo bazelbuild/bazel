@@ -101,7 +101,8 @@ public final class JavaCompilationHelper {
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
-      JavaRuntimeInfo hostJavabase) {
+      JavaRuntimeInfo hostJavabase,
+      ImmutableList<Artifact> additionalJavaBaseInputs) {
     this(
         ruleContext,
         semantics,
@@ -109,7 +110,7 @@ public final class JavaCompilationHelper {
         attributes,
         javaToolchainProvider,
         hostJavabase,
-        ImmutableList.<Artifact>of(),
+        additionalJavaBaseInputs,
         false);
   }
 
@@ -124,7 +125,8 @@ public final class JavaCompilationHelper {
         javacOpts,
         attributes,
         JavaToolchainProvider.from(ruleContext),
-        JavaRuntimeInfo.forHost(ruleContext));
+        JavaRuntimeInfo.forHost(ruleContext),
+        ImmutableList.of());
   }
 
   public JavaCompilationHelper(
@@ -238,6 +240,7 @@ public final class JavaCompilationHelper {
     builder.setTempDirectory(tempDir(classJar, label));
     builder.setClassDirectory(classDir(classJar, label));
     builder.setPlugins(attributes.plugins().plugins());
+    builder.setBuiltinProcessorNames(javaToolchain.getHeaderCompilerBuiltinProcessors());
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());

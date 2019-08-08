@@ -1,6 +1,8 @@
 # The Starlark interpreter
 # Open-sourced as part of Bazel.
 
+load("@rules_java//java:defs.bzl", "java_binary")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 java_binary(

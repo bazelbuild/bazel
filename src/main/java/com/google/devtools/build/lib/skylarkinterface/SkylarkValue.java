@@ -22,12 +22,21 @@ package com.google.devtools.build.lib.skylarkinterface;
 public interface SkylarkValue extends SkylarkPrintable {
 
   /**
-   * Returns if the value is immutable and thus suitable for being used as a dictionary key.
+   * Returns if the value is immutable.
    *
    * <p>Immutability is deep, i.e. in order for a value to be immutable, all values it is composed
    * of must be immutable, too.
    */
   default boolean isImmutable() {
       return false;
+  }
+
+  /**
+   * Returns if the value is hashable and thus suitable for being used as a dictionary key.
+   *
+   * <p>Hashability implies immutability, but not vice versa.
+   */
+  default boolean isHashable() {
+    return this.isImmutable();
   }
 }

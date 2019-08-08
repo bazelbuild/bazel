@@ -607,6 +607,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new ActionExecutionFunction(skyframeActionExecutor, directories, tsgm);
     map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
     this.actionExecutionFunction = actionExecutionFunction;
+    map.put(SkyFunctions.ACTION_SKETCH, new ActionSketchFunction(actionKeyContext));
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, new RecursiveFilesystemTraversalFunction());
     map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction(directories::getExecRoot));
@@ -1542,6 +1543,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<ConfiguredTarget> exclusiveTests,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
+      TopDownActionCache topDownActionCache,
       @Nullable EvaluationProgressReceiver executionProgressReceiver,
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
@@ -1551,7 +1553,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       skyframeActionExecutor.prepareForExecution(
-          reporter, executor, options, actionCacheChecker, outputService);
+          reporter, executor, options, actionCacheChecker, topDownActionCache, outputService);
     }
 
     resourceManager.resetResourceUsage();
@@ -1589,6 +1591,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ConfiguredTarget exclusiveTest,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
+      TopDownActionCache topDownActionCache,
       @Nullable EvaluationProgressReceiver executionProgressReceiver,
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
@@ -1598,7 +1601,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       skyframeActionExecutor.prepareForExecution(
-          reporter, executor, options, actionCacheChecker, outputService);
+          reporter, executor, options, actionCacheChecker, topDownActionCache, outputService);
     }
 
     resourceManager.resetResourceUsage();
@@ -1622,8 +1625,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting
   public void prepareBuildingForTestingOnly(
-      Reporter reporter, Executor executor, OptionsProvider options, ActionCacheChecker checker) {
-    skyframeActionExecutor.prepareForExecution(reporter, executor, options, checker, outputService);
+      Reporter reporter,
+      Executor executor,
+      OptionsProvider options,
+      ActionCacheChecker checker,
+      TopDownActionCache topDownActionCache) {
+    skyframeActionExecutor.prepareForExecution(
+        reporter, executor, options, checker, topDownActionCache, outputService);
   }
 
   EvaluationResult<SkyValue> targetPatterns(
@@ -2511,10 +2519,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         return null;
       }
       ActionLookupValue actionLookupValue = result.get(generatingActionKey.getActionLookupKey());
-      int actionIndex = generatingActionKey.getActionIndex();
-      return actionLookupValue.isActionTemplate(actionIndex)
-          ? actionLookupValue.getActionTemplate(actionIndex)
-          : actionLookupValue.getAction(actionIndex);
+      return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
     }
   }
 

@@ -27,11 +27,11 @@ def skydoc_test(
         name,
         input_file,
         golden_file,
-        skydoc,
         deps = [],
         whitelisted_symbols = [],
         semantic_flags = [],
-        format = "markdown"):
+        format = "markdown",
+        **kwargs):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
     The test target is named "{name}_e2e_test".
@@ -43,7 +43,6 @@ def skydoc_test(
           in this test.
       golden_file: The label string of the golden file containing the documentation when skydoc
           is run on the input file.
-      skydoc: The label string of the skydoc binary.
       deps: A list of label strings of skylark file dependencies of the input_file.
       whitelisted_symbols: A list of strings representing top-level symbols in the input file
           to generate documentation for. If empty, documentation for all top-level symbols
@@ -55,7 +54,9 @@ def skydoc_test(
           <code>--incompatible_foo_semantic=false</code>, then this attribute should contain
           "--incompatible_foo_semantic=false"
       format: The format of the output file.
-    """
+      **kwargs: A dictionary of input template names mapped to template file path for which documentation is generated.
+      """
+
     actual_generated_doc = "%s_output.txt" % name
 
     # Skydoc requires an absolute input file label to both load the target file and
@@ -87,7 +88,9 @@ def skydoc_test(
         input = input_file,
         symbol_names = whitelisted_symbols,
         deps = ["%s_lib" % name],
-        stardoc = skydoc,
+        renderer = Label("//src/main/java/com/google/devtools/build/skydoc/renderer:renderer"),
+        stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc"),
         semantic_flags = semantic_flags,
         format = format,
+        **kwargs
     )

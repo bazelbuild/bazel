@@ -105,6 +105,6 @@ public class SkylarkTestingModuleTest extends BuildViewTestCase {
     TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(
         TestProvider.getTestStatusArtifacts(skylarkTarget).get(0));
 
-    assertThat(testAction.getTestProperties().isLocal()).isTrue();
+    assertThat(testAction.getTestProperties().isRemotable()).isFalse();
   }
 }

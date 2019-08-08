@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
@@ -1067,15 +1068,15 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
                 String.class,
                 "execution_requirements"));
     PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
-    List<String> argv =
-        helper.buildCommandLine(
+
+    BashCommandConstructor constructor =
+        CommandHelper.buildBashCommandConstructor(
+            executionRequirements,
             shExecutable,
-            command,
-            inputs,
             // Hash the command-line to prevent multiple actions from the same rule invocation
             // conflicting with each other.
-            "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX,
-            executionRequirements);
+            "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX);
+    List<String> argv = helper.buildCommandLine(command, inputs, constructor);
     return Tuple.<Object>of(
         MutableList.copyOf(env, inputs),
         MutableList.copyOf(env, argv),

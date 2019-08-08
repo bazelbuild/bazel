@@ -269,10 +269,6 @@ Do not use `bind()`.  See "[Consider removing
 bind](https://github.com/bazelbuild/bazel/issues/1952)" for a long discussion of its issues and
 alternatives.
 
-### Custom BUILD files
-
-When using a `new_` repository rule, prefer to specify `build_file_content`, not `build_file`.
-
 ### Repository rules
 
 A repository rule should generally be responsible for:

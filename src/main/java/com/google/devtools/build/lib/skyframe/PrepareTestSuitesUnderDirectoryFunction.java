@@ -46,7 +46,7 @@ public class PrepareTestSuitesUnderDirectoryFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    Iterable<SkyKey> keysToRequest = packageExistenceAndSubdirDeps.getChildDeps();
+    Iterable<? extends SkyKey> keysToRequest = packageExistenceAndSubdirDeps.getChildDeps();
     if (packageExistenceAndSubdirDeps.packageExists()) {
       keysToRequest =
           Iterables.concat(

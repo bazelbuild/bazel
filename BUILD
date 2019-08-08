@@ -1,5 +1,7 @@
 # Bazel - Google's Build System
 
+load("//tools/python:private/defs.bzl", "py_binary")
+
 package(default_visibility = ["//scripts/release:__pkg__"])
 
 exports_files(["LICENSE"])
@@ -66,7 +68,7 @@ filegroup(
     visibility = ["//:__subpackages__"],
 )
 
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
     name = "bazel-srcs",

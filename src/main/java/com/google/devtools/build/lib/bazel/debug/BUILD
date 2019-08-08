@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_proto_library")
+
 # Description:
 #   Debugging helpers and modules
 package(
@@ -5,6 +7,7 @@ package(
 )
 
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 
 filegroup(
     name = "srcs",

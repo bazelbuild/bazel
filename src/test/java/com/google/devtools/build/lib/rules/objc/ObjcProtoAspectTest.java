@@ -143,7 +143,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
-    assertThat(Artifact.toExecPaths(Iterables.concat(objcProtoProvider.getProtoGroups())))
+    assertThat(Artifact.toExecPaths(Iterables.concat(objcProtoProvider.getProtoFiles())))
         .containsExactly("x/data.proto");
     assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsExactly("x/data_filter.pbascii");

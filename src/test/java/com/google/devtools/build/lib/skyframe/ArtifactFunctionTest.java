@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.FileArtifactValue.create;
+import static com.google.devtools.build.lib.actions.FileArtifactValue.createForTesting;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -44,11 +43,13 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -152,8 +153,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     inputs.addAll(((AggregatingArtifactValue) value).getTreeArtifacts());
     assertThat(inputs)
         .containsExactly(
-            Pair.of(input1, create(input1)),
-            Pair.of(input2, create(input2)),
+            Pair.of(input1, createForTesting(input1)),
+            Pair.of(input2, createForTesting(input2)),
             Pair.of(tree, ((TreeArtifactValue) evaluateArtifactValue(tree))));
   }
 
@@ -262,9 +263,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   public void actionExecutionValueSerialization() throws Exception {
     ActionLookupData dummyData = ActionLookupData.create(ALL_OWNER, 0);
     Artifact.DerivedArtifact artifact1 = createDerivedArtifact("one");
-    Artifact.DerivedArtifact artifact2 = createDerivedArtifact("two");
-    ArtifactFileMetadata metadata1 =
-        ActionMetadataHandler.fileMetadataFromArtifact(artifact1, null, null);
+    FileArtifactValue metadata1 =
+        ActionMetadataHandler.fileArtifactValueFromArtifact(artifact1, null, null);
     SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly("tree");
     treeArtifact.setGeneratingActionKey(dummyData);
     TreeFileArtifact treeFileArtifact = ActionInputHelper.treeFileArtifact(treeArtifact, "subpath");
@@ -273,24 +273,23 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     writeFile(path, "contents");
     TreeArtifactValue treeArtifactValue =
         TreeArtifactValue.create(
-            ImmutableMap.of(treeFileArtifact, FileArtifactValue.create(treeFileArtifact)));
+            ImmutableMap.of(
+                treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact)));
     Artifact.DerivedArtifact artifact3 = createDerivedArtifact("three");
     FilesetOutputSymlink filesetOutputSymlink =
         FilesetOutputSymlink.createForTesting(
             PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT);
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.create(
-            ImmutableMap.of(artifact1, metadata1, artifact2, ArtifactFileMetadata.PLACEHOLDER),
+            ImmutableMap.of(artifact1, metadata1, artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableMap.of(treeArtifact, treeArtifactValue),
-            ImmutableMap.of(artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableList.of(filesetOutputSymlink),
             null,
             true);
     ActionExecutionValue valueWithFingerprint =
         ActionExecutionValue.create(
-            ImmutableMap.of(artifact1, metadata1, artifact2, ArtifactFileMetadata.PLACEHOLDER),
+            ImmutableMap.of(artifact1, metadata1, artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableMap.of(treeArtifact, treeArtifactValue),
-            ImmutableMap.of(artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableList.of(filesetOutputSymlink),
             null,
             true);
@@ -416,9 +415,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private static class SimpleActionExecutionFunction implements SkyFunction {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-      Map<Artifact, ArtifactFileMetadata> artifactData = new HashMap<>();
+      Map<Artifact, FileArtifactValue> artifactData = new HashMap<>();
       Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
-      Map<Artifact, FileArtifactValue> additionalOutputData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
           (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
@@ -431,17 +429,25 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
               (SpecialArtifact) output, PathFragment.create("child1"));
           TreeFileArtifact treeFileArtifact2 = ActionInputHelper.treeFileArtifact(
               (SpecialArtifact) output, PathFragment.create("child2"));
-          TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(ImmutableMap.of(
-              treeFileArtifact1, FileArtifactValue.create(treeFileArtifact1),
-              treeFileArtifact2, FileArtifactValue.create(treeFileArtifact2)));
+          TreeArtifactValue treeArtifactValue =
+              TreeArtifactValue.create(
+                  ImmutableMap.of(
+                      treeFileArtifact1, FileArtifactValue.createForTesting(treeFileArtifact1),
+                      treeFileArtifact2, FileArtifactValue.createForTesting(treeFileArtifact2)));
           treeArtifactData.put(output, treeArtifactValue);
         } else if (action.getActionType() == MiddlemanType.NORMAL) {
-          ArtifactFileMetadata fileValue =
-              ActionMetadataHandler.fileMetadataFromArtifact(output, null, null);
-          artifactData.put(output, fileValue);
-          additionalOutputData.put(output, FileArtifactValue.create(output, fileValue));
+          Path path = output.getPath();
+          FileArtifactValue noDigest =
+              ActionMetadataHandler.fileArtifactValueFromArtifact(
+                  output,
+                  FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                  null);
+          FileArtifactValue withDigest =
+              FileArtifactValue.createFromInjectedDigest(
+                  noDigest, path.getDigest(), !output.isConstantMetadata());
+          artifactData.put(output, withDigest);
        } else {
-          additionalOutputData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
+          artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
         }
       } catch (IOException e) {
         throw new IllegalStateException(e);
@@ -449,7 +455,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       return ActionExecutionValue.create(
           artifactData,
           treeArtifactData,
-          additionalOutputData,
           /*outputSymlinks=*/ null,
           /*discoveredModules=*/ null,
           /*actionDependsOnBuildId=*/ false);

@@ -79,6 +79,16 @@ new_local_repository(
     path = "./third_party/protobuf/3.6.1/",
 )
 
+# This is a mock version of bazelbuild/rules_python that contains only
+# @rules_python//python:defs.bzl. It is used by protobuf.
+# TODO(#9029): We could potentially replace this with the real @rules_python.
+new_local_repository(
+    name = "rules_python",
+    path = "./third_party/rules_python",
+    build_file = "//third_party/rules_python:BUILD",
+    workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
+)
+
 local_repository(
     name = "googleapis",
     path = "./third_party/googleapis/",
@@ -105,15 +115,15 @@ load("//:distdir.bzl", "distdir_tar")
 
 distdir_tar(
     name = "additional_distfiles",
-    # Keep in sync with the archives fetched as part of building bazel
+    # Keep in sync with the archives fetched as part of building bazel.
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-        "java_tools_javac11_linux-v3.0.zip",
-        "java_tools_javac11_windows-v3.0.zip",
-        "java_tools_javac11_darwin-v3.0.zip",
+        "java_tools_javac11_linux-v4.0.zip",
+        "java_tools_javac11_windows-v4.0.zip",
+        "java_tools_javac11_darwin-v4.0.zip",
         "coverage_output_generator-v1.0.zip",
-        "953dc4ac2e19584af67c3aabbdbb46923deb33f8.tar.gz",
+        "542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "0.16.2.zip",
         "android_tools_pkg-0.8.tar.gz",
@@ -124,19 +134,21 @@ distdir_tar(
         # bazelbuild/rules_cc
         "plf-moving-tools.zip",
         # bazelbuild/bazel-toolchains
-        "0.27.1.tar.gz",
+        "0.28.3.tar.gz",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz",
+        # bazelbuild/rules_proto
+        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
-        "java_tools_javac11_linux-v3.0.zip": "10d6f00c72e42b6fda378ad506cc93b1dc92e1aec6e2a490151032244b8b8df5",
-        "java_tools_javac11_windows-v3.0.zip": "b688155d81245b4d1ee52cac447aae5444b1c59dc77158fcbde05554a6bab48b",
-        "java_tools_javac11_darwin-v3.0.zip": "28989f78b1ce437c92dd27bb4943b2211ba4db916ccbb3aef83696a8f9b43724",
+        "java_tools_javac11_linux-v4.0.zip": "96e223094a12c842a66db0bb7bb6866e88e26e678f045842911f9bd6b47161f5",
+        "java_tools_javac11_windows-v4.0.zip": "a1de51447b2ba2eab923d589ba6c72c289c16e6091e6a3bb3e67a05ef4ad200c",
+        "java_tools_javac11_darwin-v4.0.zip": "fbf5bf22e9aab9c622e4c8c59314a1eef5ea09eafc5672b4f3250dc0b971bbcc",
         "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
-        "953dc4ac2e19584af67c3aabbdbb46923deb33f8.tar.gz": "ba22b38176e086aee3757028207207591be5b47eafba3387600bfa98f2cc2363",
+        "542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz": "1a90e8b0c01c9ec82fc1836c55813a8de79fc0667ed64cfa64fb0cca81a3195d",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
         "android_tools_pkg-0.8.tar.gz": "a9eac6e1b27d5549edaaa724b20eb1cdae6253b84f44d5744c30372bd523cfcd",  # built at 5dd956930fba6201a820f82a738dbb72f6cfab52
@@ -147,9 +159,11 @@ distdir_tar(
         # bazelbuild/rules_cc
         "plf-moving-tools.zip": "280037eb6318d6bcca48b6d9aff7a70bc27000ab677e33f53873ddef9902bc2c",
         # bazelbuild/bazel-toolchains
-        "0.27.1.tar.gz": "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
+        "0.28.3.tar.gz": "d8c2f20deb2f6143bac792d210db1a4872102d81529fe0ea3476c1696addd7ff",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz": "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
+        # bazelbuild/rules_proto
+        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -160,21 +174,21 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
             "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
         ],
-        "java_tools_javac11_linux-v3.0.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v3.0/java_tools_javac11_linux-v3.0.zip",
+        "java_tools_javac11_linux-v4.0.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_linux-v4.0.zip",
         ],
-        "java_tools_javac11_windows-v3.0.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v3.0/java_tools_javac11_windows-v3.0.zip",
+        "java_tools_javac11_windows-v4.0.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_windows-v4.0.zip",
         ],
-        "java_tools_javac11_darwin-v3.0.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v3.0/java_tools_javac11_darwin-v3.0.zip",
+        "java_tools_javac11_darwin-v4.0.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_darwin-v4.0.zip",
         ],
         "coverage_output_generator-v1.0.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip",
         ],
-        "953dc4ac2e19584af67c3aabbdbb46923deb33f8.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/953dc4ac2e19584af67c3aabbdbb46923deb33f8.tar.gz",
-            "https://github.com/bazelbuild/skydoc/archive/953dc4ac2e19584af67c3aabbdbb46923deb33f8.tar.gz",
+        "542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
+            "https://github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
         ],
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
@@ -202,14 +216,19 @@ distdir_tar(
             "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",
         ],
         # bazelbuild/bazel-toolchains
-        "0.27.1.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
+        "0.28.3.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
         ],
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
             "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
+        ],
+        # bazelbuild/rules_proto
+        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         ],
     },
 )
@@ -366,11 +385,11 @@ http_archive(
 
 http_archive(
     name = "bazel_toolchains",
-    sha256 = "28cb3666da80fbc62d4c46814f5468dd5d0b59f9064c0b933eee3140d706d330",
-    strip_prefix = "bazel-toolchains-0.27.1",
+    sha256 = "d8c2f20deb2f6143bac792d210db1a4872102d81529fe0ea3476c1696addd7ff",
+    strip_prefix = "bazel-toolchains-0.28.3",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/0.27.1.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
     ],
 )
 
@@ -425,11 +444,11 @@ http_archive(
 # to work without being patched, as it hard-codes this name in its sources.
 http_archive(
     name = "io_bazel_skydoc",
-    sha256 = "ba22b38176e086aee3757028207207591be5b47eafba3387600bfa98f2cc2363",
-    strip_prefix = "skydoc-953dc4ac2e19584af67c3aabbdbb46923deb33f8",
+    sha256 = "1a90e8b0c01c9ec82fc1836c55813a8de79fc0667ed64cfa64fb0cca81a3195d",
+    strip_prefix = "skydoc-542f1a436e0503111c04f29d8ab341c170c9ad1a",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/953dc4ac2e19584af67c3aabbdbb46923deb33f8.tar.gz",
-        "https://github.com/bazelbuild/skydoc/archive/953dc4ac2e19584af67c3aabbdbb46923deb33f8.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
+        "https://github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
     ],
 )
 
@@ -452,6 +471,16 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "rules_proto",
+    sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+    strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+    ],
+)
+
 # For testing, have an distdir_tar with all the archives implicit in every
 # WORKSPACE, to that they don't have to be refetched for every test
 # calling `bazel sync`.
@@ -466,9 +495,9 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz",
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip",
         "jdk10-server-release-1804.tar.xz",
-        "java_tools_javac11_linux-v3.0.zip",
-        "java_tools_javac11_windows-v3.0.zip",
-        "java_tools_javac11_darwin-v3.0.zip",
+        "java_tools_javac11_linux-v4.0.zip",
+        "java_tools_javac11_windows-v4.0.zip",
+        "java_tools_javac11_darwin-v4.0.zip",
         "coverage_output_generator-v1.0.zip",
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz",
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz",
@@ -486,6 +515,8 @@ distdir_tar(
         "plf-moving-tools.zip",
         # com_google_googletest
         "f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
+        # bazelbuild/rules_proto
+        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -497,9 +528,9 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz": "e669c9a897413d855b550b4e39d79614392e6fb96f494e8ef99a34297d9d85d3",
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip": "c39e7700a8d41794d60985df5a20352435196e78ecbc6a2b30df7be8637bffd5",
         "jdk10-server-release-1804.tar.xz": "b7098b7aaf6ee1ffd4a2d0371a0be26c5a5c87f6aebbe46fe9a92c90583a84be",
-        "java_tools_javac11_linux-v3.0.zip": "10d6f00c72e42b6fda378ad506cc93b1dc92e1aec6e2a490151032244b8b8df5",
-        "java_tools_javac11_windows-v3.0.zip": "b688155d81245b4d1ee52cac447aae5444b1c59dc77158fcbde05554a6bab48b",
-        "java_tools_javac11_darwin-v3.0.zip": "28989f78b1ce437c92dd27bb4943b2211ba4db916ccbb3aef83696a8f9b43724",
+        "java_tools_javac11_linux-v4.0.zip": "96e223094a12c842a66db0bb7bb6866e88e26e678f045842911f9bd6b47161f5",
+        "java_tools_javac11_windows-v4.0.zip": "a1de51447b2ba2eab923d589ba6c72c289c16e6091e6a3bb3e67a05ef4ad200c",
+        "java_tools_javac11_darwin-v4.0.zip": "fbf5bf22e9aab9c622e4c8c59314a1eef5ea09eafc5672b4f3250dc0b971bbcc",
         "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": "232b1c3511f0d26e92582b7c3cc363be7ac633e371854ca2f2e9f2b50eb72a75",
         "zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz": "3b0d91611b1bdc4d409afcf9eab4f0e7f4ae09f88fc01bd9f2b48954882ae69b",
@@ -517,6 +548,8 @@ distdir_tar(
         "plf-moving-tools.zip": "280037eb6318d6bcca48b6d9aff7a70bc27000ab677e33f53873ddef9902bc2c",
         # com_google_googletest
         "f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz": "0fb00ff413f6b9b80ccee44a374ca7a18af7315aea72a43c62f2acd1ca74e9b5",
+        # bazelbuild/rules_proto
+        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
     },
     urls = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -527,9 +560,9 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz"],
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip"],
         "jdk10-server-release-1804.tar.xz": ["https://mirror.bazel.build/openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz"],
-        "java_tools_javac11_linux-v3.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v3.0/java_tools_javac11_linux-v3.0.zip"],
-        "java_tools_javac11_windows-v3.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v3.0/java_tools_javac11_windows-v3.0.zip"],
-        "java_tools_javac11_darwin-v3.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v3.0/java_tools_javac11_darwin-v3.0.zip"],
+        "java_tools_javac11_linux-v4.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_linux-v4.0.zip"],
+        "java_tools_javac11_windows-v4.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_windows-v4.0.zip"],
+        "java_tools_javac11_darwin-v4.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_darwin-v4.0.zip"],
         "coverage_output_generator-v1.0.zip": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip"],
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-linux_x64.tar.gz"],
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz"],
@@ -558,6 +591,11 @@ distdir_tar(
         "f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz": [
             "https://mirror.bazel.build/github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
             "https://github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
+        ],
+        # bazelbuild/rules_proto
+        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         ],
     },
 )

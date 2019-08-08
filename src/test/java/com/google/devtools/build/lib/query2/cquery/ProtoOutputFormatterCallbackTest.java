@@ -61,6 +61,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     this.options = new CqueryOptions();
     options.aspectDeps = Mode.OFF;
     options.protoIncludeConfigurations = true;
+    options.protoIncludeRuleInputsAndOutputs = true;
 
     this.reporter = new Reporter(new EventBus(), events::add);
   }

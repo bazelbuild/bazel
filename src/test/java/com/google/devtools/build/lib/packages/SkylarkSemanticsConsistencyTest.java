@@ -138,6 +138,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_depset_for_libraries_to_link_getter=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
+        "--incompatible_disable_target_provider_fields=" + rand.nextBoolean(),
         "--incompatible_disable_deprecated_attr_params=" + rand.nextBoolean(),
         "--incompatible_disable_objc_provider_resources=" + rand.nextBoolean(),
         "--incompatible_disable_third_party_license_checking=" + rand.nextBoolean(),
@@ -169,6 +170,8 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_restrict_string_escapes=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_lookup_unhashable_keys=" + rand.nextBoolean(),
         "--incompatible_disable_partition_default_parameter=" + rand.nextBoolean(),
+        "--incompatible_assignment_identifiers_have_local_scope=" + rand.nextBoolean(),
+        "--incompatible_disallow_hashing_frozen_mutables=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
   }
 
@@ -195,6 +198,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDepsetForLibrariesToLinkGetter(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
+        .incompatibleDisableTargetProviderFields(rand.nextBoolean())
         .incompatibleDisableDeprecatedAttrParams(rand.nextBoolean())
         .incompatibleDisableObjcProviderResources(rand.nextBoolean())
         .incompatibleDisableThirdPartyLicenseChecking(rand.nextBoolean())
@@ -226,6 +230,8 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleRestrictStringEscapes(rand.nextBoolean())
         .incompatibleDisallowDictLookupUnhashableKeys(rand.nextBoolean())
         .incompatibleDisablePartitionDefaultParameter(rand.nextBoolean())
+        .incompatibleAssignmentIdentifiersHaveLocalScope(rand.nextBoolean())
+        .incompatibleDisallowHashingFrozenMutables(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
         .build();
   }

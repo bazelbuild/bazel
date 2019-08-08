@@ -1062,6 +1062,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    hdrs = ['dep1.h'],",
         "    includes = ['dep1/baz'],",
         "    defines = ['DEP1'],",
+        "    local_defines = ['LOCALDEP1'],",
         ")",
         "cc_library(",
         "    name = 'dep2',",
@@ -1108,6 +1109,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    '_quote_include': attr.string(default='quux/abc'),",
         "    '_framework_include': attr.string(default='fuux/fgh'),",
         "    '_define': attr.string(default='MYDEFINE'),",
+        "    '_local_define': attr.string(default='MYLOCALDEFINE'),",
         "    '_deps': attr.label_list(default=['//a:dep1', '//a:dep2'])",
         "  },",
         "  fragments = ['cpp'],",
@@ -1135,6 +1137,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     List<String> mergedDefines =
         ((SkylarkNestedSet) myInfo.getValue("merged_defines")).getSet(String.class).toList();
     assertThat(mergedDefines).containsAtLeast("MYDEFINE", "DEP1", "DEP2");
+    assertThat(mergedDefines).doesNotContain("LOCALDEP1");
 
     List<String> mergedSystemIncludes =
         ((SkylarkNestedSet) myInfo.getValue("merged_system_includes"))

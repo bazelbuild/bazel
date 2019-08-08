@@ -33,6 +33,18 @@ public final class Spawns {
         && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
   }
 
+  /** Returns {@code true} if the result of {@code spawn} may be cached remotely. */
+  public static boolean mayBeCachedRemotely(Spawn spawn) {
+    return mayBeCached(spawn)
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE)
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE_CACHE);
+  }
+
+  /** Returns {@code true} if {@code spawn} may be executed remotely. */
+  public static boolean mayBeExecutedRemotely(Spawn spawn) {
+    return ExecutionRequirements.maybeExecutedRemotely(spawn.getExecutionInfo().keySet());
+  }
+
   /** Returns whether a Spawn can be executed in a sandbox environment. */
   public static boolean mayBeSandboxed(Spawn spawn) {
     return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LEGACY_NOSANDBOX)
@@ -50,15 +62,6 @@ public final class Spawns {
     }
 
     return defaultSandboxDisallowNetwork;
-  }
-
-  /**
-   * Returns whether a Spawn claims to support being executed remotely according to its execution
-   * info tags.
-   */
-  public static boolean mayBeExecutedRemotely(Spawn spawn) {
-    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE);
   }
 
   /**

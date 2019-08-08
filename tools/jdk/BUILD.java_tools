@@ -27,10 +27,6 @@ java_toolchain(
     javac = [":javac_jar"],
     javac_supports_workers = 1,
     jvm_opts = [
-        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
-        # G1 collector and having compact strings enabled.
-        "-XX:+UseParallelOldGC",
-        "-XX:-CompactStrings",
         # Allow JavaBuilder to access internal javac APIs.
         "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -88,10 +84,6 @@ java_toolchain(
     javac = [":javac_jar"],
     javac_supports_workers = 1,
     jvm_opts = [
-        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance
-        # when using G1 collector and having compact strings enabled.
-        "-XX:+UseParallelOldGC",
-        "-XX:-CompactStrings",
         # Allow JavaBuilder to access internal javac APIs.
         "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -120,6 +112,67 @@ java_toolchain(
     singlejar = [":singlejar"],
     source_version = "JAVA_LANGUAGE_LEVEL",
     target_version = "JAVA_LANGUAGE_LEVEL",
+    tools = [
+        ":java_compiler_jar",
+        ":jdk_compiler_jar",
+    ],
+)
+
+# The new toolchain is using all the pre-built tools, including
+# singlejar and ijar, even on remote execution. This toolchain
+# should be used only when host and execution platform are the
+# same, otherwise the binaries will not work on the execution
+# platform.
+java_toolchain(
+    name = "prebuilt_toolchain",
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
+    compatible_javacopts = {
+        # Restrict protos to Java 7 so that they are compatible with Android.
+        "proto": [
+            "-source",
+            "7",
+            "-target",
+            "7",
+        ],
+    },
+    forcibly_disable_header_compilation = 0,
+    genclass = [":GenClass"],
+    header_compiler = [":Turbine"],
+    header_compiler_direct = [":TurbineDirect"],
+    ijar = [":ijar_prebuilt_binary"],
+    jacocorunner = ":jacoco_coverage_runner_filegroup",
+    javabuilder = [":JavaBuilder"],
+    javac = [":javac_jar"],
+    javac_supports_workers = 1,
+    jvm_opts = [
+        # Allow JavaBuilder to access internal javac APIs.
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+
+        # override the javac in the JDK.
+        "--patch-module=java.compiler=$(location :java_compiler_jar)",
+        "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
+
+        # quiet warnings from com.google.protobuf.UnsafeUtil,
+        # see: https://github.com/google/protobuf/issues/3781
+        # and: https://github.com/bazelbuild/bazel/issues/5599
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    ],
+    misc = [
+        "-XDskipDuplicateBridges=true",
+        "-g",
+        "-parameters",
+    ],
+    singlejar = [":prebuilt_singlejar"],
+    source_version = "8",
+    target_version = "8",
     tools = [
         ":java_compiler_jar",
         ":jdk_compiler_jar",
@@ -315,6 +368,14 @@ alias(
 )
 
 alias(
+    name = "prebuilt_singlejar",
+    actual = select({
+        ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
+        "//conditions:default": "java_tools/src/tools/singlejar/singlejar_local",
+    }),
+)
+
+alias(
     name = "ijar",
     actual = select({
         ":remote": ":ijar_cc_binary",
@@ -341,12 +402,19 @@ filegroup(
     }),
 )
 
+cc_library(
+    name = "malloc",
+)
+
 cc_binary(
     name = "ijar_cc_binary",
     srcs = [
         "java_tools/ijar/classfile.cc",
         "java_tools/ijar/ijar.cc",
     ],
+    # Remove dependency on @bazel_tools//tools/cpp:malloc, which avoid /Iexternal/tools being used
+    # in compiling actions.
+    malloc = ":malloc",
     deps = [":zip"],
 )
 
@@ -569,6 +637,9 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkstatic = 1,
+    # Remove dependency on @bazel_tools//tools/cpp:malloc, which avoid /Iexternal/tools being used
+    # in compiling actions.
+    malloc = ":malloc",
     visibility = ["//visibility:public"],
     deps = [
         ":options",

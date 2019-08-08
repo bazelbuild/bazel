@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.platform;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
@@ -137,6 +138,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
     assertThat(platformInfo).isNotNull();
     assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child properties");
+    assertThat(platformInfo.execProperties()).isEmpty();
   }
 
   @Test
@@ -264,5 +266,57 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setRemoteExecutionProperties("foo")
                 .build())
         .testEquals();
+  }
+
+  @Test
+  public void platformInfo_execProperties_empty() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setExecProperties(ImmutableMap.of());
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isNotNull();
+    assertThat(platformInfo.execProperties()).isEmpty();
+  }
+
+  @Test
+  public void platformInfo_execProperties_one() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isNotNull();
+    assertThat(platformInfo.execProperties()).containsExactly("elem1", "value1");
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_keepExecProperties() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setExecProperties(ImmutableMap.of("parent", "properties")).build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).containsExactly("parent", "properties");
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_inheritanceRules() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .setExecProperties(
+                ImmutableMap.of("p1", "keep", "p2", "delete", "p3", "parent", "p4", "del2"))
+            .build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo =
+        builder.setExecProperties(ImmutableMap.of("p2", "", "p3", "child", "p4", "")).build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).containsExactly("p1", "keep", "p3", "child");
   }
 }

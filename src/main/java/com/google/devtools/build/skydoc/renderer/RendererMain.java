@@ -15,6 +15,7 @@
 package com.google.devtools.build.skydoc.renderer;
 
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
@@ -22,6 +23,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.User
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
@@ -46,20 +48,37 @@ public class RendererMain {
 
     String inputPath = rendererOptions.inputPath;
     String outputPath = rendererOptions.outputFilePath;
+
+    if (rendererOptions.headerTemplateFilePath.isEmpty()
+        || rendererOptions.ruleTemplateFilePath.isEmpty()
+        || rendererOptions.providerTemplateFilePath.isEmpty()
+        || rendererOptions.funcTemplateFilePath.isEmpty()
+        || rendererOptions.aspectTemplateFilePath.isEmpty()) {
+      throw new FileNotFoundException(
+          "Input templates --header_template --func_template --provider_template --rule_template"
+              + " --aspect_template must be specified.");
+    }
+
     String headerTemplatePath = rendererOptions.headerTemplateFilePath;
     String ruleTemplatePath = rendererOptions.ruleTemplateFilePath;
     String providerTemplatePath = rendererOptions.providerTemplateFilePath;
     String funcTemplatePath = rendererOptions.funcTemplateFilePath;
+    String aspectTemplatePath = rendererOptions.aspectTemplateFilePath;
 
     MarkdownRenderer renderer =
         new MarkdownRenderer(
-            headerTemplatePath, ruleTemplatePath, providerTemplatePath, funcTemplatePath);
+            headerTemplatePath,
+            ruleTemplatePath,
+            providerTemplatePath,
+            funcTemplatePath,
+            aspectTemplatePath);
     try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
       ModuleInfo moduleInfo = ModuleInfo.parseFrom(new FileInputStream(inputPath));
       printWriter.println(renderer.renderMarkdownHeader());
       printRuleInfos(printWriter, renderer, moduleInfo.getRuleInfoList());
       printProviderInfos(printWriter, renderer, moduleInfo.getProviderInfoList());
       printUserDefinedFunctions(printWriter, renderer, moduleInfo.getFuncInfoList());
+      printAspectInfos(printWriter, renderer, moduleInfo.getAspectInfoList());
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalArgumentException("Input file is not a valid ModuleInfo proto.", e);
     }
@@ -90,6 +109,15 @@ public class RendererMain {
       throws IOException {
     for (UserDefinedFunctionInfo funcProto : userDefinedFunctions) {
       printWriter.println(renderer.render(funcProto));
+      printWriter.println();
+    }
+  }
+
+  private static void printAspectInfos(
+      PrintWriter printWriter, MarkdownRenderer renderer, List<AspectInfo> aspectInfos)
+      throws IOException {
+    for (AspectInfo aspectProto : aspectInfos) {
+      printWriter.println(renderer.render(aspectProto.getAspectName(), aspectProto));
       printWriter.println();
     }
   }

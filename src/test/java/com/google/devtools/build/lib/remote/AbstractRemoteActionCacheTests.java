@@ -623,6 +623,7 @@ public class AbstractRemoteActionCacheTests {
         assertThrows(
             IOException.class,
             () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
+    assertThat(expected.getSuppressed()).isEmpty();
     assertThat(expected).hasMessageThat().contains("dir/link");
     assertThat(expected).hasMessageThat().contains("/foo");
     assertThat(expected).hasMessageThat().contains("absolute path");
@@ -679,11 +680,42 @@ public class AbstractRemoteActionCacheTests {
             () ->
                 cache.download(
                     result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+    assertThat(e.getSuppressed()).isEmpty();
     assertThat(cache.getNumSuccessfulDownloads()).isEqualTo(2);
     assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
     assertThat(cache.getDownloadQueueSize()).isEqualTo(3);
     assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("download failed");
     verify(outputFilesLocker, never()).lock();
+  }
+
+  @Test
+  public void downloadWithMultipleErrorsAddsThemAsSuppressed() throws Exception {
+    Path stdout = fs.getPath("/execroot/stdout");
+    Path stderr = fs.getPath("/execroot/stderr");
+
+    DefaultRemoteActionCache cache = newTestCache();
+    Digest digest1 = cache.addContents("file1");
+    Digest digest2 = cache.addException("file2", new IOException("file2 failed"));
+    Digest digest3 = cache.addException("file3", new IOException("file3 failed"));
+
+    ActionResult result =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(OutputFile.newBuilder().setPath("file1").setDigest(digest1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
+            .build();
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                cache.download(
+                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+
+    assertThat(e.getSuppressed()).hasLength(1);
+    assertThat(e.getSuppressed()[0]).isInstanceOf(IOException.class);
+    assertThat(e.getSuppressed()[0]).hasMessageThat().isEqualTo("file3 failed");
+    assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("file2 failed");
   }
 
   @Test

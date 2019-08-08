@@ -44,6 +44,7 @@
 #include <chrono>  // NOLINT (gRPC requires this)
 #include <cinttypes>
 #include <map>
+#include <memory>
 #include <mutex>  // NOLINT
 #include <set>
 #include <sstream>

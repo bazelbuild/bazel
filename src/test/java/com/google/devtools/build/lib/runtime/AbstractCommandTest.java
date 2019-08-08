@@ -132,7 +132,7 @@ public class AbstractCommandTest {
   private Collection<Class<?>> optionClassesWithDefault(Class<?>... optionClasses) {
     List<Class<?>> result = new ArrayList<>();
     Collections.addAll(result, optionClasses);
-    result.add(BlazeCommandEventHandler.Options.class);
+    result.add(UiOptions.class);
     result.add(CommonCommandOptions.class);
     result.add(ClientOptions.class);
     result.add(StarlarkSemanticsOptions.class);

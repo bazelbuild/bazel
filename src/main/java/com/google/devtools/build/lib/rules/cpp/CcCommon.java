@@ -533,6 +533,7 @@ public final class CcCommon {
   }
 
   private static final String DEFINES_ATTRIBUTE = "defines";
+  private static final String LOCAL_DEFINES_ATTRIBUTE = "local_defines";
 
   /**
    * Returns a list of define tokens from "defines" attribute.
@@ -543,22 +544,40 @@ public final class CcCommon {
    * <p>But we require that the "defines" attribute consists of a single token.
    */
   public List<String> getDefines() {
+    return getDefinesFromAttribute(DEFINES_ATTRIBUTE);
+  }
+
+  /**
+   * Returns a list of define tokens from "local_defines" attribute.
+   *
+   * <p>We tokenize the "local_defines" attribute, to ensure that the handling of quotes and
+   * backslash escapes is consistent Bazel's treatment of the "copts" attribute.
+   *
+   * <p>But we require that the "local_defines" attribute consists of a single token.
+   */
+  public List<String> getNonTransitiveDefines() {
+    return getDefinesFromAttribute(LOCAL_DEFINES_ATTRIBUTE);
+  }
+
+  private List<String> getDefinesFromAttribute(String attr) {
     List<String> defines = new ArrayList<>();
-    for (String define : ruleContext.getExpander().list(DEFINES_ATTRIBUTE)) {
+    for (String define : ruleContext.getExpander().list(attr)) {
       List<String> tokens = new ArrayList<>();
       try {
         ShellUtils.tokenize(tokens, define);
         if (tokens.size() == 1) {
           defines.add(tokens.get(0));
         } else if (tokens.isEmpty()) {
-          ruleContext.attributeError(DEFINES_ATTRIBUTE, "empty definition not allowed");
+          ruleContext.attributeError(attr, "empty definition not allowed");
         } else {
-          ruleContext.attributeError(DEFINES_ATTRIBUTE,
-              "definition contains too many tokens (found " + tokens.size()
-              + ", expecting exactly one)");
+          ruleContext.attributeError(
+              attr,
+              String.format(
+                  "definition contains too many tokens (found %d, expecting exactly one)",
+                  tokens.size()));
         }
       } catch (ShellUtils.TokenizationException e) {
-        ruleContext.attributeError(DEFINES_ATTRIBUTE, e.getMessage());
+        ruleContext.attributeError(attr, e.getMessage());
       }
     }
     return defines;
@@ -849,7 +868,7 @@ public final class CcCommon {
             .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs());
 
     if (!cppConfiguration.dontEnableHostNonhost()) {
-      if (toolchain.isHostConfiguration()) {
+      if (toolchain.isToolConfiguration()) {
         allFeatures.add("host");
       } else {
         allFeatures.add("nonhost");
@@ -1062,8 +1081,7 @@ public final class CcCommon {
     return outputGroupsBuilder.build();
   }
 
-  public static void checkRuleLoadedThroughMacro(RuleContext ruleContext)
-      throws RuleErrorException {
+  public static void checkRuleLoadedThroughMacro(RuleContext ruleContext) {
     if (!ruleContext.getFragment(CppConfiguration.class).loadCcRulesFromBzl()) {
       return;
     }
@@ -1080,12 +1098,12 @@ public final class CcCommon {
         .contains("__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__");
   }
 
-  private static void registerMigrationRuleError(RuleContext ruleContext)
-      throws RuleErrorException {
+  private static void registerMigrationRuleError(RuleContext ruleContext) {
     ruleContext.ruleError(
         "The native C++/Objc rules are deprecated. Please load "
             + ruleContext.getRule().getRuleClass()
-            + " from the rules_cc repository."
-            + " See http://github.com/bazelbuild/rules_cc.");
+            + " from the rules_cc repository. See http://github.com/bazelbuild/rules_cc and "
+            + "https://github.com/bazelbuild/bazel/issues/7643. You can temporarily bypass this "
+            + "error by setting --incompatible_load_cc_rules_from_bzl=false.");
   }
 }

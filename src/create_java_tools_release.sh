@@ -85,13 +85,15 @@ for platform in linux windows darwin; do
     # Copy the associated zip file that contains the sources of the release zip.
     gsutil -q cp "${gcs_bucket}/${rc_sources_url}" "${gcs_bucket}/${release_sources_artifact}"
   else
-    tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep "gs" | cut -d " " -f 7)
+    tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
+
+
     # Make the generated artifact a release candidate for the current platform.
     gsutil -q cp ${tmp_url} "${gcs_bucket}/${rc_url}"
     release_artifact="${rc_url}"
 
     # Copy the associated zip file that contains the sources of the release zip.
-    tmp_sources_url=$(gsutil ls -lh ${gcs_bucket}/tmp/sources/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep "gs" | cut -d " " -f 7)
+    tmp_sources_url=$(gsutil ls -lh ${gcs_bucket}/tmp/sources/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
     gsutil -q cp ${tmp_sources_url} ${gcs_bucket}/${rc_sources_url}
   fi
 

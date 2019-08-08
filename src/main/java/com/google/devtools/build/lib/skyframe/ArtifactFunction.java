@@ -24,12 +24,13 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanTyp
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
@@ -266,10 +267,10 @@ class ArtifactFunction implements SkyFunction {
         fp.addString(file.getNameInSymlinkTree().getPathString());
         fp.addBytes(file.getMetadata().getDigest());
       }
-      return FileArtifactValue.createDirectoryWithHash(fp.digestAndReset());
+      return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
     }
     try {
-      return FileArtifactValue.create(artifact, fileValue);
+      return FileArtifactValue.createForSourceArtifact(artifact, fileValue);
     } catch (IOException e) {
       return makeMissingInputFileValue(artifact, e);
     }
@@ -294,14 +295,19 @@ class ArtifactFunction implements SkyFunction {
     if (value != null) {
       return value;
     }
-    ArtifactFileMetadata data =
-        Preconditions.checkNotNull(actionValue.getData(artifact), "%s %s", artifact, actionValue);
+    FileArtifactValue data =
+        Preconditions.checkNotNull(
+            actionValue.getArtifactValue(artifact), "%s %s", artifact, actionValue);
     Preconditions.checkNotNull(
         data.getDigest(), "Digest should already have been calculated for %s (%s)", artifact, data);
     // Directories are special-cased because their mtimes are used, so should have been constructed
     // during execution of the action (in ActionMetadataHandler#maybeStoreAdditionalData).
-    Preconditions.checkState(data.isFile(), "Unexpected not file %s (%s)", artifact, data);
-    return FileArtifactValue.createNormalFile(data, !artifact.isConstantMetadata());
+    Preconditions.checkState(
+        data.getType() == FileStateType.REGULAR_FILE,
+        "Unexpected not file %s (%s)",
+        artifact,
+        data);
+    return data;
   }
 
   @Nullable
@@ -449,7 +455,8 @@ class ArtifactFunction implements SkyFunction {
 
     boolean isTemplateActionForTreeArtifact() {
       return artifact.isTreeArtifact()
-          && actionLookupValue.isActionTemplate(artifact.getGeneratingActionKey().getActionIndex());
+          && actionLookupValue.getActions().get(artifact.getGeneratingActionKey().getActionIndex())
+              instanceof ActionTemplate;
     }
 
     /**

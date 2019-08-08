@@ -1,3 +1,4 @@
+load("@rules_java//java:defs.bzl", "java_import", "java_runtime", "java_toolchain")
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "JDK8_JVM_OPTS",
@@ -19,6 +20,7 @@ load(
     "remote_java_tools_java_import",
 )
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//tools/python:private/defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 

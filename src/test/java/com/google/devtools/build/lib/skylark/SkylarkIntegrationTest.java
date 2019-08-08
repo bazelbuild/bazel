@@ -2909,6 +2909,98 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDisableTargetProviderFields() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disable_target_provider_fields=true");
+    scratch.file(
+        "test/skylark/rule.bzl",
+        "MyProvider = provider()",
+        "",
+        "def _my_rule_impl(ctx): ",
+        "  print(ctx.attr.dep.my_info)",
+        "def _dep_rule_impl(ctx): ",
+        "  my_info = MyProvider(foo = 'bar')",
+        "  return struct(my_info = my_info, providers = [my_info])",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(),",
+        "  })",
+        "dep_rule = rule(implementation = _dep_rule_impl)");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load(':rule.bzl', 'my_rule', 'dep_rule')",
+        "",
+        "my_rule(name = 'r', dep = ':d')",
+        "dep_rule(name = 'd')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:r");
+    assertContainsEvent(
+        "Accessing providers via the field syntax on structs is deprecated and will be removed "
+            + "soon. It may be temporarily re-enabled by setting "
+            + "--incompatible_disable_target_provider_fields=false. "
+            + "See https://github.com/bazelbuild/bazel/issues/9014 for details.");
+  }
+
+  // Verifies that non-provider fields on the 'target' type are still available even with
+  // --incompatible_disable_target_provider_fields.
+  @Test
+  public void testDisableTargetProviderFields_actionsField() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disable_target_provider_fields=true");
+    scratch.file(
+        "test/skylark/rule.bzl",
+        "MyProvider = provider()",
+        "",
+        "def _my_rule_impl(ctx): ",
+        "  print(ctx.attr.dep.actions)",
+        "def _dep_rule_impl(ctx): ",
+        "  my_info = MyProvider(foo = 'bar')",
+        "  return struct(my_info = my_info, providers = [my_info])",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(),",
+        "  })",
+        "dep_rule = rule(implementation = _dep_rule_impl)");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load(':rule.bzl', 'my_rule', 'dep_rule')",
+        "",
+        "my_rule(name = 'r', dep = ':d')",
+        "dep_rule(name = 'd')");
+
+    assertThat(getConfiguredTarget("//test/skylark:r")).isNotNull();
+  }
+
+  @Test
+  public void testDisableTargetProviderFields_disabled() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disable_target_provider_fields=false");
+    scratch.file(
+        "test/skylark/rule.bzl",
+        "MyProvider = provider()",
+        "",
+        "def _my_rule_impl(ctx): ",
+        "  print(ctx.attr.dep.my_info)",
+        "def _dep_rule_impl(ctx): ",
+        "  my_info = MyProvider(foo = 'bar')",
+        "  return struct(my_info = my_info, providers = [my_info])",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(),",
+        "  })",
+        "dep_rule = rule(implementation = _dep_rule_impl)");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load(':rule.bzl', 'my_rule', 'dep_rule')",
+        "",
+        "my_rule(name = 'r', dep = ':d')",
+        "dep_rule(name = 'd')");
+
+    assertThat(getConfiguredTarget("//test/skylark:r")).isNotNull();
+  }
+
+  @Test
   public void testNoRuleOutputsParam() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_no_rule_outputs_param=true");
     scratch.file(
@@ -3158,6 +3250,86 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
 
     getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testIdentifierAssignmentFromOuterScope() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=false");
+
+    scratch.file("test/extension.bzl", "a = []", "def f(): a += [1]", "y = f()");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testIdentifierAssignmentFromOuterScope2() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "a = [1, 2, 3]",
+        "def f(): a[0] = 9",
+        "y = f()",
+        "fail() if a[0] != 9 else None");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testIdentifierAssignmentFromOuterScopeForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=true");
+
+    scratch.file("test/extension.bzl", "a = []", "def f(): a += [1]", "y = f()");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("local variable 'a' is referenced before assignment");
+  }
+
+  @Test
+  public void testHashFrozenList() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=false");
+    scratch.file("test/extension.bzl", "y = []");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'y')", "{y: 1}", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testHashFrozenListForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=true");
+    scratch.file("test/extension.bzl", "y = []");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'y')", "{y: 1}", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("unhashable type: 'list'");
+  }
+
+  @Test
+  public void testHashFrozenDeepMutableForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=true");
+    scratch.file("test/extension.bzl", "y = {}");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'y')",
+        "{('a', (y,), True): None}",
+        "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("unhashable type: 'tuple'");
   }
 
   @Test

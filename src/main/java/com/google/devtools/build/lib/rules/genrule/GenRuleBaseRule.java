@@ -166,8 +166,97 @@ public class GenRuleBaseRule implements RuleDefinition {
             </a> in this document for a list of supported values.
           </li>
         </ul>
+        <p>
+        This is the fallback of <code>cmd_bash</code>, <code>cmd_ps</code> and <code>cmd_bat</code>,
+        if none of them are applicable.
+        </p>
+        <p>
+        If the command line length exceeds the platform limit (64K on Linux/macOS, 8K on Windows),
+        then genrule will write the command to a script and execute that script to work around. This
+        applies to all cmd attributes (<code>cmd</code>, <code>cmd_bash</code>, <code>cmd_ps</code>,
+        <code>cmd_bat</code>).
+        </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("cmd", STRING).mandatory())
+        .add(attr("cmd", STRING))
+
+        /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(cmd_bash) -->
+        The Bash command to run.
+        <p> This attribute has higher priority than <code>cmd</code>. The command is expanded and
+            runs in the exact same way as the <code>cmd</code> attribute.
+        </p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("cmd_bash", STRING))
+
+        /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(cmd_bat) -->
+        The Batch command to run on Windows.
+        <p> This attribute has higher priority than <code>cmd</code> and <code>cmd_bash</code>.
+            The command runs in the similar way as the <code>cmd</code> attribute, with the
+            following differences:
+        </p>
+        <ul>
+          <li>
+            This attribute only applies on Windows.
+          </li>
+          <li>
+            The command runs with <code>cmd.exe /c</code> with the following default arguments:
+            <ul>
+              <li>
+                <code>/S</code> - strip first and last quotes and execute everything else as is.
+              </li>
+              <li>
+                <code>/E:ON</code> - enable extended command set.
+              </li>
+              <li>
+                <code>/V:ON</code> - enable delayed variable expansion
+              </li>
+              <li>
+                <code>/D</code> - ignore AutoRun registry entries.
+              </li>
+            </ul>
+          </li>
+          <li>
+            After <a href="${link make-variables#location}">$(location)</a> and
+            <a href="${link make-variables}">"Make" variable</a> substitution, the paths will be
+            expanded to Windows style paths (with backslash).
+          </li>
+        </ul>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("cmd_bat", STRING))
+
+        /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(cmd_ps) -->
+        The Powershell command to run on Windows.
+        <p> This attribute has higher priority than <code>cmd</code>, <code>cmd_bash</code> and
+            <code>cmd_bat</code>. The command runs in the similar way as the <code>cmd</code>
+            attribute, with the following differences:
+        </p>
+        <ul>
+          <li>
+            This attribute only applies on Windows.
+          </li>
+          <li>
+            The command runs with <code>powershell.exe /c</code>.
+          </li>
+        </ul>
+        <p> To make Powershell easier to use and less error-prone, we run the following
+            commands to set up the environment before executing Powershell command in genrule.
+        </p>
+        <ul>
+          <li>
+            <code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code> - allow running
+            unsigned scripts.
+          </li>
+          <li>
+            <code>$errorActionPreference='Stop'</code> - In case there are multiple commands
+            separated by <code>;</code>, the action exits immediately if a Powershell CmdLet fails,
+            but this does <strong>NOT</strong> work for external command.
+          </li>
+          <li>
+            <code>$PSDefaultParameterValues['*:Encoding'] = 'utf8'</code> - change the default
+            encoding from utf-16 to utf-8.
+          </li>
+        </ul>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("cmd_ps", STRING))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(output_to_bindir) -->
         <p>

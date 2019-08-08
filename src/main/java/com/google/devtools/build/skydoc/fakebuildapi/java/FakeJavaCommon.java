@@ -74,6 +74,8 @@ public class FakeJavaCommon
       SkylarkList<FakeJavaInfo> exports,
       SkylarkList<FakeJavaInfo> plugins,
       SkylarkList<FakeJavaInfo> exportedPlugins,
+      SkylarkList<FileApi> annotationProcessorAdditionalInputs,
+      SkylarkList<FileApi> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase,

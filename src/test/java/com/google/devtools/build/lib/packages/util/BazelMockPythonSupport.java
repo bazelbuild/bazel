@@ -30,14 +30,18 @@ public class BazelMockPythonSupport extends MockPythonSupport {
 
   @Override
   public void setup(MockToolsConfig config) throws IOException {
+    writeMacroFile(config);
+
     addTool(config, "tools/python/python_version.bzl");
     addTool(config, "tools/python/srcs_version.bzl");
     addTool(config, "tools/python/toolchain.bzl");
     addTool(config, "tools/python/utils.bzl");
+    addTool(config, "tools/python/private/defs.bzl");
 
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/BUILD",
         "package(default_visibility=['//visibility:public'])",
+        getMacroLoadStatement(),
         "load(':python_version.bzl', 'define_python_version_flag')",
         "load('//tools/python:toolchain.bzl', 'py_runtime_pair')",
         "define_python_version_flag(",

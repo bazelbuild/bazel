@@ -3,6 +3,7 @@ load(
     "rule_test",
     "file_test",
 )
+load("//tools/python:private/defs.bzl", "py_test")
 
 package(default_visibility = ["//src:__subpackages__"])
 
@@ -24,6 +25,7 @@ filegroup(
             test_file,
         ],
         main = "starlark_test.py",
+        python_version = "PY2",
     )
     for test_file in glob(["testdata/*"])
 ]

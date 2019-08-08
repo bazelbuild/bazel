@@ -63,7 +63,7 @@ public class TestTargetProperties {
   private final TestSize size;
   private final TestTimeout timeout;
   private final List<String> tags;
-  private final boolean isLocal;
+  private final boolean isRemotable;
   private final boolean isFlaky;
   private final boolean isExternal;
   private final String language;
@@ -99,7 +99,7 @@ public class TestTargetProperties {
     ruleContext.getConfiguration().modifyExecutionInfo(executionInfo, TestRunnerAction.MNEMONIC);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
 
-    isLocal = executionInfo.containsKey(ExecutionRequirements.LOCAL);
+    isRemotable = ExecutionRequirements.maybeExecutedRemotely(executionInfo.keySet());
 
     language = TargetUtils.getRuleLanguage(rule);
   }
@@ -116,8 +116,8 @@ public class TestTargetProperties {
     return tags;
   }
 
-  public boolean isLocal() {
-    return isLocal;
+  public boolean isRemotable() {
+    return isRemotable;
   }
 
   public boolean isFlaky() {

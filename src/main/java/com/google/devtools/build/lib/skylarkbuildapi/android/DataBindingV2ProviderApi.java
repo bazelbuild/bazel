@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
@@ -44,16 +43,31 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
    * rules. This is for reporting a useful error message if multiple android_library rules with the
    * same Java package end up in the same android_binary.
    */
-  @AutoValue
-  public abstract class LabelJavaPackagePair {
+  @SkylarkModule(
+      name = "LabelJavaPackagePair",
+      doc =
+          "Do not use this module. It is intended for migration purposes only. If you depend on "
+              + "it, you will be broken when it is removed.",
+      documented = false)
+  public class LabelJavaPackagePair {
 
-    public static LabelJavaPackagePair create(String label, String javaPackage) {
-      return new AutoValue_DataBindingV2ProviderApi_LabelJavaPackagePair(label, javaPackage);
+    private final String label;
+    private final String javaPackage;
+
+    public LabelJavaPackagePair(String label, String javaPackage) {
+      this.label = label;
+      this.javaPackage = javaPackage;
     }
 
-    public abstract String label();
+    @SkylarkCallable(name = "label", structField = true, doc = "", documented = false)
+    public String getLabel() {
+      return label;
+    }
 
-    public abstract String javaPackage();
+    @SkylarkCallable(name = "java_package", structField = true, doc = "", documented = false)
+    public String getJavaPackage() {
+      return javaPackage;
+    }
   }
 
   /** Name of this info object. */
@@ -118,56 +132,68 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
           @Param(
               name = "setter_store_file",
               doc = "The setter_stores.bin files .",
-              positional = true,
-              named = false,
+              positional = false,
+              named = true,
+              noneable = true,
+              defaultValue = "None",
               type = FileApi.class),
           @Param(
               name = "class_info_file",
               doc = "The class_info files for this rule.",
-              positional = true,
-              named = false,
+              positional = false,
+              named = true,
+              noneable = true,
+              defaultValue = "None",
               type = FileApi.class),
           @Param(
               name = "br_file",
               doc = "The br file for this rule.",
-              positional = true,
-              named = false,
+              positional = false,
+              named = true,
+              noneable = true,
+              defaultValue = "None",
               type = FileApi.class),
           @Param(
               name = "label",
               doc = "The label of the current rule.",
-              positional = true,
-              named = false,
+              positional = false,
+              named = true,
+              noneable = true,
+              defaultValue = "None",
               type = String.class),
           @Param(
               name = "java_package",
               doc = "The java package of the current rule.",
-              positional = true,
-              named = false,
+              positional = false,
+              named = true,
+              noneable = true,
+              defaultValue = "None",
               type = String.class),
           @Param(
               name = "databinding_v2_providers_in_deps",
               doc = "The DatabindingV2Provider instances from dependencies.",
-              positional = true,
-              named = false,
+              positional = false,
+              named = true,
+              defaultValue = "[]",
               type = SkylarkList.class,
               generic1 = DataBindingV2ProviderApi.class),
           @Param(
               name = "databinding_v2_providers_in_exports",
               doc = "The DatabindingV2Provider instances from exports.",
-              positional = true,
-              named = false,
+              positional = false,
+              named = true,
+              defaultValue = "[]",
               type = SkylarkList.class,
               generic1 = DataBindingV2ProviderApi.class),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = DataBindingV2ProviderApi.class)
     DataBindingV2ProviderApi<F> createInfo(
-        F setterStoreFile,
-        F classInfoFile,
-        F brFile,
-        String label,
-        String javaPackage,
+        Object setterStoreFile,
+        Object classInfoFile,
+        Object brFile,
+        Object label,
+        Object javaPackage,
         SkylarkList<DataBindingV2ProviderApi<F>> databindingV2ProvidersInDeps,
         SkylarkList<DataBindingV2ProviderApi<F>> databindingV2ProvidersInExports)
         throws EvalException;

@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.ParallelSkyQueryUtils.DepAndRdep;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
@@ -78,7 +80,7 @@ class RdepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdep> {
    * {@link Callback#process} call. Note that all the created instances share the same {@link
    * Uniquifier} so that we don't visit the same Skyframe node more than once.
    */
-  static class Factory implements ParallelVisitor.Factory<DepAndRdep, SkyKey, Target> {
+  static class Factory implements QueryVisitorFactory<DepAndRdep, SkyKey, Target> {
     private final SkyQueryEnvironment env;
     private final Uniquifier<DepAndRdep> depAndRdepUniquifier;
     private final Uniquifier<SkyKey> validRdepUniquifier;
@@ -96,7 +98,7 @@ class RdepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdep> {
     }
 
     @Override
-    public ParallelVisitor<DepAndRdep, SkyKey, Target> create() {
+    public ParallelQueryVisitor<DepAndRdep, SkyKey, Target> create() {
       return new RdepsUnboundedVisitor(
           env, depAndRdepUniquifier, validRdepUniquifier, unfilteredUniverse, callback);
     }

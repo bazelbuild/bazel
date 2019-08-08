@@ -20,14 +20,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * Info object about outputs of a Java rule.
- */
+/** Info object about outputs of a Java rule. */
 @SkylarkModule(
-  name = "java_output_jars",
-  category = SkylarkModuleCategory.NONE,
-  doc = "Information about outputs of a Java rule."
-)
+    name = "java_output_jars",
+    category = SkylarkModuleCategory.PROVIDER,
+    doc = "Information about outputs of a Java rule.")
 public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?>> {
 
   @SkylarkCallable(name = "jars", doc = "A list of jars the rule outputs.", structField = true)

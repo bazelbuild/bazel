@@ -1,0 +1,22 @@
+<a name="#${providerName}"></a>
+
+#[[##]]# ${providerName}
+
+<pre>
+${util.providerSummary($providerName, $providerInfo)}
+</pre>
+
+${providerInfo.docString}
+
+<b>input_template_test BOLD FIELDS</b>
+
+#if (!$providerInfo.fieldInfoList.isEmpty())
+#[[###]]# Fields
+
+#foreach ($field in $providerInfo.fieldInfoList)
+<b>
+      <code>${field.name}</code>
+</b>
+        <p>${field.docString}</p>
+#end
+#end

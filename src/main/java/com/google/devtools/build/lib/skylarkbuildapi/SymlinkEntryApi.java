@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 /** Interface for a single runfiles symlink represented by a link name and target. */
 @SkylarkModule(
     name = "SymlinkEntry",
-    category = SkylarkModuleCategory.NONE,
+    category = SkylarkModuleCategory.BUILTIN,
     doc = "A single runfiles symlink represented by a link name and target.")
 public interface SymlinkEntryApi extends SkylarkValue {
 

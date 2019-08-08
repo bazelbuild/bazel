@@ -115,6 +115,16 @@ class TestBase(unittest.TestCase):
         actual_exit_code, lambda x: x != not_expected_exit_code,
         '(against expectations)', stderr_lines, stdout_lines)
 
+  def AssertFileContentContains(self, file_path, entry):
+    with open(file_path, 'r') as f:
+      if entry not in f.read():
+        self.fail('File "%s" does not contain "%s"' % (file_path, entry))
+
+  def AssertFileContentNotContains(self, file_path, entry):
+    with open(file_path, 'r') as f:
+      if entry in f.read():
+        self.fail('File "%s" does contain "%s"' % (file_path, entry))
+
   def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
     rule_definition = [
         'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
@@ -408,9 +418,13 @@ class TestBase(unittest.TestCase):
               TestBase.GetEnv('BAZEL_SH',
                               'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
       }
-      java_home = TestBase.GetEnv('JAVA_HOME', '')
-      if java_home:
-        env['JAVA_HOME'] = java_home
+      for k in [
+          'JAVA_HOME', 'BAZEL_VC', 'BAZEL_VS', 'BAZEL_VC_FULL_VERSION',
+          'BAZEL_WINSDK_FULL_VERSION'
+      ]:
+        v = TestBase.GetEnv(k, '')
+        if v:
+          env[k] = v
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
 

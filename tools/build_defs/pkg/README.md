@@ -1,5 +1,22 @@
 # Packaging for Bazel
 
+## Deprecated
+
+These rules have been extracted from the Bazel sources and are now available at
+[bazelbuild/rules_pkg](https://github.com/bazelbuild/rules_pkg/releases).
+
+Issues and PRs against the built-in versions of these rules will no longer be
+addressed. This page will exist for reference until the code is removed from
+Bazel. You can test the removal of these rules with Bazel at version >= 0.28.0.
+
+```
+bazel build --//tools/build_defs/pkg:incompatible_no_build_defs_pkg  target...
+```
+
+For more information, follow [issue 8857](https://github.com/bazelbuild/bazel/issues/8857)
+
+## rules_pkg
+
 <div class="toc">
   <h2>Rules</h2>
   <ul>

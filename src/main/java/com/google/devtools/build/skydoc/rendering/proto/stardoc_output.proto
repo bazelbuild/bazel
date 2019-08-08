@@ -32,6 +32,8 @@ message ModuleInfo {
   repeated ProviderInfo provider_info = 2;
 
   repeated UserDefinedFunctionInfo func_info = 3;
+
+  repeated AspectInfo aspect_info = 4;
 }
 
 // Representation of a Starlark rule attribute type. These generally
@@ -86,6 +88,22 @@ message AttributeInfo {
 
   // If true, all targets of the rule must specify a value for this attribute.
   bool mandatory = 4;
+
+  // The target(s) in this attribute must define all the providers of at least
+  // one of the ProviderNameGroups in this list. If the Attribute Type is not a
+  // label, a label list, or a label-keyed string dictionary, the field will be
+  // left empty.
+  repeated ProviderNameGroup provider_name_group = 5;
+}
+
+// Representation of a set of providers that a rule attribute may be required to
+// have.
+message ProviderNameGroup {
+  // The names of the providers that must be given by any dependency appearing
+  // in this attribute. The name will be "Unknown Provider" if the name is
+  // unidentifiable, for example, if the provider is part of a namespace.
+  // TODO(kendalllane): Fix documentation of providers from namespaces.
+  repeated string provider_name = 1;
 }
 
 // Representation of Starlark function definition.
@@ -140,4 +158,19 @@ message ProviderInfo {
 
   // The fields of the provider.
   repeated ProviderFieldInfo field_info = 3;
+}
+
+// Representation of a Starlark aspect definition.
+message AspectInfo {
+  // The name of the aspect.
+  string aspect_name = 1;
+
+  // The documentation string of the aspect.
+  string doc_string = 2;
+
+  // The rule attributes along which the aspect propagates.
+  repeated string aspect_attribute = 3;
+
+  // The attributes of the aspect.
+  repeated AttributeInfo attribute = 4;
 }

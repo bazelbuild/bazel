@@ -439,6 +439,19 @@ bool OutputJar::AddJar(int jar_path_index) {
       }
     }
 
+    // Add any missing parent directory entries (first) if requested.
+    if (options_->add_missing_directories) {
+      // Ignore very last character in case this entry is a directory itself.
+      for (size_t pos = 0; pos < file_name_length - 1; ++pos) {
+        if (file_name[pos] == '/') {
+          std::string dir(file_name, 0, pos + 1);
+          if (NewEntry(dir)) {
+            WriteDirEntry(dir, nullptr, 0);
+          }
+        }
+      }
+    }
+
     // For the file entries, decide whether output should be compressed.
     if (is_file) {
       bool input_compressed =

@@ -266,6 +266,9 @@ public class BuildView {
               new MakeEnvironmentEvent(
                   configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
     }
+    for (BuildConfiguration targetConfig : configurations.getTargetConfigurations()) {
+      eventBus.post(targetConfig.toBuildEvent());
+    }
 
     Collection<TargetAndConfiguration> topLevelTargetsWithConfigs =
         topLevelTargetsWithConfigsResult.getTargetsAndConfigs();
@@ -535,10 +538,7 @@ public class BuildView {
                   "Missing generating action for %s (%s)", artifact, generatingActionKey);
               return null;
             }
-            int actionIndex = generatingActionKey.getActionIndex();
-            return val.isActionTemplate(actionIndex)
-                ? val.getActionTemplate(actionIndex)
-                : val.getAction(actionIndex);
+            return val.getActions().get(generatingActionKey.getActionIndex());
           }
         };
     return new AnalysisResult(

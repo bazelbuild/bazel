@@ -688,6 +688,16 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     }
 
     @Override
+    public boolean isHashable() {
+      for (Object item : this) {
+        if (!EvalUtils.isHashable(item)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    @Override
     public Mutability mutability() {
       return Mutability.SHALLOW_IMMUTABLE;
     }

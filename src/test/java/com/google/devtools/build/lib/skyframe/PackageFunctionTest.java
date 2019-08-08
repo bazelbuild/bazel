@@ -751,7 +751,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
     assertThatEvaluationResult(result).hasNoError();
     assertThat(result.get(skyKey).getPackage().containsErrors()).isTrue();
-    assertContainsEvent("Label '//pkg:sub/blah' crosses boundary of subpackage 'pkg/sub'");
+    assertContainsEvent("Label '//pkg:sub/blah' is invalid because 'pkg/sub' is a subpackage");
   }
 
   @Test

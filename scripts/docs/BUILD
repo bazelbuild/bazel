@@ -1,3 +1,5 @@
+load("//tools/python:private/defs.bzl", "py_library", "py_binary")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

@@ -1,4 +1,4 @@
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//scripts/docs:jekyll.bzl", "jekyll_build")
 load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
 

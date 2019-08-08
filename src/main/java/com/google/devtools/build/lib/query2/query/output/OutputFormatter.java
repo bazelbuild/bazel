@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCall
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.common.options.EnumConverter;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -72,22 +71,6 @@ import javax.annotation.Nullable;
  */
 public abstract class OutputFormatter implements Serializable {
 
-  /**
-   * Discriminator for different kinds of OutputFormatter.
-   */
-  public enum OutputType {
-    LABEL,
-    LABEL_KIND,
-    BUILD,
-    MINRANK,
-    MAXRANK,
-    PACKAGE,
-    LOCATION,
-    GRAPH,
-    XML,
-    PROTO,
-  }
-
   /** Where the value of an attribute comes from */
   public enum AttributeValueSource {
     RULE,     // Explicitly specified on the rule
@@ -96,13 +79,6 @@ public abstract class OutputFormatter implements Serializable {
   }
 
   public static final Function<Node<Target>, Target> EXTRACT_NODE_LABEL = Node::getLabel;
-
-  /**
-   * Converter from strings to OutputFormatter.OutputType.
-   */
-  public static class Converter extends EnumConverter<OutputType> {
-    public Converter() { super(OutputType.class, "output formatter"); }
-  }
 
   public static ImmutableList<OutputFormatter> getDefaultFormatters() {
     return ImmutableList.of(
@@ -508,7 +484,7 @@ public abstract class OutputFormatter implements Serializable {
       // Graphs may contain cycles because there are errors in BUILD files.
 
       List<RankAndLabel> outputToOrder =
-          options.orderOutput == OrderOutput.FULL ? new ArrayList<RankAndLabel>() : null;
+          options.orderOutput == OrderOutput.FULL ? new ArrayList<>() : null;
       Digraph<Set<Node<Target>>> scGraph = result.getStrongComponentGraph();
       Set<Node<Set<Node<Target>>>> rankNodes = scGraph.getRoots();
       Set<Node<Set<Node<Target>>>> seen = new HashSet<>();

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.profiler.grapher;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.profiler.CpuUsageTimeSeries;
+import com.google.devtools.build.lib.profiler.TimeSeries;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import java.io.BufferedReader;
@@ -95,9 +95,9 @@ public class ProfileGrapher {
             "Remote execution process wall time",
             "action processing",
             "Remote execution file fetching");
-    Map<String, CpuUsageTimeSeries> seriesMap = new LinkedHashMap<>();
+    Map<String, TimeSeries> seriesMap = new LinkedHashMap<>();
     for (String profilerTaskDescription : profilerTaskDescriptions) {
-      seriesMap.put(profilerTaskDescription, new CpuUsageTimeSeries(0, DEFAULT_BUCKET_SIZE_MILLIS));
+      seriesMap.put(profilerTaskDescription, new TimeSeries(0, DEFAULT_BUCKET_SIZE_MILLIS));
     }
 
     long maxEndTime = 0;
@@ -120,16 +120,15 @@ public class ProfileGrapher {
         Map<String, Object> data = decodeJsonObject(reader);
         Object name = data.get("name");
         if ("cpu counters".equals(name)) {
-          seriesMap.putIfAbsent(
-              "cpu counters", new CpuUsageTimeSeries(0, DEFAULT_BUCKET_SIZE_MILLIS));
-          CpuUsageTimeSeries series = seriesMap.get(name);
+          seriesMap.putIfAbsent("cpu counters", new TimeSeries(0, DEFAULT_BUCKET_SIZE_MILLIS));
+          TimeSeries series = seriesMap.get(name);
           Double ts = (Double) data.get("ts");
           long startTimeMillis = Math.round(ts.doubleValue() / 1000);
           Double cpuValue = Double.valueOf((String) data.get("args.cpu"));
           series.addRange(startTimeMillis, startTimeMillis + DEFAULT_BUCKET_SIZE_MILLIS, cpuValue);
         } else {
           Object cat = data.get("cat");
-          CpuUsageTimeSeries series = seriesMap.get(cat);
+          TimeSeries series = seriesMap.get(cat);
           if (series != null) {
             Long endTimeMillis = decodeAndAdd(series, data);
             if (endTimeMillis != null) {
@@ -145,7 +144,7 @@ public class ProfileGrapher {
     // generate interactive web graphs (https://developers.google.com/chart/).
     int len = (int) (maxEndTime / DEFAULT_BUCKET_SIZE_MILLIS) + 1;
     double[][] numbers = new double[seriesMap.size()][];
-    List<Map.Entry<String, CpuUsageTimeSeries>> allSeries = new ArrayList<>(seriesMap.entrySet());
+    List<Map.Entry<String, TimeSeries>> allSeries = new ArrayList<>(seriesMap.entrySet());
     // Write the titles in the first line of the CSV
     StringJoiner stringJoiner = new StringJoiner(",");
     for (int i = 0; i < numbers.length; i++) {
@@ -174,7 +173,7 @@ public class ProfileGrapher {
    * Decodes the start time and duration from the data, adds it to the given series and returns the
    * end time in milliseconds if it was possible to decode the data, otherwise null.
    */
-  private static Long decodeAndAdd(CpuUsageTimeSeries series, Map<String, Object> data) {
+  private static Long decodeAndAdd(TimeSeries series, Map<String, Object> data) {
     Double ts = (Double) data.get("ts");
     Double dur = (Double) data.get("dur");
     if (ts == null || dur == null) {

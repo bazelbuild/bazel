@@ -40,7 +40,7 @@ public class RendererOptions extends OptionsBase {
 
   @Option(
       name = "header_template",
-      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/header.vm",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       help =
@@ -50,7 +50,7 @@ public class RendererOptions extends OptionsBase {
 
   @Option(
       name = "rule_template",
-      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/rule.vm",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       help =
@@ -60,7 +60,7 @@ public class RendererOptions extends OptionsBase {
 
   @Option(
       name = "provider_template",
-      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/provider.vm",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       help =
@@ -70,11 +70,21 @@ public class RendererOptions extends OptionsBase {
 
   @Option(
       name = "func_template",
-      defaultValue = "com/google/devtools/build/skydoc/rendering/templates/func.vm",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
       help =
           "The template for the documentation of a function. If the option is"
               + " unspecified, a default markdown output template will be used.")
   public String funcTemplateFilePath;
+
+  @Option(
+      name = "aspect_template",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help =
+          "The template for the documentation of a aspect. If the option is unspecified, a"
+              + " default markdown output template will be used.")
+  public String aspectTemplateFilePath;
 }

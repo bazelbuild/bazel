@@ -331,6 +331,20 @@ public class BuildRequestOptions extends OptionsBase {
               + "with caution.")
   public boolean useAsyncExecution;
 
+  @Option(
+      name = "incompatible_skip_genfiles_symlink",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If set to true, the genfiles symlink will not be created. For more information, see "
+              + "https://github.com/bazelbuild/bazel/issues/8651")
+  public boolean incompatibleSkipGenfilesSymlink;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.

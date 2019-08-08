@@ -156,7 +156,18 @@ public interface BazelCcModuleApi<
             type = SkylarkList.class),
         @Param(
             name = "defines",
-            doc = "Set of defines needed to compile this target. Each define is a string.",
+            doc =
+                "Set of defines needed to compile this target. Each define is a string. Propagated"
+                    + " to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "local_defines",
+            doc =
+                "Set of defines needed to compile this target. Each define is a string. Not"
+                    + " propagated to dependents transitively.",
             positional = false,
             named = true,
             defaultValue = "[]",
@@ -211,6 +222,7 @@ public interface BazelCcModuleApi<
       SkylarkList<String> systemIncludes,
       SkylarkList<String> frameworkIncludes,
       SkylarkList<String> defines,
+      SkylarkList<String> localDefines,
       SkylarkList<String> userCompileFlags,
       SkylarkList<CompilationContextT> ccCompilationContexts,
       String name,

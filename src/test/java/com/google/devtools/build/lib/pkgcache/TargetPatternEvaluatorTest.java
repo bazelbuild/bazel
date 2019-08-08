@@ -392,11 +392,12 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testLoadingErrorsAreNotParsingErrors() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("loading/BUILD",
+    scratch.file(
+        "loading/BUILD",
         "cc_library(name='y', deps=['a'])",
         "cc_library(name='a', deps=['b'])",
         "cc_library(name='b', deps=['c'])",
-        "genrule(name='c', outs=['c.out'])");
+        "genrule(name='c', cmd='')");
 
     Pair<Set<Label>, Boolean> result = parseListKeepGoing("//loading:y");
     assertThat(result.first).containsExactly(Label.parseAbsolute("//loading:y", ImmutableMap.of()));

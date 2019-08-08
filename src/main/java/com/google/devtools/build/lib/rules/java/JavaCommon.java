@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
@@ -352,8 +351,7 @@ public class JavaCommon {
     }
   }
 
-  public static void checkRuleLoadedThroughMacro(RuleContext ruleContext)
-      throws RuleErrorException {
+  public static void checkRuleLoadedThroughMacro(RuleContext ruleContext) {
     if (!ruleContext.getFragment(JavaConfiguration.class).loadJavaRulesFromBzl()) {
       return;
     }
@@ -370,13 +368,13 @@ public class JavaCommon {
         .contains("__JAVA_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__");
   }
 
-  private static void registerMigrationRuleError(RuleContext ruleContext)
-      throws RuleErrorException {
+  private static void registerMigrationRuleError(RuleContext ruleContext) {
     ruleContext.ruleError(
         "The native Java rules are deprecated. Please load "
             + ruleContext.getRule().getRuleClass()
-            + " from the rules_java repository."
-            + " See http://github.com/bazelbuild/rules_java.");
+            + " from the rules_java repository. See http://github.com/bazelbuild/rules_java and "
+            + "https://github.com/bazelbuild/bazel/issues/8741. You can temporarily bypass this "
+            + "error by setting --incompatible_load_java_rules_from_bzl=false.");
   }
 
   /**

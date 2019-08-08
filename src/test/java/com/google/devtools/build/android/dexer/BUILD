@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
 package(
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
@@ -26,6 +28,7 @@ java_library(
         ),
         "//conditions:default": ["NoAndroidSdkStubTest.java"],
     }),
+    javacopts = ["-source 7 -target 7"],  # we run this through dx for testing, so no lambdas!
     resources = ["testresource.txt"],
     deps = [
         "//src/test/java/com/google/devtools/build/lib:testutil",

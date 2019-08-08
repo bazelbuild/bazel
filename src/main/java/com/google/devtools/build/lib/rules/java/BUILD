@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
@@ -30,7 +32,6 @@ java_library(
         "JavaToolchain.java",
         "JavaToolchainAliasRule.java",
         "JavaToolchainRule.java",
-        "ProguardHelper.java",
         "ProguardLibrary.java",
         "ProguardLibraryRule.java",
         "ProguardSpecProvider.java",

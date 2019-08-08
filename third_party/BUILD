@@ -1,6 +1,8 @@
+load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+
 package(default_visibility = ["//visibility:public"])
 
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 filegroup(
     name = "srcs",
@@ -35,6 +37,7 @@ filegroup(
         "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
+        "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
         "//third_party/nanopb:srcs",
         "//third_party/def_parser:srcs",

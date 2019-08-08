@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
-import com.google.devtools.build.lib.unix.ProcMeminfoParser.KeywordNotFoundException;
 import com.google.devtools.build.lib.util.OS;
 import io.grpc.Server;
 import java.io.IOException;
@@ -134,7 +133,7 @@ class ServerWatcherRunnable implements Runnable {
       // thresholds.
       return fractionRamFree < FREE_MEMORY_PERCENTAGE_THRESHOLD
           && freeRamKb < FREE_MEMORY_KB_ABSOLUTE_THRESHOLD;
-    } catch (IOException | KeywordNotFoundException e) {
+    } catch (IOException e) {
       logger.log(Level.WARNING, "Unable to read memory info.", e);
       return false;
     }

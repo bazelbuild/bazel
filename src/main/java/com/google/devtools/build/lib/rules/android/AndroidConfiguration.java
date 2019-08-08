@@ -530,6 +530,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         help = "Use dex2oat in parallel to possibly speed up android_test.")
     public boolean useParallelDex2Oat;
 
+    @Option(
+        name = "break_build_on_parallel_dex2oat_failure",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help =
+            "If true dex2oat action failures will cause the build to break "
+                + "instead of executing dex2oat during test runtime.")
+    public boolean breakBuildOnParallelDex2OatFailure;
+
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     @Option(
@@ -696,19 +707,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public ManifestMergerOrder manifestMergerOrder;
 
     @Option(
-      name = "android_aapt",
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      },
-      converter = AndroidAaptConverter.class,
-      help =
-          "Selects the version of androidAaptVersion to use for android_binary rules."
-              + "Flag to help the test and transition to aapt2."
-    )
+        name = "android_aapt",
+        defaultValue = "auto",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        converter = AndroidAaptConverter.class,
+        help =
+            "Selects the version of androidAaptVersion to use for android_binary rules."
+                + "Flag to help the test and transition to aapt2.")
     public AndroidAaptVersion androidAaptVersion;
 
     @Option(
@@ -990,6 +1000,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
                 + "solely on matching class and package name, ignoring hash values.")
     public boolean alwaysFilterDuplicateClassesFromAndroidTest;
 
+    @Option(
+        name = "experimental_filter_library_jar_with_program_jar",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+        help =
+            "Filter the ProGuard ProgramJar to remove any classes also present in the LibraryJar.")
+    public boolean filterLibraryJarWithProgramJar;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -1072,8 +1091,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean exportsManifestDefault;
   private final AndroidAaptVersion androidAaptVersion;
   private final boolean useAapt2ForRobolectric;
-  private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
+  private final boolean breakBuildOnParallelDex2OatFailure;
   private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
   private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
@@ -1085,6 +1104,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
+  private final boolean filterLibraryJarWithProgramJar;
 
   // Incompatible changes
   private final boolean incompatibleUseAapt2ByDefault;
@@ -1120,8 +1140,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.useAapt2ForRobolectric = options.useAapt2ForRobolectric;
-    this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
+    this.breakBuildOnParallelDex2OatFailure = options.breakBuildOnParallelDex2OatFailure;
     this.omitResourcesInfoProviderFromAndroidBinary =
         options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
@@ -1140,6 +1160,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.removeRClassesFromInstrumentationTestJar;
     this.alwaysFilterDuplicateClassesFromAndroidTest =
         options.alwaysFilterDuplicateClassesFromAndroidTest;
+    this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
 
     // Make the value of --android_aapt aapt2 if --incompatible_use_aapt2_by_default is enabled
     // and --android_aapt = AUTO
@@ -1322,6 +1343,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   }
 
   @Override
+  public boolean breakBuildOnParallelDex2OatFailure() {
+    return breakBuildOnParallelDex2OatFailure;
+  }
+
+  @Override
   public boolean compressJavaResources() {
     return compressJavaResources;
   }
@@ -1334,11 +1360,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean useAapt2ForRobolectric() {
     return useAapt2ForRobolectric;
-  }
-
-  @Override
-  public boolean throwOnResourceConflict() {
-    return throwOnResourceConflict;
   }
 
   @Override
@@ -1399,5 +1420,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   public boolean alwaysFilterDuplicateClassesFromAndroidTest() {
     return alwaysFilterDuplicateClassesFromAndroidTest;
+  }
+
+  public boolean filterLibraryJarWithProgramJar() {
+    return filterLibraryJarWithProgramJar;
   }
 }

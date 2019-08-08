@@ -28,6 +28,7 @@ import com.google.devtools.build.android.aapt2.StaticLibrary;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.devtools.common.options.TriState;
+import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -187,16 +188,36 @@ public class Aapt2ResourcePackagingAction {
               .debug(aaptConfigOptions.debug)
               .includeGeneratedLocales(aaptConfigOptions.generatePseudoLocale)
               .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
-              .link(compiled)
-              .copyPackageTo(options.packagePath)
-              .copyProguardTo(options.proguardOutput)
-              .copyMainDexProguardTo(options.mainDexProguardOutput)
-              .createSourceJar(options.srcJarOutput)
-              .copyRTxtTo(options.rOutput);
+              .link(compiled);
       profiler.recordEndOf("link");
+
+      copy(packagedResources.apk(), options.packagePath);
+      if (options.proguardOutput != null) {
+        copy(packagedResources.proguardConfig(), options.proguardOutput);
+      }
+      if (options.mainDexProguardOutput != null) {
+        copy(packagedResources.mainDexProguard(), options.mainDexProguardOutput);
+      }
+      if (options.srcJarOutput != null) {
+        AndroidResourceOutputs.createSrcJar(
+            packagedResources.javaSourceDirectory(), options.srcJarOutput, /* staticIds= */ false);
+      }
+      if (options.rOutput != null) {
+        copy(packagedResources.rTxt(), options.rOutput);
+      }
       if (options.resourcesOutput != null) {
         packagedResources.asArchive().writeTo(options.resourcesOutput, /* compress= */ false);
       }
+      if (aaptConfigOptions.resourcePathShorteningMapOutput != null) {
+        copy(
+            packagedResources.resourcePathShorteningMap(),
+            aaptConfigOptions.resourcePathShorteningMapOutput);
+      }
     }
+  }
+
+  private static void copy(Path from, Path out) throws IOException {
+    Files.createDirectories(out.getParent());
+    Files.copy(from, out);
   }
 }

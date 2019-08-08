@@ -17,6 +17,7 @@
 
 #include <string>
 #include <vector>
+
 #include "src/tools/singlejar/token_stream.h"
 
 /* Command line options. */
@@ -26,6 +27,7 @@ class Options {
       : exclude_build_data(false),
         force_compression(false),
         normalize_timestamps(false),
+        add_missing_directories(false),
         no_duplicates(false),
         no_duplicate_classes(false),
         preserve_compression(false),
@@ -52,6 +54,7 @@ class Options {
   bool exclude_build_data;
   bool force_compression;
   bool normalize_timestamps;
+  bool add_missing_directories;
   bool no_duplicates;
   bool no_duplicate_classes;
   bool preserve_compression;

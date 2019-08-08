@@ -1,6 +1,8 @@
 # Description:
 #   Tools for scanning bytecode for references to other classes and emitting Proguard-style keeps.
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 filegroup(
     name = "embedded_tools",
     srcs = ["BUILD.tools"],

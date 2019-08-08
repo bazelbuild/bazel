@@ -140,17 +140,17 @@ public class InputTreeTest {
     Path barPath = dirPath.getRelative("bar.cc");
     FileSystemUtils.writeContentAsLatin1(barPath, "bar");
     ActionInput bar = ActionInputHelper.fromPath(barPath.relativeTo(execRoot));
-    metadata.put(bar, FileArtifactValue.createShareable(barPath));
+    metadata.put(bar, FileArtifactValue.createForTesting(barPath));
 
     dirPath.getRelative("fizz").createDirectoryAndParents();
     Path buzzPath = dirPath.getRelative("fizz/buzz.cc");
     FileSystemUtils.writeContentAsLatin1(dirPath.getRelative("fizz/buzz.cc"), "buzz");
     ActionInput buzz = ActionInputHelper.fromPath(buzzPath.relativeTo(execRoot));
-    metadata.put(buzz, FileArtifactValue.createShareable(buzzPath));
+    metadata.put(buzz, FileArtifactValue.createForTesting(buzzPath));
 
     Artifact dir = ActionsTestUtil.createArtifact(artifactRoot, dirPath);
     sortedInputs.put(dirPath.relativeTo(execRoot), dir);
-    metadata.put(dir, FileArtifactValue.createShareable(dirPath));
+    metadata.put(dir, FileArtifactValue.createForTesting(dirPath));
 
     InputTree tree =
         InputTree.build(sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
@@ -206,7 +206,7 @@ public class InputTreeTest {
     Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
 
     sortedInputs.put(PathFragment.create(path), a);
-    metadata.put(a, FileArtifactValue.create(a));
+    metadata.put(a, FileArtifactValue.createForTesting(a));
     return a;
   }
 

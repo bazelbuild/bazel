@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 @SkylarkModule(
     name = "attr",
     namespace = true,
-    category = SkylarkModuleCategory.BUILTIN,
+    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
     doc =
         "This is a top-level module for defining the attribute schemas of a rule or aspect. Each "
             + "function returns an object representing the schema of a single attribute. These "
@@ -1030,7 +1030,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
   /** An attribute descriptor. */
   @SkylarkModule(
       name = "Attribute",
-      category = SkylarkModuleCategory.NONE,
+      category = SkylarkModuleCategory.BUILTIN,
       doc =
           "Representation of a definition of an attribute. Use the <a href=\"attr.html\">attr</a> "
               + "module to create an Attribute. They are only for use with a "

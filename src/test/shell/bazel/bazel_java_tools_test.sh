@@ -190,9 +190,6 @@ EOF
 }
 
 function test_java_tools_singlejar_builds() {
-  if "$is_windows"; then
-    echo "Skipping test on Windows." && return
-  fi
   local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
   local java_tools_zip_file_url="file://${java_tools_rlocation}"
   if "$is_windows"; then
@@ -209,9 +206,6 @@ EOF
 }
 
 function test_java_tools_ijar_builds() {
-  if "$is_windows"; then
-    echo "Skipping test on Windows." && return
-  fi
   local java_tools_rlocation=$(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip)
   local java_tools_zip_file_url="file://${java_tools_rlocation}"
   if "$is_windows"; then
