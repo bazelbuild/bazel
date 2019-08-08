@@ -864,7 +864,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_specific_tool_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
