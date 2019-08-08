@@ -88,6 +88,22 @@ message AttributeInfo {
 
   // If true, all targets of the rule must specify a value for this attribute.
   bool mandatory = 4;
+
+  // The target(s) in this attribute must define all the providers of at least
+  // one of the ProviderNameGroups in this list. If the Attribute Type is not a
+  // label, a label list, or a label-keyed string dictionary, the field will be
+  // left empty.
+  repeated ProviderNameGroup provider_name_group = 5;
+}
+
+// Representation of a set of providers that a rule attribute may be required to
+// have.
+message ProviderNameGroup {
+  // The names of the providers that must be given by any dependency appearing
+  // in this attribute. The name will be "Unknown Provider" if the name is
+  // unidentifiable, for example, if the provider is part of a namespace.
+  // TODO(kendalllane): Fix documentation of providers from namespaces.
+  repeated string provider_name = 1;
 }
 
 // Representation of Starlark function definition.

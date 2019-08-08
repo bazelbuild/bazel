@@ -547,4 +547,57 @@ public final class SkydocTest extends SkylarkTestCase {
         .inOrder();
     assertThat(aspectInfo.getAspectAttributeList()).containsExactly("deps");
   }
+
+  @Test
+  public void testProvidersForAttributes() throws Exception {
+    scratch.file(
+        "/test/test.bzl",
+        "\n"
+            + "def my_rule_impl(ctx):\n"
+            + "    return struct()\n"
+            + "MyInfo = provider()\n"
+            + "my_rule = rule(\n"
+            + "    implementation = my_rule_impl,\n"
+            + "    attrs = {\n"
+            + "        \"deps\": attr.label_list(\n"
+            + "            doc = \"\"\"\n"
+            + "                   A list of dependencies.\n"
+            + "                   \"\"\",\n"
+            + "            providers = [MyInfo],\n"
+            + "            allow_files = False,"
+            + "          ),"
+            + "        \"third\": attr.label(\n"
+            + "            providers = [[MyInfo], [\"LegacyProvider\"]],\n"
+            + "            allow_files = False,"
+            + "          )"
+            + "    },"
+            + ")\n");
+
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
+        ruleInfoMap,
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder());
+
+    Map<String, RuleInfo> rules = ruleInfoMap.build();
+
+    ModuleInfo moduleInfo =
+        new ProtoRenderer()
+            .appendRuleInfos(rules.values())
+            .getModuleInfo()
+            .build();
+    RuleInfo ruleInfo = moduleInfo.getRuleInfo(0);
+
+    assertThat(getAttrNames(ruleInfo)).containsExactly("name", "deps", "third").inOrder();
+    assertThat(ruleInfo.getAttribute(1).getProviderNameGroup(0).getProviderName(0))
+        .isEqualTo("MyInfo");
+    assertThat(ruleInfo.getAttribute(2).getProviderNameGroup(0).getProviderName(0))
+        .isEqualTo("MyInfo");
+    assertThat(ruleInfo.getAttribute(2).getProviderNameGroup(1).getProviderName(0))
+        .isEqualTo("LegacyProvider");
+  }
 }
