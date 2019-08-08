@@ -82,7 +82,7 @@ EOF
 #  x/
 #   person/
 #     BUILD
-#     person.proto (imports "bar/bar.proto", has proto_source_root = "x/person")
+#     person.proto (imports "bar/bar.proto", has strip_import_prefix = "")
 #     phonenumber/
 #       phonenumber.proto
 #   phonebook/
@@ -95,14 +95,14 @@ EOF
 # Expected arguments:
 # 1. The name of the proto library rule. Can be "proto_library" or
 #    "proto_library_macro".
-# 2. A row in the BUILD file that specifies the proto_source_root attribute on
+# 2. A row in the BUILD file that specifies the strip_import_prefix attribute on
 #    proto_library. Should be left empty if a macro is used.
 # 3. A load statement that includes a macro containing a wrapper around
 #     proto_library.
 function write_setup() {
   mkdir -p x/person/phonenumber
   proto_library_name=$1
-  proto_source_root=$2
+  extra_attribute=$2
   include_macro=$3
   if [ "${include_macro}" -eq "" ]; then
     include_macro="load('@rules_proto//proto:defs.bzl', 'proto_library')"
@@ -115,13 +115,13 @@ $proto_library_name(
   name = "person_proto",
   srcs = ["person.proto"],
   deps = [":phonenumber_proto"],
-  $proto_source_root
+  $extra_attribute
 )
 
 $proto_library_name(
   name = "phonenumber_proto",
   srcs = ["phonenumber/phonenumber.proto"],
-  $proto_source_root
+  $extra_attribute
 )
 EOF
 
@@ -190,7 +190,7 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
     name = "all",
     srcs = glob(["*.proto"]),
-    proto_source_root = package_name(),
+    strip_import_prefix = "",
 )
 EOF
 
@@ -240,14 +240,14 @@ EOF
 #      WORKSPACE <- workspace referenced as "repo"
 #      BUILD <- empty
 #      src/
-#          BUILD <- "all_protos" with proto_source_root
+#          BUILD <- "all_protos" with strip_import_prefix
 #          address.proto <- imports "zip_code.proto"
 #          zip_code.proto
 #  c/d/
 #      WORKSPACE <- workspace referenced as "main_repo"
 #      BUILD <- empty
 #      src/
-#          BUILD <- "all_protos" with proto_source_root
+#          BUILD <- "all_protos" with strip_import_prefix
 #          person.proto <- imports "address.proto" and depends on @repo//src:all_protos
 function write_workspaces_setup() {
   mkdir -p a/b/src
@@ -259,7 +259,7 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
-  proto_source_root = package_name()
+  strip_import_prefix = "",
 )
 EOF
 
@@ -299,7 +299,7 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
-  proto_source_root = package_name(),
+  strip_import_prefix = "",
   deps = ["@repo//src:all_protos"]
 )
 EOF
@@ -325,8 +325,8 @@ EOF
 
 # Creates macros/BUILD and macros/proto_library_macro.bzl, which contains a
 # macro that wraps the proto_library rule. The macro passes to proto_library the
-# same "name", "srcs", "deps" and adds "proto_source_root = native.package_name()".
-# This will be a common use case for the "proto_source_root" attribute.
+# same "name", "srcs", "deps" and adds "strip_import_prefix=''"
+# This will be a common use case for the "strip_import_prefix" attribute.
 function write_macro() {
   mkdir macros
   cat > macros/BUILD << EOF
@@ -340,7 +340,7 @@ def proto_library_macro(name, srcs, deps = []):
       name = name,
       srcs = srcs,
       deps = deps,
-      proto_source_root = native.package_name()
+      strip_import_prefix = "",
   )
 EOF
 }
@@ -384,21 +384,21 @@ EOF
 
 ############# TESTS #############
 
-function test_proto_source_root() {
+function test_strip_import_prefix() {
   write_workspace ""
-  write_setup "proto_library" "proto_source_root = 'x/person'" ""
+  write_setup "proto_library" "strip_import_prefix = '/x/person'" ""
   bazel build --verbose_failures //x/person:person_proto > "$TEST_log" || fail "Expected success"
 }
 
-function test_proto_source_root_fails() {
+function test_strip_import_prefix_fails() {
   write_workspace ""
-  # Don't specify the "proto_source_root" attribute and expect failure.
+  # Don't specify the "strip_import_prefix" attribute and expect failure.
   write_setup "proto_library" "" ""
   bazel build //x/person:person_proto >& "$TEST_log"  && fail "Expected failure"
   expect_log "phonenumber/phonenumber.proto: File not found."
 }
 
-function test_proto_source_root_macro() {
+function test_strip_import_prefix_macro() {
   write_workspace ""
   write_macro
   write_setup "proto_library_macro" "" "load('//macros:proto_library_macro.bzl', 'proto_library_macro')"
@@ -407,21 +407,21 @@ function test_proto_source_root_macro() {
 
 # Fails with "IllegalArgumentException: external/lcocal_jdk in
 # DumpPlatformClassPath.dumpJDK9AndNewerBootClassPath.java:67
-function DISABLED_test_proto_source_root_with_java_library() {
+function DISABLED_test_strip_import_prefix_with_java_library() {
   write_workspace ""
-  write_setup "proto_library" "proto_source_root = 'x/person'" ""
+  write_setup "proto_library" "strip_import_prefix = '/x/person'" ""
   write_java_library
   bazel build //java/com/google/src:top \
       --strict_java_deps=off > "$TEST_log"  || fail "Expected success"
 }
 
-function test_proto_source_root_glob() {
+function test_strip_import_prefix_glob() {
   write_workspace ""
   write_regression_setup
   bazel build //proto_library/src:all >& "$TEST_log" || fail "Expected success"
 }
 
-function test_proto_source_root_multiple_workspaces() {
+function test_strip_import_prefix_multiple_workspaces() {
   write_workspace "a/b/"
   write_workspace "c/d/"
   write_workspace ""

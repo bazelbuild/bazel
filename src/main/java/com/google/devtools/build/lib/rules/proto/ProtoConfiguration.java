@@ -187,7 +187,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "incompatible_disable_proto_source_root",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {

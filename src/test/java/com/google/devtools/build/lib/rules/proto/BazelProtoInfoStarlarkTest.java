@@ -162,9 +162,8 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
   @Test
   public void testProtoSourceRootExportedInStarlark() throws Exception {
-
     scratch.file(
-        "foo/myTestRule.bzl",
+        "third_party/foo/myTestRule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "",
         "def _my_test_rule_impl(ctx):",
@@ -178,8 +177,8 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
         ")");
 
     scratch.file(
-        "foo/BUILD",
-        "",
+        "third_party/foo/BUILD",
+        "licenses(['unencumbered'])",
         "load(':myTestRule.bzl', 'my_test_rule')",
         "my_test_rule(",
         "  name = 'myRule',",
@@ -188,13 +187,13 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
         "proto_library(",
         "  name = 'myProto',",
         "  srcs = ['myProto.proto'],",
-        "  proto_source_root = 'foo',",
+        "  strip_import_prefix = '/third_party/foo',",
         ")");
 
-    ConfiguredTarget ct = getConfiguredTarget("//foo:myRule");
+    ConfiguredTarget ct = getConfiguredTarget("//third_party/foo:myRule");
     String protoSourceRoot = (String) getMyInfoFromTarget(ct).getValue("fetched_proto_source_root");
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
 
-    assertThat(protoSourceRoot).isEqualTo(genfiles + "/foo/_virtual_imports/myProto");
+    assertThat(protoSourceRoot).isEqualTo(genfiles + "/third_party/foo/_virtual_imports/myProto");
   }
 }
