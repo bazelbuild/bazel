@@ -49,8 +49,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -74,7 +72,7 @@ public class JavaHeaderCompileActionBuilder {
   private Artifact outputJar;
   @Nullable private Artifact outputDepsProto;
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
-  private final Collection<Artifact> sourceJars = new ArrayList<>();
+  private ImmutableList<Artifact> sourceJars = ImmutableList.of();
   private NestedSet<Artifact> classpathEntries = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
   @Nullable private Label targetLabel;
@@ -138,9 +136,9 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Adds a jar archive of Java sources to compile. */
-  public JavaHeaderCompileActionBuilder addSourceJars(Collection<Artifact> sourceJars) {
+  public JavaHeaderCompileActionBuilder setSourceJars(ImmutableList<Artifact> sourceJars) {
     checkNotNull(sourceJars, "sourceJars must not be null");
-    this.sourceJars.addAll(sourceJars);
+    this.sourceJars = sourceJars;
     return this;
   }
 
