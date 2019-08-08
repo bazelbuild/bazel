@@ -52,7 +52,7 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+  bazel aquery '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
@@ -89,7 +89,7 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+  bazel aquery '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: '', no-sandbox: '', requires-network: ''}" output1
@@ -128,7 +128,7 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+  bazel aquery '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: 1, no-remote: '', requires-network: '', requires-x: ''}" output1
