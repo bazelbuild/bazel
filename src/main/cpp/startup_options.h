@@ -20,6 +20,7 @@
 
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -277,7 +278,10 @@ class StartupOptions {
 
   void RegisterUnaryStartupFlag(const std::string& flag_name);
 
-  void RegisterNullaryStartupFlag(const std::string& flag_name);
+  void RegisterNullaryStartupFlag(const std::string& flag_name, bool* value);
+
+  void RegisterNullaryStartupFlagNoRc(const std::string& flag_name,
+                                      bool* value);
 
  private:
   // Parses a single argument, either from the command line or from the .blazerc
@@ -309,10 +313,15 @@ class StartupOptions {
 
   // Startup flags that don't expect a value, e.g. "master_bazelrc".
   // Valid uses are "--master_bazelrc" are "--nomaster_bazelrc".
-  std::unordered_set<std::string> valid_nullary_startup_flags_;
+  // Keys are positive and negative flag names (e.g. "--master_bazelrc" and
+  // "--nomaster_bazelrc"), values are pointers to the boolean to mutate.
+  std::unordered_map<std::string, bool*> all_nullary_startup_flags_;
+  std::unordered_set<std::string> no_rc_nullary_startup_flags_;
 
   // Startup flags that expect a value, e.g. "bazelrc".
   // Valid uses are "--bazelrc=foo" and "--bazelrc foo".
+  // Keys are flag names (e.g. "--bazelrc"), values are pointers to the string
+  // to mutate.
   std::unordered_set<std::string> valid_unary_startup_flags_;
 };
 

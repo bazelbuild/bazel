@@ -248,7 +248,6 @@ class BlazeServer final {
       const bool block_for_lock,
       const string &output_base,
       const string &server_jvm_out);
-  ~BlazeServer();
 
   // Acquire a lock for the server running in this output base. Returns the
   // number of milliseconds spent waiting for the lock.
@@ -302,7 +301,7 @@ class BlazeServer final {
 
   // Pipe that the main thread sends actions to and the cancel thread receives
   // actions from.
-  blaze_util::IPipe *pipe_;
+  std::unique_ptr<blaze_util::IPipe> pipe_;
 
   bool TryConnect(CommandServer::Stub *client);
   void CancelThread();
@@ -1606,16 +1605,11 @@ BlazeServer::BlazeServer(
     output_base_(output_base) {
   gpr_set_log_function(null_grpc_log_function);
 
-  pipe_ = blaze_util::CreatePipe();
-  if (pipe_ == NULL) {
+  pipe_.reset(blaze_util::CreatePipe());
+  if (!pipe_.get()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Couldn't create pipe: " << GetLastErrorString();
   }
-}
-
-BlazeServer::~BlazeServer() {
-  delete pipe_;
-  pipe_ = NULL;
 }
 
 bool BlazeServer::TryConnect(
