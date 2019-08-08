@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
@@ -25,10 +23,6 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Fake implementation of {@link SkylarkAttrApi}.
@@ -45,7 +39,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.INT, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.INT, doc, mandatory);
   }
 
   @Override
@@ -58,7 +52,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.STRING, doc, mandatory);
   }
 
   @Override
@@ -78,11 +72,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    List<List<String>> allNameGroups = new ArrayList<>();
-    if (providers != null) {
-      allNameGroups = allProviderNameGroups(providers, env);
-    }
-    return new FakeDescriptor(AttributeType.LABEL, doc, mandatory, allNameGroups);
+    return new FakeDescriptor(AttributeType.LABEL, doc, mandatory);
   }
 
   @Override
@@ -96,7 +86,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory);
   }
 
   @Override
@@ -110,7 +100,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.INT_LIST, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.INT_LIST, doc, mandatory);
   }
 
   @Override
@@ -130,11 +120,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    List<List<String>> allNameGroups = new ArrayList<>();
-    if (providers != null) {
-      allNameGroups = allProviderNameGroups(providers, env);
-    }
-    return new FakeDescriptor(AttributeType.LABEL_LIST, doc, mandatory, allNameGroups);
+    return new FakeDescriptor(AttributeType.LABEL_LIST, doc, mandatory);
   }
 
   @Override
@@ -154,11 +140,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    List<List<String>> allNameGroups = new ArrayList<>();
-    if (providers != null) {
-      allNameGroups = allProviderNameGroups(providers, env);
-    }
-    return new FakeDescriptor(AttributeType.LABEL_STRING_DICT, doc, mandatory, allNameGroups);
+    return new FakeDescriptor(AttributeType.LABEL_STRING_DICT, doc, mandatory);
   }
 
   @Override
@@ -170,7 +152,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.BOOLEAN, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.BOOLEAN, doc, mandatory);
   }
 
   @Override
@@ -182,7 +164,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory);
   }
 
   @Override
@@ -196,7 +178,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.OUTPUT_LIST, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.OUTPUT_LIST, doc, mandatory);
   }
 
   @Override
@@ -210,7 +192,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING_DICT, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.STRING_DICT, doc, mandatory);
   }
 
   @Override
@@ -224,7 +206,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING_LIST_DICT, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.STRING_LIST_DICT, doc, mandatory);
   }
 
   @Override
@@ -236,72 +218,9 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory);
   }
 
   @Override
   public void repr(SkylarkPrinter printer) {}
-
-  /**
-   * Returns a list of provider name groups, given the value of a Starlark attribute's "providers"
-   * argument.
-   *
-   * <p>{@code providers} can either be a list of providers, or a list of lists of providers. If it
-   * is the first case, the entire list is considered a single group. In the second case, each of
-   * the inner lists is a group.
-   */
-  private static List<List<String>> allProviderNameGroups(SkylarkList<?> providers, Environment env)
-      throws EvalException {
-
-    List<List<String>> allNameGroups = new ArrayList<>();
-    List<List<ProviderApi>> allProviderGroups = new ArrayList<>();
-    for (Object object : providers) {
-      if (object instanceof ProviderApi) {
-        allProviderGroups.add(providers.getContents(ProviderApi.class, "providers"));
-        break;
-      } else if (object instanceof SkylarkList) {
-        allProviderGroups.add(
-            ((SkylarkList<?>) object).getContents(ProviderApi.class, "provider groups"));
-      }
-    }
-
-    for (List<ProviderApi> providerGroup : allProviderGroups) {
-      List<String> nameGroup = providerNameGroup(providerGroup, env);
-      allNameGroups.add(nameGroup);
-    }
-
-    return allNameGroups;
-  }
-
-  /** Returns the names of the providers in the given group. */
-  private static List<String> providerNameGroup(List<ProviderApi> providerGroup, Environment env) {
-    List<String> providerNameGroup = new ArrayList<>();
-    for (ProviderApi provider : providerGroup) {
-      String providerName = providerName(provider, env);
-      providerNameGroup.add(providerName);
-    }
-    return providerNameGroup;
-  }
-
-  /**
-   * Returns the name of {@code provider}.
-   *
-   * <p>{@code env} contains a {@code Map<String, Object>} where the values are built-in objects or
-   * objects defined in the file and the keys are the names of these objects. If a {@code provider}
-   * is in the map, the name of the provider is set as the key of this object in {@code bindings}.
-   * If it is not in the map, the provider may be part of a module in the map and the name will be
-   * set to "Unknown Provider".
-   */
-  private static String providerName(ProviderApi provider, Environment env) {
-    Map<String, Object> bindings = env.getGlobals().getTransitiveBindings();
-    if (bindings.containsValue(provider)) {
-      for (Entry<String, Object> envEntry : bindings.entrySet()) {
-        if (provider.equals(envEntry.getValue())) {
-          return envEntry.getKey();
-        }
-      }
-    }
-    return "Unknown Provider";
-  }
 }
-

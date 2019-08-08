@@ -58,8 +58,7 @@ import javax.annotation.Nullable;
 public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<FileApi> {
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
-      new FakeDescriptor(
-          AttributeType.NAME, "A unique name for this target.", true, ImmutableList.of());
+      new FakeDescriptor(AttributeType.NAME, "A unique name for this target.", true);
   private final List<RuleInfoWrapper> ruleInfoList;
 
   private final List<ProviderInfoWrapper> providerInfoList;

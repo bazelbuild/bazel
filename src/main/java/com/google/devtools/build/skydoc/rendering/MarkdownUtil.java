@@ -20,10 +20,8 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -150,19 +148,6 @@ public final class MarkdownUtil {
    */
   public String mandatoryString(FunctionParamInfo paramInfo) {
     return paramInfo.getMandatory() ? "required" : "optional";
-  }
-
-  /**
-   * Return a string explaining what providers an attribute requires. Adds hyperlinks to providers.
-   */
-  public String attributeProviders(AttributeInfo attributeInfo) {
-    List<ProviderNameGroup> providerNames = attributeInfo.getProviderNameGroupList();
-    List<String> finalProviderNames = new ArrayList<>();
-    for (ProviderNameGroup providerNameList : providerNames) {
-      List<String> providers = providerNameList.getProviderNameList();
-      finalProviderNames.add(String.format(Joiner.on(", ").join(providers)));
-    }
-    return String.format(Joiner.on("; or ").join(finalProviderNames));
   }
 
   private String attributeTypeDescription(AttributeType attributeType) {

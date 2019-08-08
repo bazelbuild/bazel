@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.repository;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -39,8 +38,7 @@ import javax.annotation.Nullable;
  */
 public class FakeRepositoryModule implements RepositoryModuleApi {
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
-      new FakeDescriptor(
-          AttributeType.NAME, "A unique name for this repository.", true, ImmutableList.of());
+      new FakeDescriptor(AttributeType.NAME, "A unique name for this repository.", true);
 
   private final List<RuleInfoWrapper> ruleInfoList;
 
