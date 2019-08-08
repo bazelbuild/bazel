@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -299,9 +300,12 @@ public final class JavaCompileActionBuilder {
             /* env= */ actionEnvironment,
             /* tools= */ tools,
             /* runfilesSupplier= */ runfilesSupplier,
-            /* sourceFiles= */ sourceFiles,
-            /* sourceJars= */ sourceJars,
-            /* plugins= */ plugins,
+            /* progressMessage= */ new ProgressMessage(
+                /* prefix= */ "Building",
+                /* output= */ outputJar,
+                /* sourceFiles= */ sourceFiles,
+                /* sourceJars= */ sourceJars,
+                /* plugins= */ plugins),
             /* mandatoryInputs= */ mandatoryInputs.build(),
             /* transitiveInputs= */ classpathEntries,
             /* directJars= */ directJars,

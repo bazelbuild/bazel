@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionBuilder.UTF8_ENVIRONMENT;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,10 +39,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -257,7 +255,11 @@ public class JavaHeaderCompileActionBuilder {
 
     builder.setProgressMessage(
         new ProgressMessage(
-            this.outputJar, sourceFiles.size() + sourceJars.size(), plugins.processorClasses()));
+            /* prefix= */ "Compiling Java headers",
+            /* output= */ outputJar,
+            /* sourceFiles= */ sourceFiles,
+            /* sourceJars= */ sourceJars,
+            /* plugins= */ plugins));
 
     builder.addTransitiveTools(toolsJars);
 
@@ -415,34 +417,5 @@ public class JavaHeaderCompileActionBuilder {
         // an appropriate error then.
       }
     };
-  }
-
-  /** Static class to avoid keeping a reference to this builder after build() is called. */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class ProgressMessage extends LazyString {
-
-    private final Artifact outputJar;
-    private final int fileCount;
-    private final NestedSet<String> processorClasses;
-
-    public ProgressMessage(Artifact outputJar, int fileCount, NestedSet<String> processorClasses) {
-      this.outputJar = outputJar;
-      this.fileCount = fileCount;
-      this.processorClasses = processorClasses;
-    }
-
-    @Override
-    public String toString() {
-      return String.format(
-          "Compiling Java headers %s (%d files)%s",
-          outputJar.prettyPrint(),
-          fileCount,
-          processorClasses.isEmpty()
-              ? ""
-              : processorClasses.toList().stream()
-                  .map(name -> name.substring(name.lastIndexOf('.') + 1))
-                  .collect(joining(", ", " and running annotation processors (", ")")));
-    }
   }
 }

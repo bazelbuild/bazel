@@ -59,9 +59,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
@@ -93,10 +95,7 @@ public class JavaCompileAction extends AbstractAction
   private final CommandLine executableLine;
   private final CommandLine flagLine;
   private final BuildConfiguration configuration;
-
-  private final ImmutableSet<Artifact> sourceFiles;
-  private final ImmutableList<Artifact> sourceJars;
-  private final JavaPluginInfo plugins;
+  private final LazyString progressMessage;
 
   private final NestedSet<Artifact> directJars;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -113,9 +112,7 @@ public class JavaCompileAction extends AbstractAction
       ActionEnvironment env,
       NestedSet<Artifact> tools,
       RunfilesSupplier runfilesSupplier,
-      ImmutableSet<Artifact> sourceFiles,
-      ImmutableList<Artifact> sourceJars,
-      JavaPluginInfo plugins,
+      LazyString progressMessage,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> directJars,
@@ -142,9 +139,7 @@ public class JavaCompileAction extends AbstractAction
     this.executableLine = executableLine;
     this.flagLine = flagLine;
     this.configuration = configuration;
-    this.sourceFiles = sourceFiles;
-    this.sourceJars = sourceJars;
-    this.plugins = plugins;
+    this.progressMessage = progressMessage;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
     this.directJars = directJars;
     this.mandatoryInputs = mandatoryInputs;
@@ -327,15 +322,83 @@ public class JavaCompileAction extends AbstractAction
 
   @Override
   protected String getRawProgressMessage() {
-    StringBuilder sb = new StringBuilder("Building ");
-    sb.append(getPrimaryOutput().prettyPrint());
-    sb.append(" (");
-    boolean first = true;
-    first = appendCount(sb, first, sourceFiles.size(), "source file");
-    appendCount(sb, first, sourceJars.size(), "source jar");
-    sb.append(")");
-    sb.append(getProcessorNames(plugins.processorClasses()));
-    return sb.toString();
+    return progressMessage.toString();
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class ProgressMessage extends LazyString {
+
+    private final String prefix;
+    private final Artifact output;
+    private final ImmutableSet<Artifact> sourceFiles;
+    private final ImmutableList<Artifact> sourceJars;
+    private final JavaPluginInfo plugins;
+
+    ProgressMessage(
+        String prefix,
+        Artifact output,
+        ImmutableSet<Artifact> sourceFiles,
+        ImmutableList<Artifact> sourceJars,
+        JavaPluginInfo plugins) {
+      this.prefix = prefix;
+      this.output = output;
+      this.sourceFiles = sourceFiles;
+      this.sourceJars = sourceJars;
+      this.plugins = plugins;
+    }
+
+    @Override
+    public String toString() {
+      StringBuilder sb = new StringBuilder(prefix);
+      sb.append(' ');
+      sb.append(output.prettyPrint());
+      sb.append(" (");
+      boolean first = true;
+      first = appendCount(sb, first, sourceFiles.size(), "source file");
+      appendCount(sb, first, sourceJars.size(), "source jar");
+      sb.append(")");
+      sb.append(getProcessorNames(plugins.processorClasses()));
+      return sb.toString();
+    }
+
+    private static String getProcessorNames(NestedSet<String> processorClasses) {
+      if (processorClasses.isEmpty()) {
+        return "";
+      }
+      StringBuilder sb = new StringBuilder();
+      List<String> shortNames = new ArrayList<>();
+      for (String name : processorClasses) {
+        // Annotation processor names are qualified class names. Omit the package part for the
+        // progress message, e.g. `com.google.Foo` -> `Foo`.
+        int idx = name.lastIndexOf('.');
+        String shortName = idx != -1 ? name.substring(idx + 1) : name;
+        shortNames.add(shortName);
+      }
+      sb.append(" and running annotation processors (");
+      Joiner.on(", ").appendTo(sb, shortNames);
+      sb.append(")");
+      return sb.toString();
+    }
+
+    /**
+     * Append an input count to the progress message, e.g. "2 source jars". If an input count has
+     * already been appended, prefix with ", ".
+     */
+    private static boolean appendCount(StringBuilder sb, boolean first, int count, String name) {
+      if (count > 0) {
+        if (!first) {
+          sb.append(", ");
+        } else {
+          first = false;
+        }
+        sb.append(count).append(' ').append(name);
+        if (count > 1) {
+          sb.append('s');
+        }
+      }
+      return first;
+    }
   }
 
   @Override
@@ -347,46 +410,10 @@ public class JavaCompileAction extends AbstractAction
             .addCommandLine(flagLine)
             .addCommandLine(getFullClasspathLine())
             .build();
-    extraActionInfoSupplier.extend(builder, commandLinesWithoutExecutable.allArguments());
+    if (extraActionInfoSupplier != null) {
+      extraActionInfoSupplier.extend(builder, commandLinesWithoutExecutable.allArguments());
+    }
     return builder;
-  }
-
-  private static String getProcessorNames(NestedSet<String> processorClasses) {
-    if (processorClasses.isEmpty()) {
-      return "";
-    }
-    StringBuilder sb = new StringBuilder();
-    List<String> shortNames = new ArrayList<>();
-    for (String name : processorClasses) {
-      // Annotation processor names are qualified class names. Omit the package part for the
-      // progress message, e.g. `com.google.Foo` -> `Foo`.
-      int idx = name.lastIndexOf('.');
-      String shortName = idx != -1 ? name.substring(idx + 1) : name;
-      shortNames.add(shortName);
-    }
-    sb.append(" and running annotation processors (");
-    Joiner.on(", ").appendTo(sb, shortNames);
-    sb.append(")");
-    return sb.toString();
-  }
-
-  /**
-   * Append an input count to the progress message, e.g. "2 source jars". If an input count has
-   * already been appended, prefix with ", ".
-   */
-  private static boolean appendCount(StringBuilder sb, boolean first, int count, String name) {
-    if (count > 0) {
-      if (!first) {
-        sb.append(", ");
-      } else {
-        first = false;
-      }
-      sb.append(count).append(' ').append(name);
-      if (count > 1) {
-        sb.append('s');
-      }
-    }
-    return first;
   }
 
   private final class JavaSpawn extends BaseSpawn {
