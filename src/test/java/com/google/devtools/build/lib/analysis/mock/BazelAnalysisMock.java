@@ -128,7 +128,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
              *
              *  This is mocked differently in tests compared to the real thing.
              */
-            if (newPath.toString().endsWith("private/toolchain/BUILD")) {
+            if (newPath.endsWith(Paths.get("private/toolchain/BUILD"))) {
               StringBuilder lines = new StringBuilder();
               int lineNumber = 0;
               for (String line : java.nio.file.Files.readAllLines(x, UTF_8)) {
