@@ -329,7 +329,7 @@ public final class StringModule {
   public MutableList<String> split(
       String self, String sep, Object maxSplitO, Location loc, Environment env)
       throws EvalException {
-    if (env.getSemantics().incompatibleDisallowSplitEmptySeparator() && sep.isEmpty()) {
+    if (sep.isEmpty()) {
       throw new EvalException(loc, "Empty separator");
     }
     int maxSplit =
