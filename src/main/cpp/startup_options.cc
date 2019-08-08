@@ -118,15 +118,20 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
   RegisterNullaryStartupFlag("client_debug", &client_debug);
   RegisterNullaryStartupFlag("deep_execroot", &deep_execroot);
-  RegisterNullaryStartupFlag("expand_configs_in_place", &expand_configs_in_place);
-  RegisterNullaryStartupFlag("experimental_oom_more_eagerly", &oom_more_eagerly);
-  RegisterNullaryStartupFlag("fatal_event_bus_exceptions", &fatal_event_bus_exceptions);
-  RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);  // --no was not supported
+  RegisterNullaryStartupFlag("expand_configs_in_place",
+                             &expand_configs_in_place);
+  RegisterNullaryStartupFlag("experimental_oom_more_eagerly",
+                             &oom_more_eagerly);
+  RegisterNullaryStartupFlag("fatal_event_bus_exceptions",
+                             &fatal_event_bus_exceptions);
+  RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
   RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
   RegisterNullaryStartupFlag("incompatible_enable_execution_transition",
-      &incompatible_enable_execution_transition);
-  RegisterNullaryStartupFlag("shutdown_on_low_sys_mem", &shutdown_on_low_sys_mem);
-  RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
+                             &incompatible_enable_execution_transition);
+  RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
+                             &shutdown_on_low_sys_mem);
+  RegisterNullaryStartupFlagNoRc("ignore_all_rc_files",
+                             &ignore_all_rc_files);
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
   RegisterNullaryStartupFlag("watchfs", &watchfs);
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
@@ -202,16 +207,22 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   const char* value = NULL;
 
   if (IsNullary(argstr)) {
+    // 'argstr' is either "--foo" or "--nofoo", and 'target' is the pointer to
+    // the bool storing the flag's value.
     bool* target = all_nullary_startup_flags_[argstr];
+    // 'enabled' is true if 'argstr' is "--foo", and false if it's "--nofoo".
     bool enabled = (argstr.compare(0, 4, "--no") != 0);
     if (no_rc_nullary_startup_flags_.find(argstr) !=
         no_rc_nullary_startup_flags_.end()) {
+      // no_rc_nullary_startup_flags_ are forbidden in .bazelrc files.
       if (!rcfile.empty()) {
-        *error = std::string("Can't specify ") + argstr + " in the .bazelrc file.";
+        *error = std::string("Can't specify ") + argstr +
+                     " in the .bazelrc file.";
         return blaze_exit_code::BAD_ARGV;
       }
     }
     *target = enabled;
+    // Use the key "foo" for 'argstr' of "--foo" / "--nofoo".
     option_sources[argstr.substr(enabled ? 2 : 4)] = rcfile;
     *is_space_separated = false;
     return blaze_exit_code::SUCCESS;

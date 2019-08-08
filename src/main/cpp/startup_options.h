@@ -278,8 +278,14 @@ class StartupOptions {
 
   void RegisterUnaryStartupFlag(const std::string& flag_name);
 
+  // Register a nullary startup flag.
+  // Both '--flag_name' and '--noflag_name' will be registered as valid nullary
+  // flags. 'value' is the pointer to the boolean that will receive the flag's
+  // value.
   void RegisterNullaryStartupFlag(const std::string& flag_name, bool* value);
 
+  // Same as RegisterNullaryStartupFlag, but these flags are forbidden in
+  // .bazelrc files.
   void RegisterNullaryStartupFlagNoRc(const std::string& flag_name,
                                       bool* value);
 
@@ -316,6 +322,10 @@ class StartupOptions {
   // Keys are positive and negative flag names (e.g. "--master_bazelrc" and
   // "--nomaster_bazelrc"), values are pointers to the boolean to mutate.
   std::unordered_map<std::string, bool*> all_nullary_startup_flags_;
+
+  // Subset of 'all_nullary_startup_flags_'.
+  // Contains positive and negative names (e.g. "--master_bazelrc" and
+  // "--nomaster_bazelrc") of flags that must not appear in .bazelrc files.
   std::unordered_set<std::string> no_rc_nullary_startup_flags_;
 
   // Startup flags that expect a value, e.g. "bazelrc".
