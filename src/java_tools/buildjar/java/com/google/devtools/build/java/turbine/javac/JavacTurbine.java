@@ -113,6 +113,7 @@ public class JavacTurbine implements AutoCloseable {
             .setSources(sources)
             .setJavacOptions(javacopts)
             .setBootClassPath(asPaths(turbineOptions.bootClassPath()))
+            .setBuiltinProcessors(turbineOptions.builtinProcessors())
             .setProcessorClassPath(processorpath);
 
     // JavaBuilder exempts some annotation processors from Strict Java Deps enforcement.

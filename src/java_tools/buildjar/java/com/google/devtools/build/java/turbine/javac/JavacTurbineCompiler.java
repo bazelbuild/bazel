@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
@@ -67,7 +68,7 @@ public class JavacTurbineCompiler {
       setupContext(context, request.strictJavaDepsPlugin(), request.transitivePlugin());
       CacheFSInfo.preRegister(context);
       try (FileSystem fs = Jimfs.newFileSystem(Configuration.forCurrentPlatform());
-          JavacFileManager fm = new ClassloaderMaskingFileManager()) {
+          JavacFileManager fm = new ClassloaderMaskingFileManager(request.builtinProcessors())) {
         JavacTask task =
             JavacTool.create()
                 .getTask(
@@ -152,14 +153,17 @@ public class JavacTurbineCompiler {
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
+    private final ImmutableSet<String> builtinProcessors;
+
     private static Context getContext() {
       Context context = new Context();
       CacheFSInfo.preRegister(context);
       return context;
     }
 
-    public ClassloaderMaskingFileManager() {
+    public ClassloaderMaskingFileManager(ImmutableSet<String> builtinProcessors) {
       super(getContext(), false, UTF_8);
+      this.builtinProcessors = builtinProcessors;
     }
 
     @Override
@@ -171,7 +175,8 @@ public class JavacTurbineCompiler {
             protected Class<?> findClass(String name) throws ClassNotFoundException {
               if (name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
-                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
+                  || builtinProcessors.contains(name)) {
                 return Class.forName(name);
               }
               throw new ClassNotFoundException(name);
