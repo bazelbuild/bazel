@@ -73,6 +73,7 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )
 

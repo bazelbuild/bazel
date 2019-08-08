@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 import java.nio.file.Paths;
 import org.junit.Test;
@@ -53,6 +54,8 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
   }
 
   private ModalTestCase newTest(String... skylarkOptions) throws IOException {
+    Runfiles runfiles = Runfiles.create();
+    java.nio.file.Path libCcConfigurePath = Paths.get(runfiles.rlocation("rules_cc/cc/private/toolchain/lib_cc_configure.bzl"));
     return new SkylarkTest(skylarkOptions)
         // A mock implementation of Label to be able to parse lib_cc_configure under default
         // Skylark environment (lib_cc_configure is meant to be used from the repository
@@ -60,7 +63,7 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         .setUp("def Label(arg):\n  return 42")
         .setUp(
             new String(
-                java.nio.file.Files.readAllBytes(Paths.get(BlazeTestUtils.runfilesDir() + "/rules_cc/cc/private/toolchain/lib_cc_configure.bzl")),
+                java.nio.file.Files.readAllBytes(libCcConfigurePath),
                 UTF_8));
   }
 }

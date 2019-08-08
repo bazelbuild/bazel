@@ -385,6 +385,7 @@ public class BazelCppRuleClasses {
                                   // are implicit dependencies of all cc rules,
                                   // thus a dependency of the def_parser.
                                   || label.startsWith(toolsRepository + "//tools/cpp")
+                                  || label.contains("cc/private/toolchain")
                               ? null
                               : env.getToolsLabel("//tools/def_parser:def_parser");
                         }
