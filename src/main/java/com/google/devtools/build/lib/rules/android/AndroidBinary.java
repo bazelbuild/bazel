@@ -447,6 +447,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               filesBuilder);
     }
 
+    if (!dataContext.useDebug()) {
+      // If we're using -c opt, build the resource path shortening map.
+      filesBuilder.add(
+          ruleContext.getImplicitOutputArtifact(
+              AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
+    }
+
     Artifact jarToDex = proguardOutput.getOutputJar();
     DexingOutput dexingOutput =
         dex(

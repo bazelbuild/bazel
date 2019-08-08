@@ -89,6 +89,11 @@ public class ProcessedAndroidData {
             .conditionalKeepRules(conditionalKeepRules)
             .setFeatureOf(featureOf)
             .setFeatureAfter(featureAfter);
+    if (!dataContext.useDebug()) {
+      builder.setResourcePathShorteningMapOut(
+          dataContext.createOutputArtifact(
+              AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
+    }
     dataBindingContext.supplyLayoutInfo(builder::setDataBindingInfoZip);
     return buildActionForBinary(
         dataContext,
