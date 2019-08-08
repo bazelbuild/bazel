@@ -14,6 +14,8 @@
 
 """A collection of macros that retrieve targets from the remote java tools."""
 
+load("@rules_java//java:defs.bzl", "java_import")
+
 def _get_args(target, attr, **kwargs):
     workspace_target_dict = {
         "//src/conditions:linux_x86_64": ["@remote_java_tools_linux//" + target],
@@ -38,4 +40,4 @@ def remote_java_tools_filegroup(name, target, **kwargs):
 
 def remote_java_tools_java_import(name, target, **kwargs):
     args = _get_args(target, "jars", **kwargs)
-    native.java_import(name = name, **args)
+    java_import(name = name, **args)
