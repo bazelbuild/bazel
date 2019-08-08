@@ -56,7 +56,8 @@ public class JavacTurbineCompiler {
 
   static JavacTurbineCompileResult compile(JavacTurbineCompileRequest request) throws IOException {
 
-    Map<String, byte[]> files = new LinkedHashMap<>();
+    Map<String, byte[]> classOutputs = new LinkedHashMap<>();
+    Map<String, byte[]> sourceOutputs = new LinkedHashMap<>();
     Status status;
     StringWriter sw = new StringWriter();
     ImmutableList.Builder<FormattedDiagnostic> diagnostics = ImmutableList.builder();
@@ -99,18 +100,8 @@ public class JavacTurbineCompiler {
         status = task.call() ? Status.OK : Status.ERROR;
 
         // collect class output
-        Files.walkFileTree(
-            classes,
-            new SimpleFileVisitor<Path>() {
-              @Override
-              public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-                  throws IOException {
-                // use `/` as the directory separator for jar paths, even on Windows
-                String name = Joiner.on('/').join(classes.relativize(path));
-                files.put(name, Files.readAllBytes(path));
-                return FileVisitResult.CONTINUE;
-              }
-            });
+        collectOutputs(classOutputs, classes);
+        collectOutputs(sourceOutputs, sources);
 
       } catch (Throwable t) {
         t.printStackTrace(pw);
@@ -119,7 +110,27 @@ public class JavacTurbineCompiler {
     }
 
     return new JavacTurbineCompileResult(
-        ImmutableMap.copyOf(files), status, sw.toString(), diagnostics.build(), context);
+        ImmutableMap.copyOf(classOutputs),
+        ImmutableMap.copyOf(sourceOutputs),
+        status,
+        sw.toString(),
+        diagnostics.build(),
+        context);
+  }
+
+  private static void collectOutputs(Map<String, byte[]> files, Path classes) throws IOException {
+    Files.walkFileTree(
+        classes,
+        new SimpleFileVisitor<Path>() {
+          @Override
+          public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+              throws IOException {
+            // use `/` as the directory separator for jar paths, even on Windows
+            String name = Joiner.on('/').join(classes.relativize(path));
+            files.put(name, Files.readAllBytes(path));
+            return FileVisitResult.CONTINUE;
+          }
+        });
   }
 
   private static FormattedDiagnostic formatDiagnostic(
