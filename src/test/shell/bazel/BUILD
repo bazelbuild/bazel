@@ -376,9 +376,9 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_experimental_ui_test",
+    name = "bazel_ui_test",
     size = "medium",
-    srcs = ["bazel_experimental_ui_test.sh"],
+    srcs = ["bazel_ui_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",

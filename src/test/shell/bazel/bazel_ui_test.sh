@@ -93,4 +93,4 @@ function test_fetch {
   expect_log 'Fetching.*remote_file'
 }
 
-run_suite "Bazel-specific integration tests for the experimental UI"
+run_suite "Bazel-specific integration tests for the UI"
