@@ -1,8 +1,6 @@
 # Description:
 #   JUnit 4.x extensions
 
-load("@rules_java//java:defs.bzl", "java_library")
-
 package(
     default_testonly = 1,
     default_visibility = ["//visibility:public"],

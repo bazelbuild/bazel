@@ -1,5 +1,3 @@
-load("@rules_java//java:defs.bzl", "java_library")
-
 # Description:
 #   Zip provides a library for reading and writing zip files, allowing more
 #   advanced manipulation than the JDK equivalents by providing detailed zip

@@ -1,5 +1,3 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_library")
-
 package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])

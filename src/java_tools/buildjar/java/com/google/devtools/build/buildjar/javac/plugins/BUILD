@@ -1,5 +1,3 @@
-load("@rules_java//java:defs.bzl", "java_library")
-
 # Description:
 #   Plugins for the Java library builders, which are used by Bazel to
 #   compile Java source code.
