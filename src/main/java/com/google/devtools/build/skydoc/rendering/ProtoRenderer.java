@@ -61,6 +61,12 @@ public class ProtoRenderer {
     return this;
   }
 
+  /** Appends module docstring protos to a {@link ModuleInfo.Builder}. */
+  public ProtoRenderer setModuleDocstring(String moduleDoc) {
+    moduleInfo.setModuleDocstring(moduleDoc);
+    return this;
+  }
+
   /** Outputs the raw form of a {@link ModuleInfo} proto. */
   public void writeModuleInfo(BufferedOutputStream outputStream) throws IOException {
     ModuleInfo build = moduleInfo.build();

@@ -13,3 +13,4 @@ my_exampleSmall example of rule.*
 
 This rule runs checks on a given function parameter.
 Use `bazel build` to run the check.
+* Input file for proto format test
