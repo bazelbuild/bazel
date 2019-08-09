@@ -11,4 +11,3 @@ alias(
     actual = "//src/conditions:windows_msvc",
     visibility = ["//visibility:public"],
 )
-

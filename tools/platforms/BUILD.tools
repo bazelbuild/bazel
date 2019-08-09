@@ -122,4 +122,3 @@ platform(
     ],
     target_platform = True,
 )
-
