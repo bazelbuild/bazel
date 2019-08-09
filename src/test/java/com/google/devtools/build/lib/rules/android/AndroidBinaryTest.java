@@ -876,43 +876,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcePathShorteningMap_ArtifactIsPresentIfCompilationModeOpt()
-      throws Exception {
-    mockAndroidSdkWithAapt2();
-    useConfiguration("--android_sdk=//sdk:sdk", "--android_aapt=aapt2", "-c", "opt");
-
-    ConfiguredTarget binary = getConfiguredTarget("//java/android:app");
-
-    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
-
-    Artifact resourcePathShorteningMapArtifact =
-        getFirstArtifactEndingWith(artifacts, "resource_path_shortening.map");
-    assertThat(resourcePathShorteningMapArtifact).isNotNull();
-    assertThat(getGeneratingAction(resourcePathShorteningMapArtifact).getMnemonic())
-        .isEqualTo("AndroidAapt2");
-
-    List<String> processingArgs = getGeneratingSpawnActionArgs(resourcePathShorteningMapArtifact);
-
-    assertThat(flagValue("--resourcePathShorteningMapOutput", processingArgs))
-        .endsWith("resource_path_shortening.map");
-  }
-
-  @Test
-  public void testResourcePathShorteningMap_ArtifactIsAbsentIfNotCompilationModeOpt()
-      throws Exception {
-    mockAndroidSdkWithAapt2();
-    useConfiguration("--android_sdk=//sdk:sdk", "--android_aapt=aapt2");
-
-    ConfiguredTarget binary = getConfiguredTarget("//java/android:app");
-
-    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
-
-    Artifact resourcePathShorteningMapArtifact =
-        getFirstArtifactEndingWith(artifacts, "resource_path_shortening.map");
-    assertThat(resourcePathShorteningMapArtifact).isNull();
-  }
-
-  @Test
   public void testResourceShrinkingAction() throws Exception {
     scratch.file("java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",

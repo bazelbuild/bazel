@@ -42,7 +42,6 @@ public class AndroidResourcesProcessorBuilder {
 
   private Artifact proguardOut;
   private Artifact mainDexProguardOut;
-  private Artifact resourcePathShorteningMapOut;
   private boolean conditionalKeepRules;
   private Artifact rTxtOut;
   private Artifact sourceJarOut;
@@ -125,12 +124,6 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setMainDexProguardOut(Artifact mainDexProguardCfg) {
     this.mainDexProguardOut = mainDexProguardCfg;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setResourcePathShorteningMapOut(
-      Artifact resourcePathShorteningMapOut) {
-    this.resourcePathShorteningMapOut = resourcePathShorteningMapOut;
     return this;
   }
 
@@ -368,7 +361,6 @@ public class AndroidResourcesProcessorBuilder {
     }
 
     builder
-        .maybeAddOutput("--resourcePathShorteningMapOutput", resourcePathShorteningMapOut)
         .maybeAddFlag("--useCompiledResourcesForMerge", useCompiledResourcesForMerge)
         .maybeAddFlag("--conditionalKeepRules", conditionalKeepRules);
 
