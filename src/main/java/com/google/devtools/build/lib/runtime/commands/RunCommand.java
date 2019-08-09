@@ -519,9 +519,16 @@ public class RunCommand implements BlazeCommand  {
         return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
 
+      String shellEscaped = ShellEscaper.escapeJoinAll(cmdLine);
+      if (OS.getCurrent() == OS.WINDOWS) {
+        // On Windows, we run Bash as a subprocess of the client (via CreateProcessW).
+        // Bash uses its own (Bash-style) flag parsing logic, not the default logic for which
+        // ShellUtils.windowsEscapeArg escapes, so we escape the flags once again Bash-style.
+        shellEscaped = "\"" + shellEscaped.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+      }
+
       ImmutableList<String> shellCmdLine =
-          ImmutableList.<String>of(
-              shExecutable.getPathString(), "-c", ShellEscaper.escapeJoinAll(cmdLine));
+          ImmutableList.<String>of(shExecutable.getPathString(), "-c", shellEscaped);
 
       for (String arg : shellCmdLine) {
         execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));

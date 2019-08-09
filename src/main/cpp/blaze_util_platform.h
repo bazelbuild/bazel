@@ -140,11 +140,23 @@ std::string GetSystemJavabase();
 // Return the path to the JVM binary relative to a javabase, e.g. "bin/java".
 std::string GetJavaBinaryUnderJavabase();
 
-// Replace the current process with the given program in the current working
-// directory, using the given argument vector.
+// Start the Bazel server's JVM in the current directory.
+//
+// Note on Windows: 'server_jvm_args' is NOT expected to be escaped for
+// CreateProcessW.
+//
 // This function does not return on success.
-void ExecuteProgram(const std::string& exe,
-                    const std::vector<std::string>& args_vector);
+void ExecuteServerJvm(const std::string& exe,
+                      const std::vector<std::string>& server_jvm_args);
+
+// Execute the "bazel run" request in the current directory.
+//
+// Note on Windows: 'run_request_args' IS expected to be escaped for
+// CreateProcessW.
+//
+// This function does not return on success.
+void ExecuteRunRequest(const std::string& exe,
+                       const std::vector<std::string>& run_request_args);
 
 class BlazeServerStartup {
  public:

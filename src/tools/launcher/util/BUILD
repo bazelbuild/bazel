@@ -20,6 +20,7 @@ win_cc_library(
     srcs = ["launcher_util.cc"],
     hdrs = ["launcher_util.h"],
     visibility = [
+        "//src/main/cpp:__pkg__",
         "//src/tools/launcher:__subpackages__",
         "//tools/test:__pkg__",
     ],
