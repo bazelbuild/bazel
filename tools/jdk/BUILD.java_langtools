@@ -7,7 +7,6 @@ load(
     "remote_java_tools_filegroup",
 )
 
-
 remote_java_tools_filegroup(
     name = "javac_jar",
     target = ":java_tools/javac-9+181-r4173-1.jar",

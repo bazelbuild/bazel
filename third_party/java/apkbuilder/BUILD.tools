@@ -1,15 +1,17 @@
 # The build file for apkbuilder when it's in bazel's embedded tools repo.
 
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_binary", "java_import")
+
 licenses(["notice"])  # Apache 2.0
 
 java_binary(
     name = "embedded_apkbuilder",
     main_class = "com.android.sdklib.build.ApkBuilderMain",
-    runtime_deps = [":apkbuilder_deploy_jar"],
     visibility = ["//visibility:public"],
+    runtime_deps = [":apkbuilder_deploy_jar"],
 )
 
 java_import(
     name = "apkbuilder_deploy_jar",
-    jars = [":apkbuilder_deploy.jar"]
+    jars = [":apkbuilder_deploy.jar"],
 )

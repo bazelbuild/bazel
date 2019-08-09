@@ -1,3 +1,4 @@
+load("//third_party/bazel_rules/rules_java/java:defs.bzl", "java_binary", "java_import")
 load("//tools/python:private/defs.bzl", "py_library", "py_binary")
 
 package(default_visibility = ["//visibility:public"])

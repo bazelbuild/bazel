@@ -17,7 +17,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@bazel_tools//tools/cpp:cc_toolchain_config.bzl", "cc_toolchain_config")
-load("@rules_cc//cc:defs.bzl", "cc_toolchain_suite", "cc_toolchain", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_toolchain", "cc_toolchain_suite")
 
 cc_library(
     name = "malloc",
