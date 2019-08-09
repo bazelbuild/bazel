@@ -64,6 +64,7 @@ cc_library(
         "//src/main/cpp/util:logging",
     ] + select({
         "//src/conditions:windows": [
+            "//src/tools/launcher/util",
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
         ],
