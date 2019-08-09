@@ -85,7 +85,7 @@ public abstract class Parameter<V, T> extends Argument {
   @AutoCodec
   public static final class Mandatory<V, T> extends Parameter<V, T> {
 
-    public Mandatory(Identifier identifier) {
+    Mandatory(Identifier identifier) {
       this(identifier, null);
     }
 
@@ -111,7 +111,7 @@ public abstract class Parameter<V, T> extends Argument {
 
     public final V defaultValue;
 
-    public Optional(Identifier identifier, @Nullable V defaultValue) {
+    Optional(Identifier identifier, @Nullable V defaultValue) {
       this(identifier, null, defaultValue);
     }
 
@@ -154,11 +154,11 @@ public abstract class Parameter<V, T> extends Argument {
   public static final class Star<V, T> extends Parameter<V, T> {
 
     @AutoCodec.Instantiator
-    public Star(@Nullable Identifier identifier, @Nullable T type) {
+    Star(@Nullable Identifier identifier, @Nullable T type) {
       super(identifier, type);
     }
 
-    public Star(@Nullable Identifier identifier) {
+    Star(@Nullable Identifier identifier) {
       this(identifier, null);
     }
 
@@ -186,11 +186,11 @@ public abstract class Parameter<V, T> extends Argument {
   public static final class StarStar<V, T> extends Parameter<V, T> {
 
     @AutoCodec.Instantiator
-    public StarStar(Identifier identifier, @Nullable T type) {
+    StarStar(Identifier identifier, @Nullable T type) {
       super(identifier, type);
     }
 
-    public StarStar(Identifier identifier) {
+    StarStar(Identifier identifier) {
       this(identifier, null);
     }
 

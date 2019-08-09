@@ -24,7 +24,7 @@ public final class DotExpression extends Expression {
 
   private final Identifier field;
 
-  public DotExpression(Expression object, Identifier field) {
+  DotExpression(Expression object, Identifier field) {
     this.object = object;
     this.field = field;
   }

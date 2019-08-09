@@ -38,10 +38,11 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Recursive descent parser for LL(2) BUILD language.
- * Loosely based on Python 2 grammar.
- * See https://docs.python.org/2/reference/grammar.html
+ * Recursive descent parser for LL(2) BUILD language. Loosely based on Python 2 grammar. See
+ * https://docs.python.org/2/reference/grammar.html
  */
+// TODO(adonovan): make this private.
+// Expression.parse and StarlarkFile.parse should be the only entry points.
 @VisibleForTesting
 public class Parser {
 
@@ -309,7 +310,8 @@ public class Parser {
     // It's a tuple
     List<Expression> tuple = parseExprList(insideParens);
     tuple.add(0, expression); // add the first expression to the front of the tuple
-    return setLocation(ListLiteral.makeTuple(tuple), start, Iterables.getLast(tuple));
+    return setLocation(
+        new ListLiteral(ListLiteral.Kind.TUPLE, tuple), start, Iterables.getLast(tuple));
   }
 
   private void reportError(Location location, String message) {
@@ -658,10 +660,10 @@ public class Parser {
           nextToken();
           // check for the empty tuple literal
           if (token.kind == TokenKind.RPAREN) {
-            ListLiteral literal = ListLiteral.makeTuple(ImmutableList.of());
-            setLocation(literal, start, token.right);
+            ListLiteral tuple = new ListLiteral(ListLiteral.Kind.TUPLE, ImmutableList.of());
+            setLocation(tuple, start, token.right);
             nextToken();
-            return literal;
+            return tuple;
           }
           // parse the first expression
           Expression expression = parseExpression(true);
@@ -788,7 +790,8 @@ public class Parser {
       }
       tuple.add(parsePrimaryWithSuffix());
     }
-    return setLocation(ListLiteral.makeTuple(tuple), start, Iterables.getLast(tuple));
+    return setLocation(
+        new ListLiteral(ListLiteral.Kind.TUPLE, tuple), start, Iterables.getLast(tuple));
   }
 
   // comprehension_suffix ::= 'FOR' loop_variables 'IN' expr comprehension_suffix
@@ -833,21 +836,21 @@ public class Parser {
     int start = token.left;
     expect(TokenKind.LBRACKET);
     if (token.kind == TokenKind.RBRACKET) { // empty List
-      ListLiteral literal = ListLiteral.emptyList();
-      setLocation(literal, start, token.right);
+      ListLiteral list = new ListLiteral(ListLiteral.Kind.LIST, ImmutableList.of());
+      setLocation(list, start, token.right);
       nextToken();
-      return literal;
+      return list;
     }
     Expression expression = parseNonTupleExpression();
     Preconditions.checkNotNull(expression,
         "null element in list in AST at %s:%s", token.left, token.right);
     switch (token.kind) {
-      case RBRACKET: // singleton List
+      case RBRACKET: // singleton list
         {
-          ListLiteral literal = ListLiteral.makeList(ImmutableList.of(expression));
-          setLocation(literal, start, token.right);
+          ListLiteral list = new ListLiteral(ListLiteral.Kind.LIST, ImmutableList.of(expression));
+          setLocation(list, start, token.right);
           nextToken();
-          return literal;
+          return list;
         }
       case FOR:
         { // list comprehension
@@ -858,18 +861,18 @@ public class Parser {
         }
       case COMMA:
         {
-          List<Expression> list = parseExprList(true);
+          List<Expression> elems = parseExprList(true);
           Preconditions.checkState(
-              !list.contains(null),
+              !elems.contains(null),
               "null element in list in AST at %s:%s",
               token.left,
               token.right);
-          list.add(0, expression);
+          elems.add(0, expression); // TODO(adonovan): opt: don't do this
           if (token.kind == TokenKind.RBRACKET) {
-            ListLiteral literal = ListLiteral.makeList(list);
-            setLocation(literal, start, token.right);
+            ListLiteral list = new ListLiteral(ListLiteral.Kind.LIST, elems);
+            setLocation(list, start, token.right);
             nextToken();
-            return literal;
+            return list;
           }
           expect(TokenKind.RBRACKET);
           int end = syncPast(LIST_TERMINATOR_SET);
@@ -891,7 +894,7 @@ public class Parser {
     int start = token.left;
     expect(TokenKind.LBRACE);
     if (token.kind == TokenKind.RBRACE) { // empty Dict
-      DictionaryLiteral literal = DictionaryLiteral.emptyDict();
+      DictionaryLiteral literal = new DictionaryLiteral(ImmutableList.of());
       setLocation(literal, start, token.right);
       nextToken();
       return literal;
@@ -1129,6 +1132,7 @@ public class Parser {
 
   private void parseTopLevelStatement(List<Statement> list) {
     // Unlike Python imports, load statements can appear only at top-level.
+    // TODO(adonovan): all such checks belong in a later pass, not here.
     if (token.kind == TokenKind.LOAD) {
       parseLoad(list);
     } else {
@@ -1358,4 +1362,5 @@ public class Parser {
     }
     return setLocation(new ReturnStatement(expression), start, end);
   }
+
 }

@@ -55,13 +55,8 @@ public final class DictionaryLiteral extends Expression {
 
   private final ImmutableList<DictionaryEntryLiteral> entries;
 
-  public DictionaryLiteral(List<DictionaryEntryLiteral> entries) {
+  DictionaryLiteral(List<DictionaryEntryLiteral> entries) {
     this.entries = ImmutableList.copyOf(entries);
-  }
-
-  /** A new literal for an empty dictionary, onto which a new location can be specified */
-  public static DictionaryLiteral emptyDict() {
-    return new DictionaryLiteral(ImmutableList.of());
   }
 
   @Override

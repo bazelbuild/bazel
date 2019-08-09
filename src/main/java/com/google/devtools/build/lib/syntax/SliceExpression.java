@@ -26,7 +26,7 @@ public final class SliceExpression extends Expression {
   @Nullable private final Expression end;
   @Nullable private final Expression step;
 
-  public SliceExpression(Expression object, Expression start, Expression end, Expression step) {
+  SliceExpression(Expression object, Expression start, Expression end, Expression step) {
     this.object = object;
     this.start = start;
     this.end = end;

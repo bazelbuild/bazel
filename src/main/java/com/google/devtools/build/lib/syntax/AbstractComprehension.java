@@ -26,20 +26,22 @@ import javax.annotation.Nullable;
 /**
  * Base class for list and dict comprehension expressions.
  *
- * <p> A comprehension contains one or more clauses, e.g.
- *   [a+d for a in b if c for d in e]
- * contains three clauses: "for a in b", "if c", "for d in e".
- * For and If clauses can happen in any order, except that the first one has to be a For.
+ * <p>A comprehension contains one or more clauses, e.g. [a+d for a in b if c for d in e] contains
+ * three clauses: "for a in b", "if c", "for d in e". For and If clauses can happen in any order,
+ * except that the first one has to be a For.
  *
- * <p> The code above can be expanded as:
+ * <p>The code above can be expanded as:
+ *
  * <pre>
  *   for a in b:
  *     if c:
  *       for d in e:
  *         result.append(a+d)
  * </pre>
+ *
  * result is initialized to [] (list) or {} (dict) and is the return value of the whole expression.
  */
+// TODO(adonovan): replace {Abstract,List,Dict}Comprehension by a single class.
 public abstract class AbstractComprehension extends Expression {
 
   /**
@@ -213,7 +215,7 @@ public abstract class AbstractComprehension extends Expression {
 
   private final ImmutableList<Clause> clauses;
 
-  public AbstractComprehension(List<Clause> clauses, Expression... outputExpressions) {
+  AbstractComprehension(List<Clause> clauses, Expression... outputExpressions) {
     this.clauses = ImmutableList.copyOf(clauses);
     this.outputExpressions = ImmutableList.copyOf(outputExpressions);
   }

@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Syntax node for a function call expression. */
+// TODO(adonovan): rename CallExpression.
 public final class FuncallExpression extends Expression {
 
   /**
@@ -235,7 +236,7 @@ public final class FuncallExpression extends Expression {
 
   private final int numPositionalArgs;
 
-  public FuncallExpression(Expression function, ImmutableList<Argument.Passed> arguments) {
+  FuncallExpression(Expression function, ImmutableList<Argument.Passed> arguments) {
     this.function = Preconditions.checkNotNull(function);
     this.arguments = Preconditions.checkNotNull(arguments);
     this.numPositionalArgs = countPositionalArguments();

@@ -22,17 +22,17 @@ public final class UnaryOperatorExpression extends Expression {
   private final TokenKind op; // NOT, TILDE, MINUS or PLUS
   private final Expression x;
 
-  public UnaryOperatorExpression(TokenKind op, Expression x) {
+  UnaryOperatorExpression(TokenKind op, Expression x) {
     this.op = op;
     this.x = x;
   }
 
-  /** getOperator returns the operator. */
+  /** Returns the operator. */
   public TokenKind getOperator() {
     return op;
   }
 
-  /** getX returns the operand. */
+  /** Returns the operand. */
   public Expression getX() {
     return x;
   }

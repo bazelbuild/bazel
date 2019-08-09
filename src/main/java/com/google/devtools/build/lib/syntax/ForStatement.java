@@ -26,7 +26,7 @@ public final class ForStatement extends Statement {
   private final ImmutableList<Statement> block;
 
   /** Constructs a for loop statement. */
-  public ForStatement(Expression lhs, Expression collection, List<Statement> block) {
+  ForStatement(Expression lhs, Expression collection, List<Statement> block) {
     this.lhs = Preconditions.checkNotNull(lhs);
     this.collection = Preconditions.checkNotNull(collection);
     this.block = ImmutableList.copyOf(block);

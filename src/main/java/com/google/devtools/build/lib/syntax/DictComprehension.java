@@ -24,8 +24,7 @@ public final class DictComprehension extends AbstractComprehension {
   private final Expression keyExpression;
   private final Expression valueExpression;
 
-  public DictComprehension(
-      List<Clause> clauses, Expression keyExpression, Expression valueExpression) {
+  DictComprehension(List<Clause> clauses, Expression keyExpression, Expression valueExpression) {
     super(clauses, keyExpression, valueExpression);
     this.keyExpression = keyExpression;
     this.valueExpression = valueExpression;

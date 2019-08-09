@@ -38,6 +38,7 @@ public final class LoadStatement extends Statement {
       return orig;
     }
 
+    // TODO(adonovan): lock down, after removing last use in skyframe serialization.
     public Binding(Identifier localName, Identifier originalName) {
       this.local = localName;
       this.orig = originalName;
@@ -58,6 +59,7 @@ public final class LoadStatement extends Statement {
    * <p>Import statements generated this way are bound to the usual restriction that private symbols
    * cannot be loaded.
    */
+  // TODO(adonovan): lock down, after removing last use in skyframe serialization.
   public LoadStatement(StringLiteral imp, List<Binding> bindings) {
     this.imp = imp;
     this.bindings = ImmutableList.copyOf(bindings);

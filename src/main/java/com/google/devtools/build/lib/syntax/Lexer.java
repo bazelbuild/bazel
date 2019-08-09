@@ -32,12 +32,12 @@ import java.util.Stack;
 
 /**
  * A tokenizer for the BUILD language.
- * <p>
- * See: <a href="https://docs.python.org/2/reference/lexical_analysis.html"/>
- * for some details.
+ *
+ * <p>See: <a href="https://docs.python.org/2/reference/lexical_analysis.html"/>for some details.
+ *
  * <p>
  */
-public final class Lexer {
+final class Lexer {
 
   // Characters that can come immediately prior to an '=' character to generate
   // a different token

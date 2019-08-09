@@ -17,10 +17,8 @@ import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLit
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import java.util.List;
 
-/**
- * A visitor for visiting the nodes in the syntax tree left to right, top to
- * bottom.
- */
+/** A visitor for visiting the nodes in the syntax tree left to right, top to bottom. */
+// TODO(adonovan): rename NodeVisitor (and ASTNode to Node).
 public class SyntaxTreeVisitor {
 
   public void visit(ASTNode node) {
