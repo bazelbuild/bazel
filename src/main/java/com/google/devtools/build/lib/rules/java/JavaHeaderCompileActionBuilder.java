@@ -289,6 +289,7 @@ public class JavaHeaderCompileActionBuilder {
       builder
           .executableArguments()
           .add("-Xverify:none")
+          .addAll(javaToolchain.getJvmOptions())
           .add("-jar")
           .addExecPath(headerCompiler.getExecutable())
           .build();
