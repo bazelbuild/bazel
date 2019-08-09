@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
-import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -226,11 +224,6 @@ public class DynamicSpawnStrategyTest {
 
   @Before
   public void setUp() throws Exception {
-    ResourceManager.instance().setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
-    ResourceManager.instance()
-        .setRamUtilizationPercentage(ResourceManager.DEFAULT_RAM_UTILIZATION_PERCENTAGE);
-    ResourceManager.instance().resetResourceUsage();
-
     fileSystem = FileSystems.getNativeFileSystem();
     testRoot = fileSystem.getPath(TestUtils.tmpDir());
     testRoot.deleteTreesBelow();
