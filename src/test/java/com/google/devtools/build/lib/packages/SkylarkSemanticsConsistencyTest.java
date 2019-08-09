@@ -126,10 +126,6 @@ public class SkylarkSemanticsConsistencyTest {
             + rand.nextDouble(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
-        "--experimental_java_common_create_provider_enabled_packages="
-            + rand.nextDouble()
-            + ","
-            + rand.nextDouble(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
         "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
         "--experimental_starlark_unused_inputs_list=" + rand.nextBoolean(),
@@ -187,8 +183,6 @@ public class SkylarkSemanticsConsistencyTest {
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalEnableAndroidMigrationApis(rand.nextBoolean())
         .experimentalGoogleLegacyApi(rand.nextBoolean())
-        .experimentalJavaCommonCreateProviderEnabledPackages(
-            ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalPlatformsApi(rand.nextBoolean())
         .experimentalStarlarkConfigTransitions(rand.nextBoolean())
         .experimentalStarlarkUnusedInputsList(rand.nextBoolean())

@@ -115,19 +115,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "pertaining to Google legacy code.")
   public boolean experimentalGoogleLegacyApi;
 
-  // This flag is declared in StarlarkSemanticsOptions instead of JavaOptions because there is no
-  // way to retrieve the java configuration from the Java implementation of
-  // java_common.create_provider.
-  @Option(
-      name = "experimental_java_common_create_provider_enabled_packages",
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Passes list of packages that can use the java_common.create_provider Starlark API.")
-  public List<String> experimentalJavaCommonCreateProviderEnabledPackages;
-
   @Option(
       name = "experimental_platforms_api",
       defaultValue = "false",
@@ -711,8 +698,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
             .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
             .experimentalGoogleLegacyApi(experimentalGoogleLegacyApi)
-            .experimentalJavaCommonCreateProviderEnabledPackages(
-                experimentalJavaCommonCreateProviderEnabledPackages)
             .experimentalPlatformsApi(experimentalPlatformsApi)
             .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
             .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
