@@ -308,11 +308,16 @@ EOF
 
 function setup_android_sdk_support() {
   ANDROID_SDK=$PWD/android_sdk
-  SDK_SRCDIR=$TEST_SRCDIR/androidsdk
-  mkdir -p $ANDROID_SDK
-  for i in $SDK_SRCDIR/*; do
-    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
-  done
+#  SDK_SRCDIR=$TEST_SRCDIR/androidsdk
+  # hacks for windows
+  android_jar_28=$(rlocation androidsdk/platforms/android-28/android.jar)
+  android_28=$(dirname $android_jar_28)
+  platforms=$(dirname $android_28)
+  ANDROID_SDK=$(dirname $platforms)
+#  mkdir -p $ANDROID_SDK
+#  for i in $SDK_SRCDIR/*; do
+#    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
+#  done
 cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",

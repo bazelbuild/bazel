@@ -20,7 +20,10 @@ filegroup(
 sh_library(
     name = "android_helper",
     srcs = ["android_helper.sh"],
-    data = ["sample.aar"],
+    data = [
+        "sample.aar",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -158,4 +161,20 @@ sh_test(
     ],
     # See https://github.com/bazelbuild/bazel/issues/8235
     tags = ["no-remote"],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src/test/shell:__pkg__"],
 )
