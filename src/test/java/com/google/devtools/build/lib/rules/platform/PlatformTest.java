@@ -36,7 +36,7 @@ public class PlatformTest extends BuildViewTestCase {
 
   @Test
   // TODO(https://github.com/bazelbuild/bazel/issues/6849): Remove this test when the functionality
-  // is removed, but untill then it still needs to be verified.
+  // is removed, but until then it still needs to be verified.
   public void testPlatform_autoconfig() throws Exception {
     useConfiguration(
         "--host_cpu=piii", "--cpu=k8", "--noincompatible_auto_configure_host_platform");
