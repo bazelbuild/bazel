@@ -81,7 +81,7 @@ public abstract class BlackBoxTestEnvironment {
             "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
             "http_archive(",
             "    name = 'rules_cc',",
-            "    sha256 = '280037eb6318d6bcca48b6d9aff7a70bc27000ab677e33f53873ddef9902bc2c',",
+            "    sha256 = '62c5dfece3ed84c66b97d4f1495a7f42e3cdfa9a4ca1b18fc6eb5e8d33741f53',",
             "    strip_prefix = 'rules_cc-plf-moving-tools',",
             "    urls = [",
             "        'https://github.com/oquenchil/rules_cc/archive/"

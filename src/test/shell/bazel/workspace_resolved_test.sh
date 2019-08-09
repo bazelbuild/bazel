@@ -1127,7 +1127,7 @@ test_local_config_platform_recorded() {
   # recorded in the resolved file
   mkdir main
   cd main
-  cat >> WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 EOF
   cat > BUILD <<'EOF'
 genrule(
