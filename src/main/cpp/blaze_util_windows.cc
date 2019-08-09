@@ -52,7 +52,6 @@
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
-#include "src/tools/launcher/util/launcher_util.h"
 
 namespace blaze {
 
@@ -689,7 +688,7 @@ int ExecuteDaemon(const string& exe,
   wesc_args_vector.reserve(args_vector.size());
   for (const string& a : args_vector) {
     std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
-    std::wstring wesc = bazel::launcher::WindowsEscapeArg2(wa);
+    std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
     wesc_args_vector.push_back(wesc);
   }
 
@@ -774,7 +773,7 @@ void ExecuteServerJvm(const string& exe,
   wargs.reserve(server_jvm_args.size());
   for (const string& a : server_jvm_args) {
     std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
-    std::wstring wesc = bazel::launcher::WindowsEscapeArg2(wa);
+    std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
     wargs.push_back(wesc);
   }
 

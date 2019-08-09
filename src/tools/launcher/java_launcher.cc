@@ -23,6 +23,7 @@
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
+#include "src/main/native/windows/process.h"
 #include "src/tools/launcher/java_launcher.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
@@ -411,7 +412,7 @@ ExitCode JavaBinaryLauncher::Launch() {
   vector<wstring> escaped_arguments;
   // Quote the arguments if having spaces
   for (const auto& arg : arguments) {
-    escaped_arguments.push_back(WindowsEscapeArg2(arg));
+    escaped_arguments.push_back(bazel::windows::WindowsEscapeArg(arg));
   }
 
   ExitCode exit_code = this->LaunchProcess(java_bin, escaped_arguments);
