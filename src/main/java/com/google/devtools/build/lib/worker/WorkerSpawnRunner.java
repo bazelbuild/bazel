@@ -80,6 +80,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final LocalEnvProvider localEnvProvider;
   private final boolean sandboxUsesExpandedTreeArtifactsInRunfiles;
   private final BinTools binTools;
+  private final ResourceManager resourceManager;
 
   public WorkerSpawnRunner(
       Path execRoot,
@@ -89,7 +90,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SpawnRunner fallbackRunner,
       LocalEnvProvider localEnvProvider,
       boolean sandboxUsesExpandedTreeArtifactsInRunfiles,
-      BinTools binTools) {
+      BinTools binTools,
+      ResourceManager resourceManager) {
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
     this.extraFlags = extraFlags;
@@ -98,6 +100,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.localEnvProvider = localEnvProvider;
     this.sandboxUsesExpandedTreeArtifactsInRunfiles = sandboxUsesExpandedTreeArtifactsInRunfiles;
     this.binTools = binTools;
+    this.resourceManager = resourceManager;
   }
 
   @Override
@@ -312,7 +315,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try (ResourceHandle handle =
-          ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
+          resourceManager.acquireResources(owner, spawn.getLocalResources())) {
         context.report(ProgressStatus.EXECUTING, getName());
         try {
           worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());

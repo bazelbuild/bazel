@@ -58,6 +58,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private final boolean verboseFailures;
   private final ImmutableSet<Path> inaccessiblePaths;
   protected final BinTools binTools;
+  private final ResourceManager resourceManager;
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
@@ -65,6 +66,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
     this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();
+    this.resourceManager = cmdEnv.getLocalResourceManager();
   }
 
   @Override
@@ -73,7 +75,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(ProgressStatus.SCHEDULING, getName());
     try (ResourceHandle ignored =
-        ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
+        resourceManager.acquireResources(owner, spawn.getLocalResources())) {
       context.report(ProgressStatus.EXECUTING, getName());
       return actuallyExec(spawn, context);
     } catch (IOException e) {

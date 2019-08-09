@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -153,7 +152,8 @@ public class WorkerModule extends BlazeModule {
             env.getOptions()
                 .getOptions(SandboxOptions.class)
                 .symlinkedSandboxExpandsTreeArtifactsInRunfilesTree,
-            env.getBlazeWorkspace().getBinTools());
+            env.getBlazeWorkspace().getBinTools(),
+            env.getLocalResourceManager());
     builder.addActionContext(new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner));
 
     builder.addStrategyByContext(SpawnActionContext.class, "standalone");
@@ -167,7 +167,7 @@ public class WorkerModule extends BlazeModule {
     return new LocalSpawnRunner(
         env.getExecRoot(),
         localExecutionOptions,
-        ResourceManager.instance(),
+        env.getLocalResourceManager(),
         localEnvProvider,
         env.getBlazeWorkspace().getBinTools());
   }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -495,6 +496,10 @@ public final class CommandEnvironment {
   /** Returns the top-down action cache to use, or null. */
   public TopDownActionCache getTopDownActionCache() {
     return topDownActionCache;
+  }
+
+  public ResourceManager getLocalResourceManager() {
+    return ResourceManager.instance();
   }
 
   /**
