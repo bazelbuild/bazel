@@ -19,20 +19,12 @@ win_cc_library(
     name = "util",
     srcs = ["launcher_util.cc"],
     hdrs = ["launcher_util.h"],
-    visibility = [
-        "//src/main/cpp:__pkg__",
-        "//src/tools/launcher:__subpackages__",
-        "//tools/test:__pkg__",
-    ],
     deps = ["//src/main/cpp/util:filesystem"],
 )
 
 win_cc_test(
     name = "util_test",
     srcs = ["launcher_util_test.cc"],
-    data = [
-        ":printarg",
-    ],
     deps = [
         ":util",
         "//src/main/native/windows:lib-file",
@@ -48,12 +40,6 @@ win_cc_test(
         ":data_parser",
         "@com_google_googletest//:gtest_main",
     ],
-)
-
-win_cc_binary(
-    name = "printarg",
-    testonly = 1,
-    srcs = ["printarg.cc"],
 )
 
 test_suite(

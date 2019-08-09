@@ -38,14 +38,20 @@ win_cc_library(
     name = "java_launcher",
     srcs = ["java_launcher.cc"],
     hdrs = ["java_launcher.h"],
-    deps = [":launcher_base"],
+    deps = [
+        ":launcher_base",
+        "//src/main/native/windows:lib-process",
+    ],
 )
 
 win_cc_library(
     name = "python_launcher",
     srcs = ["python_launcher.cc"],
     hdrs = ["python_launcher.h"],
-    deps = [":launcher_base"],
+    deps = [
+        ":launcher_base",
+        "//src/main/native/windows:lib-process",
+    ],
 )
 
 win_cc_library(

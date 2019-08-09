@@ -46,7 +46,6 @@
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
-#include "src/tools/launcher/util/launcher_util.h"
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
@@ -1378,7 +1377,7 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
   *out_test_path_arg = argv[0];
   std::wstringstream stm;
   for (int i = 1; i < argc; i++) {
-    stm << L' ' << bazel::launcher::WindowsEscapeArg2(argv[i]);
+    stm << L' ' << bazel::windows::WindowsEscapeArg(argv[i]);
   }
   *out_args = stm.str();
   return true;
