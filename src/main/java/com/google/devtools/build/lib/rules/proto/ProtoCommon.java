@@ -356,21 +356,6 @@ public class ProtoCommon {
               ruleContext, realProtoSource, sourceRootPath, importPrefix, stripImportPrefix);
       protoSourceImportPair.add(new Pair<>(realProtoSource, importsPair.first.toString()));
       symlinks.add(importsPair.second);
-
-      if (!ruleContext.getFragment(ProtoConfiguration.class).doNotUseBuggyImportPath()
-          && stripImportPrefixAttribute == null
-          && protoSourceRootAttribute == null
-          && !hasGeneratedSources) {
-        Pair<PathFragment, Artifact> oldImportsPair =
-            computeImports(
-                ruleContext,
-                realProtoSource,
-                sourceRootPath,
-                importPrefix,
-                PathFragment.EMPTY_FRAGMENT);
-        protoSourceImportPair.add(new Pair<>(realProtoSource, oldImportsPair.first.toString()));
-        symlinks.add(oldImportsPair.second);
-      }
     }
 
     String sourceRoot =

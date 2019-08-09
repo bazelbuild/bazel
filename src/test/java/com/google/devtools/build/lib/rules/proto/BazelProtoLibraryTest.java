@@ -451,49 +451,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImportPrefixInExternalRepoLegacyBehavior() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
-    invalidatePackages();
-    useConfiguration("noincompatible_do_not_emit_buggy_external_repo_import");
-
-    scratch.file("/yolo_repo/WORKSPACE");
-    scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
-    scratch.file(
-        "/yolo_repo/yolo_pkg/BUILD",
-        ProtoTestHelper.LOAD_PROTO_LIBRARY,
-        "proto_library(",
-        "  name = 'yolo_proto',",
-        "  srcs = ['yolo.proto'],",
-        "  import_prefix = 'bazel.build/yolo',",
-        "  visibility = ['//visibility:public'],",
-        ")");
-
-    scratch.file(
-        "main.proto", "syntax = 'proto3'';", "import 'bazel.build/yolo/yolo_pkg/yolo.proto';");
-    scratch.file(
-        "BUILD",
-        ProtoTestHelper.LOAD_PROTO_LIBRARY,
-        "proto_library(",
-        "  name = 'main_proto',",
-        "  srcs = ['main.proto'],",
-        "  deps = ['@yolo_repo//yolo_pkg:yolo_proto'],",
-        ")");
-
-    ConfiguredTarget main = getConfiguredTarget("//:main_proto");
-    ProtoInfo protoInfo = main.get(ProtoInfo.PROVIDER);
-    ImmutableList<Pair<Artifact, String>> importPaths =
-        protoInfo.getStrictImportableProtoSourcesImportPaths().toList();
-    assertThat(importPaths).isNotEmpty();
-    assertThat(importPaths.get(1).second)
-        .isEqualTo("bazel.build/yolo/external/yolo_repo/yolo_pkg/yolo.proto");
-  }
-
-  @Test
   public void testImportPrefixInExternalRepo() throws Exception {
     if (!isThisBazel()) {
       return;

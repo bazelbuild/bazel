@@ -252,7 +252,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
-    useConfiguration("--incompatible_do_not_emit_buggy_external_repo_import");
 
     scratch.file("/yolo_repo/WORKSPACE");
     scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
@@ -277,7 +276,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
-    useConfiguration("--incompatible_do_not_emit_buggy_external_repo_import");
 
     scratch.file("/yolo_repo/WORKSPACE");
     scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
@@ -301,7 +299,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
-    useConfiguration("--incompatible_do_not_emit_buggy_external_repo_import");
 
     scratch.file("/yolo_repo/WORKSPACE");
     scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
