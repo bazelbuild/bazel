@@ -307,17 +307,13 @@ EOF
 }
 
 function setup_android_sdk_support() {
-  ANDROID_SDK=$PWD/android_sdk
-#  SDK_SRCDIR=$TEST_SRCDIR/androidsdk
-  # hacks for windows
-  android_jar_28=$(rlocation androidsdk/platforms/android-28/android.jar)
-  android_28=$(dirname $android_jar_28)
-  platforms=$(dirname $android_28)
+  # Required for runfiles library on Windows, since $(rlocation) lookups
+  # can't do directories. We use android-28's android.jar as the anchor
+  # for the androidsdk location.
+  local android_jar=$(rlocation androidsdk/platforms/android-28/android.jar)
+  local android=$(dirname $android_jar)
+  local platforms=$(dirname $android)
   ANDROID_SDK=$(dirname $platforms)
-#  mkdir -p $ANDROID_SDK
-#  for i in $SDK_SRCDIR/*; do
-#    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
-#  done
 cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",

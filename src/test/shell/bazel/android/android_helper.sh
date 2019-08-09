@@ -26,8 +26,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # --- end runfiles.bash initialization v2 ---
 
 function fail_if_no_android_sdk() {
-  export RUNFILES_LIB_DEBUG=1
-
   # Required for runfiles library on Windows, since $(rlocation) lookups
   # can't do directories. We use android-28's android.jar as the anchor
   # for the androidsdk location.

@@ -34,8 +34,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
 
-cat $(rlocation MANIFEST) | grep integration_test_setup
-
 source "$(rlocation io_bazel/src/test/shell/bazel/android/android_helper.sh)" \
   || { echo "android_helper.sh not found!" >&2; exit 1; }
 fail_if_no_android_sdk
