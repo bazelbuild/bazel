@@ -27,8 +27,12 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 function fail_if_no_android_sdk() {
   export RUNFILES_LIB_DEBUG=1
-  android_jar_28=$(rlocation androidsdk/platforms/android-28/android.jar)
-  if [[ ! -r "$android_jar_28" ]]; then
+
+  # Required for runfiles library on Windows, since $(rlocation) lookups
+  # can't do directories. We use android-28's android.jar as the anchor
+  # for the androidsdk location.
+  android_sdk_anchor=$(rlocation androidsdk/platforms/android-28/android.jar)
+  if [[ ! -r "$android_sdk_anchor" ]]; then
     echo "Not running Android tests due to lack of an Android SDK."
     exit 1
   fi

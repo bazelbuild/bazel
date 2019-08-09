@@ -193,7 +193,7 @@ sh_test(
 test_suite(
     name = "windows_tests",
     tags = [
-        "-no_windows",
+        "-no-windows",
     ],
     visibility = ["//visibility:private"],
 )

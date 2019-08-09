@@ -54,7 +54,6 @@ function test_build_with_aapt() {
   create_android_binary
 
   assert_build //java/bazel:bin --android_aapt=aapt
-  bazel shutdown
 }
 
 function test_build_with_aapt2() {
@@ -63,7 +62,6 @@ function test_build_with_aapt2() {
   create_android_binary
 
   assert_build //java/bazel:bin --android_aapt=aapt2
-  bazel shutdown
 }
 
 function test_build_with_aapt2_skip_parsing_action() {
@@ -74,7 +72,21 @@ function test_build_with_aapt2_skip_parsing_action() {
   assert_build //java/bazel:bin \
     --android_aapt=aapt2 \
     --experimental_skip_parsing_action
-  bazel shutdown
 }
 
+function tear_down() {
+  # Saves 10 seconds per test on Windows by properly shutting down the server to release
+  # a lock on a temp file for deletion. e.g. without bazel shutdown:
+  # INFO[aapt_integration_test 2019-08-08 21:37:30 (-0400)] Cleaning up workspace
+  # rm: cannot remove
+  # 'C:/users/user/_bazel_user/wqlyjfgb/execroot/io_bazel/_tmp/778a66baaf866926175b5b5753acaf30/workspace.INxSD1eY':
+  # Device or resource busy INFO[aapt_integration_test 2019-08-08 21:37:43
+  # (-0400)] try_with_timeout(rm -fr
+  # C:/users/user/_bazel_user/wqlyjfgb/execroot/io_bazel/_tmp/778a66baaf866926175b5b5753acaf30/workspace.INxSD1eY):
+  # no success after 10 seconds (timeout in 110 seconds) rm: cannot remove
+  # 'C:/users/user/_bazel_user/wqlyjfgb/execroot/io_bazel/_tmp/778a66baaf866926175b5b5753acaf30/workspace.INxSD1eY':
+  # Device or resource busy
+
+  bazel shutdown
+}
 run_suite "aapt/aapt2 integration tests"
