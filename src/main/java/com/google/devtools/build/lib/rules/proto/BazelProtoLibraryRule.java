@@ -73,11 +73,6 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
             attr("srcs", LABEL_LIST)
                 .direct_compile_time_input()
                 .allowedFileTypes(FileType.of(".proto"), FileType.of(".protodevel")))
-        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(proto_source_root) -->
-        Directory containing .proto files. If set, it must be equal to the package name. If not set,
-        the source root will be the workspace directory (default).
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("proto_source_root", STRING))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(exports) -->
         List of proto_library targets that can be referenced via "import public" in the proto
         source.

@@ -170,20 +170,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean disableLegacyProvider;
 
     @Option(
-        name = "incompatible_disable_proto_source_root",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "If true, proto_library will no longer allow the proto_source_root= attribute. It has "
-                + "been superseded by the strip_import_prefix= and import_prefix= attributes")
-    public boolean disableProtoSourceRoot;
-
-    @Option(
         name = "incompatible_load_proto_rules_from_bzl",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -201,7 +187,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
       host.disableLegacyProvider = disableLegacyProvider;
-      host.disableProtoSourceRoot = disableProtoSourceRoot;
       host.loadProtoRulesFromBzl = loadProtoRulesFromBzl;
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
@@ -256,10 +241,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public boolean enableLegacyProvider() {
     return !options.disableLegacyProvider;
-  }
-
-  public boolean enableProtoSourceroot() {
-    return !options.disableProtoSourceRoot;
   }
 
   public ImmutableList<String> protocOpts() {

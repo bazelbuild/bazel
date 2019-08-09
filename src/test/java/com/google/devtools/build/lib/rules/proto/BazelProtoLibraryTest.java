@@ -254,19 +254,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDisableProtoSourceRoot() throws Exception {
-    useConfiguration(
-        "--proto_compiler=//proto:compiler", "--incompatible_disable_proto_source_root");
-    scratch.file(
-        "x/BUILD",
-        ProtoTestHelper.LOAD_PROTO_LIBRARY,
-        "proto_library(name='x', srcs=['x.proto'], proto_source_root='x')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//x:x");
-    assertContainsEvent("this attribute is not supported anymore");
-  }
-
-  @Test
   public void testStripImportPrefixWithoutDeps() throws Exception {
     scratch.file(
         "third_party/x/foo/BUILD",
@@ -290,7 +277,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testProtoSourceRootWithDepsDuplicate() throws Exception {
+  public void testStripImportPrefixWithDepsDuplicate() throws Exception {
     scratch.file(
         "third_party/x/foo/BUILD",
         ProtoTestHelper.LOAD_PROTO_LIBRARY,

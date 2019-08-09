@@ -47,6 +47,18 @@ public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
     @Option(
+        name = "incompatible_disable_proto_source_root",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        },
+        help = "Deprecated no-op.")
+    public boolean disableProtoSourceRoot;
+
+    @Option(
         name = "incompatible_do_not_emit_buggy_external_repo_import",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
