@@ -383,8 +383,6 @@ public final class JavaCompilationHelper {
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
-    builder.setReduceClasspath(
-        getJavaConfiguration().getReduceJavaClasspath() != JavaClasspathMode.OFF);
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setTargetLabel(attributes.getTargetLabel());
