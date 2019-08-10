@@ -76,6 +76,7 @@ public final class MockJ2ObjcSupport {
 
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/BUILD",
+        MockProtoSupport.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "filegroup(",
@@ -101,6 +102,7 @@ public final class MockJ2ObjcSupport {
 
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/proto/BUILD",
+        MockProtoSupport.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "proto_library(name = 'blacklisted',",
         "              srcs = ['blacklisted.proto'])");

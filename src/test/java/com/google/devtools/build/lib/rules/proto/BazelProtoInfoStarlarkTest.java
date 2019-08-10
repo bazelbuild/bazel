@@ -42,6 +42,9 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
     scratch.file("myinfo/BUILD");
     MockProtoSupport.setup(mockToolsConfig);
+
+    MockProtoSupport.setupWorkspace(scratch);
+    invalidatePackages();
   }
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
@@ -64,6 +67,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     scratch.file(
         "foo/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load(':test.bzl', 'test')",
         "test(name='test', dep=':proto')",
         "proto_library(name='proto', srcs=['p.proto'])");
@@ -102,6 +106,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     scratch.file(
         "foo/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load(':test.bzl', 'test')",
         "test(name='test', dep=':proto')",
         "proto_library(name='proto', srcs=['p.proto'])");
@@ -126,6 +131,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     scratch.file(
         "foo/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load(':test.bzl', 'test')",
         "test(name='test', dep=':proto')",
         "proto_library(name='proto', srcs=['p.proto'])");
@@ -149,6 +155,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     scratch.file(
         "foo/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load(':test.bzl', 'test')",
         "test(name='test', dep=':proto')",
         "proto_library(name='proto', srcs=['p.proto'])");
@@ -178,6 +185,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     scratch.file(
         "third_party/foo/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "licenses(['unencumbered'])",
         "load(':myTestRule.bzl', 'my_test_rule')",
         "my_test_rule(",

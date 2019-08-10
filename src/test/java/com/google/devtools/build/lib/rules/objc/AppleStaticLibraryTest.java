@@ -28,10 +28,12 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.Set;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -58,6 +60,12 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
       return attributes.build();
     }
   };
+
+  @Before
+  public void setUp() throws Exception {
+    MockProtoSupport.setupWorkspace(scratch);
+    invalidatePackages();
+  }
 
   @Test
   public void testMandatoryMinimumOsVersionUnset() throws Exception {
@@ -240,6 +248,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_main',",

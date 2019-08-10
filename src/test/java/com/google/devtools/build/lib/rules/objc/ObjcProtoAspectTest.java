@@ -42,6 +42,9 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
   public final void initializeToolsConfigMock() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
     MockObjcSupport.setup(mockToolsConfig);
+
+    MockProtoSupport.setupWorkspace(scratch);
+    invalidatePackages();
   }
 
   @Test
@@ -50,6 +53,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     scratch.file("x/data_filter.pbascii");
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "  name = 'protos',",
@@ -71,6 +75,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     scratch.file("x/data_filter.pbascii");
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "  name = 'protos',",
@@ -116,6 +121,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     scratch.file("x/data_filter.pbascii");
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "objc_library(",
         "  name = 'x',",
@@ -154,6 +160,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "objc_library(",
         "  name = 'x',",
@@ -187,6 +194,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     scratch.file("x/filter.pbascii");
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "objc_library(",
         "  name = 'x',",
@@ -246,6 +254,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "  name = 'protos',",

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
@@ -46,9 +47,10 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    mockToolsConfig.create("/protobuf/WORKSPACE");
-    mockToolsConfig.overwrite(
-        "/protobuf/BUILD",
+    scratch.file("protobuf/WORKSPACE");
+    scratch.overwriteFile(
+        "protobuf/BUILD",
+        MockProtoSupport.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['protoc'])",
         "proto_lang_toolchain(",
@@ -56,13 +58,13 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "    command_line = '--cpp_out=$(OUT)',",
         "    blacklisted_protos = [],",
         ")");
-
-    String existingWorkspace =
-        new String(FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
-    mockToolsConfig.overwrite(
+    scratch.appendFile(
         "WORKSPACE",
-        "local_repository(name = 'com_google_protobuf', path = '/protobuf/')",
-        existingWorkspace);
+        "local_repository(",
+        "    name = 'com_google_protobuf',",
+        "    path = 'protobuf',",
+        ")");
+    MockProtoSupport.setupWorkspace(scratch);
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
   }
 
@@ -78,6 +80,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
     assertThat(prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto"))))
@@ -89,6 +92,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void canBeUsedFromCcRules() throws Exception {
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "cc_library(name = 'foo', srcs = ['foo.cc'], deps = ['foo_cc_proto'])",
         "cc_binary(name = 'bin', srcs = ['bin.cc'], deps = ['foo_cc_proto'])",
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
@@ -108,6 +112,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "x",
         "foo_cc_proto",
         "'deps' attribute must contain exactly one label",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto', 'bar_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])",
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
@@ -123,6 +128,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void aliasProtos() throws Exception {
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['alias_proto'])",
         "proto_library(name = 'alias_proto', deps = [':foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
@@ -137,6 +143,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void ccCompilationContext() throws Exception {
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'], deps = [':bar_proto'])",
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
@@ -151,6 +158,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void outputDirectoryForProtoCompileAction() throws Exception {
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = [':bar_proto'])",
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
 
@@ -174,6 +182,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     // Create the rule '@bla//foo:bar_proto'.
     scratch.file(
         "/bla/foo/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
     String existingWorkspace =
@@ -220,6 +229,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "--cc_proto_library_source_suffixes=.pb.cc,.pb.cc.meta");
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
 
@@ -235,6 +245,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=.");
     scratch.file(
         "x/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
     ConfiguredTarget target = getConfiguredTarget("//x:foo_cc_proto");
@@ -257,6 +268,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
     scratch.file(
         "/yolo_repo/yolo_pkg/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "proto_library(",
         "  name = 'yolo_proto',",
         "  srcs = ['yolo.proto'],",
@@ -281,6 +293,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
     scratch.file(
         "/yolo_repo/yolo_pkg/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "proto_library(",
         "  name = 'yolo_proto',",
         "  srcs = ['yolo.proto'],",
@@ -304,6 +317,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
     scratch.file(
         "/yolo_repo/yolo_pkg/BUILD",
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "proto_library(",
         "  name = 'yolo_proto',",
         "  srcs = ['yolo.proto'],",
@@ -356,6 +370,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_proto_library"),
+        MockProtoSupport.LOAD_PROTO_LIBRARY,
         "cc_proto_library(",
         "    name='a',",
         "    deps=[':a_p'],",
