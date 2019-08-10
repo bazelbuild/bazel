@@ -52,7 +52,7 @@ android_library(
 )
 EOF
   cat > java/com/bin/AndroidManifest.xml <<EOF
-<manifest package='com.bin' />
+<manifest xmlns:android='http://schemas.android.com/apk/res/android' package='com.bin' />
 EOF
   cat > java/com/bin/Bin.java <<EOF
 package com.bin;

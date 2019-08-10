@@ -348,6 +348,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "android_sdk(",
         "    name = 'sdk',",
         "    aapt = ':static_aapt_tool',",
+        "    aapt2 = ':static_aapt2_tool',",
         "    adb = ':static_adb_tool',",
         "    aidl = ':static_aidl_tool',",
         "    android_jar = ':android_runtime_jar',",
