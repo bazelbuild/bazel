@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.commons.lang.StringUtils;
 
 /**
  * Skylark String module.
@@ -290,21 +289,25 @@ public final class StringModule {
     if (maxSplitO != Runtime.NONE) {
       maxSplit = Math.max(0, (Integer) maxSplitO);
     }
-    if (oldString.equals("")) {
-      StringBuilder sb = new StringBuilder();
-      for (int i = 0; i < self.length(); i++) {
-        if (maxSplit > 0) {
-          sb.append(newString);
-          maxSplit--;
-        }
-        sb.append(self.charAt(i));
-      }
-      if (maxSplit > 0) {
+    StringBuilder sb = new StringBuilder();
+    int start = 0;
+    for (int i = 0; i < maxSplit; i++) {
+      if (oldString.isEmpty()) {
         sb.append(newString);
+        if (start < self.length()) {
+          sb.append(self.charAt(start++));
+        } else {
+          break;
+        }
+      } else {
+        int end = self.indexOf(oldString, start);
+        if (end < 0) break;
+        sb.append(self, start, end).append(newString);
+        start = end + oldString.length();
       }
-      return sb.toString();
     }
-    return StringUtils.replace(self, oldString, newString, maxSplit);
+    sb.append(self, start, self.length());
+    return sb.toString();
   }
 
   @SkylarkCallable(
