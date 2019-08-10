@@ -91,8 +91,9 @@ public abstract class Root implements Comparable<Root>, Serializable {
           new BigInteger(
               1,
               DigestHashFunction.SHA256
-                  .cloneOrCreateMessageDigest()
-                  .digest(path.getPathString().getBytes(StandardCharsets.UTF_8)));
+                  .getHashFunction()
+                  .hashString(path.getPathString(), StandardCharsets.UTF_8)
+                  .asBytes());
     }
 
     @Override
