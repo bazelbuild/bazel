@@ -183,6 +183,7 @@ public class Aapt2ResourcePackagingAction {
               .withAssets(assetDirs)
               .buildVersion(aaptConfigOptions.buildToolsVersion)
               .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
+              .resourcePathShortening(aaptConfigOptions.resourcePathShortening)
               .filterToDensity(options.densities)
               .storeUncompressed(aaptConfigOptions.uncompressedExtensions)
               .debug(aaptConfigOptions.debug)
