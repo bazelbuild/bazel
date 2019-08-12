@@ -1123,6 +1123,7 @@ EOF
 }
 
 test_local_config_platform_recorded() {
+  init_test_distdir
   # Verify that the auto-generated local_config_platform repo is
   # recorded in the resolved file
   mkdir main
@@ -1140,6 +1141,7 @@ EOF
   touch data.txt
   # Turn on the new host platforms so the repository is used.
   bazel build \
+      --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
       --incompatible_auto_configure_host_platform \
       --experimental_repository_resolved_file=resolved.bzl \
        -- \
