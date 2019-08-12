@@ -511,6 +511,8 @@ distdir_tar(
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        # bazelbuild/rules_pkg
+        "rules_pkg-0.2.0.tar.gz",
         # bazelbuild/rules_cc
         "plf-moving-tools.zip",
         # com_google_googletest
@@ -544,6 +546,8 @@ distdir_tar(
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+        # bazelbuild/rules_pkg
+        "rules_pkg-0.2.0.tar.gz": "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
         # bazelbuild/rules_cc
         "plf-moving-tools.zip": "62c5dfece3ed84c66b97d4f1495a7f42e3cdfa9a4ca1b18fc6eb5e8d33741f53",
         # com_google_googletest
@@ -583,6 +587,11 @@ distdir_tar(
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
             "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        ],
+        # bazelbuild/rules_pkg
+        "rules_pkg-0.2.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
         ],
         # bazelbuild/rules_cc
         "plf-moving-tools.zip": [
