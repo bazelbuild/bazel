@@ -34,7 +34,6 @@ import io.grpc.Status;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -232,9 +231,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
         try {
           Digest d = digestUtil.compute(temp);
-          try (InputStream in = temp.getInputStream()) {
-            cache.uploadStream(d, in);
-          }
+          cache.uploadFile(d, temp);
           try {
             temp.delete();
           } catch (IOException e) {

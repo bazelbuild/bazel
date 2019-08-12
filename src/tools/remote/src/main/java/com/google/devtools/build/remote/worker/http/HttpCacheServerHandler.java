@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.remote.worker;
+package com.google.devtools.build.remote.worker.http;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -39,8 +41,18 @@ import java.util.regex.Pattern;
 @Sharable
 public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
-  final ConcurrentMap<String, byte[]> cache = new ConcurrentHashMap<>();
   private static final Pattern URI_PATTERN = Pattern.compile("^/?(.*/)?(ac/|cas/)([a-f0-9]{64})$");
+
+  private final ConcurrentMap<String, byte[]> cache;
+
+  @VisibleForTesting
+  public HttpCacheServerHandler(ConcurrentMap<String, byte[]> cache) {
+    this.cache = Preconditions.checkNotNull(cache);
+  }
+
+  HttpCacheServerHandler() {
+    this(new ConcurrentHashMap<>());
+  }
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
@@ -114,12 +126,10 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
 
   private static void sendError(
       ChannelHandlerContext ctx, FullHttpRequest request, HttpResponseStatus status) {
-    FullHttpResponse response =
-        new DefaultFullHttpResponse(
-            HttpVersion.HTTP_1_1,
-            status,
-            Unpooled.copiedBuffer("Failure: " + status + "\r\n", CharsetUtil.UTF_8));
+    ByteBuf data = Unpooled.copiedBuffer("Failure: " + status + "\r\n", CharsetUtil.UTF_8);
+    FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, data);
     response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
+    response.headers().set(HttpHeaderNames.CONTENT_LENGTH, data.readableBytes());
     ChannelFuture future = ctx.writeAndFlush(response);
 
     if (!HttpUtil.isKeepAlive(request)) {

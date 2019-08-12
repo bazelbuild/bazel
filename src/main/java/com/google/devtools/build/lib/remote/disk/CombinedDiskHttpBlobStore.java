@@ -13,16 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -53,15 +55,6 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void put(String key, long length, InputStream in)
-      throws IOException, InterruptedException {
-    diskCache.put(key, length, in);
-    try (InputStream inFile = diskCache.toPath(key, /* actionResult= */ false).getInputStream()) {
-      remoteCache.put(key, length, inFile);
-    }
-  }
-
-  @Override
   public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
     diskCache.putActionResult(key, in);
     remoteCache.putActionResult(key, in);
@@ -71,6 +64,32 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   public void close() {
     diskCache.close();
     remoteCache.close();
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
+    try {
+      diskCache.uploadFile(digest, file).get();
+      remoteCache.uploadFile(digest, file).get();
+    } catch (ExecutionException e) {
+      return Futures.immediateFailedFuture(e.getCause());
+    } catch (InterruptedException e) {
+      return Futures.immediateFailedFuture(e);
+    }
+    return Futures.immediateFuture(null);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+    try {
+      diskCache.uploadBlob(digest, data).get();
+      remoteCache.uploadBlob(digest, data).get();
+    } catch (ExecutionException e) {
+      return Futures.immediateFailedFuture(e.getCause());
+    } catch (InterruptedException e) {
+      return Futures.immediateFailedFuture(e);
+    }
+    return Futures.immediateFuture(null);
   }
 
   @Override

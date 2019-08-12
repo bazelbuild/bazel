@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import com.google.common.base.Throwables;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -38,14 +39,12 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
 /**
@@ -57,17 +56,12 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache {
-  private static final int MAX_BLOB_SIZE_FOR_INLINE = 10 * 1024;
-
   private final SimpleBlobStore blobStore;
-
-  private final ConcurrentHashMap<String, Boolean> storedBlobs;
 
   public SimpleBlobStoreActionCache(
       RemoteOptions options, SimpleBlobStore blobStore, DigestUtil digestUtil) {
     super(options, digestUtil);
     this.blobStore = blobStore;
-    this.storedBlobs = new ConcurrentHashMap<>();
   }
 
   public void downloadTree(Digest rootDigest, Path rootLocation)
@@ -84,13 +78,6 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     }
   }
 
-  private Digest uploadFileContents(Path file) throws IOException, InterruptedException {
-    Digest digest = digestUtil.compute(file);
-    try (InputStream in = file.getInputStream()) {
-      return uploadStream(digest, in);
-    }
-  }
-
   @Override
   public void upload(
       DigestUtil.ActionKey actionKey,
@@ -103,12 +90,14 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     ActionResult.Builder result = ActionResult.newBuilder();
     upload(result, actionKey, action, command, execRoot, files, /* uploadAction= */ true);
     if (outErr.getErrorPath().exists()) {
-      Digest stderr = uploadFileContents(outErr.getErrorPath());
-      result.setStderrDigest(stderr);
+      Digest stdErrDigest = digestUtil.compute(outErr.getErrorPath());
+      uploadFile(stdErrDigest, outErr.getErrorPath());
+      result.setStderrDigest(stdErrDigest);
     }
     if (outErr.getOutputPath().exists()) {
-      Digest stdout = uploadFileContents(outErr.getOutputPath());
-      result.setStdoutDigest(stdout);
+      Digest stdoutDigest = digestUtil.compute(outErr.getOutputPath());
+      uploadFile(stdoutDigest, outErr.getOutputPath());
+      result.setStdoutDigest(stdoutDigest);
     }
     blobStore.putActionResult(actionKey.getDigest().getHash(), result.build().toByteArray());
   }
@@ -135,54 +124,32 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     }
 
     for (Map.Entry<Digest, Path> entry : manifest.getDigestToFile().entrySet()) {
-      try (InputStream in = entry.getValue().getInputStream()) {
-        uploadStream(entry.getKey(), in);
-      }
+      uploadFile(entry.getKey(), entry.getValue());
     }
 
     for (Map.Entry<Digest, Chunker> entry : manifest.getDigestToChunkers().entrySet()) {
-      uploadBlob(entry.getValue().next().getData().toByteArray(), entry.getKey());
+      uploadBlob(entry.getKey(), entry.getValue().next().getData());
     }
   }
 
-  public void uploadOutErr(ActionResult.Builder result, byte[] stdout, byte[] stderr)
-      throws IOException, InterruptedException {
-    if (stdout.length <= MAX_BLOB_SIZE_FOR_INLINE) {
-      result.setStdoutRaw(ByteString.copyFrom(stdout));
-    } else if (stdout.length > 0) {
-      result.setStdoutDigest(uploadBlob(stdout));
-    }
-    if (stderr.length <= MAX_BLOB_SIZE_FOR_INLINE) {
-      result.setStderrRaw(ByteString.copyFrom(stderr));
-    } else if (stderr.length > 0) {
-      result.setStderrDigest(uploadBlob(stderr));
+  public void uploadFile(Digest digest, Path file) throws IOException, InterruptedException {
+    try {
+      blobStore.uploadFile(digest, file).get();
+    } catch (ExecutionException e) {
+      Throwables.propagateIfPossible(e.getCause(), IOException.class, InterruptedException.class);
+      throw new IOException(
+          String.format("Uploading of file '%s' failed: %s", file.getPathString(), e.getCause()));
     }
   }
 
-  public Digest uploadBlob(byte[] blob) throws IOException, InterruptedException {
-    return uploadBlob(blob, digestUtil.compute(blob));
-  }
-
-  private Digest uploadBlob(byte[] blob, Digest digest) throws IOException, InterruptedException {
-    try (InputStream in = new ByteArrayInputStream(blob)) {
-      return uploadStream(digest, in);
+  public void uploadBlob(Digest digest, ByteString data) throws IOException, InterruptedException {
+    try {
+      blobStore.uploadBlob(digest, data).get();
+    } catch (ExecutionException e) {
+      Throwables.propagateIfPossible(e.getCause(), IOException.class, InterruptedException.class);
+      throw new IOException(
+          String.format("Uploading of blob with digest '%s' failed: %s", digest, e.getCause()));
     }
-  }
-
-  public Digest uploadStream(Digest digest, InputStream in)
-      throws IOException, InterruptedException {
-    final String hash = digest.getHash();
-
-    if (storedBlobs.putIfAbsent(hash, true) == null) {
-      try {
-        blobStore.put(hash, digest.getSizeBytes(), in);
-      } catch (Exception e) {
-        storedBlobs.remove(hash);
-        throw e;
-      }
-    }
-
-    return digest;
   }
 
   public boolean containsKey(Digest digest) throws IOException, InterruptedException {
@@ -256,5 +223,9 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
         },
         MoreExecutors.directExecutor());
     return outerF;
+  }
+
+  public DigestUtil getDigestUtil() {
+    return digestUtil;
   }
 }

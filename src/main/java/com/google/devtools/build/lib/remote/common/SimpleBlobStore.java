@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.remote.common;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -50,16 +52,25 @@ public interface SimpleBlobStore {
    */
   ListenableFuture<Boolean> getActionResult(String actionKey, OutputStream out);
 
-  /**
-   * Uploads a BLOB (as {@code in}) with length {@code length} indexed by {@code key} to the CAS.
-   *
-   * <p>The caller is responsible to close {@code in}.
-   */
-  void put(String key, long length, InputStream in) throws IOException, InterruptedException;
-
   /** Uploads a bytearray BLOB (as {@code in}) indexed by {@code key} to the Action Cache. */
   void putActionResult(String actionKey, byte[] in) throws IOException, InterruptedException;
 
   /** Close resources associated with the blob store. */
   void close();
+
+  /**
+   * Uploads a file.
+   *
+   * @param digest the digest of the file.
+   * @param file the file to upload.
+   */
+  ListenableFuture<Void> uploadFile(Digest digest, Path file);
+
+  /**
+   * Uploads a BLOB.
+   *
+   * @param digest the digest of the blob.
+   * @param data the blob to upload.
+   */
+  ListenableFuture<Void> uploadBlob(Digest digest, ByteString data);
 }
