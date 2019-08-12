@@ -82,10 +82,7 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     # See https://github.com/bazelbuild/bazel/issues/8235
-    tags = [
-        "no-remote",
-        "no-windows",
-    ],
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -134,10 +131,7 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     # See https://github.com/bazelbuild/bazel/issues/8235
-    tags = [
-        "no-remote",
-        "no-windows",
-    ],
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -150,10 +144,7 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     # See https://github.com/bazelbuild/bazel/issues/8235
-    tags = [
-        "no-remote",
-        "no-windows",
-    ],
+    tags = ["no-remote"],
 )
 
 sh_test(
@@ -175,7 +166,7 @@ sh_test(
 
 sh_test(
     name = "resource_processing_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["resource_processing_integration_test.sh"],
     data = [
         ":android_helper",
@@ -184,10 +175,7 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     # See https://github.com/bazelbuild/bazel/issues/8235
-    tags = [
-        "no-remote",
-        "no-windows",
-    ],
+    tags = ["no-remote"],
 )
 
 test_suite(
