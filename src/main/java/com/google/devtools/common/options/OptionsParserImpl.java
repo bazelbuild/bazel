@@ -613,7 +613,7 @@ class OptionsParserImpl {
         OptionsData.getAllOptionDefinitionsForClass(optionsClass)) {
       Object value;
       OptionValueDescription optionValue = optionValues.get(optionDefinition);
-      if (optionValue == null || optionValue.getValue() == null) {
+      if (optionValue == null) {
         value = optionDefinition.getDefaultValue();
       } else {
         value = optionValue.getValue();
