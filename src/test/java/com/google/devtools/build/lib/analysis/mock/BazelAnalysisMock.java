@@ -121,10 +121,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
             String contents;
             /**
              *  This replaces following lines from cc/private/toolchain/BUILD
-             *  85 alias(
-             *  86     name = "toolchain",
-             *  87     actual = "//external:cc_toolchain",
-             *  88 )
+             *  90 alias(
+             *  91     name = "toolchain",
+             *  92     actual = "//external:cc_toolchain",
+             *  93 )
              *
              *  This is mocked differently in tests compared to the real thing.
              */
@@ -133,7 +133,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
               int lineNumber = 0;
               for (String line : java.nio.file.Files.readAllLines(x, UTF_8)) {
                 lineNumber++;
-                if (lineNumber >= 85 && lineNumber <= 88) {
+                if (lineNumber >= 90 && lineNumber <= 93) {
                   continue;
                 }
                 lines.append(line + "\n");
