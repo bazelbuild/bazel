@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.List;
@@ -36,7 +36,7 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
       Path sandboxExecRoot,
       List<String> arguments,
       Map<String, String> environment,
-      Map<PathFragment, Path> inputs,
+      SandboxInputs inputs,
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter) {

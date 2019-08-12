@@ -248,7 +248,16 @@ public final class ActionMetadataHandler implements MetadataHandler {
       // Nonexistent files should only occur before executing an action.
       throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
     }
+
+    if (data.getType() == FileStateType.SYMLINK) {
+      // We never create a FileArtifactValue for an unresolved symlink without a digest (calling
+      // readlink() is easy, unlike checksumming a potentially huge file)
+      Preconditions.checkState(data.getDigest() != null);
+      return data;
+    }
+
     boolean isFile = data.getType() == FileStateType.REGULAR_FILE;
+
     if (isFile && !artifact.hasParent() && data.getDigest() != null) {
       // We do not need to store the FileArtifactValue separately -- the digest is in the file value
       // and that is all that is needed for this file's metadata.
@@ -274,7 +283,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
       // didn't store the digest So we store the metadata separately.
       // Use the ArtifactFileMetadata's digest if no digest was injected, or if the file can't be
       // digested.
-      if (injectedDigest == null) {
+      if (injectedDigest == null && isFile) {
         injectedDigest =
             DigestUtils.getDigestOrFail(artifactPathResolver.toPath(artifact), data.getSize());
       }
@@ -426,6 +435,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
   @Override
   public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
     Preconditions.checkState(executionMode.get());
+    Preconditions.checkState(!output.isSymlink());
+
     // Assumption: any non-Artifact output is 'virtual' and should be ignored here.
     if (output instanceof Artifact) {
       final Artifact artifact = (Artifact) output;
@@ -625,6 +636,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
     if (statNoFollow == null || !statNoFollow.isSymbolicLink()) {
       return fileArtifactValueFromStat(
           rootedPathNoFollow, statNoFollow, artifact.isConstantMetadata(), tsgm);
+    }
+
+    if (artifact.isSymlink()) {
+      return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow.readSymbolicLink());
     }
 
     // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat

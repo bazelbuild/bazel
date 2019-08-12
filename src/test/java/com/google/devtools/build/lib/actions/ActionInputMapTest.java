@@ -134,6 +134,11 @@ public final class ActionInputMapTest {
     }
 
     @Override
+    public boolean isSymlink() {
+      return false;
+    }
+
+    @Override
     public PathFragment getExecPath() {
       return fragment;
     }

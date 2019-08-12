@@ -505,6 +505,11 @@ public abstract class Artifact
     return contentBasedPath;
   }
 
+  @Override
+  public boolean isSymlink() {
+    return false;
+  }
+
   /**
    * Returns the path of this Artifact relative to this containing Artifact. Since
    * ordinary Artifacts correspond to only one Artifact -- itself -- for ordinary Artifacts,
@@ -625,8 +630,19 @@ public abstract class Artifact
    */
   @VisibleForTesting
   public enum SpecialArtifactType {
+    /** Google-specific legacy type. */
     FILESET,
+
+    /**
+     * A symlink. Not chased, can be dangling. All we care about is the return value of {@code
+     * readlink()}.
+     */
+    UNRESOLVED_SYMLINK,
+
+    /** A subtree containing multiple files and directories. */
     TREE,
+
+    /** Special artifact type for workspace status information. */
     CONSTANT_METADATA,
   }
 
@@ -675,6 +691,11 @@ public abstract class Artifact
     @Override
     public boolean isTreeArtifact() {
       return type == SpecialArtifactType.TREE;
+    }
+
+    @Override
+    public boolean isSymlink() {
+      return type == SpecialArtifactType.UNRESOLVED_SYMLINK;
     }
 
     @Override
