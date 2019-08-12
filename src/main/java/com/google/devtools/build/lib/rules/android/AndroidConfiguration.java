@@ -816,17 +816,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean throwOnResourceConflict;
 
     @Option(
-        name = "experimental_skip_parsing_action",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Skips resource parsing action for library targets"
-                + " and uses the output of the compile action instead for resource merging.")
-    // TODO(b/136572475): Remove this flag once the usage has been removed from blazerc files.
-    public boolean skipParsingAction;
-
-    @Option(
         name = "experimental_omit_resources_info_provider_from_android_binary",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

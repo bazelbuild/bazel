@@ -329,8 +329,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
   @Test
   public void testMergeCompiled() throws Exception {
-    useConfiguration("--experimental_skip_parsing_action");
-
     RuleContext ruleContext = getRuleContext();
     ParsedAndroidResources parsed = assertParse(ruleContext, AndroidAaptVersion.AAPT2);
     MergedAndroidResources merged =

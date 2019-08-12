@@ -62,14 +62,4 @@ function test_build_with_aapt2() {
   assert_build //java/bazel:bin --android_aapt=aapt2
 }
 
-function test_build_with_aapt2_skip_parsing_action() {
-  create_new_workspace
-  setup_android_sdk_support
-  create_android_binary
-
-  assert_build //java/bazel:bin \
-    --android_aapt=aapt2 \
-    --experimental_skip_parsing_action
-}
-
 run_suite "aapt/aapt2 integration tests"
