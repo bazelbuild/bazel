@@ -269,10 +269,8 @@ public class JavaHeaderCompileActionBuilder {
             .addTransitive(additionalInputs)
             .addAll(bootclasspathEntries)
             .addAll(sourceJars)
-            .addAll(sourceFiles);
-
-    // Tools are by definition a subset of the inputs, so make sure they're present there, too.
-    mandatoryInputs.addTransitive(toolsJars);
+            .addAll(sourceFiles)
+            .addTransitive(toolsJars);
 
     ImmutableList<RunfilesSupplier> runfilesSuppliers = ImmutableList.of();
     FilesToRunProvider headerCompiler =
@@ -359,7 +357,7 @@ public class JavaHeaderCompileActionBuilder {
       ruleContext.registerAction(
           new SpawnAction(
               /* owner= */ ruleContext.getActionOwner(),
-              /* tools= */ toolsJars,
+              /* tools= */ ImmutableList.of(),
               /* inputs= */ mandatoryInputs.build(),
               /* outputs= */ outputs,
               /* primaryOutput= */ outputJar,
@@ -420,7 +418,7 @@ public class JavaHeaderCompileActionBuilder {
     ruleContext.registerAction(
         new SpawnAction(
             /* owner= */ ruleContext.getActionOwner(),
-            /* tools= */ toolsJars,
+            /* tools= */ ImmutableList.of(),
             /* inputs= */ mandatoryInputs.build(),
             /* outputs= */ outputs,
             /* primaryOutput= */ outputJar,
