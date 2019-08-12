@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,16 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.cmdline.Label;
+/** A minimal context available during rule definition, for both native and starlark rules. */
+public interface RuleDefinitionContext {
 
-/** Encapsulates the services available for implementors of the {@link RuleDefinition} interface. */
-public interface RuleDefinitionEnvironment extends RuleDefinitionContext {
-  /**
-   * Prepends the tools repository path to the given string and parses the result using {@link
-   * Label#parseAbsoluteUnchecked}.
-   */
-  Label getToolsLabel(String labelValue);
-
-  /** Returns whether the execution transition should be enabled. */
-  boolean enableExecutionTransition();
+  /** Returns the name of the tools repository. */
+  String getToolsRepository();
 }

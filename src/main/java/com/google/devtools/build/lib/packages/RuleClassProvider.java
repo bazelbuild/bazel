@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -29,7 +30,7 @@ import javax.annotation.Nullable;
 /**
  * The collection of the supported build rules. Provides an Environment for Skylark rule creation.
  */
-public interface RuleClassProvider {
+public interface RuleClassProvider extends RuleDefinitionContext {
 
   /**
    * Label referencing the prelude file.
@@ -88,11 +89,6 @@ public interface RuleClassProvider {
    * <p>Used to load skylark repository in the bazel_tools repository.
    */
   String getDefaultWorkspaceSuffix();
-
-  /**
-   * Returns the path to the tools repository
-   */
-  String getToolsRepository();
 
   /**
    * Retrieves an aspect from the aspect factory map using the key provided

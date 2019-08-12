@@ -53,4 +53,37 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
       assertThat(allLists.get(i)).isSameInstanceAs(firstList);
     }
   }
+
+  @Test
+  public void testRuntimeListValueIsDedupedAcrossRuleClasses() throws Exception {
+    scratch.file(
+        "foo/foo.bzl",
+        "def _foo_test_impl(ctx):",
+        "  return",
+        "foo_test = rule(implementation = _foo_test_impl, test = True)");
+    scratch.file(
+        "foo/BUILD",
+        "load(':foo.bzl', 'foo_test')",
+        "[sh_test(name = str(i) + '_test', srcs = ['t.sh']) for i in range(5)]",
+        "[foo_test(name = str(i) + '_foo_test') for i in range(5)]");
+
+    Package fooPkg =
+        getPackageManager()
+            .getPackage(NullEventHandler.INSTANCE, PackageIdentifier.createInMainRepo("foo"));
+
+    ImmutableList.Builder<ImmutableList<Label>> allListsBuilder = ImmutableList.builder();
+    for (Rule ruleInstance : fooPkg.getTargets(Rule.class)) {
+      assertThat(ruleInstance.getTargetKind()).endsWith("_test rule");
+      @SuppressWarnings("unchecked")
+      ImmutableList<Label> testRuntimeList =
+          (ImmutableList<Label>) ruleInstance.getAttributeContainer().getAttr("$test_runtime");
+      allListsBuilder.add(testRuntimeList);
+    }
+    ImmutableList<ImmutableList<Label>> allLists = allListsBuilder.build();
+    assertThat(allLists).hasSize(10);
+    ImmutableList<Label> firstList = allLists.get(0);
+    for (int i = 1; i < allLists.size(); i++) {
+      assertThat(allLists.get(i)).isSameInstanceAs(firstList);
+    }
+  }
 }

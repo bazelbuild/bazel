@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -34,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -144,7 +146,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           .build();
 
   /** Parent rule class for test Skylark rules. */
-  public static final RuleClass getTestBaseRule(String toolsRepository) {
+  public static final RuleClass getTestBaseRule(RuleDefinitionContext env) {
+    String toolsRepository = env.getToolsRepository();
     return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
         .requiresConfigurationFragments(TestConfiguration.class)
         .add(
@@ -184,9 +187,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         .add(
             attr("$test_runtime", LABEL_LIST)
                 .cfg(HostTransition.createFactory())
-                .value(
-                    ImmutableList.of(
-                        labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
+                // Getting this default value through the getTestRuntimeLabelList helper ensures we
+                // reuse the same ImmutableList<Label> instance for each $test_runtime attr.
+                .value(getTestRuntimeLabelList(env)))
         .add(
             attr("$test_setup_script", LABEL)
                 .cfg(HostTransition.createFactory())
@@ -296,9 +299,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =
-        test
-            ? getTestBaseRule(bazelContext.getToolsRepository())
-            : (executable ? binaryBaseRule : baseRule);
+        test ? getTestBaseRule(bazelContext) : (executable ? binaryBaseRule : baseRule);
 
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
