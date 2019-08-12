@@ -20,6 +20,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -70,6 +72,7 @@ public class DynamicSpawnStrategyTest {
   private ExecutorService executorService;
   private MockLocalSpawnStrategy localStrategy;
   private MockRemoteSpawnStrategy remoteStrategy;
+  private MockSandboxedSpawnStrategy sandboxedStrategy;
   private SpawnActionContext dynamicSpawnStrategy;
   private Artifact inputArtifact;
   private Artifact outputArtifact;
@@ -213,6 +216,15 @@ public class DynamicSpawnStrategyTest {
     }
   }
 
+  @ExecutionStrategy(
+      name = {"mock-sandboxed"},
+      contextType = SpawnActionContext.class)
+  private static class MockSandboxedSpawnStrategy extends MockSpawnStrategy {
+    public MockSandboxedSpawnStrategy(Path testRoot, int delayMs) {
+      super(testRoot, delayMs);
+    }
+  }
+
   private static class DynamicSpawnStrategyUnderTest extends DynamicSpawnStrategy {
     public DynamicSpawnStrategyUnderTest(
         ExecutorService executorService,
@@ -249,15 +261,24 @@ public class DynamicSpawnStrategyTest {
   void createSpawnStrategy(int localDelay, int remoteDelay) throws ExecutorInitException {
     localStrategy = new MockLocalSpawnStrategy(testRoot, localDelay);
     remoteStrategy = new MockRemoteSpawnStrategy(testRoot, remoteDelay);
+    sandboxedStrategy = new MockSandboxedSpawnStrategy(testRoot, localDelay);
     options = new DynamicExecutionOptions();
-    options.dynamicLocalStrategy = "mock-local";
-    options.dynamicRemoteStrategy = "mock-remote";
+    options.dynamicLocalStrategy =
+        Lists.newArrayList(
+            Maps.immutableEntry("", ImmutableList.of("mock-local")),
+            Maps.immutableEntry("testMnemonic", ImmutableList.of("mock-sandboxed")));
+    options.dynamicRemoteStrategy =
+        Lists.newArrayList(
+            Maps.immutableEntry("", ImmutableList.of("mock-remote")),
+            Maps.immutableEntry("testMnemonic", ImmutableList.of("mock-sandboxed")));
+    DynamicExecutionModule.setDefaultStrategiesByMnemonic(options);
     options.dynamicWorkerStrategy = "mock-local";
     options.internalSpawnScheduler = true;
     options.localExecutionDelay = 0;
     dynamicSpawnStrategy =
         new DynamicSpawnStrategyUnderTest(executorService, options, this::getExecutionPolicy);
-    dynamicSpawnStrategy.executorCreated(ImmutableList.of(localStrategy, remoteStrategy));
+    dynamicSpawnStrategy.executorCreated(
+        ImmutableList.of(localStrategy, remoteStrategy, sandboxedStrategy));
   }
 
   ExecutionPolicy getExecutionPolicy(Spawn spawn) {
@@ -270,16 +291,30 @@ public class DynamicSpawnStrategyTest {
     }
   }
 
+  private static class NullActionWithMnemonic extends NullAction {
+    private final String mnemonic;
+
+    private NullActionWithMnemonic(String mnemonic, List<Artifact> inputs, Artifact... outputs) {
+      super(inputs, outputs);
+      this.mnemonic = mnemonic;
+    }
+
+    @Override
+    public String getMnemonic() {
+      return mnemonic;
+    }
+  }
+
   @After
   public void tearDown() throws Exception {
     executorService.shutdownNow();
   }
 
-  Spawn getSpawnForTest(boolean forceLocal, boolean forceRemote) {
+  Spawn getSpawnForTest(boolean forceLocal, boolean forceRemote, String mnemonic) {
     Preconditions.checkArgument(
         !(forceLocal && forceRemote), "Cannot force local and remote at the same time");
     ActionExecutionMetadata action =
-        new NullAction(ImmutableList.of(inputArtifact), outputArtifact);
+        new NullActionWithMnemonic(mnemonic, ImmutableList.of(inputArtifact), outputArtifact);
     return new BaseSpawn(
         ImmutableList.<String>of(),
         ImmutableMap.<String, String>of(),
@@ -292,7 +327,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void nonRemotableSpawnRunsLocally() throws Exception {
-    Spawn spawn = getSpawnForTest(true, false);
+    Spawn spawn = getSpawnForTest(true, false, "Null");
     createSpawnStrategy(0, 0);
 
     dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
@@ -308,7 +343,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void nonLocallyExecutableSpawnRunsRemotely() throws Exception {
-    Spawn spawn = getSpawnForTest(false, true);
+    Spawn spawn = getSpawnForTest(false, true, "Null");
     createSpawnStrategy(0, 0);
 
     dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
@@ -323,8 +358,28 @@ public class DynamicSpawnStrategyTest {
   }
 
   @Test
+  public void remoteSpawnUsesStrategyByMnemonic() throws Exception {
+    Spawn spawn = getSpawnForTest(false, true, "testMnemonic");
+    createSpawnStrategy(0, 0);
+
+    dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
+
+    assertThat(localStrategy.getExecutedSpawn()).isNull();
+    assertThat(localStrategy.succeeded()).isFalse();
+    assertThat(remoteStrategy.getExecutedSpawn()).isNull();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+    assertThat(sandboxedStrategy.getExecutedSpawn()).isEqualTo(spawn);
+    assertThat(sandboxedStrategy.succeeded()).isTrue();
+
+    assertThat(outErr.outAsLatin1())
+        .contains("output files written with MockSandboxedSpawnStrategy");
+    assertThat(outErr.outAsLatin1()).doesNotContain("MockLocalSpawnStrategy");
+    assertThat(outErr.outAsLatin1()).doesNotContain("MockRemoteSpawnStrategy");
+  }
+
+  @Test
   public void actionSucceedsIfLocalExecutionSucceedsEvenIfRemoteFailsLater() throws Exception {
-    Spawn spawn = getSpawnForTest(false, false);
+    Spawn spawn = getSpawnForTest(false, false, "Null");
     createSpawnStrategy(0, 2000);
     CountDownLatch countDownLatch = new CountDownLatch(2);
     localStrategy.beforeExecutionWaitFor(countDownLatch);
@@ -344,7 +399,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void actionSucceedsIfRemoteExecutionSucceedsEvenIfLocalFailsLater() throws Exception {
-    Spawn spawn = getSpawnForTest(false, false);
+    Spawn spawn = getSpawnForTest(false, false, "Null");
     createSpawnStrategy(2000, 0);
     CountDownLatch countDownLatch = new CountDownLatch(2);
     localStrategy.beforeExecutionWaitFor(countDownLatch);
@@ -364,7 +419,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void actionFailsIfLocalFailsImmediatelyEvenIfRemoteSucceedsLater() throws Exception {
-    Spawn spawn = getSpawnForTest(false, false);
+    Spawn spawn = getSpawnForTest(false, false, "Null");
     createSpawnStrategy(0, 2000);
     CountDownLatch countDownLatch = new CountDownLatch(2);
     localStrategy.beforeExecutionWaitFor(countDownLatch);
@@ -387,7 +442,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void actionFailsIfRemoteFailsImmediatelyEvenIfLocalSucceedsLater() throws Exception {
-    Spawn spawn = getSpawnForTest(false, false);
+    Spawn spawn = getSpawnForTest(false, false, "Null");
     createSpawnStrategy(2000, 0);
     CountDownLatch countDownLatch = new CountDownLatch(2);
     localStrategy.beforeExecutionWaitFor(countDownLatch);
@@ -410,7 +465,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void actionFailsIfLocalAndRemoteFail() throws Exception {
-    Spawn spawn = getSpawnForTest(false, false);
+    Spawn spawn = getSpawnForTest(false, false, "Null");
     createSpawnStrategy(0, 0);
     CountDownLatch countDownLatch = new CountDownLatch(2);
     localStrategy.beforeExecutionWaitFor(countDownLatch);
@@ -433,7 +488,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void noDeadlockWithSingleThreadedExecutor() throws Exception {
-    final Spawn spawn = getSpawnForTest(/*forceLocal=*/ false, /*forceRemote=*/ false);
+    final Spawn spawn = getSpawnForTest(/*forceLocal=*/ false, /*forceRemote=*/ false, "Null");
 
     // Replace the executorService with a single threaded one.
     executorService = Executors.newSingleThreadExecutor();
@@ -461,7 +516,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void interruptDuringExecutionDoesActuallyInterruptTheExecution() throws Exception {
-    final Spawn spawn = getSpawnForTest(false, false);
+    final Spawn spawn = getSpawnForTest(false, false, "Null");
     createSpawnStrategy(60000, 60000);
     CountDownLatch countDownLatch = new CountDownLatch(2);
     localStrategy.beforeExecutionWaitFor(countDownLatch);
@@ -489,7 +544,7 @@ public class DynamicSpawnStrategyTest {
 
   private void strategyWaitsForBothSpawnsToFinish(boolean interruptThread, boolean executionFails)
       throws Exception {
-    final Spawn spawn = getSpawnForTest(false, false);
+    final Spawn spawn = getSpawnForTest(false, false, "Null");
     createSpawnStrategy(0, 0);
     CountDownLatch waitToFinish = new CountDownLatch(1);
     CountDownLatch wasInterrupted = new CountDownLatch(1);
@@ -584,7 +639,7 @@ public class DynamicSpawnStrategyTest {
   }
 
   private void strategyPropagatesException(boolean preferLocal) throws Exception {
-    final Spawn spawn = getSpawnForTest(false, false);
+    final Spawn spawn = getSpawnForTest(false, false, "Null");
     createSpawnStrategy(!preferLocal ? 60000 : 0, preferLocal ? 60000 : 0);
 
     String message = "Mock spawn execution exception";
