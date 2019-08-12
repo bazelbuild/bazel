@@ -24,34 +24,34 @@ toolchain_type(name = "toolchain_type")
 # It is frequently necessary to constrain platforms based on the cc compiler type.
 constraint_setting(name = "cc_compiler")
 
-constraint_value(
+alias(
     name = "clang",
-    constraint_setting = ":cc_compiler",
+    actual = "@rules_cc//cc/private/toolchain:clang",
 )
 
-constraint_value(
+alias(
     name = "gcc",
-    constraint_setting = ":cc_compiler",
+    actual = "@rules_cc//cc/private/toolchain:gcc",
 )
 
-constraint_value(
+alias(
     name = "msvc",
-    constraint_setting = ":cc_compiler",
+    actual = "@rules_cc//cc/private/toolchain:msvc",
 )
 
-constraint_value(
+alias(
     name = "clang-cl",
-    constraint_setting = ":cc_compiler",
+    actual = "@rules_cc//cc/private/toolchain:clang-cl",
 )
 
-constraint_value(
+alias(
     name = "mingw",
-    constraint_setting = ":cc_compiler",
+    actual = "@rules_cc//cc/private/toolchain:mingw",
 )
 
-constraint_value(
+alias(
     name = "msys",
-    constraint_setting = ":cc_compiler",
+    actual = "@rules_cc//cc/private/toolchain:msys",
 )
 
 alias(
