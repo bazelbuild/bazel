@@ -33,6 +33,8 @@ platforms:
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
   ubuntu1604:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -62,6 +64,8 @@ platforms:
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
   ubuntu1804:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -95,6 +99,8 @@ platforms:
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
   ubuntu1804_clang:
     platform: ubuntu1804
     environment:
@@ -180,6 +186,8 @@ platforms:
       - "-//src/test/shell/integration:output_filter_test"
       - "-//src/test/shell/integration:stub_finds_runfiles_test"
       - "-//src/test/shell/integration:test_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
   ubuntu1804_javabase10:
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 10 Javabase"
@@ -247,6 +255,8 @@ platforms:
       - "-//src/test/shell/integration:output_filter_test"
       - "-//src/test/shell/integration:stub_finds_runfiles_test"
       - "-//src/test/shell/integration:test_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
   macos:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -298,6 +308,8 @@ platforms:
       - "-//src/test/shell/integration:minimal_jdk_test"
         # Docker sandboxing needs Docker installed
       - "-//src/test/shell/bazel:bazel_docker_sandboxing_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
   windows:
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
