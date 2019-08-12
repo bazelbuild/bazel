@@ -84,8 +84,8 @@ new_local_repository(
 # TODO(#9029): We could potentially replace this with the real @rules_python.
 new_local_repository(
     name = "rules_python",
-    path = "./third_party/rules_python",
     build_file = "//third_party/rules_python:BUILD",
+    path = "./third_party/rules_python",
     workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
 )
 
@@ -706,3 +706,14 @@ http_archive(
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 
 rules_pkg_dependencies()
+
+# Toolchains for Resource Compilation (.rc files on Windows).
+load("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
+
+winsdk_configure(name = "local_config_winsdk")
+
+load("@local_config_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains")
+
+register_local_rc_exe_toolchains()
+
+register_toolchains("//src/main/res:empty_rc_toolchain")
