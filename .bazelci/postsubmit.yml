@@ -327,6 +327,8 @@ tasks:
       - "//src:all_windows_tests"
       # TODO(iirina): Re-enable after #7952 was released.
       - "-//src/test/shell/bazel:embedded_tools_deps_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
