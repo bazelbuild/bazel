@@ -51,9 +51,11 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       Map<String, String> markerData,
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
-    PathFragment pathFragment = RepositoryFunction.getTargetPath(rule, directories.getWorkspace());
+    String userDefinedPath = RepositoryFunction.getPathAttr(rule);
+    PathFragment pathFragment =
+        RepositoryFunction.getTargetPath(userDefinedPath, directories.getWorkspace());
     RepositoryDirectoryValue.Builder result =
-        LocalRepositoryFunction.symlink(outputDirectory, pathFragment, env);
+        LocalRepositoryFunction.symlink(outputDirectory, pathFragment, userDefinedPath, env);
     if (result != null) {
       env.getListener().post(resolve(rule, directories));
     }
@@ -61,14 +63,16 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   }
 
   public static RepositoryDirectoryValue.Builder symlink(
-      Path source, PathFragment destination, Environment env)
+      Path source, PathFragment destination, String userDefinedPath, Environment env)
       throws RepositoryFunctionException, InterruptedException {
     try {
       source.createSymbolicLink(destination);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
-          new IOException("Could not create symlink to repository " + destination + ": "
-              + e.getMessage(), e), Transience.TRANSIENT);
+          new IOException(
+              String.format(
+                  "Could not create symlink to repository \"%s\" (absolute path: \"%s\"): %s",
+                  userDefinedPath, destination, e.getMessage()), e), Transience.TRANSIENT);
     }
     FileValue repositoryValue = getRepositoryDirectory(source, env);
     if (repositoryValue == null) {
@@ -79,7 +83,11 @@ public class LocalRepositoryFunction extends RepositoryFunction {
 
     if (!repositoryValue.isDirectory()) {
       throw new RepositoryFunctionException(
-          new IOException(source + " must be an existing directory"), Transience.PERSISTENT);
+          new IOException(
+              String.format(
+                  "The repository's path is \"%s\" (absolute: \"%s\") "
+                      + "but this directory does not exist.",
+                  userDefinedPath, destination)), Transience.PERSISTENT);
     }
 
     // Check that the repository contains a WORKSPACE file.

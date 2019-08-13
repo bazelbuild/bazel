@@ -476,6 +476,47 @@ EOF
 }
 
 
+function test_missing_path_reported_as_user_defined_it() {
+  cat >WORKSPACE <<eof
+local_repository(name = "foo1", path = "./missing")
+
+new_local_repository(name = "foo2", path = "./missing", build_file_content = "")
+
+android_sdk_repository(name = "foo3a", path = "./missing")
+
+android_sdk_repository(name = "foo3b")
+
+android_ndk_repository(name = "foo4a", path = "./missing")
+
+android_ndk_repository(name = "foo4b")
+eof
+
+  # All repositories can be used as a kind of marker and be queried, even if they can't be fetched.
+  for repo in foo1 foo2 foo3a foo3b foo4a foo4b; do
+    bazel query "//external:$repo" >& "$TEST_log" || fail "Expected success"
+  done
+
+  # Fetching the repositories should attempt to create symlinks to their directory.
+  # Since the directories don't exist, we expect failure.
+  bazel query @foo1//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo1.* path is \"./missing\" (absolute: \"[^\"]*workspace/missing\").*does not exist"
+
+  bazel query @foo2//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo2.* path is \"./missing\" (absolute: \"[^\"]*workspace/missing\").*does not exist"
+
+  bazel query @foo3a//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo3a.* path is \"./missing\" (absolute: \"[^\"]*workspace/missing\").*symlink could not be created"
+
+  ANDROID_HOME=./fake bazel query @foo3b//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo3b.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
+
+  bazel query @foo4a//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo4a.* path is \"./missing\" (absolute: \"[^\"]*workspace/missing\").*symlink could not be created"
+
+  ANDROID_NDK_HOME=./fake bazel query @foo4b//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo4b.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
+}
+
 function test_overlaid_build_file() {
   local mutant=$TEST_TMPDIR/mutant
   mkdir $mutant
@@ -1065,7 +1106,7 @@ local_repository(
 )
 EOF
   bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
-  expect_log "must be an existing directory"
+  expect_log "(absolute: \"$TEST_TMPDIR/r\") but this directory does not exist"
 }
 
 # Regression test for #2841.

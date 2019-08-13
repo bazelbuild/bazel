@@ -149,7 +149,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
       DigestWriter.clearMarkerFile(directories, repositoryName);
-      return setupOverride(overrides.get(repositoryName), env, repoRoot);
+      return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName.strippedName());
     }
 
     Rule rule;
@@ -330,11 +330,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private RepositoryDirectoryValue setupOverride(
-      PathFragment sourcePath, Environment env, Path repoRoot)
+      PathFragment sourcePath, Environment env, Path repoRoot, String pathAttr)
       throws RepositoryFunctionException, InterruptedException {
     setupRepositoryRoot(repoRoot);
     RepositoryDirectoryValue.Builder directoryValue =
-        LocalRepositoryFunction.symlink(repoRoot, sourcePath, env);
+        LocalRepositoryFunction.symlink(repoRoot, sourcePath, pathAttr, env);
     if (directoryValue == null) {
       return null;
     }
