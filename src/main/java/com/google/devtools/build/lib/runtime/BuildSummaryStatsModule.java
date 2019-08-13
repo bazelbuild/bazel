@@ -189,7 +189,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
       event.getResult().getBuildToolLogCollection()
           .addDirectValue("process stats", spawnSummary.getBytes(StandardCharsets.UTF_8));
     } finally {
-      criticalPathComputer = null;
+      if (criticalPathComputer != null) {
+        eventBus.unregister(criticalPathComputer);
+        criticalPathComputer = null;
+      }
       profilePath = null;
     }
   }
