@@ -14,18 +14,27 @@
 
 package com.google.devtools.build.lib.remote.options;
 
+import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.protobuf.TextFormat;
+import com.google.protobuf.TextFormat.ParseException;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.SortedMap;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
@@ -309,12 +318,27 @@ public final class RemoteOptions extends OptionsBase {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      deprecationWarning =
+          "--remote_default_platform_properties has been deprecated in favor of"
+              + " --remote_default_exec_properties.",
       help =
           "Set the default platform properties to be set for the remote execution API, "
               + "if the execution platform does not already set remote_execution_properties. "
               + "This value will also be used if the host platform is selected as the execution "
               + "platform for remote execution.")
   public String remoteDefaultPlatformProperties;
+
+  @Option(
+      name = "remote_default_exec_properties",
+      defaultValue = "[]",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = AssignmentConverter.class,
+      allowMultiple = true,
+      help =
+          "Set the default exec properties to be used as the remote execution platform "
+              + "if an execution platform does not already set exec_properties.")
+  public List<Map.Entry<String, String>> remoteDefaultExecProperties;
 
   @Option(
       name = "remote_verify_downloads",
@@ -334,5 +358,47 @@ public final class RemoteOptions extends OptionsBase {
 
   public boolean isRemoteEnabled() {
     return !Strings.isNullOrEmpty(remoteCache) || !Strings.isNullOrEmpty(remoteExecutor);
+  }
+
+  /**
+   * Returns the default exec properties specified by the user or an empty map if nothing was
+   * specified. Use this method instead of directly accessing the fields.
+   */
+  public SortedMap<String, String> getRemoteDefaultExecProperties() throws UserExecException {
+    boolean hasExecProperties = !remoteDefaultExecProperties.isEmpty();
+    boolean hasPlatformProperties = !remoteDefaultPlatformProperties.isEmpty();
+
+    if (hasExecProperties && hasPlatformProperties) {
+      throw new UserExecException(
+          "Setting both --remote_default_platform_properties and "
+              + "--remote_default_exec_properties is not allowed. Prefer setting "
+              + "--remote_default_exec_properties.");
+    }
+
+    if (hasExecProperties) {
+      return ImmutableSortedMap.copyOf(remoteDefaultExecProperties);
+    }
+    if (hasPlatformProperties) {
+      // Try and use the provided default value.
+      final Platform platform;
+      try {
+        Platform.Builder builder = Platform.newBuilder();
+        TextFormat.getParser().merge(remoteDefaultPlatformProperties, builder);
+        platform = builder.build();
+      } catch (ParseException e) {
+        throw new UserExecException(
+            "Failed to parse --remote_default_platform_properties "
+                + remoteDefaultPlatformProperties,
+            e);
+      }
+
+      ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
+      for (Property property : platform.getPropertiesList()) {
+        builder.put(property.getName(), property.getValue());
+      }
+      return builder.build();
+    }
+
+    return ImmutableSortedMap.of();
   }
 }

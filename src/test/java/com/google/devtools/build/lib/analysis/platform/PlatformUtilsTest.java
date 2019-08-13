@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.common.options.Options;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,7 +28,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class PlatformUtilsTest {
   private static RemoteOptions remoteOptions() {
-    RemoteOptions remoteOptions = new RemoteOptions();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteDefaultPlatformProperties =
         String.join(
             "\n",

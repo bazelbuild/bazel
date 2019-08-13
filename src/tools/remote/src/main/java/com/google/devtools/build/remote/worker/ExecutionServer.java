@@ -84,7 +84,7 @@ final class ExecutionServer extends ExecutionImplBase {
 
   // The name of the container image entry in the Platform proto
   // (see third_party/googleapis/devtools/remoteexecution/*/remote_execution.proto and
-  // remote_default_platform_properties in
+  // remote_default_exec_properties in
   // src/main/java/com/google/devtools/build/lib/remote/RemoteOptions.java)
   private static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
   private static final String DOCKER_IMAGE_PREFIX = "docker://";

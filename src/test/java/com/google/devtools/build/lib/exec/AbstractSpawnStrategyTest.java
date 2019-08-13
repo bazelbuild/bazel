@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -290,7 +291,7 @@ public class AbstractSpawnStrategyTest {
 
   @Test
   public void testLogSpawn_DefaultPlatform_getsLogged() throws Exception {
-    RemoteOptions remoteOptions = new RemoteOptions();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteDefaultPlatformProperties =
         String.join(
             "\n",
@@ -320,7 +321,7 @@ public class AbstractSpawnStrategyTest {
 
   @Test
   public void testLogSpawn_SpecifiedPlatform_overridesDefault() throws Exception {
-    RemoteOptions remoteOptions = new RemoteOptions();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteDefaultPlatformProperties =
         String.join(
             "\n",
