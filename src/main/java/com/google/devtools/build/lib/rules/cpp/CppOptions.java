@@ -878,7 +878,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_static_cc_toolchains",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
