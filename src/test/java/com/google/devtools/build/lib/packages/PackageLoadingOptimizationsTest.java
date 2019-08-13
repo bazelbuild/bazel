@@ -86,4 +86,44 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
       assertThat(allLists.get(i)).isSameInstanceAs(firstList);
     }
   }
+
+  @Test
+  public void skylarkProviderIdentifierIsDedupedAcrossRuleClasses() throws Exception {
+    scratch.file("foo/provider.bzl", "foo_provider = provider()");
+    scratch.file(
+        "foo/foo.bzl",
+        "load(':provider.bzl', 'foo_provider')",
+        "def _foo_impl(ctx):",
+        "  return",
+        "foo_rule = rule(implementation = _foo_impl, provides=[foo_provider])");
+    scratch.file(
+        "foo/foobar.bzl",
+        "load(':provider.bzl', 'foo_provider')",
+        "def _foobar_impl(ctx):",
+        "  return",
+        "foobar_rule = rule(implementation = _foobar_impl, provides=[foo_provider])");
+    scratch.file(
+        "foo/BUILD",
+        "load(':foo.bzl', 'foo_rule')",
+        "load(':foobar.bzl', 'foobar_rule')",
+        "foo_rule(name = 'foo_rule_instance')",
+        "foobar_rule(name = 'foobar_rule_instance')");
+
+    Package fooPkg =
+        getPackageManager()
+            .getPackage(NullEventHandler.INSTANCE, PackageIdentifier.createInMainRepo("foo"));
+
+    ImmutableList.Builder<ImmutableList<SkylarkProviderIdentifier>> allListsBuilder =
+        ImmutableList.builder();
+    for (Rule ruleInstance : fooPkg.getTargets(Rule.class)) {
+      RuleClass ruleClass = ruleInstance.getRuleClassObject();
+      allListsBuilder.add(ruleClass.getAdvertisedProviders().getSkylarkProviders().asList());
+    }
+    ImmutableList<ImmutableList<SkylarkProviderIdentifier>> allLists = allListsBuilder.build();
+    assertThat(allLists).hasSize(2);
+    ImmutableList<SkylarkProviderIdentifier> firstList = allLists.get(0);
+    for (int i = 1; i < allLists.size(); i++) {
+      assertThat(allLists.get(i).get(0)).isSameInstanceAs(firstList.get(0));
+    }
+  }
 }
