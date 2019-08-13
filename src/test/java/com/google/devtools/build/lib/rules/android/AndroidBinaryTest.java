@@ -936,6 +936,47 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testResourcePathShortening_flagEnabled_flagsGetPassedToAction() throws Exception {
+    useConfiguration("--experimental_android_resource_path_shortening");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/android:app");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    Artifact resourcePathShorteningMapArtifact =
+        getFirstArtifactEndingWith(artifacts, "resource_path_shortening.map");
+    assertThat(resourcePathShorteningMapArtifact).isNotNull();
+    assertThat(getGeneratingAction(resourcePathShorteningMapArtifact).getMnemonic())
+        .isEqualTo("AndroidAapt2");
+
+    Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
+    assertThat(getGeneratingAction(androidResourcesApk).getMnemonic()).isEqualTo("AndroidAapt2");
+
+    List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
+    assertThat(processingArgs).contains("--resourcePathShortening");
+    assertThat(flagValue("--resourcePathShorteningMapOutput", processingArgs))
+        .endsWith("resource_path_shortening.map");
+  }
+
+  @Test
+  public void testResourcePathShorteningMap_flagNotEnabled() throws Exception {
+    ConfiguredTarget binary = getConfiguredTarget("//java/android:app");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    Artifact resourcePathShorteningMapArtifact =
+        getFirstArtifactEndingWith(artifacts, "resource_path_shortening.map");
+    assertThat(resourcePathShorteningMapArtifact).isNull();
+
+    Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
+    assertThat(getGeneratingAction(androidResourcesApk).getMnemonic()).isEqualTo("AndroidAapt2");
+
+    List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
+    assertThat(processingArgs).doesNotContain("--resourcePathShortening");
+    assertThat(processingArgs).doesNotContain("--resourcePathShorteningMapOutput");
+  }
+
+  @Test
   public void testResourceShrinkingAction() throws Exception {
     useConfiguration("--android_aapt=aapt");
 

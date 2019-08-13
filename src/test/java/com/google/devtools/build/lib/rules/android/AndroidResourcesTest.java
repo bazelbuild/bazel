@@ -478,6 +478,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
                 ruleContext,
                 getManifest(),
                 false,
+                false,
                 ImmutableMap.of(),
                 AndroidAaptVersion.AUTO,
                 AndroidResources.empty(),

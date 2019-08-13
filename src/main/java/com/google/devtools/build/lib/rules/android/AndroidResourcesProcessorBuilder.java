@@ -42,6 +42,7 @@ public class AndroidResourcesProcessorBuilder {
 
   private Artifact proguardOut;
   private Artifact mainDexProguardOut;
+  private Artifact resourcePathShorteningMapOut;
   private boolean conditionalKeepRules;
   private Artifact rTxtOut;
   private Artifact sourceJarOut;
@@ -123,6 +124,12 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setMainDexProguardOut(Artifact mainDexProguardCfg) {
     this.mainDexProguardOut = mainDexProguardCfg;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setResourcePathShorteningMapOut(
+      Artifact resourcePathShorteningMapOut) {
+    this.resourcePathShorteningMapOut = resourcePathShorteningMapOut;
     return this;
   }
 
@@ -336,6 +343,12 @@ public class AndroidResourcesProcessorBuilder {
               AndroidDataConverter.COMPILED_ASSET_CONVERTER)
           .addTransitiveInputValues(assetDependencies.getTransitiveAssets())
           .addTransitiveInputValues(assetDependencies.getTransitiveCompiledSymbols());
+    }
+
+    if (resourcePathShorteningMapOut != null) {
+      builder
+          .addFlag("--resourcePathShortening")
+          .maybeAddOutput("--resourcePathShorteningMapOutput", resourcePathShorteningMapOut);
     }
 
     builder
