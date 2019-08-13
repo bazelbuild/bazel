@@ -1473,7 +1473,7 @@ def _impl(ctx):
   javaInfo = JavaInfo(
     output_jar = ctx.file.output_jar,
     compile_jar = ctx.file.output_jar,
-    source_jar = ctx.files.source_jar,
+    source_jar = ctx.file.source_jar,
   )
   return [result(property = javaInfo)]
 
