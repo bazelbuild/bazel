@@ -58,7 +58,6 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         "@bazel_tools//tools/objc:xcrunwrapper.sh",
         "@bazel_tools//tools/osx/crosstool:BUILD.tpl",
         "@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl",
-        "@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl",
         "@bazel_tools//tools/osx/crosstool:wrapped_clang.cc",
         "@bazel_tools//tools/osx:xcode_locator.m",
     ])
@@ -96,10 +95,6 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         repository_ctx.symlink(
             paths["@bazel_tools//tools/objc:make_hashed_objlist.py"],
             "make_hashed_objlist.py",
-        )
-        repository_ctx.symlink(
-            paths["@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl"],
-            "wrapped_ar",
         )
         repository_ctx.symlink(
             paths["@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl"],
