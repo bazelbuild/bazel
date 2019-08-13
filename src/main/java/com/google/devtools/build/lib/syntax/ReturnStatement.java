@@ -13,37 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** A wrapper Statement class for return expressions. */
 public final class ReturnStatement extends Statement {
-
-  /**
-   * Exception sent by the return statement, to be caught by the function body.
-   */
-  public static class ReturnException extends EvalException {
-    private final Object value;
-
-    public ReturnException(Location location, Object value) {
-      super(
-          location,
-          "return statements must be inside a function",
-          /*dueToIncompleteAST=*/false,
-          /*fillInJavaStackTrace=*/false);
-      this.value = value;
-    }
-
-    public Object getValue() {
-      return value;
-    }
-
-    @Override
-    public boolean canBeAddedToStackTrace() {
-      return false;
-    }
-  }
 
   @Nullable private final Expression returnExpression;
 
