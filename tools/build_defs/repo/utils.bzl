@@ -98,15 +98,15 @@ def patch(ctx, patches=None, patch_cmds=None, patch_cmds_win=None, patch_tool=No
     """
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     powershell_exe = ctx.os.environ["BAZEL_POWERSHELL"] if "BAZEL_POWERSHELL" in ctx.os.environ else "powershell.exe"
-    if patches is None and hasattr(ctx.attr, "patches"):
+    if patches == None and hasattr(ctx.attr, "patches"):
         patches = ctx.attr.patches
-    if patch_cmds is None and hasattr(ctx.attr, "patch_cmds"):
+    if patch_cmds == None and hasattr(ctx.attr, "patch_cmds"):
         patch_cmds = ctx.attr.patch_cmds
-    if patch_cmds_win is None and hasattr(ctx.attr, "patch_cmds_win"):
+    if patch_cmds_win == None and hasattr(ctx.attr, "patch_cmds_win"):
         patch_cmds_win = ctx.attr.patch_cmds_win
-    if patch_tool is None and hasattr(ctx.attr, "patch_tool"):
+    if patch_tool == None and hasattr(ctx.attr, "patch_tool"):
         patch_tool = ctx.attr.patch_tool
-    if patch_args is None and hasattr(ctx.attr, "patch_args"):
+    if patch_args == None and hasattr(ctx.attr, "patch_args"):
         patch_args = ctx.attr.patch_args
 
     if len(patches) > 0 or len(patch_cmds) > 0:
