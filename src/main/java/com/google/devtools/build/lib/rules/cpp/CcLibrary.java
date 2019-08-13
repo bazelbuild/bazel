@@ -70,6 +70,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   /** A string constant for the name of dynamic library output group. */
   public static final String DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME = "dynamic_library";
 
+  /** A string constant for the name of Windows def file output group. */
+  public static final String DEF_FILE_OUTPUT_GROUP_NAME = "def_file";
+
   private final CppSemantics semantics;
 
   protected CcLibrary(CppSemantics semantics) {
@@ -307,28 +310,32 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         // If user specifies a custom DEF file, then we use it.
         Artifact defFile = common.getWinDefFile();
 
+        Artifact defParser = common.getDefParser();
+        Artifact generatedDefFile = null;
+        if (defParser != null) {
+          try {
+            generatedDefFile =
+                CppHelper.createDefFileActions(
+                    ruleContext,
+                    defParser,
+                    ccCompilationOutputs.getObjectFiles(false),
+                    ccToolchain
+                        .getFeatures()
+                        .getArtifactNameForCategory(
+                            ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
+            targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
+          } catch (EvalException e) {
+            ruleContext.throwWithRuleError(e.getMessage());
+            throw new IllegalStateException("Should not be reached");
+          }
+        }
+
         // If no DEF file is specified and the windows_export_all_symbols feature is enabled, parse
         // object files to generate DEF file and use it to export symbols - if we have a parser.
         // Otherwise, use no DEF file.
         if (defFile == null
             && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
-          Artifact defParser = common.getDefParser();
-          if (defParser != null) {
-            try {
-              defFile =
-                  CppHelper.createDefFileActions(
-                      ruleContext,
-                      defParser,
-                      ccCompilationOutputs.getObjectFiles(false),
-                      ccToolchain
-                          .getFeatures()
-                          .getArtifactNameForCategory(
-                              ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
-            } catch (EvalException e) {
-              ruleContext.throwWithRuleError(e.getMessage());
-              throw new IllegalStateException("Should not be reached");
-            }
-          }
+          defFile = generatedDefFile;
         }
 
         if (defFile != null) {
