@@ -284,6 +284,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
         commonOptions.enableCpuUsageProfiling = true;
       }
+      if (!options.containsExplicitOption("experimental_profile_action_counts")) {
+        commonOptions.enableActionCountProfile = true;
+      }
       if (!options.containsExplicitOption("experimental_json_trace_compression")) {
         commonOptions.enableTracerCompression = true;
       }
