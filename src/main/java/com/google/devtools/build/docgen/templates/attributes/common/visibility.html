@@ -1,6 +1,7 @@
 <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional;
 default <a href="${link package.default_visibility}">default_visibility</a> from
-<a href="${link package}">package</a> if specified, else private</code></p>
+<a href="${link package}">package</a> if specified, or //visibility:private
+  otherwise.</code></p>
 
 <p>
 The <code>visibility</code> attribute on a rule controls whether
@@ -51,7 +52,7 @@ attribute of the <code><a href="${link package}">package</a></code>
 statement in the BUILD file containing the rule is used
 (except <a href="${link exports_files}">exports_files</a>).</p>
 <p>If the default visibility for the package is not specified,
-the rule is private.</p>
+<code>//visibility:private</code> is used.</p>
 <p><b>Example</b>:</p>
 <p>
 File <code>//frobber/bin/BUILD</code>:
