@@ -388,6 +388,65 @@ EOF
 
 ############# TESTS #############
 
+function test_javainfo_proto_aspect() {
+  write_workspace ""
+
+  mkdir -p java/proto/
+  touch java/proto/my.proto
+  cat > java/proto/BUILD << EOF
+load(':my_rule_with_aspect.bzl', 'my_rule_with_aspect')
+my_rule_with_aspect(
+  name = 'my_rule',
+  deps = [':my_java_proto']
+)
+
+java_proto_library(
+  name = 'my_java_proto',
+  deps = [':my_proto'],
+)
+
+proto_library(
+  name = 'my_proto',
+  srcs = ['my.proto'],
+)
+EOF
+
+  cat > java/proto/my_rule_with_aspect.bzl <<EOF
+def _my_rule_impl(ctx):
+  aspect_java_infos = []
+  for dep in ctx.attr.deps:
+    aspect_java_infos += dep.my_aspect_providers
+  merged_java_info = java_common.merge(aspect_java_infos)
+  for jar in merged_java_info.transitive_runtime_jars.to_list():
+    print('Transitive runtime jar', jar)
+
+def _my_aspect_impl(target, ctx):
+  aspect_java_infos = []
+  for dep in ctx.rule.attr.deps:
+    aspect_java_infos += dep.my_aspect_providers
+  aspect_java_infos.append(target[JavaInfo])
+  return struct(
+    my_aspect_providers = aspect_java_infos
+  )
+
+my_aspect = aspect(
+  attr_aspects = ['deps'],
+  fragments = ['java'],
+  implementation = _my_aspect_impl,
+  required_aspect_providers = [[JavaInfo]]
+)
+
+my_rule_with_aspect = rule(
+  implementation = _my_rule_impl,
+  attrs = {
+    'deps': attr.label_list(aspects = [my_aspect]),
+  }
+)
+EOF
+  bazel build java/proto:my_rule &> "$TEST_log"  || fail "build failed"
+  expect_log "Transitive runtime jar <generated file java/proto/libmy_proto-speed.jar>"
+}
+
 function test_proto_source_root() {
   write_workspace ""
   write_setup "proto_library" "proto_source_root = 'x/person'" ""
