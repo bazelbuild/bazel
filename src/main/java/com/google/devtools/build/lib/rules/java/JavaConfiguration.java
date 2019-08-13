@@ -109,6 +109,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean disallowResourceJars;
   private final boolean loadJavaRulesFromBzl;
   private final boolean disallowLegacyJavaToolchainFlags;
+  private final boolean experimentalJavaHeaderInputPruning;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -147,6 +148,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.disallowResourceJars = javaOptions.disallowResourceJars;
     this.loadJavaRulesFromBzl = javaOptions.loadJavaRulesFromBzl;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
+    this.experimentalJavaHeaderInputPruning = javaOptions.experimentalJavaHeaderInputPruning;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -424,5 +426,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean loadJavaRulesFromBzl() {
     return loadJavaRulesFromBzl;
+  }
+
+  public boolean experimentalJavaHeaderInputPruning() {
+    return experimentalJavaHeaderInputPruning;
   }
 }

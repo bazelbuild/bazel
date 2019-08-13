@@ -385,14 +385,12 @@ public class JavaHeaderCompileActionBuilder {
     // flags needed for the javac-based header compiler implementations that supports
     // annotation processing.
 
-    mandatoryInputs.addTransitive(classpathEntries);
     if (!useHeaderCompilerDirect) {
       mandatoryInputs.addTransitive(plugins.processorClasspath());
       mandatoryInputs.addTransitive(plugins.data());
     }
     mandatoryInputs.addTransitive(compileTimeDependencyArtifacts);
 
-    commandLine.addExecPaths("--classpath", classpathEntries);
     commandLine.addAll(
         "--builtin_processors",
         Sets.intersection(
@@ -404,9 +402,36 @@ public class JavaHeaderCompileActionBuilder {
     }
     if (strictJavaDeps != StrictDepsMode.OFF) {
       commandLine.addExecPaths("--direct_dependencies", directJars);
-      if (!compileTimeDependencyArtifacts.isEmpty()) {
-        commandLine.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
-      }
+    }
+
+    if (javaConfiguration.experimentalJavaHeaderInputPruning()) {
+      ruleContext.registerAction(
+          new JavaCompileAction(
+              /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
+              /* owner= */ ruleContext.getActionOwner(),
+              /* env= */ actionEnvironment,
+              /* tools= */ toolsJars,
+              /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
+              /* progressMessage= */ progressMessage,
+              /* mandatoryInputs= */ mandatoryInputs.build(),
+              /* transitiveInputs= */ classpathEntries,
+              /* directJars= */ directJars,
+              /* outputs= */ outputs,
+              /* executionInfo= */ executionInfo,
+              /* extraActionInfoSupplier= */ null,
+              /* executableLine= */ executableLine,
+              /* flagLine= */ commandLine.build(),
+              /* configuration= */ ruleContext.getConfiguration(),
+              /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
+              /* outputDepsProto= */ outputDepsProto,
+              /* classpathMode= */ classpathMode));
+      return;
+    }
+
+    mandatoryInputs.addTransitive(classpathEntries);
+    commandLine.addExecPaths("--classpath", classpathEntries);
+    if (strictJavaDeps != StrictDepsMode.OFF && !compileTimeDependencyArtifacts.isEmpty()) {
+      commandLine.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
     }
     if (classpathMode != JavaClasspathMode.OFF && strictJavaDeps != StrictDepsMode.OFF) {
       commandLine.add("--reduce_classpath");
