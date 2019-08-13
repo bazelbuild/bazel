@@ -124,6 +124,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   private ImmutableMap<BuildEventTransport, ListenableFuture<Void>>
       halfCloseFuturesWithTimeoutsMap = ImmutableMap.of();
 
+  private BesUploadMode previousUploadMode = BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
+
   // TODO(lpino): Use Optional instead of @Nullable for the members below.
   @Nullable private OutErr outErr;
   @Nullable private ImmutableSet<BuildEventTransport> bepTransports;
@@ -210,7 +212,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
     ImmutableMap<BuildEventTransport, ListenableFuture<Void>> waitingFutureMap = null;
     boolean cancelCloseFutures = true;
-    switch (besOptions.besUploadMode) {
+    switch (previousUploadMode) {
       case FULLY_ASYNC:
         waitingFutureMap = halfCloseFuturesWithTimeoutsMap;
         cancelCloseFutures = false;
@@ -228,8 +230,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       //  infrastructure does not support that. At least we can report it afterwards.
       Uninterruptibles.getUninterruptibly(
           Futures.allAsList(waitingFutureMap.values()),
-          getMaxWaitForPreviousInvocation().getSeconds(),
-          TimeUnit.SECONDS);
+          getMaxWaitForPreviousInvocation().toMillis(),
+          TimeUnit.MILLISECONDS);
       long waitedMillis = stopwatch.elapsed().toMillis();
       if (waitedMillis > 100) {
         reporter.handle(
@@ -514,6 +516,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   }
 
   private void closeBepTransports() throws AbruptExitException {
+    previousUploadMode = besOptions.besUploadMode;
     closeFuturesWithTimeoutsMap =
         constructCloseFuturesMapWithTimeouts(streamer.getCloseFuturesMap());
     halfCloseFuturesWithTimeoutsMap =
