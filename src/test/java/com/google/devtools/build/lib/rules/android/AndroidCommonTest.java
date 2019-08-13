@@ -22,9 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests common for Android rules.
- */
+/** Tests common for Android rules. */
 @RunWith(JUnit4.class)
 public class AndroidCommonTest extends BuildViewTestCase {
 
@@ -41,21 +39,22 @@ public class AndroidCommonTest extends BuildViewTestCase {
   // regression test for #3169099
   @Test
   public void testLibrarySrcs() throws Exception {
-    scratch.file("java/srcs/BUILD",
+    scratch.file(
+        "java/srcs/BUILD",
         "android_library(name = 'valid', srcs = ['a.java', 'b.srcjar', ':gvalid', ':gmix'])",
         "android_library(name = 'invalid', srcs = ['a.properties', ':ginvalid'])",
         "android_library(name = 'mix', srcs = ['a.java', 'a.properties'])",
         "genrule(name = 'gvalid', srcs = ['a.java'], outs = ['b.java'], cmd = '')",
         "genrule(name = 'ginvalid', srcs = ['a.java'], outs = ['b.properties'], cmd = '')",
-        "genrule(name = 'gmix', srcs = ['a.java'], outs = ['c.java', 'c.properties'], cmd = '')"
-        );
+        "genrule(name = 'gmix', srcs = ['a.java'], outs = ['c.java', 'c.properties'], cmd = '')");
     assertSrcsValidityForRuleType("android_library", ".java or .srcjar");
   }
 
   // regression test for #3169099
   @Test
   public void testBinarySrcs() throws Exception {
-    scratch.file("java/srcs/BUILD",
+    scratch.file(
+        "java/srcs/BUILD",
         "android_binary(name = 'empty', manifest = 'AndroidManifest.xml', srcs = [])",
         "android_binary(name = 'valid', manifest = 'AndroidManifest.xml', "
             + "srcs = ['a.java', 'b.srcjar', ':gvalid', ':gmix'])",
@@ -65,8 +64,7 @@ public class AndroidCommonTest extends BuildViewTestCase {
             + "srcs = ['a.java', 'a.properties'])",
         "genrule(name = 'gvalid', srcs = ['a.java'], outs = ['b.java'], cmd = '')",
         "genrule(name = 'ginvalid', srcs = ['a.java'], outs = ['b.properties'], cmd = '')",
-        "genrule(name = 'gmix', srcs = ['a.java'], outs = ['c.java', 'c.properties'], cmd = '')"
-        );
+        "genrule(name = 'gmix', srcs = ['a.java'], outs = ['c.java', 'c.properties'], cmd = '')");
     assertSrcsValidityForRuleType("android_binary", ".java or .srcjar");
   }
 
@@ -75,24 +73,34 @@ public class AndroidCommonTest extends BuildViewTestCase {
     String descriptionSingle = rule + " srcs file (expected " + expectedTypes + ")";
     String descriptionPlural = rule + " srcs files (expected " + expectedTypes + ")";
     String descriptionPluralFile = "(expected " + expectedTypes + ")";
-    assertSrcsValidity(rule, "//java/srcs:valid", false, "need at least one " + descriptionSingle,
+    assertSrcsValidity(
+        rule,
+        "//java/srcs:valid",
+        false,
+        "need at least one " + descriptionSingle,
         "'//java/srcs:gvalid' is misplaced " + descriptionPlural,
         "'//java/srcs:gmix' does not produce any " + descriptionPlural);
-    assertSrcsValidity(rule, "//java/srcs:invalid", true,
+    assertSrcsValidity(
+        rule,
+        "//java/srcs:invalid",
+        true,
         "source file '//java/srcs:a.properties' is misplaced here " + descriptionPluralFile,
         "'//java/srcs:ginvalid' does not produce any " + descriptionPlural);
-    assertSrcsValidity(rule, "//java/srcs:mix", true,
+    assertSrcsValidity(
+        rule,
+        "//java/srcs:mix",
+        true,
         "'//java/srcs:a.properties' does not produce any " + descriptionPlural);
   }
 
   /**
-   * Tests expected values of
-   * {@link com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode}.
+   * Tests expected values of {@link
+   * com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode}.
    */
   @Test
   public void testMultidexModeEnum() throws Exception {
-    assertThat(MultidexMode.getValidValues()).containsExactly("native", "legacy", "manual_main_dex",
-        "off");
+    assertThat(MultidexMode.getValidValues())
+        .containsExactly("native", "legacy", "manual_main_dex", "off");
     assertThat(MultidexMode.fromValue("native")).isSameInstanceAs(MultidexMode.NATIVE);
     assertThat(MultidexMode.NATIVE.getAttributeValue()).isEqualTo("native");
     assertThat(MultidexMode.fromValue("legacy")).isSameInstanceAs(MultidexMode.LEGACY);
@@ -104,9 +112,7 @@ public class AndroidCommonTest extends BuildViewTestCase {
     assertThat(MultidexMode.OFF.getAttributeValue()).isEqualTo("off");
   }
 
-  /**
-   * Tests that each multidex mode produces the expected output dex classes file name.
-   */
+  /** Tests that each multidex mode produces the expected output dex classes file name. */
   @Test
   public void testOutputDexforMultidexModes() throws Exception {
     assertThat(MultidexMode.OFF.getOutputDexFilename()).isEqualTo("classes.dex");

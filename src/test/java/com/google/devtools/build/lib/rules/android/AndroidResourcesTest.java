@@ -557,8 +557,8 @@ public class AndroidResourcesTest extends ResourceTestBase {
       RuleContext ruleContext, AndroidAaptVersion aaptVersion)
       throws RuleErrorException, InterruptedException {
     DataBindingContext dataBindingContext =
-        DataBinding.contextFrom(ruleContext,
-            ruleContext.getConfiguration().getFragment(AndroidConfiguration.class));
+        DataBinding.contextFrom(
+            ruleContext, ruleContext.getConfiguration().getFragment(AndroidConfiguration.class));
     return makeParsedResources(ruleContext, dataBindingContext, aaptVersion);
   }
 
