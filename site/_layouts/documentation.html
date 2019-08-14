@@ -10,7 +10,7 @@ nav: docs
 {% if version_components.size < 2 %}
 {%   assign major_version = "master" %}
 {%   assign minor_version = "master" %}
-{% else % }
+{% else %}
 {%   assign major_version = version_components[0] | plus:0 %}
 {%   assign minor_version = version_components[1] | plus:0 %}
 {% endif %}
