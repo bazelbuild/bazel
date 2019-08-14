@@ -1559,6 +1559,10 @@ public abstract class CcModule
         FileTypeSet.of(CppFileTypes.CPP_HEADER),
         FileTypeSet.of(CppFileTypes.CPP_HEADER));
 
+    if (disallowNopicOutputs && disallowPicOutputs) {
+      throw new EvalException(location, "Either PIC or no PIC actions have to be created.");
+    }
+
     CcCompilationHelper helper =
         new CcCompilationHelper(
                 actions.asActionRegistry(location, actions),
@@ -1599,6 +1603,7 @@ public abstract class CcModule
     }
     if (disallowPicOutputs) {
       helper.setGeneratePicAction(false);
+      helper.setGenerateNoPicAction(true);
     }
     try {
       CompilationInfo compilationInfo = helper.compile();

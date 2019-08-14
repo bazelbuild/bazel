@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -574,7 +575,8 @@ public class PackageFunction implements SkyFunction {
 
     // Look up and load the imports.
     ImmutableCollection<Label> importLabels = importPathMap.values();
-    List<SkyKey> importLookupKeys = Lists.newArrayListWithExpectedSize(importLabels.size());
+    List<SkylarkImportLookupKey> importLookupKeys =
+        Lists.newArrayListWithExpectedSize(importLabels.size());
     boolean inWorkspace = buildFilePath.getRootRelativePath().getBaseName().endsWith("WORKSPACE");
     for (Label importLabel : importLabels) {
       int originalChunk =
@@ -609,10 +611,18 @@ public class PackageFunction implements SkyFunction {
           skylarkImportMap.put(entry.getKey(), entry.getValue().get());
         }
       } else {
+        Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps>
+            visitedDepsInToplevelLoad = new HashMap<>();
         // Inlining calls to SkylarkImportLookupFunction
-        for (SkyKey importLookupKey : importLookupKeys) {
-          SkyValue skyValue =
-              skylarkImportLookupFunctionForInlining.computeWithInlineCalls(importLookupKey, env);
+        for (SkylarkImportLookupKey importLookupKey : importLookupKeys) {
+          SkyValue skyValue;
+          if (visitedDepsInToplevelLoad.containsKey(importLookupKey)) {
+            skyValue = visitedDepsInToplevelLoad.get(importLookupKey).getValue();
+          } else {
+            skyValue =
+                skylarkImportLookupFunctionForInlining.computeWithInlineCalls(
+                    importLookupKey, env, visitedDepsInToplevelLoad);
+          }
           if (skyValue == null) {
             Preconditions.checkState(
                 env.valuesMissing(), "no starlark import value for %s", importLookupKey);

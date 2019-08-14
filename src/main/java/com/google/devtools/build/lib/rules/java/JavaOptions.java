@@ -628,6 +628,14 @@ public class JavaOptions extends FragmentOptions {
               + "the Starlark rules instead https://github.com/bazelbuild/rules_java")
   public boolean loadJavaRulesFromBzl;
 
+  @Option(
+      name = "experimental_java_header_input_pruning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, header compilation actions support --java_classpath=bazel")
+  public boolean experimentalJavaHeaderInputPruning;
+
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
   }
@@ -689,6 +697,8 @@ public class JavaOptions extends FragmentOptions {
 
     host.disallowResourceJars = disallowResourceJars;
     host.loadJavaRulesFromBzl = loadJavaRulesFromBzl;
+
+    host.experimentalJavaHeaderInputPruning = experimentalJavaHeaderInputPruning;
 
     // Save host options for further use.
     host.hostJavaBase = hostJavaBase;

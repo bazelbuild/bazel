@@ -35,7 +35,7 @@ toolchain(
 )
 platform(
     name = 'platform',
-    parents = ['@bazel_tools//platforms:host_platform'],
+    parents = ['@local_config_platform//:host'],
     constraint_values = [':constraint'],
 )
 EOF

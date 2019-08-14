@@ -243,6 +243,16 @@ public class RemoteActionInputFetcherTest {
     }
 
     @Override
+    protected ListenableFuture<Void> uploadFile(Digest digest, Path path) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
       ByteString data = cacheEntries.get(digest);
       if (data == null) {

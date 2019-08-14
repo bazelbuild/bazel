@@ -329,8 +329,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
   @Test
   public void testMergeCompiled() throws Exception {
-    useConfiguration("--experimental_skip_parsing_action");
-
     RuleContext ruleContext = getRuleContext();
     ParsedAndroidResources parsed = assertParse(ruleContext, AndroidAaptVersion.AAPT2);
     MergedAndroidResources merged =
@@ -480,6 +478,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
                 ruleContext,
                 getManifest(),
                 false,
+                false,
                 ImmutableMap.of(),
                 AndroidAaptVersion.AUTO,
                 AndroidResources.empty(),
@@ -559,8 +558,8 @@ public class AndroidResourcesTest extends ResourceTestBase {
       RuleContext ruleContext, AndroidAaptVersion aaptVersion)
       throws RuleErrorException, InterruptedException {
     DataBindingContext dataBindingContext =
-        DataBinding.contextFrom(ruleContext,
-            ruleContext.getConfiguration().getFragment(AndroidConfiguration.class));
+        DataBinding.contextFrom(
+            ruleContext, ruleContext.getConfiguration().getFragment(AndroidConfiguration.class));
     return makeParsedResources(ruleContext, dataBindingContext, aaptVersion);
   }
 

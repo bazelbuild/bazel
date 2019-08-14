@@ -46,6 +46,10 @@ import org.objectweb.asm.tree.MethodNode;
  */
 public class DefaultMethodClassFixer extends ClassVisitor {
 
+  /** Don't expect base classes for Android Things APIs (preinstalled but not in android.jar). */
+  // TODO(kmb): Could generalize to configure interfaces that should be assumed preinstalled
+  private static final String UNAVAILABLE_BASECLASSES_PREFIX = "com/google/android/things/pio/";
+
   private final boolean useGeneratedBaseClasses;
   private final ClassReaderFactory classpath;
   private final ClassReaderFactory bootclasspath;
@@ -141,9 +145,13 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         long maxBaseMethodCount = 0;
         for (Map.Entry<Class<?>, Long> itf : allInterfaces.entrySet()) {
           if (itf.getValue() > maxBaseMethodCount) {
+            String itfName = internalName(itf.getKey());
+            if (itfName.startsWith(UNAVAILABLE_BASECLASSES_PREFIX)) {
+              break; // stop if we encounter an unsupported interface
+            }
             maxBaseMethodCount = itf.getValue();
             newSuperName = itf.getKey();
-            superName = InterfaceDesugaring.getCompanionClassName(internalName(itf.getKey()));
+            superName = InterfaceDesugaring.getCompanionClassName(itfName);
             signature = null; // Changing superclass invalidates signature
           }
         }

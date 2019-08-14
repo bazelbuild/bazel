@@ -29,6 +29,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -57,6 +59,8 @@ tasks:
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -89,6 +93,8 @@ tasks:
       - "-//src/test/shell/bazel:embedded_tools_deps_test"
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -180,6 +186,8 @@ tasks:
       - "-//src/test/shell/integration:test_test"
       # TODO(iirina): Re-enable after #7952 was released.
       - "-//src/test/shell/bazel:embedded_tools_deps_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -250,6 +258,8 @@ tasks:
       - "-//src/test/shell/integration:test_test"
       # TODO(iirina): Re-enable after #7952 was released.
       - "-//src/test/shell/bazel:embedded_tools_deps_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -289,6 +299,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_java_test_jdk10_toolchain_head"
       # Docker sandboxing needs Docker installed
       - "-//src/test/shell/bazel:bazel_docker_sandboxing_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -315,6 +327,8 @@ tasks:
       - "//src:all_windows_tests"
       # TODO(iirina): Re-enable after #7952 was released.
       - "-//src/test/shell/bazel:embedded_tools_deps_test"
+      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
+      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test

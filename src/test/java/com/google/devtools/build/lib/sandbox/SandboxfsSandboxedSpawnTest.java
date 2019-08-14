@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -69,7 +70,9 @@ public class SandboxfsSandboxedSpawnTest {
             outerDir,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+            new SandboxInputs(
+                ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+                ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(PathFragment.create("wow/writable")),
@@ -96,7 +99,9 @@ public class SandboxfsSandboxedSpawnTest {
             outerDir,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+            new SandboxInputs(
+                ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+                ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(PathFragment.create("wow/writable")),
@@ -127,7 +132,7 @@ public class SandboxfsSandboxedSpawnTest {
             outerDir,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            ImmutableMap.of(),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(outputFile), ImmutableSet.of()),
             ImmutableSet.of(),
             /* mapSymlinkTargets= */ false,
@@ -181,13 +186,15 @@ public class SandboxfsSandboxedSpawnTest {
             outerDir,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            ImmutableMap.of(
-                PathFragment.create("dir1/input-1.txt"), input1,
-                // input2 and linkToInput2 intentionally left unmapped to verify they are mapped as
-                // symlink targets of linktoLink.
-                PathFragment.create("such/link-1.txt"), linkToInput1,
-                PathFragment.create("such/link-to-link.txt"), linkToLink,
-                PathFragment.create("such/abs-link.txt"), linkToAbsolutePath),
+            new SandboxInputs(
+                ImmutableMap.of(
+                    PathFragment.create("dir1/input-1.txt"), input1,
+                    // input2 and linkToInput2 intentionally left unmapped to verify they are mapped
+                    // as symlink targets of linktoLink.
+                    PathFragment.create("such/link-1.txt"), linkToInput1,
+                    PathFragment.create("such/link-to-link.txt"), linkToLink,
+                    PathFragment.create("such/abs-link.txt"), linkToAbsolutePath),
+                ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(),

@@ -286,7 +286,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     // We cannot flip an incompatible flag that expands to other flags, so we do it manually here.
     // If an option is specified explicitly, we give that preference.
-    if (commonOptions.enableProfileByDefault
+    boolean commandSupportsProfile =
+        (commandAnnotation.builds() || "query".equals(commandName)) && !"clean".equals(commandName);
+    if (commandSupportsProfile
+        && commonOptions.enableProfileByDefault
         && (!options.containsExplicitOption("experimental_generate_json_trace_profile")
             || commonOptions.enableTracer)) {
       commonOptions.enableTracer = true;
@@ -295,6 +298,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
         commonOptions.enableCpuUsageProfiling = true;
+      }
+      if (!options.containsExplicitOption("experimental_profile_action_counts")) {
+        commonOptions.enableActionCountProfile = true;
       }
       if (!options.containsExplicitOption("experimental_json_trace_compression")) {
         commonOptions.enableTracerCompression = true;

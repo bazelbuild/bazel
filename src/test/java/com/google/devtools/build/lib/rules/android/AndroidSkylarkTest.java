@@ -37,7 +37,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AndroidSkylarkTest extends BuildViewTestCase {
 
-  private void writeAndroidSplitTransitionTestFiles() throws Exception  {
+  private void writeAndroidSplitTransitionTestFiles() throws Exception {
     scratch.file(
         "test/skylark/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",

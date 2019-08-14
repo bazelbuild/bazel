@@ -78,6 +78,12 @@ public final class ActionInputHelper {
       Preconditions.checkArgument(!path.isEmpty());
     }
 
+    // TODO(lberki): Plumb this flag from InputTree.build() somehow.
+    @Override
+    public boolean isSymlink() {
+      return false;
+    }
+
     @Override
     public String getExecPathString() {
       return path;

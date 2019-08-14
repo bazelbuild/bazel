@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
@@ -83,7 +84,7 @@ final class ExecutionServer extends ExecutionImplBase {
 
   // The name of the container image entry in the Platform proto
   // (see third_party/googleapis/devtools/remoteexecution/*/remote_execution.proto and
-  // remote_default_platform_properties in
+  // remote_default_exec_properties in
   // src/main/java/com/google/devtools/build/lib/remote/RemoteOptions.java)
   private static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
   private static final String DOCKER_IMAGE_PREFIX = "docker://";
@@ -340,8 +341,18 @@ final class ExecutionServer extends ExecutionImplBase {
       }
     }
     byte[] stdout = cmdResult.getStdout();
+    if (stdout.length > 0) {
+      Digest stdoutDigest = digestUtil.compute(stdout);
+      getFromFuture(cache.uploadBlob(stdoutDigest, ByteString.copyFrom(stdout)));
+      result.setStdoutDigest(stdoutDigest);
+    }
     byte[] stderr = cmdResult.getStderr();
-    cache.uploadOutErr(result, stdout, stderr);
+    if (stderr.length > 0) {
+      Digest stderrDigest = digestUtil.compute(stderr);
+      getFromFuture(cache.uploadBlob(stderrDigest, ByteString.copyFrom(stderr)));
+      result.setStderrDigest(stderrDigest);
+    }
+
     ActionResult finalResult = result.setExitCode(exitCode).build();
     resp.setResult(finalResult);
     if (errStatus != null) {

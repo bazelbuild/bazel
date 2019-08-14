@@ -41,6 +41,9 @@ public interface ActionInput {
    */
   PathFragment getExecPath();
 
+  /** The input is a symlink that is supposed to stay un-dereferenced. */
+  boolean isSymlink();
+
   /**
    * Returns if this input's file system path includes a digest of its content. See {@link
    * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}.

@@ -304,6 +304,15 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
+  public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    Preconditions.checkState(enabled);
+    return (SpecialArtifact)
+        dedupAndTrackArtifactAndOrigin(
+            artifactFactory.getSymlinkArtifact(rootRelativePath, root, getOwner()),
+            extendedSanityChecks ? new Throwable() : null);
+  }
+
+  @Override
   public Artifact.DerivedArtifact getFilesetArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);

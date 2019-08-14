@@ -14,7 +14,7 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("@bazel_tools//tools/cpp:cc_toolchain_config.bzl", "cc_toolchain_config")
+load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
 cc_library(
     name = "malloc",
@@ -47,8 +47,4 @@ cc_toolchain(
     strip_files = ":empty",
 )
 
-cc_toolchain_config(
-    name = "local_config",
-    cpu = "local",
-    compiler = "compiler",
-)
+cc_toolchain_config(name = "local_config")

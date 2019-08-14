@@ -228,6 +228,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     boolean shrinkResourceCycles =
         shouldShrinkResourceCycles(dataContext.getAndroidConfig(), ruleContext, shrinkResources);
+    boolean resourcePathShortening =
+        dataContext.getAndroidConfig().useAndroidResourcePathShortening();
     AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
     ProcessedAndroidData processedAndroidData =
         ProcessedAndroidData.processBinaryDataFrom(
@@ -235,6 +237,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             manifest,
             /* conditionalKeepRules= */ shrinkResourceCycles,
+            resourcePathShortening,
             manifestValues,
             aaptVersion,
             AndroidResources.from(ruleContext, "resource_files"),
@@ -261,6 +264,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .setClassJarOut(
                 dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
             .build(dataContext, processedAndroidData);
+    if (resourcePathShortening) {
+      filesBuilder.add(
+          ruleContext.getImplicitOutputArtifact(
+              AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
+    }
 
     ruleContext.assertNoErrors();
 

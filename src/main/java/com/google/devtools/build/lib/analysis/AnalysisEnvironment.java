@@ -92,6 +92,9 @@ public interface AnalysisEnvironment extends ActionRegistry {
    */
   SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
+  /** Returns an artifact that represents an un-dereferenced symlinks. */
+  SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+
   /**
    * Returns the artifact for the derived file {@code rootRelativePath}, creating it if necessary,
    * and setting the root of that artifact to {@code root}. The artifact will represent the output

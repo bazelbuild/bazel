@@ -738,7 +738,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_make_thinlto_command_lines_standalone",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -864,7 +864,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_specific_tool_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -878,7 +878,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_static_cc_toolchains",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {

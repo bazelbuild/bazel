@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -24,6 +26,7 @@ import com.google.protobuf.TextFormat.ParseException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** Utilities for accessing platform properties. */
@@ -33,12 +36,12 @@ public final class PlatformUtils {
   public static Platform getPlatformProto(
       @Nullable PlatformInfo executionPlatform, @Nullable RemoteOptions remoteOptions)
       throws UserExecException {
-    String defaultPlatformProperties = null;
-    if (remoteOptions != null) {
-      defaultPlatformProperties = remoteOptions.remoteDefaultPlatformProperties;
-    }
+    SortedMap<String, String> defaultExecProperties =
+        remoteOptions != null
+            ? remoteOptions.getRemoteDefaultExecProperties()
+            : ImmutableSortedMap.of();
 
-    if (executionPlatform == null && Strings.isNullOrEmpty(defaultPlatformProperties)) {
+    if (executionPlatform == null && defaultExecProperties.isEmpty()) {
       return null;
     }
 
@@ -61,16 +64,10 @@ public final class PlatformUtils {
                 executionPlatform.label()),
             e);
       }
-    } else if (!Strings.isNullOrEmpty(defaultPlatformProperties)) {
-      // Try and use the provided default value.
-      try {
-        TextFormat.getParser().merge(defaultPlatformProperties, platformBuilder);
-      } catch (ParseException e) {
-        throw new UserExecException(
-            String.format(
-                "Failed to parse --remote_default_platform_properties %s",
-                defaultPlatformProperties),
-            e);
+    } else {
+      for (Map.Entry<String, String> property : defaultExecProperties.entrySet()) {
+        platformBuilder.addProperties(
+            Property.newBuilder().setName(property.getKey()).setValue(property.getValue()).build());
       }
     }
 

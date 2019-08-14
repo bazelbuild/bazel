@@ -15,45 +15,29 @@ package com.google.devtools.build.lib.syntax;
 
 import java.io.IOException;
 
-/** A class for flow statements (e.g. break and continue) */
+/** A class for flow statements (break, continue, and pass) */
 public final class FlowStatement extends Statement {
-  // TODO(laurentlb): This conflicts with Statement.Kind, maybe remove it?
-  public enum Kind {
-    BREAK("break"),
-    CONTINUE("continue");
 
-    private final String name;
+  private final TokenKind kind; // BREAK | CONTINUE | PASS
 
-    private Kind(String name) {
-      this.name = name;
-    }
-
-    public String getName() {
-      return name;
-    }
-  }
-
-  private final Kind kind;
-
-  /** @param kind The label of the statement (either break or continue) */
-  FlowStatement(Kind kind) {
+  /** @param kind The label of the statement (break, continue, or pass) */
+  FlowStatement(TokenKind kind) {
     this.kind = kind;
   }
 
-  public Kind getKind() {
+  public TokenKind getKind() {
     return kind;
   }
 
   @Override
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
     printIndent(buffer, indentLevel);
-    buffer.append(kind.name);
-    buffer.append('\n');
+    buffer.append(kind.toString()).append('\n');
   }
 
   @Override
   public String toString() {
-    return kind.name + "\n";
+    return kind.toString() + "\n";
   }
 
   @Override

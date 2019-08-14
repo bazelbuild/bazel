@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,26 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.analysis;
 
-import java.io.IOException;
+/** A minimal context available during rule definition, for both native and starlark rules. */
+public interface RuleDefinitionContext {
 
-/** Syntax node for a `pass` statement. */
-public class PassStatement extends Statement {
-
-  @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    printIndent(buffer, indentLevel);
-    buffer.append("pass\n");
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
-    visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.PASS;
-  }
+  /** Returns the name of the tools repository. */
+  String getToolsRepository();
 }

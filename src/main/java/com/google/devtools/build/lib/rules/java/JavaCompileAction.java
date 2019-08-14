@@ -90,7 +90,20 @@ public class JavaCompileAction extends AbstractAction
           .setUseAlways(true)
           .build();
 
-  private final String mnemonic;
+  enum CompilationType {
+    JAVAC("Javac"),
+    // TODO(cushon): rename the mnemonic to 'Turbine' after javac-turbine is turned down (and after
+    // collecting data on the perform impact of the turndown)
+    TURBINE("JavacTurbine");
+
+    final String mnemonic;
+
+    CompilationType(String mnemonic) {
+      this.mnemonic = mnemonic;
+    }
+  }
+
+  private final CompilationType compilationType;
   private final ImmutableMap<String, String> executionInfo;
   private final CommandLine executableLine;
   private final CommandLine flagLine;
@@ -107,7 +120,7 @@ public class JavaCompileAction extends AbstractAction
   @Nullable private final ExtraActionInfoSupplier extraActionInfoSupplier;
 
   public JavaCompileAction(
-      String mnemonic,
+      CompilationType compilationType,
       ActionOwner owner,
       ActionEnvironment env,
       NestedSet<Artifact> tools,
@@ -132,10 +145,11 @@ public class JavaCompileAction extends AbstractAction
         runfilesSupplier,
         outputs,
         env);
-    this.mnemonic = mnemonic;
+    this.compilationType = compilationType;
     // TODO(djasper): The only thing that is conveyed through the executionInfo is whether worker
     // mode is enabled or not. Investigate whether we can store just that.
-    this.executionInfo = configuration.modifiedExecutionInfo(executionInfo, mnemonic);
+    this.executionInfo =
+        configuration.modifiedExecutionInfo(executionInfo, compilationType.mnemonic);
     this.executableLine = executableLine;
     this.flagLine = flagLine;
     this.configuration = configuration;
@@ -151,7 +165,7 @@ public class JavaCompileAction extends AbstractAction
 
   @Override
   public String getMnemonic() {
-    return mnemonic;
+    return compilationType.mnemonic;
   }
 
   @Override
@@ -439,7 +453,7 @@ public class JavaCompileAction extends AbstractAction
   }
 
   @VisibleForTesting
-  CommandLines getCommandLines() {
+  public CommandLines getCommandLines() {
     return CommandLines.builder()
         .addCommandLine(executableLine)
         .addCommandLine(flagLine, PARAM_FILE_INFO)

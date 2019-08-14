@@ -180,7 +180,8 @@ public final class AspectFunction implements SkyFunction {
                 env.getValueOrThrow(importFileKey, SkylarkImportFailedException.class);
       } else {
         skylarkImportLookupValue =
-            skylarkImportLookupFunctionForInlining.computeWithInlineCalls(importFileKey, env);
+            skylarkImportLookupFunctionForInlining.computeWithInlineCalls(
+                importFileKey, env, /*visitedDepsInToplevelLoad=*/ new HashMap<>());
       }
       if (skylarkImportLookupValue == null) {
         Preconditions.checkState(

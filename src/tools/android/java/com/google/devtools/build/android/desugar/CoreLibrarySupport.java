@@ -21,6 +21,7 @@ import static java.util.stream.Stream.concat;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -160,7 +161,7 @@ class CoreLibrarySupport {
       String methodName = pair.get(1);
       checkArgument(
           !isRenamedCoreLibrary(className),
-          "Conversion subject is renamed, no need to preserve: %s",
+          "Preserved base class is renamed, no need to preserve: %s",
           className);
       multimapBuilder.put(methodName, className); // build reverse map for convenient lookups
     }
@@ -220,8 +221,11 @@ class CoreLibrarySupport {
       return false; // static methods don't override anything
     }
 
-    if (!preserveOverrides.containsKey(methodName)) {
-      return false; // unknown name
+    ImmutableCollection<String> preserveBaseclasses = preserveOverrides.get(methodName);
+    if (preserveBaseclasses.isEmpty() || looksGenerated(internalName)) {
+      // Not a method name we want to preserve, or we're looking at a generated lambda or interface
+      // desugaring class where we shouldn't need to preserve any overrides.
+      return false;
     }
 
     Class<?> clazz = loadFromInternal(internalName);
@@ -230,7 +234,7 @@ class CoreLibrarySupport {
     }
 
     // See if clazz extends any of the configured base classes for this method
-    for (String baseclassName : preserveOverrides.get(methodName)) {
+    for (String baseclassName : preserveBaseclasses) {
       Class<?> baseclass = loadFromInternal(baseclassName);
       checkState(
           !baseclass.isInterface(), "Cannot preserve interface overrides: %s", baseclassName);

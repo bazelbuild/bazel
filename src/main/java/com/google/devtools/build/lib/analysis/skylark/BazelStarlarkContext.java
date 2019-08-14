@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** An implementation of {@link StarlarkContext} containing Bazel-specific context. */
-public class BazelStarlarkContext implements StarlarkContext {
+public class BazelStarlarkContext implements StarlarkContext, RuleDefinitionContext {
   private final String toolsRepository;
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
   private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
@@ -79,7 +80,8 @@ public class BazelStarlarkContext implements StarlarkContext {
     return Objects.hash(toolsRepository, fragmentNameToClass, repoMapping);
   }
 
-  /** Returns the name of the tools repository, such as "bazel_tools". */
+  /** Returns the name of the tools repository, such as "@bazel_tools". */
+  @Override
   public String getToolsRepository() {
     return toolsRepository;
   }

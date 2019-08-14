@@ -177,7 +177,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
       assertThat(attributeErrorMessage).isNull();
       assertThat(attributeErrorAttribute).isNull();
     }
-  };
+  }
 
   public FakeRuleErrorConsumer errorConsumer;
   public FileSystem fileSystem;

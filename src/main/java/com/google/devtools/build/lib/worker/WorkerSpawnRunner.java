@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -154,7 +155,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
-    Map<PathFragment, Path> inputFiles =
+    SandboxInputs inputFiles =
         SandboxHelpers.processInputFiles(
             spawn, context, execRoot, sandboxUsesExpandedTreeArtifactsInRunfiles);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
@@ -284,7 +285,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       WorkerKey key,
       WorkRequest request,
       SpawnExecutionContext context,
-      Map<PathFragment, Path> inputFiles,
+      SandboxInputs inputFiles,
       SandboxOutputs outputs)
       throws InterruptedException, ExecException {
     Worker worker = null;

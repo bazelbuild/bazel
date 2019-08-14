@@ -174,6 +174,11 @@ public class GrpcRemoteExecutionClientTest {
                   }
 
                   @Override
+                  public boolean isSymlink() {
+                    return false;
+                  }
+
+                  @Override
                   public PathFragment getExecPath() {
                     return null; // unused here.
                   }
@@ -182,6 +187,11 @@ public class GrpcRemoteExecutionClientTest {
                   @Override
                   public String getExecPathString() {
                     return "bar";
+                  }
+
+                  @Override
+                  public boolean isSymlink() {
+                    return false;
                   }
 
                   @Override

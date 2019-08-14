@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Rule class definitions used by (almost) every rule.
  */
 public class BaseRuleClasses {
+
   @AutoCodec @AutoCodec.VisibleForSerialization
   static final Attribute.ComputedDefault testonlyDefault =
       new Attribute.ComputedDefault() {
@@ -196,7 +197,7 @@ public class BaseRuleClasses {
           .add(
               attr("$test_runtime", LABEL_LIST)
                   .cfg(HostTransition.createFactory())
-                  .value(ImmutableList.of(env.getToolsLabel("//tools/test:runtime"))))
+                  .value(getTestRuntimeLabelList(env)))
           .add(
               attr("$test_setup_script", LABEL)
                   .cfg(HostTransition.createFactory())
@@ -237,6 +238,21 @@ public class BaseRuleClasses {
           .ancestors(RootRule.class, MakeVariableExpandingRule.class)
           .build();
     }
+  }
+
+  private static final String TOOLS_TEST_RUNTIME_TARGET_PATTERN = "//tools/test:runtime";
+  private static ImmutableList<Label> testRuntimeLabelList = null;
+
+  // Always return the same ImmutableList<Label> for every $test_runtime attribute's default value.
+  public static synchronized ImmutableList<Label> getTestRuntimeLabelList(
+      RuleDefinitionContext env) {
+    if (testRuntimeLabelList == null) {
+      testRuntimeLabelList =
+          ImmutableList.of(
+              Label.parseAbsoluteUnchecked(
+                  env.getToolsRepository() + TOOLS_TEST_RUNTIME_TARGET_PATTERN));
+    }
+    return testRuntimeLabelList;
   }
 
   /**
