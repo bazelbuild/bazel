@@ -259,30 +259,17 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     ExitCode earlyExitCode = optionHandler.parseOptions(args, storedEventHandler);
     OptionsParsingResult options = optionHandler.getOptionsResult();
 
-    // The initCommand call also records the start time for the timestamp granularity monitor.
-    List<String> commandEnvWarnings = new ArrayList<>();
-    CommandEnvironment env = workspace.initCommand(commandAnnotation, options, commandEnvWarnings);
-    // Record the command's starting time for use by the commands themselves.
-    env.recordCommandStartTime(firstContactTime);
-
-    // Early exit: error while parsing command line options.
-    if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
-      return replayEarlyExitEvents(
-          outErr,
-          optionHandler,
-          storedEventHandler,
-          env,
-          earlyExitCode,
-          new NoBuildEvent(
-              commandName, firstContactTime, false, true, env.getCommandId().toString()));
-    }
-
     CommandLineEvent originalCommandLineEvent =
         new CommandLineEvent.OriginalCommandLineEvent(
             runtime, commandName, options, startupOptionsTaggedWithBazelRc);
     CommandLineEvent canonicalCommandLineEvent =
         new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
 
+    // The initCommand call also records the start time for the timestamp granularity monitor.
+    List<String> commandEnvWarnings = new ArrayList<>();
+    CommandEnvironment env = workspace.initCommand(commandAnnotation, options, commandEnvWarnings);
+    // Record the command's starting time for use by the commands themselves.
+    env.recordCommandStartTime(firstContactTime);
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     // We cannot flip an incompatible flag that expands to other flags, so we do it manually here.
     // If an option is specified explicitly, we give that preference.
