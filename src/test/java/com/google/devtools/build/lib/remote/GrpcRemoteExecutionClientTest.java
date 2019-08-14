@@ -1201,4 +1201,84 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(numCacheUploads.get()).isEqualTo(2);
     assertThat(numExecuteCalls.get()).isEqualTo(2);
   }
+
+  @Test
+  public void execWaitsOnUnfinishedCompletion() throws Exception {
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        });
+
+    final String opName = "operations/xyz";
+    final Digest resultDigest = DIGEST_UTIL.compute("bla".getBytes(UTF_8));
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("bla")).build());
+            responseObserver.onCompleted();
+          }
+        });
+    final ActionResult actionResult =
+        ActionResult.newBuilder()
+            .setStdoutRaw(ByteString.copyFromUtf8("stdout"))
+            .setStderrRaw(ByteString.copyFromUtf8("stderr"))
+            .addOutputFiles(OutputFile.newBuilder().setPath("foo").setDigest(resultDigest).build())
+            .build();
+    final Operation unfinishedOperation = Operation.newBuilder().setName(opName).build();
+    final Operation completeOperation =
+        unfinishedOperation.toBuilder()
+            .setDone(true)
+            .setResponse(Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+            .build();
+    final WaitExecutionRequest waitExecutionRequest =
+        WaitExecutionRequest.newBuilder().setName(opName).build();
+    ExecutionImplBase mockExecutionImpl = Mockito.mock(ExecutionImplBase.class);
+    // Flow of this test:
+    // - call execute, get an unfinished Operation, then the stream completes
+    // - call waitExecute, get an unfinished Operation, then the stream completes
+    // - call waitExecute, get a finished Operation
+    Mockito.doAnswer(answerWith(unfinishedOperation, Status.OK))
+        .when(mockExecutionImpl)
+        .execute(
+            ArgumentMatchers.<ExecuteRequest>any(),
+            ArgumentMatchers.<StreamObserver<Operation>>any());
+    Mockito.doAnswer(answerWith(unfinishedOperation, Status.OK))
+        .doAnswer(answerWith(completeOperation, Status.OK))
+        .when(mockExecutionImpl)
+        .waitExecution(
+            ArgumentMatchers.eq(waitExecutionRequest),
+            ArgumentMatchers.<StreamObserver<Operation>>any());
+    serviceRegistry.addService(mockExecutionImpl);
+
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+
+    SpawnResult result = client.exec(simpleSpawn, policy);
+    assertThat(result.setupSuccess()).isTrue();
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.isCacheHit()).isFalse();
+    Mockito.verify(mockExecutionImpl, Mockito.times(1))
+        .execute(Mockito.<ExecuteRequest>any(), ArgumentMatchers.<StreamObserver<Operation>>any());
+    Mockito.verify(mockExecutionImpl, Mockito.times(2))
+        .waitExecution(
+            Mockito.eq(waitExecutionRequest), ArgumentMatchers.<StreamObserver<Operation>>any());
+  }
 }
