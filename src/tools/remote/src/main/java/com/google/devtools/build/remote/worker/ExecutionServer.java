@@ -343,12 +343,13 @@ final class ExecutionServer extends ExecutionImplBase {
     byte[] stdout = cmdResult.getStdout();
     if (stdout.length > 0) {
       Digest stdoutDigest = digestUtil.compute(stdout);
-      cache.uploadBlob(stdoutDigest, ByteString.copyFrom(stdout));
+      getFromFuture(cache.uploadBlob(stdoutDigest, ByteString.copyFrom(stdout)));
       result.setStdoutDigest(stdoutDigest);
     }
     byte[] stderr = cmdResult.getStderr();
     if (stderr.length > 0) {
       Digest stderrDigest = digestUtil.compute(stderr);
+      getFromFuture(cache.uploadBlob(stderrDigest, ByteString.copyFrom(stderr)));
       result.setStderrDigest(stderrDigest);
     }
 
