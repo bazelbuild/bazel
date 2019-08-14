@@ -851,10 +851,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact)
       throws CommandLineExpansionException {
     SpawnAction a = getGeneratingSpawnAction(artifact);
-    Iterable<String> paramFileArgs = paramFileArgsForAction(a);
-    return paramFileArgs != null
-        ? ImmutableList.copyOf(Iterables.concat(a.getArguments(), paramFileArgs))
-        : a.getArguments();
+    return a.getArguments();
   }
 
   protected ActionsTestUtil actionsTestUtil() {
