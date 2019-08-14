@@ -251,18 +251,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisableDeprecatedAttrParams;
 
   @Option(
-      name = "incompatible_disable_objc_provider_resources",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "Unused. Will be removed in future versions of Bazel.")
-  public boolean incompatibleDisableObjcProviderResources;
-
-  @Option(
       name = "incompatible_disable_partition_default_parameter",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -708,7 +696,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisableThirdPartyLicenseChecking(
                 incompatibleDisableThirdPartyLicenseChecking)
             .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
-            .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
             .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
             .incompatibleDisallowEmptyGlob(incompatibleDisallowEmptyGlob)
             .incompatibleDisallowLegacyJavaInfo(incompatibleDisallowLegacyJavaInfo)

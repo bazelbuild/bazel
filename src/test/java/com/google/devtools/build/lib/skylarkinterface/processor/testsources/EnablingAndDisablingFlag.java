@@ -30,8 +30,8 @@ public class EnablingAndDisablingFlag {
         @Param(name = "one", type = String.class, named = true),
         @Param(name = "two", type = Integer.class, named = true),
       },
-      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES,
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT)
   public String someMethod(String one, Integer two) {
     return "foo";
   }
