@@ -210,7 +210,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_enable_profile_by_default",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {
