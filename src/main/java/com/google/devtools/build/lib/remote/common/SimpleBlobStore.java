@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote.common;
 
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
@@ -27,6 +28,23 @@ import java.io.OutputStream;
  * <p>Implementations must be thread-safe.
  */
 public interface SimpleBlobStore {
+
+  /**
+   * A special type of Digest that is used only as a remote action cache key. This is a separate
+   * type in order to prevent accidentally using other Digests as action keys.
+   */
+  final class ActionKey {
+    private final Digest digest;
+
+    public Digest getDigest() {
+      return digest;
+    }
+
+    public ActionKey(Digest digest) {
+      this.digest = digest;
+    }
+  }
+
   /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
   boolean contains(String key) throws IOException, InterruptedException;
 
@@ -52,8 +70,10 @@ public interface SimpleBlobStore {
    */
   ListenableFuture<Boolean> getActionResult(String actionKey, OutputStream out);
 
-  /** Uploads a bytearray BLOB (as {@code in}) indexed by {@code key} to the Action Cache. */
-  void putActionResult(String actionKey, byte[] in) throws IOException, InterruptedException;
+  /**
+   * Uploads an {@link ActionResult} keyed by the action hash to the action cache.
+   */
+  void putActionResult(ActionKey actionDigest, ActionResult actionResult) throws IOException, InterruptedException;
 
   /** Close resources associated with the blob store. */
   void close();

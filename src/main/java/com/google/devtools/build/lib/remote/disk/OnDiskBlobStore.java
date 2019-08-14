@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -21,7 +22,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -69,8 +69,10 @@ public class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(String key, byte[] in) throws IOException {
-    saveFile(getDiskKey(key, /* actionResult= */ true), new ByteArrayInputStream(in));
+  public void putActionResult(ActionKey actionKey, ActionResult actionResult) throws IOException {
+    try (InputStream data = actionResult.toByteString().newInput()) {
+      saveFile(getDiskKey(actionKey.getDigest().getHash(), /* actionResult= */ true), data);
+    }
   }
 
   @Override

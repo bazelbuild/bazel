@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.http;
 
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
@@ -643,10 +644,11 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(String actionKey, byte[] data)
+  public void putActionResult(ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
-    try (InputStream in = new ByteArrayInputStream(data)) {
-      uploadBlocking(actionKey, data.length, in, false);
+    ByteString serialized = actionResult.toByteString();
+    try (InputStream in = serialized.newInput()) {
+      uploadBlocking(actionKey.getDigest().getHash(), serialized.size(), in, false);
     }
   }
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.Futures;
@@ -55,9 +56,9 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
-    diskCache.putActionResult(key, in);
-    remoteCache.putActionResult(key, in);
+  public void putActionResult(ActionKey actionKey, ActionResult actionResult) throws IOException, InterruptedException {
+    diskCache.putActionResult(actionKey, actionResult);
+    remoteCache.putActionResult(actionKey, actionResult);
   }
 
   @Override
