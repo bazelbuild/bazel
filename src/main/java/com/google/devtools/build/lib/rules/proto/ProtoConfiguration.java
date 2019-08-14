@@ -156,20 +156,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean experimentalJavaProtoAddAllowedPublicImports;
 
     @Option(
-        name = "incompatible_disable_legacy_proto_provider",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "If true, proto_library will no longer have the legacy provider accessible by "
-                + " 'dep.proto.' and it must be accessed by 'dep[ProtoInfo].")
-    public boolean disableLegacyProvider;
-
-    @Option(
         name = "incompatible_load_proto_rules_from_bzl",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -186,7 +172,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
-      host.disableLegacyProvider = disableLegacyProvider;
       host.loadProtoRulesFromBzl = loadProtoRulesFromBzl;
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
@@ -237,10 +222,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     this.ccProtoLibraryHeaderSuffixes = ImmutableList.copyOf(options.ccProtoLibraryHeaderSuffixes);
     this.ccProtoLibrarySourceSuffixes = ImmutableList.copyOf(options.ccProtoLibrarySourceSuffixes);
     this.options = options;
-  }
-
-  public boolean enableLegacyProvider() {
-    return !options.disableLegacyProvider;
   }
 
   public ImmutableList<String> protocOpts() {

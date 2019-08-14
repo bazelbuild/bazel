@@ -52,28 +52,6 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
   }
 
   @Test
-  public void testLegacyProviderCanBeDisabled() throws Exception {
-    useConfiguration("--incompatible_disable_legacy_proto_provider");
-    scratch.file(
-        "foo/test.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr.dep.proto", // NB: This is the legacy provider
-        "  return MyInfo(direct_sources=provider.direct_sources)",
-        "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':test.bzl', 'test')",
-        "test(name='test', dep=':proto')",
-        "proto_library(name='proto', srcs=['p.proto'])");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:test");
-    assertContainsEvent("doesn't have provider 'proto'");
-  }
-
-  @Test
   public void testProtoCommon() throws Exception {
     scratch.file(
         "foo/test.bzl",
@@ -88,55 +66,6 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
     Object protoCommon = getMyInfoFromTarget(test).getValue("proto_common");
     assertThat(protoCommon).isInstanceOf(ProtoModuleApi.class);
   }
-
-  @Test
-  public void testProviderIsAvailableWhenLegacyIsDisabled() throws Exception {
-    useConfiguration("--incompatible_disable_legacy_proto_provider");
-    scratch.file(
-        "foo/test.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr.dep[ProtoInfo]", // NB: This is the modern provider
-        "  return MyInfo(direct_sources=provider.direct_sources)",
-        "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':test.bzl', 'test')",
-        "test(name='test', dep=':proto')",
-        "proto_library(name='proto', srcs=['p.proto'])");
-
-    ConfiguredTarget test = getConfiguredTarget("//foo:test");
-    @SuppressWarnings("unchecked")
-    Iterable<Artifact> directSources =
-        (Iterable<Artifact>) getMyInfoFromTarget(test).getValue("direct_sources");
-    assertThat(ActionsTestUtil.baseArtifactNames(directSources)).containsExactly("p.proto");
-  }
-
-  @Test
-  public void testLegacyProvider() throws Exception {
-    useConfiguration("--noincompatible_disable_legacy_proto_provider");
-    scratch.file(
-        "foo/test.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr.dep.proto", // NB: This is the legacy provider
-        "  return MyInfo(direct_sources=provider.direct_sources)",
-        "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':test.bzl', 'test')",
-        "test(name='test', dep=':proto')",
-        "proto_library(name='proto', srcs=['p.proto'])");
-
-    ConfiguredTarget test = getConfiguredTarget("//foo:test");
-    @SuppressWarnings("unchecked")
-    Iterable<Artifact> directSources =
-        (Iterable<Artifact>) getMyInfoFromTarget(test).getValue("direct_sources");
-    assertThat(ActionsTestUtil.baseArtifactNames(directSources)).containsExactly("p.proto");
-  }
-
   @Test
   public void testProvider() throws Exception {
     scratch.file(
@@ -168,7 +97,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
         "",
         "def _my_test_rule_impl(ctx):",
         "    return MyInfo(",
-        "        fetched_proto_source_root = ctx.attr.protodep.proto.proto_source_root",
+        "        fetched_proto_source_root = ctx.attr.protodep[ProtoInfo].proto_source_root",
         "    )",
         "",
         "my_test_rule = rule(",

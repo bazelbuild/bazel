@@ -55,10 +55,6 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
             .addNativeDeclaredProvider(protoInfo);
 
-    if (ruleContext.getFragment(ProtoConfiguration.class).enableLegacyProvider()) {
-      builder.addSkylarkTransitiveInfo(ProtoInfo.LEGACY_SKYLARK_NAME, protoInfo);
-    }
-
     return builder.build();
   }
 }
