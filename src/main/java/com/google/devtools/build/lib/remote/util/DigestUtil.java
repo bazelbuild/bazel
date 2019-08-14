@@ -23,6 +23,7 @@ import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
@@ -32,22 +33,6 @@ import java.io.OutputStream;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
-
-  /**
-   * A special type of Digest that is used only as a remote action cache key. This is a separate
-   * type in order to prevent accidentally using other Digests as action keys.
-   */
-  public static final class ActionKey {
-    private final Digest digest;
-
-    public Digest getDigest() {
-      return digest;
-    }
-
-    public ActionKey(Digest digest) {
-      this.digest = digest;
-    }
-  }
 
   private final DigestHashFunction hashFn;
 
@@ -98,16 +83,16 @@ public class DigestUtil {
     return compute(str.getBytes(UTF_8));
   }
 
-  public DigestUtil.ActionKey computeActionKey(Action action) {
-    return new DigestUtil.ActionKey(compute(action));
+  public ActionKey computeActionKey(Action action) {
+    return new ActionKey(compute(action));
   }
 
   /**
    * Assumes that the given Digest is a valid digest of an Action, and creates an ActionKey wrapper.
    * This should not be called on the client side!
    */
-  public DigestUtil.ActionKey asActionKey(Digest digest) {
-    return new DigestUtil.ActionKey(digest);
+  public ActionKey asActionKey(Digest digest) {
+    return new ActionKey(digest);
   }
 
   /** Returns the hash of {@code data} in binary. */

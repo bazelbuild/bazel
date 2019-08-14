@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore;
 
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
@@ -69,8 +70,8 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(String key, byte[] in) {
-    map.put(ACTION_KEY_PREFIX + key, in);
+  public void putActionResult(ActionKey actionKey, ActionResult actionResult) {
+    map.put(ACTION_KEY_PREFIX + actionKey.getDigest().getHash(), actionResult.toByteArray());
   }
 
   @Override

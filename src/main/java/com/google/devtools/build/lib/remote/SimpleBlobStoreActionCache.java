@@ -30,9 +30,9 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -78,7 +78,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
 
   @Override
   public void upload(
-      DigestUtil.ActionKey actionKey,
+      SimpleBlobStore.ActionKey actionKey,
       Action action,
       Command command,
       Path execRoot,
@@ -97,12 +97,12 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       getFromFuture(uploadFile(stdoutDigest, outErr.getOutputPath()));
       result.setStdoutDigest(stdoutDigest);
     }
-    blobStore.putActionResult(actionKey.getDigest().getHash(), result.build().toByteArray());
+    blobStore.putActionResult(actionKey, result.build());
   }
 
   public void upload(
       ActionResult.Builder result,
-      DigestUtil.ActionKey actionKey,
+      SimpleBlobStore.ActionKey actionKey,
       Action action,
       Command command,
       Path execRoot,
@@ -170,7 +170,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
 
   public void setCachedActionResult(ActionKey actionKey, ActionResult result)
       throws IOException, InterruptedException {
-    blobStore.putActionResult(actionKey.getDigest().getHash(), result.toByteArray());
+    blobStore.putActionResult(actionKey, result);
   }
 
   @Override
