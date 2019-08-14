@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,6 +40,7 @@ final class DockerCommandLineBuilder {
   private int gid;
   private String commandId;
   private boolean privileged;
+  private List<Map.Entry<String, String>> additionalMounts;
 
   public DockerCommandLineBuilder setProcessWrapper(Path processWrapper) {
     this.processWrapper = processWrapper;
@@ -111,6 +113,11 @@ final class DockerCommandLineBuilder {
     return this;
   }
 
+  public DockerCommandLineBuilder setAdditionalMounts(List<Map.Entry<String, String>> additionalMounts) {
+    this.additionalMounts = additionalMounts;
+    return this;
+  }
+
   public List<String> build() {
     Preconditions.checkNotNull(sandboxExecRoot, "sandboxExecRoot must be set");
     Preconditions.checkState(!imageName.isEmpty(), "imageName must be set");
@@ -137,6 +144,13 @@ final class DockerCommandLineBuilder {
     dockerCmdLine.add(
         "-v", sandboxExecRoot.getPathString() + ":" + execRootInsideDocker.getPathString());
     dockerCmdLine.add("-w", execRootInsideDocker.getPathString());
+
+    for (ImmutableMap.Entry<String, String> additionalMountPath :
+           additionalMounts) {
+        final String mountTarget = additionalMountPath.getValue();
+        final String mountSource = additionalMountPath.getKey();
+        dockerCmdLine.add("-v", mountSource + ":" + mountTarget);
+    }
 
     StringBuilder uidGidFlagBuilder = new StringBuilder();
     if (uid != 0) {
