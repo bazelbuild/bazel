@@ -279,10 +279,13 @@ public class BlazeJavacMain {
               if (name.startsWith("com.google.errorprone.")
                   || name.startsWith("com.google.common.collect.")
                   || name.startsWith("com.google.common.base.")
+                  || name.startsWith("com.google.common.graph.")
                   || name.startsWith("org.checkerframework.dataflow.")
                   || name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
                   || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
+                  || name.startsWith("dagger.model.")
+                  || name.startsWith("dagger.spi.")
                   || builtinProcessors.contains(name)) {
                 return Class.forName(name);
               }
