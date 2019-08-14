@@ -584,8 +584,6 @@ message TestResult {
 }
 
 // Payload of the event summarizing a test.
-// TODO(aehlig): extend event with additional information as soon as we known
-// which additional information we need for test summaries.
 message TestSummary {
   // Wrapper around BlazeTestStatus to support importing that enum to proto3.
   // Overall status of test, accumulated over all runs, shards, and attempts.
@@ -602,6 +600,15 @@ message TestSummary {
 
   // Total number of cached test actions
   int32 total_num_cached = 6;
+
+  // When the test first started running.
+  int64 first_start_time_millis = 7;
+
+  // When the last test action completed.
+  int64 last_stop_time_millis = 8;
+
+  // The total runtime of the test.
+  int64 total_run_duration_millis = 9;
 }
 
 // Event indicating the end of a build.
