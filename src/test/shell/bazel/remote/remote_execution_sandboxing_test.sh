@@ -26,12 +26,14 @@ source "${CURRENT_DIR}/../../sandboxing_test_utils.sh" \
 
 function set_up() {
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
+  cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   writable_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   readonly_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
   worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
   "${BAZEL_RUNFILES}/src/tools/remote/worker" \
       --work_path="${work_path}" \
+      --cas_path="${cas_path}" \
       --listen_port=${worker_port} \
       --sandboxing \
       --sandboxing_writable_path="${writable_path}" \
@@ -80,6 +82,7 @@ function tear_down() {
   fi
   rm -rf "${pid_file}"
   rm -rf "${work_path}"
+  rm -rf "${cas_path}"
 }
 
 function test_genrule() {

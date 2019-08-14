@@ -18,7 +18,6 @@ import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.disk.CombinedDiskHttpBlobStore;
 import com.google.devtools.build.lib.remote.disk.OnDiskBlobStore;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -46,7 +44,8 @@ public final class SimpleBlobStoreFactory {
     } else if (casPath != null) {
       return new OnDiskBlobStore(casPath);
     } else {
-      return new ConcurrentMapBlobStore(new ConcurrentHashMap<>());
+      return null;
+      //return new ConcurrentMapBlobStore(new ConcurrentHashMap<>());
     }
   }
 

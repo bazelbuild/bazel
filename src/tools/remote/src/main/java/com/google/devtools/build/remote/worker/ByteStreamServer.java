@@ -26,7 +26,6 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.Chunker;
-import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -42,7 +41,7 @@ import javax.annotation.Nullable;
 /** A basic implementation of a {@link ByteStreamImplBase} service. */
 final class ByteStreamServer extends ByteStreamImplBase {
   private static final Logger logger = Logger.getLogger(ByteStreamServer.class.getName());
-  private final SimpleBlobStoreActionCache cache;
+  private final OnDiskBlobStoreActionCache cache;
   private final Path workPath;
   private final DigestUtil digestUtil;
 
@@ -61,7 +60,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
     }
   }
 
-  public ByteStreamServer(SimpleBlobStoreActionCache cache, Path workPath, DigestUtil digestUtil) {
+  public ByteStreamServer(OnDiskBlobStoreActionCache cache, Path workPath, DigestUtil digestUtil) {
     this.cache = cache;
     this.workPath = workPath;
     this.digestUtil = digestUtil;
@@ -135,21 +134,10 @@ final class ByteStreamServer extends ByteStreamImplBase {
         }
 
         if (offset == 0) {
-          try {
-            if (cache.containsKey(digest)) {
-              responseObserver.onNext(
-                  WriteResponse.newBuilder().setCommittedSize(digest.getSizeBytes()).build());
-              responseObserver.onCompleted();
-              closed = true;
-              return;
-            }
-          } catch (InterruptedException e) {
-            responseObserver.onError(StatusUtils.interruptedError(digest));
-            Thread.currentThread().interrupt();
-            closed = true;
-            return;
-          } catch (IOException e) {
-            responseObserver.onError(StatusUtils.internalError(e));
+          if (cache.containsKey(digest)) {
+            responseObserver.onNext(
+                WriteResponse.newBuilder().setCommittedSize(digest.getSizeBytes()).build());
+            responseObserver.onCompleted();
             closed = true;
             return;
           }

@@ -21,6 +21,7 @@ import stat
 import subprocess
 import tempfile
 import unittest
+import shutil
 
 
 class Error(Exception):
@@ -49,6 +50,7 @@ class TestBase(unittest.TestCase):
   _worker_stdout = None
   _worker_stderr = None
   _worker_proc = None
+  _cas_path = None
 
   def setUp(self):
     unittest.TestCase.setUp(self)
@@ -318,6 +320,8 @@ class TestBase(unittest.TestCase):
     # path length limits, so we run straight in TEMP. This should ideally
     # be set to something like C:\temp. On CI this is set to D:\temp.
     worker_path = TestBase.GetEnv('TEMP')
+    self._cas_path = worker_path + '\cas'
+    os.mkdir(self._cas_path)
 
     # Get an open port. Unfortunately this seems to be the best option in
     # Python.
@@ -334,6 +338,7 @@ class TestBase(unittest.TestCase):
             # This path has to be extremely short to avoid Windows path
             # length restrictions.
             '--work_path=' + worker_path,
+            '--cas_path=' + self._cas_path,
         ],
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
@@ -371,6 +376,8 @@ class TestBase(unittest.TestCase):
       print('Local remote worker stderr')
       print('--------------------------')
       print('\n'.join(stderr_lines))
+
+    shutil.rmtree(self._cas_path)
 
   def RunProgram(self,
                  args,

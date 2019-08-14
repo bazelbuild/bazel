@@ -24,6 +24,7 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
 
 function set_up() {
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
+  cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
   attempts=1
   while [ $attempts -le 5 ]; do
@@ -32,6 +33,7 @@ function set_up() {
     http_port=$(pick_random_unused_tcp_port) || fail "no port found"
     "${BAZEL_RUNFILES}/src/tools/remote/worker" \
         --work_path="${work_path}" \
+        --cas_path="${cas_path}" \
         --listen_port=${worker_port} \
         --http_listen_port=${http_port} \
         --pid_file="${pid_file}" &
@@ -57,6 +59,7 @@ function tear_down() {
   fi
   rm -rf "${pid_file}"
   rm -rf "${work_path}"
+  rm -rf "${cas_path}"
 }
 
 function test_remote_http_cache_flag() {

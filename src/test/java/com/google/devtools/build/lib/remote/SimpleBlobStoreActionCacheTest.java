@@ -27,12 +27,17 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Charsets;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -44,8 +49,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.protobuf.ByteString;
 import io.grpc.Context;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -434,4 +442,71 @@ public class SimpleBlobStoreActionCacheTest {
             () -> getFromFuture(client.downloadFile(fs.getPath("/exec/root/foo"), digest)));
     assertThat(e).hasMessageThat().contains(digest.getHash());
   }
+
+  private class ConcurrentMapBlobStore implements SimpleBlobStore {
+    private final ConcurrentMap<String, byte[]> map;
+    private static final String ACTION_KEY_PREFIX = "ac_";
+
+    public ConcurrentMapBlobStore(ConcurrentMap<String, byte[]> map) {
+      this.map = map;
+    }
+
+    @Override
+    public ListenableFuture<Boolean> get(String key, OutputStream out) {
+      byte[] data = map.get(key);
+      SettableFuture<Boolean> f = SettableFuture.create();
+      if (data == null) {
+        f.set(false);
+      } else {
+        try {
+          out.write(data);
+          f.set(true);
+        } catch (IOException e) {
+          f.setException(e);
+        }
+      }
+      return f;
+    }
+
+    @Override
+    public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
+      return get(ACTION_KEY_PREFIX + key, out);
+    }
+
+    @Override
+    public void putActionResult(ActionKey actionKey, ActionResult actionResult) {
+      map.put(ACTION_KEY_PREFIX + actionKey.getDigest().getHash(), actionResult.toByteArray());
+    }
+
+    @Override
+    public void close() {}
+
+    @Override
+    public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
+      try (InputStream in = file.getInputStream()) {
+        upload(digest.getHash(), digest.getSizeBytes(), in);
+      } catch (IOException e) {
+        return Futures.immediateFailedFuture(e);
+      }
+      return Futures.immediateFuture(null);
+    }
+
+    @Override
+    public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+      try (InputStream in = data.newInput()) {
+        upload(digest.getHash(), digest.getSizeBytes(), in);
+      } catch (IOException e) {
+        return Futures.immediateFailedFuture(e);
+      }
+      return Futures.immediateFuture(null);
+    }
+
+    private void upload(String key, long length, InputStream in) throws IOException {
+      byte[] value = ByteStreams.toByteArray(in);
+      Preconditions.checkState(value.length == length);
+      map.put(key, value);
+    }
+  }
+
+
 }

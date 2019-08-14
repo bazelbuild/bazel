@@ -46,16 +46,6 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean contains(String key) {
-    return diskCache.contains(key);
-  }
-
-  @Override
-  public boolean containsActionResult(String key) {
-    return diskCache.containsActionResult(key);
-  }
-
-  @Override
   public void putActionResult(ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
     diskCache.putActionResult(actionKey, actionResult);

@@ -36,12 +36,12 @@ public class OnDiskBlobStore implements SimpleBlobStore {
     this.root = root;
   }
 
-  @Override
+  /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
   public boolean contains(String key) {
     return toPath(key, /* actionResult= */ false).exists();
   }
 
-  @Override
+  /** Returns {@code true} if the provided {@code key} is stored in the Action Cache. */
   public boolean containsActionResult(String key) {
     return toPath(key, /* actionResult= */ true).exists();
   }
