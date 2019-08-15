@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -44,47 +43,49 @@ import javax.annotation.Nullable;
  * A class representing types available in Skylark.
  *
  * <p>A SkylarkType can be one of:
+ *
  * <ul>
- * <li>a Simple type that contains exactly the objects in a given class,
- *  (including the special TOP and BOTTOM types that respectively contain
- *  all the objects (Simple type for Object.class) and no object at all
- *  (Simple type for EmptyType.class, isomorphic to Void.class).
- * <li>a Combination of a generic class (one of SET, selector)
- *  and an argument type (that itself need not be Simple).
- * <li>a Union of a finite set of types
- * <li>a FunctionType associated with a name and a returnType
+ *   <li>a Simple type that contains exactly the objects in a given class, (including the special
+ *       TOP and BOTTOM types that respectively contain all the objects (Simple type for
+ *       Object.class) and no object at all (Simple type for EmptyType.class, isomorphic to
+ *       Void.class).
+ *   <li>a Combination of a generic class (one of SET, selector) and an argument type (that itself
+ *       need not be Simple).
+ *   <li>a Union of a finite set of types
+ *   <li>a FunctionType associated with a name and a returnType
  * </ul>
  *
- * <p>In a style reminiscent of Java's null, Skylark's None is in all the types
- *  as far as type inference goes, yet actually no type .contains(it).
+ * <p>In a style reminiscent of Java's null, Skylark's None is in all the types as far as type
+ * inference goes, yet actually no type .contains(it).
  *
- * <p>The current implementation fails to distinguish between TOP and ANY,
- * between BOTTOM and EMPTY (VOID, ZERO, FALSE):
+ * <p>The current implementation fails to distinguish between TOP and ANY, between BOTTOM and EMPTY
+ * (VOID, ZERO, FALSE):
+ *
  * <ul>
- * <li>In type analysis, we often distinguish a notion of "the type of this object"
- *  from the notion of "what I know about the type of this object".
- *  Some languages have a Universal Base Class that contains all objects, and would be the ANY type.
- *  The Skylark runtime, written in Java, has this ANY type, Java's Object.class.
- *  But the Skylark validation engine doesn't really have a concept of an ANY class;
- *  however, it does have a concept of a yet-undermined class, the TOP class
- *  (called UNKOWN in previous code). In the future, we may have to distinguish between the two,
- *  at which point type constructor classes would have to be generic in
- *  "actual type" vs "partial knowledge of type".
- * <li>Similarly, and EMPTY type (also known as VOID, ZERO or FALSE, in other contexts)
- *  is a type that has no instance, whereas the BOTTOM type is the type analysis that says
- *  that there is no possible runtime type for the given object, which may imply that
- *  the point in the program at which the object is evaluated cannot be reached, etc.
+ *   <li>In type analysis, we often distinguish a notion of "the type of this object" from the
+ *       notion of "what I know about the type of this object". Some languages have a Universal Base
+ *       Class that contains all objects, and would be the ANY type. The Skylark runtime, written in
+ *       Java, has this ANY type, Java's Object.class. But the Skylark validation engine doesn't
+ *       really have a concept of an ANY class; however, it does have a concept of a yet-undermined
+ *       class, the TOP class (called UNKNOWN in previous code). In the future, we may have to
+ *       distinguish between the two, at which point type constructor classes would have to be
+ *       generic in "actual type" vs "partial knowledge of type".
+ *   <li>Similarly, and EMPTY type (also known as VOID, ZERO or FALSE, in other contexts) is a type
+ *       that has no instance, whereas the BOTTOM type is the type analysis that says that there is
+ *       no possible runtime type for the given object, which may imply that the point in the
+ *       program at which the object is evaluated cannot be reached, etc.
  * </ul>
+ *
  * So for now, we have puns between TOP and ANY, BOTTOM and EMPTY, between runtime (eval) and
  * validation-time (validate). Yet in the future, we may need to make a clear distinction,
- * especially if we are to have types such List(Any) vs List(Top), which contains the former,
- * but also plenty of other quite distinct types. And yet in a future future, the TOP type
- * would not be represented explicitly, instead a new type variable would be inserted everywhere
- * a type is unknown, to be unified with further type information as it becomes available.
+ * especially if we are to have types such List(Any) vs List(Top), which contains the former, but
+ * also plenty of other quite distinct types. And yet in a future future, the TOP type would not be
+ * represented explicitly, instead a new type variable would be inserted everywhere a type is
+ * unknown, to be unified with further type information as it becomes available.
  */
 // TODO(bazel-team): move the FunctionType side-effect out of the type object
 // and into the validation environment.
-public abstract class SkylarkType implements Serializable {
+public abstract class SkylarkType {
 
   // The main primitives to override in subclasses
 

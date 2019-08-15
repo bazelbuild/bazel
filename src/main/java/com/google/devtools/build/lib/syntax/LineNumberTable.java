@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -32,7 +31,7 @@ import java.util.Objects;
  */
 @AutoCodec
 @Immutable
-class LineNumberTable implements Serializable {
+class LineNumberTable {
   private static final Interner<LineNumberTable> LINE_NUMBER_TABLE_INTERNER =
       BlazeInterners.newWeakInterner();
 

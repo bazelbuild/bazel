@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.List;
 
 /** Syntax node for an import statement. */
@@ -26,7 +25,7 @@ public final class LoadStatement extends Statement {
    *
    * <p>If there's no alias, a single Identifier can be used for both local and orig.
    */
-  public static final class Binding implements Serializable {
+  public static final class Binding {
     private final Identifier local;
     private final Identifier orig;
 
