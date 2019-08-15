@@ -281,24 +281,33 @@ public final class StringModule {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             doc = "The maximum number of replacements.")
-      },
-      useLocation = true)
-  public String replace(
-      String self, String oldString, String newString, Object maxSplitO, Location loc)
+      })
+  public String replace(String self, String oldString, String newString, Object maxSplitO)
       throws EvalException {
-    StringBuffer sb = new StringBuffer();
-    Integer maxSplit =
-        Type.INTEGER.convertOptional(
-            maxSplitO, "'maxsplit' argument of 'replace'", /*label*/ null, Integer.MAX_VALUE);
-    try {
-      Matcher m = Pattern.compile(oldString, Pattern.LITERAL).matcher(self);
-      for (int i = 0; i < maxSplit && m.find(); i++) {
-        m.appendReplacement(sb, Matcher.quoteReplacement(newString));
-      }
-      m.appendTail(sb);
-    } catch (IllegalStateException e) {
-      throw new EvalException(loc, e.getMessage() + " in call to replace");
+    int maxSplit = Integer.MAX_VALUE;
+    if (maxSplitO != Runtime.NONE) {
+      maxSplit = Math.max(0, (Integer) maxSplitO);
     }
+    StringBuilder sb = new StringBuilder();
+    int start = 0;
+    for (int i = 0; i < maxSplit; i++) {
+      if (oldString.isEmpty()) {
+        sb.append(newString);
+        if (start < self.length()) {
+          sb.append(self.charAt(start++));
+        } else {
+          break;
+        }
+      } else {
+        int end = self.indexOf(oldString, start);
+        if (end < 0) {
+          break;
+        }
+        sb.append(self, start, end).append(newString);
+        start = end + oldString.length();
+      }
+    }
+    sb.append(self, start, self.length());
     return sb.toString();
   }
 
