@@ -487,17 +487,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean isDisallowStrictDepsForJpl;
 
   @Option(
-      name = "experimental_java_header_compilation_disable_javac_fallback",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If --java_header_compilation is set, report diagnostics from turbine instead of "
-              + "falling back to javac. Diagnostics will be produced more quickly, but may be "
-              + "less helpful.")
-  public boolean headerCompilationDisableJavacFallback;
-
-  @Option(
       name = "experimental_one_version_enforcement",
       defaultValue = "OFF",
       converter = OneVersionEnforcementLevelConverter.class,
