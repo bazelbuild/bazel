@@ -956,7 +956,8 @@ public class AndroidCommon {
       Artifact in,
       Artifact filter,
       Artifact out,
-      CheckHashMismatchMode checkHashMismatch) {
+      CheckHashMismatchMode checkHashMismatch,
+      boolean removeAllRClasses) {
     ZipFilterBuilder builder =
         new ZipFilterBuilder(ruleContext)
             .setInputZip(in)
@@ -968,8 +969,7 @@ public class AndroidCommon {
             // app with different contents. We want to keep the one from the target app.
             .addExplicitFilter("/BR\\.class$")
             .addExplicitFilter("/databinding/[^/]+Binding\\.class$");
-
-    if (getAndroidConfig(ruleContext).removeRClassesFromInstrumentationTestJar()) {
+    if (removeAllRClasses) {
       builder.addExplicitFilter("R\\.class").addExplicitFilter("R\\$.*\\.class");
     }
 
