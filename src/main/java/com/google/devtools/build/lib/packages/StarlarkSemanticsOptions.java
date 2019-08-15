@@ -176,21 +176,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleAllowTagsPropagation;
 
   @Option(
-      name = "incompatible_assignment_identifiers_have_local_scope",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, LHS identifiers in assignment statements become local to the "
-              + "the block containing the statement, and mask similarly named variables in "
-              + "outer scopes.")
-  public boolean incompatibleAssignmentIdentifiersHaveLocalScope;
-
-  @Option(
       name = "incompatible_depset_union",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -745,8 +730,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisablePartitionDefaultParameter(
                 incompatibleDisablePartitionDefaultParameter)
             .incompatibleAllowTagsPropagation(incompatibleAllowTagsPropagation)
-            .incompatibleAssignmentIdentifiersHaveLocalScope(
-                incompatibleAssignmentIdentifiersHaveLocalScope)
             .incompatibleDisallowHashingFrozenMutables(incompatibleDisallowHashingFrozenMutables)
             .build();
     return INTERNER.intern(semantics);
