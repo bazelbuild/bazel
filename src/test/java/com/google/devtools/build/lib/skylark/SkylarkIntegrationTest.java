@@ -3171,20 +3171,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPartitionDefaultParameter() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=false");
-
-    scratch.file("test/extension.bzl", "y = ['abc'.partition(), 'abc'.rpartition()]");
-
-    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
-
-    getConfiguredTarget("//test:r");
-  }
-
-  @Test
   public void testDisabledPartitionDefaultParameter() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=true");
-
     scratch.file("test/extension.bzl", "y = 'abc'.partition()");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3196,8 +3183,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDisabledPartitionDefaultParameter2() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=true");
-
     scratch.file("test/extension.bzl", "y = 'abc'.rpartition()");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");

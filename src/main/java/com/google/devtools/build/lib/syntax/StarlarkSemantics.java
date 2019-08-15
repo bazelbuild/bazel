@@ -209,8 +209,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowDictLookupUnhashableKeys();
 
-  public abstract boolean incompatibleDisablePartitionDefaultParameter();
-
   public abstract boolean incompatibleAllowTagsPropagation();
 
   public abstract boolean incompatibleDisallowHashingFrozenMutables();
@@ -291,7 +289,6 @@ public abstract class StarlarkSemantics {
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
-          .incompatibleDisablePartitionDefaultParameter(false)
           .incompatibleAllowTagsPropagation(false)
           .incompatibleDisallowHashingFrozenMutables(false)
           .build();
@@ -389,8 +386,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
     public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
-
-    public abstract Builder incompatibleDisablePartitionDefaultParameter(boolean value);
 
     public abstract Builder incompatibleDisallowHashingFrozenMutables(boolean value);
 

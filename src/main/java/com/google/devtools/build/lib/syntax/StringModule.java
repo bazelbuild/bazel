@@ -445,24 +445,17 @@ public final class StringModule {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "unbound",
-            doc =
-                "The string to split on, has a default value, space (\" \"), "
-                    + "if the flag --incompatible_disable_partition_default_parameter is disabled. "
-                    + "Otherwise, a value must be provided.")
+            doc = "The string to split on.")
       },
       useEnvironment = true,
       useLocation = true)
   public Tuple<String> partition(String self, Object sep, Location loc, Environment env)
       throws EvalException {
     if (sep == Runtime.UNBOUND) {
-      if (env.getSemantics().incompatibleDisablePartitionDefaultParameter()) {
         throw new EvalException(
             loc,
             "parameter 'sep' has no default value, "
                 + "for call to method partition(sep) of 'string'");
-      } else {
-        sep = " ";
-      }
     } else if (!(sep instanceof String)) {
       throw new EvalException(
           loc,
@@ -487,24 +480,17 @@ public final class StringModule {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "unbound",
-            doc =
-                "The string to split on, has a default value, space (\" \"), "
-                    + "if the flag --incompatible_disable_partition_default_parameter is disabled. "
-                    + "Otherwise, a value must be provided.")
+            doc = "The string to split on.")
       },
       useEnvironment = true,
       useLocation = true)
   public Tuple<String> rpartition(String self, Object sep, Location loc, Environment env)
       throws EvalException {
     if (sep == Runtime.UNBOUND) {
-      if (env.getSemantics().incompatibleDisablePartitionDefaultParameter()) {
         throw new EvalException(
             loc,
             "parameter 'sep' has no default value, "
                 + "for call to method partition(sep) of 'string'");
-      } else {
-        sep = " ";
-      }
     } else if (!(sep instanceof String)) {
       throw new EvalException(
           loc,
