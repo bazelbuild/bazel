@@ -64,12 +64,12 @@ public class ProfilerChartTest extends FoundationTestCase {
     int threads = 4; // there is one extra thread due due the event that finalizes the profiler
     ProfileInfo info = createProfileInfo(run, threads - 1);
     ChartCreator aggregatingCreator = new AggregatingChartCreator(info, true);
-    Chart aggregatedChart = aggregatingCreator.create();
+    Chart aggregatedChart = aggregatingCreator.create(/* minBarWidth= */ 0);
     assertThat(aggregatedChart.getRowCount()).isEqualTo(threads);
     assertThat(aggregatedChart.getSortedRows().get(0).getBars()).hasSize(1);
 
     ChartCreator detailedCreator = new DetailedChartCreator(info);
-    Chart detailedChart = detailedCreator.create();
+    Chart detailedChart = detailedCreator.create(/* minBarWidth= */ 0);
     assertThat(detailedChart.getSortedTypes()).hasSize(COMMON_CHART_TYPES + DETAILED_CHART_TYPES);
     assertThat(detailedChart.getRowCount()).isEqualTo(threads);
     assertThat(detailedChart.getSortedRows().get(0).getBars()).hasSize(1);
@@ -94,19 +94,19 @@ public class ProfilerChartTest extends FoundationTestCase {
     ProfileInfo info = createProfileInfo(run, 1);
 
     ChartCreator aggregatingCreator = new AggregatingChartCreator(info, true);
-    Chart aggregatedChart = aggregatingCreator.create();
+    Chart aggregatedChart = aggregatingCreator.create(/* minBarWidth= */ 0);
     assertThat(aggregatedChart.getSortedTypes())
         .hasSize(COMMON_CHART_TYPES + AGGREGATED_CHART_TYPES);
     assertThat(aggregatedChart.getSortedRows().get(0).getBars()).hasSize(5);
 
     ChartCreator aggregatingNoVfsCreator = new AggregatingChartCreator(info, false);
-    Chart aggregatedNoVfsChart = aggregatingNoVfsCreator.create();
+    Chart aggregatedNoVfsChart = aggregatingNoVfsCreator.create(/* minBarWidth= */ 0);
     assertThat(aggregatedNoVfsChart.getSortedTypes())
         .hasSize(COMMON_CHART_TYPES + AGGREGATED_CHART_NO_VFS_TYPES);
     assertThat(aggregatedNoVfsChart.getSortedRows().get(0).getBars()).hasSize(4);
 
     ChartCreator detailedCreator = new DetailedChartCreator(info);
-    Chart detailedChart = detailedCreator.create();
+    Chart detailedChart = detailedCreator.create(/* minBarWidth= */ 0);
     assertThat(detailedChart.getSortedTypes())
         .hasSize(COMMON_CHART_TYPES + ProfilerTask.values().length);
     assertThat(detailedChart.getSortedRows().get(0).getBars()).hasSize(7);
@@ -114,7 +114,7 @@ public class ProfilerChartTest extends FoundationTestCase {
 
   @Test
   public void testChart() throws Exception {
-    Chart chart = new Chart();
+    Chart chart = new Chart(/* minBarWidth= */ 0);
 
     ChartBarType type3 = chart.createType("name3", Color.GREEN);
     ChartBarType type2 = chart.createType("name2", Color.RED);
@@ -213,7 +213,7 @@ public class ProfilerChartTest extends FoundationTestCase {
 
   @Test
   public void testVisitor() throws Exception {
-    Chart chart = new Chart();
+    Chart chart = new Chart(/* minBarWidth= */ 0);
     ChartBarType type3 = chart.createType("name3", Color.GREEN);
     ChartBarType type2 = chart.createType("name2", Color.RED);
     ChartBarType type1 = chart.createType("name1", Color.BLACK);
