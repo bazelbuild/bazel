@@ -766,4 +766,27 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new SkylarkTest("--incompatible_string_join_requires_strings=false")
         .testEval("', '.join(['foo', 2])", "'foo, 2'");
   }
+
+  @Test
+  public void testDepsetItemsKeywordAndPositional() throws Exception {
+    new SkylarkTest("--incompatible_disable_depset_items=false")
+        .testIfErrorContains(
+            "parameter 'items' cannot be specified both positionally and by keyword",
+            "depset([0, 1], 'default', items=[0,1])");
+  }
+
+  @Test
+  public void testDisableDepsetItems() throws Exception {
+    new SkylarkTest("--incompatible_disable_depset_items")
+        .setUp("x = depset([0])", "y = depset(direct = [1])")
+        .testEval("depset([2, 3], transitive = [x, y]).to_list()", "[0, 1, 2, 3]")
+        .testIfErrorContains(
+            "parameter 'direct' cannot be specified both positionally and by keyword",
+            "depset([0, 1], 'default', direct=[0,1])")
+        .testIfErrorContains(
+            "parameter 'items' is deprecated and will be removed soon. "
+                + "It may be temporarily re-enabled by setting "
+                + "--incompatible_disable_depset_inputs=false",
+            "depset(items=[0,1])");
+  }
 }

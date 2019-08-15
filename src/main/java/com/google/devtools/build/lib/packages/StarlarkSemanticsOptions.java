@@ -251,6 +251,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisableDeprecatedAttrParams;
 
   @Option(
+      name = "incompatible_disable_depset_items",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, disable the 'items' parameter of the depset constructor. Use "
+              + "the 'transitive' and 'direct' parameters instead.")
+  public boolean incompatibleDisableDepsetItems;
+
+  @Option(
       name = "incompatible_disable_partition_default_parameter",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -696,6 +710,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisableThirdPartyLicenseChecking(
                 incompatibleDisableThirdPartyLicenseChecking)
             .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
+            .incompatibleDisableDepsetItems(incompatibleDisableDepsetItems)
             .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
             .incompatibleDisallowEmptyGlob(incompatibleDisallowEmptyGlob)
             .incompatibleDisallowLegacyJavaInfo(incompatibleDisallowLegacyJavaInfo)
