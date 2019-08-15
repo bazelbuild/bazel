@@ -27,11 +27,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Collections;
 
 /**
  * Skylark String module.
@@ -336,7 +336,7 @@ public final class StringModule {
     if (maxSplitO != Runtime.NONE) {
       maxSplit = (Integer) maxSplitO;
     }
-    List<String> res = new ArrayList<>();
+    ArrayList<String> res = new ArrayList<>();
     int start = 0;
     while (true) {
       int end = self.indexOf(sep, start);
@@ -347,7 +347,7 @@ public final class StringModule {
       res.add(self.substring(start, end));
       start = end + sep.length();
     }
-    return MutableList.copyOf(env, res);
+    return MutableList.wrapUnsafe(env, res);
   }
 
   @SkylarkCallable(
@@ -385,18 +385,19 @@ public final class StringModule {
     if (maxSplitO != Runtime.NONE) {
       maxSplit = (Integer) maxSplitO;
     }
-    ArrayDeque<String> res = new ArrayDeque<>();
-    int end = self.length() - 1;
+    ArrayList<String> res = new ArrayList<>();
+    int end = self.length();
     while (true) {
-      int start = self.lastIndexOf(sep, end);
+      int start = self.lastIndexOf(sep, end - 1);
       if (start < 0 || maxSplit-- == 0) {
-        res.addFirst(self.substring(0, Math.max(0, end + 1)));
+        res.add(self.substring(0, end));
         break;
       }
-      res.addFirst(self.substring(start + sep.length(), end + 1));
-      end = start - 1;
+      res.add(self.substring(start + sep.length(), end));
+      end = start;
     }
-    return MutableList.copyOf(env, res);
+    Collections.reverse(res);
+    return MutableList.wrapUnsafe(env, res);
   }
 
   @SkylarkCallable(
