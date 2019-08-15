@@ -19,6 +19,7 @@ import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.protobuf.TextFormat;
@@ -33,35 +34,34 @@ import javax.annotation.Nullable;
 public final class PlatformUtils {
 
   @Nullable
-  public static Platform getPlatformProto(
-      @Nullable PlatformInfo executionPlatform, @Nullable RemoteOptions remoteOptions)
+  public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions)
       throws UserExecException {
     SortedMap<String, String> defaultExecProperties =
         remoteOptions != null
             ? remoteOptions.getRemoteDefaultExecProperties()
             : ImmutableSortedMap.of();
 
-    if (executionPlatform == null && defaultExecProperties.isEmpty()) {
+    if (spawn.getCombinedExecProperties().isEmpty() && defaultExecProperties.isEmpty()) {
       return null;
     }
 
     Platform.Builder platformBuilder = Platform.newBuilder();
 
-    if (executionPlatform != null && !executionPlatform.execProperties().isEmpty()) {
-      for (Map.Entry<String, String> entry : executionPlatform.execProperties().entrySet()) {
+    if (!spawn.getCombinedExecProperties().isEmpty()) {
+      for (Map.Entry<String, String> entry : spawn.getCombinedExecProperties().entrySet()) {
         platformBuilder.addPropertiesBuilder().setName(entry.getKey()).setValue(entry.getValue());
       }
-    } else if (executionPlatform != null
-        && !Strings.isNullOrEmpty(executionPlatform.remoteExecutionProperties())) {
+    } else if (spawn.getExecutionPlatform() != null
+        && !Strings.isNullOrEmpty(spawn.getExecutionPlatform().remoteExecutionProperties())) {
       // Try and get the platform info from the execution properties.
       try {
         TextFormat.getParser()
-            .merge(executionPlatform.remoteExecutionProperties(), platformBuilder);
+            .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
       } catch (ParseException e) {
         throw new UserExecException(
             String.format(
                 "Failed to parse remote_execution_properties from platform %s",
-                executionPlatform.label()),
+                spawn.getExecutionPlatform().label()),
             e);
       }
     } else {

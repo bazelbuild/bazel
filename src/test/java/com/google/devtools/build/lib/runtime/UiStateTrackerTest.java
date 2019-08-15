@@ -530,6 +530,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             "fedcba",
             null,
             null,
+            ImmutableMap.of(),
             null);
     when(action.getOwner()).thenReturn(owner);
 
@@ -956,6 +957,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             "abcdef",
             null,
             null,
+            ImmutableMap.of(),
             null);
 
     Label labelBarTest = Label.parseAbsolute("//baz:bartest", ImmutableMap.of());
@@ -974,6 +976,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             "fedcba",
             null,
             null,
+            ImmutableMap.of(),
             null);
 
     stateTracker.testFilteringComplete(filteringComplete);

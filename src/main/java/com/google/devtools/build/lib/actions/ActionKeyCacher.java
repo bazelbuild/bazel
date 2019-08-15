@@ -40,6 +40,8 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
               getExecutionPlatform().addTo(fp);
             }
 
+            fp.addStringMap(getExecProperties());
+
             // Compute the actual key and store it.
             cachedKey = fp.hexDigestAndReset();
           } catch (CommandLineExpansionException e) {

@@ -169,7 +169,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     maybeWriteParamFilesLocally(spawn);
 
     // Get the remote platform properties.
-    Platform platform = PlatformUtils.getPlatformProto(spawn.getExecutionPlatform(), remoteOptions);
+    Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
 
     Command command =
         buildCommand(

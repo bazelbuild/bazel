@@ -346,6 +346,7 @@ public final class ActionsTestUtil {
           "dummy-configuration",
           null,
           null,
+          ImmutableMap.<String, String>of(),
           null);
 
   @AutoCodec

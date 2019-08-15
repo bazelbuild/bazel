@@ -111,6 +111,14 @@ public interface Spawn {
    */
   String getMnemonic();
 
+  /**
+   * Returns execution properties related to this spawn.
+   *
+   * <p>Note that this includes data from the execution platform's exec_properties as well as
+   * target-level exec_properties. TODO(agoulti): implement target-level exec_properties.
+   */
+  ImmutableMap<String, String> getCombinedExecProperties();
+
   @Nullable
   PlatformInfo getExecutionPlatform();
 }

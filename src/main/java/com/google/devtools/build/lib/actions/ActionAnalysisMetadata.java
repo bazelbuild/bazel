@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import javax.annotation.Nullable;
@@ -241,6 +242,9 @@ public interface ActionAnalysisMetadata {
   default boolean hasLooseHeaders() {
     return false;
   }
+
+  /** Returns a String to String map containing the execution properties of this action. */
+  ImmutableMap<String, String> getExecProperties();
 
   /**
    * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution
