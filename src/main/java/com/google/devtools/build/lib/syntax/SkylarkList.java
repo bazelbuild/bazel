@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.StarlarkMutable.BaseMutableList;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.RandomAccess;
 import javax.annotation.Nullable;
@@ -521,15 +522,15 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       name = "extend",
       doc = "Adds all items to the end of the list.",
       parameters = {
-          @Param(name = "items", type = SkylarkList.class, doc = "Items to add at the end.")
+          @Param(name = "items", type = Object.class, doc = "Items to add at the end.")
       },
       useLocation = true,
       useEnvironment = true
     )
     public Runtime.NoneType extend(
-        SkylarkList<E> items, Location loc, Environment env)
+        Object items, Location loc, Environment env)
         throws EvalException {
-      addAll(items, loc, env.mutability());
+      addAll(new ArrayList(EvalUtils.toCollection(items, loc, env)), loc, env.mutability());
       return Runtime.NONE;
     }
 
