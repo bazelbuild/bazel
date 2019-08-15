@@ -108,7 +108,7 @@ def _impl(ctx):
 
 temperature = rule(
     implementation = _impl,
-    build_setting = config.string(flag = true)
+    build_setting = config.string(flag = True)
 )
 ```
 
@@ -158,7 +158,7 @@ directly depend on the build setting via a regular attribute dependency.
 # example/rules.bzl
 load("//example/buildsettings:build_settings.bzl", "FlavorProvider")
 def _rule_impl(ctx):
-    if ctx.attrs.flavor[FlavorProvider].type == "ORANGE":
+    if ctx.attr.flavor[FlavorProvider].type == "ORANGE":
         ...
 
 drink_rule = rule(
