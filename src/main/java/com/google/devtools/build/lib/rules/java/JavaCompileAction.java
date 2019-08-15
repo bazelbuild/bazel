@@ -518,6 +518,23 @@ public class JavaCompileAction extends AbstractAction
     return e.toActionExecutionException(failMessage, verboseFailures, this);
   }
 
+  /** Reads the {@code .jdeps} output from the given spawn results. */
+  private Deps.Dependencies readOutputDepsProto(
+      List<SpawnResult> results, ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
+    SpawnResult spawnResult = Iterables.getOnlyElement(results);
+    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+    try (InputStream input =
+        inMemoryOutput == null
+            ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
+            : inMemoryOutput) {
+      return Deps.Dependencies.parseFrom(input);
+    } catch (IOException e) {
+      throw toActionExecutionException(
+          new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
+    }
+  }
+
   private final class JavaActionContinuation extends ActionContinuationOrResult {
     private final ActionExecutionContext actionExecutionContext;
     @Nullable private final ReducedClasspath reducedClasspath;
@@ -552,15 +569,14 @@ public class JavaCompileAction extends AbstractAction
           return ActionContinuationOrResult.of(ActionResult.create(results));
         }
 
-        SpawnResult spawnResult = Iterables.getOnlyElement(results);
-        InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-        try (InputStream input =
-            inMemoryOutput == null
-                ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
-                : inMemoryOutput) {
-          if (!Deps.Dependencies.parseFrom(input).getRequiresReducedClasspathFallback()) {
-            return ActionContinuationOrResult.of(ActionResult.create(results));
-          }
+        Deps.Dependencies dependencies = readOutputDepsProto(results, actionExecutionContext);
+        if (compilationType == CompilationType.TURBINE) {
+          actionExecutionContext
+              .getContext(JavaCompileActionContext.class)
+              .insertDependencies(outputDepsProto, dependencies);
+        }
+        if (!dependencies.getRequiresReducedClasspathFallback()) {
+          return ActionContinuationOrResult.of(ActionResult.create(results));
         }
 
         // Fall back to running with the full classpath. This requires first deleting potential
@@ -616,6 +632,12 @@ public class JavaCompileAction extends AbstractAction
               actionExecutionContext, primaryResults, nextContinuation);
         }
         List<SpawnResult> fallbackResults = nextContinuation.get();
+        if (compilationType == CompilationType.TURBINE) {
+          actionExecutionContext
+              .getContext(JavaCompileActionContext.class)
+              .insertDependencies(
+                  outputDepsProto, readOutputDepsProto(fallbackResults, actionExecutionContext));
+        }
         return ActionContinuationOrResult.of(
             ActionResult.create(
                 ImmutableList.copyOf(Iterables.concat(primaryResults, fallbackResults))));
