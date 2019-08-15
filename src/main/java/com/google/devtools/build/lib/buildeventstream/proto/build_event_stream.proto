@@ -90,6 +90,8 @@ message BuildEventId {
 
   message WorkspaceConfigId {}
 
+  message BuildMetadataId {}
+
   // Identifier of an event indicating that a target has been expanded by
   // identifying for which configurations it should be build.
   message TargetConfiguredId {
@@ -212,6 +214,7 @@ message BuildEventId {
     BuildToolLogsId build_tool_logs = 20;
     BuildMetricsId build_metrics = 22;
     WorkspaceConfigId workspace = 23;
+    BuildMetadataId build_metadata = 24;
   }
 }
 
@@ -350,6 +353,13 @@ message WorkspaceStatus {
     string value = 2;
   }
   repeated Item item = 1;
+}
+
+// Payload of an event reporting custom key-value metadata associated with the
+// build.
+message BuildMetadata {
+  // Custom metadata for the build.
+  map<string, string> metadata = 1;
 }
 
 // Payload of an event reporting details of a given configuration.
@@ -716,5 +726,6 @@ message BuildEvent {
     BuildToolLogs build_tool_logs = 23;
     BuildMetrics build_metrics = 24;
     WorkspaceConfig workspace_info = 25;
+    BuildMetadata build_metadata = 26;
   }
 }
