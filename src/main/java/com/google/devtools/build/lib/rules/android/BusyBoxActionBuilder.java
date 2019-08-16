@@ -113,6 +113,14 @@ public final class BusyBoxActionBuilder {
     return this;
   }
 
+  /** Adds an input artifact if it is non-null */
+  public BusyBoxActionBuilder maybeAddInput(@Nullable Artifact value) {
+    if (value != null) {
+      this.inputs.add(value);
+    }
+    return this;
+  }
+
   /**
    * Adds a series of direct input artifacts if the list containing them is not null or empty.
    *

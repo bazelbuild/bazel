@@ -1752,6 +1752,82 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void transitiveResourceDependencies_omitTransitiveResources() throws Exception {
+    scratch.file(
+        "java/lib1/BUILD",
+        "package(features=['android_resources_strict_deps'])",
+        "android_library(",
+        "    name = 'lib1',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = ['res/values/strings.xml'],",
+        "    deps = ['//java/lib2'],",
+        ")");
+    scratch.file(
+        "java/lib2/BUILD",
+        "android_library(",
+        "    name = 'lib2',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = ['res/values/strings.xml'],",
+        "    deps = ['//java/lib3'],",
+        ")");
+    scratch.file(
+        "java/lib3/BUILD",
+        "android_library(",
+        "    name = 'lib3',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = ['res/values/strings.xml'],",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//java/lib1");
+
+    List<String> args = getResourceMergingArgs(target);
+    assertThat(getDependencyResourceLabels(args, "--primaryData"))
+        .containsExactly("//java/lib1:lib1");
+    assertThat(getDependencyResourceLabels(args, "--directData"))
+        .containsExactly("//java/lib2:lib2");
+    assertThat(args).doesNotContain("--data");
+    assertNoEvents();
+  }
+
+  // Note that this is really testing the 'feature' mechanism of Bazel rather than this specific
+  // feature.  But it's not well documented, so we're testing this specific use case.
+  @Test
+  public void transitiveResourceDependencies_includeTransitiveResources() throws Exception {
+    useConfiguration("--features=android_resources_strict_deps");
+    scratch.file(
+        "java/lib1/BUILD",
+        "android_library(",
+        "    name = 'lib1',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = ['res/values/strings.xml'],",
+        "    deps = ['//java/lib2'],",
+        // disable feature, which was presumably set in a global blazerc (above).
+        "    features=['-android_resources_strict_deps'],",
+        ")");
+    scratch.file(
+        "java/lib2/BUILD",
+        "android_library(",
+        "    name = 'lib2',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = ['res/values/strings.xml'],",
+        "    deps = ['//java/lib3'],",
+        ")");
+    scratch.file(
+        "java/lib3/BUILD",
+        "android_library(",
+        "    name = 'lib3',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = ['res/values/strings.xml'],",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//java/lib1");
+
+    List<String> args = getResourceMergingArgs(target);
+    assertThat(getDependencyResourceLabels(args, "--data")).containsExactly("//java/lib3:lib3");
+    assertNoEvents();
+  }
+
+  @Test
   public void testCustomJavacopts() throws Exception {
     scratch.file(
         "java/android/BUILD",
@@ -2512,5 +2588,31 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
                 .getFlattenedUserLinkFlags())
         .containsExactly("-CC_DEP")
         .inOrder();
+  }
+
+  /** Returns command-line arguments used in the AndroidCompiledResourceMerger action. */
+  private List<String> getResourceMergingArgs(ConfiguredTarget androidLibrary) throws Exception {
+    return getGeneratingSpawnActionArgs(
+        Iterables.getOnlyElement(
+                androidLibrary.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources())
+            .getJavaClassJar());
+  }
+
+  /**
+   * Decodes arguments provided as {@link com.google.devtools.build.android.SerializedAndroidData}.
+   */
+  private static ImmutableList<String> getDependencyResourceLabels(List<String> args, String flag) {
+    String value = getFlagValue(args, flag);
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    for (String dependency : Splitter.on(',').split(value)) {
+      assertThat(dependency).matches("([^;]*;){3}[^;]*");
+      result.add(dependency.split(";", -1)[2]);
+    }
+    return result.build();
+  }
+
+  private static String getFlagValue(List<String> argv, String flag) {
+    assertThat(argv).contains(flag);
+    return argv.get(argv.indexOf(flag) + 1);
   }
 }
