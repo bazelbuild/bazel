@@ -93,6 +93,7 @@ public class ShowIncludesFilterTest {
   }
 
   @Test
+  // Regression tests for https://github.com/bazelbuild/bazel/issues/9172
   public void testFindHeaderFromAbsolutePathUnderExecroot() throws IOException {
     // "Note: including file:" is the prefix
     filterOutputStream.write(
