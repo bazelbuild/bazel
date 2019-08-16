@@ -73,21 +73,12 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   private final boolean strictObjcModuleMaps;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, CoreOptions options) {
-    this.iosSimulatorDevice =
-        Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
-    this.iosSimulatorVersion =
-        Preconditions.checkNotNull(DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion),
-            "iosSimulatorVersion");
-    this.watchosSimulatorDevice =
-        Preconditions.checkNotNull(objcOptions.watchosSimulatorDevice, "watchosSimulatorDevice");
-    this.watchosSimulatorVersion =
-        Preconditions.checkNotNull(DottedVersion.maybeUnwrap(objcOptions.watchosSimulatorVersion),
-            "watchosSimulatorVersion");
-    this.tvosSimulatorDevice =
-        Preconditions.checkNotNull(objcOptions.tvosSimulatorDevice, "tvosSimulatorDevice");
-    this.tvosSimulatorVersion =
-        Preconditions.checkNotNull(DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion),
-            "tvosSimulatorVersion");
+    this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
+    this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
+    this.watchosSimulatorDevice = objcOptions.watchosSimulatorDevice;
+    this.watchosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.watchosSimulatorVersion);
+    this.tvosSimulatorDevice = objcOptions.tvosSimulatorDevice;
+    this.tvosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion);
     this.generateLinkmap = objcOptions.generateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);

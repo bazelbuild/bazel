@@ -31,16 +31,16 @@ import javax.annotation.Nullable;
 )
 public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi> {
 
-  @SkylarkCallable(name = "ios_simulator_device", structField = true,
+  @SkylarkCallable(name = "ios_simulator_device", structField = true, allowReturnNones = true,
       doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
   public String getIosSimulatorDevice();
 
-  @SkylarkCallable(name = "ios_simulator_version", structField = true,
+  @SkylarkCallable(name = "ios_simulator_version", structField = true, allowReturnNones = true,
       doc = "The SDK version of the iOS simulator to use when running on the simulator.")
   public DottedVersionApi<?> getIosSimulatorVersion();
 
   @SkylarkCallable(
-      name = "simulator_device_for_platform_type",
+      name = "simulator_device_for_platform_type", allowReturnNones = true,
       doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.",
       parameters = {
         @Param(
@@ -55,7 +55,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
   public String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
 
   @SkylarkCallable(
-      name = "simulator_version_for_platform_type",
+      name = "simulator_version_for_platform_type", allowReturnNones = true,
       doc = "The SDK version of the simulator to use when running on the simulator.",
       parameters = {
         @Param(

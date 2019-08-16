@@ -30,7 +30,7 @@ import java.util.List;
 public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "ios_simulator_version",
-    defaultValue = "9.3",
+    defaultValue = "null",
     converter = DottedVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.TESTING,
     effectTags = {OptionEffectTag.TEST_RUNNER},
@@ -42,7 +42,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "ios_simulator_device",
-    defaultValue = "iPhone 5s",
+    defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.TESTING,
     effectTags = {OptionEffectTag.TEST_RUNNER},
     help =
@@ -54,7 +54,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "watchos_simulator_version",
-    defaultValue = "2.0",
+    defaultValue = "null",
     converter = DottedVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.TESTING,
     effectTags = {OptionEffectTag.TEST_RUNNER},
@@ -64,7 +64,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "watchos_simulator_device",
-    defaultValue = "Apple Watch - 38mm",
+    defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.TESTING,
     effectTags = {OptionEffectTag.TEST_RUNNER},
     help =
@@ -76,7 +76,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "tvos_simulator_version",
-    defaultValue = "9.0",
+    defaultValue = "null",
     converter = DottedVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.TESTING,
     effectTags = {OptionEffectTag.TEST_RUNNER},
@@ -86,7 +86,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "tvos_simulator_device",
-    defaultValue = "Apple TV 1080p",
+    defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.TESTING,
     effectTags = {OptionEffectTag.TEST_RUNNER},
     help =
