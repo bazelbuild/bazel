@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -341,12 +341,22 @@ public final class StringModule {
     if (sep.isEmpty()) {
       throw new EvalException(loc, "Empty separator");
     }
-    int maxSplit =
-        Type.INTEGER.convertOptional(maxSplitO, "'split' argument of 'split'", /*label*/ null, -2);
-    // + 1 because the last result is the remainder. The default is -2 so that after +1,
-    // it becomes -1.
-    String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(self, maxSplit + 1);
-    return MutableList.of(env, ss);
+    int maxSplit = Integer.MAX_VALUE;
+    if (maxSplitO != Runtime.NONE) {
+      maxSplit = (Integer) maxSplitO;
+    }
+    ArrayList<String> res = new ArrayList<>();
+    int start = 0;
+    while (true) {
+      int end = self.indexOf(sep, start);
+      if (end < 0 || maxSplit-- == 0) {
+        res.add(self.substring(start));
+        break;
+      }
+      res.add(self.substring(start, end));
+      start = end + sep.length();
+    }
+    return MutableList.wrapUnsafe(env, res);
   }
 
   @SkylarkCallable(
@@ -377,58 +387,26 @@ public final class StringModule {
   public MutableList<String> rsplit(
       String self, String sep, Object maxSplitO, Location loc, Environment env)
       throws EvalException {
-    int maxSplit = Type.INTEGER.convertOptional(maxSplitO, "'split' argument of 'split'", null, -1);
-    try {
-      return stringRSplit(self, sep, maxSplit, env);
-    } catch (IllegalArgumentException ex) {
-      throw new EvalException(loc, ex);
+    if (sep.isEmpty()) {
+      throw new EvalException(loc, "Empty separator");
     }
-  }
-
-  /**
-   * Splits the given string into a list of words, using {@code separator} as a delimiter.
-   *
-   * <p>At most {@code maxSplits} will be performed, going from right to left.
-   *
-   * @param input The input string.
-   * @param separator The separator string.
-   * @param maxSplits The maximum number of splits. Negative values mean unlimited splits.
-   * @return A list of words
-   * @throws IllegalArgumentException
-   */
-  private static MutableList<String> stringRSplit(
-      String input, String separator, int maxSplits, Environment env) {
-    if (separator.isEmpty()) {
-      throw new IllegalArgumentException("Empty separator");
+    int maxSplit = Integer.MAX_VALUE;
+    if (maxSplitO != Runtime.NONE) {
+      maxSplit = (Integer) maxSplitO;
     }
-
-    if (maxSplits <= 0) {
-      maxSplits = Integer.MAX_VALUE;
+    ArrayList<String> res = new ArrayList<>();
+    int end = self.length();
+    while (true) {
+      int start = self.lastIndexOf(sep, end - 1);
+      if (start < 0 || maxSplit-- == 0) {
+        res.add(self.substring(0, end));
+        break;
+      }
+      res.add(self.substring(start + sep.length(), end));
+      end = start;
     }
-
-    ArrayDeque<String> result = new ArrayDeque<>();
-    String[] parts = input.split(Pattern.quote(separator), -1);
-    int sepLen = separator.length();
-    int remainingLength = input.length();
-    int splitsSoFar = 0;
-
-    // Copies parts from the array into the final list, starting at the end (because
-    // it's rsplit), as long as fewer than maxSplits splits are performed. The
-    // last spot in the list is reserved for the remaining string, whose length
-    // has to be tracked throughout the loop.
-    for (int pos = parts.length - 1; (pos >= 0) && (splitsSoFar < maxSplits); --pos) {
-      String current = parts[pos];
-      result.addFirst(current);
-
-      ++splitsSoFar;
-      remainingLength -= sepLen + current.length();
-    }
-
-    if (splitsSoFar == maxSplits && remainingLength >= 0)   {
-      result.addFirst(input.substring(0, remainingLength));
-    }
-
-    return MutableList.copyOf(env, result);
+    Collections.reverse(res);
+    return MutableList.wrapUnsafe(env, res);
   }
 
   @SkylarkCallable(
@@ -970,10 +948,10 @@ public final class StringModule {
       return str.length() + 1;
     }
     int count = 0;
-    int index = -1;
-    while ((index = str.indexOf(sub)) >= 0) {
+    int index = 0;
+    while ((index = str.indexOf(sub, index)) >= 0) {
       count++;
-      str = str.substring(index + sub.length());
+      index += sub.length();
     }
     return count;
   }
