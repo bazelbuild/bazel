@@ -621,8 +621,8 @@ class OptionsParserImpl {
       try {
         optionDefinition.getField().set(optionsInstance, value);
       } catch (IllegalArgumentException e) {
-        throw new IllegalStateException(
-            String.format("Unable to set %s to value '%s'.", optionDefinition, value), e);
+        // May happen when a boolean option got a string value. Just ignore this error without
+        // updating the field. Fixes https://github.com/bazelbuild/bazel/issues/7847
       } catch (IllegalAccessException e) {
         throw new IllegalStateException(
             "Could not set the field due to access issues. This is impossible, as the "
