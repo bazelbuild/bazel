@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A Class for filtering the output of /showIncludes from MSVC compiler.
@@ -40,11 +42,9 @@ public class ShowIncludesFilter {
 
   private FilterShowIncludesOutputStream filterShowIncludesOutputStream;
   private final String sourceFileName;
-  private final String workspaceName;
 
-  public ShowIncludesFilter(String sourceFileName, String workspaceName) {
+  public ShowIncludesFilter(String sourceFileName) {
     this.sourceFileName = sourceFileName;
-    this.workspaceName = workspaceName;
   }
 
   /**
@@ -149,13 +149,13 @@ public class ShowIncludesFilter {
                 StandardCharsets.UTF_8) // Spanish
             );
     private final String sourceFileName;
-    private final String execRootSuffix;
+    private final static Pattern EXECROOT_HEADER_PATTERN =
+        Pattern.compile(".*execroot\\\\[^\\\\]*\\\\(?<headerPath>.*)");
 
     public FilterShowIncludesOutputStream(
-        OutputStream out, String sourceFileName, String workspaceName) {
+        OutputStream out, String sourceFileName) {
       super(out);
       this.sourceFileName = sourceFileName;
-      this.execRootSuffix = "execroot\\" + workspaceName + "\\";
     }
 
     @Override
@@ -167,9 +167,9 @@ public class ShowIncludesFilter {
         for (String prefix : SHOW_INCLUDES_PREFIXES) {
           if (line.startsWith(prefix)) {
             line = line.substring(prefix.length()).trim();
-            int index = line.indexOf(execRootSuffix);
-            if (index != -1) {
-              line = line.substring(index + execRootSuffix.length());
+            Matcher m = EXECROOT_HEADER_PATTERN.matcher(line);
+            if (m.matches()) {
+              line = m.group("headerPath");
             }
             dependencies.add(line);
             prefixMatched = true;
@@ -214,7 +214,7 @@ public class ShowIncludesFilter {
 
   public FilterOutputStream getFilteredOutputStream(OutputStream outputStream) {
     filterShowIncludesOutputStream =
-        new FilterShowIncludesOutputStream(outputStream, sourceFileName, workspaceName);
+        new FilterShowIncludesOutputStream(outputStream, sourceFileName);
     return filterShowIncludesOutputStream;
   }
 
