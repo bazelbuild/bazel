@@ -54,7 +54,8 @@ public class MergedAndroidResources extends ParsedAndroidResources {
             .setJavaPackage(parsed.getJavaPackage())
             .withDependencies(resourceDeps)
             .setThrowOnResourceConflict(dataContext.throwOnResourceConflict())
-            .setUseCompiledMerge(useCompiledMerge);
+            .setUseCompiledMerge(useCompiledMerge)
+            .setAnnotateRFieldsFromTransitiveDeps(dataContext.annotateRFieldsFromTransitiveDeps());
 
     parsed.asDataBindingContext().supplyLayoutInfo(builder::setDataBindingInfoZip);
 

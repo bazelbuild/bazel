@@ -1719,6 +1719,39 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void rClassGeneration_withAnnotationFeature_addsFlag() throws Exception {
+    scratch.file(
+        "java/lib1/BUILD",
+        "android_library(",
+        "    name = 'lib1',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = ['res/values/strings.xml'],",
+        "    features = ['annotate_r_fields_from_transitive_deps'],",
+        ")");
+
+    List<String> lib1args =
+        getGeneratingSpawnActionArgs(getResourceArtifact(getConfiguredTarget("//java/lib1")));
+
+    assertThat(lib1args).contains("--annotate_r_fields_from_transitive_deps");
+  }
+
+  @Test
+  public void rClassGeneration_withoutAnnotationFeature_omitsFlag() throws Exception {
+    scratch.file(
+        "java/lib1/BUILD",
+        "android_library(",
+        "    name = 'lib1',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = ['res/values/strings.xml'],",
+        ")");
+
+    List<String> lib1args =
+        getGeneratingSpawnActionArgs(getResourceArtifact(getConfiguredTarget("//java/lib1")));
+
+    assertThat(lib1args).doesNotContain("--annotate_r_fields_from_transitive_deps");
+  }
+
+  @Test
   public void testCustomJavacopts() throws Exception {
     scratch.file(
         "java/android/BUILD",

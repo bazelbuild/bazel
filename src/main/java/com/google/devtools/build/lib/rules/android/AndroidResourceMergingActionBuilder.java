@@ -42,6 +42,7 @@ public class AndroidResourceMergingActionBuilder {
   private String customJavaPackage;
   private boolean throwOnResourceConflict;
   private boolean useCompiledMerge;
+  private boolean annotateRFieldsFromTransitiveDeps;
 
   /**
    * The primary resource for merging. This resource will overwrite any resource or data value in
@@ -99,6 +100,12 @@ public class AndroidResourceMergingActionBuilder {
     return this;
   }
 
+  public AndroidResourceMergingActionBuilder setAnnotateRFieldsFromTransitiveDeps(
+      boolean annotateRFieldsFromTransitiveDeps) {
+    this.annotateRFieldsFromTransitiveDeps = annotateRFieldsFromTransitiveDeps;
+    return this;
+  }
+
   private BusyBoxActionBuilder createInputsForBuilder(BusyBoxActionBuilder builder) {
     return builder
         .addAndroidJar()
@@ -131,6 +138,8 @@ public class AndroidResourceMergingActionBuilder {
           .addTransitiveInputValues(dependencies.getTransitiveCompiledSymbols());
     }
 
+    builder.maybeAddFlag(
+        "--annotate_r_fields_from_transitive_deps", annotateRFieldsFromTransitiveDeps);
     builder.buildAndRegister("Merging compiled Android resources", "AndroidCompiledResourceMerger");
   }
 
