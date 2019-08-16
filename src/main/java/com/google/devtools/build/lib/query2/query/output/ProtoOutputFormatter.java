@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.protobuf.CodedOutputStream;

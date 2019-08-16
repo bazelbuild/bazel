@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.syntax.Type;
 import java.io.IOException;
 import java.io.OutputStream;
