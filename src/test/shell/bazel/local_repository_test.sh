@@ -517,6 +517,53 @@ eof
   expect_log "@foo4b.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
 }
 
+function test_path_looking_like_home_directory_is_reported_as_user_defined_it() {
+  cat >WORKSPACE <<eof
+local_repository(name = "foo1", path = "~/missing")
+
+new_local_repository(name = "foo2", path = "~/missing", build_file_content = "")
+
+android_sdk_repository(name = "foo3a", path = "~/missing")
+
+android_sdk_repository(name = "foo3b")
+
+android_ndk_repository(name = "foo4a", path = "~/missing")
+
+android_ndk_repository(name = "foo4b")
+eof
+
+  # All repositories can be used as a kind of marker and be queried, even if they can't be fetched.
+  for repo in foo1 foo2 foo3a foo3b foo4a foo4b; do
+    bazel query "//external:$repo" >& "$TEST_log" || fail "Expected success"
+  done
+
+  # Fetching the repositories should attempt to create symlinks to their directory.
+  # Although "~/missing" looks like a path under the home directory, "~/" is only a Bash shorthand
+  # that Bazel does not resolve, and instead treats "~/missing" as a relative path under the
+  # workspace. Assert that the error message clarifies this.
+  bazel query @foo1//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo1.* path is \"~/missing\" (absolute: \"[^\"]*workspace/~/missing\").*does not exist"
+
+  bazel query @foo2//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo2.* path is \"~/missing\" (absolute: \"[^\"]*workspace/~/missing\").*does not exist"
+
+  bazel query @foo3a//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo3a.* path is \"~/missing\" (absolute: \"[^\"]*workspace/~/missing\").*symlink could not be created"
+
+  # Since "~/" is a Bash shorthand for "$HOME" and setting an envvar is a Bash command, ANDROID_HOME
+  # will actually be expanded to the full path of the home directory.
+  HOME=/fake_home ANDROID_HOME=~/fake bazel query @foo3b//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo3b.* path is \"/fake_home/fake\" (absolute: \"/fake_home/fake\").*symlink could not be created"
+
+  bazel query @foo4a//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo4a.* path is \"~/missing\" (absolute: \"[^\"]*workspace/~/missing\").*symlink could not be created"
+
+  # Since "~/" is a Bash shorthand for "$HOME" and setting an envvar is a Bash command,
+  # ANDROID_NDK_HOME will actually be expanded to the full path of the home directory.
+  HOME=/fake_home ANDROID_NDK_HOME=~/fake bazel query @foo4b//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo4b.* path is \"/fake_home/fake\" (absolute: \"/fake_home/fake\").*symlink could not be created"
+}
+
 function test_overlaid_build_file() {
   local mutant=$TEST_TMPDIR/mutant
   mkdir $mutant
