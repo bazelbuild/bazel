@@ -82,7 +82,7 @@ EOF
   bazel build --nobuild -k //test:cycletarget \
       --aspects 'test/aspect.bzl%simple_aspect' &> $TEST_log \
       && fail "Expected failure"
-  local readonly exit_code="$?"
+  local -r exit_code="$?"
   [[ "$exit_code" == 1 ]] || fail "Unexpected exit code: $exit_code"
   expect_log "cycle in dependency graph"
   expect_log "//test:cycletarget \[self-edge\]"
