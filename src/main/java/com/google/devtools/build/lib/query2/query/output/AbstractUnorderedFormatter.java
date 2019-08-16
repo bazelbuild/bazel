@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.query2.query.output;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
-import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -27,16 +26,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 abstract class AbstractUnorderedFormatter extends OutputFormatter implements StreamedFormatter {
-  protected CommonQueryOptions options;
-  protected AspectResolver aspectResolver;
-  protected DependencyFilter dependencyFilter;
 
   @Override
-  public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
-    this.options = options;
-    this.aspectResolver = aspectResolver;
-    this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
-  }
+  public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {}
 
   @Override
   public void output(
