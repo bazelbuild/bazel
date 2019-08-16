@@ -117,7 +117,7 @@ public final class AndroidRuleClasses {
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCE_SHRINKER_LOG =
       fromTemplates("%{name}_files/resource_shrinker.log");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCE_PATH_SHORTENING_MAP =
-      fromTemplates("%{name}_files/resource_path_shortening.map");
+      fromTemplates("%{name}_resource_paths.map");
   public static final SafeImplicitOutputsFunction ANDROID_INCREMENTAL_RESOURCES_APK =
       fromTemplates("%{name}_files/incremental.ap_");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_APK = fromTemplates("%{name}.apk");

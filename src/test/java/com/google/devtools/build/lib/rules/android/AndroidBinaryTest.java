@@ -944,7 +944,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
 
     Artifact resourcePathShorteningMapArtifact =
-        getFirstArtifactEndingWith(artifacts, "resource_path_shortening.map");
+        getFirstArtifactEndingWith(artifacts, "app_resource_paths.map");
     assertThat(resourcePathShorteningMapArtifact).isNotNull();
     assertThat(getGeneratingAction(resourcePathShorteningMapArtifact).getMnemonic())
         .isEqualTo("AndroidAapt2");
@@ -955,7 +955,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
     assertThat(processingArgs).contains("--resourcePathShortening");
     assertThat(flagValue("--resourcePathShorteningMapOutput", processingArgs))
-        .endsWith("resource_path_shortening.map");
+        .endsWith("app_resource_paths.map");
   }
 
   @Test
@@ -965,7 +965,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
 
     Artifact resourcePathShorteningMapArtifact =
-        getFirstArtifactEndingWith(artifacts, "resource_path_shortening.map");
+        getFirstArtifactEndingWith(artifacts, "app_resource_paths.map");
     assertThat(resourcePathShorteningMapArtifact).isNull();
 
     Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
