@@ -1203,6 +1203,13 @@ public class PackageFunction implements SkyFunction {
       if (importResult == null) {
         return null;
       }
+      // From here on, either of the following must happen:
+      // 1. An InterruptedException or PackageFunctionException gets thrown in the code below
+      // before completion of this method.
+      // 2. The packageCacheEnty is successfully created from the AST and put into
+      // packageFunctionCache, so future Skyframe restarts don't need to parse the AST again.
+      //
+      // Therefore, it is safe to invalidate the astCache entry for this packageId here.
       astCache.invalidate(packageId);
       GlobberWithSkyframeGlobDeps globberWithSkyframeGlobDeps =
           makeGlobber(inputFile, packageId, packageRoot, env);
