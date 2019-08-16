@@ -417,15 +417,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
   }
 
-  private static void checkAttributeName(Location loc, Environment env, String name)
-      throws EvalException {
-    if (env.getSemantics().incompatibleRestrictAttributeNames() && !Identifier.isValid(name)) {
-      throw new EvalException(
-          loc,
-          "attribute name `"
-              + name
-              + "` is not a valid identfier. "
-              + "This check can be disabled with `--incompatible_restrict_attribute_names=false`.");
+  private static void checkAttributeName(Location loc, String name) throws EvalException {
+    if (!Identifier.isValid(name)) {
+      throw new EvalException(loc, "attribute name `" + name + "` is not a valid identifier.");
     }
   }
 
@@ -438,7 +432,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
         AttributeValueSource source = attrDescriptor.getValueSource();
-        checkAttributeName(loc, env, attr.getKey());
+        checkAttributeName(loc, attr.getKey());
         String attrName = source.convertToNativeName(attr.getKey(), loc);
         attributes.add(Pair.of(attrName, attrDescriptor));
       }

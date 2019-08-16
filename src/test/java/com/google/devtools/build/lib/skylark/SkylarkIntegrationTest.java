@@ -2558,13 +2558,14 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBadWhitelistTransition_onNonLabelAttr() throws Exception {
+    String whitelistAttributeName = WHITELIST_ATTRIBUTE_NAME.replace("$", "_");
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
         "    return []",
         "",
         "my_rule = rule(_impl, attrs = {'"
-            + WHITELIST_ATTRIBUTE_NAME
+            + whitelistAttributeName
             + "':attr.string(default = 'blah')})");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
 
@@ -2575,12 +2576,13 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBadWhitelistTransition_noDefaultValue() throws Exception {
+    String whitelistAttributeName = WHITELIST_ATTRIBUTE_NAME.replace("$", "_");
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
         "    return []",
         "",
-        "my_rule = rule(_impl, attrs = {'" + WHITELIST_ATTRIBUTE_NAME + "':attr.label()})");
+        "my_rule = rule(_impl, attrs = {'" + whitelistAttributeName + "':attr.label()})");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
 
     reporter.removeHandler(failFastHandler);
@@ -2590,13 +2592,14 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBadWhitelistTransition_wrongDefaultValue() throws Exception {
+    String whitelistAttributeName = WHITELIST_ATTRIBUTE_NAME.replace("$", "_");
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
         "    return []",
         "",
         "my_rule = rule(_impl, attrs = {'"
-            + WHITELIST_ATTRIBUTE_NAME
+            + whitelistAttributeName
             + "':attr.label(default = Label('//test:my_other_rule'))})");
     scratch.file(
         "test/BUILD",

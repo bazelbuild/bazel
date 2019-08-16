@@ -191,8 +191,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
-  public abstract boolean incompatibleRestrictAttributeNames();
-
   public abstract boolean incompatibleRestrictNamedParams();
 
   public abstract boolean incompatibleRunShellCommandString();
@@ -281,7 +279,6 @@ public abstract class StarlarkSemantics {
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRunShellCommandString(false)
-          .incompatibleRestrictAttributeNames(false)
           .incompatibleRestrictNamedParams(false)
           .incompatibleStringJoinRequiresStrings(true)
           .internalSkylarkFlagTestCanary(false)
@@ -368,8 +365,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRemapMainRepo(boolean value);
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
-
-    public abstract Builder incompatibleRestrictAttributeNames(boolean value);
 
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
