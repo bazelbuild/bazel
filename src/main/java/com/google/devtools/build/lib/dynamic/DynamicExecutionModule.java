@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -107,11 +108,32 @@ public class DynamicExecutionModule extends BlazeModule {
   @VisibleForTesting
   static void setDefaultStrategiesByMnemonic(DynamicExecutionOptions options) {
     // Options that set "allowMultiple" to true ignore the default value, so we replicate that
-    // functionality here.
-    localStrategiesByMnemonic =
-        (options.dynamicLocalStrategy == null || options.dynamicLocalStrategy.isEmpty())
-            ? ImmutableList.of(Maps.immutableEntry("", ImmutableList.of("sandboxed")))
-            : options.dynamicLocalStrategy;
+    // functionality here. Additionally, since we are still supporting --dynamic_worker_strategy,
+    // but will deprecate it soon, we add its functionality to --dynamic_local_strategy. This allows
+    // users to set --dynamic_local_strategy and not --dynamic_worker_strategy to stop defaulting to
+    // worker strategy.
+    // TODO(steinman): Deprecate --dynamic_worker_strategy and clean this up.
+    if (options.dynamicLocalStrategy == null || options.dynamicLocalStrategy.isEmpty()) {
+      localStrategiesByMnemonic =
+          options.dynamicWorkerStrategy.isEmpty()
+              ? ImmutableList.of(Maps.immutableEntry("", ImmutableList.of("worker", "sandboxed")))
+              : ImmutableList.of(
+                  Maps.immutableEntry(
+                      "", ImmutableList.of(options.dynamicWorkerStrategy, "sandboxed")));
+    } else {
+      localStrategiesByMnemonic = options.dynamicLocalStrategy;
+      if (!options.dynamicWorkerStrategy.isEmpty()) {
+        for (int i = 0; i < localStrategiesByMnemonic.size(); i++) {
+          if ("".equals(localStrategiesByMnemonic.get(i).getKey())) {
+            List<String> newValue = Lists.newArrayList(options.dynamicWorkerStrategy);
+            newValue.addAll(localStrategiesByMnemonic.get(i).getValue());
+            localStrategiesByMnemonic.set(i, Maps.immutableEntry("", newValue));
+            break;
+          }
+        }
+      }
+    }
+
     remoteStrategiesByMnemonic =
         (options.dynamicRemoteStrategy == null || options.dynamicRemoteStrategy.isEmpty())
             ? ImmutableList.of(Maps.immutableEntry("", ImmutableList.of("remote")))
@@ -129,7 +151,6 @@ public class DynamicExecutionModule extends BlazeModule {
       setDefaultStrategiesByMnemonic(options);
       addStrategiesByMnemonic(remoteStrategiesByMnemonic, builder, "--dynamic_remote_strategy");
       addStrategiesByMnemonic(localStrategiesByMnemonic, builder, "--dynamic_local_strategy");
-      addBackingStrategy(builder, options.dynamicWorkerStrategy, "--dynamic_worker_strategy");
     }
   }
 

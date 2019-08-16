@@ -271,10 +271,10 @@ public class DynamicSpawnStrategyTest {
         Lists.newArrayList(
             Maps.immutableEntry("", ImmutableList.of("mock-remote")),
             Maps.immutableEntry("testMnemonic", ImmutableList.of("mock-sandboxed")));
-    DynamicExecutionModule.setDefaultStrategiesByMnemonic(options);
     options.dynamicWorkerStrategy = "mock-local";
     options.internalSpawnScheduler = true;
     options.localExecutionDelay = 0;
+    DynamicExecutionModule.setDefaultStrategiesByMnemonic(options);
     dynamicSpawnStrategy =
         new DynamicSpawnStrategyUnderTest(executorService, options, this::getExecutionPolicy);
     dynamicSpawnStrategy.executorCreated(
@@ -338,6 +338,26 @@ public class DynamicSpawnStrategyTest {
     assertThat(remoteStrategy.succeeded()).isFalse();
 
     assertThat(outErr.outAsLatin1()).contains("output files written with MockLocalSpawnStrategy");
+    assertThat(outErr.outAsLatin1()).doesNotContain("MockRemoteSpawnStrategy");
+  }
+
+  @Test
+  public void localSpawnUsesStrategyByMnemonicWithWorkerFlagDisabled() throws Exception {
+    Spawn spawn = getSpawnForTest(true, false, "testMnemonic");
+    createSpawnStrategy(0, 0);
+
+    dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
+
+    assertThat(localStrategy.getExecutedSpawn()).isNull();
+    assertThat(localStrategy.succeeded()).isFalse();
+    assertThat(remoteStrategy.getExecutedSpawn()).isNull();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+    assertThat(sandboxedStrategy.getExecutedSpawn()).isEqualTo(spawn);
+    assertThat(sandboxedStrategy.succeeded()).isTrue();
+
+    assertThat(outErr.outAsLatin1())
+        .contains("output files written with MockSandboxedSpawnStrategy");
+    assertThat(outErr.outAsLatin1()).doesNotContain("MockLocalSpawnStrategy");
     assertThat(outErr.outAsLatin1()).doesNotContain("MockRemoteSpawnStrategy");
   }
 
