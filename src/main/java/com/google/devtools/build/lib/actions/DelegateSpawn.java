@@ -88,11 +88,6 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableMap<String, String> getCombinedExecProperties() {
-    return spawn.getCombinedExecProperties();
-  }
-
-  @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
     return spawn.getExecutionPlatform();

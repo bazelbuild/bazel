@@ -376,7 +376,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private Optional<String> dockerContainerFromSpawn(Spawn spawn) throws ExecException {
     Platform platform =
-        PlatformUtils.getPlatformProto(spawn, cmdEnv.getOptions().getOptions(RemoteOptions.class));
+        PlatformUtils.getPlatformProto(
+            spawn.getExecutionPlatform(), cmdEnv.getOptions().getOptions(RemoteOptions.class));
 
     if (platform != null) {
       try {

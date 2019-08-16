@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -88,11 +87,6 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
 
   /** Returns the output TreeArtifact. */
   Artifact getOutputTreeArtifact();
-
-  @Override
-  default ImmutableMap<String, String> getExecProperties() {
-    return ImmutableMap.<String, String>of();
-  }
 
   @Override
   @Nullable

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -47,7 +46,6 @@ public abstract class ActionOwner {
           "system",
           null,
           null,
-          ImmutableMap.<String, String>of(),
           null);
 
   @AutoCodec.Instantiator
@@ -60,7 +58,6 @@ public abstract class ActionOwner {
       String configurationChecksum,
       @Nullable BuildConfigurationEvent configuration,
       @Nullable String additionalProgressInfo,
-      ImmutableMap<String, String> execProperties,
       @Nullable PlatformInfo executionPlatform) {
     return new AutoValue_ActionOwner(
         location,
@@ -71,7 +68,6 @@ public abstract class ActionOwner {
         configuration,
         targetKind,
         additionalProgressInfo,
-        execProperties,
         executionPlatform);
   }
 
@@ -114,9 +110,6 @@ public abstract class ActionOwner {
    */
   @Nullable
   abstract String getAdditionalProgressInfo();
-
-  /** Returns a String to String map containing the execution properties of this action. */
-  abstract ImmutableMap<String, String> getExecProperties();
 
   /**
    * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution

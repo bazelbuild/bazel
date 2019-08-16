@@ -18,8 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.common.options.Options;
 import org.junit.Test;
@@ -53,21 +51,19 @@ public final class PlatformUtilsTest {
             .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
             .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
             .build();
-    Spawn s = new SpawnBuilder("dummy").build();
-    assertThat(PlatformUtils.getPlatformProto(s, remoteOptions())).isEqualTo(expected);
+    assertThat(PlatformUtils.getPlatformProto(null, remoteOptions())).isEqualTo(expected);
   }
 
   @Test
   public void testParsePlatformHandlesNull() throws Exception {
-    Spawn s = new SpawnBuilder("dummy").build();
-    assertThat(PlatformUtils.getPlatformProto(s, null)).isEqualTo(null);
+    assertThat(PlatformUtils.getPlatformProto(null, null)).isEqualTo(null);
   }
 
   @Test
   public void testParsePlatformSortsProperties_ExecProperties() throws Exception {
     // execProperties are chosen even if there are remoteOptions
     ImmutableMap<String, String> map = ImmutableMap.of("aa", "99", "zz", "66", "dd", "11");
-    Spawn s = new SpawnBuilder("dummy").withExecProperties(map).build();
+    PlatformInfo platformInfo = PlatformInfo.builder().setExecProperties(map).build();
 
     Platform expected =
         Platform.newBuilder()
@@ -76,6 +72,6 @@ public final class PlatformUtilsTest {
             .addProperties(Platform.Property.newBuilder().setName("zz").setValue("66"))
             .build();
     // execProperties are sorted by key
-    assertThat(PlatformUtils.getPlatformProto(s, remoteOptions())).isEqualTo(expected);
+    assertThat(PlatformUtils.getPlatformProto(platformInfo, remoteOptions())).isEqualTo(expected);
   }
 }
