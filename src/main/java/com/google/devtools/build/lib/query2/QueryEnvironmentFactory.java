@@ -55,7 +55,6 @@ public class QueryEnvironmentFactory {
       Iterable<QueryFunction> extraFunctions,
       @Nullable PathPackageLocator packagePath,
       boolean blockUniverseEvaluationErrors,
-      boolean useForkJoinPool,
       boolean useGraphlessQuery) {
     Preconditions.checkNotNull(universeScope);
     if (canUseSkyQuery(orderedResults, universeScope, packagePath, strictScope, labelFilter)) {
@@ -83,8 +82,7 @@ public class QueryEnvironmentFactory {
           labelFilter,
           eventHandler,
           settings,
-          extraFunctions,
-          useForkJoinPool);
+          extraFunctions);
     } else {
       return new BlazeQueryEnvironment(
           transitivePackageLoader,
@@ -98,8 +96,7 @@ public class QueryEnvironmentFactory {
           labelFilter,
           eventHandler,
           settings,
-          extraFunctions,
-          useForkJoinPool);
+          extraFunctions);
     }
   }
 

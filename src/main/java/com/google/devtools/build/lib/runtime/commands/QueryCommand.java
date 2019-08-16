@@ -203,7 +203,6 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
         ImmutableList.<String>of(),
         loadingPhaseThreads,
         settings,
-        /* useForkJoinPool= */ false,
         /*useGraphlessQuery=*/ false);
   }
 }
