@@ -152,7 +152,6 @@ public final class HtmlCreator extends HtmlPrinter {
       PhaseSummaryStatistics phaseSummaryStats,
       EnumMap<ProfilePhase, PhaseStatistics> statistics,
       CriticalPathStatistics criticalPathStats,
-      int missingActionsCount,
       boolean detailed,
       int htmlPixelsPerSecond,
       int vfsStatsLimit,
@@ -166,7 +165,6 @@ public final class HtmlCreator extends HtmlPrinter {
               phaseSummaryStats,
               statistics,
               Optional.of(criticalPathStats),
-              Optional.of(missingActionsCount),
               vfsStatsLimit);
       Optional<SkylarkHtml> skylarkStats = Optional.absent();
       Optional<Chart> chart = Optional.absent();
