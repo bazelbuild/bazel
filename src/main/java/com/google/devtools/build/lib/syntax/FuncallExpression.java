@@ -236,7 +236,7 @@ public final class FuncallExpression extends Expression {
 
   private final int numPositionalArgs;
 
-  FuncallExpression(Expression function, ImmutableList<Argument.Passed> arguments) {
+  public FuncallExpression(Expression function, ImmutableList<Argument.Passed> arguments) {
     this.function = Preconditions.checkNotNull(function);
     this.arguments = Preconditions.checkNotNull(arguments);
     this.numPositionalArgs = countPositionalArguments();

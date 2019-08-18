@@ -712,3 +712,16 @@ load("@local_config_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains"
 register_local_rc_exe_toolchains()
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
+
+
+new_local_repository(
+    name = "rules_jmh",
+    path = "./third_party/rules_jmh",
+    build_file = "//third_party/rules_jmh:BUILD",
+    workspace_file = "//third_party/rules_jmh:rules_jmh.WORKSPACE",
+)
+
+load("@rules_jmh//:deps.bzl", "rules_jmh_deps")
+rules_jmh_deps()
+load("@rules_jmh//:defs.bzl", "rules_jmh_maven_deps")
+rules_jmh_maven_deps()
