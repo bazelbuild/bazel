@@ -100,7 +100,7 @@ brew install bazelbuild/tap/bazel
 All set! You can confirm Bazel is installed successfully by running the following command:
 
 ```bash
-bazel version
+bazel --version
 ```
 
 Once installed, you can upgrade to a newer version of Bazel using the following command:
