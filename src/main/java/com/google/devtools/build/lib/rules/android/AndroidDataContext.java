@@ -204,4 +204,13 @@ public class AndroidDataContext implements AndroidDataContextApi {
   boolean omitTransitiveResourcesFromAndroidRClasses() {
     return ruleContext.getFeatures().contains(OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES);
   }
+
+  boolean useResourcePathShortening() {
+    // Use resource path shortening iff:
+    //   1) --experimental_android_resource_path_shortening
+    //   2) -c opt
+    return getAndroidConfig().useAndroidResourcePathShortening()
+        && getActionConstructionContext().getConfiguration().getCompilationMode()
+            == CompilationMode.OPT;
+  }
 }

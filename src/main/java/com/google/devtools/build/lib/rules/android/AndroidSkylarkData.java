@@ -500,7 +500,6 @@ public abstract class AndroidSkylarkData
                   stampedManifest,
                   AndroidBinary.shouldShrinkResourceCycles(
                       ctx.getAndroidConfig(), errorReporter, settings.shrinkResources),
-                  ctx.getAndroidConfig().useAndroidResourcePathShortening(),
                   manifestValues,
                   settings.aaptVersion,
                   AndroidResources.from(

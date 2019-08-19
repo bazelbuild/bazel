@@ -58,7 +58,6 @@ public class ProcessedAndroidData {
       RuleErrorConsumer errorConsumer,
       StampedAndroidManifest manifest,
       boolean conditionalKeepRules,
-      boolean resourcePathShortening,
       Map<String, String> manifestValues,
       AndroidAaptVersion aaptVersion,
       AndroidResources resources,
@@ -76,7 +75,7 @@ public class ProcessedAndroidData {
       throw errorConsumer.throwWithRuleError(
           "resource cycle shrinking can only be enabled for builds with aapt2");
     }
-    if (resourcePathShortening && aaptVersion != AndroidAaptVersion.AAPT2) {
+    if (dataContext.useResourcePathShortening() && aaptVersion != AndroidAaptVersion.AAPT2) {
       throw errorConsumer.throwWithRuleError(
           "resource path shortening can only be enabled for builds with aapt2");
     }
@@ -93,7 +92,7 @@ public class ProcessedAndroidData {
             .conditionalKeepRules(conditionalKeepRules)
             .setFeatureOf(featureOf)
             .setFeatureAfter(featureAfter);
-    if (resourcePathShortening) {
+    if (dataContext.useResourcePathShortening()) {
       builder.setResourcePathShorteningMapOut(
           dataContext.createOutputArtifact(
               AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));

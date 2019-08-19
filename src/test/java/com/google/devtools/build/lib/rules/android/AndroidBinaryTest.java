@@ -937,8 +937,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcePathShortening_flagEnabled_flagsGetPassedToAction() throws Exception {
-    useConfiguration("--experimental_android_resource_path_shortening");
+  public void testResourcePathShortening_flagEnabledAndCOpt_flagsGetPassedToAction()
+      throws Exception {
+    useConfiguration("--experimental_android_resource_path_shortening", "-c", "opt");
 
     ConfiguredTarget binary = getConfiguredTarget("//java/android:app");
 
@@ -960,7 +961,31 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcePathShorteningMap_flagNotEnabled() throws Exception {
+  public void testResourcePathShortening_flagEnabledAndCDefault_flagsNotPassedToAction()
+      throws Exception {
+    useConfiguration("--experimental_android_resource_path_shortening");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/android:app");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    Artifact resourcePathShorteningMapArtifact =
+        getFirstArtifactEndingWith(artifacts, "app_resource_paths.map");
+    assertThat(resourcePathShorteningMapArtifact).isNull();
+
+    Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
+    assertThat(getGeneratingAction(androidResourcesApk).getMnemonic()).isEqualTo("AndroidAapt2");
+
+    List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
+    assertThat(processingArgs).doesNotContain("--resourcePathShortening");
+    assertThat(processingArgs).doesNotContain("--resourcePathShorteningMapOutput");
+  }
+
+  @Test
+  public void testResourcePathShorteningMap_flagNotEnabledAndCOpt_flagsNotPassedToAction()
+      throws Exception {
+    useConfiguration("-c", "opt");
+
     ConfiguredTarget binary = getConfiguredTarget("//java/android:app");
 
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
