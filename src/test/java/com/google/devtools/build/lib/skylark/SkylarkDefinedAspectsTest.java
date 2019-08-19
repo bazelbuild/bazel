@@ -2612,6 +2612,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "proto_library(",
         "  name = 'protos',",
         "  srcs = ['data.proto'],",
+        MockProtoSupport.MIGRATION_TAG,
         ")",
         "objc_proto_library(",
         "  name = 'x',",

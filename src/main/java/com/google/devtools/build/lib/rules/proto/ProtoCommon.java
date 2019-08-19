@@ -50,7 +50,8 @@ public class ProtoCommon {
 
   // Keep in sync with the migration label in
   // https://github.com/bazelbuild/rules_proto/blob/master/proto/defs.bzl.
-  private static final String PROTO_RULES_MIGRATION_LABEL =
+  @VisibleForTesting
+  public static final String PROTO_RULES_MIGRATION_LABEL =
       "__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
 
   /**

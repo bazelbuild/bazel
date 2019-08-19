@@ -25,6 +25,11 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
  */
 public class TestConstants {
 
+  public static final String LOAD_PROTO_LIBRARY =
+      "load('@rules_proto//proto:defs.bzl', 'proto_library')";
+  public static final String LOAD_PROTO_LANG_TOOLCHAIN =
+      "load('@rules_proto//proto:defs.bzl', 'proto_lang_toolchain')";
+
   private TestConstants() {
   }
 

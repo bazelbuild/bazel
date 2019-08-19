@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos.ParamFile;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.Target;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.ActionGraphQueryHelper;
@@ -591,7 +592,8 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "load(':rule.bzl', 'my_rule', 'my_jpl_rule')",
         "proto_library(",
         "  name = 'x',",
-        "  srcs = [':x.proto']",
+        "  srcs = [':x.proto'],",
+        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'my_java_proto',",
@@ -681,7 +683,8 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "load(':rule.bzl', 'my_jpl_rule')",
         "proto_library(",
         "  name = 'x',",
-        "  srcs = [':x.proto']",
+        "  srcs = [':x.proto'],",
+        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'my_java_proto',",
@@ -780,7 +783,8 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "load(':rule.bzl', 'my_jpl_rule', 'my_random_rule')",
         "proto_library(",
         "  name = 'x',",
-        "  srcs = [':x.proto']",
+        "  srcs = [':x.proto'],",
+        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'target_1',",
@@ -875,7 +879,8 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "load(':rule.bzl', 'my_jpl_rule')",
         "proto_library(",
         "  name = 'x',",
-        "  srcs = [':x.proto']",
+        "  srcs = [':x.proto'],",
+        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'my_java_proto',",
