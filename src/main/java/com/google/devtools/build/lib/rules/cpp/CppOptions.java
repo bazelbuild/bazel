@@ -892,7 +892,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_nocopts",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       metadataTags = {
