@@ -262,4 +262,16 @@ maybe(
     strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",
 )
 
+# Needed only because of java_tools.
+maybe(
+    http_archive,
+    "rules_proto",
+    sha256 = "57001a3b33ec690a175cdf0698243431ef27233017b9bed23f96d44b9c98242f",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/9cd4f8f1ede19d81c6d48910429fe96776e567b1.zip",
+        "https://github.com/bazelbuild/rules_proto/archive/9cd4f8f1ede19d81c6d48910429fe96776e567b1.zip",
+    ],
+    strip_prefix = "rules_proto-9cd4f8f1ede19d81c6d48910429fe96776e567b1",
+)
+
 register_toolchains("@bazel_tools//tools/jdk:all")
