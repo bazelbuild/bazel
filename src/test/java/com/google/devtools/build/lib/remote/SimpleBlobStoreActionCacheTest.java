@@ -34,15 +34,16 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -451,30 +452,32 @@ public class SimpleBlobStoreActionCacheTest {
       this.map = map;
     }
 
-    @Override
-    public ListenableFuture<Boolean> get(String key, OutputStream out) {
+    private ListenableFuture<Void> get(String key, OutputStream out, Digest digest) {
       byte[] data = map.get(key);
-      SettableFuture<Boolean> f = SettableFuture.create();
       if (data == null) {
-        f.set(false);
+        return Futures.immediateFailedFuture(new CacheNotFoundException(digest));
       } else {
         try {
           out.write(data);
-          f.set(true);
         } catch (IOException e) {
-          f.setException(e);
+          return Futures.immediateFailedFuture(e);
         }
       }
-      return f;
+      return Futures.immediateFuture(null);
     }
 
     @Override
-    public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
-      return get(ACTION_KEY_PREFIX + key, out);
+    public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+      return get(digest.getHash(), out, digest);
     }
 
     @Override
-    public void putActionResult(ActionKey actionKey, ActionResult actionResult) {
+    public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
+      return Utils.downloadAsActionResult(actionKey, (digest, out) -> get(ACTION_KEY_PREFIX + digest.getHash(), out, digest));
+    }
+
+    @Override
+    public void uploadActionResult(ActionKey actionKey, ActionResult actionResult) {
       map.put(ACTION_KEY_PREFIX + actionKey.getDigest().getHash(), actionResult.toByteArray());
     }
 

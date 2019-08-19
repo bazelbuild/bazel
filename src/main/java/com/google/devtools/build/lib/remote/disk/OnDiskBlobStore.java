@@ -19,7 +19,9 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -37,39 +39,48 @@ public class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
-  public boolean contains(String key) {
-    return toPath(key, /* actionResult= */ false).exists();
+  public boolean contains(Digest digest) {
+    return toPath(digest.getHash(), /* actionResult= */ false).exists();
   }
 
   /** Returns {@code true} if the provided {@code key} is stored in the Action Cache. */
-  public boolean containsActionResult(String key) {
-    return toPath(key, /* actionResult= */ true).exists();
+  public boolean containsActionResult(ActionKey actionKey) {
+    return toPath(actionKey.getDigest().getHash(), /* isActionCache= */ true).exists();
   }
 
-  @Override
-  public ListenableFuture<Boolean> get(String key, OutputStream out) {
-    SettableFuture<Boolean> f = SettableFuture.create();
-    Path p = toPath(key, /* actionResult= */ false);
+  public void captureFile(Path src, Digest digest, boolean isActionCache) throws IOException {
+    Path target = toPath(digest.getHash(), isActionCache);
+    src.renameTo(target);
+  }
+
+  private ListenableFuture<Void> download(Digest digest, OutputStream out, boolean isActionCache) {
+    SettableFuture<Void> f = SettableFuture.create();
+    Path p = toPath(digest.getHash(), isActionCache);
     if (!p.exists()) {
-      f.set(false);
+      return Futures.immediateFailedFuture(new CacheNotFoundException(digest));
     } else {
       try (InputStream in = p.getInputStream()) {
         ByteStreams.copy(in, out);
-        f.set(true);
+        return Futures.immediateFuture(null);
       } catch (IOException e) {
-        f.setException(e);
+        return Futures.immediateFailedFuture(e);
       }
     }
-    return f;
   }
 
   @Override
-  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
-    return get(getDiskKey(key, /* actionResult= */ true), out);
+  public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+    return download(digest, out, /* isActionCache= */ false);
   }
 
   @Override
-  public void putActionResult(ActionKey actionKey, ActionResult actionResult) throws IOException {
+  public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
+    return Utils.downloadAsActionResult(actionKey,
+        (digest, out) -> download(digest, out, /* isActionCache= */ true));
+  }
+
+  @Override
+  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult) throws IOException {
     try (InputStream data = actionResult.toByteString().newInput()) {
       saveFile(getDiskKey(actionKey.getDigest().getHash(), /* actionResult= */ true), data);
     }

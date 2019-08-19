@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -595,7 +596,7 @@ public class RemoteSpawnCacheTest {
                 return actionResult;
               }
             });
-    doThrow(new CacheNotFoundException(digest, digestUtil))
+    doThrow(new CacheNotFoundException(digest))
         .when(remoteCache)
         .download(eq(actionResult), eq(execRoot), eq(outErr), any());
 

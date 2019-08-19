@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.OutputFilesLocker;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -1179,7 +1180,7 @@ public class AbstractRemoteActionCacheTests {
       Futures.addCallback(
           downloadResult != null
               ? downloadResult
-              : Futures.immediateFailedFuture(new CacheNotFoundException(digest, digestUtil)),
+              : Futures.immediateFailedFuture(new CacheNotFoundException(digest)),
           new FutureCallback<byte[]>() {
             @Override
             public void onSuccess(byte[] bytes) {

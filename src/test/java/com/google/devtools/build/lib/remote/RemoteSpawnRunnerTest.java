@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -613,7 +614,7 @@ public class RemoteSpawnRunnerTest {
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(cachedResult);
-    Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil);
+    Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance());
     doThrow(downloadFailure)
         .when(cache)
         .download(eq(cachedResult), any(Path.class), any(FileOutErr.class), any());
@@ -650,7 +651,7 @@ public class RemoteSpawnRunnerTest {
     when(executor.executeRemotely(any(ExecuteRequest.class)))
         .thenReturn(cachedResponse)
         .thenReturn(executedResponse);
-    Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil);
+    Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance());
     doThrow(downloadFailure)
         .when(cache)
         .download(eq(cachedResult), any(Path.class), any(FileOutErr.class), any());

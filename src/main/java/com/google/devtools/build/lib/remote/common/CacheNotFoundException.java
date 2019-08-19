@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.Digest;
-import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 
 /**
@@ -25,8 +24,8 @@ import java.io.IOException;
 public final class CacheNotFoundException extends IOException {
   private final Digest missingDigest;
 
-  CacheNotFoundException(Digest missingDigest, DigestUtil digestUtil) {
-    super("Missing digest: " + digestUtil.toString(missingDigest));
+  public CacheNotFoundException(Digest missingDigest) {
+    super("Missing digest: " + missingDigest.getHash() + "/" + missingDigest.getSizeBytes());
     this.missingDigest = missingDigest;
   }
 

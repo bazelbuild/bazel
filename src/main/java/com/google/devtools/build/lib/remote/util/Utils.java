@@ -13,20 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 /** Utility methods for the remote package. * */
@@ -117,6 +127,21 @@ public class Utils {
       return String.format("%s: %s", errStatus.getCode().name(), errStatus.getDescription());
     }
     return e.getMessage();
+  }
+
+  public static ListenableFuture<ActionResult> downloadAsActionResult(ActionKey actionDigest,
+      BiFunction<Digest, OutputStream, ListenableFuture<Void>> downloadFunction) {
+    ByteArrayOutputStream data = new ByteArrayOutputStream(/* size= */ 1024);
+    ListenableFuture<Void> download = downloadFunction.apply(actionDigest.getDigest(), data);
+    ListenableFuture<ActionResult> actionResultDownload = Futures.transformAsync(download, (v) -> {
+      try {
+        return Futures.immediateFuture(ActionResult.parseFrom(data.toByteArray()));
+      } catch (InvalidProtocolBufferException e) {
+        return Futures.immediateFailedFuture(e);
+      }
+    }, MoreExecutors.directExecutor());
+    return Futures.catching(actionResultDownload, CacheNotFoundException.class, (e) -> null,
+        MoreExecutors.directExecutor());
   }
 
   /** An in-memory output file. */

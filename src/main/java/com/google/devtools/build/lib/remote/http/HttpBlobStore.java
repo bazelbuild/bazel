@@ -20,7 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.Bootstrap;
@@ -416,12 +418,12 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public ListenableFuture<Boolean> get(String key, OutputStream out) {
-    return get(key, out, true);
+  public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+    return get(digest, out, /* casDownload= */ true);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private ListenableFuture<Boolean> get(String key, final OutputStream out, boolean casDownload) {
+  private ListenableFuture<Void> get(Digest digest, final OutputStream out, boolean casDownload) {
     final AtomicBoolean dataWritten = new AtomicBoolean();
     OutputStream wrappedOut =
         new OutputStream() {
@@ -446,8 +448,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
             out.flush();
           }
         };
-    DownloadCommand download = new DownloadCommand(uri, casDownload, key, wrappedOut);
-    SettableFuture<Boolean> outerF = SettableFuture.create();
+    DownloadCommand downloadCmd = new DownloadCommand(uri, casDownload, digest, wrappedOut);
+    SettableFuture<Void> outerF = SettableFuture.create();
     acquireDownloadChannel()
         .addListener(
             (Future<Channel> chP) -> {
@@ -457,12 +459,12 @@ public final class HttpBlobStore implements SimpleBlobStore {
               }
 
               Channel ch = chP.getNow();
-              ch.writeAndFlush(download)
+              ch.writeAndFlush(downloadCmd)
                   .addListener(
                       (f) -> {
                         try {
                           if (f.isSuccess()) {
-                            outerF.set(true);
+                            outerF.set(null);
                           } else {
                             Throwable cause = f.cause();
                             // cause can be of type HttpException, because Netty uses
@@ -475,10 +477,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
                                 // The error is due to an auth token having expired. Let's try
                                 // again.
                                 refreshCredentials();
-                                getAfterCredentialRefresh(download, outerF);
+                                getAfterCredentialRefresh(downloadCmd, outerF);
                                 return;
                               } else if (cacheMiss(response.status())) {
-                                outerF.set(false);
+                                outerF.setException(new CacheNotFoundException(digest));
                                 return;
                               }
                             }
@@ -493,7 +495,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private void getAfterCredentialRefresh(DownloadCommand cmd, SettableFuture<Boolean> outerF) {
+  private void getAfterCredentialRefresh(DownloadCommand cmd, SettableFuture<Void> outerF) {
     acquireDownloadChannel()
         .addListener(
             (Future<Channel> chP) -> {
@@ -508,13 +510,13 @@ public final class HttpBlobStore implements SimpleBlobStore {
                       (f) -> {
                         try {
                           if (f.isSuccess()) {
-                            outerF.set(true);
+                            outerF.set(null);
                           } else {
                             Throwable cause = f.cause();
                             if (cause instanceof HttpException) {
                               HttpResponse response = ((HttpException) cause).response();
                               if (cacheMiss(response.status())) {
-                                outerF.set(false);
+                                outerF.setException(new CacheNotFoundException(cmd.digest()));
                                 return;
                               }
                             }
@@ -528,8 +530,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public ListenableFuture<Boolean> getActionResult(String actionKey, OutputStream out) {
-    return get(actionKey, out, false);
+  public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
+    return Utils.downloadAsActionResult(actionKey,
+        (digest, out) -> get(digest, out, /* casDownload= */ false));
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -633,7 +636,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(ActionKey actionKey, ActionResult actionResult)
+  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
     ByteString serialized = actionResult.toByteString();
     try (InputStream in = serialized.newInput()) {

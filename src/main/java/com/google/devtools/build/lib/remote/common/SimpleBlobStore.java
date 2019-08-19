@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.remote.common;
 
+import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -23,15 +25,15 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * An interface for storing BLOBs each one indexed by a string (hash in hexadecimal).
+ * An interface for a remote caching protocol.
  *
  * <p>Implementations must be thread-safe.
  */
 public interface SimpleBlobStore {
 
   /**
-   * A special type of Digest that is used only as a remote action cache key. This is a separate
-   * type in order to prevent accidentally using other Digests as action keys.
+   * A key in the remote action cache. The type wraps around a {@link Digest} of an {@link Action}.
+   * Action keys are special in that they aren't content-addressable but refer to action results.
    */
   final class ActionKey {
     private final Digest digest;
@@ -41,49 +43,58 @@ public interface SimpleBlobStore {
     }
 
     public ActionKey(Digest digest) {
-      this.digest = digest;
+      this.digest = Preconditions.checkNotNull(digest, "digest");
     }
   }
 
   /**
-   * Fetches the BLOB associated with the {@code key} from the CAS and writes it to {@code out}.
+   * Downloads an action result for the {@code actionKey}.
    *
-   * <p>The caller is responsible to close {@code out}.
-   *
-   * @return {@code true} if the {@code key} was found. {@code false} otherwise.
+   * @param actionKey The digest of the {@link Action} that generated the action result.
+   * @return A Future representing pending download of an action result. If an action result
+   * for {@code actionKey} cannot be found the result of the Future is {@code null}.
    */
-  ListenableFuture<Boolean> get(String key, OutputStream out);
+  ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey);
 
   /**
-   * Fetches the BLOB associated with the {@code key} from the Action Cache and writes it to {@code
-   * out}.
+   * Uploads an action result for the {@code actionKey}.
    *
-   * <p>The caller is responsible to close {@code out}.
-   *
-   * @return {@code true} if the {@code key} was found. {@code false} otherwise.
+   * @param actionKey The digest of the {@link Action} that generated the action result.
+   * @param actionResult The action result to associate with the {@code actionKey}.
+   * @throws IOException If there is an error uploading the action result.
+   * @throws InterruptedException In case the thread
    */
-  ListenableFuture<Boolean> getActionResult(String actionKey, OutputStream out);
-
-  /** Uploads an {@link ActionResult} keyed by the action hash to the action cache. */
-  void putActionResult(ActionKey actionDigest, ActionResult actionResult)
+  void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException;
 
-  /** Close resources associated with the blob store. */
-  void close();
+  /**
+   * Downloads a BLOB for the given {@code digest} and writes it to {@code out}.
+   *
+   * <p>It's the callers responsibility to close {@code out}.
+   *
+   * @return A Future representing pending completion of the download. If a BLOB for {@code digest}
+   * does not exist in the cache the Future fails with a {@link CacheNotFoundException}.
+   */
+  ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out);
 
   /**
-   * Uploads a file.
+   * Uploads a {@code file} to the CAS.
    *
-   * @param digest the digest of the file.
-   * @param file the file to upload.
+   * @param digest The digest of the file.
+   * @param file The file to upload.
+   * @return A future representing pending completion of the upload.
    */
   ListenableFuture<Void> uploadFile(Digest digest, Path file);
 
   /**
-   * Uploads a BLOB.
+   * Uploads a BLOB to the CAS.
    *
-   * @param digest the digest of the blob.
-   * @param data the blob to upload.
+   * @param digest The digest of the blob.
+   * @param data The BLOB to upload.
+   * @return A future representing pending completion of the upload.
    */
   ListenableFuture<Void> uploadBlob(Digest digest, ByteString data);
+
+  /** Close resources associated with the remote cache. */
+  void close();
 }

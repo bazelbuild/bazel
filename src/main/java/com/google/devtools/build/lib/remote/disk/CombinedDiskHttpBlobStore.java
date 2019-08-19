@@ -26,8 +26,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * A {@link SimpleBlobStore} implementation combining two blob stores. A local disk blob store and a
@@ -35,7 +33,6 @@ import java.util.logging.Logger;
  * blob added to the first. Put puts the blob on both stores.
  */
 public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
-  private static final Logger logger = Logger.getLogger(CombinedDiskHttpBlobStore.class.getName());
 
   private final SimpleBlobStore remoteCache;
   private final OnDiskBlobStore diskCache;
@@ -46,10 +43,10 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(ActionKey actionKey, ActionResult actionResult)
+  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
-    diskCache.putActionResult(actionKey, actionResult);
-    remoteCache.putActionResult(actionKey, actionResult);
+    diskCache.uploadActionResult(actionKey, actionResult);
+    remoteCache.uploadActionResult(actionKey, actionResult);
   }
 
   @Override
@@ -84,77 +81,64 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
     return Futures.immediateFuture(null);
   }
 
-  @Override
-  public ListenableFuture<Boolean> get(String key, OutputStream out) {
-    return get(key, out, /* actionResult= */ false);
+  private Path newTempPath(){
+    return diskCache.toPath(UUID.randomUUID().toString(), /* actionResult= */ false);
   }
 
-  private ListenableFuture<Boolean> get(String key, OutputStream out, boolean actionResult) {
-    boolean foundOnDisk =
-        actionResult ? diskCache.containsActionResult(key) : diskCache.contains(key);
+  private ListenableFuture<Void> closeStreamOnError(ListenableFuture<Void> f, OutputStream out) {
+    return Futures.catchingAsync(f, Exception.class, (rootCause) -> {
+      try {
+        out.close();
+      } catch (IOException e) {
+        rootCause.addSuppressed(e);
+      }
+      return Futures.immediateFailedFuture(rootCause);
+    }, MoreExecutors.directExecutor());
+  }
 
-    if (foundOnDisk) {
-      return getFromCache(diskCache, key, out, actionResult);
-    } else {
-      return getFromRemoteAndSaveToDisk(key, out, actionResult);
+  @Override
+  public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+    if (diskCache.contains(digest)) {
+      return diskCache.downloadBlob(digest, out);
     }
-  }
 
-  @Override
-  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
-    return get(key, out, /* actionResult= */ true);
-  }
-
-  private ListenableFuture<Boolean> getFromRemoteAndSaveToDisk(
-      String key, OutputStream out, boolean actionResult) {
-    // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
-    Path temp = diskCache.toPath(UUID.randomUUID().toString(), /* actionResult= */ false);
-
-    OutputStream tempOut;
+    Path tempPath = newTempPath();
+    final OutputStream tempOut;
     try {
-      tempOut = temp.getOutputStream();
+      tempOut = tempPath.getOutputStream();
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
-    ListenableFuture<Boolean> chained =
-        Futures.transformAsync(
-            getFromCache(remoteCache, key, tempOut, actionResult),
-            (found) -> {
-              if (!found) {
-                return Futures.immediateFuture(false);
-              } else {
-                saveToDiskCache(key, temp, actionResult);
-                return getFromCache(diskCache, key, out, actionResult);
-              }
-            },
-            MoreExecutors.directExecutor());
-    chained.addListener(
-        () -> {
+
+    ListenableFuture<Void> download = closeStreamOnError(remoteCache.downloadBlob(digest, tempOut), tempOut);
+    ListenableFuture<Void> saveToDiskAndTarget = Futures.transformAsync(download,
+        (unused) -> {
           try {
             tempOut.close();
+            diskCache.captureFile(tempPath, digest, /* isActionCache= */ false);
           } catch (IOException e) {
-            // not sure what to do here, we either are here because of another exception being
-            // thrown, or we have successfully used the file we are trying (and failing) to close
-            logger.log(Level.WARNING, "Failed to close temporary file on get", e);
+            return Futures.immediateFailedFuture(e);
           }
+          return diskCache.downloadBlob(digest, out);
         },
         MoreExecutors.directExecutor());
-    return chained;
+    return saveToDiskAndTarget;
   }
 
-  private void saveToDiskCache(String key, Path temp, boolean actionResult) throws IOException {
-    Path target = diskCache.toPath(key, actionResult);
-    // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the
-    // case of machine crashes (the OS may reorder the writes and the rename).
-    temp.renameTo(target);
-  }
-
-  private ListenableFuture<Boolean> getFromCache(
-      SimpleBlobStore blobStore, String key, OutputStream tempOut, boolean actionResult) {
-    if (!actionResult) {
-      return blobStore.get(key, tempOut);
-    } else {
-      return blobStore.getActionResult(key, tempOut);
+  @Override
+  public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
+    if (diskCache.containsActionResult(actionKey)) {
+      return diskCache.downloadActionResult(actionKey);
     }
+
+    return Futures.transformAsync(remoteCache.downloadActionResult(actionKey),
+        (actionResult) -> {
+          if (actionResult == null) {
+            return Futures.immediateFuture(null);
+          } else {
+            diskCache.uploadActionResult(actionKey, actionResult);
+            return Futures.immediateFuture(actionResult);
+          }
+        }, MoreExecutors.directExecutor());
   }
 }

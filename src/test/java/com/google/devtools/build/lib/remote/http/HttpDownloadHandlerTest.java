@@ -17,8 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HttpHeaders;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
@@ -48,6 +51,8 @@ import org.mockito.Mockito;
 public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
 
   private static final URI CACHE_URI = URI.create("http://storage.googleapis.com:80/cache-bucket");
+  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  private static final Digest DIGEST = DIGEST_UTIL.computeAsUtf8("foo");
 
   /**
    * Test that downloading blobs works from both the Action Cache and the CAS. Also test that the
@@ -62,7 +67,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
 
   private void downloadShouldWork(boolean casDownload, EmbeddedChannel ch) throws IOException {
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-    DownloadCommand cmd = new DownloadCommand(CACHE_URI, casDownload, "abcdef", out);
+    DownloadCommand cmd = new DownloadCommand(CACHE_URI, casDownload, DIGEST, out);
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
@@ -70,9 +75,9 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
     assertThat(request.method()).isEqualTo(HttpMethod.GET);
     assertThat(request.headers().get(HttpHeaderNames.HOST)).isEqualTo(CACHE_URI.getHost());
     if (casDownload) {
-      assertThat(request.uri()).isEqualTo("/cache-bucket/cas/abcdef");
+      assertThat(request.uri()).isEqualTo("/cache-bucket/cas/" + DIGEST.getHash());
     } else {
-      assertThat(request.uri()).isEqualTo("/cache-bucket/ac/abcdef");
+      assertThat(request.uri()).isEqualTo("/cache-bucket/ac/" + DIGEST.getHash());
     }
 
     assertThat(writePromise.isDone()).isFalse();
@@ -96,7 +101,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
   public void httpErrorsAreSupported() throws IOException {
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, ImmutableList.of()));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-    DownloadCommand cmd = new DownloadCommand(CACHE_URI, true, "abcdef", out);
+    DownloadCommand cmd = new DownloadCommand(CACHE_URI, true, DIGEST, out);
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
@@ -126,7 +131,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
   public void httpErrorsWithContentAreSupported() throws IOException {
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, ImmutableList.of()));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-    DownloadCommand cmd = new DownloadCommand(CACHE_URI, true, "abcdef", out);
+    DownloadCommand cmd = new DownloadCommand(CACHE_URI, true, DIGEST, out);
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
