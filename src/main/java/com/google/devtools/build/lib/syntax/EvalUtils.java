@@ -74,6 +74,16 @@ public final class EvalUtils {
         @Override
         @SuppressWarnings("unchecked")
         public int compare(Object o1, Object o2) {
+
+          // optimize the most common cases
+
+          if (o1 instanceof String && o2 instanceof String) {
+            return ((String) o1).compareTo((String) o2);
+          }
+          if (o1 instanceof Integer && o2 instanceof Integer) {
+            return Integer.compare((Integer) o1, (Integer) o2);
+          }
+
           o1 = SkylarkType.convertToSkylark(o1, (Environment) null);
           o2 = SkylarkType.convertToSkylark(o2, (Environment) null);
 
