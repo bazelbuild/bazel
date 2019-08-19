@@ -639,6 +639,24 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('clang-cl.exe', ''.join(stderr))
 
+  def createSimpleCppWorkspace(self, name):
+    dir = self.ScratchDir(name)
+    self.ScratchFile(name + '/WORKSPACE', ['workspace(name = "%s")' % name])
+    self.ScratchFile(name + '/BUILD', ['cc_library(name = "lib", srcs = ["lib.cc"], hdrs = ["lib.h"])'])
+    self.ScratchFile(name + '/lib.h', ['void hello();'])
+    self.ScratchFile(name + '/lib.cc', ['#include "lib.h"', 'void hello() {}'])
+    return dir
+
+  # Regression test for https://github.com/bazelbuild/bazel/issues/9172
+  def testCacheBetweenWorkspaceWithDifferentNames(self):
+    cache_dir = self.ScratchDir('cache')
+    dir_a = self.createSimpleCppWorkspace("A")
+    dir_b = self.createSimpleCppWorkspace("B")
+    exit_code, _, stderr = self.RunBazel(['build', '--disk_cache=' + cache_dir, ":lib"], cwd = dir_a)
+    self.AssertExitCode(exit_code, 0, stderr)
+    exit_code, _, stderr = self.RunBazel(['build', '--disk_cache=' + cache_dir, ":lib"], cwd = dir_b)
+    self.AssertExitCode(exit_code, 0, stderr)
+
 
 if __name__ == '__main__':
   unittest.main()

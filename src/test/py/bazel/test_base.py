@@ -285,7 +285,7 @@ class TestBase(unittest.TestCase):
       os.chmod(abspath, stat.S_IRWXU)
     return abspath
 
-  def RunBazel(self, args, env_remove=None, env_add=None):
+  def RunBazel(self, args, env_remove=None, env_add=None, cwd=None):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
@@ -301,7 +301,7 @@ class TestBase(unittest.TestCase):
         self.Rlocation('io_bazel/src/bazel'),
         '--bazelrc=' + self._test_bazelrc,
         '--nomaster_bazelrc',
-    ] + args, env_remove, env_add)
+    ] + args, env_remove, env_add, False, cwd)
 
   def StartRemoteWorker(self):
     """Runs a "local remote worker" to run remote builds and tests on.
@@ -370,7 +370,7 @@ class TestBase(unittest.TestCase):
       print('--------------------------')
       print('\n'.join(stderr_lines))
 
-  def RunProgram(self, args, env_remove=None, env_add=None, shell=False):
+  def RunProgram(self, args, env_remove=None, env_add=None, shell=False, cwd=None):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:
@@ -390,7 +390,7 @@ class TestBase(unittest.TestCase):
             args,
             stdout=stdout,
             stderr=stderr,
-            cwd=self._test_cwd,
+            cwd=(cwd if cwd else self._test_cwd),
             env=self._EnvMap(env_remove, env_add),
             shell=shell)
         exit_code = proc.wait()
