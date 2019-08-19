@@ -418,15 +418,13 @@ rbe_autoconfig(
 # load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
 # rbe_autoconfig(name = "buildkite_config")
 
-# We're pinning to a commit because this project does not have a recent release.
-# Nothing special about this commit, though.
 http_archive(
     name = "com_google_googletest",
-    sha256 = "0fb00ff413f6b9b80ccee44a374ca7a18af7315aea72a43c62f2acd1ca74e9b5",
-    strip_prefix = "googletest-f13bbe2992d188e834339abe6f715b2b2f840a77",
+    sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",
+    strip_prefix = "googletest-release-1.10.0",
     urls = [
-        "https://mirror.bazel.build/github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
-        "https://github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
+        "https://mirror.bazel.build/github.com/google/googletest/archive/release-1.10.0.tar.gz",
+        "https://github.com/google/googletest/archive/release-1.10.0.tar.gz",
     ],
 )
 
