@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getArtifactsEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
@@ -4847,6 +4848,72 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "//java/common:common",
             "//java/common:theme")
         .inOrder();
+  }
+
+  @Test
+  public void androidBinaryResourceInjection() throws Exception {
+    // ResourceApk.toResourceInfo() is not compatible with the AndroidResourcesInfo provider.
+    useConfiguration("--experimental_omit_resources_info_provider_from_android_binary");
+
+    scratch.file(
+        "java/com/app/android_resource_injection.bzl",
+        "def _android_application_resources_impl(ctx):",
+        "    resource_proguard_config = ctx.actions.declare_file(ctx.label.name + '/proguard.cfg')",
+        "    ctx.actions.write(resource_proguard_config, '# Empty proguard.cfg')",
+        "",
+        "    resource_apk = ctx.actions.declare_file(ctx.label.name + '/injected_resource.ap_')",
+        "    ctx.actions.write(resource_apk, 'empty ap_')",
+        "",
+        "    manifest = ctx.actions.declare_file(ctx.label.name + '/AndroidManifest.xml')",
+        "    ctx.actions.write(manifest, 'empty manifest')",
+        "",
+        "    resource_java_src_jar = ctx.actions.declare_file(",
+        "        ctx.label.name + '/resources.srcjar')",
+        "    ctx.actions.write(resource_java_src_jar, 'empty manifest')",
+        "",
+        "    resource_java_class_jar = ctx.actions.declare_file(",
+        "        ctx.label.name + '/resources.jar')",
+        "    ctx.actions.write(resource_java_class_jar, 'empty manifest')",
+        "",
+        "    return [",
+        "        DefaultInfo(files = depset([resource_apk, resource_proguard_config])),",
+        "        AndroidApplicationResourceInfo(",
+        "            resource_apk = resource_apk,",
+        "            resource_java_src_jar = resource_java_src_jar,",
+        "            resource_java_class_jar = resource_java_class_jar,",
+        "            manifest = manifest,",
+        "            resource_proguard_config = resource_proguard_config,",
+        "            main_dex_proguard_config = None,",
+        "        ),",
+        "    ]",
+        "",
+        "android_application_resources = rule(",
+        "    implementation = _android_application_resources_impl,",
+        "    provides = [AndroidApplicationResourceInfo],",
+        ")",
+        "",
+        "def resource_injected_android_binary(**attrs):",
+        "  android_application_resources(name = 'application_resources')",
+        "  attrs['application_resources'] = ':application_resources'",
+        "  native.android_binary(**attrs)");
+
+    scratch.file(
+        "java/com/app/BUILD",
+        "load(':android_resource_injection.bzl', 'resource_injected_android_binary')",
+        "resource_injected_android_binary(",
+        "  name = 'app',",
+        "  manifest = 'AndroidManifest.xml')");
+
+    ConfiguredTarget app = getConfiguredTarget("//java/com/app:app");
+    assertThat(app).isNotNull();
+
+    // Assert that the injected resource apk is the only resource apk being merged into the final
+    // apk.
+    Action singleJarAction = getGeneratingAction(getFinalUnsignedApk(app));
+    List<Artifact> resourceApks = getArtifactsEndingWith(singleJarAction.getInputs(), ".ap_");
+    assertThat(resourceApks).hasSize(1);
+    assertThat(resourceApks.get(0).getExecPathString())
+        .endsWith("java/com/app/application_resources/injected_resource.ap_");
   }
 
   // DEPENDENCY order is not tested; the incorrect order of dependencies means the test would
