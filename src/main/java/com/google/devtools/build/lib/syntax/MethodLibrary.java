@@ -606,12 +606,12 @@ public class MethodLibrary {
       name = "enumerate",
       doc =
           "Returns a list of pairs (two-element tuples), with the index (int) and the item from"
-              + " the input list.\n<pre class=\"language-python\">"
+              + " the input sequence.\n<pre class=\"language-python\">"
               + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
       parameters = {
         // Note Python uses 'sequence' keyword instead of 'list'. We may want to change tihs
         // some day.
-        @Param(name = "list", type = SkylarkList.class, doc = "input list.", named = true),
+        @Param(name = "list", type = Object.class, doc = "input sequence.", named = true),
         @Param(
             name = "start",
             type = Integer.class,
@@ -619,12 +619,13 @@ public class MethodLibrary {
             defaultValue = "0",
             named = true)
       },
-      useEnvironment = true)
-  public MutableList<?> enumerate(SkylarkList<?> input, Integer start, Environment env)
+      useEnvironment = true,
+      useLocation = true)
+  public MutableList<?> enumerate(Object input, Integer start, Location loc, Environment env)
       throws EvalException {
     int count = start;
-    ArrayList<SkylarkList<?>> result = new ArrayList<>(input.size());
-    for (Object obj : input) {
+    ArrayList<SkylarkList<?>> result = new ArrayList<>();
+    for (Object obj : EvalUtils.toCollection(input, loc, env)) {
       result.add(Tuple.of(count, obj));
       count++;
     }

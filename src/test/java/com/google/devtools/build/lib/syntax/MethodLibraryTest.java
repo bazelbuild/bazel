@@ -533,11 +533,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testEnumerateBadArg() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains(
-            "expected value of type 'sequence' for parameter 'list', "
-                + "for call to function enumerate(list, start = 0)",
-            "enumerate('a')");
+    new BothModesTest().testIfErrorContains("type 'string' is not a collection", "enumerate('a')");
   }
 
   @Test

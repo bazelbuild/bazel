@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -103,15 +104,16 @@ public final class StringModule {
             name = "elements",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
-            type = SkylarkList.class,
+            type = Object.class,
             doc = "The objects to join.")
       },
       useLocation = true,
       useEnvironment = true)
-  public String join(String self, SkylarkList<?> elements, Location loc, Environment env)
+  public String join(String self, Object elements, Location loc, Environment env)
       throws ConversionException, EvalException {
+    Collection<?> items = EvalUtils.toCollection(elements, loc, env);
     if (env.getSemantics().incompatibleStringJoinRequiresStrings()) {
-      for (Object item : elements) {
+      for (Object item : items) {
         if (!(item instanceof String)) {
           throw new EvalException(
               loc,
@@ -122,7 +124,7 @@ public final class StringModule {
         }
       }
     }
-    return Joiner.on(self).join(elements);
+    return Joiner.on(self).join(items);
   }
 
   @SkylarkCallable(

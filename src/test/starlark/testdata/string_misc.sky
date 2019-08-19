@@ -1,5 +1,6 @@
 # join
 assert_eq('-'.join(['a', 'b', 'c']), "a-b-c")
+assert_eq('-'.join({'a': 0, 'b': None, 'c': True}), "a-b-c")
 
 ---
 join(' ', ['a', 'b', 'c']) ### name 'join' is not defined
@@ -174,6 +175,8 @@ assert_eq("\"", '"')
 # enumerate
 
 assert_eq(enumerate("abc".elems()), [(0, "a"), (1, "b"), (2, "c")])
+assert_eq(enumerate({'a': 0, 2: 1, 'ab': 3}), [(0, 'a'), (1, 2), (2, 'ab')])
+assert_eq(enumerate({}), [])
 assert_eq(enumerate([False, True, None], 42), [(42, False), (43, True), (44, None)])
 ---
-enumerate("ab") ### expected value of type 'sequence'
+enumerate("ab") ### type 'string' is not a collection
