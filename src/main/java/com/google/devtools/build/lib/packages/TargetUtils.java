@@ -243,12 +243,12 @@ public final class TargetUtils {
    *     {@code SkylarkDict<String, String>} type, null or {@link
    *     com.google.devtools.build.lib.syntax.Runtime#NONE}
    * @param rule a rule instance to get tags from
-   * @param incompatibleAllowTagsPropagation if set to true, tags will be propagated from a target
+   * @param allowTagsPropagation if set to true, tags will be propagated from a target
    *     to the actions' execution requirements, for more details {@see
-   *     SkylarkSematicOptions#incompatibleAllowTagsPropagation}
+   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableMap<String, String> getFilteredExecutionInfo(
-      Object executionRequirementsUnchecked, Rule rule, boolean incompatibleAllowTagsPropagation)
+      Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
       throws EvalException {
     Map<String, String> checkedExecutionRequirements =
         TargetUtils.filter(
@@ -262,7 +262,7 @@ public final class TargetUtils {
     // adding filtered execution requirements to the execution info map
     executionInfoBuilder.putAll(checkedExecutionRequirements);
 
-    if (incompatibleAllowTagsPropagation) {
+    if (allowTagsPropagation) {
       Map<String, String> checkedTags = getExecutionInfo(rule);
       // merging filtered tags to the execution info map avoiding duplicates
       checkedTags.forEach(executionInfoBuilder::putIfAbsent);
