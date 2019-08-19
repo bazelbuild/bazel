@@ -138,7 +138,7 @@ distdir_tar(
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz",
         # bazelbuild/rules_proto
-        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -163,7 +163,7 @@ distdir_tar(
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz": "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
         # bazelbuild/rules_proto
-        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+        "9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz": "57001a3b33ec690a175cdf0698243431ef27233017b9bed23f96d44b9c98242f",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -227,9 +227,9 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
         ],
         # bazelbuild/rules_proto
-        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
-            "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz",
         ],
     },
 )
@@ -475,11 +475,11 @@ http_archive(
 
 http_archive(
     name = "rules_proto",
-    sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
-    strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+    sha256 = "57001a3b33ec690a175cdf0698243431ef27233017b9bed23f96d44b9c98242f",
+    strip_prefix = "rules_proto-9cd4f8f1ede19d81c6d48910429fe96776e567b1",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
-        "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz",
     ],
 )
 
@@ -516,7 +516,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
         # bazelbuild/rules_proto
-        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -547,7 +547,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip": "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
         # bazelbuild/rules_proto
-        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+        "9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz": "57001a3b33ec690a175cdf0698243431ef27233017b9bed23f96d44b9c98242f",
     },
     urls = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -588,9 +588,9 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
         ],
         # bazelbuild/rules_proto
-        "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
-            "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/9cd4f8f1ede19d81c6d48910429fe96776e567b1.tar.gz",
         ],
     },
 )
