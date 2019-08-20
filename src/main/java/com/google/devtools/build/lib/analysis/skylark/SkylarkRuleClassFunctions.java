@@ -499,7 +499,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException {
     Location location = ast.getLocation();
     ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
@@ -576,6 +577,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 EvalUtils.getDataTypeName(o, true)));
       }
     }
+    ImmutableMap<RepositoryName, RepositoryName> repoMapping = ImmutableMap.of();
+    if (context instanceof BazelStarlarkContext) {
+      repoMapping = ((BazelStarlarkContext) context).getRepoMapping();
+    }
     return new SkylarkDefinedAspect(
         implementation,
         attrAspects.build(),
@@ -588,11 +593,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
         collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"),
-            ast.getLocation(),
-            // TODO(https://github.com/bazelbuild/bazel/issues/7773): Update to get the
-            // repository mapping from a context, like in rule().
-            ImmutableMap.of()));
+            toolchains.getContents(String.class, "toolchains"), ast.getLocation(), repoMapping));
   }
 
   /**

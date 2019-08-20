@@ -191,10 +191,20 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public SkylarkAspectApi aspect(BaseFunction implementation, SkylarkList<?> attributeAspects,
-      Object attrs, SkylarkList<?> requiredAspectProvidersArg, SkylarkList<?> providesArg,
-      SkylarkList<?> fragments, SkylarkList<?> hostFragments, SkylarkList<?> toolchains, String doc,
-      FuncallExpression ast, Environment funcallEnv) throws EvalException {
+  public SkylarkAspectApi aspect(
+      BaseFunction implementation,
+      SkylarkList<?> attributeAspects,
+      Object attrs,
+      SkylarkList<?> requiredAspectProvidersArg,
+      SkylarkList<?> providesArg,
+      SkylarkList<?> fragments,
+      SkylarkList<?> hostFragments,
+      SkylarkList<?> toolchains,
+      String doc,
+      FuncallExpression ast,
+      Environment funcallEnv,
+      StarlarkContext context)
+      throws EvalException {
     FakeSkylarkAspect fakeAspect = new FakeSkylarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Runtime.NONE) {

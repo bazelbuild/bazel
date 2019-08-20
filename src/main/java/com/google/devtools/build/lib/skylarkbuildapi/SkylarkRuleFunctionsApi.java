@@ -473,7 +473,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "tools.")
       },
       useEnvironment = true,
-      useAst = true)
+      useAst = true,
+      useContext = true)
   public SkylarkAspectApi aspect(
       BaseFunction implementation,
       SkylarkList<?> attributeAspects,
@@ -485,7 +486,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
