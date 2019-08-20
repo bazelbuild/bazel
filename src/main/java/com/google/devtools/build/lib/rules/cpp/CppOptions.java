@@ -900,7 +900,7 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
       },
       help =
-          "When enabled, it removes nocopts attribute from C++ rules. See"
+          "When enabled, it removes nocopts attribute from C++ rules. See"a
               + " https://github.com/bazelbuild/bazel/issues/8706 for details.")
   public boolean disableNoCopts;
 
