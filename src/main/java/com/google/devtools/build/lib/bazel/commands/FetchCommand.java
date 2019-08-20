@@ -102,7 +102,8 @@ public final class FetchCommand implements BlazeCommand {
             Lists.<String>newArrayList(),
             threadsOption.threads,
             EnumSet.noneOf(Setting.class),
-            // TODO(ulfjack): flip this flag for improved performance.
+            // TODO(ulfjack): flip both these flags for improved performance.
+            /* useForkJoinPool= */ false,
             /* useGraphlessQuery= */ false);
 
     // 1. Parse query:

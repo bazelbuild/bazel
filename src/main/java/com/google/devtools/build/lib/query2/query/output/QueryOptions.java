@@ -190,6 +190,14 @@ public class QueryOptions extends CommonQueryOptions {
   public String queryFile;
 
   @Option(
+      name = "experimental_query_use_fork_join_pool",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help = "If true, uses a ForkJoinPool instead of a PriorityBlockingQueue for Skyframe.")
+  public boolean useForkJoinPool;
+
+  @Option(
       name = "experimental_graphless_query",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,

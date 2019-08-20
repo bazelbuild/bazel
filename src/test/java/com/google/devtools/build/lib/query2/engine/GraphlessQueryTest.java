@@ -113,6 +113,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               Iterable<QueryFunction> extraFunctions,
               @Nullable PathPackageLocator packagePath,
               boolean blockUniverseEvaluationErrors,
+              boolean useForkJoinPool,
               boolean useGraphlessQuery) {
             return new GraphlessBlazeQueryEnvironment(
                 transitivePackageLoader,
@@ -126,7 +127,8 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
                 labelFilter,
                 eventHandler,
                 settings,
-                extraFunctions);
+                extraFunctions,
+                useForkJoinPool);
           }
         };
       }

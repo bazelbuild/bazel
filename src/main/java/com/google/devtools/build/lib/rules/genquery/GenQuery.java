@@ -360,6 +360,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*extraFunctions=*/ ImmutableList.of(),
               /*packagePath=*/ null,
               /*blockUniverseEvaluationErrors=*/ false,
+              /*useForkJoinPool=*/ false,
               /*useGraphlessQuery=*/ queryOptions.useGraphlessQuery);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
@@ -440,7 +441,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         ExtendedEventHandler eventHandler,
         PathFragment relativeWorkingDirectory,
         Collection<String> patterns,
-        boolean keepGoing)
+        boolean keepGoing,
+        boolean useForkJoinPool)
         throws TargetParsingException, InterruptedException {
       Preconditions.checkArgument(!keepGoing);
       Preconditions.checkArgument(relativeWorkingDirectory.isEmpty());

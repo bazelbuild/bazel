@@ -55,7 +55,8 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
       ExtendedEventHandler eventHandler,
       PathFragment relativeWorkingDirectory,
       Collection<String> patterns,
-      boolean keepGoing)
+      boolean keepGoing,
+      boolean useForkJoinPool)
       throws TargetParsingException, InterruptedException {
     String offset = relativeWorkingDirectory.getPathString();
     ImmutableMap.Builder<String, Collection<Target>> resultBuilder = ImmutableMap.builder();
@@ -74,7 +75,11 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
 
     EvaluationResult<SkyValue> result =
         skyframeExecutor.targetPatterns(
-            allKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
+            allKeys,
+            SkyframeExecutor.DEFAULT_THREAD_COUNT,
+            keepGoing,
+            eventHandler,
+            useForkJoinPool);
     WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
     for (PatternLookup patternLookup : patternLookups) {
       SkyKey key = patternLookup.skyKey;
