@@ -617,6 +617,15 @@ static string GetArgumentString(const vector<string> &argument_array) {
   return result;
 }
 
+static void EnsureServerDir(const string &server_dir) {
+  // The server dir has the connection info - don't allow access by other users.
+  if (!blaze_util::MakeDirectories(server_dir, 0700)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "server directory '" << server_dir
+        << "' could not be created: " << GetLastErrorString();
+  }
+}
+
 // Do a chdir into the workspace, and die if it fails.
 static const void GoToWorkspace(
     const WorkspaceLayout &workspace_layout, const string &workspace) {
@@ -625,6 +634,50 @@ static const void GoToWorkspace(
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "changing directory into " << workspace
         << " failed: " << GetLastErrorString();
+  }
+}
+
+// Replace this process with the blaze server. Does not exit.
+static void RunServerMode(
+    const string &server_exe,
+    const vector<string> &server_exe_args,
+    const WorkspaceLayout &workspace_layout,
+    const string &workspace,
+    const OptionProcessor &option_processor,
+    const StartupOptions &startup_options,
+    BlazeServer *server) {
+  if (startup_options.batch) {
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "exec-server command is not compatible with --batch";
+  }
+
+  BAZEL_LOG(INFO) << "Running in server mode.";
+
+  // TODO(b/69972303): Don't allow server mode if there's a server?
+  if (server->Connected()) {
+    server->KillRunningServer();
+  }
+
+  const string server_dir =
+      blaze_util::JoinPath(startup_options.output_base, "server");
+
+  EnsureServerDir(server_dir);
+
+  blaze_util::WriteFile(blaze::GetProcessIdAsString(),
+                        blaze_util::JoinPath(server_dir, "server.pid.txt"));
+  blaze_util::WriteFile(GetArgumentString(server_exe_args),
+                        blaze_util::JoinPath(server_dir, "cmdline"));
+
+  GoToWorkspace(workspace_layout, workspace);
+
+  SetScheduling(startup_options.batch_cpu_scheduling,
+                startup_options.io_nice_level);
+
+  {
+    WithEnvVars env_obj(PrepareEnvironmentForJvm());
+    ExecuteServerJvm(server_exe, server_exe_args);
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "execv of '" << server_exe << "' failed: " << GetLastErrorString();
   }
 }
 
@@ -677,6 +730,9 @@ static void RunBatchMode(
                          command_arguments.end());
 
   GoToWorkspace(workspace_layout, workspace);
+
+  SetScheduling(startup_options.batch_cpu_scheduling,
+                startup_options.io_nice_level);
 
   {
     WithEnvVars env_obj(PrepareEnvironmentForJvm());
@@ -815,12 +871,7 @@ static void StartServerAndConnect(
   (void)blaze_util::UnlinkPath(
       blaze_util::JoinPath(server_dir, "command_port"));
 
-  // The server dir has the connection info - don't allow access by other users.
-  if (!blaze_util::MakeDirectories(server_dir, 0700)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "server directory '" << server_dir
-        << "' could not be created: " << GetLastErrorString();
-  }
+  EnsureServerDir(server_dir);
 
   // Really make sure there's no other server running in this output base (even
   // an unresponsive one), as that could cause major problems.
@@ -1469,9 +1520,16 @@ static int RunLauncher(
 
   const string server_exe = startup_options.GetExe(jvm_path, server_jar_path);
 
-  if (startup_options.batch) {
-    SetScheduling(startup_options.batch_cpu_scheduling,
-                  startup_options.io_nice_level);
+  if ("exec-server" == option_processor.GetCommand()) {
+    RunServerMode(
+        server_exe,
+        server_exe_args,
+        workspace_layout,
+        workspace,
+        option_processor,
+        startup_options,
+        blaze_server);
+  } else if (startup_options.batch) {
     RunBatchMode(
         server_exe,
         server_exe_args,
