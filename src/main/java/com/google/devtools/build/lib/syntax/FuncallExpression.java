@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -841,12 +842,15 @@ public final class FuncallExpression extends Expression {
       if (arg.isPositional()) {
         posargs.add(value);
       } else if (arg.isStar()) { // expand the starArg
-        if (!(value instanceof Iterable)) {
+        Collection<?> items;
+        try {
+          items = EvalUtils.toCollection(value, getLocation(), env);
+        } catch (EvalException e) {
           throw new EvalException(
               getLocation(),
               "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));
         }
-        for (Object starArgUnit : (Iterable<Object>) value) {
+        for (Object starArgUnit : items) {
           posargs.add(starArgUnit);
         }
       } else if (arg.isStarStar()) { // expand the kwargs
