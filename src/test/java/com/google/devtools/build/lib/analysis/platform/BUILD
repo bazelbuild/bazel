@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
 package(
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
@@ -26,6 +28,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",

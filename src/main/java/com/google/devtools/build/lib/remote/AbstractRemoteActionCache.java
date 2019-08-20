@@ -52,6 +52,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResultMetadata.SymlinkMetadata;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -115,7 +117,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws IOException if the remote cache is unavailable.
    */
   @Nullable
-  abstract ActionResult getCachedActionResult(DigestUtil.ActionKey actionKey)
+  abstract ActionResult getCachedActionResult(ActionKey actionKey)
       throws IOException, InterruptedException;
 
   /**
@@ -125,13 +127,35 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws ExecException if uploading any of the action outputs is not supported
    */
   abstract void upload(
-      DigestUtil.ActionKey actionKey,
+      SimpleBlobStore.ActionKey actionKey,
       Action action,
       Command command,
       Path execRoot,
       Collection<Path> files,
       FileOutErr outErr)
       throws ExecException, IOException, InterruptedException;
+
+  /**
+   * Uploads a file
+   *
+   * <p>Any errors are being propagated via the returned future. If the future completes without
+   * errors the upload was successful.
+   *
+   * @param digest the digest of the file.
+   * @param file the file to upload.
+   */
+  protected abstract ListenableFuture<Void> uploadFile(Digest digest, Path file);
+
+  /**
+   * Uploads a BLOB.
+   *
+   * <p>Any errors are being propagated via the returned future. If the future completes without
+   * errors the upload was successful
+   *
+   * @param digest the digest of the blob.
+   * @param data the blob to upload.
+   */
+  protected abstract ListenableFuture<Void> uploadBlob(Digest digest, ByteString data);
 
   /**
    * Downloads a blob with a content hash {@code digest} to {@code out}.
@@ -640,8 +664,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     private final Path execRoot;
     private final boolean allowSymlinks;
     private final boolean uploadSymlinks;
-    private final Map<Digest, Path> digestToFile;
-    private final Map<Digest, Chunker> digestToChunkers;
+    private final Map<Digest, Path> digestToFile = new HashMap<>();
+    private final Map<Digest, ByteString> digestToBlobs = new HashMap<>();
+    private Digest stderrDigest;
+    private Digest stdoutDigest;
 
     /**
      * Create an UploadManifest from an ActionResult builder and an exec root. The ActionResult
@@ -658,9 +684,17 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       this.execRoot = execRoot;
       this.uploadSymlinks = uploadSymlinks;
       this.allowSymlinks = allowSymlinks;
+    }
 
-      this.digestToFile = new HashMap<>();
-      this.digestToChunkers = new HashMap<>();
+    public void setStdoutStderr(FileOutErr outErr) throws IOException {
+      if (outErr.getErrorPath().exists()) {
+        stderrDigest = digestUtil.compute(outErr.getErrorPath());
+        digestToFile.put(stderrDigest, outErr.getErrorPath());
+      }
+      if (outErr.getOutputPath().exists()) {
+        stdoutDigest = digestUtil.compute(outErr.getOutputPath());
+        digestToFile.put(stdoutDigest, outErr.getOutputPath());
+      }
     }
 
     /**
@@ -721,16 +755,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
      * Adds an action and command protos to upload. They need to be uploaded as part of the action
      * result.
      */
-    public void addAction(DigestUtil.ActionKey actionKey, Action action, Command command)
-        throws IOException {
-      byte[] actionBlob = action.toByteArray();
-      digestToChunkers.put(
-          actionKey.getDigest(),
-          Chunker.builder().setInput(actionBlob).setChunkSize(actionBlob.length).build());
-      byte[] commandBlob = command.toByteArray();
-      digestToChunkers.put(
-          action.getCommandDigest(),
-          Chunker.builder().setInput(commandBlob).setChunkSize(commandBlob.length).build());
+    public void addAction(SimpleBlobStore.ActionKey actionKey, Action action, Command command) {
+      digestToBlobs.put(actionKey.getDigest(), action.toByteString());
+      digestToBlobs.put(action.getCommandDigest(), command.toByteString());
     }
 
     /** Map of digests to file paths to upload. */
@@ -741,10 +768,20 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     /**
      * Map of digests to chunkers to upload. When the file is a regular, non-directory file it is
      * transmitted through {@link #getDigestToFile()}. When it is a directory, it is transmitted as
-     * a {@link Tree} protobuf message through {@link #getDigestToChunkers()}.
+     * a {@link Tree} protobuf message through {@link #getDigestToBlobs()}.
      */
-    public Map<Digest, Chunker> getDigestToChunkers() {
-      return digestToChunkers;
+    public Map<Digest, ByteString> getDigestToBlobs() {
+      return digestToBlobs;
+    }
+
+    @Nullable
+    public Digest getStdoutDigest() {
+      return stdoutDigest;
+    }
+
+    @Nullable
+    public Digest getStderrDigest() {
+      return stderrDigest;
     }
 
     private void addFileSymbolicLink(Path file, PathFragment target) throws IOException {
@@ -776,9 +813,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       Directory root = computeDirectory(dir, tree);
       tree.setRoot(root);
 
-      byte[] blob = tree.build().toByteArray();
-      Digest digest = digestUtil.compute(blob);
-      Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(blob.length).build();
+      ByteString data = tree.build().toByteString();
+      Digest digest = digestUtil.compute(data.toByteArray());
 
       if (result != null) {
         result
@@ -787,7 +823,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
             .setTreeDigest(digest);
       }
 
-      digestToChunkers.put(digest, chunker);
+      digestToBlobs.put(digest, data);
     }
 
     private Directory computeDirectory(Path path, Tree.Builder tree)

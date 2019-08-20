@@ -56,11 +56,11 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -335,7 +335,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
-    if (!executionOptions.materializeParamFiles) {
+    if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
     }
     for (ActionInput actionInput : spawn.getInputFiles()) {

@@ -535,6 +535,11 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       }
 
       @Override
+      public Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException {
+        return owner.visitLabels(attribute);
+      }
+
+      @Override
       public String getPackageDefaultHdrsCheck() {
         return owner.getPackageDefaultHdrsCheck();
       }

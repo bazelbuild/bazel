@@ -42,6 +42,8 @@ public class AndroidResourceMergingActionBuilder {
   private String customJavaPackage;
   private boolean throwOnResourceConflict;
   private boolean useCompiledMerge;
+  private boolean annotateRFieldsFromTransitiveDeps;
+  private boolean omitTransitiveDependencies;
 
   /**
    * The primary resource for merging. This resource will overwrite any resource or data value in
@@ -99,6 +101,18 @@ public class AndroidResourceMergingActionBuilder {
     return this;
   }
 
+  public AndroidResourceMergingActionBuilder setAnnotateRFieldsFromTransitiveDeps(
+      boolean annotateRFieldsFromTransitiveDeps) {
+    this.annotateRFieldsFromTransitiveDeps = annotateRFieldsFromTransitiveDeps;
+    return this;
+  }
+
+  public AndroidResourceMergingActionBuilder setOmitTransitiveDependencies(
+      boolean omitTransitiveDependencies) {
+    this.omitTransitiveDependencies = omitTransitiveDependencies;
+    return this;
+  }
+
   private BusyBoxActionBuilder createInputsForBuilder(BusyBoxActionBuilder builder) {
     return builder
         .addAndroidJar()
@@ -118,19 +132,29 @@ public class AndroidResourceMergingActionBuilder {
                 primary.getArtifacts(), ImmutableList.of(primary.getCompiledSymbols())));
 
     if (dependencies != null) {
-      builder
-          .addTransitiveFlag(
-              "--data",
-              dependencies.getTransitiveResourceContainers(),
-              AndroidDataConverter.COMPILED_RESOURCE_CONVERTER)
-          .addTransitiveFlag(
-              "--directData",
-              dependencies.getDirectResourceContainers(),
-              AndroidDataConverter.COMPILED_RESOURCE_CONVERTER)
-          .addTransitiveInputValues(dependencies.getTransitiveResources())
-          .addTransitiveInputValues(dependencies.getTransitiveCompiledSymbols());
+      builder.addTransitiveFlag(
+          "--directData",
+          dependencies.getDirectResourceContainers(),
+          AndroidDataConverter.COMPILED_RESOURCE_CONVERTER);
+
+      if (omitTransitiveDependencies) {
+        for (ValidatedAndroidResources resources : dependencies.getDirectResourceContainers()) {
+          builder.addInputs(resources.getResources());
+          builder.maybeAddInput(resources.getCompiledSymbols());
+        }
+      } else {
+        builder
+            .addTransitiveFlag(
+                "--data",
+                dependencies.getTransitiveResourceContainers(),
+                AndroidDataConverter.COMPILED_RESOURCE_CONVERTER)
+            .addTransitiveInputValues(dependencies.getTransitiveResources())
+            .addTransitiveInputValues(dependencies.getTransitiveCompiledSymbols());
+      }
     }
 
+    builder.maybeAddFlag(
+        "--annotate_r_fields_from_transitive_deps", annotateRFieldsFromTransitiveDeps);
     builder.buildAndRegister("Merging compiled Android resources", "AndroidCompiledResourceMerger");
   }
 
@@ -144,17 +168,25 @@ public class AndroidResourceMergingActionBuilder {
             Iterables.concat(primary.getArtifacts(), ImmutableList.of(primary.getSymbols())));
 
     if (dependencies != null) {
-      builder
-          .addTransitiveFlag(
-              "--data",
-              dependencies.getTransitiveResourceContainers(),
-              AndroidDataConverter.PARSED_RESOURCE_CONVERTER)
-          .addTransitiveFlag(
-              "--directData",
-              dependencies.getDirectResourceContainers(),
-              AndroidDataConverter.PARSED_RESOURCE_CONVERTER)
-          .addTransitiveInputValues(dependencies.getTransitiveResources())
-          .addTransitiveInputValues(dependencies.getTransitiveSymbolsBin());
+      builder.addTransitiveFlag(
+          "--directData",
+          dependencies.getDirectResourceContainers(),
+          AndroidDataConverter.PARSED_RESOURCE_CONVERTER);
+
+      if (omitTransitiveDependencies) {
+        for (ValidatedAndroidResources resources : dependencies.getDirectResourceContainers()) {
+          builder.addInputs(resources.getResources());
+          builder.maybeAddInput(resources.getSymbols());
+        }
+      } else {
+        builder
+            .addTransitiveFlag(
+                "--data",
+                dependencies.getTransitiveResourceContainers(),
+                AndroidDataConverter.PARSED_RESOURCE_CONVERTER)
+            .addTransitiveInputValues(dependencies.getTransitiveResources())
+            .addTransitiveInputValues(dependencies.getTransitiveSymbolsBin());
+      }
     }
 
     builder.buildAndRegister("Merging Android resources", "AndroidResourceMerger");

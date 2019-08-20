@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.remote.util.StringActionInput;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -239,6 +239,16 @@ public class RemoteActionInputFetcherTest {
         Path execRoot,
         Collection<Path> files,
         FileOutErr outErr) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected ListenableFuture<Void> uploadFile(Digest digest, Path path) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
       throw new UnsupportedOperationException();
     }
 

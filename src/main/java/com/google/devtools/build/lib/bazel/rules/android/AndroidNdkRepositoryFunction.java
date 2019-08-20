@@ -265,9 +265,12 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     PathFragment pathFragment;
+    String userDefinedPath = null;
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
-      pathFragment = getTargetPath(rule, directories.getWorkspace());
+      userDefinedPath = getPathAttr(rule);
+      pathFragment = getTargetPath(userDefinedPath, directories.getWorkspace());
     } else if (environ.get(PATH_ENV_VAR) != null) {
+      userDefinedPath = environ.get(PATH_ENV_VAR);
       pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), environ);
     } else {
       throw new RepositoryFunctionException(
@@ -286,7 +289,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     }
 
     Path ndkHome = directories.getOutputBase().getFileSystem().getPath(pathFragment);
-    if (!symlinkLocalRepositoryContents(ndkSymlinkTreeDirectory, ndkHome)) {
+    if (!symlinkLocalRepositoryContents(ndkSymlinkTreeDirectory, ndkHome, userDefinedPath)) {
       return null;
     }
 

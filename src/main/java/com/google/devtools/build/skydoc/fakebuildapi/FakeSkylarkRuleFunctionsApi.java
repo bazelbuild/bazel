@@ -57,7 +57,8 @@ import java.util.stream.Collectors;
 public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<FileApi> {
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
-      new FakeDescriptor(AttributeType.NAME, "A unique name for this target.", true);
+      new FakeDescriptor(
+          AttributeType.NAME, "A unique name for this target.", true, ImmutableList.of());
   private final List<RuleInfoWrapper> ruleInfoList;
 
   private final List<ProviderInfoWrapper> providerInfoList;
@@ -190,10 +191,20 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public SkylarkAspectApi aspect(BaseFunction implementation, SkylarkList<?> attributeAspects,
-      Object attrs, SkylarkList<?> requiredAspectProvidersArg, SkylarkList<?> providesArg,
-      SkylarkList<?> fragments, SkylarkList<?> hostFragments, SkylarkList<?> toolchains, String doc,
-      FuncallExpression ast, Environment funcallEnv) throws EvalException {
+  public SkylarkAspectApi aspect(
+      BaseFunction implementation,
+      SkylarkList<?> attributeAspects,
+      Object attrs,
+      SkylarkList<?> requiredAspectProvidersArg,
+      SkylarkList<?> providesArg,
+      SkylarkList<?> fragments,
+      SkylarkList<?> hostFragments,
+      SkylarkList<?> toolchains,
+      String doc,
+      FuncallExpression ast,
+      Environment funcallEnv,
+      StarlarkContext context)
+      throws EvalException {
     FakeSkylarkAspect fakeAspect = new FakeSkylarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Runtime.NONE) {

@@ -6,6 +6,8 @@
 # Usage:
 # skydoc <target_file> <output_file>
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(
     default_visibility = ["//src:__subpackages__"],
 )
@@ -88,6 +90,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/tools/skylark/java/com/google/devtools/skylark/common",
         "//third_party:guava",
     ],
 )

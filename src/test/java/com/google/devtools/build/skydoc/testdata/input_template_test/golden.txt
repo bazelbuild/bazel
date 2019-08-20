@@ -59,6 +59,24 @@ Stores information about an example in chosen template.
         <p>A string representing baz</p>
 
 
+<a name="#my_aspect_impl"></a>
+
+## my_aspect_impl
+
+<pre>
+my_aspect_impl(<a href="#my_aspect_impl-ctx">ctx</a>)
+</pre>
+
+
+
+<b>input_template_test BOLD PARAMETERS</b>
+
+### Parameters
+
+<b>
+      <code>ctx</code>
+        required.
+
 <a name="#template_function"></a>
 
 ## template_function
@@ -82,5 +100,37 @@ Use `bazel build` to run the check.
         required.        <p>
           A unique name for this function.
         </p>
+
+
+<a name="#my_aspect"></a>
+
+## my_aspect
+
+<pre>
+my_aspect(<a href="#my_aspect-name">name</a>, <a href="#my_aspect-first">first</a>)
+</pre>
+
+This is my aspect. It does stuff.
+
+### Aspect Attributes
+
+        deps
+        String; required.
+        attr_aspect
+        String; required.
+
+### Attributes
+
+<b>
+      <code>name</code>
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+</b>
+        <p>
+          A unique name for this target.
+        </p>
+<b>
+      <code>first</code>
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
+</b>
 
 

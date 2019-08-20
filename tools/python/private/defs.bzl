@@ -14,11 +14,21 @@
 
 """This is a Bazel-internal file; do not load() it!
 
-This file replicates the behavior of the macros in bazelbuild/rules_python's
-`//python:defs.bzl` file, allowing the four native rules to be used even with
-`--incompatible_load_python_rules_from_bzl` enabled.
+The incompatible change `--incompatible_load_python_rules_from_bzl` (#9006)
+makes it so the four native Python rules cannot be used unless a magic tag is
+present. It is intended that only `@rules_python` (bazelbuild/rules_python)
+uses this tag, and all other uses access the native rules via the wrapper
+macros defined in `@rules_python`.
 
-We need this file because Bazel's own codebase may not depend on rules_python.
+However, `@bazel_tools` is not allowed to depend on any other repos. Therefore,
+we replicate the behavior of `@rules_python`'s wrapper macros in this file, for
+use by Bazel only.
+
+This gets a bit tricky with the third_party/ directory. Some of its
+subdirectories are full-blown workspaces that cannot directly reference this
+file's label. For these cases we create a mock `@rules_python` in Bazel's
+WORKSPACE, and rely on those repos using the proper @rules_python-qualified
+label. (#9029 tracks possibly replacing the mock with the real thing.)
 """
 
 _MIGRATION_TAG = "__PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__"

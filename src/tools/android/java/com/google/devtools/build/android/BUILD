@@ -1,5 +1,7 @@
 # Actions for Android rules.
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -69,6 +71,7 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:ziputils_lib",
         "//third_party:android_common_25_0_0",
         "//third_party:asm",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/android_databinding:exec",

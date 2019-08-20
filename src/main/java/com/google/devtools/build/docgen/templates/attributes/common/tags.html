@@ -88,9 +88,8 @@
   <li><code>exclusive</code> keyword will force the test to be run in the
     &quot;exclusive&quot; mode, ensuring that no other tests are running at the
     same time. Such tests will be executed in serial fashion after all build
-    activity and non-exclusive tests have been completed. Remote execution is
-    disabled for such tests because Bazel doesn't have control over what's
-    running on a remote machine.
+    activity and non-exclusive tests have been completed. They will also always
+    run locally and thus without sandboxing.
   </li>
 
   <li><code>manual</code> keyword will force the test target to not be included in target pattern

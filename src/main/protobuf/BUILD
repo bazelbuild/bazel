@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_proto_library")
+
 package(default_visibility = ["//visibility:public"])
 
 load("//tools/build_rules:genproto.bzl", "cc_grpc_library")

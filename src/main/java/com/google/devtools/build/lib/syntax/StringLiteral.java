@@ -35,6 +35,7 @@ public final class StringLiteral extends Expression {
     return value;
   }
 
+  // TODO(adonovan): lock down, after removing last use in skyframe serialization.
   public StringLiteral(String value) {
     this.value = value;
   }

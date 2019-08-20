@@ -148,7 +148,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         .getRelative(repositoryName.strippedName());
 
     if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
-      return setupOverride(overrides.get(repositoryName), env, repoRoot);
+      DigestWriter.clearMarkerFile(directories, repositoryName);
+      return setupOverride(
+          overrides.get(repositoryName), env, repoRoot, repositoryName.strippedName());
     }
 
     Rule rule;
@@ -329,11 +331,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private RepositoryDirectoryValue setupOverride(
-      PathFragment sourcePath, Environment env, Path repoRoot)
+      PathFragment sourcePath, Environment env, Path repoRoot, String pathAttr)
       throws RepositoryFunctionException, InterruptedException {
     setupRepositoryRoot(repoRoot);
     RepositoryDirectoryValue.Builder directoryValue =
-        LocalRepositoryFunction.symlink(repoRoot, sourcePath, env);
+        LocalRepositoryFunction.symlink(repoRoot, sourcePath, pathAttr, env);
     if (directoryValue == null) {
       return null;
     }
@@ -505,6 +507,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     private static Path getMarkerPath(BlazeDirectories directories, String ruleName) {
       return RepositoryFunction.getExternalRepositoryDirectory(directories)
           .getChild("@" + ruleName + ".marker");
+    }
+
+    static void clearMarkerFile(BlazeDirectories directories, RepositoryName repoName)
+        throws RepositoryFunctionException {
+      try {
+        getMarkerPath(directories, repoName.strippedName()).delete();
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
     }
   }
 

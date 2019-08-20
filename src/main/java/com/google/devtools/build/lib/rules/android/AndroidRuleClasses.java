@@ -116,6 +116,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_files/resource_files_shrunk.zip");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCE_SHRINKER_LOG =
       fromTemplates("%{name}_files/resource_shrinker.log");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCE_PATH_SHORTENING_MAP =
+      fromTemplates("%{name}_resource_paths.map");
   public static final SafeImplicitOutputsFunction ANDROID_INCREMENTAL_RESOURCES_APK =
       fromTemplates("%{name}_files/incremental.ap_");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_APK = fromTemplates("%{name}.apk");
@@ -608,7 +610,9 @@ public final class AndroidRuleClasses {
           .add(attr("nocompress_extensions", STRING_LIST))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(crunch_png) -->
           Do PNG crunching (or not). This is independent of nine-patch processing, which is always
-          done. Currently only supported for local resources (not android_resources).
+          done. This is a deprecated workaround for an
+          <a href="https://code.google.com/p/android/issues/detail?id=74334">aapt bug</a> which has
+          been fixed in aapt2.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("crunch_png", BOOLEAN).value(true))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(resource_configuration_filters) -->
@@ -854,6 +858,9 @@ public final class AndroidRuleClasses {
           .add(attr("manifest_values", STRING_DICT))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(aapt_version) -->
           Select the version of aapt for this rule.<br/>
+
+          This attribute only takes effect if you set `--android_aapt=auto`.<br/>
+
           Possible values:
           <ul>
               <li><code>aapt_version = "aapt"</code>: Use aapt (deprecated).</li>
@@ -909,6 +916,13 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:zip_filter")))
+          .add(
+              attr("application_resources", LABEL)
+                  .mandatoryProviders(AndroidApplicationResourceInfo.PROVIDER.id())
+                  .allowedFileTypes(NO_FILE)
+                  .undocumented(
+                      "Do not use this attribute. It's for the migration of "
+                          + "Android resource processing to Starlark only."))
           .removeAttribute("data")
           .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))
           .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))

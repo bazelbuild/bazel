@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -30,6 +31,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
 
@@ -188,6 +190,16 @@ public class CommonCommandOptions extends OptionsBase {
   public String buildRequestId;
 
   @Option(
+      name = "build_metadata",
+      converter = AssignmentConverter.class,
+      defaultValue = "",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Custom key-value string pairs to supply in a build event.")
+  public List<Map.Entry<String, String>> buildMetadata;
+
+  @Option(
       name = "oom_message",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -210,7 +222,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_enable_profile_by_default",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {

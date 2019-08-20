@@ -63,10 +63,10 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -813,8 +813,16 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void testMaterializeParamFiles() throws Exception {
-    ExecutionOptions executionOptions =
-        Options.parse(ExecutionOptions.class, "--materialize_param_files").getOptions();
+    testParamFilesAreMaterializedForFlag("--materialize_param_files");
+  }
+
+  @Test
+  public void testMaterializeParamFilesIsImpliedBySubcommands() throws Exception {
+    testParamFilesAreMaterializedForFlag("--subcommands");
+  }
+
+  private void testParamFilesAreMaterializedForFlag(String flag) throws Exception {
+    ExecutionOptions executionOptions = Options.parse(ExecutionOptions.class, flag).getOptions();
     executionOptions.materializeParamFiles = true;
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(

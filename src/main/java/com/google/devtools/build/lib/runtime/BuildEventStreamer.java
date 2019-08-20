@@ -30,6 +30,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
@@ -466,7 +467,11 @@ public class BuildEventStreamer {
       clearMissingStartEvent(event.getEventId());
     }
 
-    post(event);
+    if (event instanceof BuildConfigurationEvent) {
+      maybeReportConfiguration(event);
+    } else {
+      post(event);
+    }
 
     // Reconsider all events blocked by the event just posted.
     Collection<BuildEvent> toReconsider;

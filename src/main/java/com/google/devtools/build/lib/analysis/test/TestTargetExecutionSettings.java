@@ -39,6 +39,7 @@ public final class TestTargetExecutionSettings {
   private final CommandLine testArguments;
   private final String testFilter;
   private final int totalShards;
+  private final int totalRuns;
   private final RunUnder runUnder;
   private final Artifact runUnderExecutable;
   private final Artifact executable;
@@ -48,8 +49,13 @@ public final class TestTargetExecutionSettings {
   private final Artifact runfilesInputManifest;
   private final Artifact instrumentedFileManifest;
 
-  TestTargetExecutionSettings(RuleContext ruleContext, RunfilesSupport runfilesSupport,
-      Artifact executable, Artifact instrumentedFileManifest, int shards) {
+  TestTargetExecutionSettings(
+      RuleContext ruleContext,
+      RunfilesSupport runfilesSupport,
+      Artifact executable,
+      Artifact instrumentedFileManifest,
+      int shards,
+      int runs) {
     Preconditions.checkArgument(TargetUtils.isTestRule(ruleContext.getRule()));
     Preconditions.checkArgument(shards >= 0);
     BuildConfiguration config = ruleContext.getConfiguration();
@@ -60,6 +66,7 @@ public final class TestTargetExecutionSettings {
         CommandLine.concat(targetArgs, ImmutableList.copyOf(testConfig.getTestArguments()));
 
     totalShards = shards;
+    totalRuns = runs;
     runUnder = config.getRunUnder();
     runUnderExecutable = getRunUnderExecutable(ruleContext);
 
@@ -94,6 +101,10 @@ public final class TestTargetExecutionSettings {
 
   public int getTotalShards() {
     return totalShards;
+  }
+
+  public int getTotalRuns() {
+    return totalRuns;
   }
 
   public RunUnder getRunUnder() {

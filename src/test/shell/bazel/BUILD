@@ -64,6 +64,17 @@ filegroup(
 )
 
 sh_test(
+    name = "bazel_unresolved_symlink_test",
+    size = "medium",
+    srcs = ["bazel_unresolved_symlink_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "bazel_example_test",
     size = "large",
     srcs = ["bazel_example_test.sh"],
@@ -376,9 +387,9 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_experimental_ui_test",
+    name = "bazel_ui_test",
     size = "medium",
-    srcs = ["bazel_experimental_ui_test.sh"],
+    srcs = ["bazel_ui_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",

@@ -1,6 +1,8 @@
 # Description:
 #   Tools for android resource processing
 
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(default_visibility = [
     "//src/test/java/com/google/devtools/build/android:__subpackages__",
     "//src/tools/android/java/com/google/devtools/build/android:__pkg__",

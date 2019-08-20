@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -146,45 +148,17 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     if (getDigest() != null && lastKnown.getDigest() != null) {
+      // If we know the digests, we can tell with certainty whether the file has changed.
       return !Arrays.equals(getDigest(), lastKnown.getDigest()) || getSize() != lastKnown.getSize();
     } else {
-      return getModifiedTime() != lastKnown.getModifiedTime();
+      // If not, we assume by default that the file has changed, but individual implementations
+      // might know better. For example, regular local files can be compared by ctime or mtime.
+      return couldBeModifiedByMetadata(lastKnown);
     }
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof FileArtifactValue)) {
-      return false;
-    }
-    if ((this instanceof Singleton) || (o instanceof Singleton)) {
-      return false;
-    }
-    FileArtifactValue m = (FileArtifactValue) o;
-    if (getType() != m.getType()) {
-      return false;
-    }
-    if (getDigest() != null) {
-      return Arrays.equals(getDigest(), m.getDigest()) && getSize() == m.getSize();
-    } else {
-      return getModifiedTime() == m.getModifiedTime();
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    if (this instanceof Singleton) {
-      return System.identityHashCode(this);
-    }
-    // Hash digest by content, not reference.
-    if (getDigest() != null) {
-      return 37 * Long.hashCode(getSize()) + Arrays.hashCode(getDigest());
-    } else {
-      return Long.hashCode(getModifiedTime());
-    }
+  protected boolean couldBeModifiedByMetadata(FileArtifactValue lastKnown) {
+    return true;
   }
 
   /**
@@ -273,6 +247,30 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return new RegularFileArtifactValue(digest, /*proxy=*/ null, size);
   }
 
+  public static FileArtifactValue createForUnresolvedSymlink(PathFragment symlinkTarget) {
+    DigestHashFunction digestHashFunction;
+
+    try {
+      digestHashFunction = DigestHashFunction.getDefault();
+    } catch (DefaultHashFunctionNotSetException e) {
+      throw new IllegalStateException(e);
+    }
+
+    byte[] digest =
+        digestHashFunction
+            .getHashFunction()
+            .hashString(symlinkTarget.getPathString(), StandardCharsets.ISO_8859_1)
+            .asBytes();
+
+    // We need to be able to tell the difference between a symlink and a file containing the same
+    // text. So we transform the digest a bit. This works because if one wants to craft a file with
+    // the same digest as a symlink, one would need to mount a preimage attack on the digest
+    // function (this would be different if we tweaked the data before applying the hash function)
+    digest[0] = (byte) (digest[0] ^ 0xff);
+
+    return new UnresolvedSymlinkArtifactValue(digest);
+  }
+
   @VisibleForTesting
   public static FileArtifactValue createForNormalFile(
       byte[] digest, @Nullable FileContentsProxy proxy, long size, boolean isShareable) {
@@ -307,6 +305,21 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     private DirectoryArtifactValue(long mtime) {
       this.mtime = mtime;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof DirectoryArtifactValue)) {
+        return false;
+      }
+
+      DirectoryArtifactValue that = (DirectoryArtifactValue) o;
+      return mtime == that.mtime;
+    }
+
+    @Override
+    public int hashCode() {
+      return Long.hashCode(mtime);
     }
 
     @Override
@@ -355,10 +368,26 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   private static final class HashedDirectoryArtifactValue extends FileArtifactValue {
+
     private final byte[] digest;
 
     private HashedDirectoryArtifactValue(byte[] digest) {
       this.digest = digest;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof HashedDirectoryArtifactValue)) {
+        return false;
+      }
+
+      HashedDirectoryArtifactValue that = (HashedDirectoryArtifactValue) o;
+      return Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(digest);
     }
 
     @Override
@@ -399,36 +428,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     public String toString() {
       return MoreObjects.toStringHelper(this).add("digest", digest).toString();
     }
-
-    @Override
-    public boolean couldBeModifiedSince(FileArtifactValue o) {
-      if (!(o instanceof HashedDirectoryArtifactValue)) {
-        return true;
-      }
-
-      HashedDirectoryArtifactValue lastKnown = (HashedDirectoryArtifactValue) o;
-      return !Arrays.equals(digest, lastKnown.digest);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof HashedDirectoryArtifactValue)) {
-        return false;
-      }
-      HashedDirectoryArtifactValue r = (HashedDirectoryArtifactValue) o;
-      return Arrays.equals(digest, r.digest);
-    }
-
-    @Override
-    public int hashCode() {
-      return Arrays.hashCode(digest);
-    }
   }
 
   private static class RegularFileArtifactValue extends FileArtifactValue {
+
     private final byte[] digest;
     @Nullable private final FileContentsProxy proxy;
     private final long size;
@@ -438,6 +441,24 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.digest = digest;
       this.proxy = proxy;
       this.size = size;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof RegularFileArtifactValue)) {
+        return false;
+      }
+
+      RegularFileArtifactValue that = (RegularFileArtifactValue) o;
+      return Arrays.equals(digest, that.digest)
+          && Objects.equals(proxy, that.proxy)
+          && size == that.size
+          && dataIsShareable() == that.dataIsShareable();
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), proxy, size, dataIsShareable());
     }
 
     @Override
@@ -478,50 +499,22 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
-          .add("digest", BaseEncoding.base16().lowerCase().encode(digest))
+          .add(
+              "digest",
+              digest == null ? "(null)" : BaseEncoding.base16().lowerCase().encode(digest))
           .add("size", size)
           .add("proxy", proxy)
           .toString();
     }
 
     @Override
-    public boolean couldBeModifiedSince(FileArtifactValue o) {
+    protected boolean couldBeModifiedByMetadata(FileArtifactValue o) {
       if (!(o instanceof RegularFileArtifactValue)) {
         return true;
       }
 
       RegularFileArtifactValue lastKnown = (RegularFileArtifactValue) o;
-      if (size != lastKnown.size || dataIsShareable() != lastKnown.dataIsShareable()) {
-        return true;
-      }
-
-      if (digest != null && lastKnown.digest != null) {
-        return !Arrays.equals(digest, lastKnown.digest);
-      } else {
-        return !Objects.equals(proxy, lastKnown.proxy);
-      }
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof RegularFileArtifactValue)) {
-        return false;
-      }
-      RegularFileArtifactValue r = (RegularFileArtifactValue) o;
-      return Arrays.equals(digest, r.digest)
-          && Objects.equals(proxy, r.proxy)
-          && size == r.size
-          && dataIsShareable() == r.dataIsShareable();
-    }
-
-    @Override
-    public int hashCode() {
-      return (proxy != null ? 127 * proxy.hashCode() : 0)
-          + 37 * Long.hashCode(getSize())
-          + Arrays.hashCode(getDigest());
+      return size != lastKnown.size || !Objects.equals(proxy, lastKnown.proxy);
     }
   }
 
@@ -547,6 +540,23 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.digest = digest;
       this.size = size;
       this.locationIndex = locationIndex;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof RemoteFileArtifactValue)) {
+        return false;
+      }
+
+      RemoteFileArtifactValue that = (RemoteFileArtifactValue) o;
+      return Arrays.equals(digest, that.digest)
+          && size == that.size
+          && locationIndex == that.locationIndex;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, dataIsShareable());
     }
 
     @Override
@@ -600,6 +610,46 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
+  /** A {@link FileArtifactValue} representing a symlink that is not to be resolved. */
+  public static final class UnresolvedSymlinkArtifactValue extends FileArtifactValue {
+    private final byte[] digest;
+
+    private UnresolvedSymlinkArtifactValue(byte[] digest) {
+      this.digest = digest;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.SYMLINK;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    public long getSize() {
+      return 0;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      // We could store an mtime but I have no clue where to get one from createFromMetadata
+      return true;
+    }
+  }
+
   /** File stored inline in metadata. */
   public static class InlineFileArtifactValue extends FileArtifactValue {
     private final byte[] data;
@@ -608,6 +658,21 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private InlineFileArtifactValue(byte[] data, byte[] digest) {
       this.data = Preconditions.checkNotNull(data);
       this.digest = Preconditions.checkNotNull(digest);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof InlineFileArtifactValue)) {
+        return false;
+      }
+
+      InlineFileArtifactValue that = (InlineFileArtifactValue) o;
+      return Arrays.equals(digest, that.digest) && dataIsShareable() == that.dataIsShareable();
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), dataIsShareable());
     }
 
     private InlineFileArtifactValue(byte[] bytes) {
@@ -685,6 +750,23 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.execPath = Preconditions.checkNotNull(execPath);
       this.digest = Preconditions.checkNotNull(digest);
       this.size = size;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof SourceFileArtifactValue)) {
+        return false;
+      }
+
+      SourceFileArtifactValue that = (SourceFileArtifactValue) o;
+      return Objects.equals(execPath, that.execPath)
+          && Arrays.equals(digest, that.digest)
+          && size == that.size;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(execPath, Arrays.hashCode(digest), size);
     }
 
     public PathFragment getExecPath() {

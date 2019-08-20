@@ -48,7 +48,7 @@ to make your files easy to process, both by humans and tools.
 ### Python style
 
 When in doubt, follow the
-[Python style guide](https://www.python.org/dev/peps/pep-0008/). In particular,
+[PEP 8 style guide](https://www.python.org/dev/peps/pep-0008/). In particular,
 use 4 spaces for indentation (we previously recommended 2, but we now follow the
 Python convention).
 

@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -26,27 +24,29 @@ import javax.annotation.Nullable;
 /**
  * Base class for list and dict comprehension expressions.
  *
- * <p> A comprehension contains one or more clauses, e.g.
- *   [a+d for a in b if c for d in e]
- * contains three clauses: "for a in b", "if c", "for d in e".
- * For and If clauses can happen in any order, except that the first one has to be a For.
+ * <p>A comprehension contains one or more clauses, e.g. [a+d for a in b if c for d in e] contains
+ * three clauses: "for a in b", "if c", "for d in e". For and If clauses can happen in any order,
+ * except that the first one has to be a For.
  *
- * <p> The code above can be expanded as:
+ * <p>The code above can be expanded as:
+ *
  * <pre>
  *   for a in b:
  *     if c:
  *       for d in e:
  *         result.append(a+d)
  * </pre>
+ *
  * result is initialized to [] (list) or {} (dict) and is the return value of the whole expression.
  */
+// TODO(adonovan): replace {Abstract,List,Dict}Comprehension by a single class.
 public abstract class AbstractComprehension extends Expression {
 
   /**
-   * The interface implemented by ForClause and (later) IfClause.
-   * A comprehension consists of one or many Clause.
+   * The interface implemented by ForClause and (later) IfClause. A comprehension consists of one or
+   * more Clauses.
    */
-  public interface Clause extends Serializable {
+  public interface Clause {
 
     /** Enum for distinguishing clause types. */
     enum Kind {
@@ -91,7 +91,6 @@ public abstract class AbstractComprehension extends Expression {
   }
 
   /** A for clause in a comprehension, e.g. "for a in b" in the example above. */
-  @AutoCodec
   public static final class ForClause implements Clause {
     private final Expression lhs;
     private final Expression iterable;
@@ -155,7 +154,6 @@ public abstract class AbstractComprehension extends Expression {
   }
 
   /** A if clause in a comprehension, e.g. "if c" in the example above. */
-  @AutoCodec
   public static final class IfClause implements Clause {
     private final Expression condition;
 
@@ -213,7 +211,7 @@ public abstract class AbstractComprehension extends Expression {
 
   private final ImmutableList<Clause> clauses;
 
-  public AbstractComprehension(List<Clause> clauses, Expression... outputExpressions) {
+  AbstractComprehension(List<Clause> clauses, Expression... outputExpressions) {
     this.clauses = ImmutableList.copyOf(clauses);
     this.outputExpressions = ImmutableList.copyOf(outputExpressions);
   }

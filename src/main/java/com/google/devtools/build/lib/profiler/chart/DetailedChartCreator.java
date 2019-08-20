@@ -39,8 +39,8 @@ public class DetailedChartCreator implements ChartCreator {
   }
 
   @Override
-  public Chart create() {
-    Chart chart = new Chart();
+  public Chart create(long minBarWidth) {
+    Chart chart = new Chart(minBarWidth);
     CommonChartCreator.createCommonChartItems(chart, info);
     createTypes(chart);
 

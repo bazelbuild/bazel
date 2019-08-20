@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.events.Location;
@@ -135,7 +136,8 @@ public enum CompileBuildVariables {
       Iterable<PathFragment> quoteIncludeDirs,
       Iterable<PathFragment> systemIncludeDirs,
       Iterable<PathFragment> frameworkIncludeDirs,
-      Iterable<String> defines) {
+      Iterable<String> defines,
+      Iterable<String> localDefines) {
     try {
       if (usePic
           && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
@@ -165,7 +167,8 @@ public enum CompileBuildVariables {
           getSafePathStrings(quoteIncludeDirs),
           getSafePathStrings(systemIncludeDirs),
           getSafePathStrings(frameworkIncludeDirs),
-          defines);
+          defines,
+          localDefines);
     } catch (EvalException e) {
       ruleErrorConsumer.ruleError(e.getMessage());
       return CcToolchainVariables.EMPTY;
@@ -197,7 +200,8 @@ public enum CompileBuildVariables {
       Iterable<String> quoteIncludeDirs,
       Iterable<String> systemIncludeDirs,
       Iterable<String> frameworkIncludeDirs,
-      Iterable<String> defines)
+      Iterable<String> defines,
+      Iterable<String> localDefines)
       throws EvalException {
     if (usePic
         && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
@@ -227,7 +231,8 @@ public enum CompileBuildVariables {
         quoteIncludeDirs,
         systemIncludeDirs,
         frameworkIncludeDirs,
-        defines);
+        defines,
+        localDefines);
   }
 
   private static CcToolchainVariables setupVariables(
@@ -253,7 +258,8 @@ public enum CompileBuildVariables {
       Iterable<String> quoteIncludeDirs,
       Iterable<String> systemIncludeDirs,
       Iterable<String> frameworkIncludeDirs,
-      Iterable<String> defines) {
+      Iterable<String> defines,
+      Iterable<String> localDefines) {
     CcToolchainVariables.Builder buildVariables = CcToolchainVariables.builder(parent);
     setupCommonVariablesInternal(
         buildVariables,
@@ -268,7 +274,8 @@ public enum CompileBuildVariables {
         quoteIncludeDirs,
         systemIncludeDirs,
         frameworkIncludeDirs,
-        defines);
+        defines,
+        localDefines);
     setupSpecificVariables(
         buildVariables,
         sourceFile,
@@ -354,7 +361,8 @@ public enum CompileBuildVariables {
       Iterable<PathFragment> quoteIncludeDirs,
       Iterable<PathFragment> systemIncludeDirs,
       Iterable<PathFragment> frameworkIncludeDirs,
-      Iterable<String> defines) {
+      Iterable<String> defines,
+      Iterable<String> localDefines) {
     setupCommonVariablesInternal(
         buildVariables,
         featureConfiguration,
@@ -368,7 +376,8 @@ public enum CompileBuildVariables {
         getSafePathStrings(quoteIncludeDirs),
         getSafePathStrings(systemIncludeDirs),
         getSafePathStrings(frameworkIncludeDirs),
-        defines);
+        defines,
+        localDefines);
   }
 
   private static void setupCommonVariablesInternal(
@@ -384,13 +393,15 @@ public enum CompileBuildVariables {
       Iterable<String> quoteIncludeDirs,
       Iterable<String> systemIncludeDirs,
       Iterable<String> frameworkIncludeDirs,
-      Iterable<String> defines) {
+      Iterable<String> defines,
+      Iterable<String> localDefines) {
     Preconditions.checkNotNull(directModuleMaps);
     Preconditions.checkNotNull(includeDirs);
     Preconditions.checkNotNull(quoteIncludeDirs);
     Preconditions.checkNotNull(systemIncludeDirs);
     Preconditions.checkNotNull(frameworkIncludeDirs);
     Preconditions.checkNotNull(defines);
+    Preconditions.checkNotNull(localDefines);
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
       // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
@@ -427,11 +438,13 @@ public enum CompileBuildVariables {
       allDefines =
           ImmutableList.<String>builder()
               .addAll(defines)
+              .addAll(localDefines)
               .add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoStamp + "\"")
               .build();
     } else {
-      allDefines = defines;
+      allDefines = Iterables.concat(defines, localDefines);
     }
+
 
     buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);
 

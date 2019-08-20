@@ -13,10 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.dynamic;
 
+import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Options related to dynamic spawn execution.
@@ -53,31 +57,38 @@ public class DynamicExecutionOptions extends OptionsBase {
   public boolean internalSpawnScheduler;
 
   @Option(
-    name = "dynamic_local_strategy",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    defaultValue = "sandboxed",
-    help = "Strategy to use when the dynamic spawn scheduler decides to run an action locally."
-  )
-  public String dynamicLocalStrategy;
+      name = "dynamic_local_strategy",
+      converter = AssignmentToListOfValuesConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "null",
+      allowMultiple = true,
+      help =
+          "The local strategies, in order, to use for the given mnemonic. Passing"
+              + " 'remote' as the mnemonic sets the default for unspecified mnemonics. Takes"
+              + " [mnemonic=]local_strategy[,local_strategy,...]")
+  public List<Map.Entry<String, List<String>>> dynamicLocalStrategy;
 
   @Option(
       name = "dynamic_remote_strategy",
+      converter = AssignmentToListOfValuesConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "remote",
-      help = "Strategy to use when the dynamic spawn scheduler decides to run an action remotely."
-  )
-  public String dynamicRemoteStrategy;
+      defaultValue = "",
+      allowMultiple = true,
+      help =
+          "The remote strategies to use for the given mnemonic. Passing 'remote'"
+              + " as the mnemonic sets the default for unspecified mnemonics. Takes"
+              + " [mnemonic=]remote_strategy[,remote_strategy,...]")
+  public List<Map.Entry<String, List<String>>> dynamicRemoteStrategy;
 
   @Option(
       name = "dynamic_worker_strategy",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "worker",
-      help = "Strategy to use when the dynamic spawn scheduler decides to run an action in a"
-          + " worker."
-  )
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      defaultValue = "",
+      help = "Deprecated. Please use --dynamic_local_strategy=worker_strategy,local_strategy.")
   public String dynamicWorkerStrategy;
 
   @Option(

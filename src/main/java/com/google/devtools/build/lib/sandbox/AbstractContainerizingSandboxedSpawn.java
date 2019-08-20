@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
@@ -45,7 +46,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   private final Path sandboxExecRoot;
   private final List<String> arguments;
   private final Map<String, String> environment;
-  private final Map<PathFragment, Path> inputs;
+  private final SandboxInputs inputs;
   private final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
   private final TreeDeleter treeDeleter;
@@ -55,7 +56,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       Path sandboxExecRoot,
       List<String> arguments,
       Map<String, String> environment,
-      Map<PathFragment, Path> inputs,
+      SandboxInputs inputs,
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter) {
@@ -105,7 +106,12 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   private void createDirectories() throws IOException {
     LinkedHashSet<Path> dirsToCreate = new LinkedHashSet<>();
 
-    for (PathFragment path : Iterables.concat(inputs.keySet(), outputs.files(), outputs.dirs())) {
+    for (PathFragment path :
+        Iterables.concat(
+            inputs.getFiles().keySet(),
+            inputs.getSymlinks().keySet(),
+            outputs.files(),
+            outputs.dirs())) {
       Preconditions.checkArgument(!path.isAbsolute());
       Preconditions.checkArgument(!path.containsUplevelReferences());
       for (int i = 0; i < path.segmentCount(); i++) {
@@ -127,9 +133,9 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     }
   }
 
-  protected void createInputs(Map<PathFragment, Path> inputs) throws IOException {
+  protected void createInputs(SandboxInputs inputs) throws IOException {
     // All input files are relative to the execroot.
-    for (Map.Entry<PathFragment, Path> entry : inputs.entrySet()) {
+    for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
       Path key = sandboxExecRoot.getRelative(entry.getKey());
       // A null value means that we're supposed to create an empty file as the input.
       if (entry.getValue() != null) {
@@ -137,6 +143,11 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       } else {
         FileSystemUtils.createEmptyFile(key);
       }
+    }
+
+    for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
+      Path key = sandboxExecRoot.getRelative(entry.getKey());
+      key.createSymbolicLink(entry.getValue());
     }
   }
 

@@ -92,11 +92,6 @@ accumulated over each level of the build graph. But this is *still* O(N^2) when
 you build a set of targets with overlapping dependencies. This happens when
 building your tests `//foo/tests/...`, or when importing an IDE project.
 
-**Note**: Today it is possible to flatten depsets implicitly by iterating over
-the depset the way you would a list, tuple, or dictionary, or by taking the
-depset's size via `len()`. This functionality is [deprecated](../skylark/backward-compatibility.html#depset-is-no-longer-iterable).
-and will be removed.
-
 ### Avoid calling `len(depset)`
 
 It is O(N) to get the number of items in a depset. It is however

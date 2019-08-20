@@ -439,23 +439,26 @@ public abstract class RepositoryFunction {
     return writeFile(repositoryDirectory, "BUILD.bazel", contents);
   }
 
-  @VisibleForTesting
-  protected static PathFragment getTargetPath(Rule rule, Path workspace)
-      throws RepositoryFunctionException {
+  protected static String getPathAttr(Rule rule) throws RepositoryFunctionException {
     WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
-    String path;
     try {
-      path = mapper.get("path", Type.STRING);
+      return mapper.get("path", Type.STRING);
     } catch (EvalException e) {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
-    PathFragment pathFragment = PathFragment.create(path);
+  }
+
+  @VisibleForTesting
+  protected static PathFragment getTargetPath(String userDefinedPath, Path workspace)
+      throws RepositoryFunctionException {
+    PathFragment pathFragment = PathFragment.create(userDefinedPath);
     return workspace.getRelative(pathFragment).asFragment();
   }
 
   /**
    * Given a targetDirectory /some/path/to/y that contains files z, w, and v, create the following
    * directory structure:
+   *
    * <pre>
    * .external-repository/
    *   x/
@@ -467,7 +470,7 @@ public abstract class RepositoryFunction {
    * </pre>
    */
   public static boolean symlinkLocalRepositoryContents(
-      Path repositoryDirectory, Path targetDirectory)
+      Path repositoryDirectory, Path targetDirectory, String userDefinedPath)
       throws RepositoryFunctionException {
     try {
       FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
@@ -476,7 +479,13 @@ public abstract class RepositoryFunction {
         createSymbolicLink(symlinkPath, target);
       }
     } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      throw new RepositoryFunctionException(
+          new IOException(
+              String.format(
+                  "The repository's path is \"%s\" (absolute: \"%s\") "
+                      + "but a symlink could not be created for it, because: %s",
+                  userDefinedPath, targetDirectory, e.getMessage())),
+          Transience.TRANSIENT);
     }
 
     return true;

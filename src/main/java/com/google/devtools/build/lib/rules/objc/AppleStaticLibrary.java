@@ -125,8 +125,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
                     objcProtoProviders,
                     ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders),
                     childToolchain)
-                .registerGenerationActions()
-                .registerCompilationActions();
+                .registerGenerationAction()
+                .registerCompilationAction();
 
         protosObjcProvider = protoSupport.getObjcProvider();
       } else {
@@ -240,9 +240,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       Iterable<ObjcProtoProvider> avoidedProviders) {
     NestedSetBuilder<Artifact> avoidArtifacts = NestedSetBuilder.stableOrder();
     for (ObjcProtoProvider avoidProvider : avoidedProviders) {
-      for (NestedSet<Artifact> avoidProviderOutputGroup : avoidProvider.getProtoGroups()) {
-        avoidArtifacts.addTransitive(avoidProviderOutputGroup);
-      }
+      avoidArtifacts.addTransitive(avoidProvider.getProtoFiles());
     }
     return avoidArtifacts.build();
   }

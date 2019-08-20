@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.StarlarkMutable.BaseMutableList;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.RandomAccess;
@@ -518,18 +519,17 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     }
 
     @SkylarkCallable(
-      name = "extend",
-      doc = "Adds all items to the end of the list.",
-      parameters = {
-          @Param(name = "items", type = SkylarkList.class, doc = "Items to add at the end.")
-      },
-      useLocation = true,
-      useEnvironment = true
-    )
-    public Runtime.NoneType extend(
-        SkylarkList<E> items, Location loc, Environment env)
+        name = "extend",
+        doc = "Adds all items to the end of the list.",
+        parameters = {
+          @Param(name = "items", type = Object.class, doc = "Items to add at the end.")
+        },
+        useLocation = true,
+        useEnvironment = true)
+    public Runtime.NoneType extend(Object items, Location loc, Environment env)
         throws EvalException {
-      addAll(items, loc, env.mutability());
+      addAll(
+          (Collection<? extends E>) EvalUtils.toCollection(items, loc, env), loc, env.mutability());
       return Runtime.NONE;
     }
 
@@ -681,6 +681,16 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     public boolean isImmutable() {
       for (Object item : this) {
         if (!EvalUtils.isImmutable(item)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    @Override
+    public boolean isHashable() {
+      for (Object item : this) {
+        if (!EvalUtils.isHashable(item)) {
           return false;
         }
       }

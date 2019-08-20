@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -68,6 +69,9 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.getExecutablePrerequisite("header_compiler", Mode.HOST);
     FilesToRunProvider headerCompilerDirect =
         ruleContext.getExecutablePrerequisite("header_compiler_direct", Mode.HOST);
+    ImmutableSet<String> headerCompilerBuiltinProcessors =
+        ImmutableSet.copyOf(
+            ruleContext.attributes().get("header_compiler_builtin_processors", Type.STRING_LIST));
     boolean forciblyDisableHeaderCompilation =
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar", Mode.HOST);
@@ -124,6 +128,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             javabuilder,
             headerCompiler,
             headerCompilerDirect,
+            headerCompilerBuiltinProcessors,
             forciblyDisableHeaderCompilation,
             singleJar,
             oneVersion,

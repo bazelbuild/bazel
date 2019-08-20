@@ -227,9 +227,12 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
         "  }",
         "}");
 
+    Path gensrc = temp.newFile("gensrc.jar").toPath();
+
     optionsBuilder.addProcessors(ImmutableList.of(MyProcessor.class.getName()));
     optionsBuilder.addProcessorPathEntries(HOST_CLASSPATH);
     optionsBuilder.addClassPathEntries(HOST_CLASSPATH);
+    optionsBuilder.setGensrcOutput(gensrc.toString());
 
     compile();
 
@@ -276,6 +279,11 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
       };
       assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
     }
+
+    Map<String, byte[]> gensrcFiles = collectFiles(gensrc);
+    assertThat(gensrcFiles.keySet()).containsExactly("Generated.java");
+    assertThat(new String(gensrcFiles.get("Generated.java"), UTF_8))
+        .isEqualTo("public class Generated {}");
   }
 
   /**

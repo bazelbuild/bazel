@@ -93,7 +93,8 @@ public class BlazeJavacMain {
     Listener diagnostics = new Listener(context);
     BlazeJavaCompiler compiler;
 
-    try (JavacFileManager fileManager = new ClassloaderMaskingFileManager()) {
+    try (JavacFileManager fileManager =
+        new ClassloaderMaskingFileManager(arguments.builtinProcessors())) {
       JavacTask task =
           JavacTool.create()
               .getTask(
@@ -255,14 +256,17 @@ public class BlazeJavacMain {
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
+    private final ImmutableSet<String> builtinProcessors;
+
     private static Context getContext() {
       Context context = new Context();
       CacheFSInfo.preRegister(context);
       return context;
     }
 
-    public ClassloaderMaskingFileManager() {
+    public ClassloaderMaskingFileManager(ImmutableSet<String> builtinProcessors) {
       super(getContext(), false, UTF_8);
+      this.builtinProcessors = builtinProcessors;
     }
 
     @Override
@@ -273,13 +277,16 @@ public class BlazeJavacMain {
             @Override
             protected Class<?> findClass(String name) throws ClassNotFoundException {
               if (name.startsWith("com.google.errorprone.")
-                  || name.startsWith("com.github.benmanes.caffeine.cache.")
                   || name.startsWith("com.google.common.collect.")
                   || name.startsWith("com.google.common.base.")
+                  || name.startsWith("com.google.common.graph.")
                   || name.startsWith("org.checkerframework.dataflow.")
                   || name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
-                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
+                  || name.startsWith("dagger.model.")
+                  || name.startsWith("dagger.spi.")
+                  || builtinProcessors.contains(name)) {
                 return Class.forName(name);
               }
               throw new ClassNotFoundException(name);

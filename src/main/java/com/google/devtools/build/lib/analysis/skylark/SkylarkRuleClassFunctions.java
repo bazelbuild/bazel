@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -34,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -145,7 +147,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           .build();
 
   /** Parent rule class for test Skylark rules. */
-  public static final RuleClass getTestBaseRule(String toolsRepository) {
+  public static final RuleClass getTestBaseRule(RuleDefinitionContext env) {
+    String toolsRepository = env.getToolsRepository();
     return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
         .requiresConfigurationFragments(TestConfiguration.class)
         .add(
@@ -185,9 +188,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         .add(
             attr("$test_runtime", LABEL_LIST)
                 .cfg(HostTransition.createFactory())
-                .value(
-                    ImmutableList.of(
-                        labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
+                // Getting this default value through the getTestRuntimeLabelList helper ensures we
+                // reuse the same ImmutableList<Label> instance for each $test_runtime attr.
+                .value(getTestRuntimeLabelList(env)))
         .add(
             attr("$test_setup_script", LABEL)
                 .cfg(HostTransition.createFactory())
@@ -297,9 +300,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =
-        test
-            ? getTestBaseRule(bazelContext.getToolsRepository())
-            : (executable ? binaryBaseRule : baseRule);
+        test ? getTestBaseRule(bazelContext) : (executable ? binaryBaseRule : baseRule);
 
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
@@ -416,15 +417,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
   }
 
-  private static void checkAttributeName(Location loc, Environment env, String name)
-      throws EvalException {
-    if (env.getSemantics().incompatibleRestrictAttributeNames() && !Identifier.isValid(name)) {
-      throw new EvalException(
-          loc,
-          "attribute name `"
-              + name
-              + "` is not a valid identfier. "
-              + "This check can be disabled with `--incompatible_restrict_attribute_names=false`.");
+  private static void checkAttributeName(Location loc, String name) throws EvalException {
+    if (!Identifier.isValid(name)) {
+      throw new EvalException(loc, "attribute name `" + name + "` is not a valid identifier.");
     }
   }
 
@@ -437,7 +432,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
         AttributeValueSource source = attrDescriptor.getValueSource();
-        checkAttributeName(loc, env, attr.getKey());
+        checkAttributeName(loc, attr.getKey());
         String attrName = source.convertToNativeName(attr.getKey(), loc);
         attributes.add(Pair.of(attrName, attrDescriptor));
       }
@@ -504,7 +499,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException {
     Location location = ast.getLocation();
     ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
@@ -581,6 +577,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 EvalUtils.getDataTypeName(o, true)));
       }
     }
+    ImmutableMap<RepositoryName, RepositoryName> repoMapping = ImmutableMap.of();
+    if (context instanceof BazelStarlarkContext) {
+      repoMapping = ((BazelStarlarkContext) context).getRepoMapping();
+    }
     return new SkylarkDefinedAspect(
         implementation,
         attrAspects.build(),
@@ -593,11 +593,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
         collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"),
-            ast.getLocation(),
-            // TODO(https://github.com/bazelbuild/bazel/issues/7773): Update to get the
-            // repository mapping from a context, like in rule().
-            ImmutableMap.of()));
+            toolchains.getContents(String.class, "toolchains"), ast.getLocation(), repoMapping));
   }
 
   /**

@@ -743,6 +743,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.isHost;
   }
 
+  /** Returns true if this is an execution configuration. */
+  public boolean isExecConfiguration() {
+    return options.isExec;
+  }
+
   public boolean checkVisibility() {
     return options.checkVisibility;
   }
@@ -808,6 +813,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   public boolean useContentBasedOutputPaths() {
     return options.outputPathsMode == CoreOptions.OutputPathsMode.CONTENT;
+  }
+
+  public boolean allowUnresolvedSymlinks() {
+    return options.allowUnresolvedSymlinks;
   }
 
   /**

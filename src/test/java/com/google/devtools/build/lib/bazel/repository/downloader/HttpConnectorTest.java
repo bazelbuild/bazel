@@ -41,6 +41,7 @@ import java.net.InetAddress;
 import java.net.Proxy;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Locale;
@@ -53,6 +54,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -79,10 +81,13 @@ public class HttpConnectorTest {
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
   private final ManualClock clock = new ManualClock();
   private final ManualSleeper sleeper = new ManualSleeper(clock);
+  /** Scale timeouts down to make tests fast. */
+  private final float timeoutScaling = 0.05f;
+
   private final EventHandler eventHandler = mock(EventHandler.class);
   private final ProxyHelper proxyHelper = mock(ProxyHelper.class);
   private final HttpConnector connector =
-      new HttpConnector(Locale.US, eventHandler, proxyHelper, sleeper);
+      new HttpConnector(Locale.US, eventHandler, proxyHelper, sleeper, timeoutScaling);
 
   @Before
   public void before() throws Exception {
@@ -198,6 +203,159 @@ public class HttpConnectorTest {
                   ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
         assertThat(clock.currentTimeMillis()).isEqualTo(100L);
+      }
+    }
+  }
+
+  @Test
+  public void connectionRefused_retries() throws Exception {
+    final int port;
+
+    // Start and immediately stop server socket to get a free port.
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      port = server.getLocalPort();
+    }
+
+    final AtomicReference<ServerSocket> server = new AtomicReference<>();
+
+    try {
+      // Schedule server socket to be started only after retry to simulate connection retry.
+      sleeper.scheduleRunnable(
+          () -> {
+            try {
+              server.set(new ServerSocket(port, 1, InetAddress.getByName(null)));
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+
+            @SuppressWarnings("unused")
+            Future<?> possiblyIgnoredError =
+                executor.submit(
+                    () -> {
+                      while (!executor.isShutdown()) {
+                        try (Socket socket = server.get().accept()) {
+                          readHttpRequest(socket.getInputStream());
+                          sendLines(
+                              socket,
+                              "HTTP/1.1 200 OK",
+                              "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                              "Connection: close",
+                              "Content-Type: text/plain",
+                              "Content-Length: 5",
+                              "",
+                              "hello");
+                        }
+                      }
+
+                      return null;
+                    });
+          },
+          1);
+
+      try (Reader payload =
+          new InputStreamReader(
+              connector
+                  .connect(
+                      new URL(String.format("http://localhost:%d", port)),
+                      ImmutableMap.<String, String>of())
+                  .getInputStream(),
+              ISO_8859_1)) {
+        assertThat(CharStreams.toString(payload)).isEqualTo("hello");
+      }
+    } finally {
+      ServerSocket serverSocket = server.get();
+
+      if (serverSocket != null) {
+        serverSocket.close();
+      }
+    }
+  }
+
+  @Test
+  public void socketTimeout_retries() throws Exception {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  // Do nothing to cause SocketTimeoutException on client side.
+                }
+
+                // Schedule proper HTTP response once client retries.
+                sleeper.scheduleRunnable(
+                    () -> {
+                      @SuppressWarnings("unused")
+                      Future<?> possiblyIgnoredError2 =
+                          executor.submit(
+                              () -> {
+                                while (!executor.isShutdown()) {
+                                  try (Socket socket = server.accept()) {
+                                    readHttpRequest(socket.getInputStream());
+                                    sendLines(
+                                        socket,
+                                        "HTTP/1.1 200 OK",
+                                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                                        "Connection: close",
+                                        "Content-Type: text/plain",
+                                        "Content-Length: 5",
+                                        "",
+                                        "hello");
+                                  } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                  }
+                                }
+                              });
+                    },
+                    1);
+                return null;
+              });
+
+      try (Reader payload =
+          new InputStreamReader(
+              connector
+                  .connect(
+                      new URL(String.format("http://localhost:%d", server.getLocalPort())),
+                      ImmutableMap.<String, String>of())
+                  .getInputStream(),
+              ISO_8859_1)) {
+        assertThat(CharStreams.toString(payload)).isEqualTo("hello");
+        assertThat(clock.currentTimeMillis()).isEqualTo(1);
+      }
+    }
+  }
+
+  /**
+   * It is important part of {@link HttpConnector} contract to not throw raw {@link
+   * SocketTimeoutException} because it extends {@link java.io.InterruptedIOException} and {@link
+   * HttpConnectorMultiplexer} relies on {@link java.io.InterruptedIOException} to only be thrown
+   * when actual interruption happened.
+   */
+  @Test
+  public void socketTimeout_throwsIOExceptionInsteadOfSocketTimeoutException() throws Exception {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  // Do nothing to cause SocketTimeoutException on client side.
+                }
+                return null;
+              });
+
+      try (Reader payload =
+          new InputStreamReader(
+              connector
+                  .connect(
+                      new URL(String.format("http://localhost:%d", server.getLocalPort())),
+                      ImmutableMap.<String, String>of())
+                  .getInputStream(),
+              ISO_8859_1)) {
+        fail("Should have thrown");
+      } catch (IOException expected) {
+        assertThat(expected).hasCauseThat().isInstanceOf(SocketTimeoutException.class);
+        assertThat(expected).hasCauseThat().hasMessageThat().isEqualTo("connect timed out");
       }
     }
   }

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,6 +81,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final LocalEnvProvider localEnvProvider;
   private final boolean sandboxUsesExpandedTreeArtifactsInRunfiles;
   private final BinTools binTools;
+  private final ResourceManager resourceManager;
 
   public WorkerSpawnRunner(
       Path execRoot,
@@ -89,7 +91,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SpawnRunner fallbackRunner,
       LocalEnvProvider localEnvProvider,
       boolean sandboxUsesExpandedTreeArtifactsInRunfiles,
-      BinTools binTools) {
+      BinTools binTools,
+      ResourceManager resourceManager) {
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
     this.extraFlags = extraFlags;
@@ -98,6 +101,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.localEnvProvider = localEnvProvider;
     this.sandboxUsesExpandedTreeArtifactsInRunfiles = sandboxUsesExpandedTreeArtifactsInRunfiles;
     this.binTools = binTools;
+    this.resourceManager = resourceManager;
   }
 
   @Override
@@ -151,7 +155,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
-    Map<PathFragment, Path> inputFiles =
+    SandboxInputs inputFiles =
         SandboxHelpers.processInputFiles(
             spawn, context, execRoot, sandboxUsesExpandedTreeArtifactsInRunfiles);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
@@ -281,7 +285,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       WorkerKey key,
       WorkRequest request,
       SpawnExecutionContext context,
-      Map<PathFragment, Path> inputFiles,
+      SandboxInputs inputFiles,
       SandboxOutputs outputs)
       throws InterruptedException, ExecException {
     Worker worker = null;
@@ -312,7 +316,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try (ResourceHandle handle =
-          ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
+          resourceManager.acquireResources(owner, spawn.getLocalResources())) {
         context.report(ProgressStatus.EXECUTING, getName());
         try {
           worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());

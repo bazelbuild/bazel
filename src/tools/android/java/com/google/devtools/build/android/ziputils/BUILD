@@ -1,5 +1,7 @@
 # Low level zip archive processing library.
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(
     default_visibility = [
         "//src/test/java/com/google/devtools/build/android/ziputils:__pkg__",

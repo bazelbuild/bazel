@@ -140,6 +140,11 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException {
+    throw new UnsupportedOperationException("rule + aspects label visition is not supported");
+  }
+
+  @Override
   public String getPackageDefaultHdrsCheck() {
     return ruleAttributes.getPackageDefaultHdrsCheck();
   }

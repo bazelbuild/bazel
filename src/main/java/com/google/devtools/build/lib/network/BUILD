@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(
     default_visibility = ["//src:__subpackages__"],
 )
@@ -22,5 +24,8 @@ java_library(
         "ConnectivityStatus.java",
         "ConnectivityStatusProvider.java",
     ],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )

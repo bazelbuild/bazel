@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanTyp
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -302,8 +303,8 @@ class ArtifactFunction implements SkyFunction {
     // Directories are special-cased because their mtimes are used, so should have been constructed
     // during execution of the action (in ActionMetadataHandler#maybeStoreAdditionalData).
     Preconditions.checkState(
-        data.getType() == FileStateType.REGULAR_FILE,
-        "Unexpected not file %s (%s)",
+        data.getType() == FileStateType.REGULAR_FILE || data.getType() == FileStateType.SYMLINK,
+        "Should be file or symlink %s (%s)",
         artifact,
         data);
     return data;
@@ -454,7 +455,8 @@ class ArtifactFunction implements SkyFunction {
 
     boolean isTemplateActionForTreeArtifact() {
       return artifact.isTreeArtifact()
-          && actionLookupValue.isActionTemplate(artifact.getGeneratingActionKey().getActionIndex());
+          && actionLookupValue.getActions().get(artifact.getGeneratingActionKey().getActionIndex())
+              instanceof ActionTemplate;
     }
 
     /**

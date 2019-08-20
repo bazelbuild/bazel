@@ -253,14 +253,32 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     .getApk()
                 : null,
             DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()));
-    final ResourceApk resourceApk =
-        new RClassGeneratorActionBuilder()
-            .targetAaptVersion(aaptVersion)
-            .withDependencies(resourceDeps)
-            .finalFields(!shrinkResourceCycles)
-            .setClassJarOut(
-                dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
-            .build(dataContext, processedAndroidData);
+
+    AndroidApplicationResourceInfo androidApplicationResourceInfo =
+        ruleContext.getPrerequisite(
+            "application_resources", Mode.TARGET, AndroidApplicationResourceInfo.PROVIDER);
+
+    final ResourceApk resourceApk;
+    if (androidApplicationResourceInfo == null) {
+      resourceApk =
+          new RClassGeneratorActionBuilder()
+              .targetAaptVersion(aaptVersion)
+              .withDependencies(resourceDeps)
+              .finalFields(!shrinkResourceCycles)
+              .setClassJarOut(
+                  dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
+              .build(dataContext, processedAndroidData);
+    } else {
+      resourceApk =
+          ResourceApk.fromAndroidApplicationResourceInfo(
+              dataContext, androidApplicationResourceInfo);
+    }
+
+    if (dataContext.useResourcePathShortening()) {
+      filesBuilder.add(
+          ruleContext.getImplicitOutputArtifact(
+              AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
+    }
 
     ruleContext.assertNoErrors();
 
@@ -1911,7 +1929,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact filteredDeployJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_TEST_FILTERED_JAR);
     AndroidCommon.createZipFilterAction(
-        ruleContext, deployJar, filterJar, filteredDeployJar, CheckHashMismatchMode.NONE);
+        ruleContext,
+        deployJar,
+        filterJar,
+        filteredDeployJar,
+        CheckHashMismatchMode.NONE,
+        ruleContext
+            .getFragment(AndroidConfiguration.class)
+            .removeRClassesFromInstrumentationTestJar());
     return filteredDeployJar;
   }
 }

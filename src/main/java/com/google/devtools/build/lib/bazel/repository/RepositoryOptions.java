@@ -135,7 +135,7 @@ public class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_use_native_patch",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {

@@ -77,7 +77,7 @@ Example usage:
 ```python
 # In your BUILD file...
 
-load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+load("@rules_python//python:defs.bzl", "py_runtime_pair")
 
 py_runtime(
     name = "my_py2_runtime",
@@ -101,7 +101,7 @@ toolchain(
     name = "my_toolchain",
     target_compatible_with = <...>,
     toolchain = ":my_py_runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+    toolchain_type = "@rules_python//python:toolchain_type",
 )
 ```
 

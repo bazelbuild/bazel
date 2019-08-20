@@ -23,6 +23,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.User
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
@@ -47,6 +48,17 @@ public class RendererMain {
 
     String inputPath = rendererOptions.inputPath;
     String outputPath = rendererOptions.outputFilePath;
+
+    if (rendererOptions.headerTemplateFilePath.isEmpty()
+        || rendererOptions.ruleTemplateFilePath.isEmpty()
+        || rendererOptions.providerTemplateFilePath.isEmpty()
+        || rendererOptions.funcTemplateFilePath.isEmpty()
+        || rendererOptions.aspectTemplateFilePath.isEmpty()) {
+      throw new FileNotFoundException(
+          "Input templates --header_template --func_template --provider_template --rule_template"
+              + " --aspect_template must be specified.");
+    }
+
     String headerTemplatePath = rendererOptions.headerTemplateFilePath;
     String ruleTemplatePath = rendererOptions.ruleTemplateFilePath;
     String providerTemplatePath = rendererOptions.providerTemplateFilePath;

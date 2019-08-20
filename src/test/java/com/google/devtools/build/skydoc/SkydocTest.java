@@ -96,6 +96,7 @@ public final class SkydocTest extends SkylarkTestCase {
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
+                    ImmutableMap.builder(),
                     ImmutableMap.builder()));
 
     assertThat(expected).hasMessageThat().contains("Starlark evaluation error");
@@ -125,6 +126,7 @@ public final class SkydocTest extends SkylarkTestCase {
         StarlarkSemantics.DEFAULT_SEMANTICS,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
+        ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder());
@@ -204,6 +206,7 @@ public final class SkydocTest extends SkylarkTestCase {
         ruleInfoMap,
         ImmutableMap.builder(),
         ImmutableMap.builder(),
+        ImmutableMap.builder(),
         ImmutableMap.builder());
 
     assertThat(ruleInfoMap.build().keySet()).containsExactly("rule_one", "rule_two");
@@ -246,6 +249,7 @@ public final class SkydocTest extends SkylarkTestCase {
         StarlarkSemantics.DEFAULT_SEMANTICS,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
+        ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder());
@@ -297,6 +301,7 @@ public final class SkydocTest extends SkylarkTestCase {
         ruleInfoMapBuilder,
         ImmutableMap.builder(),
         ImmutableMap.builder(),
+        ImmutableMap.builder(),
         ImmutableMap.builder());
 
     Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
@@ -324,6 +329,7 @@ public final class SkydocTest extends SkylarkTestCase {
         StarlarkSemantics.DEFAULT_SEMANTICS,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
+        ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder());
@@ -363,6 +369,7 @@ public final class SkydocTest extends SkylarkTestCase {
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
+                    ImmutableMap.builder(),
                     ImmutableMap.builder()));
 
     assertThat(expected).hasMessageThat().contains("cycle with test/main.bzl");
@@ -396,6 +403,7 @@ public final class SkydocTest extends SkylarkTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         functionInfoBuilder,
+        ImmutableMap.builder(),
         ImmutableMap.builder());
 
     UserDefinedFunction checkSourcesFn = functionInfoBuilder.build().get("check_sources");
@@ -439,6 +447,7 @@ public final class SkydocTest extends SkylarkTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         funcInfoMap,
+        ImmutableMap.builder(),
         ImmutableMap.builder());
 
     Map<String, UserDefinedFunction> functions = funcInfoMap.build();
@@ -477,6 +486,7 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         providerInfoMap,
+        ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
@@ -532,7 +542,8 @@ public final class SkydocTest extends SkylarkTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
-        aspectInfoMap);
+        aspectInfoMap,
+        ImmutableMap.builder());
     Map<String, AspectInfo> aspectInfos = aspectInfoMap.build();
     assertThat(aspectInfos).hasSize(1);
 
@@ -546,5 +557,138 @@ public final class SkydocTest extends SkylarkTestCase {
         .containsExactly(AttributeType.NAME, AttributeType.LABEL, AttributeType.STRING_DICT)
         .inOrder();
     assertThat(aspectInfo.getAspectAttributeList()).containsExactly("deps");
+  }
+
+  @Test
+  public void testModuleDocstring() throws Exception {
+    scratch.file(
+        "/test/test.bzl",
+        "\"\"\"Input file to test module docstring\"\"\"",
+        "def check_function(foo):",
+        "\"\"\"Runs some checks on the given function parameter.",
+        " ",
+        "Args:",
+        "foo: A unique parameter for this rule.",
+        "\"\"\"",
+        "pass");
+    ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        moduleDocMap);
+    Map<Label, String> moduleDocInfo = moduleDocMap.build();
+    Label label = Label.parseAbsoluteUnchecked("//test:test.bzl");
+    assertThat(moduleDocInfo).hasSize(1);
+
+    ModuleInfo moduleInfo =
+        new ProtoRenderer().setModuleDocstring(moduleDocInfo.get(label)).getModuleInfo().build();
+    String moduleDoc = moduleInfo.getModuleDocstring();
+    assertThat(moduleDoc).isEqualTo("Input file to test module docstring");
+  }
+
+  @Test
+  public void testnoModuleDoc() throws Exception {
+    scratch.file(
+        "/test/test.bzl",
+        "def check_function(foo):",
+        "\"\"\"Runs some checks input file with no module docstring.",
+        " ",
+        "Args:",
+        "foo: A parameter.",
+        "\"\"\"",
+        "pass");
+    ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        moduleDocMap);
+    Map<Label, String> moduleDocInfo = moduleDocMap.build();
+    Label label = Label.parseAbsoluteUnchecked("//test:test.bzl");
+
+    ModuleInfo moduleInfo =
+        new ProtoRenderer().setModuleDocstring(moduleDocInfo.get(label)).getModuleInfo().build();
+    String moduleDoc = moduleInfo.getModuleDocstring();
+    assertThat(moduleDoc).isEmpty();
+  }
+
+  @Test
+  public void testMultipleLineModuleDoc() throws Exception {
+    scratch.file(
+        "/test/test.bzl",
+        "\"\"\"Input file to test",
+        "multiple lines module docstring\"\"\"",
+        "def check_function(foo):",
+        "\"\"\"Runs some checks on the given function parameter.",
+        " ",
+        "Args:",
+        "foo: A unique parameter for this rule.",
+        "\"\"\"",
+        "pass");
+    ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        moduleDocMap);
+    Map<Label, String> moduleDocInfo = moduleDocMap.build();
+    Label label = Label.parseAbsoluteUnchecked("//test:test.bzl");
+
+    ModuleInfo moduleInfo =
+        new ProtoRenderer().setModuleDocstring(moduleDocInfo.get(label)).getModuleInfo().build();
+    String moduleDoc = moduleInfo.getModuleDocstring();
+    assertThat(moduleDoc).isEqualTo("Input file to test\nmultiple lines module docstring");
+  }
+
+  @Test
+  public void testModuleDocAcrossFiles() throws Exception {
+    scratch.file(
+        "/test/othertest.bzl",
+        "\"\"\"Should be displayed.\"\"\"",
+        " ",
+        "load(':test.bzl', 'check_function')",
+        " ",
+        "\"\"\"",
+        "pass");
+    scratch.file(
+        "/test/test.bzl",
+        "\"\"\"Should not be displayed.\"\"\"",
+        "def check_function():",
+        " ",
+        "\"\"\"",
+        "pass");
+    ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:othertest.bzl"),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        moduleDocMap);
+    Map<Label, String> moduleDocInfo = moduleDocMap.build();
+    Label otherlabel = Label.parseAbsoluteUnchecked("//test:othertest.bzl");
+
+    ModuleInfo moduleInfo =
+        new ProtoRenderer()
+            .setModuleDocstring(moduleDocInfo.get(otherlabel))
+            .getModuleInfo()
+            .build();
+    String moduleDoc = moduleInfo.getModuleDocstring();
+    assertThat(moduleDoc).isEqualTo("Should be displayed.");
   }
 }

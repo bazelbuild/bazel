@@ -50,23 +50,23 @@ public final class BinaryOperatorExpression extends Expression {
           TokenKind.PIPE,
           TokenKind.STAR);
 
-  public BinaryOperatorExpression(Expression x, TokenKind op, Expression y) {
+  BinaryOperatorExpression(Expression x, TokenKind op, Expression y) {
     this.x = x;
     this.op = op;
     this.y = y;
   }
 
-  /** getX returns the left operand. */
+  /** Returns the left operand. */
   public Expression getX() {
     return x;
   }
 
-  /** getOperator returns the operator. */
+  /** Returns the operator. */
   public TokenKind getOperator() {
     return op;
   }
 
-  /** getY returns the right operand. */
+  /** Returns the right operand. */
   public Expression getY() {
     return y;
   }

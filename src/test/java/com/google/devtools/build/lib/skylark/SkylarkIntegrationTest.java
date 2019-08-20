@@ -2558,13 +2558,14 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBadWhitelistTransition_onNonLabelAttr() throws Exception {
+    String whitelistAttributeName = WHITELIST_ATTRIBUTE_NAME.replace("$", "_");
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
         "    return []",
         "",
         "my_rule = rule(_impl, attrs = {'"
-            + WHITELIST_ATTRIBUTE_NAME
+            + whitelistAttributeName
             + "':attr.string(default = 'blah')})");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
 
@@ -2575,12 +2576,13 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBadWhitelistTransition_noDefaultValue() throws Exception {
+    String whitelistAttributeName = WHITELIST_ATTRIBUTE_NAME.replace("$", "_");
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
         "    return []",
         "",
-        "my_rule = rule(_impl, attrs = {'" + WHITELIST_ATTRIBUTE_NAME + "':attr.label()})");
+        "my_rule = rule(_impl, attrs = {'" + whitelistAttributeName + "':attr.label()})");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
 
     reporter.removeHandler(failFastHandler);
@@ -2590,13 +2592,14 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBadWhitelistTransition_wrongDefaultValue() throws Exception {
+    String whitelistAttributeName = WHITELIST_ATTRIBUTE_NAME.replace("$", "_");
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
         "    return []",
         "",
         "my_rule = rule(_impl, attrs = {'"
-            + WHITELIST_ATTRIBUTE_NAME
+            + whitelistAttributeName
             + "':attr.label(default = Label('//test:my_other_rule'))})");
     scratch.file(
         "test/BUILD",
@@ -3078,7 +3081,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
           ((InMemoryMemoizingEvaluator) getSkyframeExecutor().getEvaluatorForTesting())
               .getSkyFunctionsForTesting();
       SkylarkImportLookupFunction skylarkImportLookupFunction =
-          new SkylarkImportLookupFunction(this.getRuleClassProvider(), this.getPackageFactory());
+          new SkylarkImportLookupFunction(
+              this.getRuleClassProvider(),
+              this.getPackageFactory(),
+              /*starlarkImportLookupValueCacheSize=*/ 2);
       skylarkImportLookupFunction.resetCache();
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
           .setSkylarkImportLookupFunctionForInliningForTesting(skylarkImportLookupFunction);
@@ -3168,20 +3174,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPartitionDefaultParameter() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=false");
-
-    scratch.file("test/extension.bzl", "y = ['abc'.partition(), 'abc'.rpartition()]");
-
-    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
-
-    getConfiguredTarget("//test:r");
-  }
-
-  @Test
   public void testDisabledPartitionDefaultParameter() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=true");
-
     scratch.file("test/extension.bzl", "y = 'abc'.partition()");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3193,8 +3186,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDisabledPartitionDefaultParameter2() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disable_partition_default_parameter=true");
-
     scratch.file("test/extension.bzl", "y = 'abc'.rpartition()");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3230,8 +3221,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testSplitEmptySeparatorForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_split_empty_separator=true");
-
     scratch.file("test/extension.bzl", "y = 'abc'.split('')");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3242,31 +3231,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSplitEmptySeparator() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_split_empty_separator=false");
-
-    scratch.file("test/extension.bzl", "y = 'abc'.split('')");
-
-    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
-
-    getConfiguredTarget("//test:r");
-  }
-
-  @Test
-  public void testIdentifierAssignmentFromOuterScope() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=false");
-
-    scratch.file("test/extension.bzl", "a = []", "def f(): a += [1]", "y = f()");
-
-    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
-
-    getConfiguredTarget("//test:r");
-  }
-
-  @Test
   public void testIdentifierAssignmentFromOuterScope2() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=true");
-
     scratch.file(
         "test/extension.bzl",
         "a = [1, 2, 3]",
@@ -3281,8 +3246,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testIdentifierAssignmentFromOuterScopeForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_assignment_identifiers_have_local_scope=true");
-
     scratch.file("test/extension.bzl", "a = []", "def f(): a += [1]", "y = f()");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3290,6 +3253,46 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
     assertContainsEvent("local variable 'a' is referenced before assignment");
+  }
+
+  @Test
+  public void testHashFrozenList() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=false");
+    scratch.file("test/extension.bzl", "y = []");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'y')", "{y: 1}", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
+
+  @Test
+  public void testHashFrozenListForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=true");
+    scratch.file("test/extension.bzl", "y = []");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'y')", "{y: 1}", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("unhashable type: 'list'");
+  }
+
+  @Test
+  public void testHashFrozenDeepMutableForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=true");
+    scratch.file("test/extension.bzl", "y = {}");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'y')",
+        "{('a', (y,), True): None}",
+        "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("unhashable type: 'tuple'");
   }
 
   @Test

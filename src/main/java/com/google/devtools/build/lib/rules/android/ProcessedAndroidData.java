@@ -75,10 +75,13 @@ public class ProcessedAndroidData {
       throw errorConsumer.throwWithRuleError(
           "resource cycle shrinking can only be enabled for builds with aapt2");
     }
+    if (dataContext.useResourcePathShortening() && aaptVersion != AndroidAaptVersion.AAPT2) {
+      throw errorConsumer.throwWithRuleError(
+          "resource path shortening can only be enabled for builds with aapt2");
+    }
 
     AndroidResourcesProcessorBuilder builder =
         builderForNonIncrementalTopLevelTarget(dataContext, manifest, manifestValues, aaptVersion)
-            .setUseCompiledResourcesForMerge(aaptVersion == AndroidAaptVersion.AAPT2)
             .setManifestOut(
                 dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
             .setMergedResourcesOut(
@@ -89,6 +92,11 @@ public class ProcessedAndroidData {
             .conditionalKeepRules(conditionalKeepRules)
             .setFeatureOf(featureOf)
             .setFeatureAfter(featureAfter);
+    if (dataContext.useResourcePathShortening()) {
+      builder.setResourcePathShorteningMapOut(
+          dataContext.createOutputArtifact(
+              AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
+    }
     dataBindingContext.supplyLayoutInfo(builder::setDataBindingInfoZip);
     return buildActionForBinary(
         dataContext,
@@ -183,7 +191,6 @@ public class ProcessedAndroidData {
 
     return builderForNonIncrementalTopLevelTarget(
             dataContext, manifest, manifestValues, aaptVersion)
-        .setUseCompiledResourcesForMerge(aaptVersion == AndroidAaptVersion.AAPT2)
         .setManifestOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
         .setMergedResourcesOut(

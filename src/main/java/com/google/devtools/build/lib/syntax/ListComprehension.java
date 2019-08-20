@@ -24,7 +24,7 @@ import java.util.List;
 public final class ListComprehension extends AbstractComprehension {
   private final Expression outputExpression;
 
-  public ListComprehension(List<Clause> clauses, Expression outputExpression) {
+  ListComprehension(List<Clause> clauses, Expression outputExpression) {
     super(clauses, outputExpression);
     this.outputExpression = outputExpression;
   }

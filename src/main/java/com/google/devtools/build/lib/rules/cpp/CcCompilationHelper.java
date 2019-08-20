@@ -237,6 +237,7 @@ public final class CcCompilationHelper {
   private ImmutableList<String> copts = ImmutableList.of();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
+  private final Set<String> localDefines = new LinkedHashSet<>();
   private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
   private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
@@ -334,6 +335,7 @@ public final class CcCompilationHelper {
 
     setCopts(Iterables.concat(common.getCopts(), additionalCopts));
     addDefines(common.getDefines());
+    addNonTransitiveDefines(common.getNonTransitiveDefines());
     setLooseIncludeDirs(common.getLooseIncludeDirs());
     addSystemIncludeDirs(common.getSystemIncludeDirs());
     setCoptsFilter(common.getCoptsFilter());
@@ -535,9 +537,21 @@ public final class CcCompilationHelper {
     this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
   }
 
-  /** Adds the given defines to the compiler command line. */
+  /**
+   * Adds the given defines to the compiler command line of this target as well as its dependent
+   * targets.
+   */
   public CcCompilationHelper addDefines(Iterable<String> defines) {
     Iterables.addAll(this.defines, defines);
+    return this;
+  }
+
+  /**
+   * Adds the given defines to the compiler command line. These defines are not propagated
+   * transitively to the dependent targets.
+   */
+  public CcCompilationHelper addNonTransitiveDefines(Iterable<String> defines) {
+    Iterables.addAll(this.localDefines, defines);
     return this;
   }
 
@@ -917,6 +931,8 @@ public final class CcCompilationHelper {
 
     // But defines come after those inherited from deps.
     ccCompilationContextBuilder.addDefines(defines);
+
+    ccCompilationContextBuilder.addNonTransitiveDefines(localDefines);
 
     // There are no ordering constraints for declared include dirs/srcs.
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(publicHeaders.getHeaders());
@@ -1477,7 +1493,8 @@ public final class CcCompilationHelper {
           ccCompilationContext.getQuoteIncludeDirs(),
           ccCompilationContext.getSystemIncludeDirs(),
           ccCompilationContext.getFrameworkIncludeDirs(),
-          ccCompilationContext.getDefines());
+          ccCompilationContext.getDefines(),
+          ccCompilationContext.getNonTransitiveDefines());
 
       if (usePrebuiltParent) {
         parent = buildVariables.build();

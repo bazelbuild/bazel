@@ -103,7 +103,7 @@ public class ProcMeminfoParser {
   }
 
   /** Exception thrown when /proc/meminfo does not have a requested key. Should be tolerated. */
-  public static class KeywordNotFoundException extends Exception {
+  public static class KeywordNotFoundException extends IOException {
     private KeywordNotFoundException(String keyword) {
       super("Can't locate " + keyword + " in the /proc/meminfo");
     }

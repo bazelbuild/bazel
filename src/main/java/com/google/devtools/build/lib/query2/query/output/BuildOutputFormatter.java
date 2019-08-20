@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
@@ -208,5 +208,18 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public String getName() {
     return "build";
+  }
+
+  /** Prints labels in their canonical form. */
+  private static class LabelPrinter extends Printer.BasePrinter {
+    @Override
+    public LabelPrinter repr(Object o) {
+      if (o instanceof Label) {
+        writeString(((Label) o).getCanonicalForm());
+      } else {
+        super.repr(o);
+      }
+      return this;
+    }
   }
 }

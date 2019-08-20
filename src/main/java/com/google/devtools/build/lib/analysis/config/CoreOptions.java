@@ -529,6 +529,15 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean isHost;
 
   @Option(
+      name = "is exec configuration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.INTERNAL},
+      help = "Shows whether these options are set for an execution configuration.")
+  public boolean isExec;
+
+  @Option(
       name = "allow_analysis_failures",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TESTING,
@@ -667,6 +676,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   @Option(
+      name = "experimental_allow_unresolved_symlinks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      help =
+          "If enabled, Bazel allows the use of ctx.action.{declare_symlink,symlink}, thus "
+              + "allowing the user to create symlinks (resolved and unresolved)")
+  public boolean allowUnresolvedSymlinks;
+
+  @Option(
       name = "experimental_output_paths",
       converter = OutputPathsConverter.class,
       defaultValue = "off",
@@ -738,6 +760,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.outputDirectoryName = "host";
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
+    host.isExec = false;
     host.configsMode = configsMode;
     host.outputPathsMode = outputPathsMode;
     host.enableRunfiles = enableRunfiles;

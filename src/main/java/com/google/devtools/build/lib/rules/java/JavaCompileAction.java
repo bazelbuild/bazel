@@ -57,12 +57,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.rules.java.JavaCompileActionBuilder.JavaCompileExtraActionInfoSupplier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
@@ -79,7 +80,6 @@ import javax.annotation.Nullable;
 @Immutable
 public class JavaCompileAction extends AbstractAction
     implements ExecutionInfoSpecifier, CommandAction {
-  private static final String MNEMONIC = "Javac";
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpuUsage= */ 1);
   private static final UUID GUID = UUID.fromString("e423747c-2827-49e6-b961-f6c08c10bb51");
@@ -90,14 +90,25 @@ public class JavaCompileAction extends AbstractAction
           .setUseAlways(true)
           .build();
 
+  enum CompilationType {
+    JAVAC("Javac"),
+    // TODO(cushon): rename the mnemonic to 'Turbine' after javac-turbine is turned down (and after
+    // collecting data on the perform impact of the turndown)
+    TURBINE("JavacTurbine");
+
+    final String mnemonic;
+
+    CompilationType(String mnemonic) {
+      this.mnemonic = mnemonic;
+    }
+  }
+
+  private final CompilationType compilationType;
   private final ImmutableMap<String, String> executionInfo;
   private final CommandLine executableLine;
   private final CommandLine flagLine;
   private final BuildConfiguration configuration;
-
-  private final ImmutableSet<Artifact> sourceFiles;
-  private final ImmutableList<Artifact> sourceJars;
-  private final JavaPluginInfo plugins;
+  private final LazyString progressMessage;
 
   private final NestedSet<Artifact> directJars;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -106,22 +117,21 @@ public class JavaCompileAction extends AbstractAction
   private final Artifact outputDepsProto;
   private final JavaClasspathMode classpathMode;
 
-  private final JavaCompileExtraActionInfoSupplier extraActionInfoSupplier;
+  @Nullable private final ExtraActionInfoSupplier extraActionInfoSupplier;
 
   public JavaCompileAction(
+      CompilationType compilationType,
       ActionOwner owner,
       ActionEnvironment env,
       NestedSet<Artifact> tools,
       RunfilesSupplier runfilesSupplier,
-      ImmutableSet<Artifact> sourceFiles,
-      ImmutableList<Artifact> sourceJars,
-      JavaPluginInfo plugins,
+      LazyString progressMessage,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> directJars,
       NestedSet<Artifact> outputs,
       ImmutableMap<String, String> executionInfo,
-      JavaCompileExtraActionInfoSupplier extraActionInfoSupplier,
+      ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
       CommandLine flagLine,
       BuildConfiguration configuration,
@@ -135,15 +145,15 @@ public class JavaCompileAction extends AbstractAction
         runfilesSupplier,
         outputs,
         env);
+    this.compilationType = compilationType;
     // TODO(djasper): The only thing that is conveyed through the executionInfo is whether worker
     // mode is enabled or not. Investigate whether we can store just that.
-    this.executionInfo = configuration.modifiedExecutionInfo(executionInfo, MNEMONIC);
+    this.executionInfo =
+        configuration.modifiedExecutionInfo(executionInfo, compilationType.mnemonic);
     this.executableLine = executableLine;
     this.flagLine = flagLine;
     this.configuration = configuration;
-    this.sourceFiles = sourceFiles;
-    this.sourceJars = sourceJars;
-    this.plugins = plugins;
+    this.progressMessage = progressMessage;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
     this.directJars = directJars;
     this.mandatoryInputs = mandatoryInputs;
@@ -155,7 +165,7 @@ public class JavaCompileAction extends AbstractAction
 
   @Override
   public String getMnemonic() {
-    return MNEMONIC;
+    return compilationType.mnemonic;
   }
 
   @Override
@@ -207,6 +217,16 @@ public class JavaCompileAction extends AbstractAction
             Iterables.filter(
                 transitiveCollection, input -> direct.contains(input.getExecPathString())));
     return new ReducedClasspath(reducedJars, transitiveCollection.size());
+  }
+
+  /**
+   * Simpliar to {@link
+   * com.google.devtools.build.lib.analysis.actions.SpawnAction.ExtraActionInfoSupplier} but
+   * additionally includes the spawn arguments, which change between direct and fallback
+   * invocations.
+   */
+  interface ExtraActionInfoSupplier {
+    void extend(ExtraActionInfo.Builder builder, ImmutableList<String> arguments);
   }
 
   static class ReducedClasspath {
@@ -316,15 +336,81 @@ public class JavaCompileAction extends AbstractAction
 
   @Override
   protected String getRawProgressMessage() {
-    StringBuilder sb = new StringBuilder("Building ");
-    sb.append(getPrimaryOutput().prettyPrint());
-    sb.append(" (");
-    boolean first = true;
-    first = appendCount(sb, first, sourceFiles.size(), "source file");
-    appendCount(sb, first, sourceJars.size(), "source jar");
-    sb.append(")");
-    sb.append(getProcessorNames(plugins.processorClasses()));
-    return sb.toString();
+    return progressMessage.toString();
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class ProgressMessage extends LazyString {
+
+    private final String prefix;
+    private final Artifact output;
+    private final ImmutableSet<Artifact> sourceFiles;
+    private final ImmutableList<Artifact> sourceJars;
+    private final JavaPluginInfo plugins;
+
+    ProgressMessage(
+        String prefix,
+        Artifact output,
+        ImmutableSet<Artifact> sourceFiles,
+        ImmutableList<Artifact> sourceJars,
+        JavaPluginInfo plugins) {
+      this.prefix = prefix;
+      this.output = output;
+      this.sourceFiles = sourceFiles;
+      this.sourceJars = sourceJars;
+      this.plugins = plugins;
+    }
+
+    @Override
+    public String toString() {
+      StringBuilder sb = new StringBuilder(prefix);
+      sb.append(' ');
+      sb.append(output.prettyPrint());
+      sb.append(" (");
+      boolean first = true;
+      first = appendCount(sb, first, sourceFiles.size(), "source file");
+      appendCount(sb, first, sourceJars.size(), "source jar");
+      sb.append(")");
+      appendProcessorNames(sb, plugins.processorClasses());
+      return sb.toString();
+    }
+
+    private static void appendProcessorNames(StringBuilder sb, NestedSet<String> processorClasses) {
+      if (processorClasses.isEmpty()) {
+        return;
+      }
+      List<String> shortNames = new ArrayList<>();
+      for (String name : processorClasses) {
+        // Annotation processor names are qualified class names. Omit the package part for the
+        // progress message, e.g. `com.google.Foo` -> `Foo`.
+        int idx = name.lastIndexOf('.');
+        String shortName = idx != -1 ? name.substring(idx + 1) : name;
+        shortNames.add(shortName);
+      }
+      sb.append(" and running annotation processors (");
+      Joiner.on(", ").appendTo(sb, shortNames);
+      sb.append(")");
+    }
+
+    /**
+     * Append an input count to the progress message, e.g. "2 source jars". If an input count has
+     * already been appended, prefix with ", ".
+     */
+    private static boolean appendCount(StringBuilder sb, boolean first, int count, String name) {
+      if (count > 0) {
+        if (!first) {
+          sb.append(", ");
+        } else {
+          first = false;
+        }
+        sb.append(count).append(' ').append(name);
+        if (count > 1) {
+          sb.append('s');
+        }
+      }
+      return first;
+    }
   }
 
   @Override
@@ -336,46 +422,10 @@ public class JavaCompileAction extends AbstractAction
             .addCommandLine(flagLine)
             .addCommandLine(getFullClasspathLine())
             .build();
-    extraActionInfoSupplier.extend(builder, commandLinesWithoutExecutable.allArguments());
+    if (extraActionInfoSupplier != null) {
+      extraActionInfoSupplier.extend(builder, commandLinesWithoutExecutable.allArguments());
+    }
     return builder;
-  }
-
-  private static String getProcessorNames(NestedSet<String> processorClasses) {
-    if (processorClasses.isEmpty()) {
-      return "";
-    }
-    StringBuilder sb = new StringBuilder();
-    List<String> shortNames = new ArrayList<>();
-    for (String name : processorClasses) {
-      // Annotation processor names are qualified class names. Omit the package part for the
-      // progress message, e.g. `com.google.Foo` -> `Foo`.
-      int idx = name.lastIndexOf('.');
-      String shortName = idx != -1 ? name.substring(idx + 1) : name;
-      shortNames.add(shortName);
-    }
-    sb.append(" and running annotation processors (");
-    Joiner.on(", ").appendTo(sb, shortNames);
-    sb.append(")");
-    return sb.toString();
-  }
-
-  /**
-   * Append an input count to the progress message, e.g. "2 source jars". If an input count has
-   * already been appended, prefix with ", ".
-   */
-  private static boolean appendCount(StringBuilder sb, boolean first, int count, String name) {
-    if (count > 0) {
-      if (!first) {
-        sb.append(", ");
-      } else {
-        first = false;
-      }
-      sb.append(count).append(' ').append(name);
-      if (count > 1) {
-        sb.append('s');
-      }
-    }
-    return first;
   }
 
   private final class JavaSpawn extends BaseSpawn {
@@ -403,7 +453,7 @@ public class JavaCompileAction extends AbstractAction
   }
 
   @VisibleForTesting
-  CommandLines getCommandLines() {
+  public CommandLines getCommandLines() {
     return CommandLines.builder()
         .addCommandLine(executableLine)
         .addCommandLine(flagLine, PARAM_FILE_INFO)
@@ -468,6 +518,23 @@ public class JavaCompileAction extends AbstractAction
     return e.toActionExecutionException(failMessage, verboseFailures, this);
   }
 
+  /** Reads the {@code .jdeps} output from the given spawn results. */
+  private Deps.Dependencies readOutputDepsProto(
+      List<SpawnResult> results, ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
+    SpawnResult spawnResult = Iterables.getOnlyElement(results);
+    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+    try (InputStream input =
+        inMemoryOutput == null
+            ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
+            : inMemoryOutput) {
+      return Deps.Dependencies.parseFrom(input);
+    } catch (IOException e) {
+      throw toActionExecutionException(
+          new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
+    }
+  }
+
   private final class JavaActionContinuation extends ActionContinuationOrResult {
     private final ActionExecutionContext actionExecutionContext;
     @Nullable private final ReducedClasspath reducedClasspath;
@@ -502,15 +569,14 @@ public class JavaCompileAction extends AbstractAction
           return ActionContinuationOrResult.of(ActionResult.create(results));
         }
 
-        SpawnResult spawnResult = Iterables.getOnlyElement(results);
-        InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-        try (InputStream input =
-            inMemoryOutput == null
-                ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
-                : inMemoryOutput) {
-          if (!Deps.Dependencies.parseFrom(input).getRequiresReducedClasspathFallback()) {
-            return ActionContinuationOrResult.of(ActionResult.create(results));
-          }
+        Deps.Dependencies dependencies = readOutputDepsProto(results, actionExecutionContext);
+        if (compilationType == CompilationType.TURBINE) {
+          actionExecutionContext
+              .getContext(JavaCompileActionContext.class)
+              .insertDependencies(outputDepsProto, dependencies);
+        }
+        if (!dependencies.getRequiresReducedClasspathFallback()) {
+          return ActionContinuationOrResult.of(ActionResult.create(results));
         }
 
         // Fall back to running with the full classpath. This requires first deleting potential
@@ -566,6 +632,12 @@ public class JavaCompileAction extends AbstractAction
               actionExecutionContext, primaryResults, nextContinuation);
         }
         List<SpawnResult> fallbackResults = nextContinuation.get();
+        if (compilationType == CompilationType.TURBINE) {
+          actionExecutionContext
+              .getContext(JavaCompileActionContext.class)
+              .insertDependencies(
+                  outputDepsProto, readOutputDepsProto(fallbackResults, actionExecutionContext));
+        }
         return ActionContinuationOrResult.of(
             ActionResult.create(
                 ImmutableList.copyOf(Iterables.concat(primaryResults, fallbackResults))));

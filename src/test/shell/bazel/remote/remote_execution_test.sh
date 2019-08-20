@@ -1131,32 +1131,31 @@ EOF
   expect_log "uri:.*bytestream://localhost"
 }
 
-function test_exclusive_tag() {
-  # Test that the exclusive tag works with the remote cache.
+function test_remote_exec_properties() {
+  # Test that setting remote exec properties works.
   mkdir -p a
-  cat > a/success.sh <<'EOF'
-#!/bin/sh
-exit 0
-EOF
-  chmod 755 a/success.sh
   cat > a/BUILD <<'EOF'
-sh_test(
-  name = "success_test",
-  srcs = ["success.sh"],
-  tags = ["exclusive"],
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
 )
 EOF
 
-  bazel test \
-    --remote_cache=grpc://localhost:${worker_port} \
-    //a:success_test || fail "Failed to test //a:success_test"
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties=OSFamily=linux \
+    //a:foo || fail "Failed to build //a:foo"
 
-  bazel test \
-    --remote_cache=grpc://localhost:${worker_port} \
-    --nocache_test_results \
-    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+  bazel clean
 
-  expect_log "remote cache hit"
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties=OSFamily=windows \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_not_log "remote cache hit"
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker

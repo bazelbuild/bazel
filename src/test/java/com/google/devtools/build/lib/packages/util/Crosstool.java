@@ -575,7 +575,7 @@ public final class Crosstool {
               + toolchainConfig.getCompiler()
               + "_config',",
           "    all_files = ':empty',",
-          "    ar_files = ':empty',",
+          "    ar_files = ':link',",
           "    as_files = ':empty',",
           "    compiler_files = ':empty',",
           "    dwp_files = ':empty',",

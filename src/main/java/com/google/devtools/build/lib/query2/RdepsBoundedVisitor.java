@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.ParallelSkyQueryUtils.DepAndRdep;
 import com.google.devtools.build.lib.query2.ParallelSkyQueryUtils.DepAndRdepAtDepth;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -65,7 +67,7 @@ class RdepsBoundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdepAtDep
     this.universe = universe;
   }
 
-  static class Factory implements ParallelVisitor.Factory<DepAndRdepAtDepth, SkyKey, Target> {
+  static class Factory implements QueryVisitorFactory<DepAndRdepAtDepth, SkyKey, Target> {
     private final SkyQueryEnvironment env;
     private final int depth;
     private final Uniquifier<DepAndRdepAtDepth> depAndRdepAtDepthUniquifier;
@@ -86,7 +88,7 @@ class RdepsBoundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdepAtDep
     }
 
     @Override
-    public ParallelVisitor<DepAndRdepAtDepth, SkyKey, Target> create() {
+    public ParallelQueryVisitor<DepAndRdepAtDepth, SkyKey, Target> create() {
       return new RdepsBoundedVisitor(
           env, depth, depAndRdepAtDepthUniquifier, validRdepMinDepthUniquifier, universe, callback);
     }

@@ -27,19 +27,22 @@ class JavacTurbineCompileResult {
     OK, ERROR
   }
 
-  private final ImmutableMap<String, byte[]> files;
+  private final ImmutableMap<String, byte[]> classOutputs;
+  private final ImmutableMap<String, byte[]> sourceOutputs;
   private final Status status;
   private final String output;
   private final ImmutableList<FormattedDiagnostic> diagnostics;
   private final Context context;
 
   JavacTurbineCompileResult(
-      ImmutableMap<String, byte[]> files,
+      ImmutableMap<String, byte[]> classOutputs,
+      ImmutableMap<String, byte[]> sourceOutputs,
       Status status,
       String output,
       ImmutableList<FormattedDiagnostic> diagnostics,
       Context context) {
-    this.files = files;
+    this.classOutputs = classOutputs;
+    this.sourceOutputs = sourceOutputs;
     this.status = status;
     this.output = output;
     this.diagnostics = diagnostics;
@@ -61,9 +64,14 @@ class JavacTurbineCompileResult {
     return diagnostics;
   }
 
-  /** The files produced by the compilation. */
-  ImmutableMap<String, byte[]> files() {
-    return files;
+  /** The class files produced by the compilation. */
+  ImmutableMap<String, byte[]> classOutputs() {
+    return classOutputs;
+  }
+
+  /** The sources generated during the compilation. */
+  ImmutableMap<String, byte[]> sourceOutputs() {
+    return sourceOutputs;
   }
 
   /** The compilation context, may by inspected by integration tests. */

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -35,11 +34,11 @@ import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.Parser;
+import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -102,15 +101,16 @@ public class SkylarkRepositoryContextTest {
             Package.Builder.DefaultHelper.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFile),
             "runfiles");
+    ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     FuncallExpression ast =
-        new FuncallExpression(Identifier.of("test"), ImmutableList.<Passed>of());
-    ast.setLocation(Location.BUILTIN);
+        (FuncallExpression)
+            Parser.parseExpression(
+                ParserInputSource.create("test()", PathFragment.create("<builtin>")), listener);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
             packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
     HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
-    ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Mockito.when(environment.getListener()).thenReturn(listener);
     BlazeDirectories directories =
         new BlazeDirectories(

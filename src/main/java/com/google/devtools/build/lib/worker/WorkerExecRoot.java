@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.SymlinkedSandboxedSpawn;
 import com.google.devtools.build.lib.sandbox.SynchronousTreeDeleter;
@@ -34,10 +36,7 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
   private final Set<PathFragment> workerFiles;
 
   public WorkerExecRoot(
-      Path workDir,
-      Map<PathFragment, Path> inputs,
-      SandboxOutputs outputs,
-      Set<PathFragment> workerFiles) {
+      Path workDir, SandboxInputs inputs, SandboxOutputs outputs, Set<PathFragment> workerFiles) {
     super(
         workDir,
         workDir,
@@ -76,9 +75,9 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
   }
 
   @Override
-  protected void createInputs(Map<PathFragment, Path> inputs) throws IOException {
+  protected void createInputs(SandboxInputs inputs) throws IOException {
     // All input files are relative to the execroot.
-    for (Map.Entry<PathFragment, Path> entry : inputs.entrySet()) {
+    for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
       Path key = workDir.getRelative(entry.getKey());
       FileStatus keyStat = key.statNullable(Symlinks.NOFOLLOW);
       if (keyStat != null) {
@@ -96,5 +95,16 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
         FileSystemUtils.createEmptyFile(key);
       }
     }
+
+    for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
+      Path key = workDir.getRelative(entry.getKey());
+      FileStatus keyStat = key.statNullable(Symlinks.NOFOLLOW);
+      if (keyStat != null) {
+        // TODO(lberki): Why? Isn't this method supposed to be called on a fresh tree?
+        key.delete();
+      }
+      key.createSymbolicLink(entry.getValue());
+    }
+    Preconditions.checkState(inputs.getSymlinks().isEmpty());
   }
 }

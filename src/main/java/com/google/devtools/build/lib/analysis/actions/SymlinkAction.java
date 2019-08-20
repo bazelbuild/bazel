@@ -131,6 +131,13 @@ public final class SymlinkAction extends AbstractAction {
         owner, execPath, primaryInput, primaryOutput, progressMessage, TargetType.FILESET);
   }
 
+  public static SymlinkAction createUnresolved(
+      ActionOwner owner, Artifact primaryOutput, PathFragment targetPath, String progressMessage) {
+    Preconditions.checkArgument(primaryOutput.isSymlink());
+    return new SymlinkAction(
+        owner, targetPath, null, primaryOutput, progressMessage, TargetType.OTHER);
+  }
+
   /**
    * Creates a new SymlinkAction instance, where an input artifact is not present. This is useful
    * when dealing with special cases where input paths that are outside the exec root directory

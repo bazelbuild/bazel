@@ -853,6 +853,10 @@ public class RuleClass {
           attrBuilder.allowedRuleClasses(ANY_RULE);
         }
         this.add(attrBuilder);
+
+        // Build setting rules should opt out of toolchain resolution, since they form part of the
+        // configuration.
+        this.useToolchainResolution(false);
       }
 
       return new RuleClass(

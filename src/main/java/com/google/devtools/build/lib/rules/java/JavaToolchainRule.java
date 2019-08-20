@@ -197,6 +197,10 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        .add(
+            attr("header_compiler_builtin_processors", STRING_LIST)
+                .undocumented("internal")
+                .value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->
         Label of the one-version enforcement binary.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

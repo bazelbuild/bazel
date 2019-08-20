@@ -295,8 +295,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected boolean active = true;
   private final SkyframePackageManager packageManager;
 
-  private final ResourceManager resourceManager;
-
   /** Used to lock evaluator on legacy calls to get existing values. */
   private final Object valueLookupLock = new Object();
 
@@ -426,7 +424,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             pkgLocator,
             numPackagesLoaded,
             this);
-    this.resourceManager = ResourceManager.instance();
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
     this.actionKeyContext = Preconditions.checkNotNull(actionKeyContext);
@@ -556,8 +553,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldUnblockCpuWorkWhenFetchingDeps,
             defaultBuildOptions,
             configuredTargetProgress,
-            nonceVersion,
-            trimmingCache));
+            nonceVersion));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -1535,6 +1531,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public EvaluationResult<?> buildArtifacts(
       Reporter reporter,
+      ResourceManager resourceManager,
       Executor executor,
       Set<Artifact> artifactsToBuild,
       Collection<ConfiguredTarget> targetsToBuild,
@@ -1587,6 +1584,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Asks the Skyframe evaluator to run a single exclusive test. */
   public EvaluationResult<?> runExclusiveTest(
       Reporter reporter,
+      ResourceManager resourceManager,
       Executor executor,
       ConfiguredTarget exclusiveTest,
       OptionsProvider options,
@@ -2519,10 +2517,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         return null;
       }
       ActionLookupValue actionLookupValue = result.get(generatingActionKey.getActionLookupKey());
-      int actionIndex = generatingActionKey.getActionIndex();
-      return actionLookupValue.isActionTemplate(actionIndex)
-          ? actionLookupValue.getActionTemplate(actionIndex)
-          : actionLookupValue.getAction(actionIndex);
+      return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
     }
   }
 

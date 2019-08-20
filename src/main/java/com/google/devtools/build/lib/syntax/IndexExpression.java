@@ -27,7 +27,7 @@ public final class IndexExpression extends Expression {
 
   private final Expression key;
 
-  public IndexExpression(Expression object, Expression key) {
+  IndexExpression(Expression object, Expression key) {
     this.object = object;
     this.key = key;
   }

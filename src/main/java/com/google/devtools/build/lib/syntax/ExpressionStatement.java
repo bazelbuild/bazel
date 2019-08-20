@@ -21,7 +21,7 @@ public final class ExpressionStatement extends Statement {
 
   private final Expression expression;
 
-  public ExpressionStatement(Expression expression) {
+  ExpressionStatement(Expression expression) {
     this.expression = expression;
   }
 

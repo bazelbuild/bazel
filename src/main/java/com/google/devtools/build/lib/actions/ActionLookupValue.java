@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,27 +38,23 @@ public abstract class ActionLookupValue implements SkyValue {
    * called during action execution by {@code ArtifactFunction} and {@code ActionExecutionFunction}
    * -- after an action has executed, calling this with its index may crash.
    */
-  @SuppressWarnings("unchecked") // We test to make sure it's an Action.
   public Action getAction(int index) {
-    Preconditions.checkState(index < getActions().size(), "Bad index: %s %s", index, this);
     ActionAnalysisMetadata result = getActions().get(index);
-    Preconditions.checkState(result instanceof Action, "Not action: %s %s %s", result, index, this);
+    // Avoid Preconditions.checkState which would box the int arg.
+    if (!(result instanceof Action)) {
+      throw new IllegalStateException(String.format("Not action: %s %s %s", result, index, this));
+    }
     return (Action) result;
   }
 
   public ActionTemplate<?> getActionTemplate(int index) {
     ActionAnalysisMetadata result = getActions().get(index);
-    Preconditions.checkState(
-        result instanceof ActionTemplate, "Not action template: %s %s %s", result, index, this);
+    // Avoid Preconditions.checkState which would box the int arg.
+    if (!(result instanceof ActionTemplate)) {
+      throw new IllegalStateException(
+          String.format("Not action template: %s %s %s", result, index, this));
+    }
     return (ActionTemplate<?>) result;
-  }
-
-  /**
-   * Returns if the action at {@code index} is an {@link ActionTemplate} so that tree artifacts can
-   * take the proper action.
-   */
-  public boolean isActionTemplate(int index) {
-    return getActions().get(index) instanceof ActionTemplate;
   }
 
   /**

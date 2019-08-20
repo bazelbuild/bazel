@@ -24,9 +24,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     name = "TemplateVariableInfo",
     category = SkylarkModuleCategory.PROVIDER,
     doc =
-        "<b>WARNING</b>: The constructor of this provider is experimental and may go away at any "
-            + "time.<p>Encapsulates template variables, that is, variables that can be referenced"
-            + " by strings like <code>$(VARIABLE)</code> in BUILD files and expanded by"
+        "Encapsulates template variables, that is, variables that can be referenced by strings"
+            + " like <code>$(VARIABLE)</code> in BUILD files and expanded by"
             + " <code>ctx.expand_make_variables</code> and implicitly in certain attributes of"
             + " built-in rules.</p><p><code>TemplateVariableInfo</code> can be created by calling"
             + " its eponymous constructor with a string-to-string dict as an argument that"

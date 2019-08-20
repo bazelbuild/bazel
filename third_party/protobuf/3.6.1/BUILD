@@ -1,5 +1,10 @@
 # Bazel (http://bazel.io/) BUILD file for Protobuf.
 
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test", "objc_library")
+load("@rules_java//java:defs.bzl", "java_import")
+load("@rules_proto//proto:defs.bzl", "proto_lang_toolchain", "proto_library")
+load("@rules_python//python:defs.bzl", "py_library")
+
 licenses(["notice"])
 
 exports_files(["LICENSE"])
@@ -79,12 +84,12 @@ create_compiler_config_setting(
 
 MSVC_COPTS = [
     "/DHAVE_PTHREAD",
-    "/wd4018", # -Wno-sign-compare
-    "/wd4514", # -Wno-unused-function
+    "/wd4018",  # -Wno-sign-compare
+    "/wd4514",  # -Wno-unused-function
 ]
 
 COPTS = select({
-    ":msvc" : MSVC_COPTS,
+    ":msvc": MSVC_COPTS,
     "//conditions:default": [
         "-DHAVE_PTHREAD",
         "-Wall",
@@ -108,16 +113,19 @@ config_setting(
 LINK_OPTS = select({
     ":android": [],
     ":msvc": [],
-    "//conditions:default": ["-lpthread", "-lm"],
+    "//conditions:default": [
+        "-lpthread",
+        "-lm",
+    ],
 })
 
 load(
     ":protobuf.bzl",
     "cc_proto_library",
-    "py_proto_library",
     "internal_copied_filegroup",
     "internal_gen_well_known_protos_java",
     "internal_protobuf_py_tests",
+    "py_proto_library",
 )
 
 cc_library(
@@ -245,18 +253,33 @@ objc_library(
 # Map of all well known protos.
 # name => (include path, imports)
 WELL_KNOWN_PROTO_MAP = {
-    "any" : ("src/google/protobuf/any.proto", []),
-    "api" : ("src/google/protobuf/api.proto", ["source_context", "type"]),
-    "compiler_plugin" : ("src/google/protobuf/compiler/plugin.proto", ["descriptor"]),
-    "descriptor" : ("src/google/protobuf/descriptor.proto", []),
-    "duration" : ("src/google/protobuf/duration.proto", []),
-    "empty" : ("src/google/protobuf/empty.proto", []),
-    "field_mask" : ("src/google/protobuf/field_mask.proto", []),
-    "source_context" : ("src/google/protobuf/source_context.proto", []),
-    "struct" : ("src/google/protobuf/struct.proto", []),
-    "timestamp" : ("src/google/protobuf/timestamp.proto", []),
-    "type" : ("src/google/protobuf/type.proto", ["any", "source_context"]),
-    "wrappers" : ("src/google/protobuf/wrappers.proto", []),
+    "any": ("src/google/protobuf/any.proto", []),
+    "api": (
+        "src/google/protobuf/api.proto",
+        [
+            "source_context",
+            "type",
+        ],
+    ),
+    "compiler_plugin": (
+        "src/google/protobuf/compiler/plugin.proto",
+        ["descriptor"],
+    ),
+    "descriptor": ("src/google/protobuf/descriptor.proto", []),
+    "duration": ("src/google/protobuf/duration.proto", []),
+    "empty": ("src/google/protobuf/empty.proto", []),
+    "field_mask": ("src/google/protobuf/field_mask.proto", []),
+    "source_context": ("src/google/protobuf/source_context.proto", []),
+    "struct": ("src/google/protobuf/struct.proto", []),
+    "timestamp": ("src/google/protobuf/timestamp.proto", []),
+    "type": (
+        "src/google/protobuf/type.proto",
+        [
+            "any",
+            "source_context",
+        ],
+    ),
+    "wrappers": ("src/google/protobuf/wrappers.proto", []),
 }
 
 WELL_KNOWN_PROTOS = [value[0] for value in WELL_KNOWN_PROTO_MAP.values()]
@@ -293,9 +316,9 @@ cc_proto_library(
     name = proto[0] + "_proto",
     srcs = [proto[1][0]],
     strip_import_prefix = "src",
-    deps = [dep + "_proto" for dep in proto[1][1]],
     visibility = ["//visibility:public"],
-    ) for proto in WELL_KNOWN_PROTO_MAP.items()]
+    deps = [dep + "_proto" for dep in proto[1][1]],
+) for proto in WELL_KNOWN_PROTO_MAP.items()]
 
 ################################################################################
 # Protocol Buffers Compiler
@@ -506,11 +529,14 @@ cc_binary(
 cc_test(
     name = "win32_test",
     srcs = ["src/google/protobuf/stubs/io_win32_unittest.cc"],
+    tags = [
+        "manual",
+        "windows",
+    ],
     deps = [
         ":protobuf_lite",
         "//external:gtest_main",
     ],
-    tags = ["manual", "windows"],
 )
 
 cc_test(
@@ -720,11 +746,11 @@ py_proto_library(
     }),
     default_runtime = "",
     protoc = ":protoc",
+    py_extra_srcs = glob(["python/**/__init__.py"]),
     py_libs = [
         ":python_srcs",
         "//external:six",
     ],
-    py_extra_srcs = glob(["python/**/__init__.py"]),
     srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
 )
@@ -815,10 +841,10 @@ internal_protobuf_py_tests(
 
 proto_lang_toolchain(
     name = "cc_toolchain",
+    blacklisted_protos = [proto + "_proto" for proto in WELL_KNOWN_PROTO_MAP.keys()],
     command_line = "--cpp_out=$(OUT)",
     runtime = ":protobuf",
     visibility = ["//visibility:public"],
-    blacklisted_protos = [proto + "_proto" for proto in WELL_KNOWN_PROTO_MAP.keys()],
 )
 
 proto_lang_toolchain(

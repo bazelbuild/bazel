@@ -62,7 +62,8 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
+    String userDefinedPath = getPathAttr(rule);
+    PathFragment pathFragment = getTargetPath(userDefinedPath, directories.getWorkspace());
 
     FileSystem fs = directories.getOutputBase().getFileSystem();
     Path path = fs.getPath(pathFragment);
@@ -79,18 +80,20 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       if (!dirFileValue.exists()) {
         throw new RepositoryFunctionException(
             new IOException(
-                "Expected directory at "
-                    + dirPath.asPath().getPathString()
-                    + " but it does not exist."),
+                String.format(
+                    "The repository's path is \"%s\" (absolute: \"%s\") "
+                        + "but this directory does not exist.",
+                    userDefinedPath, dirPath.asPath().getPathString())),
             Transience.PERSISTENT);
       }
       if (!dirFileValue.isDirectory()) {
         // Someone tried to create a local repository from a file.
         throw new RepositoryFunctionException(
             new IOException(
-                "Expected directory at "
-                    + dirPath.asPath().getPathString()
-                    + " but it is not a directory."),
+                String.format(
+                    "The repository's path is \"%s\" (absolute: \"%s\") "
+                        + "but this is not a directory.",
+                    userDefinedPath, dirPath.asPath().getPathString())),
             Transience.PERSISTENT);
       }
     } catch (IOException e) {
@@ -137,7 +140,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     // Link x/y/z to /some/path/to/y/z.
-    if (!symlinkLocalRepositoryContents(outputDirectory, path)) {
+    if (!symlinkLocalRepositoryContents(outputDirectory, path, userDefinedPath)) {
       return null;
     }
 

@@ -24,8 +24,7 @@ public final class DictComprehension extends AbstractComprehension {
   private final Expression keyExpression;
   private final Expression valueExpression;
 
-  public DictComprehension(
-      List<Clause> clauses, Expression keyExpression, Expression valueExpression) {
+  DictComprehension(List<Clause> clauses, Expression keyExpression, Expression valueExpression) {
     super(clauses, keyExpression, valueExpression);
     this.keyExpression = keyExpression;
     this.valueExpression = valueExpression;
@@ -112,7 +111,7 @@ public final class DictComprehension extends AbstractComprehension {
     @Override
     public void evaluateAndCollect(Environment env) throws EvalException, InterruptedException {
       Object key = keyExpression.eval(env);
-      EvalUtils.checkValidDictKey(key);
+      EvalUtils.checkValidDictKey(key, env);
       result.put(key, valueExpression.eval(env), getLocation(), env);
     }
 

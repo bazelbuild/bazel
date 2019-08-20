@@ -596,6 +596,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_1',",
@@ -643,8 +644,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ConfiguredTarget topTarget = getConfiguredTarget("//x:x", childConfig);
 
     assertObjcProtoProviderArtifactsArePropagated(topTarget);
-    assertBundledGenerationActionsAreDifferent(topTarget);
-    assertOnlyRequiredInputsArePresentForBundledGeneration(topTarget);
+    assertBundledGenerationActions(topTarget);
     assertCoptsAndDefinesNotPropagatedToProtos(topTarget);
     assertBundledGroupsGetCreatedAndLinked(topTarget);
   }
@@ -673,10 +673,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(protoProvider).isNotNull();
-    assertThat(protoProvider.getProtoGroups().toSet()).hasSize(3);
     assertThat(
             Artifact.toExecPaths(
-                ImmutableSet.copyOf(Iterables.concat(protoProvider.getProtoGroups()))))
+                ImmutableSet.copyOf(Iterables.concat(protoProvider.getProtoFiles()))))
         .containsExactly(
             "protos/data_a.proto",
             "protos/data_b.proto",
@@ -686,11 +685,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .containsExactly("protos/filter_a.pbascii", "protos/filter_b.pbascii");
   }
 
-  private void assertBundledGenerationActionsAreDifferent(ConfiguredTarget topTarget) {
-    Artifact protoHeaderA = getBinArtifact("_generated_protos/x/protos/DataA.pbobjc.h", topTarget);
-    Artifact protoHeaderB = getBinArtifact("_generated_protos/x/protos/DataB.pbobjc.h", topTarget);
-    Artifact protoHeaderC = getBinArtifact("_generated_protos/x/protos/DataC.pbobjc.h", topTarget);
-    Artifact protoHeaderD = getBinArtifact("_generated_protos/x/protos/DataD.pbobjc.h", topTarget);
+  private void assertBundledGenerationActions(ConfiguredTarget topTarget) {
+    Artifact protoHeaderA =
+        getBinArtifact("_generated_objc_protos/x/protos/DataA.pbobjc.h", topTarget);
+    Artifact protoHeaderB =
+        getBinArtifact("_generated_objc_protos/x/protos/DataB.pbobjc.h", topTarget);
+    Artifact protoHeaderC =
+        getBinArtifact("_generated_objc_protos/x/protos/DataC.pbobjc.h", topTarget);
+    Artifact protoHeaderD =
+        getBinArtifact("_generated_objc_protos/x/protos/DataD.pbobjc.h", topTarget);
     CommandAction protoActionA = (CommandAction) getGeneratingAction(protoHeaderA);
     CommandAction protoActionB = (CommandAction) getGeneratingAction(protoHeaderB);
     CommandAction protoActionC = (CommandAction) getGeneratingAction(protoHeaderC);
@@ -699,54 +702,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(protoActionB).isNotNull();
     assertThat(protoActionC).isNotNull();
     assertThat(protoActionD).isNotNull();
-    assertThat(protoActionA).isNotEqualTo(protoActionB);
-    assertThat(protoActionB).isNotEqualTo(protoActionC);
-    assertThat(protoActionC).isNotEqualTo(protoActionD);
-  }
-
-  private void assertOnlyRequiredInputsArePresentForBundledGeneration(ConfiguredTarget topTarget)
-      throws Exception {
-    ConfiguredTarget libTarget =
-        view.getPrerequisiteConfiguredTargetForTesting(
-            reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
-    ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
-
-    Artifact protoHeaderA = getBinArtifact("_generated_protos/x/protos/DataA.pbobjc.h", topTarget);
-    Artifact protoHeaderB = getBinArtifact("_generated_protos/x/protos/DataB.pbobjc.h", topTarget);
-    Artifact protoHeaderC = getBinArtifact("_generated_protos/x/protos/DataC.pbobjc.h", topTarget);
-    Artifact protoHeaderD = getBinArtifact("_generated_protos/x/protos/DataD.pbobjc.h", topTarget);
-
-    CommandAction protoActionA = (CommandAction) getGeneratingAction(protoHeaderA);
-    CommandAction protoActionB = (CommandAction) getGeneratingAction(protoHeaderB);
-    CommandAction protoActionC = (CommandAction) getGeneratingAction(protoHeaderC);
-    CommandAction protoActionD = (CommandAction) getGeneratingAction(protoHeaderD);
-
-    assertThat(protoActionA.getInputs())
-        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionB.getInputs())
-        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionC.getInputs())
-        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionD.getInputs())
-        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
-
-    assertThat(Artifact.toExecPaths(protoActionA.getInputs())).contains("protos/data_a.proto");
-    assertThat(Artifact.toExecPaths(protoActionA.getInputs()))
-        .containsNoneOf("protos/data_b.proto", "protos/data_c.proto", "protos/data_d.proto");
-
-    assertThat(Artifact.toExecPaths(protoActionB.getInputs())).contains("protos/data_b.proto");
-    assertThat(Artifact.toExecPaths(protoActionB.getInputs()))
-        .containsNoneOf("protos/data_a.proto", "protos/data_c.proto", "protos/data_d.proto");
-
-    assertThat(Artifact.toExecPaths(protoActionC.getInputs())).contains("protos/data_c.proto");
-    assertThat(Artifact.toExecPaths(protoActionC.getInputs()))
-        .containsNoneOf("protos/data_a.proto", "protos/data_b.proto", "protos/data_d.proto");
-
-    assertThat(Artifact.toExecPaths(protoActionD.getInputs())).contains("protos/data_d.proto");
-    assertThat(Artifact.toExecPaths(protoActionD.getInputs()))
-        .containsAtLeast("protos/data_a.proto", "protos/data_c.proto");
-    assertThat(Artifact.toExecPaths(protoActionD.getInputs()))
-        .doesNotContain("protos/data_b.proto");
   }
 
   /**
@@ -791,6 +746,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos',",
@@ -824,6 +780,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/filter_a.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_a',",

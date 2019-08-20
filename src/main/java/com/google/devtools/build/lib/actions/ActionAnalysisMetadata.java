@@ -15,20 +15,13 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
 /**
  * An Analysis phase interface for an {@link Action} or Action-like object, containing only
  * side-effect-free query methods for information needed during action analysis.
- *
- * <p>This interface extends {@link SkyKey} for use in the Google-internal {@link
- * #ACTION_ANNOTATION_FUNCTION}.
  */
-public interface ActionAnalysisMetadata extends SkyKey {
-
-  SkyFunctionName ACTION_ANNOTATION_FUNCTION = SkyFunctionName.createHermetic("ANNOTATE_ACTION");
+public interface ActionAnalysisMetadata {
 
   /**
    * Return this key from {@link #getKey} to signify a failed key computation.
@@ -39,11 +32,6 @@ public interface ActionAnalysisMetadata extends SkyKey {
    * (recommended), or check against this value explicitly.
    */
   String KEY_ERROR = "1ea50e01-0349-4552-80cf-76cf520e8592";
-
-  @Override
-  default SkyFunctionName functionName() {
-    return ACTION_ANNOTATION_FUNCTION;
-  }
 
   /**
    * Returns the owner of this executable if this executable can supply verbose information. This is
@@ -226,10 +214,18 @@ public interface ActionAnalysisMetadata extends SkyKey {
     AGGREGATING_MIDDLEMAN,
 
     /**
-     * A middleman that enforces action ordering, is not validated by the dependency checker, but
-     * allows errors to be propagated.
+     * A middleman that denotes a scheduling dependency.
+     *
+     * <p>If an action has dependencies through scheduling dependency middleman, those dependencies
+     * will get built before the action is run and the build will error out if they cannot be built,
+     * but the dependencies will not be considered inputs of the action.
+     *
+     * <p>This is useful in cases when an action <em>might</em> need some inputs, but that is only
+     * found out right before it gets executed. The most salient case is C++ compilation where all
+     * files that can possibly be included need to be built before the action is executed, but if
+     * include scanning is used, only a subset of them will end up as inputs.
      */
-    ERROR_PROPAGATING_MIDDLEMAN,
+    SCHEDULING_DEPENDENCY_MIDDLEMAN,
 
     /**
      * A runfiles middleman, which is validated by the dependency checker, but is not expanded

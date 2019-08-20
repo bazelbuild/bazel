@@ -15,11 +15,14 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
@@ -59,19 +62,40 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
     CPU hostCpu = CPU.getCurrent();
     OS hostOs = OS.getCurrent();
 
+    String name = rule.getName();
     try {
       outputDirectory.createDirectoryAndParents();
-      RepositoryFunction.writeFile(
-          outputDirectory, "WORKSPACE", workspaceFileContent(rule.getName()));
-      RepositoryFunction.writeFile(
-          outputDirectory, "BUILD.bazel", buildFileContent(rule.getName()));
+      RepositoryFunction.writeFile(outputDirectory, "WORKSPACE", workspaceFileContent(name));
+      RepositoryFunction.writeFile(outputDirectory, "BUILD.bazel", buildFileContent(name));
       RepositoryFunction.writeFile(
           outputDirectory, "constraints.bzl", constraintFileContent(hostCpu, hostOs));
     } catch (IOException e) {
       throw new RepositoryFunctionException(
-          new IOException("Could not create content for " + rule.getName() + ": " + e.getMessage()),
+          new IOException("Could not create content for " + name + ": " + e.getMessage()),
           Transience.TRANSIENT);
     }
+
+    // Save in the resolved repository file.
+    env.getListener()
+        .post(
+            new ResolvedEvent() {
+              @Override
+              public String getName() {
+                return name;
+              }
+
+              @Override
+              public Object getResolvedInformation() {
+                String repr = String.format("local_config_platform(name = '%s')", name);
+                return ImmutableMap.<String, Object>builder()
+                    .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, LocalConfigPlatformRule.NAME)
+                    .put(
+                        ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                        ImmutableMap.<String, Object>builder().put("name", name).build())
+                    .put(ResolvedHashesFunction.NATIVE, repr)
+                    .build();
+              }
+            });
 
     // Return the needed info.
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);

@@ -129,49 +129,60 @@ class GrpcRemoteExecutor {
     try {
       return retrier.execute(
           () -> {
-            final Iterator<Operation> replies;
-            if (waitExecution.get()) {
-              WaitExecutionRequest wr =
-                  WaitExecutionRequest.newBuilder().setName(operation.get().getName()).build();
-              replies = execBlockingStub().waitExecution(wr);
-            } else {
-              replies = execBlockingStub().execute(request);
-            }
-            try {
-              while (replies.hasNext()) {
-                Operation o = replies.next();
-                operation.set(o);
-                waitExecution.set(!operation.get().getDone());
-                ExecuteResponse r = getOperationResponse(o);
-                if (r != null) {
-                  return r;
-                }
+            // Retry calls to Execute()/WaitExecute() "infinitely" if the server terminates one of
+            // them status OK and an Operation that does not have done=True set. This is legal
+            // according to the remote execution protocol i.e. if the execution takes longer
+            // than a connection timeout. This is not an error condition and is thus handled
+            // outside of the retrier.
+            while (true) {
+              final Iterator<Operation> replies;
+              if (waitExecution.get()) {
+                WaitExecutionRequest wr =
+                    WaitExecutionRequest.newBuilder().setName(operation.get().getName()).build();
+                replies = execBlockingStub().waitExecution(wr);
+              } else {
+                replies = execBlockingStub().execute(request);
               }
-            } catch (StatusRuntimeException e) {
-              if (e.getStatus().getCode() == Code.NOT_FOUND) {
-                // Operation was lost on the server. Retry Execute.
-                waitExecution.set(false);
-              }
-              throw e;
-            } finally {
-              // The blocking streaming call closes correctly only when trailers and a Status
-              // are received from the server so that onClose() is called on this call's
-              // CallListener. Under normal circumstances (no cancel/errors), these are
-              // guaranteed to be sent by the server only if replies.hasNext() has been called
-              // after all replies from the stream have been consumed.
               try {
                 while (replies.hasNext()) {
-                  replies.next();
+                  Operation o = replies.next();
+                  operation.set(o);
+                  waitExecution.set(!operation.get().getDone());
+                  ExecuteResponse r = getOperationResponse(o);
+                  if (r != null) {
+                    return r;
+                  }
+                }
+                // The operation completed successfully but without a result.
+                if (!waitExecution.get()) {
+                  throw new IOException(
+                      String.format(
+                          "Remote server error: execution request for %s terminated with no"
+                              + " result.",
+                          operation.get().getName()));
                 }
               } catch (StatusRuntimeException e) {
-                // Cleanup: ignore exceptions, because the meaningful errors have already been
-                // propagated.
+                if (e.getStatus().getCode() == Code.NOT_FOUND) {
+                  // Operation was lost on the server. Retry Execute.
+                  waitExecution.set(false);
+                }
+                throw e;
+              } finally {
+                // The blocking streaming call closes correctly only when trailers and a Status
+                // are received from the server so that onClose() is called on this call's
+                // CallListener. Under normal circumstances (no cancel/errors), these are
+                // guaranteed to be sent by the server only if replies.hasNext() has been called
+                // after all replies from the stream have been consumed.
+                try {
+                  while (replies.hasNext()) {
+                    replies.next();
+                  }
+                } catch (StatusRuntimeException e) {
+                  // Cleanup: ignore exceptions, because the meaningful errors have already been
+                  // propagated.
+                }
               }
             }
-            throw new IOException(
-                String.format(
-                    "Remote server error: execution request for %s terminated with no result.",
-                    operation.get().getName()));
           });
     } catch (StatusRuntimeException e) {
       throw new IOException(e);

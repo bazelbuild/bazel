@@ -440,8 +440,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     // currently execute build actions. If that were the case, a host_apple_platform_type flag might
     // be needed.
     host.applePlatformType = PlatformType.MACOS;
-
-    host.configurationDistinguisher = configurationDistinguisher;
+    host.configurationDistinguisher = ConfigurationDistinguisher.UNKNOWN;
 
     return host;
   }

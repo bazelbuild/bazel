@@ -283,6 +283,25 @@ public class ArtifactFactory implements ArtifactResolver {
             /*contentBasedPath=*/ false);
   }
 
+  /**
+   * Returns an artifact that represents an unresolved symlink; that is, an artifact whose value is
+   * a symlink and is never dereferenced.
+   *
+   * <p>The root must be below the execRootParent, and the execPath of the resulting Artifact is
+   * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
+   */
+  public Artifact.SpecialArtifact getSymlinkArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
+    validatePath(rootRelativePath, root);
+    return (Artifact.SpecialArtifact)
+        getArtifact(
+            root,
+            root.getExecPath().getRelative(rootRelativePath),
+            owner,
+            SpecialArtifactType.UNRESOLVED_SYMLINK,
+            /*contentBasedPath=*/ false);
+  }
+
   public Artifact.DerivedArtifact getConstantMetadataArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);

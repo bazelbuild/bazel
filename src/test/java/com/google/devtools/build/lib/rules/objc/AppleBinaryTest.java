@@ -36,11 +36,13 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -94,6 +96,9 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
+
+    MockProtoSupport.setupWorkspace(scratch);
+    invalidatePackages();
   }
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
@@ -240,6 +245,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_1',",
@@ -369,6 +375,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_1',",
@@ -504,6 +511,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_main',",
@@ -1056,6 +1064,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     scratch.file("x/filter.pbascii");
     scratch.file(
         "examples/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "package(default_visibility = ['//visibility:public'])",
         "apple_binary(",
@@ -1115,6 +1124,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     scratch.file("x/filter.pbascii");
     scratch.file(
         "examples/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "package(default_visibility = ['//visibility:public'])",
         "apple_binary(",
