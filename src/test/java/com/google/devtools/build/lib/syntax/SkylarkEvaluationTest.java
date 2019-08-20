@@ -1252,19 +1252,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testPositionalArgTypes() throws Exception {
-    new SkylarkTest().setUp(
-        "def foo(*args): return args",
-        "a = {'one': 1}",
-        "b = (1, 2)",
-        "c = [3, 4]")
-        .testStatement("str(foo(*a))", "(\"one\",)")
-        .testStatement("str(foo(*b))", "(1, 2)")
-        .testStatement("str(foo(*c))", "(3, 4)")
-        .testIfErrorContains("argument after * must be an iterable, not int", "foo(*2)");
-  }
-
-  @Test
   public void testNoJavaCallsWithoutSkylark() throws Exception {
     new SkylarkTest().testIfExactError("type 'int' has no method to_string()", "s = 3.to_string()");
   }

@@ -842,9 +842,9 @@ public final class FuncallExpression extends Expression {
       if (arg.isPositional()) {
         posargs.add(value);
       } else if (arg.isStar()) { // expand the starArg
-        Collection<?> items;
+        Iterable<?> items;
         try {
-          items = EvalUtils.toCollection(value, getLocation(), env);
+          items = EvalUtils.toIterable(value, getLocation(), env);
         } catch (EvalException e) {
           throw new EvalException(
               getLocation(),

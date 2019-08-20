@@ -381,6 +381,9 @@ public final class EvalUtils {
     } else if (o instanceof Iterable) {
       return (Iterable<?>) o;
     } else if (o instanceof Map) {
+      if (o instanceof SkylarkDict) {
+        return ((SkylarkDict) o).keySet();
+      }
       return toCollection(o, loc, env);
     } else {
       throw new EvalException(loc,
