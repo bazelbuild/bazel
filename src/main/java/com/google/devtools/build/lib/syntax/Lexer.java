@@ -673,8 +673,11 @@ final class Lexer {
         case 'd': case 'D':
         case 'e': case 'E':
         case 'f': case 'F':
-          if (buffer[oldPos] != '0')
+          if (buffer[oldPos] != '0') {
+            // a number not starting with zero must be decimal
+            // and can only contain digits
             return bufferSlice(oldPos, pos);
+          }
         case '0': case '1':
         case '2': case '3':
         case '4': case '5':
