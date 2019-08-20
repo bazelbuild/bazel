@@ -61,7 +61,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -283,7 +283,7 @@ public class ProtoApk implements Closeable {
       }
       final ByteString name = element.getNameBytes();
       name.writeTo(out);
-      final Map<ByteString, ByteString> namespaces = new HashMap<>();
+      final Map<ByteString, ByteString> namespaces = new LinkedHashMap<>();
       for (XmlNamespace namespace : element.getNamespaceDeclarationList()) {
         final ByteString prefix = namespace.getPrefixBytes();
         SPACE.writeTo(out);

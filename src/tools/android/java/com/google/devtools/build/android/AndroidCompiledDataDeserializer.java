@@ -95,7 +95,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -350,7 +350,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
 
     static ReferenceResolver asRoot() {
-      return new ReferenceResolver(Optional.empty(), new HashMap<>());
+      return new ReferenceResolver(Optional.empty(), new LinkedHashMap<>());
     }
 
     public ReferenceResolver resolveFor(String packageName) {
@@ -606,7 +606,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
   public Map<DataKey, DataResource> readAttributes(CompiledResources resources) {
     try (ZipInputStream zipStream = new ZipInputStream(Files.newInputStream(resources.getZip()))) {
-      Map<DataKey, DataResource> attributes = new HashMap<>();
+      Map<DataKey, DataResource> attributes = new LinkedHashMap<>();
       for (ZipEntry entry = zipStream.getNextEntry();
           entry != null;
           entry = zipStream.getNextEntry()) {

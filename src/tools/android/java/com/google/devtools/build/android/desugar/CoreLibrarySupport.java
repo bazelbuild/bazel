@@ -32,7 +32,6 @@ import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
 import com.google.errorprone.annotations.Immutable;
 import java.lang.reflect.Method;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -415,7 +414,7 @@ class CoreLibrarySupport {
   }
 
   public void makeDispatchHelpers(GeneratedClassStore store) {
-    HashMap<Class<?>, ClassVisitor> dispatchHelpers = new HashMap<>();
+    LinkedHashMap<Class<?>, ClassVisitor> dispatchHelpers = new LinkedHashMap<>();
     for (Collection<EmulatedMethod> group : emulatedDefaultMethods.asMap().values()) {
       checkState(!group.isEmpty());
       Class<?> root = group

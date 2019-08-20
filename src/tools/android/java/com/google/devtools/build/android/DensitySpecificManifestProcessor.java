@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -124,7 +124,7 @@ public class DensitySpecificManifestProcessor {
       }
       Node manifestElement = manifestElements.item(0);
 
-      Set<String> existingDensities = new HashSet<>();
+      Set<String> existingDensities = new LinkedHashSet<>();
       NodeList screenElements = doc.getElementsByTagName("screen");
       for (int i = 0; i < screenElements.getLength(); i++) {
         Node screen = screenElements.item(i);

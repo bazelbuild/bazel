@@ -19,14 +19,14 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /** Logs timing data to an in memory list that can be dumped. */
 public class InMemoryProfiler implements Profiler {
 
-  private final Map<String, Stopwatch> tasks = new HashMap<>();
+  private final Map<String, Stopwatch> tasks = new LinkedHashMap<>();
   private final List<Timing> report = new ArrayList<>();
 
   private InMemoryProfiler() {}

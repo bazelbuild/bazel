@@ -58,7 +58,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -466,7 +466,7 @@ public class ResourceLinker {
       final ZipIn nonResourcesIn = new ZipIn(nonResourceChannel, protoApk.toString());
       final ZipOut zipOut = new ZipOut(outChannel, combined.toString());
 
-      Set<String> skip = new HashSet<>();
+      Set<String> skip = new LinkedHashSet<>();
       skip.add("resources.pb");
       final EntryHandler entryHandler =
           (in, header, dirEntry, data) -> {

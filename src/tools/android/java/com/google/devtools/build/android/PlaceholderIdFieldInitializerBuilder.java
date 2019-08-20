@@ -30,9 +30,8 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
@@ -125,7 +124,7 @@ class PlaceholderIdFieldInitializerBuilder {
    */
   private static Set<Integer> assignPublicIds(
       Map<String, Integer> nameToId, SortedMap<String, Optional<Integer>> publicIds, int typeId) {
-    HashMap<Integer, String> assignedIds = new HashMap<>();
+    LinkedHashMap<Integer, String> assignedIds = new LinkedHashMap<>();
     int prevId = getInitialIdForTypeId(typeId);
     for (Map.Entry<String, Optional<Integer>> entry : publicIds.entrySet()) {
       Optional<Integer> id = entry.getValue();
@@ -189,7 +188,7 @@ class PlaceholderIdFieldInitializerBuilder {
   private final Map<ResourceType, SortedMap<String, Optional<Integer>>> publicIds =
       new EnumMap<>(ResourceType.class);
 
-  private final Map<String, Map<String, Boolean>> styleableAttrs = new HashMap<>();
+  private final Map<String, Map<String, Boolean>> styleableAttrs = new LinkedHashMap<>();
 
   private PlaceholderIdFieldInitializerBuilder(AndroidFrameworkAttrIdProvider androidIdProvider) {
     this.androidIdProvider = androidIdProvider;
@@ -221,7 +220,7 @@ class PlaceholderIdFieldInitializerBuilder {
   public void addSimpleResource(ResourceType type, String name) {
     Set<String> fields = innerClasses.get(type);
     if (fields == null) {
-      fields = new HashSet<>();
+      fields = new LinkedHashSet<>();
       innerClasses.put(type, fields);
     }
     fields.add(normalizeName(name));
@@ -253,14 +252,14 @@ class PlaceholderIdFieldInitializerBuilder {
       return ImmutableMap.of();
     }
     Map<String, Integer> attrToId =
-        Maps.newHashMapWithExpectedSize(innerClasses.get(ResourceType.ATTR).size());
+        Maps.newLinkedHashMapWithExpectedSize(innerClasses.get(ResourceType.ATTR).size());
     // After assigning public IDs, we count up monotonically, so we don't need to track additional
     // assignedIds to avoid collisions (use an ImmutableSet to ensure we don't add more).
     Set<Integer> assignedIds = ImmutableSet.of();
     if (publicIds.containsKey(ResourceType.ATTR)) {
       assignedIds = assignPublicIds(attrToId, publicIds.get(ResourceType.ATTR), attrTypeId);
     }
-    Set<String> inlineAttrs = new HashSet<>();
+    Set<String> inlineAttrs = new LinkedHashSet<>();
     Set<String> styleablesWithInlineAttrs = new TreeSet<>();
     for (Map.Entry<String, Map<String, Boolean>> styleableAttrEntry : styleableAttrs.entrySet()) {
       Map<String, Boolean> attrs = styleableAttrEntry.getValue();
@@ -300,7 +299,7 @@ class PlaceholderIdFieldInitializerBuilder {
       return allocatedTypeIds;
     }
     // Keep track of the reverse mapping from Int -> Type for validation.
-    Map<Integer, ResourceType> assignedIds = new HashMap<>();
+    Map<Integer, ResourceType> assignedIds = new LinkedHashMap<>();
     for (Map.Entry<ResourceType, SortedMap<String, Optional<Integer>>> publicTypeEntry :
         publicIds.entrySet()) {
       ResourceType currentType = publicTypeEntry.getKey();
@@ -419,7 +418,7 @@ class PlaceholderIdFieldInitializerBuilder {
   private Map<String, FieldInitializer> getResourceInitializers(
       ResourceType type, int typeId, Collection<String> sortedFields) {
     ImmutableMap.Builder<String, FieldInitializer> initList = ImmutableMap.builder();
-    Map<String, Integer> publicNameToId = new HashMap<>();
+    Map<String, Integer> publicNameToId = new LinkedHashMap<>();
     Set<Integer> assignedIds = ImmutableSet.of();
     if (publicIds.containsKey(type)) {
       assignedIds = assignPublicIds(publicNameToId, publicIds.get(type), typeId);

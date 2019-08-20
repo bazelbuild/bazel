@@ -30,7 +30,7 @@ import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlT
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -138,7 +138,7 @@ public class PluralXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue from(Value proto) {
     Plural plural = proto.getCompoundValue().getPlural();
 
-    Map<String, String> items = new HashMap<>();
+    Map<String, String> items = new LinkedHashMap<>();
 
     for (Plural.Entry entry : plural.getEntryList()) {
       String name = entry.getArity().toString().toLowerCase();

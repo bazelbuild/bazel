@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableMap;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.CheckReturnValue;
@@ -81,7 +81,7 @@ public class IndexedInputs {
 
   private ImmutableMap<String, InputFileProvider> indexInputs(
       List<InputFileProvider> inputProviders) {
-    Map<String, InputFileProvider> indexedInputs = new HashMap<>();
+    Map<String, InputFileProvider> indexedInputs = new LinkedHashMap<>();
     for (InputFileProvider inputProvider : inputProviders) {
       for (String relativePath : inputProvider) {
         if (relativePath.endsWith(".class") && !indexedInputs.containsKey(relativePath)) {

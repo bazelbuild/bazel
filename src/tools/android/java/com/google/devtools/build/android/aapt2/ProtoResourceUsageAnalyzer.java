@@ -26,8 +26,8 @@ import com.android.tools.lint.detector.api.LintUtils;
 import com.android.utils.XmlUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.aapt2.ProtoApk.ManifestVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ReferenceVisitor;
@@ -43,8 +43,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -156,9 +156,9 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
   }
 
   private Set<Resource> findReachableResources(List<Resource> roots) {
-    final Multimap<Resource, Resource> referenceLog = HashMultimap.create();
+    final Multimap<Resource, Resource> referenceLog = LinkedHashMultimap.create();
     Deque<Resource> queue = new ArrayDeque<>(roots);
-    final Set<Resource> reachable = new HashSet<>();
+    final Set<Resource> reachable = new LinkedHashSet<>();
     while (!queue.isEmpty()) {
       Resource resource = queue.pop();
       if (resource.references != null) {
@@ -204,7 +204,7 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
   private static final class ResourceDeclarationVisitor implements ResourceVisitor {
 
     private final ResourceShrinkerUsageModel model;
-    private final Set<Integer> packageIds = new HashSet<>();
+    private final Set<Integer> packageIds = new LinkedHashSet<>();
 
     private ResourceDeclarationVisitor(ResourceShrinkerUsageModel model) {
       this.model = model;

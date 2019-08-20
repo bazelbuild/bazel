@@ -23,7 +23,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -69,7 +69,7 @@ public class Aapt2ResourceShrinkingAction {
               .profileUsing(profiler)
               .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)));
 
-      final Set<String> packages = new HashSet<>(resourcesZip.asPackages());
+      final Set<String> packages = new LinkedHashSet<>(resourcesZip.asPackages());
 
       profiler.recordEndOf("setup").startTask("resourceShrinker");
 

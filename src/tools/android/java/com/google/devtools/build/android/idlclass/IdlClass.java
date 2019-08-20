@@ -65,7 +65,7 @@ public class IdlClass {
   private static void writeClassJar(IdlClassOptions options,
       List<Path> idlSources, Manifest manifest) throws IOException {
     Path tempDir = options.tempDir.resolve("classjar");
-    Set<Path> idlSourceSet = Sets.newHashSet(idlSources);
+    Set<Path> idlSourceSet = Sets.newLinkedHashSet(idlSources);
     extractIdlClasses(options.classJar, manifest, tempDir, idlSourceSet);
     writeOutputJar(options.outputClassJar, tempDir);
   }

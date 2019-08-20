@@ -29,7 +29,7 @@ import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -97,7 +97,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
   }
 
   private static Map<String, String> itemMapFromProto(Style style) {
-    Map<String, String> result = new HashMap<>();
+    Map<String, String> result = new LinkedHashMap<>();
 
     for (Style.Entry styleEntry : style.getEntryList()) {
       String itemName = styleEntry.getKey().getName().replace("attr/", "");

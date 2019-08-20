@@ -16,7 +16,7 @@ package com.google.devtools.build.android;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -25,7 +25,7 @@ import java.util.logging.Logger;
 public class LoggingProfiler implements Profiler {
 
   private final Logger logger = Logger.getLogger(LoggingProfiler.class.getName());
-  private final Map<String, Stopwatch> tasks = new HashMap<>();
+  private final Map<String, Stopwatch> tasks = new LinkedHashMap<>();
 
   private LoggingProfiler() {}
 

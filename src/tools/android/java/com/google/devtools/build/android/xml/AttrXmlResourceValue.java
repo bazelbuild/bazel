@@ -41,8 +41,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -240,7 +240,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
         formats.put("fraction", FractionResourceXmlAttrValue.of());
       }
       if ((formatFlags & 1 << 16) != 0) {
-        Map<String, String> enums = new HashMap<>();
+        Map<String, String> enums = new LinkedHashMap<>();
 
         for (Symbol attrSymbol : attribute.getSymbolList()) {
           String name = attrSymbol.getName().getName().replaceFirst("id/", "");
@@ -250,7 +250,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
         formats.put("enum", EnumResourceXmlAttrValue.of(enums));
       }
       if ((formatFlags & 1 << 17) != 0) {
-        Map<String, String> flags = new HashMap<>();
+        Map<String, String> flags = new LinkedHashMap<>();
         for (Symbol attrSymbol : attribute.getSymbolList()) {
           String name = attrSymbol.getName().getName().replaceFirst("id/", "");
           flags.put(name, Integer.toString(attrSymbol.getValue()));
@@ -270,7 +270,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue from(
       StartElement attr, @Nullable String format, XMLEventReader eventReader)
       throws XMLStreamException {
-    Set<String> formatNames = new HashSet<>();
+    Set<String> formatNames = new LinkedHashSet<>();
     if (format != null) {
       Collections.addAll(formatNames, format.split("\\|"));
     }

@@ -38,8 +38,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -366,9 +366,9 @@ public class StubApplication extends Application {
     }
 
     Map<String, String> newManifest = parseManifest(newManifestFile);
-    Map<String, String> installedManifest = new HashMap<String, String>();
-    Set<String> libsToDelete = new HashSet<String>();
-    Set<String> libsToUpdate = new HashSet<String>();
+    Map<String, String> installedManifest = new LinkedHashMap<String, String>();
+    Set<String> libsToDelete = new LinkedHashSet<String>();
+    Set<String> libsToUpdate = new LinkedHashSet<String>();
 
     String realNativeLibDir = newManifest.isEmpty()
         ? defaultNativeLibDir : incrementalDir.toString();
@@ -437,7 +437,7 @@ public class StubApplication extends Application {
   }
 
   private static Map<String, String> parseManifest(File file) throws IOException {
-    Map<String, String> result = new HashMap<>();
+    Map<String, String> result = new LinkedHashMap<>();
     try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
       while (true) {
         String line = reader.readLine();

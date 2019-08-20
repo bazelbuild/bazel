@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.desugar.io.BitFlags;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
@@ -52,7 +51,7 @@ class LambdaClassFixer extends ClassVisitor {
   private final boolean allowDefaultMethods;
   private final boolean copyBridgeMethods;
   private final ClassLoader classLoader;
-  private final HashSet<String> implementedMethods = new HashSet<>();
+  private final LinkedHashSet<String> implementedMethods = new LinkedHashSet<>();
   private final LinkedHashSet<String> methodsToMoveIn = new LinkedHashSet<>();
 
   private String originalInternalName;

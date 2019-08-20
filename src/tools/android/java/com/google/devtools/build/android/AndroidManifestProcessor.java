@@ -38,8 +38,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.xml.stream.FactoryConfigurationError;
@@ -132,7 +132,7 @@ public class AndroidManifestProcessor {
     manifestMerger.addLibraryManifests(libraryManifests);
 
     // Extract SystemProperties from the provided values.
-    Map<String, Object> placeholders = new HashMap<>();
+    Map<String, Object> placeholders = new LinkedHashMap<>();
     placeholders.putAll(values);
     for (SystemProperty property : SystemProperty.values()) {
       if (values.containsKey(SYSTEM_PROPERTY_NAMES.get(property))) {

@@ -16,7 +16,7 @@ package com.google.devtools.build.android.resources;
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.dependency.SymbolFileProvider;
 import com.android.resources.ResourceType;
-import com.google.common.collect.HashMultimap;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -28,7 +28,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -128,12 +128,13 @@ public class ResourceSymbols {
       ListeningExecutorService executor,
       @Nullable String packageToExclude)
       throws InterruptedException, ExecutionException {
-    Map<SymbolFileProvider, ListenableFuture<String>> providerToPackage = new HashMap<>();
+    Map<SymbolFileProvider, ListenableFuture<String>> providerToPackage = new LinkedHashMap<>();
     for (SymbolFileProvider dependency : dependencies) {
       providerToPackage.put(
           dependency, executor.submit(new PackageParsingTask(dependency.getManifest())));
     }
-    Multimap<String, ListenableFuture<ResourceSymbols>> packageToTable = HashMultimap.create();
+    Multimap<String, ListenableFuture<ResourceSymbols>> packageToTable =
+        LinkedHashMultimap.create();
     for (Map.Entry<SymbolFileProvider, ListenableFuture<String>> entry :
         providerToPackage.entrySet()) {
       File symbolFile = entry.getKey().getSymbolFile();

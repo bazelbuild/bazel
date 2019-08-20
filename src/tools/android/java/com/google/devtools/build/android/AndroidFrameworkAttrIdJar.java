@@ -18,7 +18,7 @@ import java.lang.reflect.Field;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -54,7 +54,7 @@ public class AndroidFrameworkAttrIdJar implements AndroidFrameworkAttrIdProvider
     try (URLClassLoader urlClassLoader =
         new URLClassLoader(new URL[] {androidJar.toUri().toURL()})) {
       Class<?> attrClass = urlClassLoader.loadClass(ANDROID_ATTR_CLASS);
-      Map<String, Integer> attributeIds = new HashMap<>();
+      Map<String, Integer> attributeIds = new LinkedHashMap<>();
       for (Field field : attrClass.getFields()) {
         attributeIds.put(field.getName(), field.getInt(null));
       }
