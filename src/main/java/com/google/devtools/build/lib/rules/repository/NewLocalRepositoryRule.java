@@ -90,7 +90,8 @@ public class NewLocalRepositoryRule implements RuleDefinition {
 
 <p>This rule creates a Bazel repository by creating a WORKSPACE file and subdirectory containing
 symlinks to the BUILD file and path given.  The build file should create targets relative to the
-<code>path</code>.
+<code>path</code>. For directories that already contain a WORKSPACE file and a BUILD file, the
+<a href="#local_repository"><code>local_repository</code></a> rule can be used.
 
 <h4 id="new_local_repository_examples">Examples</h4>
 
