@@ -673,6 +673,8 @@ final class Lexer {
         case 'd': case 'D':
         case 'e': case 'E':
         case 'f': case 'F':
+          if (buffer[oldPos] != '0')
+            return bufferSlice(oldPos, pos);
         case '0': case '1':
         case '2': case '3':
         case '4': case '5':

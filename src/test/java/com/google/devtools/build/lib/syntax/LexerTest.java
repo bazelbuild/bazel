@@ -182,6 +182,17 @@ public class LexerTest {
   }
 
   @Test
+  public void testNoWhiteSpaceBetweenTokens() throws Exception {
+    assertThat(names(tokens("6or()"))).isEqualTo("INT OR LPAREN RPAREN NEWLINE EOF");
+    assertThat(names(tokens("0in(''and[])")))
+        .isEqualTo("INT IN LPAREN STRING AND LBRACKET RBRACKET RPAREN NEWLINE EOF");
+
+    assertThat(values(tokens("0or()"))).isEqualTo("INT(0) IDENTIFIER(r) LPAREN RPAREN NEWLINE EOF");
+    assertThat(lastError.toString())
+        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 0o");
+  }
+
+  @Test
   public void testNonAsciiIdentifiers() throws Exception {
     tokens("ümlaut");
     assertThat(lastError.toString()).contains("invalid character: 'ü'");
@@ -237,13 +248,13 @@ public class LexerTest {
 
     assertThat(values(tokens("1.2.345"))).isEqualTo("INT(1) DOT INT(2) DOT INT(345) NEWLINE EOF");
 
-    assertThat(values(tokens("1.23E10"))).isEqualTo("INT(1) DOT INT(0) NEWLINE EOF");
+    assertThat(values(tokens("1.0E10"))).isEqualTo("INT(1) DOT INT(0) NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-10 integer constant: 23E10");
+        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 0E10");
 
-    assertThat(values(tokens("1.23E-10"))).isEqualTo("INT(1) DOT INT(0) MINUS INT(10) NEWLINE EOF");
+    assertThat(values(tokens("1.03E-10"))).isEqualTo("INT(1) DOT INT(0) MINUS INT(10) NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-10 integer constant: 23E");
+        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 03E");
 
     assertThat(values(tokens(". 123"))).isEqualTo("DOT INT(123) NEWLINE EOF");
     assertThat(values(tokens(".123"))).isEqualTo("DOT INT(123) NEWLINE EOF");
