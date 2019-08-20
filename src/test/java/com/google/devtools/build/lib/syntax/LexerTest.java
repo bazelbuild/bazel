@@ -184,6 +184,8 @@ public class LexerTest {
   @Test
   public void testNoWhiteSpaceBetweenTokens() throws Exception {
     assertThat(names(tokens("6or()"))).isEqualTo("INT OR LPAREN RPAREN NEWLINE EOF");
+    assertThat(names(tokens("0and()"))).isEqualTo("INT AND LPAREN RPAREN NEWLINE EOF");
+    assertThat(names(tokens("0o1or()"))).isEqualTo("INT OR LPAREN RPAREN NEWLINE EOF");
     assertThat(names(tokens("0in(''and[])")))
         .isEqualTo("INT IN LPAREN STRING AND LBRACKET RBRACKET RPAREN NEWLINE EOF");
 
@@ -245,16 +247,9 @@ public class LexerTest {
   @Test
   public void testIntegersAndDot() throws Exception {
     assertThat(values(tokens("1.2345"))).isEqualTo("INT(1) DOT INT(2345) NEWLINE EOF");
-
     assertThat(values(tokens("1.2.345"))).isEqualTo("INT(1) DOT INT(2) DOT INT(345) NEWLINE EOF");
-
-    assertThat(values(tokens("1.0E10"))).isEqualTo("INT(1) DOT INT(0) NEWLINE EOF");
-    assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 0E10");
-
-    assertThat(values(tokens("1.03E-10"))).isEqualTo("INT(1) DOT INT(0) MINUS INT(10) NEWLINE EOF");
-    assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 03E");
+    assertThat(values(tokens("1.23E10"))).isEqualTo("INT(1) DOT INT(23) IDENTIFIER(E10) NEWLINE EOF");
+    assertThat(values(tokens("1.23E-10"))).isEqualTo("INT(1) DOT INT(23) IDENTIFIER(E) MINUS INT(10) NEWLINE EOF");
 
     assertThat(values(tokens(". 123"))).isEqualTo("DOT INT(123) NEWLINE EOF");
     assertThat(values(tokens(".123"))).isEqualTo("DOT INT(123) NEWLINE EOF");

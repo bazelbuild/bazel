@@ -667,27 +667,32 @@ final class Lexer {
       switch (c) {
         case 'X': case 'x': // for hexadecimal prefix
         case 'O': case 'o': // for octal prefix
+          if (buffer[oldPos] != '0' || pos != oldPos + 1) {
+            // 'x' and 'o' can only appear as a second token after '0'
+            return bufferSlice(oldPos, pos);
+          }
+          break;
         case 'a': case 'A':
         case 'b': case 'B':
         case 'c': case 'C':
         case 'd': case 'D':
         case 'e': case 'E':
         case 'f': case 'F':
-          if (buffer[oldPos] != '0') {
-            // a number not starting with zero must be decimal
-            // and can only contain digits
+          if (buffer[oldPos] != '0' || Character.toLowerCase(buffer[oldPos + 1]) != 'x') {
+            // not hexadecimal, cannot contain letters
             return bufferSlice(oldPos, pos);
           }
+          break;
         case '0': case '1':
         case '2': case '3':
         case '4': case '5':
         case '6': case '7':
         case '8': case '9':
-          pos++;
           break;
         default:
           return bufferSlice(oldPos, pos);
       }
+      pos++;
     }
     // TODO(bazel-team): (2009) to do roundtripping when we evaluate the integer
     // constants, we must save the actual text of the tokens, not just their
