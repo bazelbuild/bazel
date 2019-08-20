@@ -157,7 +157,7 @@ distdir_tar(
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_cc
-        "plf-moving-tools.zip": "e9cb255040e5ef3a1b6085fa84dff6c3f577a5e20633aad2a62e458097661959",
+        "plf-moving-tools.zip": "24c5bb719885b67ef96797ed8476cc2a0c339b808060a94f35bd082406b74c0f",
         # bazelbuild/bazel-toolchains
         "0.28.3.tar.gz": "d8c2f20deb2f6143bac792d210db1a4872102d81529fe0ea3476c1696addd7ff",
         # bazelbuild/rules_pkg
@@ -454,7 +454,7 @@ http_archive(
 
 http_archive(
     name = "rules_cc",
-    sha256 = "e9cb255040e5ef3a1b6085fa84dff6c3f577a5e20633aad2a62e458097661959",
+    sha256 = "24c5bb719885b67ef96797ed8476cc2a0c339b808060a94f35bd082406b74c0f",
     strip_prefix = "rules_cc-plf-moving-tools",
     urls = [
         "https://github.com/oquenchil/rules_cc/archive/plf-moving-tools.zip",
@@ -549,7 +549,7 @@ distdir_tar(
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.0.tar.gz": "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
         # bazelbuild/rules_cc
-        "plf-moving-tools.zip": "e9cb255040e5ef3a1b6085fa84dff6c3f577a5e20633aad2a62e458097661959",
+        "plf-moving-tools.zip": "24c5bb719885b67ef96797ed8476cc2a0c339b808060a94f35bd082406b74c0f",
         # com_google_googletest
         "f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz": "0fb00ff413f6b9b80ccee44a374ca7a18af7315aea72a43c62f2acd1ca74e9b5",
         # bazelbuild/rules_proto

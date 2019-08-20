@@ -121,24 +121,29 @@ public final class BazelAnalysisMock extends AnalysisMock {
             String contents;
             /**
              *  This replaces following lines from cc/private/toolchain/BUILD
-             *  90 alias(
-             *  91     name = "toolchain",
-             *  92     actual = "//external:cc_toolchain",
-             *  93 )
+             *   alias(
+             *       name = "toolchain",
+             *       actual = "//external:cc_toolchain",
+             *   )
              *
              *  This is mocked differently in tests compared to the real thing.
              */
             if (newPath.endsWith(Paths.get("private/toolchain/BUILD"))) {
               StringBuilder lines = new StringBuilder();
-              int lineNumber = 0;
+              int skipNextLines = 0;
               for (String line : java.nio.file.Files.readAllLines(x, UTF_8)) {
-                lineNumber++;
-                if (lineNumber >= 90 && lineNumber <= 93) {
+                if (skipNextLines-- > 0){
+                  continue;
+                }
+                if (line.contains("name = \"toolchain\"")) {
+                  lines.append("name = 'toolchain', actual = '@bazel_tools//tools/cpp:toolchain')\n");
+                  // Skip next 2 lines which form the toolchain target.
+                  skipNextLines = 2;
                   continue;
                 }
                 lines.append(line + "\n");
               }
-              lines.append("alias(name = 'toolchain', actual = '@bazel_tools//tools/cpp:toolchain')");
+
               contents = lines.toString();
             } else {
               contents = new String(
