@@ -246,39 +246,47 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
    * Returns a list of provider name groups, given the value of a Starlark attribute's "providers"
    * argument.
    *
-   * <p>{@code providers} can either be a list of providers, or a list of lists of providers. If it
-   * is the first case, the entire list is considered a single group. In the second case, each of
-   * the inner lists is a group.
+   * <p>{@code providers} can either be a list of providers or a list of lists of providers, where
+   * each provider is represented by a ProviderApi or by a String. In the case of a single-level
+   * list, the whole list is considered a single group, while in the case of a double-level list,
+   * each of the inner lists is a separate group.
    */
-  private static List<List<String>> allProviderNameGroups(SkylarkList<?> providers, Environment env)
-      throws EvalException {
+  private static List<List<String>> allProviderNameGroups(
+      SkylarkList<?> providers, Environment env) {
 
     List<List<String>> allNameGroups = new ArrayList<>();
-    List<List<ProviderApi>> allProviderGroups = new ArrayList<>();
     for (Object object : providers) {
-      if (object instanceof ProviderApi) {
-        allProviderGroups.add(providers.getContents(ProviderApi.class, "providers"));
+      List<String> providerNameGroup;
+      if (object instanceof SkylarkList) {
+        SkylarkList<?> group = (SkylarkList<?>) object;
+        providerNameGroup = parseProviderGroup(group, env);
+        allNameGroups.add(providerNameGroup);
+      } else {
+        providerNameGroup = parseProviderGroup(providers, env);
+        allNameGroups.add(providerNameGroup);
         break;
-      } else if (object instanceof SkylarkList) {
-        allProviderGroups.add(
-            ((SkylarkList<?>) object).getContents(ProviderApi.class, "provider groups"));
       }
     }
-
-    for (List<ProviderApi> providerGroup : allProviderGroups) {
-      List<String> nameGroup = providerNameGroup(providerGroup, env);
-      allNameGroups.add(nameGroup);
-    }
-
     return allNameGroups;
   }
 
-  /** Returns the names of the providers in the given group. */
-  private static List<String> providerNameGroup(List<ProviderApi> providerGroup, Environment env) {
+  /**
+   * Returns the names of the providers in the given group.
+   *
+   * <p>Each item in the group may be either a {@link ProviderApi} or a {@code String} (representing
+   * a legacy provider).
+   */
+  private static List<String> parseProviderGroup(SkylarkList<?> group, Environment env) {
     List<String> providerNameGroup = new ArrayList<>();
-    for (ProviderApi provider : providerGroup) {
-      String providerName = providerName(provider, env);
-      providerNameGroup.add(providerName);
+    for (Object object : group) {
+      if (object instanceof ProviderApi) {
+        ProviderApi provider = (ProviderApi) object;
+        String providerName = providerName(provider, env);
+        providerNameGroup.add(providerName);
+      } else if (object instanceof String) {
+        String legacyProvider = (String) object;
+        providerNameGroup.add(legacyProvider);
+      }
     }
     return providerNameGroup;
   }
@@ -304,4 +312,3 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
     return "Unknown Provider";
   }
 }
-

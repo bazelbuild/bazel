@@ -26,7 +26,7 @@ public final class AssignmentStatement extends Statement {
    * Constructs an assignment: "lhs = rhs". The LHS must be of the form id, x.y, x[i], [e, ...], or
    * (e, ...).
    */
-  public AssignmentStatement(Expression lhs, Expression rhs) {
+  AssignmentStatement(Expression lhs, Expression rhs) {
     this.lhs = lhs;
     this.rhs = rhs;
   }

@@ -21,6 +21,7 @@
 """Convenience macro for skydoc tests."""
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@io_bazel_skydoc//stardoc:pure_markdown_stardoc.bzl", "pure_markdown_stardoc")
 load("@io_bazel_skydoc//stardoc:stardoc.bzl", "stardoc")
 
 def skydoc_test(
@@ -31,6 +32,7 @@ def skydoc_test(
         whitelisted_symbols = [],
         semantic_flags = [],
         format = "markdown",
+        test = "default",
         **kwargs):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
@@ -54,6 +56,7 @@ def skydoc_test(
           <code>--incompatible_foo_semantic=false</code>, then this attribute should contain
           "--incompatible_foo_semantic=false"
       format: The format of the output file.
+      test: The type of test (default or pure_markdown).
       **kwargs: A dictionary of input template names mapped to template file path for which documentation is generated.
       """
 
@@ -82,15 +85,30 @@ def skydoc_test(
         deps = deps,
     )
 
-    stardoc(
-        name = "regenerate_%s_golden" % name,
-        out = actual_generated_doc,
-        input = input_file,
-        symbol_names = whitelisted_symbols,
-        deps = ["%s_lib" % name],
-        renderer = Label("//src/main/java/com/google/devtools/build/skydoc/renderer:renderer"),
-        stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc"),
-        semantic_flags = semantic_flags,
-        format = format,
-        **kwargs
-    )
+    if test == "default":
+        stardoc(
+            name = "regenerate_%s_golden" % name,
+            out = actual_generated_doc,
+            input = input_file,
+            symbol_names = whitelisted_symbols,
+            deps = ["%s_lib" % name],
+            renderer = Label("//src/main/java/com/google/devtools/build/skydoc/renderer:renderer"),
+            stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc"),
+            semantic_flags = semantic_flags,
+            format = format,
+            **kwargs
+        )
+    elif test == "pure_markdown":
+        pure_markdown_stardoc(
+            name = "regenerate_%s_golden" % name,
+            out = actual_generated_doc,
+            input = input_file,
+            symbol_names = whitelisted_symbols,
+            deps = ["%s_lib" % name],
+            renderer = Label("//src/main/java/com/google/devtools/build/skydoc/renderer:renderer"),
+            stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc"),
+            semantic_flags = semantic_flags,
+            **kwargs
+        )
+    else:
+        fail("parameter 'test' must either be 'default' or 'pure_markdown', but was " + test)

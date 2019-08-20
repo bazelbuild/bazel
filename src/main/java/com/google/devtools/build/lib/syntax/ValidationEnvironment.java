@@ -145,7 +145,6 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
       case CONDITIONAL:
       case EXPRESSION:
       case FLOW:
-      case PASS:
       case RETURN:
         // nothing to declare
     }
@@ -159,7 +158,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   private void assign(Expression lhs) {
     if (lhs instanceof Identifier) {
-      if (!isBuildFile && env.getSemantics().incompatibleAssignmentIdentifiersHaveLocalScope()) {
+      if (!isBuildFile) {
         ((Identifier) lhs).setScope(block.scope);
       }
       // no-op
@@ -216,9 +215,10 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(FlowStatement node) {
-    if (loopCount <= 0) {
+    if (node.getKind() != TokenKind.PASS && loopCount <= 0) {
       throw new ValidationException(
-          node.getLocation(), node.getKind().getName() + " statement must be inside a for loop");
+          node.getLocation(),
+          node.getKind().toString() + " statement must be inside a for loop");
     }
     super.visit(node);
   }

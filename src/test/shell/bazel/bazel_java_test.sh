@@ -1424,7 +1424,7 @@ def _impl(ctx):
     host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
 
-  imported_provider = JavaInfo(output_jar = imported_jar, use_ijar=False);
+  imported_provider = JavaInfo(output_jar = imported_jar, compile_jar = imported_jar);
 
   final_provider = java_common.merge([compilation_provider, imported_provider])
 
@@ -1451,81 +1451,6 @@ EOF
   bazel build java/com/google/sandwich:custom &> "$TEST_log" || fail "Java sandwich build failed"
   expect_log "<generated file java/com/google/sandwich/libcustom.jar>"
   expect_log "<generated file java/com/google/sandwich/libb.jar>"
-}
-
-
-
-function test_java_info_constructor_with_ijar_unset_actions() {
-  mkdir -p java/com/google/foo
-  touch java/com/google/foo/{BUILD,my_rule.bzl}
-  cat > java/com/google/foo/BUILD << EOF
-load(":my_rule.bzl", "my_rule")
-my_rule(
-  name = 'my_skylark_rule',
-  output_jar = 'my_skylark_rule_lib.jar',
-  source_jars = ['my_skylark_rule_src.jar']
- )
-EOF
-
-  cat > java/com/google/foo/my_rule.bzl << EOF
-result = provider()
-def _impl(ctx):
-  javaInfo = JavaInfo(
-    output_jar = ctx.file.output_jar,
-    source_jars = ctx.files.source_jars,
-    use_ijar = True,
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
-  )
-  return [result(property = javaInfo)]
-
-my_rule = rule(
-  implementation = _impl,
-  attrs = {
-    'output_jar' : attr.label(allow_single_file=True),
-    'source_jars' : attr.label_list(allow_files=['.jar']),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain"))
-  }
-)
-EOF
-
-  bazel build java/com/google/foo:my_skylark_rule >& "$TEST_log" && fail "Unexpected success"
-  expect_log "The value of use_ijar is True. Make sure the ctx.actions argument is valid."
-}
-
-function test_java_info_constructor_with_ijar_unset_java_toolchain() {
-  mkdir -p java/com/google/foo
-  touch java/com/google/foo/{BUILD,my_rule.bzl}
-  cat > java/com/google/foo/BUILD << EOF
-load(":my_rule.bzl", "my_rule")
-my_rule(
-  name = 'my_skylark_rule',
-  output_jar = 'my_skylark_rule_lib.jar',
-  source_jars = ['my_skylark_rule_src.jar']
- )
-EOF
-
-  cat > java/com/google/foo/my_rule.bzl << EOF
-result = provider()
-def _impl(ctx):
-  javaInfo = JavaInfo(
-    output_jar = ctx.file.output_jar,
-    source_jars = ctx.files.source_jars,
-    use_ijar = True,
-    actions = ctx.actions
-  )
-  return [result(property = javaInfo)]
-
-my_rule = rule(
-  implementation = _impl,
-  attrs = {
-    'output_jar' : attr.label(allow_single_file=True),
-    'source_jars' : attr.label_list(allow_files=['.jar'])
-  }
-)
-EOF
-
-  bazel build java/com/google/foo:my_skylark_rule >& "$TEST_log" && fail "Unexpected success"
-  expect_log "The value of use_ijar is True. Make sure the java_toolchain argument is valid."
 }
 
 function test_java_info_constructor_e2e() {

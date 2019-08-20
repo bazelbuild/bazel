@@ -2,7 +2,9 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http:srcs",
+    ],
     visibility = ["//src/tools/remote:__pkg__"],
 )
 
@@ -31,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party:guava",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",

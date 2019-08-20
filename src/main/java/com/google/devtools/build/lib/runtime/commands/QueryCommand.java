@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.StreamedFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
+import com.google.devtools.build.lib.query2.query.output.StreamedFormatter;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -203,7 +203,6 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
         ImmutableList.<String>of(),
         loadingPhaseThreads,
         settings,
-        /* useForkJoinPool= */ false,
         /*useGraphlessQuery=*/ false);
   }
 }

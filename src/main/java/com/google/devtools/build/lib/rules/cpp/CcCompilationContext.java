@@ -572,7 +572,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      *
      * @param purpose must be a string which is suitable for use as a filename. A single rule may
      *     have many middlemen with distinct purposes.
-     * @see MiddlemanFactory#createErrorPropagatingMiddleman
+     * @see MiddlemanFactory#createSchedulingDependencyMiddleman
      */
     public Builder setPurpose(String purpose) {
       this.purpose = purpose;
@@ -876,12 +876,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       // only reason that would force us to re-compile would be change in one of
       // the files referenced by the *.d file, since no other files participated
       // in the compilation. We also need to propagate errors through this
-      // dependency link. So we use an error propagating middleman.
+      // dependency link. So we use an scheduling dependency middleman.
       // Such middleman will be ignored by the dependency checker yet will still
       // represent an edge in the action dependency graph - forcing proper execution
       // order and error propagation.
       String name = cppModuleMap != null ? cppModuleMap.getName() : label.toString();
-      return middlemanFactory.createErrorPropagatingMiddleman(
+      return middlemanFactory.createSchedulingDependencyMiddleman(
           owner,
           name,
           purpose,

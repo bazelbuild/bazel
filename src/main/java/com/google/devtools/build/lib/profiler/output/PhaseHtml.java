@@ -40,7 +40,6 @@ public final class PhaseHtml extends HtmlPrinter {
   private final EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics;
   private final Optional<CriticalPathStatistics> criticalPathStatistics;
   private final int vfsStatsLimit;
-  private final Optional<Integer> missingActionsCount;
 
   /**
    * @param vfsStatsLimit maximum number of VFS statistics to print, or -1 for no limit.
@@ -50,13 +49,11 @@ public final class PhaseHtml extends HtmlPrinter {
       PhaseSummaryStatistics phaseSummaryStats,
       EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics,
       Optional<CriticalPathStatistics> critPathStats,
-      Optional<Integer> missingActionsCount,
       int vfsStatsLimit) {
     super(out);
     this.phaseSummaryStats = phaseSummaryStats;
     this.phaseStatistics = phaseStatistics;
     this.criticalPathStatistics = critPathStats;
-    this.missingActionsCount = missingActionsCount;
     this.vfsStatsLimit = vfsStatsLimit;
   }
 
@@ -70,7 +67,6 @@ public final class PhaseHtml extends HtmlPrinter {
         summaryStatistics,
         summaryPhaseStatistics,
         Optional.<CriticalPathStatistics>absent(),
-        Optional.<Integer>absent(),
         vfsStatsLimit);
   }
 
@@ -177,16 +173,6 @@ public final class PhaseHtml extends HtmlPrinter {
 
     if (criticalPathStatistics.isPresent()) {
       criticalPaths.printCriticalPaths();
-    }
-
-    if (missingActionsCount.isPresent() && missingActionsCount.get() > 0) {
-      lnOpen("p");
-      lnPrint(missingActionsCount.get());
-      print(
-          " action(s) are present in the"
-              + " action graph but missing instrumentation data. Most likely the profile file"
-              + " has been created during a failed or aborted build.");
-      lnClose();
     }
 
     printVfsStatistics(execPhase.getVfsStatistics());

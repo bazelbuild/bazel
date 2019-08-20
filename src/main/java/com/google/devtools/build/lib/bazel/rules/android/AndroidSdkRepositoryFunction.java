@@ -97,9 +97,12 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     FileSystem fs = directories.getOutputBase().getFileSystem();
     Path androidSdkPath;
+    String userDefinedPath = null;
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
-      androidSdkPath = fs.getPath(getTargetPath(rule, directories.getWorkspace()));
+      userDefinedPath = getPathAttr(rule);
+      androidSdkPath = fs.getPath(getTargetPath(userDefinedPath, directories.getWorkspace()));
     } else if (environ.get(PATH_ENV_VAR) != null) {
+      userDefinedPath = environ.get(PATH_ENV_VAR);
       androidSdkPath =
           fs.getPath(getAndroidHomeEnvironmentVar(directories.getWorkspace(), environ));
     } else {
@@ -111,7 +114,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
           Transience.PERSISTENT);
     }
 
-    if (!symlinkLocalRepositoryContents(outputDirectory, androidSdkPath)) {
+    if (!symlinkLocalRepositoryContents(outputDirectory, androidSdkPath, userDefinedPath)) {
       return null;
     }
 

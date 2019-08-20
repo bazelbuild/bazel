@@ -123,10 +123,10 @@ distdir_tar(
         "java_tools_javac11_windows-v4.0.zip",
         "java_tools_javac11_darwin-v4.0.zip",
         "coverage_output_generator-v1.0.zip",
-        "542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
+        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "0.16.2.zip",
-        "android_tools_pkg-0.8.tar.gz",
+        "android_tools_pkg-0.9.tar.gz",
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         # bazelbuild/rules_java
@@ -148,10 +148,10 @@ distdir_tar(
         "java_tools_javac11_windows-v4.0.zip": "a1de51447b2ba2eab923d589ba6c72c289c16e6091e6a3bb3e67a05ef4ad200c",
         "java_tools_javac11_darwin-v4.0.zip": "fbf5bf22e9aab9c622e4c8c59314a1eef5ea09eafc5672b4f3250dc0b971bbcc",
         "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
-        "542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz": "1a90e8b0c01c9ec82fc1836c55813a8de79fc0667ed64cfa64fb0cca81a3195d",
+        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
-        "android_tools_pkg-0.8.tar.gz": "a9eac6e1b27d5549edaaa724b20eb1cdae6253b84f44d5744c30372bd523cfcd",  # built at 5dd956930fba6201a820f82a738dbb72f6cfab52
+        "android_tools_pkg-0.9.tar.gz": "23011efa92c7566ad0bcea69a90c9efeec1e96e73d865eb88a6dc934fe47db9b", # built at 43fc06881c9ec39712fbfa557b7df1137e3aeec3
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
         # bazelbuild/rules_java
@@ -186,9 +186,9 @@ distdir_tar(
         "coverage_output_generator-v1.0.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip",
         ],
-        "542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
-            "https://github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
+        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+            "https://github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
         ],
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
@@ -198,8 +198,8 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
             "https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
         ],
-        "android_tools_pkg-0.8.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.8.tar.gz",
+        "android_tools_pkg-0.9.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.9.tar.gz",
         ],
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": [
@@ -444,11 +444,11 @@ http_archive(
 # to work without being patched, as it hard-codes this name in its sources.
 http_archive(
     name = "io_bazel_skydoc",
-    sha256 = "1a90e8b0c01c9ec82fc1836c55813a8de79fc0667ed64cfa64fb0cca81a3195d",
-    strip_prefix = "skydoc-542f1a436e0503111c04f29d8ab341c170c9ad1a",
+    sha256 = "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
+    strip_prefix = "skydoc-c7bbde2950769aac9a99364b0926230060a3ce04",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
-        "https://github.com/bazelbuild/skydoc/archive/542f1a436e0503111c04f29d8ab341c170c9ad1a.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+        "https://github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
     ],
 )
 
@@ -506,7 +506,7 @@ distdir_tar(
         "zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip",
-        "android_tools_pkg-0.8.tar.gz",
+        "android_tools_pkg-0.9.tar.gz",
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         # bazelbuild/rules_java
@@ -541,7 +541,7 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": "f3f44b6235508e87b760bf37a49e186cc1fa4e9cd28384c4dbf5a33991921e08",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": "059f8e3484bf07b63a8f2820d5f528f473eff1befdb1896ee4f8ff06be3b8d8f",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": "e1f5b4ce1b9148140fae2fcfb8a96d1c9b7eac5b8df0e13fbcad9b8561284880",
-        "android_tools_pkg-0.8.tar.gz": "a9eac6e1b27d5549edaaa724b20eb1cdae6253b84f44d5744c30372bd523cfcd",  # built at 5dd956930fba6201a820f82a738dbb72f6cfab52
+        "android_tools_pkg-0.9.tar.gz": "23011efa92c7566ad0bcea69a90c9efeec1e96e73d865eb88a6dc934fe47db9b", # built at 43fc06881c9ec39712fbfa557b7df1137e3aeec3
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
         # bazelbuild/rules_java
@@ -575,8 +575,8 @@ distdir_tar(
         "zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.31.15-ca-jdk11.0.3/zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz"],
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip"],
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-win_x64.zip"],
-        "android_tools_pkg-0.8.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.8.tar.gz",
+        "android_tools_pkg-0.9.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.9.tar.gz",
         ],
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": [

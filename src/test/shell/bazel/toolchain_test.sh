@@ -1003,7 +1003,6 @@ sample_rule = rule(
   implementation = _impl,
   attrs = {},
   toolchains = ['//toolchain:test_toolchain'],
-  execution_platform_constraints_allowed = True,
 )
 EOF
 
@@ -1074,7 +1073,6 @@ sample_rule = rule(
     '//platforms:value2',
   ],
   toolchains = ['//toolchain:test_toolchain'],
-  execution_platform_constraints_allowed = True,
 )
 EOF
 
@@ -1453,7 +1451,6 @@ sample_rule = rule(
   attrs = {
     "dep": attr.label(cfg = 'exec'),
   },
-  execution_platform_constraints_allowed = True,
 )
 
 def _display_platform_impl(ctx):
@@ -1560,6 +1557,84 @@ EOF
   grep "config1 selected" bazel-bin/demo.log || fail "config1 expected"
   bazel build --platforms=//:platform2 //:demo &> $TEST_log || fail "Build failed"
   grep "config2 selected" bazel-bin/demo.log || fail "config2 expected"
+}
+
+function test_toolchain_modes {
+  write_test_toolchain foo_toolchain
+  write_test_rule test_rule foo_toolchain
+
+  mkdir -p project
+  cat > project/flags.bzl <<EOF
+def _impl(ctx):
+  pass
+
+string_flag = rule(
+    implementation = _impl,
+    build_setting = config.string(flag = True),
+)
+EOF
+
+  cat >> project/BUILD <<EOF
+load('//toolchain:toolchain_foo_toolchain.bzl', 'foo_toolchain')
+load('//toolchain:rule_test_rule.bzl', 'test_rule')
+load('//project:flags.bzl', 'string_flag')
+
+string_flag(
+  name = 'version',
+  build_setting_default = 'production'
+)
+
+config_setting(
+  name = 'production',
+  flag_values = {
+    ':version': 'production'
+  }
+)
+
+config_setting(
+  name = 'unstable',
+  flag_values = {
+    ':version': 'unstable'
+  }
+)
+
+filegroup(name = 'dep')
+foo_toolchain(
+    name = 'production_toolchain',
+    extra_label = ':dep',
+    extra_str = 'production',
+)
+
+foo_toolchain(
+    name = 'unstable_toolchain',
+    extra_label = ':dep',
+    extra_str = 'unstable',
+)
+
+toolchain(
+    name = 'toolchain',
+    toolchain_type = '//toolchain:foo_toolchain',
+    toolchain = select({
+      ':production': ':production_toolchain',
+      ':unstable': ':unstable_toolchain',
+    })
+)
+
+test_rule(
+  name = 'test',
+  message = 'hello',
+)
+EOF
+
+  cat >> WORKSPACE <<EOF
+register_toolchains('//project:toolchain')
+EOF
+
+  bazel build //project:test &> "${TEST_log}" || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "hello", toolchain extra_str: "production"'
+
+  bazel build --//project:version="unstable" //project:test &> "${TEST_log}" || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "hello", toolchain extra_str: "unstable"'
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.

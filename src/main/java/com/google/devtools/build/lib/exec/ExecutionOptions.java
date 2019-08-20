@@ -136,14 +136,12 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Writes intermediate parameter files to output tree even when using "
               + "remote action execution. Useful when debugging actions. "
-              + "This is implied by --subcommands or --verbose_failures.")
+              + "This is implied by --subcommands.")
   public boolean materializeParamFiles;
 
   public boolean shouldMaterializeParamFiles() {
-    // Implied by --subcommands or --verbose_failures
-    return materializeParamFiles
-        || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE
-        || verboseFailures;
+    // Implied by --subcommands
+    return materializeParamFiles || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE;
   }
 
   @Option(

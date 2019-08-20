@@ -19,7 +19,7 @@ import java.io.IOException;
 public final class IntegerLiteral extends Expression {
   private final int value;
 
-  public IntegerLiteral(int value) {
+  IntegerLiteral(int value) {
     this.value = value;
   }
 

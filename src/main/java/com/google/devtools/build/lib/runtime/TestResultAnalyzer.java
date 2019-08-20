@@ -260,6 +260,8 @@ public class TestResultAnalyzer {
 
     summaryBuilder
         .addTestTimes(result.getData().getTestTimesList())
+        .mergeTiming(
+            result.getData().getStartTimeMillisEpoch(), result.getData().getRunDurationMillis())
         .addWarnings(result.getData().getWarningList())
         .collectFailedTests(result.getData().getTestCase())
         .countTotalTestCases(result.getData().getTestCase())

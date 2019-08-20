@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -74,7 +75,8 @@ public final class JavaCompileActionBuilder {
   @ThreadCompatible
   @Immutable
   @AutoCodec
-  static class JavaCompileExtraActionInfoSupplier {
+  static class JavaCompileExtraActionInfoSupplier
+      implements JavaCompileAction.ExtraActionInfoSupplier {
 
     private final Artifact outputJar;
 
@@ -118,7 +120,8 @@ public final class JavaCompileActionBuilder {
       this.javacOpts = javacOpts;
     }
 
-    public void extend(ExtraActionInfo.Builder builder, List<String> arguments) {
+    @Override
+    public void extend(ExtraActionInfo.Builder builder, ImmutableList<String> arguments) {
       JavaCompileInfo.Builder info =
           JavaCompileInfo.newBuilder()
               .addAllSourceFile(Artifact.toExecPaths(sourceFiles))
@@ -292,13 +295,17 @@ public final class JavaCompileActionBuilder {
     mandatoryInputs.addTransitive(tools);
     JavaCompileAction javaCompileAction =
         new JavaCompileAction(
+            /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
             /* owner= */ ruleContext.getActionOwner(),
             /* env= */ actionEnvironment,
             /* tools= */ tools,
             /* runfilesSupplier= */ runfilesSupplier,
-            /* sourceFiles= */ sourceFiles,
-            /* sourceJars= */ sourceJars,
-            /* plugins= */ plugins,
+            /* progressMessage= */ new ProgressMessage(
+                /* prefix= */ "Building",
+                /* output= */ outputJar,
+                /* sourceFiles= */ sourceFiles,
+                /* sourceJars= */ sourceJars,
+                /* plugins= */ plugins),
             /* mandatoryInputs= */ mandatoryInputs.build(),
             /* transitiveInputs= */ classpathEntries,
             /* directJars= */ directJars,
@@ -440,10 +447,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  /**
-   * Sets the strictness of Java dependency checking, see {@link
-   * com.google.devtools.build.lib.analysis.config.StrictDepsMode}.
-   */
+  /** Sets the strictness of Java dependency checking, see {@link StrictDepsMode}. */
   public JavaCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictDeps) {
     strictJavaDeps = strictDeps;
     return this;

@@ -82,89 +82,6 @@ public class AndroidResourceMerger {
 
   static final Logger logger = Logger.getLogger(AndroidResourceProcessor.class.getName());
 
-  /** Merges all secondary resources with the primary resources. */
-  public static MergedAndroidData mergeDataAndWrite(
-      final ParsedAndroidData primary,
-      final Path primaryManifest,
-      final List<? extends SerializedAndroidData> direct,
-      final List<? extends SerializedAndroidData> transitive,
-      final Path resourcesOut,
-      final Path assetsOut,
-      @Nullable final PngCruncher cruncher,
-      final VariantType type,
-      @Nullable final Path symbolsOut,
-      @Nullable AndroidResourceClassWriter rclassWriter,
-      AndroidDataDeserializer deserializer,
-      boolean throwOnResourceConflict,
-      ListeningExecutorService executorService) {
-    Stopwatch timer = Stopwatch.createStarted();
-    try {
-      UnwrittenMergedAndroidData merged =
-          mergeData(
-              executorService,
-              transitive,
-              direct,
-              primary,
-              primaryManifest,
-              type != VariantType.LIBRARY,
-              deserializer,
-              throwOnResourceConflict,
-              ContentComparingChecker.create());
-      timer.reset().start();
-      if (symbolsOut != null) {
-        AndroidDataSerializer serializer = AndroidDataSerializer.create();
-        merged.serializeTo(serializer);
-        serializer.flushTo(symbolsOut);
-        logger.fine(
-            String.format(
-                "serialize merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-        timer.reset().start();
-      }
-      if (rclassWriter != null) {
-        merged.writeResourceClass(rclassWriter);
-        logger.fine(
-            String.format("write classes finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-        timer.reset().start();
-      }
-      AndroidDataWriter writer =
-          AndroidDataWriter.createWith(
-              resourcesOut.getParent(), resourcesOut, assetsOut, cruncher, executorService);
-      return merged.write(writer);
-    } catch (IOException e) {
-      throw MergingException.wrapException(e);
-    } finally {
-      logger.fine(
-          String.format("write merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-    }
-  }
-
-  public static UnwrittenMergedAndroidData mergeData(
-      ListeningExecutorService executorService,
-      List<? extends SerializedAndroidData> transitive,
-      List<? extends SerializedAndroidData> direct,
-      ParsedAndroidData primary,
-      Path primaryManifest,
-      boolean allowPrimaryOverrideAll,
-      AndroidDataDeserializer deserializer,
-      boolean throwOnResourceConflict,
-      SourceChecker checker) {
-    Stopwatch timer = Stopwatch.createStarted();
-    // TODO(b/74333698): Always check the contents of conflicting resources
-    try {
-      AndroidDataMerger merger =
-          AndroidDataMerger.createWithPathDeduplictor(executorService, deserializer, checker);
-      return merger.loadAndMerge(
-          transitive,
-          direct,
-          primary,
-          primaryManifest,
-          allowPrimaryOverrideAll,
-          throwOnResourceConflict);
-    } finally {
-      logger.fine(String.format("merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-    }
-  }
-
   /**
    * Merges all secondary resources with the primary resources, given that the primary resources
    * have not yet been parsed and serialized.
@@ -238,11 +155,94 @@ public class AndroidResourceMerger {
         executorService);
   }
 
+  /** Merges all secondary resources with the primary resources. */
+  private static MergedAndroidData mergeDataAndWrite(
+      final ParsedAndroidData primary,
+      final Path primaryManifest,
+      final List<? extends SerializedAndroidData> direct,
+      final List<? extends SerializedAndroidData> transitive,
+      final Path resourcesOut,
+      final Path assetsOut,
+      @Nullable final PngCruncher cruncher,
+      final VariantType type,
+      @Nullable final Path symbolsOut,
+      @Nullable AndroidResourceClassWriter rclassWriter,
+      AndroidDataDeserializer deserializer,
+      boolean throwOnResourceConflict,
+      ListeningExecutorService executorService) {
+    Stopwatch timer = Stopwatch.createStarted();
+    try {
+      UnwrittenMergedAndroidData merged =
+          mergeData(
+              executorService,
+              transitive,
+              direct,
+              primary,
+              primaryManifest,
+              type != VariantType.LIBRARY,
+              deserializer,
+              throwOnResourceConflict,
+              ContentComparingChecker.create());
+      timer.reset().start();
+      if (symbolsOut != null) {
+        AndroidDataSerializer serializer = AndroidDataSerializer.create();
+        merged.serializeTo(serializer);
+        serializer.flushTo(symbolsOut);
+        logger.fine(
+            String.format(
+                "serialize merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+        timer.reset().start();
+      }
+      if (rclassWriter != null) {
+        merged.writeResourceClass(rclassWriter);
+        logger.fine(
+            String.format("write classes finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+        timer.reset().start();
+      }
+      AndroidDataWriter writer =
+          AndroidDataWriter.createWith(
+              resourcesOut.getParent(), resourcesOut, assetsOut, cruncher, executorService);
+      return merged.write(writer);
+    } catch (IOException e) {
+      throw MergingException.wrapException(e);
+    } finally {
+      logger.fine(
+          String.format("write merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+    }
+  }
+
+  private static UnwrittenMergedAndroidData mergeData(
+      ListeningExecutorService executorService,
+      List<? extends SerializedAndroidData> transitive,
+      List<? extends SerializedAndroidData> direct,
+      ParsedAndroidData primary,
+      Path primaryManifest,
+      boolean allowPrimaryOverrideAll,
+      AndroidDataDeserializer deserializer,
+      boolean throwOnResourceConflict,
+      SourceChecker checker) {
+    Stopwatch timer = Stopwatch.createStarted();
+    // TODO(b/74333698): Always check the contents of conflicting resources
+    try {
+      AndroidDataMerger merger =
+          AndroidDataMerger.createWithPathDeduplictor(executorService, deserializer, checker);
+      return merger.loadAndMerge(
+          transitive,
+          direct,
+          primary,
+          primaryManifest,
+          allowPrimaryOverrideAll,
+          throwOnResourceConflict);
+    } finally {
+      logger.fine(String.format("merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+    }
+  }
+
   /**
    * Merges all secondary compiled resources with the primary compiled resources, given that the
    * primary resources have been separately compiled
    */
-  public static void mergeCompiledData(
+  static void mergeCompiledData(
       final SerializedAndroidData primary,
       final Path primaryManifest,
       final List<? extends SerializedAndroidData> direct,

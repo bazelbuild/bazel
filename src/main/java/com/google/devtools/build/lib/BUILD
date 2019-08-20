@@ -402,6 +402,7 @@ java_library(
         "analysis/skylark/SymbolGenerator.java",
     ],
     deps = [
+        ":rule-definition-context",
         ":skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/cmdline:RepositoryName",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -532,6 +533,7 @@ java_library(
         ":config-matching-provider",
         ":config-transitions",
         ":events",
+        ":rule-definition-context",
         ":skylark_semantics",
         ":skylarkinterface",
         ":starlark_context",
@@ -656,6 +658,7 @@ java_library(
         "runtime/BuildEventStreamerUtils.java",
     ],
     exports = [
+        ":rule-definition-context",
         ":transitive-info-provider",
     ],
     deps = [
@@ -672,6 +675,7 @@ java_library(
         ":process_util",
         ":provider-collection",
         ":resource-converter",
+        ":rule-definition-context",
         ":skylark_semantics",
         ":skylarkinterface",
         ":syntax",
@@ -1376,6 +1380,13 @@ java_library(
     deps = [
         ":string_util",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "rule-definition-context",
+    srcs = [
+        "analysis/RuleDefinitionContext.java",
     ],
 )
 

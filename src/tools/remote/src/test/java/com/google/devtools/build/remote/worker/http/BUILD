@@ -1,5 +1,3 @@
-load("@rules_java//java:defs.bzl", "java_test")
-
 package(
     default_testonly = 1,
     default_visibility = ["//src/tools/remote:__pkg__"],
@@ -13,11 +11,12 @@ filegroup(
 )
 
 java_test(
-    name = "worker",
+    name = "http",
     srcs = glob(["*.java"]),
-    test_class = "com.google.devtools.build.remote.worker.HttpCacheServerHandlerTest",
+    test_class = "com.google.devtools.build.remote.worker.http.HttpCacheServerHandlerTest",
     deps = [
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party:junit4",
         "//third_party:truth",
     ],

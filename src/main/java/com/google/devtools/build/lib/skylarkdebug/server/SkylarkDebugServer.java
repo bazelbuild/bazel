@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Eval;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.TokenKind;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.List;
@@ -254,9 +255,9 @@ public final class SkylarkDebugServer implements DebugServer {
     }
 
     @Override
-    public void exec(Statement st) throws EvalException, InterruptedException {
+    protected TokenKind exec(Statement st) throws EvalException, InterruptedException {
       pauseIfNecessary(env, st.getLocation());
-      super.exec(st);
+      return super.exec(st);
     }
   }
 }

@@ -25,18 +25,19 @@ public class CollectLocalCpuUsage extends Thread {
   private static final long LOCAL_CPU_SLEEP_MILLIS = 200;
 
   private volatile boolean stopCpuUsage;
+  private volatile boolean profilingStarted;
   private long cpuProfileStartMillis;
   private TimeSeries localCpuUsage;
 
   @Override
   public void run() {
-    stopCpuUsage = false;
     cpuProfileStartMillis = System.currentTimeMillis();
     localCpuUsage = new TimeSeries(cpuProfileStartMillis, BUCKET_SIZE_MILLIS);
     OperatingSystemMXBean bean =
         (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
     long previousTimeMillis = System.currentTimeMillis();
     long previousCpuTimeMillis = TimeUnit.NANOSECONDS.toMillis(bean.getProcessCpuTime());
+    profilingStarted = true;
     while (!stopCpuUsage) {
       try {
         Thread.sleep(LOCAL_CPU_SLEEP_MILLIS);
@@ -60,6 +61,9 @@ public class CollectLocalCpuUsage extends Thread {
   }
 
   public void logCollectedData() {
+    if (!profilingStarted) {
+      return;
+    }
     Preconditions.checkArgument(stopCpuUsage);
     long currentTimeNanos = System.nanoTime();
     long currentTimeMillis = System.currentTimeMillis();

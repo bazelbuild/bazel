@@ -38,6 +38,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -52,10 +53,10 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -401,6 +402,22 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     }
   }
 
+  @Override
+  protected ListenableFuture<Void> uploadFile(Digest digest, Path path) {
+    return uploader.uploadBlobAsync(
+        HashCode.fromString(digest.getHash()),
+        Chunker.builder().setInput(digest.getSizeBytes(), path).build(),
+        /* forceUpload= */ true);
+  }
+
+  @Override
+  protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+    return uploader.uploadBlobAsync(
+        HashCode.fromString(digest.getHash()),
+        Chunker.builder().setInput(data.toByteArray()).build(),
+        /* forceUpload= */ true);
+  }
+
   void upload(
       Path execRoot,
       ActionKey actionKey,
@@ -421,33 +438,29 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     manifest.setStdoutStderr(outErr);
     manifest.addAction(actionKey, action, command);
 
-    Map<HashCode, Chunker> filesToUpload = Maps.newHashMap();
-
     Map<Digest, Path> digestToFile = manifest.getDigestToFile();
-    Map<Digest, Chunker> digestToChunkers = manifest.getDigestToChunkers();
+    Map<Digest, ByteString> digestToBlobs = manifest.getDigestToBlobs();
     Collection<Digest> digests = new ArrayList<>();
     digests.addAll(digestToFile.keySet());
-    digests.addAll(digestToChunkers.keySet());
+    digests.addAll(digestToBlobs.keySet());
 
     ImmutableSet<Digest> digestsToUpload = getMissingDigests(digests);
+    ImmutableList.Builder<ListenableFuture<Void>> uploads = ImmutableList.builder();
     for (Digest digest : digestsToUpload) {
-      Chunker chunker;
       Path file = digestToFile.get(digest);
       if (file != null) {
-        chunker = Chunker.builder().setInput(digest.getSizeBytes(), file).build();
+        uploads.add(uploadFile(digest, file));
       } else {
-        chunker = digestToChunkers.get(digest);
-        if (chunker == null) {
+        ByteString blob = digestToBlobs.get(digest);
+        if (blob == null) {
           String message = "FindMissingBlobs call returned an unknown digest: " + digest;
           throw new IOException(message);
         }
+        uploads.add(uploadBlob(digest, blob));
       }
-      filesToUpload.put(HashCode.fromString(digest.getHash()), chunker);
     }
 
-    if (!filesToUpload.isEmpty()) {
-      uploader.uploadBlobs(filesToUpload, /*forceUpload=*/true);
-    }
+    waitForUploads(uploads.build());
 
     if (manifest.getStderrDigest() != null) {
       result.setStderrDigest(manifest.getStderrDigest());
@@ -456,7 +469,26 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       result.setStdoutDigest(manifest.getStdoutDigest());
     }
   }
-  
+
+  private static void waitForUploads(List<ListenableFuture<Void>> uploads)
+      throws IOException, InterruptedException {
+    try {
+      for (ListenableFuture<Void> upload : uploads) {
+        upload.get();
+      }
+    } catch (ExecutionException e) {
+      // TODO(buchgr): Add support for cancellation and factor this method out to be shared
+      // between ByteStreamUploader as well.
+      Throwable cause = e.getCause();
+      Throwables.throwIfInstanceOf(cause, IOException.class);
+      Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+      if (cause != null) {
+        throw new IOException(cause);
+      }
+      throw new IOException(e);
+    }
+  }
+
   // Execution Cache API
 
   @Override

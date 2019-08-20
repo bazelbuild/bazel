@@ -165,7 +165,7 @@ def maybe(repo_rule, name, **kwargs):
     Returns:
         Nothing, defines the repository when needed as a side-effect.
     """
-    if name not in native.existing_rules():
+    if not native.existing_rule(name):
         repo_rule(name = name, **kwargs)
 
 def read_netrc(ctx, filename):

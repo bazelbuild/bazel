@@ -368,7 +368,7 @@ public final class JavaCompilationHelper {
     JavaTargetAttributes attributes = getAttributes();
     JavaHeaderCompileActionBuilder builder = new JavaHeaderCompileActionBuilder(getRuleContext());
     builder.setSourceFiles(attributes.getSourceFiles());
-    builder.addSourceJars(attributes.getSourceJars());
+    builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(
         ImmutableList.copyOf(Iterables.concat(getBootclasspathOrDefault(), getExtdirInputs())));
@@ -383,8 +383,6 @@ public final class JavaCompilationHelper {
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
-    builder.setReduceClasspath(
-        getJavaConfiguration().getReduceJavaClasspath() != JavaClasspathMode.OFF);
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setTargetLabel(attributes.getTargetLabel());

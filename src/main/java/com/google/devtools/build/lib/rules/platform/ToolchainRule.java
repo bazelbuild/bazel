@@ -84,10 +84,7 @@ public class ToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         // This needs to not introduce a dependency so that we can load the toolchain only if it is
         // needed.
-        .add(
-            attr(TOOLCHAIN_ATTR, BuildType.NODEP_LABEL)
-                .mandatory()
-                .nonconfigurable("part of toolchain configuration"))
+        .add(attr(TOOLCHAIN_ATTR, BuildType.NODEP_LABEL).mandatory())
         .build();
   }
 

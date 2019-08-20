@@ -126,6 +126,13 @@ public final class BuildEventId implements Serializable {
             .build());
   }
 
+  public static BuildEventId buildMetadataId() {
+    BuildEventStreamProtos.BuildEventId.BuildMetadataId buildMetadataId =
+        BuildEventStreamProtos.BuildEventId.BuildMetadataId.getDefaultInstance();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setBuildMetadata(buildMetadataId).build());
+  }
+
   public static BuildEventId workspaceConfigId() {
     BuildEventStreamProtos.BuildEventId.WorkspaceConfigId workspaceConfigId =
         BuildEventStreamProtos.BuildEventId.WorkspaceConfigId.getDefaultInstance();

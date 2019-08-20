@@ -136,6 +136,13 @@ public interface AndroidConfigurationApi {
   boolean useAndroidResourceCycleShrinking();
 
   @SkylarkCallable(
+      name = "use_android_resource_path_shortening",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean useAndroidResourcePathShortening();
+
+  @SkylarkCallable(
       name = "use_single_jar_apk_builder",
       structField = true,
       doc = "",

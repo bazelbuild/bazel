@@ -276,7 +276,8 @@ class CharPP {
   char** charpp_;
 };
 
-void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
+static void ExecuteProgram(const string& exe,
+                           const vector<string>& args_vector) {
   BAZEL_LOG(INFO) << "Invoking binary " << exe << " in "
                   << blaze_util::GetCwd();
 
@@ -287,6 +288,16 @@ void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   // adverse scheduling effects on any tools invoked via ExecuteProgram.
   CharPP argv(args_vector);
   execv(exe.c_str(), argv.get());
+}
+
+void ExecuteServerJvm(const string& exe,
+                      const std::vector<string>& server_jvm_args) {
+  ExecuteProgram(exe, server_jvm_args);
+}
+
+void ExecuteRunRequest(const string& exe,
+                       const std::vector<string>& run_request_args) {
+  ExecuteProgram(exe, run_request_args);
 }
 
 const char kListSeparator = ':';

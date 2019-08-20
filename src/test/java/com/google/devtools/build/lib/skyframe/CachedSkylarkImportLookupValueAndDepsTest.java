@@ -14,17 +14,20 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Tests for {@link CachedSkylarkImportLookupValueAndDeps}. */
 @RunWith(JUnit4.class)
@@ -39,46 +42,63 @@ public class CachedSkylarkImportLookupValueAndDepsTest {
     //   \  /
     //    gc
 
-    SkylarkImportLookupValue dummyValue = Mockito.mock(SkylarkImportLookupValue.class);
+    SkylarkImportLookupValue dummyValue = mock(SkylarkImportLookupValue.class);
+    CachedSkylarkImportLookupValueAndDepsBuilderFactory
+        cachedSkylarkImportLookupValueAndDepsBuilderFactory =
+            new CachedSkylarkImportLookupValueAndDepsBuilderFactory();
 
+    SkylarkImportLookupKey gcKey = createSkylarkKey("//gc");
     SkyKey gcKey1 = createKey("gc key1");
     SkyKey gcKey2 = createKey("gc key2");
     SkyKey gcKey3 = createKey("gc key3");
     CachedSkylarkImportLookupValueAndDeps gc =
-        CachedSkylarkImportLookupValueAndDeps.newBuilder()
+        cachedSkylarkImportLookupValueAndDepsBuilderFactory
+            .newCachedSkylarkImportLookupValueAndDepsBuilder()
             .addDep(gcKey1)
             .addDeps(ImmutableList.of(gcKey2, gcKey3))
+            .setKey(gcKey)
             .setValue(dummyValue)
             .build();
 
+    SkylarkImportLookupKey c1Key = createSkylarkKey("//c1");
     SkyKey c1Key1 = createKey("c1 key1");
     CachedSkylarkImportLookupValueAndDeps c1 =
-        CachedSkylarkImportLookupValueAndDeps.newBuilder()
+        cachedSkylarkImportLookupValueAndDepsBuilderFactory
+            .newCachedSkylarkImportLookupValueAndDepsBuilder()
             .addDep(c1Key1)
             .addTransitiveDeps(gc)
             .setValue(dummyValue)
+            .setKey(c1Key)
             .build();
 
+    SkylarkImportLookupKey c2Key = createSkylarkKey("//c2");
     SkyKey c2Key1 = createKey("c2 key1");
     SkyKey c2Key2 = createKey("c2 key2");
     CachedSkylarkImportLookupValueAndDeps c2 =
-        CachedSkylarkImportLookupValueAndDeps.newBuilder()
+        cachedSkylarkImportLookupValueAndDepsBuilderFactory
+            .newCachedSkylarkImportLookupValueAndDepsBuilder()
             .addDeps(ImmutableList.of(c2Key1, c2Key2))
             .addTransitiveDeps(gc)
             .setValue(dummyValue)
+            .setKey(c2Key)
             .build();
 
+    SkylarkImportLookupKey pKey = createSkylarkKey("//p");
     SkyKey pKey1 = createKey("p key1");
     CachedSkylarkImportLookupValueAndDeps p =
-        CachedSkylarkImportLookupValueAndDeps.newBuilder()
+        cachedSkylarkImportLookupValueAndDepsBuilderFactory
+            .newCachedSkylarkImportLookupValueAndDepsBuilder()
             .addDep(pKey1)
             .addTransitiveDeps(c1)
             .addTransitiveDeps(c2)
             .setValue(dummyValue)
+            .setKey(pKey)
             .build();
 
     List<Iterable<SkyKey>> registeredDeps = new ArrayList<>();
-    p.traverse(registeredDeps::add, /*visitedGlobalDeps=*/ new HashSet<>());
+    Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps> visitedDepsInToplevelLoad =
+        new HashMap<>();
+    p.traverse(registeredDeps::add, visitedDepsInToplevelLoad);
 
     assertThat(registeredDeps)
         .containsExactly(
@@ -88,6 +108,9 @@ public class CachedSkylarkImportLookupValueAndDepsTest {
             ImmutableList.of(gcKey2, gcKey3),
             ImmutableList.of(c2Key1, c2Key2))
         .inOrder();
+
+    // Note that (pKey, p) is expected to be added separately.
+    assertThat(visitedDepsInToplevelLoad).containsExactly(c1Key, c1, c2Key, c2, gcKey, gc);
   }
 
   private static SkyKey createKey(String name) {
@@ -103,5 +126,13 @@ public class CachedSkylarkImportLookupValueAndDepsTest {
         return name;
       }
     };
+  }
+
+  private static SkylarkImportLookupKey createSkylarkKey(String name) {
+    return SkylarkImportLookupKey.create(
+        Label.parseAbsoluteUnchecked(name),
+        /*inWorkspace=*/ false,
+        /*workspaceChunk=*/ 0,
+        /* workspacePath= */ null);
   }
 }

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -31,7 +30,7 @@ import javax.annotation.Nullable;
  * Encapsulates the two syntactic variants of Starlark imports: absolute labels and relative labels.
  */
 @AutoCodec
-public class SkylarkImport implements Serializable {
+public class SkylarkImport {
   private final String importString;
   @Nullable private final Label importLabel;
 

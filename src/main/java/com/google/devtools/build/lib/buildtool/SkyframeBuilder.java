@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -72,6 +73,7 @@ import javax.annotation.Nullable;
 @VisibleForTesting
 public class SkyframeBuilder implements Builder {
 
+  private final ResourceManager resourceManager;
   private final SkyframeExecutor skyframeExecutor;
   private final ModifiedFileSet modifiedOutputFiles;
   private final MetadataProvider fileCache;
@@ -82,11 +84,13 @@ public class SkyframeBuilder implements Builder {
   @VisibleForTesting
   public SkyframeBuilder(
       SkyframeExecutor skyframeExecutor,
+      ResourceManager resourceManager,
       ActionCacheChecker actionCacheChecker,
       TopDownActionCache topDownActionCache,
       ModifiedFileSet modifiedOutputFiles,
       MetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher) {
+    this.resourceManager = resourceManager;
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
     this.topDownActionCache = topDownActionCache;
@@ -152,6 +156,7 @@ public class SkyframeBuilder implements Builder {
       result =
           skyframeExecutor.buildArtifacts(
               reporter,
+              resourceManager,
               executor,
               artifacts,
               targetsToBuild,
@@ -184,6 +189,7 @@ public class SkyframeBuilder implements Builder {
         result =
             skyframeExecutor.runExclusiveTest(
                 reporter,
+                resourceManager,
                 executor,
                 exclusiveTest,
                 options,

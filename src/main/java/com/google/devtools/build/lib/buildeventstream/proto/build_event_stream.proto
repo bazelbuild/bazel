@@ -90,6 +90,8 @@ message BuildEventId {
 
   message WorkspaceConfigId {}
 
+  message BuildMetadataId {}
+
   // Identifier of an event indicating that a target has been expanded by
   // identifying for which configurations it should be build.
   message TargetConfiguredId {
@@ -212,6 +214,7 @@ message BuildEventId {
     BuildToolLogsId build_tool_logs = 20;
     BuildMetricsId build_metrics = 22;
     WorkspaceConfigId workspace = 23;
+    BuildMetadataId build_metadata = 24;
   }
 }
 
@@ -350,6 +353,13 @@ message WorkspaceStatus {
     string value = 2;
   }
   repeated Item item = 1;
+}
+
+// Payload of an event reporting custom key-value metadata associated with the
+// build.
+message BuildMetadata {
+  // Custom metadata for the build.
+  map<string, string> metadata = 1;
 }
 
 // Payload of an event reporting details of a given configuration.
@@ -584,8 +594,6 @@ message TestResult {
 }
 
 // Payload of the event summarizing a test.
-// TODO(aehlig): extend event with additional information as soon as we known
-// which additional information we need for test summaries.
 message TestSummary {
   // Wrapper around BlazeTestStatus to support importing that enum to proto3.
   // Overall status of test, accumulated over all runs, shards, and attempts.
@@ -602,6 +610,15 @@ message TestSummary {
 
   // Total number of cached test actions
   int32 total_num_cached = 6;
+
+  // When the test first started running.
+  int64 first_start_time_millis = 7;
+
+  // When the last test action completed.
+  int64 last_stop_time_millis = 8;
+
+  // The total runtime of the test.
+  int64 total_run_duration_millis = 9;
 }
 
 // Event indicating the end of a build.
@@ -709,5 +726,6 @@ message BuildEvent {
     BuildToolLogs build_tool_logs = 23;
     BuildMetrics build_metrics = 24;
     WorkspaceConfig workspace_info = 25;
+    BuildMetadata build_metadata = 26;
   }
 }

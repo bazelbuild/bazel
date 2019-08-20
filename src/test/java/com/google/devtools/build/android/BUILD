@@ -258,20 +258,6 @@ java_test(
 )
 
 java_test(
-    name = "SplitConfigurationFilterTest",
-    size = "small",
-    srcs = ["SplitConfigurationFilterTest.java"],
-    deps = [
-        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "UnvalidatedAndroidDataTest",
     size = "small",
     srcs = ["UnvalidatedAndroidDataTest.java"],

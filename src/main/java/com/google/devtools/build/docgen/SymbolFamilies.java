@@ -45,6 +45,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkCommandLineApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidApplicationResourceInfo.FakeAndroidApplicationResourceInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBrokerInfo.FakeAndroidDeviceBrokerInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidNativeLibsInfo.FakeAndroidNativeLibsInfoProvider;
@@ -194,7 +195,8 @@ public class SymbolFamilies {
             new FakeAndroidInstrumentationInfoProvider(),
             new FakeAndroidDeviceBrokerInfoProvider(),
             new FakeAndroidResourcesInfoProvider(),
-            new FakeAndroidNativeLibsInfoProvider());
+            new FakeAndroidNativeLibsInfoProvider(),
+            new FakeAndroidApplicationResourceInfoProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
         new ConfigBootstrap(new FakeConfigSkylarkCommon(), new FakeConfigApi(),

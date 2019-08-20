@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -267,7 +267,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         allowNetwork
             || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
 
-    Map<PathFragment, Path> inputs =
+    SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
             spawn,
             context,

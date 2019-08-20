@@ -487,17 +487,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean isDisallowStrictDepsForJpl;
 
   @Option(
-      name = "experimental_java_header_compilation_disable_javac_fallback",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If --java_header_compilation is set, report diagnostics from turbine instead of "
-              + "falling back to javac. Diagnostics will be produced more quickly, but may be "
-              + "less helpful.")
-  public boolean headerCompilationDisableJavacFallback;
-
-  @Option(
       name = "experimental_one_version_enforcement",
       defaultValue = "OFF",
       converter = OneVersionEnforcementLevelConverter.class,
@@ -589,7 +578,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_require_java_toolchain_header_compiler_direct",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
@@ -627,6 +616,14 @@ public class JavaOptions extends FragmentOptions {
           "If enabled, direct usage of the native Java rules is disabled. Please use "
               + "the Starlark rules instead https://github.com/bazelbuild/rules_java")
   public boolean loadJavaRulesFromBzl;
+
+  @Option(
+      name = "experimental_java_header_input_pruning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, header compilation actions support --java_classpath=bazel")
+  public boolean experimentalJavaHeaderInputPruning;
 
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
@@ -689,6 +686,8 @@ public class JavaOptions extends FragmentOptions {
 
     host.disallowResourceJars = disallowResourceJars;
     host.loadJavaRulesFromBzl = loadJavaRulesFromBzl;
+
+    host.experimentalJavaHeaderInputPruning = experimentalJavaHeaderInputPruning;
 
     // Save host options for further use.
     host.hostJavaBase = hostJavaBase;

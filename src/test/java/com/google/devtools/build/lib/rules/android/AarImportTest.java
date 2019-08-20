@@ -140,10 +140,7 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void aapt2RTxtProvided() throws Exception {
-    useConfiguration(
-        "--android_sdk=//aapt2/sdk:sdk",
-        "--experimental_skip_parsing_action",
-        "--android_aapt=aapt2");
+    useConfiguration("--android_sdk=//aapt2/sdk:sdk", "--android_aapt=aapt2");
 
     ConfiguredTarget libTarget = getConfiguredTarget("//a:library");
 
@@ -153,9 +150,7 @@ public class AarImportTest extends BuildViewTestCase {
     assertThat(transitiveCompiledSymbols).hasSize(2);
 
     assertThat(
-            transitiveCompiledSymbols
-                .toSet()
-                .stream()
+            transitiveCompiledSymbols.toSet().stream()
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toSet()))
         .containsExactly("a/foo_symbols/symbols.zip", "a/library_symbols/symbols.zip");
@@ -530,14 +525,12 @@ public class AarImportTest extends BuildViewTestCase {
         provider.getCompileTimeJavaDependencyArtifacts().toList();
     assertThat(compileTimeJavaDependencyArtifacts).hasSize(2);
     assertThat(
-            compileTimeJavaDependencyArtifacts
-                .stream()
+            compileTimeJavaDependencyArtifacts.stream()
                 .filter(artifact -> artifact.getExecPathString().endsWith("/_aar/foo/jdeps.proto"))
                 .collect(Collectors.toList()))
         .hasSize(1);
     assertThat(
-            compileTimeJavaDependencyArtifacts
-                .stream()
+            compileTimeJavaDependencyArtifacts.stream()
                 .filter(artifact -> artifact.getExecPathString().endsWith("/_aar/bar/jdeps.proto"))
                 .collect(Collectors.toList()))
         .hasSize(1);

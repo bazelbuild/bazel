@@ -295,8 +295,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected boolean active = true;
   private final SkyframePackageManager packageManager;
 
-  private final ResourceManager resourceManager;
-
   /** Used to lock evaluator on legacy calls to get existing values. */
   private final Object valueLookupLock = new Object();
 
@@ -426,7 +424,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             pkgLocator,
             numPackagesLoaded,
             this);
-    this.resourceManager = ResourceManager.instance();
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
     this.actionKeyContext = Preconditions.checkNotNull(actionKeyContext);
@@ -556,8 +553,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldUnblockCpuWorkWhenFetchingDeps,
             defaultBuildOptions,
             configuredTargetProgress,
-            nonceVersion,
-            trimmingCache));
+            nonceVersion));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -1535,6 +1531,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public EvaluationResult<?> buildArtifacts(
       Reporter reporter,
+      ResourceManager resourceManager,
       Executor executor,
       Set<Artifact> artifactsToBuild,
       Collection<ConfiguredTarget> targetsToBuild,
@@ -1587,6 +1584,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Asks the Skyframe evaluator to run a single exclusive test. */
   public EvaluationResult<?> runExclusiveTest(
       Reporter reporter,
+      ResourceManager resourceManager,
       Executor executor,
       ConfiguredTarget exclusiveTest,
       OptionsProvider options,
@@ -1638,8 +1636,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Iterable<? extends SkyKey> patternSkyKeys,
       int numThreads,
       boolean keepGoing,
-      ExtendedEventHandler eventHandler,
-      boolean useForkJoinPool)
+      ExtendedEventHandler eventHandler)
       throws InterruptedException {
     checkActive();
     EvaluationContext evaluationContext =
@@ -1647,7 +1644,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .setKeepGoing(keepGoing)
             .setNumThreads(numThreads)
             .setEventHander(eventHandler)
-            .setUseForkJoinPool(useForkJoinPool)
+            .setUseForkJoinPool(true)
             .build();
     return buildDriver.evaluate(patternSkyKeys, evaluationContext);
   }
@@ -2440,8 +2437,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         ExtendedEventHandler eventHandler,
         Iterable<Label> labelsToVisit,
         boolean keepGoing,
-        int parallelThreads,
-        boolean useForkJoinPool)
+        int parallelThreads)
         throws InterruptedException {
       List<SkyKey> valueNames = new ArrayList<>();
       for (Label label : labelsToVisit) {
@@ -2452,7 +2448,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               .setKeepGoing(keepGoing)
               .setNumThreads(parallelThreads)
               .setEventHander(eventHandler)
-              .setUseForkJoinPool(useForkJoinPool)
+              .setUseForkJoinPool(true)
               .build();
       return buildDriver.evaluate(valueNames, evaluationContext);
     }

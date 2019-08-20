@@ -342,7 +342,7 @@ public class ExecutionTool {
       skyframeExecutor.drainChangedFiles();
 
       try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-        configureResourceManager(request);
+        configureResourceManager(env.getLocalResourceManager(), request);
       }
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
@@ -616,6 +616,7 @@ public class ExecutionTool {
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
     return new SkyframeBuilder(
         skyframeExecutor,
+        env.getLocalResourceManager(),
         new ActionCacheChecker(
             actionCache,
             artifactFactory,
@@ -634,8 +635,7 @@ public class ExecutionTool {
   }
 
   @VisibleForTesting
-  public static void configureResourceManager(BuildRequest request) {
-    ResourceManager resourceMgr = ResourceManager.instance();
+  public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     ResourceSet resources;
     if (options.availableResources != null && !options.removeLocalResources) {

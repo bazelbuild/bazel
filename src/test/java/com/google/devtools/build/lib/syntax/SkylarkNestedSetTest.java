@@ -268,9 +268,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   public void testTooManyPositionals() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "expected no more than 2 positional arguments, but got 3, for call to function "
-                + "depset(items = [], order = \"default\", direct = None, transitive = None)",
-            "depset([], 'default', [])");
+            "expected no more than 2 positional arguments, but got 3", "depset([], 'default', [])");
   }
 
 

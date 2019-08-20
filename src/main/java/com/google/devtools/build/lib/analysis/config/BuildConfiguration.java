@@ -815,6 +815,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.outputPathsMode == CoreOptions.OutputPathsMode.CONTENT;
   }
 
+  public boolean allowUnresolvedSymlinks() {
+    return options.allowUnresolvedSymlinks;
+  }
+
   /**
    * Returns compilation mode.
    */

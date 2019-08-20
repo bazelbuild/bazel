@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -605,12 +606,12 @@ public class MethodLibrary {
       name = "enumerate",
       doc =
           "Returns a list of pairs (two-element tuples), with the index (int) and the item from"
-              + " the input list.\n<pre class=\"language-python\">"
+              + " the input sequence.\n<pre class=\"language-python\">"
               + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
       parameters = {
         // Note Python uses 'sequence' keyword instead of 'list'. We may want to change tihs
         // some day.
-        @Param(name = "list", type = SkylarkList.class, doc = "input list.", named = true),
+        @Param(name = "list", type = Object.class, doc = "input sequence.", named = true),
         @Param(
             name = "start",
             type = Integer.class,
@@ -618,12 +619,13 @@ public class MethodLibrary {
             defaultValue = "0",
             named = true)
       },
-      useEnvironment = true)
-  public MutableList<?> enumerate(SkylarkList<?> input, Integer start, Environment env)
+      useEnvironment = true,
+      useLocation = true)
+  public MutableList<?> enumerate(Object input, Integer start, Location loc, Environment env)
       throws EvalException {
     int count = start;
-    ArrayList<SkylarkList<?>> result = new ArrayList<>(input.size());
-    for (Object obj : input) {
+    ArrayList<SkylarkList<?>> result = new ArrayList<>();
+    for (Object obj : EvalUtils.toCollection(input, loc, env)) {
       result.add(Tuple.of(count, obj));
       count++;
     }
@@ -930,15 +932,20 @@ public class MethodLibrary {
               + "</pre>",
       parameters = {
         @Param(
-            name = "items",
+            name = "x",
             type = Object.class,
-            defaultValue = "[]",
+            defaultValue = "None",
+            positional = true,
+            named = false,
+            noneable = true,
             doc =
-                "Deprecated: Either an iterable whose items become the direct elements of "
-                    + "the new depset, in left-to-right order, or else a depset that becomes "
-                    + "a transitive element of the new depset. In the latter case, "
-                    + "<code>transitive</code> cannot be specified.",
-            named = true),
+                "A positional parameter distinct from other parameters for legacy support. "
+                    + "<p>If <code>--incompatible_disable_depset_inputs</code> is false, this "
+                    + "parameter serves as the value of <code>items</code>.</p> "
+                    + "<p>If <code>--incompatible_disable_depset_inputs</code> is true, this "
+                    + "parameter serves as the value of <code>direct</code>.</p> "
+                    + "<p>See the documentation for these parameters for more details."),
+        // TODO(cparsons): Make 'order' keyword-only.
         @Param(
             name = "order",
             type = String.class,
@@ -949,12 +956,12 @@ public class MethodLibrary {
             named = true),
         @Param(
             name = "direct",
-            type = SkylarkList.class,
+            type = Object.class,
             defaultValue = "None",
             positional = false,
             named = true,
             noneable = true,
-            doc = "A list of <i>direct</i> elements of a depset."),
+            doc = "A list of <i>direct</i> elements of a depset. "),
         @Param(
             name = "transitive",
             named = true,
@@ -963,11 +970,31 @@ public class MethodLibrary {
             generic1 = SkylarkNestedSet.class,
             noneable = true,
             doc = "A list of depsets whose elements will become indirect elements of the depset.",
-            defaultValue = "None")
+            defaultValue = "None"),
+        @Param(
+            name = "items",
+            type = Object.class,
+            defaultValue = "[]",
+            positional = false,
+            doc =
+                "Deprecated: Either an iterable whose items become the direct elements of "
+                    + "the new depset, in left-to-right order, or else a depset that becomes "
+                    + "a transitive element of the new depset. In the latter case, "
+                    + "<code>transitive</code> cannot be specified.",
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS,
+            valueWhenDisabled = "[]",
+            named = true),
       },
-      useLocation = true)
+      useLocation = true,
+      useStarlarkSemantics = true)
   public SkylarkNestedSet depset(
-      Object items, String orderString, Object direct, Object transitive, Location loc)
+      Object x,
+      String orderString,
+      Object direct,
+      Object transitive,
+      Object items,
+      Location loc,
+      StarlarkSemantics semantics)
       throws EvalException {
     Order order;
     try {
@@ -975,6 +1002,63 @@ public class MethodLibrary {
     } catch (IllegalArgumentException ex) {
       throw new EvalException(loc, ex);
     }
+
+    if (semantics.incompatibleDisableDepsetItems()) {
+      if (x != Runtime.NONE) {
+        if (direct != Runtime.NONE) {
+          throw new EvalException(
+              loc, "parameter 'direct' cannot be specified both positionally and by keyword");
+        }
+        direct = x;
+      }
+      return depsetConstructor(direct, order, transitive, loc);
+    } else {
+      if (x != Runtime.NONE) {
+        if (!isEmptySkylarkList(items)) {
+          throw new EvalException(
+              loc, "parameter 'items' cannot be specified both positionally and by keyword");
+        }
+        items = x;
+      }
+      return legacyDepsetConstructor(items, order, direct, transitive, loc);
+    }
+  }
+
+  private static SkylarkNestedSet depsetConstructor(
+      Object direct, Order order, Object transitive, Location loc) throws EvalException {
+
+    if (direct instanceof SkylarkNestedSet) {
+      throw new EvalException(
+          loc,
+          "parameter 'direct' must contain a list of elements, and may "
+              + "no longer accept a depset. The deprecated behavior may be temporarily re-enabled "
+              + "by setting --incompatible_disable_depset_inputs=false");
+    }
+
+    SkylarkNestedSet.Builder builder = SkylarkNestedSet.builder(order, loc);
+    for (Object directElement : listFromNoneable(direct, Object.class, "direct")) {
+      builder.addDirect(directElement);
+    }
+    for (SkylarkNestedSet transitiveSet :
+        listFromNoneable(transitive, SkylarkNestedSet.class, "transitive")) {
+      builder.addTransitive(transitiveSet);
+    }
+    return builder.build();
+  }
+
+  private static <T> List<T> listFromNoneable(
+      Object listOrNone, Class<T> objectType, String paramName) throws EvalException {
+    if (listOrNone != Runtime.NONE) {
+      SkylarkType.checkType(listOrNone, SkylarkList.class, paramName);
+      return ((SkylarkList<?>) listOrNone).getContents(objectType, paramName);
+    } else {
+      return ImmutableList.of();
+    }
+  }
+
+  private static SkylarkNestedSet legacyDepsetConstructor(
+      Object items, Order order, Object direct, Object transitive, Location loc)
+      throws EvalException {
 
     if (transitive == Runtime.NONE && direct == Runtime.NONE) {
       // Legacy behavior.

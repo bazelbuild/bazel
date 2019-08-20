@@ -94,11 +94,13 @@ int main(void)
 }
 EOF
 
-  bazel build --output_filter="dummy" $pkg/cc/main:cc >&"$TEST_log" || fail "build failed"
+  bazel build --output_filter="dummy" --noincompatible_disable_nocopts \
+      $pkg/cc/main:cc >&"$TEST_log" || fail "build failed"
   expect_not_log "triggers_a_warning"
 
   echo "/* adding a comment forces recompilation */" >> $pkg/cc/main/main.c
-  bazel build $pkg/cc/main:cc >&"$TEST_log" || fail "build failed"
+  bazel build --noincompatible_disable_nocopts $pkg/cc/main:cc >&"$TEST_log" \
+      || fail "build failed"
   expect_log "triggers_a_warning"
 }
 

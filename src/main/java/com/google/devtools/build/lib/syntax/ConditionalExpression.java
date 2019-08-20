@@ -28,11 +28,8 @@ public final class ConditionalExpression extends Expression {
   public Expression getCondition() { return condition; }
   public Expression getElseCase() { return elseCase; }
 
-  /**
-   * Constructor for a conditional expression
-   */
-  public ConditionalExpression(
-      Expression thenCase, Expression condition, Expression elseCase) {
+  /** Constructor for a conditional expression */
+  ConditionalExpression(Expression thenCase, Expression condition, Expression elseCase) {
     this.thenCase = thenCase;
     this.condition = condition;
     this.elseCase = elseCase;

@@ -17,11 +17,10 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.List;
 
 /** An ASTNode is a node in a Starlark syntax tree. */
-public abstract class ASTNode implements Serializable {
+public abstract class ASTNode {
 
   private Location location;
 

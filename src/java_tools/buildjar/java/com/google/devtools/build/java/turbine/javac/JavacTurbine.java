@@ -113,6 +113,7 @@ public class JavacTurbine implements AutoCloseable {
             .setSources(sources)
             .setJavacOptions(javacopts)
             .setBootClassPath(asPaths(turbineOptions.bootClassPath()))
+            .setBuiltinProcessors(turbineOptions.builtinProcessors())
             .setProcessorClassPath(processorpath);
 
     // JavaBuilder exempts some annotation processors from Strict Java Deps enforcement.
@@ -169,7 +170,8 @@ public class JavacTurbine implements AutoCloseable {
 
     if (result.ok()) {
       emitClassJar(
-          turbineOptions, compileResult.files(), transitive.collectTransitiveDependencies());
+          turbineOptions, compileResult.classOutputs(), transitive.collectTransitiveDependencies());
+      emitGensrcJar(turbineOptions, compileResult.sourceOutputs());
       dependencyModule.emitDependencyInformation(
           actualClasspath, compileResult.success(), /*requiresFallback=*/ false);
     } else {
@@ -326,6 +328,22 @@ public class JavacTurbine implements AutoCloseable {
       if (turbineOptions.targetLabel().isPresent()) {
         ZipUtil.storeEntry(MANIFEST_DIR, new byte[] {}, zipOut);
         ZipUtil.storeEntry(MANIFEST_NAME, manifestContent(turbineOptions), zipOut);
+      }
+    }
+  }
+
+  /** Write the class output from a successful compilation to the output jar. */
+  private static void emitGensrcJar(TurbineOptions turbineOptions, Map<String, byte[]> files)
+      throws IOException {
+    if (!turbineOptions.gensrcOutput().isPresent()) {
+      return;
+    }
+    Path outputJar = Paths.get(turbineOptions.gensrcOutput().get());
+    try (OutputStream fos = Files.newOutputStream(outputJar);
+        ZipOutputStream zipOut =
+            new ZipOutputStream(new BufferedOutputStream(fos, ZIPFILE_BUFFER_SIZE))) {
+      for (Map.Entry<String, byte[]> entry : files.entrySet()) {
+        ZipUtil.storeEntry(entry.getKey(), entry.getValue(), zipOut);
       }
     }
   }

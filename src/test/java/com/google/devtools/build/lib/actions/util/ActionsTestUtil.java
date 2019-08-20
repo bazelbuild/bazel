@@ -607,6 +607,21 @@ public final class ActionsTestUtil {
   }
 
   /**
+   * Returns a list of the Artifacts in <code>artifacts</code> whose paths end with the given
+   * suffix.
+   */
+  public static List<Artifact> getArtifactsEndingWith(
+      Iterable<? extends Artifact> artifacts, String suffix) {
+    List<Artifact> result = new ArrayList<>();
+    for (Artifact a : artifacts) {
+      if (a.getExecPath().getPathString().endsWith(suffix)) {
+        result.add(a);
+      }
+    }
+    return result;
+  }
+
+  /**
    * Returns the first artifact which is an input to "action" and has the
    * specified basename. An assertion error is raised if none is found.
    */

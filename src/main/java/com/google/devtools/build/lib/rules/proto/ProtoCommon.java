@@ -50,7 +50,8 @@ public class ProtoCommon {
 
   // Keep in sync with the migration label in
   // https://github.com/bazelbuild/rules_proto/blob/master/proto/defs.bzl.
-  private static final String PROTO_RULES_MIGRATION_LABEL =
+  @VisibleForTesting
+  public static final String PROTO_RULES_MIGRATION_LABEL =
       "__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
 
   /**
@@ -193,10 +194,8 @@ public class ProtoCommon {
   /**
    * Returns the {@link Library} representing this <code>proto_library</code> rule.
    *
-   * <p>Assumes that <code>strip_import_prefix</code> and <code>import_prefix</code> are unset.
-   *
-   * <p>Build will fail if the {@code proto_source_root} of the current library is neither the
-   * package name nor the source root.
+   * <p>Assumes that <code>strip_import_prefix</code> and <code>import_prefix</code> are unset and
+   * that there are no generated .proto files that need to be compiled.
    */
   // TODO(lberki): This should really be a PathFragment. Unfortunately, it's on the Starlark API of
   // ProtoInfo so it's not an easy change :(
@@ -250,8 +249,6 @@ public class ProtoCommon {
     PathFragment importPrefixAttribute = getPathFragmentAttribute(ruleContext, "import_prefix");
     PathFragment stripImportPrefixAttribute =
         getPathFragmentAttribute(ruleContext, "strip_import_prefix");
-    PathFragment protoSourceRootAttribute =
-        getPathFragmentAttribute(ruleContext, "proto_source_root");
     boolean hasGeneratedSources = false;
 
     if (generatedProtosInVirtualImports) {
@@ -265,17 +262,8 @@ public class ProtoCommon {
 
     if (importPrefixAttribute == null
         && stripImportPrefixAttribute == null
-        && protoSourceRootAttribute == null
         && !hasGeneratedSources) {
       // Simple case, no magic required.
-      return null;
-    }
-
-    if (protoSourceRootAttribute != null
-        && (importPrefixAttribute != null || stripImportPrefixAttribute != null)) {
-      ruleContext.ruleError(
-          "the 'proto_source_root' attribute is incompatible with "
-              + "'strip_import_prefix' and 'import_prefix");
       return null;
     }
 
@@ -308,30 +296,8 @@ public class ProtoCommon {
         ruleContext.attributeError("import_prefix", "should be a relative path");
         return null;
       }
-    } else if (protoSourceRootAttribute != null) {
-      if (!ruleContext.getFragment(ProtoConfiguration.class).enableProtoSourceroot()) {
-        ruleContext.attributeError("proto_source_root", "this attribute is not supported anymore");
-        return null;
-      }
-
-      if (!ruleContext.getLabel().getPackageFragment().equals(protoSourceRootAttribute)) {
-        ruleContext.attributeError(
-            "proto_source_root",
-            "proto_source_root must be the same as the package name ("
-                + ruleContext.getLabel().getPackageName()
-                + ")."
-                + " not '"
-                + protoSourceRootAttribute
-                + "'.");
-
-        return null;
-      }
-
-      stripImportPrefix = ruleContext.getPackageDirectory();
-      importPrefix = PathFragment.EMPTY_FRAGMENT;
     } else {
-      // Has generated sources, but neither strip_import_prefix nor import_prefix nor
-      // proto_source_root.
+      // Has generated sources, but neither strip_import_prefix nor import_prefix
       stripImportPrefix =
           ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot();
 
@@ -356,21 +322,6 @@ public class ProtoCommon {
               ruleContext, realProtoSource, sourceRootPath, importPrefix, stripImportPrefix);
       protoSourceImportPair.add(new Pair<>(realProtoSource, importsPair.first.toString()));
       symlinks.add(importsPair.second);
-
-      if (!ruleContext.getFragment(ProtoConfiguration.class).doNotUseBuggyImportPath()
-          && stripImportPrefixAttribute == null
-          && protoSourceRootAttribute == null
-          && !hasGeneratedSources) {
-        Pair<PathFragment, Artifact> oldImportsPair =
-            computeImports(
-                ruleContext,
-                realProtoSource,
-                sourceRootPath,
-                importPrefix,
-                PathFragment.EMPTY_FRAGMENT);
-        protoSourceImportPair.add(new Pair<>(realProtoSource, oldImportsPair.first.toString()));
-        symlinks.add(oldImportsPair.second);
-      }
     }
 
     String sourceRoot =

@@ -313,7 +313,7 @@ public final class PrintActionCommand implements BlazeCommand {
    *
    * <p>However, since there is a scheduling dependency on the header files, we can use the system
    * to implement said scheduling dependency to figure them out. Thus, we go a-fishing in the action
-   * graph reaching through error propagating middlemen: one of these exists for each {@code
+   * graph reaching through scheduling dependency middlemen: one of these exists for each {@code
    * CcCompilationContext} in the transitive closure of the rule.
    */
   private static void expandRecursiveHelper(
@@ -331,7 +331,7 @@ public final class PrintActionCommand implements BlazeCommand {
       }
 
       ActionAnalysisMetadata middlemanAction = actionGraph.getGeneratingAction(artifact);
-      if (middlemanAction.getActionType() != MiddlemanType.ERROR_PROPAGATING_MIDDLEMAN) {
+      if (middlemanAction.getActionType() != MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN) {
         continue;
       }
 

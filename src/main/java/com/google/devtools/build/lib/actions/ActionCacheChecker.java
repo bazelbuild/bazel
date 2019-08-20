@@ -234,7 +234,7 @@ public class ActionCacheChecker {
     if (middlemanType.isMiddleman()) {
       // Some types of middlemen are not checked because they should not
       // propagate invalidation of their inputs.
-      if (middlemanType != MiddlemanType.ERROR_PROPAGATING_MIDDLEMAN) {
+      if (middlemanType != MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN) {
         checkMiddlemanAction(action, handler, metadataHandler);
       }
       return null;

@@ -52,8 +52,7 @@ public abstract class StarlarkSemantics {
         StarlarkSemantics::experimentalStarlarkConfigTransitions),
     EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST(
         StarlarkSemantics::experimentalStarlarkUnusedInputsList),
-    INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
-        StarlarkSemantics::incompatibleDisableObjcProviderResources),
+    INCOMPATIBLE_DISABLE_DEPSET_INPUTS(StarlarkSemantics::incompatibleDisableDepsetItems),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
@@ -134,8 +133,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalGoogleLegacyApi();
 
-  public abstract ImmutableList<String> experimentalJavaCommonCreateProviderEnabledPackages();
-
   public abstract boolean experimentalPlatformsApi();
 
   public abstract boolean experimentalStarlarkConfigTransitions();
@@ -154,7 +151,7 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisableDeprecatedAttrParams();
 
-  public abstract boolean incompatibleDisableObjcProviderResources();
+  public abstract boolean incompatibleDisableDepsetItems();
 
   public abstract boolean incompatibleDisallowDictPlus();
 
@@ -194,8 +191,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
-  public abstract boolean incompatibleRestrictAttributeNames();
-
   public abstract boolean incompatibleRestrictNamedParams();
 
   public abstract boolean incompatibleRunShellCommandString();
@@ -210,13 +205,7 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRestrictStringEscapes();
 
-  public abstract boolean incompatibleDisallowSplitEmptySeparator();
-
   public abstract boolean incompatibleDisallowDictLookupUnhashableKeys();
-
-  public abstract boolean incompatibleDisablePartitionDefaultParameter();
-
-  public abstract boolean incompatibleAssignmentIdentifiersHaveLocalScope();
 
   public abstract boolean incompatibleAllowTagsPropagation();
 
@@ -260,7 +249,6 @@ public abstract class StarlarkSemantics {
           .experimentalAllowIncrementalRepositoryUpdates(true)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
-          .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(true)
           .experimentalStarlarkUnusedInputsList(true)
@@ -270,13 +258,13 @@ public abstract class StarlarkSemantics {
           .incompatibleDisableTargetProviderFields(false)
           .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(true)
-          .incompatibleDisableObjcProviderResources(true)
+          .incompatibleDisableDepsetItems(false)
           .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowEmptyGlob(false)
           .incompatibleDisallowLegacyJavaProvider(false)
-          .incompatibleDisallowLegacyJavaInfo(false)
+          .incompatibleDisallowLegacyJavaInfo(true)
           .incompatibleDisallowOldStyleArgsAdd(true)
-          .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
+          .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(true)
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleDisallowUnverifiedHttpDownloads(true)
           .incompatibleExpandDirectories(true)
@@ -291,18 +279,14 @@ public abstract class StarlarkSemantics {
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRunShellCommandString(false)
-          .incompatibleRestrictAttributeNames(false)
           .incompatibleRestrictNamedParams(false)
           .incompatibleStringJoinRequiresStrings(true)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
-          .incompatibleDisallowSplitEmptySeparator(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
-          .incompatibleDisablePartitionDefaultParameter(false)
           .incompatibleAllowTagsPropagation(false)
-          .incompatibleAssignmentIdentifiersHaveLocalScope(false)
           .incompatibleDisallowHashingFrozenMutables(false)
           .build();
 
@@ -320,8 +304,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalEnableAndroidMigrationApis(boolean value);
 
     public abstract Builder experimentalGoogleLegacyApi(boolean value);
-
-    public abstract Builder experimentalJavaCommonCreateProviderEnabledPackages(List<String> value);
 
     public abstract Builder experimentalPlatformsApi(boolean value);
 
@@ -343,7 +325,7 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
 
-    public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
+    public abstract Builder incompatibleDisableDepsetItems(boolean value);
 
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
 
@@ -384,8 +366,6 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
 
-    public abstract Builder incompatibleRestrictAttributeNames(boolean value);
-
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
     public abstract Builder incompatibleRunShellCommandString(boolean value);
@@ -400,13 +380,7 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
-    public abstract Builder incompatibleDisallowSplitEmptySeparator(boolean value);
-
     public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
-
-    public abstract Builder incompatibleDisablePartitionDefaultParameter(boolean value);
-
-    public abstract Builder incompatibleAssignmentIdentifiersHaveLocalScope(boolean value);
 
     public abstract Builder incompatibleDisallowHashingFrozenMutables(boolean value);
 

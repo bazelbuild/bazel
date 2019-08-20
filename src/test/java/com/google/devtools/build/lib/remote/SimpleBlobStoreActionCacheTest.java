@@ -33,9 +33,9 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -281,39 +281,6 @@ public class SimpleBlobStoreActionCacheTest {
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/foo/file"))).isEqualTo(fileDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo/file"))).isEqualTo(fileDigest);
-  }
-
-  @Test
-  public void testUploadBlob() throws Exception {
-    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
-
-    final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
-    final SimpleBlobStoreActionCache client = newClient(map);
-
-    byte[] bytes = "abcdefg".getBytes(UTF_8);
-    assertThat(client.uploadBlob(bytes)).isEqualTo(digest);
-    assertThat(map.keySet()).containsExactly(digest.getHash());
-    assertThat(map.entrySet()).hasSize(1);
-    assertThat(map.get(digest.getHash())).isEqualTo(bytes);
-  }
-
-  @Test
-  public void testUploadBlobAtMostOnce() throws Exception {
-    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
-
-    final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
-    final SimpleBlobStoreActionCache client = newClient(map);
-
-    byte[] bytes = "abcdefg".getBytes(UTF_8);
-    assertThat(client.uploadBlob(bytes)).isEqualTo(digest);
-    assertThat(map.keySet()).containsExactly(digest.getHash());
-    assertThat(map.entrySet()).hasSize(1);
-    assertThat(map.get(digest.getHash())).isEqualTo(bytes);
-
-    // Blob store does not get upload more than once during a single build.
-    map.remove(digest.getHash());
-    assertThat(client.uploadBlob(bytes)).isEqualTo(digest);
-    assertThat(map.entrySet()).hasSize(0);
   }
 
   @Test

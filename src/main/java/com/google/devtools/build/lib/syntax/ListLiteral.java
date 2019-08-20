@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.io.IOException;
@@ -26,34 +25,25 @@ import java.util.List;
  * <p>(Note that during evaluation, both list and tuple values are represented by java.util.List
  * objects, the only difference between them being whether or not they are mutable.)
  */
+// TODO(adonovan): rename ListExpression.
 public final class ListLiteral extends Expression {
 
-  /**
-   * Types of the ListLiteral.
-   */
+  /** Types of the ListLiteral. */
   // TODO(laurentlb): This conflicts with Expression.Kind, maybe remove it?
-  public enum Kind {LIST, TUPLE}
+  // TODO(adonovan): split class into {List,Tuple}Expression, as a tuple may have no parens.
+  //  (Do this after we materialize ParenExpressions.)
+  public enum Kind {
+    LIST,
+    TUPLE
+  }
 
   private final Kind kind;
 
   private final List<Expression> elements;
 
-  public ListLiteral(Kind kind, List<Expression> elements) {
+  ListLiteral(Kind kind, List<Expression> elements) {
     this.kind = kind;
     this.elements = elements;
-  }
-
-  public static ListLiteral makeList(List<Expression> elements) {
-    return new ListLiteral(Kind.LIST, elements);
-  }
-
-  public static ListLiteral makeTuple(List<Expression> elements) {
-    return new ListLiteral(Kind.TUPLE, elements);
-  }
-
-  /** A new literal for an empty list, onto which a new location can be specified */
-  public static ListLiteral emptyList() {
-    return makeList(ImmutableList.of());
   }
 
   public Kind getKind() {

@@ -23,6 +23,10 @@ source "${CURRENT_DIR}/../shell_utils.sh" \
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Load the helper utils.
+source "${CURRENT_DIR}/java_integration_test_utils.sh" \
+  || { echo "java_integration_test_utils.sh not found!" >&2; exit 1; }
+
 set -eu
 
 declare -r runfiles_relative_javabase="$1"
@@ -260,50 +264,7 @@ java_runtime(
 )
 EOF
 
-  if [ ! -f buildenv/platforms/BUILD ]; then
-  cat >> "$pkg/jvm/BUILD" <<EOF
-constraint_setting(
-    name = 'constraint_setting',
-)
-constraint_value(
-    name = 'constraint',
-    constraint_setting = ':constraint_setting',
-)
-toolchain(
-    name = 'java_runtime_toolchain',
-    toolchain = ':runtime',
-    toolchain_type = '@bazel_tools//tools/jdk:runtime_toolchain_type',
-    target_compatible_with = [':constraint'],
-)
-platform(
-    name = 'platform',
-    parents = ['@bazel_tools//platforms:host_platform'],
-    constraint_values = [':constraint'],
-)
-EOF
-  else
-  cat >> "$pkg/jvm/BUILD" <<EOF
-constraint_value(
-    name = 'constraint',
-    constraint_setting = '//third_party/bazel_rules/rules_java/java/constraints:runtime',
-)
-toolchain(
-    name = 'java_runtime_toolchain',
-    toolchain = ':runtime',
-    toolchain_type = '//tools/jdk:runtime_toolchain_type',
-    target_compatible_with = [':constraint'],
-)
-platform(
-    name = 'platform',
-    parents = ['//buildenv/platforms:host_platform'],
-    constraint_values = [
-        ':constraint',
-        '//third_party/bazel_rules/rules_java/java/constraints:java8',
-    ],
-)
-EOF
-  fi
-
+  create_java_test_platforms
 
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \

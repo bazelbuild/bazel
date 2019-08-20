@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+
 import build.bazel.remote.execution.v2.BatchUpdateBlobsRequest;
 import build.bazel.remote.execution.v2.BatchUpdateBlobsResponse;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
@@ -65,7 +67,8 @@ final class CasServer extends ContentAddressableStorageImplBase {
     for (BatchUpdateBlobsRequest.Request r : request.getRequestsList()) {
       BatchUpdateBlobsResponse.Response.Builder resp = batchResponse.addResponsesBuilder();
       try {
-        Digest digest = cache.uploadBlob(r.getData().toByteArray());
+        Digest digest = cache.getDigestUtil().compute(r.getData().toByteArray());
+        getFromFuture(cache.uploadBlob(digest, r.getData()));
         if (!r.getDigest().equals(digest)) {
           String err =
               "Upload digest " + r.getDigest() + " did not match data digest: " + digest;

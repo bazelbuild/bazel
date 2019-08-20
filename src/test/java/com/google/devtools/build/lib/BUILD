@@ -956,6 +956,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:util",
@@ -1473,18 +1474,6 @@ java_test(
     ],
 )
 
-java_library(
-    name = "proto_testutils",
-    testonly = 1,
-    srcs = [
-        "rules/proto/ProtoTestHelper.java",
-    ],
-    deps = [
-        ":analysis_testutil",
-        ":testutil",
-    ],
-)
-
 java_test(
     name = "ProtoCompileActionBuilderTest",
     srcs = ["rules/proto/ProtoCompileActionBuilderTest.java"],
@@ -1514,11 +1503,12 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":guava_junit_truth",
-        ":proto_testutils",
+        ":packages_testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 
@@ -1530,12 +1520,13 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":guava_junit_truth",
-        ":proto_testutils",
+        ":packages_testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 
@@ -1555,6 +1546,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 

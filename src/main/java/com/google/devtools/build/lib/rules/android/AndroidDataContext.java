@@ -42,6 +42,15 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 public class AndroidDataContext implements AndroidDataContextApi {
 
+  // Feature which would cause AndroidCompiledResourceMerger actions to pass a flag with the same
+  // name to ResourceProcessorBusyBox.
+  private static final String ANNOTATE_R_FIELDS_FROM_TRANSITIVE_DEPS =
+      "annotate_r_fields_from_transitive_deps";
+
+  // If specified, omit resources from transitive dependencies when generating Android R classes.
+  private static final String OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES =
+      "android_resources_strict_deps";
+
   private final Label label;
   private final RuleContext ruleContext;
   private final FilesToRunProvider busybox;
@@ -186,5 +195,22 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   public boolean useDataBindingV2() {
     return useDataBindingV2;
+  }
+
+  public boolean annotateRFieldsFromTransitiveDeps() {
+    return ruleContext.getFeatures().contains(ANNOTATE_R_FIELDS_FROM_TRANSITIVE_DEPS);
+  }
+
+  boolean omitTransitiveResourcesFromAndroidRClasses() {
+    return ruleContext.getFeatures().contains(OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES);
+  }
+
+  boolean useResourcePathShortening() {
+    // Use resource path shortening iff:
+    //   1) --experimental_android_resource_path_shortening
+    //   2) -c opt
+    return getAndroidConfig().useAndroidResourcePathShortening()
+        && getActionConstructionContext().getConfiguration().getCompilationMode()
+            == CompilationMode.OPT;
   }
 }

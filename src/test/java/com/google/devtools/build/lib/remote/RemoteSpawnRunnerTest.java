@@ -63,10 +63,10 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -819,11 +819,6 @@ public class RemoteSpawnRunnerTest {
   @Test
   public void testMaterializeParamFilesIsImpliedBySubcommands() throws Exception {
     testParamFilesAreMaterializedForFlag("--subcommands");
-  }
-
-  @Test
-  public void testMaterializeParamFilesIsImpliedByVerboseFailures() throws Exception {
-    testParamFilesAreMaterializedForFlag("--verbose_failures");
   }
 
   private void testParamFilesAreMaterializedForFlag(String flag) throws Exception {

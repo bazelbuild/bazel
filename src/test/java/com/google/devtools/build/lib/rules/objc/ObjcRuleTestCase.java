@@ -596,6 +596,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_1',",
@@ -745,6 +746,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos',",
@@ -778,6 +780,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/filter_a.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_a',",

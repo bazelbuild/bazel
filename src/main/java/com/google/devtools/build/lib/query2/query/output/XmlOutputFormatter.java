@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.syntax.Type;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -60,8 +60,9 @@ import org.w3c.dom.Element;
  */
 class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
-  // AbstractUnorderedFormatter also has an options field it's of type CommonQueryOptions, a
-  // superclass of QueryOptions. Store this here to ensure correct type is passed to this class.
+  private AspectResolver aspectResolver;
+  private DependencyFilter dependencyFilter;
+  private boolean relativeLocations;
   private QueryOptions queryOptions;
 
   @Override
@@ -79,6 +80,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
     super.setOptions(options, aspectResolver);
+    this.aspectResolver = aspectResolver;
+    this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
+    this.relativeLocations = options.relativeLocations;
 
     Preconditions.checkArgument(options instanceof QueryOptions);
     this.queryOptions = (QueryOptions) options;
@@ -234,7 +238,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     elem.setAttribute("name", target.getLabel().toString());
-    String location = getLocation(target, options.relativeLocations);
+    String location = getLocation(target, relativeLocations);
     if (!queryOptions.xmlLineNumbers) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {

@@ -84,7 +84,7 @@ public abstract class Argument extends ASTNode {
   /** positional argument: Expression */
   public static final class Positional extends Passed {
 
-    public Positional(Expression value) {
+    Positional(Expression value) {
       super(value);
     }
 
@@ -104,7 +104,7 @@ public abstract class Argument extends ASTNode {
 
     final Identifier identifier;
 
-    public Keyword(Identifier identifier, Expression value) {
+    Keyword(Identifier identifier, Expression value) {
       super(value);
       this.identifier = identifier;
     }
@@ -135,7 +135,7 @@ public abstract class Argument extends ASTNode {
   /** positional rest (starred) argument: *Expression */
   public static final class Star extends Passed {
 
-    public Star(Expression value) {
+    Star(Expression value) {
       super(value);
     }
 
@@ -154,7 +154,7 @@ public abstract class Argument extends ASTNode {
   /** keyword rest (star_starred) parameter: **Expression */
   public static final class StarStar extends Passed {
 
-    public StarStar(Expression value) {
+    StarStar(Expression value) {
       super(value);
     }
 

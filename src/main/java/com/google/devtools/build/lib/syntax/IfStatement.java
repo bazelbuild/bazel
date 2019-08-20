@@ -75,7 +75,7 @@ public final class IfStatement extends Statement {
    * Constructs a if-elif-else statement. The else part is mandatory, but the list may be empty.
    * ThenBlocks has to have at least one element.
    */
-  public IfStatement(List<ConditionalStatements> thenBlocks, List<Statement> elseBlock) {
+  IfStatement(List<ConditionalStatements> thenBlocks, List<Statement> elseBlock) {
     Preconditions.checkArgument(!thenBlocks.isEmpty());
     this.thenBlocks = ImmutableList.copyOf(thenBlocks);
     this.elseBlock = ImmutableList.copyOf(elseBlock);

@@ -25,6 +25,11 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
  */
 public class TestConstants {
 
+  public static final String LOAD_PROTO_LIBRARY =
+      "load('@rules_proto//proto:defs.bzl', 'proto_library')";
+  public static final String LOAD_PROTO_LANG_TOOLCHAIN =
+      "load('@rules_proto//proto:defs.bzl', 'proto_lang_toolchain')";
+
   private TestConstants() {
   }
 
@@ -121,6 +126,7 @@ public class TestConstants {
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
       ImmutableList.of(
           "--target_platform_fallback=@bazel_tools//platforms:default_target",
+          "--platforms=@bazel_tools//platforms:default_target",
           "--host_platform=@bazel_tools//platforms:default_host",
           // TODO(#7903): Remove once our own tests are migrated.
           "--incompatible_py3_is_default=false",

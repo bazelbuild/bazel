@@ -429,6 +429,10 @@ _bazel__to_compreply() {
   while IFS="" read -r reply; do
     COMPREPLY+=("${reply}")
   done < <(echo "${replies}")
+  # Null may be set despite there being no completions
+  if [ ${#COMPREPLY[@]} -eq 1] && [ -z ${COMPREPLY[0]} ]; then
+    COMPREPLY=()
+  fi
 }
 
 _bazel__complete() {

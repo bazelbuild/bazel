@@ -34,6 +34,9 @@ message ModuleInfo {
   repeated UserDefinedFunctionInfo func_info = 3;
 
   repeated AspectInfo aspect_info = 4;
+
+  // The docstring present at the top of the input Starlark file.
+  string module_docstring = 5;
 }
 
 // Representation of a Starlark rule attribute type. These generally

@@ -15,7 +15,10 @@ package com.google.devtools.build.lib.dynamic;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
@@ -30,15 +33,22 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 /**
  * {@link BlazeModule} providing support for dynamic spawn execution and scheduling.
  */
 public class DynamicExecutionModule extends BlazeModule {
   private ExecutorService executorService;
+  private static final Logger logger = Logger.getLogger(DynamicExecutionModule.class.getName());
+  static List<Map.Entry<String, List<String>>> localStrategiesByMnemonic;
+  static List<Map.Entry<String, List<String>>> remoteStrategiesByMnemonic;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -77,6 +87,59 @@ public class DynamicExecutionModule extends BlazeModule {
     builder.addStrategyByContext(SpawnActionContext.class, name);
   }
 
+  private static void addStrategiesByMnemonic(
+      List<Map.Entry<String, List<String>>> strategies, ExecutorBuilder builder, String flagName)
+      throws ExecutorInitException {
+    List<String> mnemonics = new ArrayList<>();
+    for (Map.Entry<String, List<String>> entry : strategies) {
+      if (mnemonics.contains(entry.getKey())) {
+        logger.warning(
+            String.format(
+                "Strategy for mnemonic %s set twice. Using most recent value (%s)",
+                entry.getKey(), entry.getValue()));
+      }
+      mnemonics.add(entry.getKey());
+      for (String strategy : entry.getValue()) {
+        addBackingStrategy(builder, strategy, flagName);
+      }
+    }
+  }
+
+  @VisibleForTesting
+  static void setDefaultStrategiesByMnemonic(DynamicExecutionOptions options) {
+    // Options that set "allowMultiple" to true ignore the default value, so we replicate that
+    // functionality here. Additionally, since we are still supporting --dynamic_worker_strategy,
+    // but will deprecate it soon, we add its functionality to --dynamic_local_strategy. This allows
+    // users to set --dynamic_local_strategy and not --dynamic_worker_strategy to stop defaulting to
+    // worker strategy.
+    // TODO(steinman): Deprecate --dynamic_worker_strategy and clean this up.
+    if (options.dynamicLocalStrategy == null || options.dynamicLocalStrategy.isEmpty()) {
+      localStrategiesByMnemonic =
+          options.dynamicWorkerStrategy.isEmpty()
+              ? ImmutableList.of(Maps.immutableEntry("", ImmutableList.of("worker", "sandboxed")))
+              : ImmutableList.of(
+                  Maps.immutableEntry(
+                      "", ImmutableList.of(options.dynamicWorkerStrategy, "sandboxed")));
+    } else {
+      localStrategiesByMnemonic = options.dynamicLocalStrategy;
+      if (!options.dynamicWorkerStrategy.isEmpty()) {
+        for (int i = 0; i < localStrategiesByMnemonic.size(); i++) {
+          if ("".equals(localStrategiesByMnemonic.get(i).getKey())) {
+            List<String> newValue = Lists.newArrayList(options.dynamicWorkerStrategy);
+            newValue.addAll(localStrategiesByMnemonic.get(i).getValue());
+            localStrategiesByMnemonic.set(i, Maps.immutableEntry("", newValue));
+            break;
+          }
+        }
+      }
+    }
+
+    remoteStrategiesByMnemonic =
+        (options.dynamicRemoteStrategy == null || options.dynamicRemoteStrategy.isEmpty())
+            ? ImmutableList.of(Maps.immutableEntry("", ImmutableList.of("remote")))
+            : options.dynamicRemoteStrategy;
+  }
+
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)
       throws ExecutorInitException {
@@ -85,9 +148,9 @@ public class DynamicExecutionModule extends BlazeModule {
       builder.addActionContext(
           new DynamicSpawnStrategy(executorService, options, this::getExecutionPolicy));
       builder.addStrategyByContext(SpawnActionContext.class, "dynamic");
-      addBackingStrategy(builder, options.dynamicLocalStrategy, "--dynamic_local_strategy");
-      addBackingStrategy(builder, options.dynamicRemoteStrategy, "--dynamic_remote_strategy");
-      addBackingStrategy(builder, options.dynamicWorkerStrategy, "--dynamic_worker_strategy");
+      setDefaultStrategiesByMnemonic(options);
+      addStrategiesByMnemonic(remoteStrategiesByMnemonic, builder, "--dynamic_remote_strategy");
+      addStrategiesByMnemonic(localStrategiesByMnemonic, builder, "--dynamic_local_strategy");
     }
   }
 
