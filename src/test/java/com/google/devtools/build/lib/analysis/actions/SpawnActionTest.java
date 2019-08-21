@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -475,6 +476,33 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(extraActionInfo.getAspectParametersMap())
         .containsExactly(
             "parameter", ExtraActionInfo.StringList.newBuilder().addValue("param_value").build());
+  }
+
+  private SpawnAction createWorkerSupportSpawn(Map<String, String> executionInfoVariables) throws Exception {
+    Artifact input = getSourceArtifact("input");
+    Artifact output = getBinArtifactWithNoOwner("output");
+    Action[] actions =
+        builder()
+            .addInput(input)
+            .addOutput(output)
+            .setExecutionInfo(executionInfoVariables)
+            .setExecutable(scratch.file("/bin/xxx").asFragment())
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    return (SpawnAction) actions[0];
+  }
+
+  @Test
+  public void testWorkerSupport() throws Exception {
+    SpawnAction workerSupportSpawn =
+        createWorkerSupportSpawn(ImmutableMap.<String, String>of("supports-workers", "1"));
+    assertThat(Spawns.supportsWorkers(workerSupportSpawn.getSpawn())).isEqualTo(true);
+  }
+
+  @Test
+  public void testMultiplexWorkerSupport() throws Exception {
+    SpawnAction multiplexWorkerSupportSpawn =
+        createWorkerSupportSpawn(ImmutableMap.<String, String>of("supports-multiplex-workers", "1"));
+    assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawn())).isEqualTo(true);
   }
 
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {
