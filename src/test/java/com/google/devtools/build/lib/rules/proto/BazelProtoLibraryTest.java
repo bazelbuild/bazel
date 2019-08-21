@@ -370,16 +370,13 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LIBRARY,
         "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x:x'])");
 
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ProtoInfo aInfo = a.get(ProtoInfo.PROVIDER);
-    assertThat(aInfo.getTransitiveProtoSourceRoots())
-        .containsExactly(".", genfiles + "/external/foo/x/_virtual_imports/x");
+    assertThat(aInfo.getTransitiveProtoSourceRoots()).containsExactly(".", "external/foo");
 
     ConfiguredTarget x = getConfiguredTarget("@foo//x:x");
     ProtoInfo xInfo = x.get(ProtoInfo.PROVIDER);
-    assertThat(xInfo.getTransitiveProtoSourceRoots())
-        .containsExactly(genfiles + "/external/foo/x/_virtual_imports/x");
+    assertThat(xInfo.getTransitiveProtoSourceRoots()).containsExactly("external/foo");
   }
 
   @Test
