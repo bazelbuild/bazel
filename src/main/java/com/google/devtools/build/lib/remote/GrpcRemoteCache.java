@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 
-import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheBlockingStub;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageFutureStub;
 import build.bazel.remote.execution.v2.Digest;
@@ -38,7 +36,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -50,7 +47,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
@@ -58,7 +54,6 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -70,7 +65,6 @@ import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -166,17 +160,8 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
         || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
   }
 
-  private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
-      FindMissingBlobsRequest request) throws IOException, InterruptedException {
-    Context ctx = Context.current();
-    try {
-      return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    }
-  }
-
-  private ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
+  @Override
+  protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
       throws IOException, InterruptedException {
     if (Iterables.isEmpty(digests)) {
       return ImmutableSet.of();
@@ -206,6 +191,16 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       throw new RuntimeException(cause);
     }
     return result.build();
+  }
+
+  private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
+      FindMissingBlobsRequest request) throws IOException, InterruptedException {
+    Context ctx = Context.current();
+    try {
+      return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
+    } catch (StatusRuntimeException e) {
+      throw new IOException(e);
+    }
   }
 
   /**
@@ -377,32 +372,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   @Override
-  public void upload(
-      ActionKey actionKey,
-      Action action,
-      Command command,
-      Path execRoot,
-      Collection<Path> files,
-      FileOutErr outErr)
-      throws ExecException, IOException, InterruptedException {
-    ActionResult.Builder result = ActionResult.newBuilder();
-    upload(execRoot, actionKey, action, command, files, outErr, result);
-    try {
-      retrier.execute(
-          () ->
-              acBlockingStub()
-                  .updateActionResult(
-                      UpdateActionResultRequest.newBuilder()
-                          .setInstanceName(options.remoteInstanceName)
-                          .setActionDigest(actionKey.getDigest())
-                          .setActionResult(result)
-                          .build()));
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    }
-  }
-
-  @Override
   protected ListenableFuture<Void> uploadFile(Digest digest, Path path) {
     return uploader.uploadBlobAsync(
         HashCode.fromString(digest.getHash()),
@@ -416,77 +385,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
         HashCode.fromString(digest.getHash()),
         Chunker.builder().setInput(data.toByteArray()).build(),
         /* forceUpload= */ true);
-  }
-
-  void upload(
-      Path execRoot,
-      ActionKey actionKey,
-      Action action,
-      Command command,
-      Collection<Path> files,
-      FileOutErr outErr,
-      ActionResult.Builder result)
-      throws ExecException, IOException, InterruptedException {
-    UploadManifest manifest =
-        new UploadManifest(
-            digestUtil,
-            result,
-            execRoot,
-            options.incompatibleRemoteSymlinks,
-            options.allowSymlinkUpload);
-    manifest.addFiles(files);
-    manifest.setStdoutStderr(outErr);
-    manifest.addAction(actionKey, action, command);
-
-    Map<Digest, Path> digestToFile = manifest.getDigestToFile();
-    Map<Digest, ByteString> digestToBlobs = manifest.getDigestToBlobs();
-    Collection<Digest> digests = new ArrayList<>();
-    digests.addAll(digestToFile.keySet());
-    digests.addAll(digestToBlobs.keySet());
-
-    ImmutableSet<Digest> digestsToUpload = getMissingDigests(digests);
-    ImmutableList.Builder<ListenableFuture<Void>> uploads = ImmutableList.builder();
-    for (Digest digest : digestsToUpload) {
-      Path file = digestToFile.get(digest);
-      if (file != null) {
-        uploads.add(uploadFile(digest, file));
-      } else {
-        ByteString blob = digestToBlobs.get(digest);
-        if (blob == null) {
-          String message = "FindMissingBlobs call returned an unknown digest: " + digest;
-          throw new IOException(message);
-        }
-        uploads.add(uploadBlob(digest, blob));
-      }
-    }
-
-    waitForUploads(uploads.build());
-
-    if (manifest.getStderrDigest() != null) {
-      result.setStderrDigest(manifest.getStderrDigest());
-    }
-    if (manifest.getStdoutDigest() != null) {
-      result.setStdoutDigest(manifest.getStdoutDigest());
-    }
-  }
-
-  private static void waitForUploads(List<ListenableFuture<Void>> uploads)
-      throws IOException, InterruptedException {
-    try {
-      for (ListenableFuture<Void> upload : uploads) {
-        upload.get();
-      }
-    } catch (ExecutionException e) {
-      // TODO(buchgr): Add support for cancellation and factor this method out to be shared
-      // between ByteStreamUploader as well.
-      Throwable cause = e.getCause();
-      Throwables.throwIfInstanceOf(cause, IOException.class);
-      Throwables.throwIfInstanceOf(cause, InterruptedException.class);
-      if (cause != null) {
-        throw new IOException(cause);
-      }
-      throw new IOException(e);
-    }
   }
 
   // Execution Cache API
@@ -508,6 +406,24 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
         // Return null to indicate that it was a cache miss.
         return null;
       }
+      throw new IOException(e);
+    }
+  }
+
+  @Override
+  protected void setCachedActionResult(ActionKey actionKey, ActionResult result)
+      throws IOException, InterruptedException {
+    try {
+      retrier.execute(
+          () ->
+              acBlockingStub()
+                  .updateActionResult(
+                      UpdateActionResultRequest.newBuilder()
+                          .setInstanceName(options.remoteInstanceName)
+                          .setActionDigest(actionKey.getDigest())
+                          .setActionResult(result)
+                          .build()));
+    } catch (StatusRuntimeException e) {
       throw new IOException(e);
     }
   }

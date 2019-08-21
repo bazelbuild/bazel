@@ -24,9 +24,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
@@ -38,6 +36,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -76,7 +75,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1150,20 +1148,12 @@ public class AbstractRemoteActionCacheTests {
 
     @Nullable
     @Override
-    ActionResult getCachedActionResult(ActionKey actionKey)
-        throws IOException, InterruptedException {
+    ActionResult getCachedActionResult(ActionKey actionKey) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    void upload(
-        ActionKey actionKey,
-        Action action,
-        Command command,
-        Path execRoot,
-        Collection<Path> files,
-        FileOutErr outErr)
-        throws ExecException, IOException, InterruptedException {
+    protected void setCachedActionResult(ActionKey actionKey, ActionResult action) {
       throw new UnsupportedOperationException();
     }
 
@@ -1174,6 +1164,11 @@ public class AbstractRemoteActionCacheTests {
 
     @Override
     protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests) {
       throw new UnsupportedOperationException();
     }
 

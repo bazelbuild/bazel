@@ -530,6 +530,15 @@ public class GrpcRemoteCacheTest {
             responseObserver.onCompleted();
           }
         });
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void updateActionResult(
+              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onNext(request.getActionResult());
+            responseObserver.onCompleted();
+          }
+        });
 
     ActionResult result = uploadDirectory(client, ImmutableList.<Path>of(fooFile, barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -555,6 +564,15 @@ public class GrpcRemoteCacheTest {
             assertThat(request.getBlobDigestsList()).contains(barDigest);
             // Nothing is missing.
             responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void updateActionResult(
+              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onNext(request.getActionResult());
             responseObserver.onCompleted();
           }
         });
@@ -608,6 +626,15 @@ public class GrpcRemoteCacheTest {
             responseObserver.onCompleted();
           }
         });
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void updateActionResult(
+              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onNext(request.getActionResult());
+            responseObserver.onCompleted();
+          }
+        });
 
     ActionResult result = uploadDirectory(client, ImmutableList.of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -617,12 +644,10 @@ public class GrpcRemoteCacheTest {
 
   private ActionResult uploadDirectory(GrpcRemoteCache client, List<Path> outputs)
       throws Exception {
-    ActionResult.Builder result = ActionResult.newBuilder();
     Action action = Action.getDefaultInstance();
     ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
     Command cmd = Command.getDefaultInstance();
-    client.upload(execRoot, actionKey, action, cmd, outputs, outErr, result);
-    return result.build();
+    return client.upload(actionKey, action, cmd, execRoot, outputs, outErr);
   }
 
   @Test
@@ -662,16 +687,24 @@ public class GrpcRemoteCacheTest {
             responseObserver.onCompleted();
           }
         });
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void updateActionResult(
+              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onNext(request.getActionResult());
+            responseObserver.onCompleted();
+          }
+        });
 
-    ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(
-        execRoot,
-        DIGEST_UTIL.asActionKey(actionDigest),
-        action,
-        command,
-        ImmutableList.<Path>of(fooFile, barFile),
-        outErr,
-        result);
+    ActionResult result =
+        client.upload(
+            DIGEST_UTIL.asActionKey(actionDigest),
+            action,
+            command,
+            execRoot,
+            ImmutableList.of(fooFile, barFile),
+            outErr);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.setStdoutDigest(stdoutDigest);
     expectedResult.setStderrDigest(stderrDigest);
@@ -681,7 +714,7 @@ public class GrpcRemoteCacheTest {
         .setPath("bar")
         .setDigest(barDigest)
         .setIsExecutable(true);
-    assertThat(result.build()).isEqualTo(expectedResult.build());
+    assertThat(result).isEqualTo(expectedResult.build());
   }
 
   @Test
@@ -711,19 +744,27 @@ public class GrpcRemoteCacheTest {
             responseObserver.onCompleted();
           }
         });
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void updateActionResult(
+              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onNext(request.getActionResult());
+            responseObserver.onCompleted();
+          }
+        });
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
     final GrpcRemoteCache client = newClient(options);
-    ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(
-        execRoot,
-        DIGEST_UTIL.asActionKey(actionDigest),
-        action,
-        command,
-        ImmutableList.<Path>of(fooFile, barFile),
-        outErr,
-        result);
+    ActionResult result =
+        client.upload(
+            DIGEST_UTIL.asActionKey(actionDigest),
+            action,
+            command,
+            execRoot,
+            ImmutableList.of(fooFile, barFile),
+            outErr);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult
@@ -731,7 +772,7 @@ public class GrpcRemoteCacheTest {
         .setPath("bar")
         .setDigest(barDigest)
         .setIsExecutable(true);
-    assertThat(result.build()).isEqualTo(expectedResult.build());
+    assertThat(result).isEqualTo(expectedResult.build());
     assertThat(numGetMissingCalls.get()).isEqualTo(4);
   }
 
