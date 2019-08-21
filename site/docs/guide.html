@@ -847,70 +847,94 @@ $ bazel fetch //...
 
 <h4>Where are the <code>.bazelrc</code> files?</h4>
 <p>
-  Bazel looks for an optional configuration file in the following locations,
+  Bazel looks for optional configuration files in the following locations,
   in the order shown below. The options are interpreted in this order, so
   options in later files can override a value from an earlier file if a
-  conflict arises. All options to control which of these files are loaded are
+  conflict arises. All options that control which of these files are loaded are
   startup options, which means they must occur after <code>bazel</code> and
-  before the command (<code>build</code>, etc).
+  before the command (<code>build</code>, <code>test</code>, etc).
 </p>
 <ol>
   <li>
-    Unless the <code class='flag'>--nosystem_rc</code> is present, Bazel looks for
-    the system .bazelrc file: on Unix, it lives at <code>/etc/bazel.bazelrc</code>,
-    and on Windows at <code>%ProgramData%/bazel.bazelrc</code>.
+    <p><b>The system RC file</b>, unless <code class='flag'>--nosystem_rc</code> is present.</p>
 
-    If another system-specified location is required, this value can be
-    changed by setting <code>BAZEL_SYSTEM_BAZELRC_PATH</code> in
-    <code>src/main/cpp:option_processor</code> and using this custom Bazel binary.
+    <p>Path:</p>
+    <ul>
+      <li>On Linux/macOS/Unixes: <code>/etc/bazel.bazelrc</code></li>
+      <li>On Windows: <code>%ProgramData%\bazel.bazelrc</code></li>
+    </ul>
 
-    The system-specified location may contain environment variable
-    substitutions, as <code>%var_name%</code> on Windows
-    or <code>${var_name}</code> on Unix.
+    <p>It is not an error if this file does not exist.</p>
+
+    <p>If another system-specified location is required, you must build a custom Bazel binary,
+    overriding the <code>BAZEL_SYSTEM_BAZELRC_PATH</code> value in
+    <a href="https://github.com/bazelbuild/bazel/blob/0.28.0/src/main/cpp/BUILD#L141"><code>//src/main/cpp:option_processor</code></a>.
+    The system-specified location may contain environment variable references, such as
+    <code>${VAR_NAME}</code> on Unix or <code>%VAR_NAME%</code> on Windows.</p>
   </li>
   <li>
-    Unless the <code class='flag'>--noworkspace_rc</code> is present, Bazel looks
-    for the <code>.bazelrc</code> file in your workspace directory.
+    <p><b>The workspace RC file</b>, unless <code class='flag'>--noworkspace_rc</code> is
+    present.</p>
+
+    <p>Path: <code>.bazelrc</code> in your workspace directory (next to the main
+    <code>WORKSPACE</code> file).</p>
+
+    <p>It is not an error if this file does not exist.</p>
   </li>
   <li>
-    Unless the <code class='flag'>--nohome_rc</code> is present, Bazel looks for
-    the home, or user, bazelrc: the file <code>.bazelrc</code> in your home
-    directory.
+    <p><b>The home RC file</b>, unless <code class='flag'>--nohome_rc</code> is present.</p>
+
+    <p>Path:</p>
+    <ul>
+      <li>On Linux/macOS/Unixes: <code>$HOME/.bazelrc</code></li>
+      <li>On Windows: <code>%USERPROFILE%\.bazelrc</code> if exists, or
+      <code>%HOME%/.bazelrc</code></li>
+    </ul>
+
+    <p>It is not an error if this file does not exist.</p>
   </li>
   <li>
-    An additional .rc file can be specified by the
-    <code class='flag'>--bazelrc=<var>file</var></code> startup option. If this
-    option is not present, no additional file is loaded. Unlike in the three
-    default locations specified above, an incorrect path or non-existent file
-    will fail if passed explicitly.
+    <p><b>The user-specified RC file</b>, if specified with
+    <code class='flag'>-bazelrc=<var>file</var></code><p>
+
+    <p>This flag is optional. However, if the flag is specified, then the file must exist.</p>
   </li>
 </ol>
 <h4><code>.bazelrc</code> syntax and semantics</h4>
 <p>
   Like all UNIX "rc" files, the <code>.bazelrc</code> file is a text file with
-  a line-based grammar.  Lines starting <code>#</code> are considered comments
-  and are ignored, as are blank lines.  Each line contains a sequence of words,
+  a line-based grammar.  Empty lines and lines starting with <code>#</code> (comments)
+  are ignored.  Each line contains a sequence of words,
   which are tokenized according to the same rules as the Bourne shell.
 </p>
 
 <h5>Imports</h5>
 <p>
-  Lines that start with <code>import</code> are special: if Bazel encounters such
-  a line in a <code>.bazelrc</code> file, it parses the contents of the file
-  referenced by the import statement, too. Options specified in an imported file
-  take precedence over options specified before the import statement. Options
-  specified after the import statement take precedence over the options in the
-  imported file. Options in files imported later take precedence over files
-  imported earlier. To specify a path that is relative to the workspace root,
-  write <code>import %workspace%/path/to/bazelrc</code>.
+  Lines that start with <code>import</code> or <code>try-import</code> are special: use these to
+  load other "rc" files. To specify a path that is relative to the workspace root, write
+  <code>import %workspace%/path/to/bazelrc</code>.
 </p>
+<p>
+  The difference between <code>import</code> and <code>try-import</code> is that Bazel fails if
+  the <code>import</code>'ed file is missing (or can't be read), but not so for a
+  <code>try-import</code>'ed file.
+</p>
+<p>Import precedence:</p>
+<ul>
+  <li>Options in the imported file take precedence over options specified before
+  the import statement.</li>
+  <li>Options specified after the import statement take precedence over the
+  options in the imported file.</li>
+  <li>Options in files imported later take precedence over files
+  imported earlier.</li>
+</ul>
 
 <h5>Option defaults</h5>
 <p>
   Most lines of a bazelrc define default option values. The first word on each
   line specifies when these defaults are applied:
 </p>
-<ol>
+<ul>
   <li>
     <code>startup</code>: startup options, which go before the command, and
     are described in <code>bazel help startup_options</code>.
@@ -924,33 +948,77 @@ $ bazel fetch //...
     to all commands that inherit from the specified command. (For example,
     <code>test</code> inherits from <code>build</code>.)
   </li>
-</ol>
+</ul>
 <p>
   Each of these lines may be used more than once and the arguments that follow
   the first word are combined as if they had appeared on a single line.
   (Users of CVS, another tool with a "Swiss army knife" command-line interface,
-  will find the syntax similar to that of <code>.cvsrc</code>.)
+  will find the syntax similar to that of <code>.cvsrc</code>.) For example, the
+  lines:
+
+  <pre>build --test_tmpdir=/tmp/foo --verbose_failures
+build --test_tmpdir=/tmp/bar</pre>
+
+  are combined as:
+
+  <pre>build --test_tmpdir=/tmp/foo --verbose_failures --test_tmpdir=/tmp/bar</pre>
+
+  so the effective flags are <code>--verbose_failures</code> and
+  <code>--test_tmpdir=/tmp/bar</code>.
 </p>
-<p>
-  Options specified in the command line always take precedence over those from
-  a configuration file. Within the configuration file, precedence is
-  given by specificity. This means that lines for a more specific command take
-  precedence over lines for a less specific command, with <code>common</code>
-  getting lowest precedence (for example, the <code>test</code> command inherits
-  all the options from the <code>build</code> command, so the line
-  <code>test --foo=bar</code> takes precedence over the line
-  <code>build --foo=baz</code>, regardless of which rc file or what order
-  these two lines are in). Two lines specifying options for the same command at
-  equal specificity are parsed in the order in which they appear within the file.
-  The user-specific configuration file takes precedence over the master file.
-</p>
-<p>
-  Because this precedence rule does not match the file order, we recommend
-  that the file follows the same order, with <code>common</code> options at the
-  top, and most-specific commands near the bottom. This way, the order in which
-  the options are read is the same as the order in which they are applied,
-  which is more intuitive.
-</p>
+
+<p>Option precedence:</p>
+<ul>
+  <li>
+    Options on the command line always take precedence over those in rc files. For example, if a rc
+    file says <code>build -c opt</code> but the command line flag is <code>-c dbg</code>, the
+    command line flag takes precedence.
+  </li>
+  <li>
+    <p>
+      Within the rc file, precedence is governed by specificity: lines for a more specific command
+      take precedence over lines for a less specific command.
+    </p>
+    <p>
+      Specificity is defined by inheritance. Some commands inherit options from other commands,
+      making the inheriting command more specific than the base command. For example
+      <code>test</code> inherits from the <code>build</code> command, so all
+      <code>bazel build</code> flags are valid for <code>bazel test</code>, and all
+      <code>build</code> lines apply also to <code>bazel test</code> unless there's a
+      <code>test</code> line for the same option. If the rc file says:
+
+      <pre>test -c dbg --test_env=PATH
+build -c opt --verbose_failures</pre>
+
+      then <code>bazel build //foo</code> will use <code>-c opt --verbose_failures</code>, and
+      <code>bazel test //foo</code> will use <code>--verbose_failures -c dbg --test_env=PATH</code>.
+    </p>
+    <p>
+      The inheritance (specificity) graph is:
+    </p>
+    <ul>
+      <li>Every command inherits from <code>common</code></li>
+      <li>The following commands inherit from (and are more specific than) <code>build</code>:
+        <code>test</code>, <code>run</code>, <code>clean</code>, <code>mobile-install</code>,
+        <code>info</code>, <code>print_action</code>, <code>config</code>, <code>cquery</code>, and
+        <code>aquery</code>
+      </li>
+      <li><code>coverage</code> inherits from <code>test</code></li>
+    </ul>
+  </li>
+  <li>
+    Two lines specifying options for the same command at equal specificity are parsed in the
+    order in which they appear within the file.
+  </li>
+  <li>
+    Because this precedence rule does not match the file order, it helps readability if you follow
+    the precedence order within rc files: start with <code>common</code> options at the top, and
+    end with the most-specific commands at the bottom of the file. This way, the order in which
+    the options are read is the same as the order in which they are applied, which is more
+    intuitive.
+  </li>
+</ul>
+
 <p>
   The arguments specified on a line of an rc file may include arguments that are
   not options, such as the names of build targets, and so on. These, like the
@@ -958,6 +1026,7 @@ $ bazel fetch //...
   on the command line, and are always prepended to the explicit list of non-
   option arguments.
 </p>
+
 <h5><code>--config</code></h5>
 <p>
   In addition to setting option defaults, the rc file can be used to group
