@@ -54,4 +54,52 @@ public class WorkerFactoryTest {
 
     assertThat(sandboxedWorkerPath.getBaseName()).isEqualTo("workspace");
   }
+
+  /**
+   * WorkerFactory should create correct worker type based on WorkerKey.
+   */
+  @Test
+  public void workerCreationTypeCheck() throws Exception {
+    Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
+    WorkerFactory workerFactory = new WorkerFactory(new WorkerOptions(), workerBaseDir);
+    WorkerKey sandboxedWorkerKey =
+        new WorkerKey(
+            /* args= */ ImmutableList.of(),
+            /* env= */ ImmutableMap.of(),
+            /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+            /* mnemonic= */ "dummy",
+            /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+            /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
+            /* mustBeSandboxed= */ true,
+            /* proxied= */ false);
+    Worker sandboxedWorker = workerFactory.create(sandboxedWorkerKey);
+
+    WorkerKey nonProxiedWorkerKey =
+        new WorkerKey(
+            /* args= */ ImmutableList.of(),
+            /* env= */ ImmutableMap.of(),
+            /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+            /* mnemonic= */ "dummy",
+            /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+            /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
+            /* mustBeSandboxed= */ false,
+            /* proxied= */ false);
+    Worker nonProxiedWorker = workerFactory.create(nonProxiedWorkerKey);
+
+    WorkerKey proxiedWorkerKey =
+        new WorkerKey(
+            /* args= */ ImmutableList.of(),
+            /* env= */ ImmutableMap.of(),
+            /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+            /* mnemonic= */ "dummy",
+            /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+            /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
+            /* mustBeSandboxed= */ false,
+            /* proxied= */ true);
+    Worker proxiedWorker = workerFactory.create(proxiedWorkerKey);
+
+    assertThat(sandboxedWorker.getClass()).isEqualTo(SandboxedWorker.class);
+    assertThat(nonProxiedWorker.getClass()).isEqualTo(Worker.class);
+    assertThat(proxiedWorker.getClass()).isEqualTo(WorkerProxy.class);
+  }
 }
