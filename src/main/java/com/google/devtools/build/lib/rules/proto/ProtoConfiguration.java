@@ -57,11 +57,17 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean doNotUseBuggyImportPath;
 
     @Option(
-        name = "experimental_generated_protos_in_virtual_imports",
-        defaultValue = "true",
+        name = "incompatible_generated_protos_in_virtual_imports",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "If set, generated .proto files are put into a virtual import directory.")
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "If set, generated .proto files are put into a virtual import directory. For more "
+                + "information, see https://github.com/bazelbuild/bazel/issues/9215")
     public boolean generatedProtosInVirtualImports;
 
     @Option(
