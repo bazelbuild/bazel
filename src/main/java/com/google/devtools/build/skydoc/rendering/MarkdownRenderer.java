@@ -17,6 +17,7 @@ package com.google.devtools.build.skydoc.rendering;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
@@ -73,14 +74,18 @@ public class MarkdownRenderer {
   }
 
   /**
-   * Returns a markdown header string that should appear at the top of all markdown files generated
-   * by Stardoc.
+   * Returns a markdown header string that should appear at the top of Stardoc's output, providing a
+   * summary for the input Starlark module.
    */
-  public String renderMarkdownHeader() throws IOException {
+  public String renderMarkdownHeader(ModuleInfo moduleInfo) throws IOException {
+    VelocityContext context = new VelocityContext();
+    context.put("util", new MarkdownUtil());
+    context.put("moduleDocstring", moduleInfo.getModuleDocstring());
+
     StringWriter stringWriter = new StringWriter();
     Reader reader = readerFromPath(headerTemplateFilename);
     try {
-      velocityEngine.evaluate(new VelocityContext(), stringWriter, headerTemplateFilename, reader);
+      velocityEngine.evaluate(context, stringWriter, headerTemplateFilename, reader);
     } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
       throw new IOException(e);
     }

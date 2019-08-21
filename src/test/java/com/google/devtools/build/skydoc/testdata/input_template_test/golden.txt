@@ -1,5 +1,7 @@
 <!-- THIS HEADER IS FOR input_template_test ONLY -->
 
+Module Docstring: "Input file for input template test"
+
 <a name="#my_example"></a>
 
 ## my_example

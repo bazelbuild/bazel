@@ -74,7 +74,7 @@ public class RendererMain {
             aspectTemplatePath);
     try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
       ModuleInfo moduleInfo = ModuleInfo.parseFrom(new FileInputStream(inputPath));
-      printWriter.println(renderer.renderMarkdownHeader());
+      printWriter.println(renderer.renderMarkdownHeader(moduleInfo));
       printRuleInfos(printWriter, renderer, moduleInfo.getRuleInfoList());
       printProviderInfos(printWriter, renderer, moduleInfo.getProviderInfoList());
       printUserDefinedFunctions(printWriter, renderer, moduleInfo.getFuncInfoList());

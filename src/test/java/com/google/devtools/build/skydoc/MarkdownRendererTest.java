@@ -21,6 +21,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Aspe
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
@@ -52,7 +53,7 @@ public final class MarkdownRendererTest {
 
   @Test
   public void testHeaderStrings() throws IOException {
-    assertThat(renderer.renderMarkdownHeader())
+    assertThat(renderer.renderMarkdownHeader(ModuleInfo.getDefaultInstance()))
         .isEqualTo("<!-- Generated with Stardoc: http://skydoc.bazel.build -->\n");
   }
 
