@@ -628,7 +628,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         TargetUtils.getFilteredExecutionInfo(
             executionRequirementsUnchecked,
             ruleContext.getRule(),
-            starlarkSemantics.incompatibleAllowTagsPropagation());
+            starlarkSemantics.experimentalAllowTagsPropagation());
     builder.setExecutionInfo(executionInfo);
 
     if (inputManifestsUnchecked != Runtime.NONE) {

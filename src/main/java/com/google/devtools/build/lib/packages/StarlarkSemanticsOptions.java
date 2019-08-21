@@ -161,19 +161,19 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleBzlDisallowLoadAfterStatement;
 
   @Option(
-      name = "incompatible_allow_tags_propagation",
+      name = "experimental_allow_tags_propagation",
+      oldName = "incompatible_allow_tags_propagation",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.EXPERIMENTAL,
       },
       help =
           "If set to true, tags will be propagated from a target to the actions' execution"
               + " requirements; otherwise tags are not propagated. See"
               + " https://github.com/bazelbuild/bazel/issues/8830 for details.")
-  public boolean incompatibleAllowTagsPropagation;
+  public boolean experimentalAllowTagsPropagation;
 
   @Option(
       name = "incompatible_depset_union",
@@ -656,6 +656,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             // <== Add new options here in alphabetic order ==>
             .experimentalAllowIncrementalRepositoryUpdates(
                 experimentalAllowIncrementalRepositoryUpdates)
+            .experimentalAllowTagsPropagation(experimentalAllowTagsPropagation)
             .experimentalBuildSettingApi(experimentalBuildSettingApi)
             .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
             .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
@@ -700,7 +701,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
             .incompatibleDisallowDictLookupUnhashableKeys(
                 incompatibleDisallowDictLookupUnhashableKeys)
-            .incompatibleAllowTagsPropagation(incompatibleAllowTagsPropagation)
             .incompatibleDisallowHashingFrozenMutables(incompatibleDisallowHashingFrozenMutables)
             .build();
     return INTERNER.intern(semantics);
