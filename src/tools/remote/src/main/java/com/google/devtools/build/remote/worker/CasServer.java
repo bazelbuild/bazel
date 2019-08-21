@@ -22,17 +22,15 @@ import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddr
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
-import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.rpc.Code;
 import io.grpc.stub.StreamObserver;
-import java.io.IOException;
 
 /** A basic implementation of a {@link ContentAddressableStorageImplBase} service. */
 final class CasServer extends ContentAddressableStorageImplBase {
   static final long MAX_BATCH_SIZE_BYTES = 1024 * 1024 * 4;
-  private final SimpleBlobStoreActionCache cache;
+  private final OnDiskBlobStoreActionCache cache;
 
-  public CasServer(SimpleBlobStoreActionCache cache) {
+  public CasServer(OnDiskBlobStoreActionCache cache) {
     this.cache = cache;
   }
 
@@ -41,23 +39,13 @@ final class CasServer extends ContentAddressableStorageImplBase {
       FindMissingBlobsRequest request, StreamObserver<FindMissingBlobsResponse> responseObserver) {
     FindMissingBlobsResponse.Builder response = FindMissingBlobsResponse.newBuilder();
 
-    try {
-      for (Digest digest : request.getBlobDigestsList()) {
-        try {
-          if (!cache.containsKey(digest)) {
-            response.addMissingBlobDigests(digest);
-          }
-         } catch (InterruptedException e) {
-          responseObserver.onError(StatusUtils.interruptedError(digest));
-          Thread.currentThread().interrupt();
-          return;
-         }
+    for (Digest digest : request.getBlobDigestsList()) {
+      if (!cache.containsKey(digest)) {
+        response.addMissingBlobDigests(digest);
       }
-      responseObserver.onNext(response.build());
-      responseObserver.onCompleted();
-    } catch (IOException e) {
-      responseObserver.onError(StatusUtils.internalError(e));
     }
+    responseObserver.onNext(response.build());
+    responseObserver.onCompleted();
   }
 
   @Override

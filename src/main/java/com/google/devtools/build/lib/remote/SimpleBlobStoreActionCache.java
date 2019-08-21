@@ -48,8 +48,8 @@ import javax.annotation.Nullable;
  * <p>Note that this class is used from src/tools/remote.
  */
 @ThreadSafe
-public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache {
-  private final SimpleBlobStore blobStore;
+public class SimpleBlobStoreActionCache extends AbstractRemoteActionCache {
+  protected final SimpleBlobStore blobStore;
 
   public SimpleBlobStoreActionCache(
       RemoteOptions options, SimpleBlobStore blobStore, DigestUtil digestUtil) {
@@ -84,10 +84,6 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   @Override
   protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests) {
     return ImmutableSet.copyOf(digests);
-  }
-
-  public boolean containsKey(Digest digest) throws IOException, InterruptedException {
-    return blobStore.contains(digest.getHash());
   }
 
   @Override

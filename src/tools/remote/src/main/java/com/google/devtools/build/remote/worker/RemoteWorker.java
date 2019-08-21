@@ -31,9 +31,6 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
-import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -114,7 +111,7 @@ public final class RemoteWorker {
   public RemoteWorker(
       FileSystem fs,
       RemoteWorkerOptions workerOptions,
-      SimpleBlobStoreActionCache cache,
+      OnDiskBlobStoreActionCache cache,
       Path sandboxPath,
       DigestUtil digestUtil)
       throws IOException {
@@ -246,34 +243,22 @@ public final class RemoteWorker {
       sandboxPath = prepareSandboxRunner(fs, remoteWorkerOptions);
     }
 
-    logger.info("Initializing in-memory cache server.");
-    boolean usingRemoteCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
-    if (!usingRemoteCache) {
-      logger.warning("Not using remote cache. This should be used for testing only!");
-    }
-    if ((remoteWorkerOptions.casPath != null)
-        && (!PathFragment.create(remoteWorkerOptions.casPath).isAbsolute()
+    if (remoteWorkerOptions.casPath == null
+        || (!PathFragment.create(remoteWorkerOptions.casPath).isAbsolute()
             || !fs.getPath(remoteWorkerOptions.casPath).exists())) {
-      logger.severe("--cas_path must refer to an existing, absolute path!");
+      logger.severe("--cas_path must be specified and refer to an exiting absolut path.");
       System.exit(1);
       return;
     }
 
     Path casPath =
         remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
-    final SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(remoteOptions, casPath);
-
+    DigestUtil digestUtil = new DigestUtil(fs.getDigestFunction());
+    OnDiskBlobStoreActionCache cache =
+        new OnDiskBlobStoreActionCache(remoteOptions, casPath, digestUtil);
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-
-    DigestUtil digestUtil = new DigestUtil(fs.getDigestFunction());
-    RemoteWorker worker =
-        new RemoteWorker(
-            fs,
-            remoteWorkerOptions,
-            new SimpleBlobStoreActionCache(remoteOptions, blobStore, digestUtil),
-            sandboxPath,
-            digestUtil);
+    RemoteWorker worker = new RemoteWorker(fs, remoteWorkerOptions, cache, sandboxPath, digestUtil);
 
     final Server server = worker.startServer();
 
