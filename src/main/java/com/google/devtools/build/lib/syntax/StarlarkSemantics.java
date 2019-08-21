@@ -284,7 +284,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
-          .incompatibleDisallowHashingFrozenMutables(false)
+          .incompatibleDisallowHashingFrozenMutables(true)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
