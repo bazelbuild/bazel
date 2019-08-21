@@ -140,7 +140,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disable_third_party_license_checking=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
-        "--incompatible_disallow_legacy_javainfo=" + rand.nextBoolean(),
         "--incompatible_disallow_legacy_java_provider=" + rand.nextBoolean(),
         "--incompatible_disallow_old_style_args_add=" + rand.nextBoolean(),
         "--incompatible_disallow_rule_execution_platform_constraints_allowed=" + rand.nextBoolean(),
@@ -194,7 +193,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisableThirdPartyLicenseChecking(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowEmptyGlob(rand.nextBoolean())
-        .incompatibleDisallowLegacyJavaInfo(rand.nextBoolean())
         .incompatibleDisallowLegacyJavaProvider(rand.nextBoolean())
         .incompatibleDisallowOldStyleArgsAdd(rand.nextBoolean())
         .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(rand.nextBoolean())

@@ -29,10 +29,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import javax.annotation.Nullable;
 
 /** Utilities for Java compilation support in Skylark. */
 @SkylarkModule(name = "java_common", doc = "Utilities for Java compilation support in Starlark.")
@@ -43,137 +41,6 @@ public interface JavaCommonApi<
     JavaRuntimeT extends JavaRuntimeInfoApi,
     SkylarkRuleContextT extends SkylarkRuleContextApi,
     SkylarkActionFactoryT extends SkylarkActionFactoryApi> {
-
-  @SkylarkCallable(
-      name = "create_provider",
-      doc =
-          "This API is deprecated. It will be disabled by default in Bazel 0.23. Please use "
-              + "<a href ="
-              + "'https://docs.bazel.build/versions/master/skylark/lib/JavaInfo.html#JavaInfo'>"
-              + "JavaInfo()</a> instead."
-              + "Creates a JavaInfo from jars. compile_time/runtime_jars are the outputs of the "
-              + "target providing a JavaInfo, while transitive_*_jars represent their dependencies."
-              + "<p>Note: compile_time_jars and runtime_jars are not automatically merged into the "
-              + "transitive jars (unless the given transitive_*_jars are empty) - if this is the "
-              + "desired behaviour the user should merge the jars before creating the provider."
-              + "<p>This function also creates actions to generate interface jars by default."
-              + "<p>When use_ijar is True, ijar will be run on the given compile_time_jars and the "
-              + "resulting interface jars will be stored as compile_jars, "
-              + "while the initial jars will be stored as full_compile_jars. "
-              + "<p>When use_ijar=False, the given compile_time_jars will be stored as both "
-              + "compile_jars and full_compile_jars. No actions are created. "
-              + "See JavaInfo#compile_jars and JavaInfo#full_compile_jars for more details."
-              + "<p>Currently only "
-              + "<a href='https://github.com/bazelbuild/bazel/tree/master/third_party/ijar'>"
-              + "ijar</a>"
-              + " is supported for generating interface jars. "
-              + "Header compilation is not yet supported.",
-      parameters = {
-        @Param(
-            name = "actions",
-            type = SkylarkActionFactoryApi.class,
-            noneable = true,
-            defaultValue = "None",
-            doc =
-                "The ctx.actions object, used to register the actions for creating the "
-                    + "interface jars. Only set if use_ijar=True."),
-        @Param(
-            name = "compile_time_jars",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
-            },
-            generic1 = FileApi.class,
-            defaultValue = "[]",
-            doc = "A list or a set of jars that should be used at compilation for a given target."),
-        @Param(
-            name = "runtime_jars",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
-            },
-            generic1 = FileApi.class,
-            defaultValue = "[]",
-            doc = "A list or a set of jars that should be used at runtime for a given target."),
-        @Param(
-            name = "use_ijar",
-            positional = false,
-            named = true,
-            type = Boolean.class,
-            defaultValue = "True",
-            doc =
-                "If True it will generate interface jars for every jar in compile_time_jars."
-                    + "The generating interface jars will be stored as compile_jars "
-                    + "and the initial (full) compile_time_jars will be stored as "
-                    + "full_compile_jars. If False the given compile_jars will be "
-                    + "stored as both compile_jars and full_compile_jars."),
-        @Param(
-            name = "java_toolchain",
-            positional = false,
-            named = true,
-            type = Object.class,
-            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
-            noneable = true,
-            defaultValue = "None",
-            doc =
-                "A JavaToolchainInfo to be used for retrieving the ijar "
-                    + "tool. Only set when use_ijar is True."),
-        @Param(
-            name = "transitive_compile_time_jars",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
-            },
-            generic1 = FileApi.class,
-            defaultValue = "[]",
-            doc =
-                "A list or set of compile time jars collected from the transitive closure of a "
-                    + "rule."),
-        @Param(
-            name = "transitive_runtime_jars",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
-            },
-            generic1 = FileApi.class,
-            defaultValue = "[]",
-            doc = "A list or set of runtime jars collected from the transitive closure of a rule."),
-        @Param(
-            name = "source_jars",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
-            },
-            generic1 = FileApi.class,
-            defaultValue = "[]",
-            doc =
-                "A list or set of output source jars that contain the uncompiled source files "
-                    + "including the source files generated by annotation processors if the case.")
-      },
-      useLocation = true,
-      useEnvironment = true)
-  public JavaInfoT create(
-      @Nullable Object actionsUnchecked,
-      Object compileTimeJars,
-      Object runtimeJars,
-      Boolean useIjar,
-      @Nullable Object javaToolchainUnchecked,
-      Object transitiveCompileTimeJars,
-      Object transitiveRuntimeJars,
-      Object sourceJars,
-      Location location,
-      Environment environment)
-      throws EvalException;
 
   @SkylarkCallable(
       name = "provider",

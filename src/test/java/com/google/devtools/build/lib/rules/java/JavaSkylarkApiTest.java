@@ -1854,33 +1854,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(javaToolchainLabel.toString()).isEqualTo("//java/com/google/test:toolchain");
   }
 
-  @Test
-  public void testIncompatibleDisallowLegacyJavaInfo() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_javainfo");
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  jar = ctx.actions.declare_file('jar')",
-        "  java_common.create_provider(",
-        "      compile_time_jars = [jar],",
-        "      transitive_compile_time_jars = [jar],",
-        "      runtime_jars = [jar],",
-        "      use_ijar = False,",
-        "  )",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        ")");
-    checkError(
-        "java/test",
-        "custom",
-        "java_common.create_provider is deprecated and cannot be used when "
-            + "--incompatible_disallow_legacy_javainfo is set.",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        ")");
-  }
-
   private static boolean javaCompilationArgsHaveTheSameParent(
       JavaCompilationArgsProvider args, JavaCompilationArgsProvider otherArgs) {
     if (!nestedSetsOfArtifactHaveTheSameParent(

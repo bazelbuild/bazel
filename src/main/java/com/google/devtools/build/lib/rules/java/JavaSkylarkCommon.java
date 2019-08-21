@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
@@ -31,9 +30,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for Java support. */
 public class JavaSkylarkCommon
@@ -45,40 +42,6 @@ public class JavaSkylarkCommon
         SkylarkRuleContext,
         SkylarkActionFactory> {
   private final JavaSemantics javaSemantics;
-
-  @Override
-  public JavaInfo create(
-      @Nullable Object actionsUnchecked,
-      Object compileTimeJars,
-      Object runtimeJars,
-      Boolean useIjar,
-      @Nullable Object javaToolchain,
-      Object transitiveCompileTimeJars,
-      Object transitiveRuntimeJars,
-      Object sourceJars,
-      Location location,
-      Environment environment)
-      throws EvalException {
-    if (environment.getSemantics().incompatibleDisallowLegacyJavaInfo()) {
-      throw new EvalException(
-          location,
-          "java_common.create_provider is deprecated and cannot be used when "
-              + "--incompatible_disallow_legacy_javainfo is set. "
-              + "Please migrate to the JavaInfo constructor.");
-    }
-    return JavaInfoBuildHelper.getInstance()
-        .create(
-            actionsUnchecked,
-            asArtifactNestedSet(compileTimeJars),
-            asArtifactNestedSet(runtimeJars),
-            useIjar,
-            javaToolchain == Runtime.NONE ? null : (JavaToolchainProvider) javaToolchain,
-            asArtifactNestedSet(transitiveCompileTimeJars),
-            asArtifactNestedSet(transitiveRuntimeJars),
-            asArtifactNestedSet(sourceJars),
-            environment.getSemantics(),
-            location);
-  }
 
   public JavaSkylarkCommon(JavaSemantics javaSemantics) {
     this.javaSemantics = javaSemantics;
@@ -226,18 +189,6 @@ public class JavaSkylarkCommon
   @Override
   public Provider getJavaRuntimeProvider() {
     return ToolchainInfo.PROVIDER;
-  }
-
-  /**
-   * Takes an Object that is either a SkylarkNestedSet or a SkylarkList of Artifacts and returns it
-   * as a NestedSet.
-   */
-  private NestedSet<Artifact> asArtifactNestedSet(Object o) throws EvalException {
-    return o instanceof SkylarkNestedSet
-        ? ((SkylarkNestedSet) o).getSet(Artifact.class)
-        : NestedSetBuilder.<Artifact>naiveLinkOrder()
-            .addAll(((SkylarkList<?>) o).getContents(Artifact.class, /*description=*/ null))
-            .build();
   }
 
   @Override

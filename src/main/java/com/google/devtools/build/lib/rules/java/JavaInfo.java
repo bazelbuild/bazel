@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,11 +62,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   @Nullable
   private static <T> T nullIfNone(Object object, Class<T> type) {
     return object != Runtime.NONE ? type.cast(object) : null;
-  }
-
-  @Nullable
-  private static Object nullIfNone(Object object) {
-    return nullIfNone(object, Object.class);
   }
 
   public static final JavaInfo EMPTY = JavaInfo.Builder.create().build();
@@ -401,12 +395,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         SkylarkList<?> deps,
         SkylarkList<?> runtimeDeps,
         SkylarkList<?> exports,
-        Object actionsApi,
-        Object sourcesApi,
-        Object sourceJarsApi,
-        Object useIjarApi,
-        Object javaToolchainApi,
-        Object hostJavabaseApi,
         Object jdepsApi,
         Location loc,
         Environment env)
@@ -414,62 +402,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       Artifact outputJar = (Artifact) outputJarApi;
       @Nullable Artifact compileJar = nullIfNone(compileJarApi, Artifact.class);
       @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
-
-      @Nullable Object actions = nullIfNone(actionsApi);
-      @Nullable
-      SkylarkList<Artifact> sources =
-          (SkylarkList<Artifact>) nullIfNone(sourcesApi, SkylarkList.class);
-      @Nullable
-      SkylarkList<Artifact> sourceJars =
-          (SkylarkList<Artifact>) nullIfNone(sourceJarsApi, SkylarkList.class);
-
-      @Nullable Boolean useIjar = nullIfNone(useIjarApi, Boolean.class);
-      @Nullable Object javaToolchain = nullIfNone(javaToolchainApi);
-      @Nullable Object hostJavabase = nullIfNone(hostJavabaseApi);
       @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
-
-      boolean hasLegacyArg =
-          actions != null
-              || sources != null
-              || sourceJars != null
-              || useIjar != null
-              || javaToolchain != null
-              || hostJavabase != null;
-      if (hasLegacyArg) {
-        if (env.getSemantics().incompatibleDisallowLegacyJavaInfo()) {
-          throw new EvalException(
-              loc,
-              "Cannot use deprecated argument when "
-                  + "--incompatible_disallow_legacy_javainfo is set. "
-                  + "Deprecated arguments are 'actions', 'sources', 'source_jars', "
-                  + "'use_ijar', 'java_toolchain', 'host_javabase'.");
-        }
-        boolean hasNewArg = compileJar != null || sourceJar != null;
-        if (hasNewArg) {
-          throw new EvalException(
-              loc,
-              "Cannot use deprecated arguments at the same time as "
-                  + "'compile_jar' or 'source_jar'. "
-                  + "Deprecated arguments are 'actions', 'sources', 'source_jars', "
-                  + "'use_ijar', 'java_toolchain', 'host_javabase'.");
-        }
-        return JavaInfoBuildHelper.getInstance()
-            .createJavaInfoLegacy(
-                outputJar,
-                sources != null ? sources : MutableList.empty(),
-                sourceJars != null ? sourceJars : MutableList.empty(),
-                useIjar != null ? useIjar : true,
-                neverlink,
-                (SkylarkList<JavaInfo>) deps,
-                (SkylarkList<JavaInfo>) runtimeDeps,
-                (SkylarkList<JavaInfo>) exports,
-                actions,
-                (JavaToolchainProvider) javaToolchain,
-                (JavaRuntimeInfo) hostJavabase,
-                jdeps,
-                env.getSemantics(),
-                loc);
-      }
       if (compileJar == null) {
         throw new EvalException(loc, "Expected 'File' for 'compile_jar', found 'None'");
       }

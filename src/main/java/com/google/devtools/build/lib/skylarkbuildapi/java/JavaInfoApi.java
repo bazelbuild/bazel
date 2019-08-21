@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -217,68 +216,6 @@ public interface JavaInfoApi <FileT extends FileApi> extends StructApi {
                     + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
                     + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
         @Param(
-            name = "actions",
-            type = SkylarkActionFactoryApi.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. No longer needed when <code>compile_jar</code> and/or "
-                    + "<code>source_jar</code> are used. "
-                    + "<p>Used to create the ijar and pack source files to jar actions.</p>"),
-        @Param(
-            name = "sources",
-            type = SkylarkList.class,
-            generic1 = FileApi.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. Use <code>source_jar</code> instead. "
-                    + "<p>The sources that were used to create the output jar.</p>"),
-        @Param(
-            name = "source_jars",
-            type = SkylarkList.class,
-            generic1 = FileApi.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. Use <code>source_jar</code> instead. "
-                    + "<p>The source jars that were used to create the output jar.</p>"),
-        @Param(
-            name = "use_ijar",
-            type = Boolean.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. Use <code>compile_jar</code> instead. "
-                    + "<p>If an ijar of the output jar should be created and stored in the "
-                    + "provider. </p>"),
-        @Param(
-            name = "java_toolchain",
-            type = Object.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. No longer needed when <code>compile_jar</code> and/or "
-                    + "<code>source_jar</code> are used. "
-                    + "<p>The toolchain to be used for retrieving the ijar tool and packing source "
-                    + "files to Jar. This should be a Target.</p>"),
-        @Param(
-            name = "host_javabase",
-            type = Object.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. No longer needed when <code>compile_jar</code> and/or "
-                    + "<code>source_jar</code> are used. "
-                    + "<p>The host_javabase to be used for packing source files to Jar. "
-                    + "This should be a Target.</p>"),
-        @Param(
             name = "jdeps",
             type = FileApi.class,
             named = true,
@@ -301,12 +238,6 @@ public interface JavaInfoApi <FileT extends FileApi> extends StructApi {
         SkylarkList<?> deps,
         SkylarkList<?> runtimeDeps,
         SkylarkList<?> exports,
-        Object actionsApi,
-        Object sourcesApi,
-        Object sourceJarsApi,
-        Object useIjarApi,
-        Object javaToolchainApi,
-        Object hostJavabaseApi,
         Object jdepsApi,
         Location loc,
         Environment env)

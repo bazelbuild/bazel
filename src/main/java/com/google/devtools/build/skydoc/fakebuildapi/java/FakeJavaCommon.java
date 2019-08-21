@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
-import javax.annotation.Nullable;
 
 /** Fake implementation of {@link JavaCommonApi}. */
 public class FakeJavaCommon
@@ -40,22 +39,6 @@ public class FakeJavaCommon
         FakeJavaRuntimeInfoApi,
         SkylarkRuleContextApi,
         SkylarkActionFactoryApi> {
-
-  @Override
-  public FakeJavaInfo create(
-      @Nullable Object actionsUnchecked,
-      Object compileTimeJars,
-      Object runtimeJars,
-      Boolean useIjar,
-      @Nullable Object javaToolchainUnchecked,
-      Object transitiveCompileTimeJars,
-      Object transitiveRuntimeJars,
-      Object sourceJars,
-      Location location,
-      Environment environment)
-      throws EvalException {
-    return new FakeJavaInfo();
-  }
 
   @Override
   public ProviderApi getJavaProvider() {
