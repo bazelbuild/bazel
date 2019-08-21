@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.server.CommandProtos.PingRequest;
 import com.google.devtools.build.lib.server.CommandProtos.PingResponse;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
+import com.google.devtools.build.lib.server.CommandProtos.ServerInfo;
 import com.google.devtools.build.lib.server.CommandProtos.StartupOption;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -314,6 +315,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   private static final String PORT_FILE = "command_port";
   private static final String REQUEST_COOKIE_FILE = "request_cookie";
   private static final String RESPONSE_COOKIE_FILE = "response_cookie";
+  private static final String SERVER_INFO_FILE = "server_info.rawproto";
 
   private static final AtomicBoolean runShutdownHooks = new AtomicBoolean(true);
 
@@ -445,10 +447,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     }
     serving = true;
 
-    writeServerFile(
-        PORT_FILE, InetAddresses.toUriString(address.getAddress()) + ":" + server.getPort());
-    writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
-    writeServerFile(RESPONSE_COOKIE_FILE, responseCookie);
+    writeServerStatusFiles(address);
 
     try {
       server.awaitTermination();
@@ -456,6 +455,30 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       // TODO(lberki): Handle SIGINT in a reasonable way
       throw new IllegalStateException(e);
     }
+  }
+
+  private void writeServerStatusFiles(InetSocketAddress address) throws IOException {
+    writeServerFile(
+        PORT_FILE, InetAddresses.toUriString(address.getAddress()) + ":" + server.getPort());
+    writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
+    writeServerFile(RESPONSE_COOKIE_FILE, responseCookie);
+
+    ServerInfo info =
+        ServerInfo.newBuilder()
+            .setPid(Integer.parseInt(pidInFile))
+            .setAddress(address.getAddress() + ":" + server.getPort())
+            .setRequestCookie(requestCookie)
+            .setResponseCookie(responseCookie)
+            .build();
+
+    // Write then mv so the user never sees incomplete contents.
+    Path serverInfoTmpFile = serverDirectory.getChild(SERVER_INFO_FILE + ".tmp");
+    try (OutputStream out = serverInfoTmpFile.getOutputStream()) {
+      info.writeTo(out);
+    }
+    Path serverInfoFile = serverDirectory.getChild(SERVER_INFO_FILE);
+    serverInfoTmpFile.renameTo(serverInfoFile);
+    deleteAtExit(serverInfoFile);
   }
 
   private void writeServerFile(String name, String contents) throws IOException {
