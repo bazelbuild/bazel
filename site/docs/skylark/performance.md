@@ -105,13 +105,14 @@ def _impl(ctx):
 
   # Bad, has to iterate over entire depset to get length
   if len(files) != 0:
-    args.add("--files")
-    args.add_all(files)
+    args.add_all("--files", files)
 
   # Good, O(1)
   if files:
-    args.add("--files")
-    args.add_all(files)
+    args.add_all("--files", files)
+
+  # Also good, O(1); works because add_all()'s `omit_if_empty` defaults to true
+  args.add_all("--files", files)
 ```
 
 As mentioned above, support for `len(<depset>)` is deprecated.
@@ -188,9 +189,10 @@ def _impl(ctx):
   # Bad, constructs a full string "--foo=<file path>" for each rule instance
   args.add("--foo=" + file.path)
 
-  # Good, shares "-foo" among all rule instances, and defers file.path to later
-  args.add("--foo")
-  args.add(file)
+  # Good, shares "--foo" among all rule instances, and defers file.path to later
+  # It will however pass ["--foo", <file path>] to the action command line,
+  # instead of ["--foo=<file_path>"]
+  args.add("--foo", file)
 
   # Use format if you prefer ["--foo=<file path>"] to ["--foo", <file path>]
   args.add(format="--foo=%s", value=file)
