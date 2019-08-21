@@ -19,10 +19,10 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -278,18 +278,11 @@ public final class RepositoryName implements Serializable {
     if (!(object instanceof RepositoryName)) {
       return false;
     }
-
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return name.toLowerCase().equals(((RepositoryName) object).name.toLowerCase());
-    }
-    return name.equals(((RepositoryName) object).name);
+    return OsPathPolicy.getFilePathOs().equals(name, ((RepositoryName) object).name);
   }
 
   @Override
   public int hashCode() {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return name.toLowerCase().hashCode();
-    }
-    return name.hashCode();
+    return OsPathPolicy.getFilePathOs().hash(name);
   }
 }
