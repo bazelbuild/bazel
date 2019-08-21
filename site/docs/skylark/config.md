@@ -101,10 +101,10 @@ temperatures = ["HOT", "LUKEWARM", "ICED"]
 def _impl(ctx):
     raw_temperature = ctx.build_setting_value
     if raw_temperature not in temperatures:
-        fail(ctx.label + " build setting allowed to take values "
-             + temperatures + " but was set to unallowed value "
+        fail(str(ctx.label) + " build setting allowed to take values {"
+             + ", ".join(temperatures) + "} but was set to unallowed value "
              + raw_temperature)
-    return TemperatureProvider(type = value)
+    return TemperatureProvider(type = raw_temperature)
 
 temperature = rule(
     implementation = _impl,
