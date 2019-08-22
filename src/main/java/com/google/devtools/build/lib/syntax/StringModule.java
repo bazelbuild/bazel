@@ -274,21 +274,21 @@ final class StringModule implements StarlarkValue {
             type = String.class,
             doc = "The string to replace with."),
         @Param(
-            name = "maxsplit",
+            name = "count",
             type = Integer.class,
             noneable = true,
             defaultValue = "None",
             doc = "The maximum number of replacements.")
       })
-  public String replace(String self, String oldString, String newString, Object maxSplitO)
+  public String replace(String self, String oldString, String newString, Object count)
       throws EvalException {
-    int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
-      maxSplit = Math.max(0, (Integer) maxSplitO);
+    int maxReplaces = Integer.MAX_VALUE;
+    if (count != Starlark.NONE && (Integer) count > -1) {
+      maxReplaces = (Integer) count;
     }
     StringBuilder sb = new StringBuilder();
     int start = 0;
-    for (int i = 0; i < maxSplit; i++) {
+    for (int i = 0; i < maxReplaces; i++) {
       if (oldString.isEmpty()) {
         sb.append(newString);
         if (start < self.length()) {
