@@ -168,13 +168,15 @@ public class Aapt2ConfigOptions extends OptionsBase {
               + " the output package name following an underscore.")
   public List<String> splits;
 
+  // TODO(b/136572475, b/112848607): remove this option
   @Option(
       name = "useCompiledResourcesForMerge",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "config",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Use compiled resources for merging rather than parsed symbols binary.")
+      help = "Use compiled resources for merging rather than parsed symbols binary.",
+      deprecationWarning = "cannot be disabled")
   public boolean useCompiledResourcesForMerge;
 
   @Option(
