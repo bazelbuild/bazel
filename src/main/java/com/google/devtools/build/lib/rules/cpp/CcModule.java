@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNameP
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Flag;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagGroup;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagSet;
@@ -1661,6 +1662,13 @@ public abstract class CcModule
       throw new EvalException(
           location, "Language '" + language + "' does not support " + outputType);
     }
+    FeatureConfiguration actualFeatureConfiguration =
+        featureConfiguration.getFeatureConfiguration();
+    CppConfiguration cppConfiguration =
+        actions
+            .getActionConstructionContext()
+            .getConfiguration()
+            .getFragment(CppConfiguration.class);
     CcLinkingHelper helper =
         new CcLinkingHelper(
                 actions.getActionConstructionContext().getRuleErrorConsumer(),
@@ -1668,14 +1676,11 @@ public abstract class CcModule
                 actions.asActionRegistry(location, actions),
                 actions.getActionConstructionContext(),
                 getSemantics(),
-                featureConfiguration.getFeatureConfiguration(),
+                actualFeatureConfiguration,
                 ccToolchainProvider,
                 fdoContext,
                 actions.getActionConstructionContext().getConfiguration(),
-                actions
-                    .getActionConstructionContext()
-                    .getConfiguration()
-                    .getFragment(CppConfiguration.class),
+                cppConfiguration,
                 ((BazelStarlarkContext) starlarkContext).getSymbolGenerator())
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
@@ -1683,7 +1688,12 @@ public abstract class CcModule
             .setDynamicLinkType(dynamicLinkTargetType)
             .addCcLinkingContexts(linkingContexts)
             .setShouldCreateStaticLibraries(false)
-            .addLinkopts(userLinkFlags);
+            .addLinkopts(userLinkFlags)
+            .emitInterfaceSharedLibraries(
+                dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
+                    && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
+                    && CppHelper.useInterfaceSharedLibraries(
+                        cppConfiguration, ccToolchainProvider, actualFeatureConfiguration));
     try {
       return helper.link(
           compilationOutputs != null ? compilationOutputs : CcCompilationOutputs.EMPTY);

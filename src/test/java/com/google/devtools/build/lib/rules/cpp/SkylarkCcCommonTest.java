@@ -5410,6 +5410,27 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testInterfaceLibraryProducedForTransitiveLinkOnWindows() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.TARGETS_WINDOWS,
+                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+    setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    assertThat(library).isNotNull();
+    assertThat(library.getDynamicLibrary()).isNotNull();
+    assertThat(library.getInterfaceLibrary()).isNotNull();
+  }
+
+  @Test
   public void testTransitiveLinkForExecutable() throws Exception {
     setupTestTransitiveLink(scratch, "output_type = 'executable'");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
