@@ -264,6 +264,7 @@ public class ProtoCompileActionBuilder {
 
     // Add include maps
     addIncludeMapArguments(
+        !ruleContext.getFragment(ProtoConfiguration.class).generatedProtosInVirtualImports(),
         getOutputDirectory(ruleContext),
         result,
         areDepsStrict ? protoInfo.getStrictImportableProtoSourcesImportPaths() : null,
@@ -296,6 +297,9 @@ public class ProtoCompileActionBuilder {
                 .each(protosInExports)
                 .mapped(
                     new ExpandToPathFnWithImports(
+                        !ruleContext
+                            .getFragment(ProtoConfiguration.class)
+                            .generatedProtosInVirtualImports(),
                         getOutputDirectory(ruleContext),
                         protoInfo.getTransitiveProtoSourceRoots())));
       }
@@ -448,6 +452,9 @@ public class ProtoCompileActionBuilder {
         .setExecutable(compilerTarget)
         .addCommandLine(
             createCommandLineFromToolchains(
+                !ruleContext
+                    .getFragment(ProtoConfiguration.class)
+                    .generatedProtosInVirtualImports(),
                 toolchainInvocations,
                 getOutputDirectory(ruleContext),
                 protoInfo,
@@ -489,6 +496,7 @@ public class ProtoCompileActionBuilder {
    */
   @VisibleForTesting
   static CustomCommandLine createCommandLineFromToolchains(
+      boolean alwaysAddRepositoryPath,
       List<ToolchainInvocation> toolchainInvocations,
       String outputDirectory,
       ProtoInfo protoInfo,
@@ -537,6 +545,7 @@ public class ProtoCompileActionBuilder {
 
     // Add include maps
     addIncludeMapArguments(
+        alwaysAddRepositoryPath,
         outputDirectory,
         cmdLine,
         strictDeps == Deps.STRICT ? protoInfo.getStrictImportableProtoSourcesImportPaths() : null,
@@ -558,7 +567,9 @@ public class ProtoCompileActionBuilder {
                 .each(protoInfo.getExportedProtoSourcesImportPaths())
                 .mapped(
                     new ExpandToPathFnWithImports(
-                        outputDirectory, protoInfo.getExportedProtoSourceRoots())));
+                        alwaysAddRepositoryPath,
+                        outputDirectory,
+                        protoInfo.getExportedProtoSourceRoots())));
       }
     }
 
@@ -575,6 +586,7 @@ public class ProtoCompileActionBuilder {
 
   @VisibleForTesting
   static void addIncludeMapArguments(
+      boolean alwaysAddRepositoryPath,
       String outputDirectory,
       CustomCommandLine.Builder commandLine,
       @Nullable NestedSet<Pair<Artifact, String>> protosInDirectDependencies,
@@ -585,14 +597,18 @@ public class ProtoCompileActionBuilder {
     // path when including other protos.
     commandLine.addAll(
         VectorArg.of(transitiveImports)
-            .mapped(new ExpandImportArgsFn(outputDirectory, directProtoSourceRoots)));
+            .mapped(
+                new ExpandImportArgsFn(
+                    alwaysAddRepositoryPath, outputDirectory, directProtoSourceRoots)));
     if (protosInDirectDependencies != null) {
       if (!protosInDirectDependencies.isEmpty()) {
         commandLine.addAll(
             "--direct_dependencies",
             VectorArg.join(":")
                 .each(protosInDirectDependencies)
-                .mapped(new ExpandToPathFnWithImports(outputDirectory, directProtoSourceRoots)));
+                .mapped(
+                    new ExpandToPathFnWithImports(
+                        alwaysAddRepositoryPath, outputDirectory, directProtoSourceRoots)));
 
       } else {
         // The proto compiler requires an empty list to turn on strict deps checking
@@ -636,10 +652,15 @@ public class ProtoCompileActionBuilder {
   @AutoCodec
   @AutoCodec.VisibleForSerialization
   static final class ExpandImportArgsFn implements CapturingMapFn<Artifact> {
+    private final boolean alwaysAddRepositoryPath;
     private final String outputDirectory;
     private final NestedSet<String> directProtoSourceRoots;
 
-    public ExpandImportArgsFn(String outputDirectory, NestedSet<String> directProtoSourceRoots) {
+    public ExpandImportArgsFn(
+        boolean alwaysAddRepositoryPath,
+        String outputDirectory,
+        NestedSet<String> directProtoSourceRoots) {
+      this.alwaysAddRepositoryPath = alwaysAddRepositoryPath;
       this.outputDirectory = outputDirectory;
       this.directProtoSourceRoots = directProtoSourceRoots;
     }
@@ -651,12 +672,24 @@ public class ProtoCompileActionBuilder {
      */
     @Override
     public void expandToCommandLine(Artifact proto, Consumer<String> args) {
+      boolean repositoryPathAdded = !alwaysAddRepositoryPath;
+      String pathIgnoringRepository = getPathIgnoringRepository(proto);
+
       for (String directProtoSourceRoot : directProtoSourceRoots) {
         PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
         String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto);
         if (arg != null) {
+          if (arg.equals(pathIgnoringRepository)) {
+            repositoryPathAdded = true;
+          }
+
           args.accept("-I" + arg + "=" + proto.getExecPathString());
         }
+      }
+
+      // TODO(lberki): This should really be removed. It's only there for backward compatibility.
+      if (!repositoryPathAdded) {
+        args.accept("-I" + getPathIgnoringRepository(proto) + "=" + proto.getExecPathString());
       }
     }
   }
@@ -664,11 +697,15 @@ public class ProtoCompileActionBuilder {
   @AutoCodec
   @AutoCodec.VisibleForSerialization
   static final class ExpandToPathFnWithImports implements CapturingMapFn<Pair<Artifact, String>> {
+    private final boolean alwaysAddRepositoryPath;
     private final String outputDirectory;
     private final NestedSet<String> directProtoSourceRoots;
 
     public ExpandToPathFnWithImports(
-        String outputDirectory, NestedSet<String> directProtoSourceRoots) {
+        boolean alwaysAddRepositoryPath,
+        String outputDirectory,
+        NestedSet<String> directProtoSourceRoots) {
+      this.alwaysAddRepositoryPath = alwaysAddRepositoryPath;
       this.outputDirectory = outputDirectory;
       this.directProtoSourceRoots = directProtoSourceRoots;
     }
@@ -678,15 +715,41 @@ public class ProtoCompileActionBuilder {
       if (proto.second != null) {
         args.accept(proto.second);
       } else {
+        boolean repositoryPathAdded = !alwaysAddRepositoryPath;
+        String pathIgnoringRepository = getPathIgnoringRepository(proto.first);
+
         for (String directProtoSourceRoot : directProtoSourceRoots) {
           PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
           String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto.first);
           if (arg != null) {
+            if (arg.equals(pathIgnoringRepository)) {
+              repositoryPathAdded = true;
+            }
             args.accept(arg);
           }
         }
+
+        // TODO(lberki): This should really be removed. It's only there for backward compatibility.
+        if (!repositoryPathAdded) {
+          args.accept(pathIgnoringRepository);
+        }
       }
     }
+  }
+
+  /**
+   * Gets the artifact's path relative to the root, ignoring the external repository the artifact is
+   * at. For example, <code>
+   * //a:b.proto --> a/b.proto
+   * {@literal @}foo//a:b.proto --> a/b.proto
+   * </code>
+   */
+  private static String getPathIgnoringRepository(Artifact artifact) {
+    return artifact
+        .getRootRelativePath()
+        .relativeTo(
+            artifact.getOwnerLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot())
+        .toString();
   }
 
   /**
