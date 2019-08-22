@@ -116,7 +116,7 @@ RULES_ANDROID_VERSION = "b60d84e5635233d2d8fc905041576bd44cefbb94"
 RULES_ANDROID_SHA = "d7cdd6e6aced08e152ff14074ea6cde98d6329d7fe1c5cd578a1e4edb4b3e4c9"
 
 http_archive(
-    name = "build_bazel_rules_android",
+    name = "rules_android",
     urls = [
         "https://github.com/bazelbuild/rules_android/archive/%s.zip" % RULES_ANDROID_VERSION,
     ],
@@ -135,7 +135,7 @@ file so that Bazel knows where to find them.
 Add the following lines to your `WORKSPACE` file:
 
 ```python
-load("@build_bazel_rules_android//android:rules.bzl", "android_sdk_repository")
+load("@rules_android//android:rules.bzl", "android_sdk_repository")
 
 android_sdk_repository(name = "androidsdk")
 ```
@@ -260,7 +260,7 @@ and declare a new `android_library` target:
 `src/main/java/com/example/bazel/BUILD`:
 
 ```python
-load("@build_bazel_rules_android//android:rules.bzl", "android_library")
+load("@rules_android//android:rules.bzl", "android_library")
 
 package(
     default_visibility = ["//src:__subpackages__"],
@@ -293,7 +293,7 @@ and declare a new `android_binary` target:
 `src/main/BUILD`:
 
 ```python
-load("@build_bazel_rules_android//android:rules.bzl", "android_binary")
+load("@rules_android//android:rules.bzl", "android_binary")
 
 android_binary(
     name = "app",
