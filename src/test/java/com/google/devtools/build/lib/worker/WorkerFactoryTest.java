@@ -73,6 +73,7 @@ public class WorkerFactoryTest {
             /* mustBeSandboxed= */ true,
             /* proxied= */ false);
     Worker sandboxedWorker = workerFactory.create(sandboxedWorkerKey);
+    assertThat(sandboxedWorker.getClass()).isEqualTo(SandboxedWorker.class);
 
     WorkerKey nonProxiedWorkerKey =
         new WorkerKey(
@@ -85,6 +86,7 @@ public class WorkerFactoryTest {
             /* mustBeSandboxed= */ false,
             /* proxied= */ false);
     Worker nonProxiedWorker = workerFactory.create(nonProxiedWorkerKey);
+    assertThat(nonProxiedWorker.getClass()).isEqualTo(Worker.class);
 
     WorkerKey proxiedWorkerKey =
         new WorkerKey(
@@ -97,9 +99,9 @@ public class WorkerFactoryTest {
             /* mustBeSandboxed= */ false,
             /* proxied= */ true);
     Worker proxiedWorker = workerFactory.create(proxiedWorkerKey);
-
-    assertThat(sandboxedWorker.getClass()).isEqualTo(SandboxedWorker.class);
-    assertThat(nonProxiedWorker.getClass()).isEqualTo(Worker.class);
+    // If proxied = true, WorkerProxy is created along with a WorkerMultiplexer.
+    // Destroy WorkerMultiplexer to avoid unexpected behavior in WorkerMultiplexerManagerTest.
+    WorkerMultiplexerManager.removeInstance(proxiedWorkerKey.hashCode());
     assertThat(proxiedWorker.getClass()).isEqualTo(WorkerProxy.class);
   }
 }
