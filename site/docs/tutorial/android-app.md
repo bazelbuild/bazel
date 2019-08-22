@@ -112,15 +112,16 @@ Android-specific Bazel rules are defined in a separate repository: https://githu
 Add the following lines to your `WORKSPACE` file:
 
 ```python
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+RULES_ANDROID_VERSION = "b60d84e5635233d2d8fc905041576bd44cefbb94"
+RULES_ANDROID_SHA = "d7cdd6e6aced08e152ff14074ea6cde98d6329d7fe1c5cd578a1e4edb4b3e4c9"
 
 http_archive(
     name = "build_bazel_rules_android",
     urls = [
-        "https://github.com/bazelbuild/rules_android/archive/b60d84e5635233d2d8fc905041576bd44cefbb94.zip",
+        "https://github.com/bazelbuild/rules_android/archive/%s.zip" % RULES_ANDROID_VERSION,
     ],
-    strip_prefix = "rules_android-b60d84e5635233d2d8fc905041576bd44cefbb94",
-    sha256 = "d7cdd6e6aced08e152ff14074ea6cde98d6329d7fe1c5cd578a1e4edb4b3e4c9"
+    strip_prefix = "rules_android-%s" % RULES_ANDROID_VERSION,
+    sha256 = RULES_ANDROID_SHA,
 )
 ```
 
