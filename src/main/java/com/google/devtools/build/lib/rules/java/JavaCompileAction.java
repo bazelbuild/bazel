@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -123,13 +124,13 @@ public class JavaCompileAction extends AbstractAction
       CompilationType compilationType,
       ActionOwner owner,
       ActionEnvironment env,
-      NestedSet<Artifact> tools,
+      Iterable<Artifact> tools,
       RunfilesSupplier runfilesSupplier,
       LazyString progressMessage,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> directJars,
-      NestedSet<Artifact> outputs,
+      Iterable<Artifact> outputs,
       ImmutableMap<String, String> executionInfo,
       ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
@@ -161,6 +162,34 @@ public class JavaCompileAction extends AbstractAction
     this.dependencyArtifacts = dependencyArtifacts;
     this.outputDepsProto = outputDepsProto;
     this.classpathMode = classpathMode;
+  }
+
+  private JavaCompileAction(JavaCompileAction other, ImmutableMap<String, String> executionInfo) {
+    this(
+        other.compilationType,
+        other.owner,
+        other.env,
+        other.getTools(),
+        other.getRunfilesSupplier(),
+        other.progressMessage,
+        other.mandatoryInputs,
+        other.transitiveInputs,
+        other.directJars,
+        other.outputs,
+        executionInfo,
+        other.extraActionInfoSupplier,
+        other.executableLine,
+        other.flagLine,
+        other.configuration,
+        other.dependencyArtifacts,
+        other.outputDepsProto,
+        other.classpathMode
+        );
+  }
+
+  @Override
+  public ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo) {
+    return new JavaCompileAction(this, executionInfo);
   }
 
   @Override

@@ -169,7 +169,7 @@ EOF
   bazel aquery --experimental_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
-  assert_not_contains "ExecutionInfo: {}" output1
+  assert_not_contains "ExecutionInfo: {" output1
 }
 
 run_suite "tags propagation: skylark rule tests"

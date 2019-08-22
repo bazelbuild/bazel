@@ -41,9 +41,11 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -102,6 +104,7 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -528,7 +531,35 @@ public final class RuleContext extends TargetContext
 
   @Override
   public void registerAction(ActionAnalysisMetadata... action) {
-    getAnalysisEnvironment().registerAction(action);
+
+    List<ActionAnalysisMetadata> newList = new ArrayList<>();
+    try {
+        for (ActionAnalysisMetadata metadata : action) {
+          if (metadata instanceof ExecutionInfoSpecifier && !(metadata instanceof StarlarkAction)) {
+            ExecutionInfoSpecifier executionInfoSpecifier = (ExecutionInfoSpecifier) metadata;
+            ImmutableMap<String, String> filteredExecutionInfo = TargetUtils.getFilteredExecutionInfo(
+                    executionInfoSpecifier.getExecutionInfo(),
+                    rule,
+                    this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation());
+
+            Map<String, String> executionInfoBuilder = new HashMap<>();
+            // in case something was already in action.executionInfo - we copy it to the final Map
+            executionInfoBuilder.putAll(executionInfoSpecifier.getExecutionInfo());
+            // adding filtered execution requirements to the execution info map
+            executionInfoBuilder.putAll(filteredExecutionInfo);
+
+            ActionAnalysisMetadata updatedAction = executionInfoSpecifier.addExecutionInfo(ImmutableMap.copyOf(executionInfoBuilder));
+            newList.add(updatedAction);
+          } else {
+            newList.add(metadata);
+          }
+        }
+    } catch (InterruptedException e) {
+      // todo: what?
+      e.printStackTrace();
+      throw new RuntimeException("Something horrible happened!");
+    }
+    getAnalysisEnvironment().registerAction(newList.toArray(new ActionAnalysisMetadata[0]));
   }
 
   /**

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.util.Map;
 
 /**
@@ -31,4 +33,16 @@ public interface ExecutionInfoSpecifier {
    * {@link com.google.devtools.build.lib.actions.Spawn#getExecutionInfo()}.
    */
   Map<String, String> getExecutionInfo();
+
+  /**
+   * TODO(ishikhman) remove 'default' ?
+   * Returns an action with given execution info.
+   * Note: new action might be created here, because action is immutable by design.
+   *
+   * @param executionInfo execution info to be assigned to an action
+   * @return an action with given execution info
+   */
+  default ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo){
+    return (ActionAnalysisMetadata)this;
+  }
 }

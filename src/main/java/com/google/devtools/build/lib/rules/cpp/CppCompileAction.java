@@ -27,6 +27,7 @@ import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -188,6 +190,67 @@ public class CppCompileAction extends AbstractAction
 
   private ParamFileActionInput paramFileActionInput;
   private PathFragment paramFilePath;
+
+  private CppCompileAction(ActionOwner owner,
+      Iterable<Artifact> inputs,
+      Iterable<Artifact> outputs, ActionEnvironment env,
+      Artifact outputFile, Artifact sourceFile,
+      CppConfiguration cppConfiguration,
+      NestedSet<Artifact> mandatoryInputs,
+      Iterable<Artifact> inputsForInvalidation,
+      NestedSet<Artifact> additionalPrunableHeaders,
+      @Nullable Artifact grepIncludes, boolean shareable, boolean shouldScanIncludes,
+      boolean shouldPruneModules, boolean usePic, boolean useHeaderModules,
+      boolean needsDotdInputPruning, boolean needsIncludeValidation,
+      IncludeProcessing includeProcessing,
+      CcCompilationContext ccCompilationContext,
+      ImmutableList<Artifact> builtinIncludeFiles,
+      ImmutableList<Artifact> additionalIncludeScanningRoots,
+      CompileCommandLine compileCommandLine, byte[] commandLineKey,
+      ImmutableMap<String, String> executionInfo, String actionName,
+      FeatureConfiguration featureConfiguration, UUID actionClassId,
+      ImmutableList<PathFragment> builtInIncludeDirectories,
+      Iterable<Artifact> additionalInputs,
+      Collection<DerivedArtifact> usedModules,
+      NestedSet<Artifact> discoveredModules,
+      NestedSet<Artifact> topLevelModules,
+      CcToolchainVariables overwrittenVariables,
+      ParamFileActionInput paramFileActionInput,
+      PathFragment paramFilePath) {
+    super(owner, inputs, outputs, env);
+    this.outputFile = outputFile;
+    this.sourceFile = sourceFile;
+    this.cppConfiguration = cppConfiguration;
+    this.mandatoryInputs = mandatoryInputs;
+    this.inputsForInvalidation = inputsForInvalidation;
+    this.additionalPrunableHeaders = additionalPrunableHeaders;
+    this.grepIncludes = grepIncludes;
+    this.shareable = shareable;
+    this.shouldScanIncludes = shouldScanIncludes;
+    this.shouldPruneModules = shouldPruneModules;
+    this.usePic = usePic;
+    this.useHeaderModules = useHeaderModules;
+    this.needsDotdInputPruning = needsDotdInputPruning;
+    this.needsIncludeValidation = needsIncludeValidation;
+    this.includeProcessing = includeProcessing;
+    this.ccCompilationContext = ccCompilationContext;
+    this.builtinIncludeFiles = builtinIncludeFiles;
+    this.additionalIncludeScanningRoots = additionalIncludeScanningRoots;
+    this.compileCommandLine = compileCommandLine;
+    this.commandLineKey = commandLineKey;
+    this.executionInfo = executionInfo;
+    this.actionName = actionName;
+    this.featureConfiguration = featureConfiguration;
+    this.actionClassId = actionClassId;
+    this.builtInIncludeDirectories = builtInIncludeDirectories;
+    this.additionalInputs = additionalInputs;
+    this.usedModules = usedModules;
+    this.discoveredModules = discoveredModules;
+    this.topLevelModules = topLevelModules;
+    this.overwrittenVariables = overwrittenVariables;
+    this.paramFileActionInput = paramFileActionInput;
+    this.paramFilePath = paramFilePath;
+  }
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -819,6 +882,48 @@ public class CppCompileAction extends AbstractAction
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
+  }
+
+  @Override
+  public ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo) {
+    return new CppCompileAction(
+        this.owner,
+        this.getInputs(),
+        this.outputs,
+        this.env,
+        this.outputFile,
+        this.sourceFile,
+        this.cppConfiguration,
+        this.mandatoryInputs,
+        this.inputsForInvalidation,
+        this.additionalPrunableHeaders,
+        this.grepIncludes,
+        this.shareable,
+        this.shouldScanIncludes,
+        this.shouldPruneModules,
+        this.usePic,
+        this.useHeaderModules,
+        this.needsDotdInputPruning,
+        this.needsIncludeValidation,
+        this.includeProcessing,
+        this.ccCompilationContext,
+        this.builtinIncludeFiles,
+        this.additionalIncludeScanningRoots,
+        this.compileCommandLine,
+        this.commandLineKey,
+        executionInfo,
+        this.actionName,
+        this.featureConfiguration,
+        this.actionClassId,
+        this.builtInIncludeDirectories,
+        this.additionalInputs,
+        this.usedModules,
+        this.discoveredModules,
+        this.topLevelModules,
+        this.overwrittenVariables,
+        this.paramFileActionInput,
+        this.paramFilePath
+    );
   }
 
   /**

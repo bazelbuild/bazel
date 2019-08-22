@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.genrule;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -66,6 +67,21 @@ public class GenRuleAction extends SpawnAction {
         false,
         null,
         null);
+  }
+
+  @Override
+  public ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo) {
+    return new GenRuleAction(
+        this.owner,
+        this.getTools(),
+        this.getInputs(),
+        this.outputs,
+        this.commandLines,
+        this.env,
+        executionInfo,
+        this.getRunfilesSupplier(),
+        this.getProgressMessage()
+    );
   }
 
   @Override

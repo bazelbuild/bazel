@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -102,6 +104,17 @@ public final class StarlarkAction extends SpawnAction {
         /* resultConsumer */ null);
     this.allInputs = inputs;
     this.unusedInputsList = unusedInputsList;
+  }
+
+  private StarlarkAction (StarlarkAction other, ImmutableMap<String, String> executionInfo){
+    super(other, executionInfo);
+    this.allInputs = other.allInputs;
+    this.unusedInputsList = other.unusedInputsList;
+  }
+
+  @Override
+  public ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo) {
+    return new StarlarkAction(this, executionInfo);
   }
 
   @VisibleForTesting

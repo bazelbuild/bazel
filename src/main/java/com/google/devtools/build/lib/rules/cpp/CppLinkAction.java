@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -191,6 +192,30 @@ public final class CppLinkAction extends AbstractAction
   @VisibleForTesting
   public String getTargetCpu() {
     return targetCpu;
+  }
+
+  @Override
+  public ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo) {
+    return new CppLinkAction(
+        this.owner,
+        this.mnemonic,
+        this.getInputs(),
+        this.outputs,
+        this.outputLibrary,
+        this.linkOutput,
+        this.interfaceOutputLibrary,
+        this.fake,
+        this.fakeLinkerInputArtifacts,
+        this.isLtoIndexing,
+        this.linkstampObjects,
+        this.linkCommandLine,
+        this.env,
+        this.toolchainEnv,
+        executionInfo,
+        this.ldExecutable,
+        this.hostSystemName,
+        this.targetCpu
+    );
   }
 
   public String getHostSystemName() {

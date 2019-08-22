@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -93,26 +94,26 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   /** Sets extensions on {@link ExtraActionInfo}. */
   public interface ExtraActionInfoSupplier {
+
     void extend(ExtraActionInfo.Builder builder);
   }
-
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
   @VisibleForSerialization protected final CommandLines commandLines;
-  @VisibleForSerialization protected final CommandLineLimits commandLineLimits;
 
+  @VisibleForSerialization protected final CommandLineLimits commandLineLimits;
   private final boolean executeUnconditionally;
+
   private final boolean isShellCommand;
   private final CharSequence progressMessage;
   private final String mnemonic;
-
   private final ResourceSet resourceSet;
-  private final ImmutableMap<String, String> executionInfo;
 
+  private final ImmutableMap<String, String> executionInfo;
   private final ExtraActionInfoSupplier extraActionInfoSupplier;
+
   private final Artifact primaryOutput;
   private final Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer;
-
   /**
    * Constructs a SpawnAction using direct initialization arguments.
    *
@@ -222,6 +223,27 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     this.executeUnconditionally = executeUnconditionally;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
     this.resultConsumer = resultConsumer;
+  }
+
+  protected SpawnAction(SpawnAction other, ImmutableMap<String, String> executionInfo) {
+    this(
+        other.owner,
+        other.getTools(),
+        other.getInputs(),
+        other.outputs,
+        other.primaryOutput,
+        other.resourceSet,
+        other.commandLines,
+        other.commandLineLimits,
+        other.isShellCommand,
+        other.env,
+        executionInfo,
+        other.progressMessage,
+        other.getRunfilesSupplier(),
+        other.mnemonic,
+        other.executeUnconditionally,
+        other.extraActionInfoSupplier,
+        other.resultConsumer);
   }
 
   @Override
@@ -512,6 +534,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   @Override
   public Map<String, String> getExecutionInfo() {
     return executionInfo;
+  }
+
+  @Override
+  public ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo) {
+    return new SpawnAction(this, executionInfo);
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */

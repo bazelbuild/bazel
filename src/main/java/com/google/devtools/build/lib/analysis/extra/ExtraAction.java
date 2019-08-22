@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -101,6 +102,18 @@ public final class ExtraAction extends SpawnAction {
       // Expecting just a single dummy file in the outputs.
       Preconditions.checkArgument(outputs.size() == 1, outputs);
     }
+  }
+
+  private ExtraAction(ExtraAction other, ImmutableMap<String, String> executionInfo) {
+    super(other, executionInfo);
+    this.shadowedAction = other.shadowedAction;
+    this.createDummyOutput = other.createDummyOutput;
+    this.extraActionInputs = other.extraActionInputs;
+  }
+
+  @Override
+  public ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo) {
+    return new ExtraAction(this, executionInfo);
   }
 
   @Override

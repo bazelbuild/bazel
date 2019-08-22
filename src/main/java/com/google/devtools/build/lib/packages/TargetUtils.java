@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -263,6 +264,26 @@ public final class TargetUtils {
     executionInfoBuilder.putAll(checkedExecutionRequirements);
 
     if (allowTagsPropagation) {
+      Map<String, String> checkedTags = getExecutionInfo(rule);
+      // merging filtered tags to the execution info map avoiding duplicates
+      checkedTags.forEach(executionInfoBuilder::putIfAbsent);
+    }
+
+    return ImmutableMap.copyOf(executionInfoBuilder);
+  }
+
+  public static ImmutableMap<String, String> getFilteredExecutionInfo(
+      Map<String,String> currentExecutionInfo, Rule rule, boolean incompatibleAllowTagsPropagation) {
+    Map<String, String> checkedExecutionRequirements =
+        (currentExecutionInfo == null)
+        ? Collections.emptyMap()
+        : TargetUtils.filter(currentExecutionInfo);
+
+    Map<String, String> executionInfoBuilder = new HashMap<>();
+    // adding filtered execution requirements to the execution info map
+    executionInfoBuilder.putAll(checkedExecutionRequirements);
+
+    if (incompatibleAllowTagsPropagation) {
       Map<String, String> checkedTags = getExecutionInfo(rule);
       // merging filtered tags to the execution info map avoiding duplicates
       checkedTags.forEach(executionInfoBuilder::putIfAbsent);

@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -102,6 +103,18 @@ public final class LtoBackendAction extends SpawnAction {
         "Either both or neither bitcodeFiles and imports files should be null");
     bitcodeFiles = allBitcodeFiles;
     imports = importsFile;
+  }
+
+  LtoBackendAction(LtoBackendAction other, ImmutableMap<String,String> executionInfo) {
+    super(other, executionInfo);
+    this.mandatoryInputs = other.mandatoryInputs;
+    this.bitcodeFiles = other.bitcodeFiles;
+    this.imports = other.imports;
+  }
+
+  @Override
+  public ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo) {
+    return new LtoBackendAction(this, executionInfo);
   }
 
   @Override

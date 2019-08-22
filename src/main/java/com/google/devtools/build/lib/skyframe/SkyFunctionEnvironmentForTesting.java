@@ -37,7 +37,8 @@ public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnviron
   private final ExtendedEventHandler eventHandler;
   private final SkyframeExecutor skyframeExecutor;
 
-  SkyFunctionEnvironmentForTesting(
+  // todo temporarily
+  public SkyFunctionEnvironmentForTesting(
       ExtendedEventHandler eventHandler, SkyframeExecutor skyframeExecutor) {
     this.eventHandler = eventHandler;
     this.skyframeExecutor = skyframeExecutor;
