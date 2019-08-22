@@ -356,9 +356,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     TargetPattern.Parser targetPatternParser = new TargetPattern.Parser(parserPrefix);
     String universeScopePattern = Iterables.getOnlyElement(universeScope);
     return QueryExpressionMapper.compose(
-        new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern),
-        new FilteredDirectRdepsInUniverseExpressionMapper(
-            targetPatternParser, universeScopePattern));
+        ImmutableList.of(
+            new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern),
+            new FilteredDirectRdepsInUniverseExpressionMapper(
+                targetPatternParser, universeScopePattern)));
   }
 
   @Override
