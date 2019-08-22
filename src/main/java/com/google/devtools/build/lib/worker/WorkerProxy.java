@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.worker;
 
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -71,6 +72,8 @@ final class WorkerProxy extends Worker {
     } catch (InterruptedException e) {
       logger.warning("InterruptedException was caught while destroying multiplexer. "
           + "It could because the multiplexer was interrupted.");
+    } catch (UserExecException e) {
+      logger.warning(e.toString());
     }
   }
 
