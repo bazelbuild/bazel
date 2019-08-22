@@ -101,6 +101,21 @@ flag (but this flag will invalidate every action of the build).
 - Content of any file used and referred to by a label (e.g.,
   `//mypkg:label.txt` not `mypkg/label.txt`).
 
+## Forcing refetch of external repositories
+
+Sometimes, an external repository can become outdated without any change to its
+definition or dependencies. For example, a repository fetching sources might
+follow a particular branch of a third-party repository, and new commits are
+available on that branch. In this case, you can ask bazel to refetch all
+external repositories unconditionally by calling `bazel sync`.
+
+Moreover, some rules inspect the local machine and might become
+outdated if the local machine was upgraded. Here you can ask bazel to
+only refetch those external repositories where the
+[`repository_rule`](https://docs.bazel.build/skylark/lib/globals.html#repository_rule)
+definition has the `configure` attribute set, use `bazel sync --configure`.
+
+
 ## Examples
 
 - [C++ auto-configured toolchain](https://github.com/bazelbuild/bazel/blob/ac29b78000afdb95afc7e97efd2b1299ebea4dac/tools/cpp/cc_configure.bzl#L288):
