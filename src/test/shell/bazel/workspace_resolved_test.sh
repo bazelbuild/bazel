@@ -1131,7 +1131,7 @@ test_local_config_platform_recorded() {
   mkdir main
   cd main
   # Clear out the WORKSPACE.
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
+  cat >> WORKSPACE <<'EOF'
 EOF
   touch BUILD
   bazel sync \

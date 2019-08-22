@@ -24,69 +24,56 @@ toolchain_type(name = "toolchain_type")
 # It is frequently necessary to constrain platforms based on the cc compiler type.
 constraint_setting(name = "cc_compiler")
 
-alias(
-    name = "clang",
-    actual = "@rules_cc//cc/private/toolchain:clang",
-)
-
-alias(
+constraint_value(
     name = "gcc",
-    actual = "@rules_cc//cc/private/toolchain:gcc",
+    constraint_setting = ":cc_compiler",
 )
 
-alias(
+constraint_value(
     name = "msvc",
-    actual = "@rules_cc//cc/private/toolchain:msvc",
+    constraint_setting = ":cc_compiler",
 )
 
-alias(
+constraint_value(
     name = "clang-cl",
-    actual = "@rules_cc//cc/private/toolchain:clang-cl",
+    constraint_setting = ":cc_compiler",
 )
 
-alias(
+constraint_value(
     name = "mingw",
-    actual = "@rules_cc//cc/private/toolchain:mingw",
+    constraint_setting = ":cc_compiler",
 )
 
-alias(
+constraint_value(
     name = "msys",
-    actual = "@rules_cc//cc/private/toolchain:msys",
+    constraint_setting = ":cc_compiler",
 )
 
-alias(
-    name = "current_cc_toolchain",
-    actual = "@rules_cc//cc/private/toolchain:current_cc_toolchain",
-)
+cc_toolchain_alias(name = "current_cc_toolchain")
 
-alias(
-    name = "current_cc_host_toolchain",
-    actual = "@rules_cc//cc/private/toolchain:current_cc_host_toolchain",
-)
+cc_host_toolchain_alias(name = "current_cc_host_toolchain")
 
-alias(
-    name = "current_libc_top",
-    actual = "@rules_cc//cc/private/toolchain:current_libc_top",
-)
+cc_libc_top_alias(name = "current_libc_top")
 
-alias(
+cc_library(
     name = "malloc",
-    actual = "@rules_cc//cc/private/toolchain:malloc",
 )
 
-alias(
+filegroup(
     name = "grep-includes",
-    actual = "@rules_cc//cc/private/toolchain:grep-includes",
+    srcs = ["grep-includes.sh"],
 )
 
-alias(
+filegroup(
     name = "empty",
-    actual = "@rules_cc//cc/private/toolchain:empty",
+    srcs = [],
 )
 
-alias(
+config_setting(
     name = "disable_static_cc_toolchains",
-    actual = "@rules_cc//cc/private/toolchain:disable_static_cc_toolchains",
+    values = {
+        "incompatible_disable_static_cc_toolchains": "true",
+    },
 )
 
 # This is the entry point for --crosstool_top.  Toolchains are found
@@ -99,7 +86,7 @@ alias(
 #   * all file groups that said cc_toolchain might refer to
 alias(
     name = "toolchain",
-    actual = "@rules_cc//cc/private/toolchain:toolchain",
+    actual = "//external:cc_toolchain",
 )
 
 filegroup(
@@ -122,34 +109,32 @@ filegroup(
     srcs = ["BUILD"],
 )
 
-alias(
+filegroup(
     name = "interface_library_builder",
-    actual = "@rules_cc//cc/private/toolchain:interface_library_builder",
+    srcs = ["build_interface_so"],
 )
 
-alias(
+filegroup(
     name = "osx_wrapper",
-    actual = "@rules_cc//cc/private/toolchain:osx_wrapper",
+    srcs = ["osx_cc_wrapper.sh"],
 )
 
-alias(
+filegroup(
     name = "link_dynamic_library",
-    actual = "@rules_cc//cc/private/toolchain:link_dynamic_library",
+    srcs = ["link_dynamic_library.sh"],
 )
 
-alias(
+filegroup(
     name = "lib_cc_configure",
-    actual = "@rules_cc//cc/private/toolchain:lib_cc_configure",
+    srcs = ["lib_cc_configure.bzl"],
 )
 
-alias(
-    name = "compiler",
-    actual = "@rules_cc//cc/private/toolchain:compiler",
-)
+load(":compiler_flag.bzl", "compiler_flag")
+
+compiler_flag(name = "compiler")
 
 # Target that can provide the CC_FLAGS variable based on the current
 # cc_toolchain.
-alias(
-    name = "cc_flags",
-    actual = "@rules_cc//cc/private/toolchain:cc_flags",
-)
+load("@bazel_tools//tools/cpp:cc_flags_supplier.bzl", "cc_flags_supplier")
+
+cc_flags_supplier(name = "cc_flags")
