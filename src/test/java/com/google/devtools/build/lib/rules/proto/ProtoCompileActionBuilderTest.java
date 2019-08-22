@@ -104,6 +104,7 @@ public class ProtoCompileActionBuilderTest {
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
+            true,
             ImmutableList.of(
                 new ToolchainInvocation(
                     "dontcare_because_no_plugin", toolchainNoPlugin, "foo.srcjar"),
@@ -116,7 +117,7 @@ public class ProtoCompileActionBuilderTest {
                     artifact("//:dont-care", "import1.proto"),
                     artifact("//:dont-care", "import2.proto")),
 
-                /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(Order.STABLE_ORDER, "."),
+                /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
                 /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(
                     Order.STABLE_ORDER, "."),
                 /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
@@ -143,6 +144,7 @@ public class ProtoCompileActionBuilderTest {
     // Verify that the command line contains the correct path to a generated protocol buffers.
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
+            true,
             /* toolchainInvocations= */ ImmutableList.of(),
             "bazel-out",
             protoInfo(
@@ -173,6 +175,7 @@ public class ProtoCompileActionBuilderTest {
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
+            true,
             ImmutableList.of(new ToolchainInvocation("dontcare", toolchain, "foo.srcjar")),
             "bazel-out",
             protoInfo(
@@ -217,6 +220,7 @@ public class ProtoCompileActionBuilderTest {
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
+            true,
             ImmutableList.of(new ToolchainInvocation("dontcare", toolchain, "foo.srcjar")),
             "bazel-out",
             protoInfo(
@@ -225,9 +229,9 @@ public class ProtoCompileActionBuilderTest {
                     STABLE_ORDER,
                     artifact("//:dont-care", "import1.proto"),
                     artifact("//:dont-care", "import2.proto")),
-                /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(Order.STABLE_ORDER, "."),
-                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(
-                    Order.STABLE_ORDER, "."),
+
+                /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
+                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
                 /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
                 /* exportedProtos = */ NestedSetBuilder.create(
                     STABLE_ORDER,
@@ -253,6 +257,7 @@ public class ProtoCompileActionBuilderTest {
   public void otherParameters() throws Exception {
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
+            true,
             ImmutableList.of(),
             "bazel-out",
             protoInfo(
@@ -294,6 +299,7 @@ public class ProtoCompileActionBuilderTest {
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
+            true,
             ImmutableList.of(new ToolchainInvocation("pluginName", toolchain, outReplacement)),
             "bazel-out",
             protoInfo(
@@ -339,6 +345,7 @@ public class ProtoCompileActionBuilderTest {
             IllegalStateException.class,
             () ->
                 createCommandLineFromToolchains(
+                    true,
                     ImmutableList.of(
                         new ToolchainInvocation("pluginName", toolchain1, "outReplacement"),
                         new ToolchainInvocation("pluginName", toolchain2, "outReplacement")),
@@ -455,6 +462,7 @@ public class ProtoCompileActionBuilderTest {
     NestedSet<Artifact> transitiveImportsNestedSet =
         NestedSetBuilder.wrap(STABLE_ORDER, transitiveImports);
     ProtoCompileActionBuilder.addIncludeMapArguments(
+        true,
         "blaze-out",
         commandLine,
         protosInDirectDependenciesBuilder,
