@@ -371,10 +371,38 @@ function test_package_loading_errors_in_target_parsing() {
   do
     for target_pattern in "//bad:BUILD" "//bad:all" "//bad/..."
     do
-      bazel build --nobuild "$target_pattern" >& "$TEST_log" \
+      bazel build --nobuild "$keep_going" "$target_pattern" >& "$TEST_log" \
         && fail "Expected failure"
       expect_log "Build did NOT complete successfully"
     done
+  done
+}
+
+function test_severe_package_loading_errors_via_test_suites_in_target_parsing() {
+
+  mkdir bad || fail "mkdir failed"
+  cat > bad/BUILD <<EOF
+load("//bad:bad.bzl", "some_val")
+sh_test(name = "some_test", srcs = ["test.sh"])
+EOF
+
+  cat > bad/bad.bzl <<EOF
+fail()
+EOF
+
+  mkdir dependsonbad || fail "mkdir failed"
+  cat > dependsonbad/BUILD <<EOF
+test_suite(name = "suite", tests = ["//bad:some_test"])
+EOF
+
+  for keep_going in "--keep_going" "--nokeep_going"
+  do
+    bazel build --nobuild "$keep_going" //dependsonbad:suite >& "$TEST_log" \
+      && fail "Expected failure"
+    local exit_code=$?
+    assert_equals 1 "$exit_code"
+    expect_log "Build did NOT complete successfully"
+    expect_not_log "Illegal"
   done
 }
 
