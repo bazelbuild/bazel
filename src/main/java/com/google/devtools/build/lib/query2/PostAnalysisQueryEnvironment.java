@@ -101,7 +101,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
       skyKey -> (ConfiguredTargetKey) skyKey.argument();
-  private static final ImmutableList<TargetPatternKey> ALL_PATTERNS;
+  private static final ImmutableList<TargetPattern> ALL_PATTERNS;
 
   static {
     TargetPattern targetPattern;
@@ -110,10 +110,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     } catch (TargetParsingException e) {
       throw new IllegalStateException(e);
     }
-    ALL_PATTERNS =
-        ImmutableList.of(
-            new TargetPatternKey(
-                targetPattern, FilteringPolicies.NO_FILTER, false, "", ImmutableSet.of()));
+    ALL_PATTERNS = ImmutableList.of(targetPattern);
   }
 
   protected RecursivePackageProviderBackedTargetPatternResolver resolver;
