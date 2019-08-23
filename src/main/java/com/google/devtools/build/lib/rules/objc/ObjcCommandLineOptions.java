@@ -29,71 +29,65 @@ import java.util.List;
 /** Command-line options for building Objective-C targets. */
 public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
-    name = "ios_simulator_version",
-    defaultValue = "9.3",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help =
-        "The version of iOS to run on the simulator when running or testing. This is ignored "
-            + "for ios_test rules if a target device is specified in the rule."
-  )
+      name = "ios_simulator_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help =
+          "The version of iOS to run on the simulator when running or testing. This is ignored "
+              + "for ios_test rules if a target device is specified in the rule.")
   public DottedVersion.Option iosSimulatorVersion;
 
   @Option(
-    name = "ios_simulator_device",
-    defaultValue = "iPhone 5s",
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help =
-        "The device to simulate when running an iOS application in the simulator, e.g. "
-            + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list "
-            + "devicetypes' on the machine the simulator will be run on."
-  )
+      name = "ios_simulator_device",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help =
+          "The device to simulate when running an iOS application in the simulator, e.g. "
+              + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list "
+              + "devicetypes' on the machine the simulator will be run on.")
   public String iosSimulatorDevice;
 
   @Option(
-    name = "watchos_simulator_version",
-    defaultValue = "2.0",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help = "The version of watchOS to run on the simulator when running or testing."
-  )
+      name = "watchos_simulator_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help = "The version of watchOS to run on the simulator when running or testing.")
   public DottedVersion.Option watchosSimulatorVersion;
 
   @Option(
-    name = "watchos_simulator_device",
-    defaultValue = "Apple Watch - 38mm",
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help =
-        "The device to simulate when running an watchOS application in the simulator, e.g. "
-            + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
-            + "devicetypes' on the machine the simulator will be run on."
-  )
+      name = "watchos_simulator_device",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help =
+          "The device to simulate when running an watchOS application in the simulator, e.g. "
+              + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
+              + "devicetypes' on the machine the simulator will be run on.")
   public String watchosSimulatorDevice;
 
   @Option(
-    name = "tvos_simulator_version",
-    defaultValue = "9.0",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help = "The version of tvOS to run on the simulator when running or testing."
-  )
+      name = "tvos_simulator_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help = "The version of tvOS to run on the simulator when running or testing.")
   public DottedVersion.Option tvosSimulatorVersion;
 
   @Option(
-    name = "tvos_simulator_device",
-    defaultValue = "Apple TV 1080p",
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help =
-        "The device to simulate when running an tvOS application in the simulator, e.g. "
-            + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
-            + "devicetypes' on the machine the simulator will be run on."
-  )
+      name = "tvos_simulator_device",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help =
+          "The device to simulate when running an tvOS application in the simulator, e.g. "
+              + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
+              + "devicetypes' on the machine the simulator will be run on.")
   public String tvosSimulatorDevice;
 
   @Option(
