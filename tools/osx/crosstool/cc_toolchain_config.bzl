@@ -1112,7 +1112,7 @@ def _impl(ctx):
         ],
         tools = [
             tool(
-                path = "wrapped_ar",
+                path = "libtool",
                 execution_requirements = ["requires-darwin"],
             ),
         ],
@@ -3937,13 +3937,6 @@ def _impl(ctx):
                         iterate_over = "libraries_to_link",
                         flag_groups = [
                             flag_group(
-                                flags = ["-Wl,--start-lib"],
-                                expand_if_equal = variable_with_value(
-                                    name = "libraries_to_link.type",
-                                    value = "object_file_group",
-                                ),
-                            ),
-                            flag_group(
                                 iterate_over = "libraries_to_link.object_files",
                                 flag_groups = [
                                     flag_group(
@@ -3955,13 +3948,6 @@ def _impl(ctx):
                                         expand_if_true = "libraries_to_link.is_whole_archive",
                                     ),
                                 ],
-                                expand_if_equal = variable_with_value(
-                                    name = "libraries_to_link.type",
-                                    value = "object_file_group",
-                                ),
-                            ),
-                            flag_group(
-                                flags = ["-Wl,--end-lib"],
                                 expand_if_equal = variable_with_value(
                                     name = "libraries_to_link.type",
                                     value = "object_file_group",
@@ -4673,7 +4659,7 @@ def _impl(ctx):
                 actions = [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
-                        flags = ["rcS", "%{output_execpath}"],
+                        flags = ["-no_warning_for_no_symbols", "-static", "-o", "%{output_execpath}"],
                         expand_if_available = "output_execpath",
                     ),
                 ],
@@ -5681,7 +5667,7 @@ def _impl(ctx):
           ctx.attr.cpu == "watchos_i386" or
           ctx.attr.cpu == "watchos_x86_64"):
         tool_paths = [
-            tool_path(name = "ar", path = "wrapped_ar"),
+            tool_path(name = "ar", path = "libtool"),
             tool_path(name = "compat-ld", path = "/usr/bin/ld"),
             tool_path(name = "cpp", path = "/usr/bin/cpp"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),

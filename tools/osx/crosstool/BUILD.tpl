@@ -50,7 +50,6 @@ cc_toolchain_suite(
             ":cc_wrapper",
             ":libtool",
             ":make_hashed_objlist.py",
-            ":wrapped_ar",
             ":wrapped_clang",
             ":wrapped_clang_pp",
             ":xcrunwrapper.sh",
