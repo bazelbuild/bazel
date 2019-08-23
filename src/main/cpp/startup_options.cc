@@ -492,16 +492,19 @@ string StartupOptions::GetEmbeddedJavabase() const {
   return "";
 }
 
-string StartupOptions::GetServerJavabase() const {
+std::pair<string, StartupOptions::JavabaseType>
+StartupOptions::GetServerJavabaseAndType() const {
   // 1) Allow overriding the server_javabase via --server_javabase.
   if (!explicit_server_javabase_.empty()) {
-    return explicit_server_javabase_;
+    return std::pair<string, JavabaseType>(explicit_server_javabase_,
+                                           JavabaseType::EXPLICIT);
   }
-  if (default_server_javabase_.empty()) {
+  if (default_server_javabase_.first.empty()) {
     string bundled_jre_path = GetEmbeddedJavabase();
     if (!bundled_jre_path.empty()) {
       // 2) Use a bundled JVM if we have one.
-      default_server_javabase_ = bundled_jre_path;
+      default_server_javabase_ = std::pair<string, JavabaseType>(
+          bundled_jre_path, JavabaseType::EMBEDDED);
     } else {
       // 3) Otherwise fall back to using the default system JVM.
       string system_javabase = GetSystemJavabase();
@@ -510,10 +513,15 @@ string StartupOptions::GetServerJavabase() const {
             << "Could not find system javabase. Ensure JAVA_HOME is set, or "
                "javac is on your PATH.";
       }
-      default_server_javabase_ = system_javabase;
+      default_server_javabase_ = std::pair<string, JavabaseType>(
+          system_javabase, JavabaseType::SYSTEM);
     }
   }
   return default_server_javabase_;
+}
+
+string StartupOptions::GetServerJavabase() const {
+  return GetServerJavabaseAndType().first;
 }
 
 string StartupOptions::GetExplicitServerJavabase() const {
@@ -521,8 +529,51 @@ string StartupOptions::GetExplicitServerJavabase() const {
 }
 
 string StartupOptions::GetJvm() const {
-  string java_program =
-      blaze_util::JoinPath(GetServerJavabase(), GetJavaBinaryUnderJavabase());
+  auto javabase_and_type = GetServerJavabaseAndType();
+  blaze_exit_code::ExitCode sanity_check_code =
+      SanityCheckJavabase(javabase_and_type.first, javabase_and_type.second);
+  if (sanity_check_code != blaze_exit_code::SUCCESS) {
+    exit(sanity_check_code);
+  }
+  return blaze_util::JoinPath(javabase_and_type.first,
+                              GetJavaBinaryUnderJavabase());
+}
+
+// Prints an appropriate error message and returns an appropriate error exit
+// code for a server javabase which failed sanity checks.
+static blaze_exit_code::ExitCode BadServerJavabaseError(
+    StartupOptions::JavabaseType javabase_type,
+    const std::map<string, string> &option_sources) {
+  switch (javabase_type) {
+    case StartupOptions::JavabaseType::EXPLICIT: {
+      auto source = option_sources.find("server_javabase");
+      string rc_file;
+      if (source != option_sources.end() && !source->second.empty()) {
+        rc_file = source->second;
+      }
+      BAZEL_LOG(ERROR)
+          << "  The java path was specified by a '--server_javabase' option " +
+                 (rc_file.empty() ? "on the command line" : "in " + rc_file);
+      return blaze_exit_code::BAD_ARGV;
+    }
+    case StartupOptions::JavabaseType::EMBEDDED:
+      BAZEL_LOG(ERROR) << "  Internal error: embedded JDK fails sanity check.";
+      return blaze_exit_code::INTERNAL_ERROR;
+    case StartupOptions::JavabaseType::SYSTEM:
+      return blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR;
+    default:
+      BAZEL_LOG(ERROR)
+          << "  Internal error: server javabase type was not initialized.";
+      // Fall through.
+  }
+  return blaze_exit_code::INTERNAL_ERROR;
+}
+
+blaze_exit_code::ExitCode StartupOptions::SanityCheckJavabase(
+    const std::string &javabase,
+    StartupOptions::JavabaseType javabase_type) const {
+  std::string java_program =
+      blaze_util::JoinPath(javabase, GetJavaBinaryUnderJavabase());
   if (!blaze_util::CanExecuteFile(java_program)) {
     if (!blaze_util::PathExists(java_program)) {
       BAZEL_LOG(ERROR) << "Couldn't find java at '" << java_program << "'.";
@@ -531,27 +582,25 @@ string StartupOptions::GetJvm() const {
                        << "' exists but is not executable: "
                        << blaze_util::GetLastErrorString();
     }
-    exit(1);
+    return BadServerJavabaseError(javabase_type, option_sources);
   }
   // If the full JDK is installed
-  string jdk_rt_jar =
-      blaze_util::JoinPath(GetServerJavabase(), "jre/lib/rt.jar");
+  string jdk_rt_jar = blaze_util::JoinPath(javabase, "jre/lib/rt.jar");
   // If just the JRE is installed
-  string jre_rt_jar = blaze_util::JoinPath(GetServerJavabase(), "lib/rt.jar");
+  string jre_rt_jar = blaze_util::JoinPath(javabase, "lib/rt.jar");
   // rt.jar does not exist in java 9+ so check for java instead
-  string jre_java = blaze_util::JoinPath(GetServerJavabase(), "bin/java");
-  string jre_java_exe =
-      blaze_util::JoinPath(GetServerJavabase(), "bin/java.exe");
+  string jre_java = blaze_util::JoinPath(javabase, "bin/java");
+  string jre_java_exe = blaze_util::JoinPath(javabase, "bin/java.exe");
   if (blaze_util::CanReadFile(jdk_rt_jar) ||
       blaze_util::CanReadFile(jre_rt_jar) ||
       blaze_util::CanReadFile(jre_java) ||
       blaze_util::CanReadFile(jre_java_exe)) {
-    return java_program;
+    return blaze_exit_code::SUCCESS;
   }
   BAZEL_LOG(ERROR) << "Problem with java installation: couldn't find/access "
                       "rt.jar or java in "
-                   << GetServerJavabase();
-  exit(1);
+                   << javabase;
+  return BadServerJavabaseError(javabase_type, option_sources);
 }
 
 string StartupOptions::GetExe(const string &jvm, const string &jar_path) const {

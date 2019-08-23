@@ -51,6 +51,8 @@ struct RcStartupFlag {
 // which displays the defaults).  The actual defaults are defined
 // in the constructor.
 //
+// Note that this class is not thread-safe.
+//
 // TODO(bazel-team): The encapsulation is not quite right -- there are some
 // places in blaze.cc where some of these fields are explicitly modified. Their
 // names also don't conform to the style guide.
@@ -188,8 +190,23 @@ class StartupOptions {
   // Returns the embedded JDK, or an empty string.
   std::string GetEmbeddedJavabase() const;
 
-  // Returns the GetHostJavabase. This should be called after parsing
-  // the --server_javabase option.
+  // The source of truth for the server javabase.
+  enum class JavabaseType {
+    UNKNOWN,
+    // An explicit --server_javabase startup option.
+    EXPLICIT,
+    // The embedded JDK.
+    EMBEDDED,
+    // The default system JVM.
+    SYSTEM
+  };
+
+  // Returns the server javabase and its source of truth. This should be called
+  // after parsing the --server_javabase option.
+  std::pair<std::string, JavabaseType> GetServerJavabaseAndType() const;
+
+  // Returns the server javabase. This should be called after parsing the
+  // --server_javabase option.
   std::string GetServerJavabase() const;
 
   // Returns the explicit value of the --server_javabase startup option or the
@@ -256,6 +273,14 @@ class StartupOptions {
       const char *arg, const char *next_arg, const std::string &rcfile,
       const char **value, bool *is_processed, std::string *error) = 0;
 
+  // Checks whether the given javabase contains a java executable and runtime.
+  // On success, returns blaze_exit_code::SUCCESS. On error, prints an error
+  // message and returns an appropriate exit code with which the client should
+  // terminate.
+  blaze_exit_code::ExitCode SanityCheckJavabase(
+      const std::string &javabase,
+      StartupOptions::JavabaseType javabase_type) const;
+
   // Returns the absolute path to the user's local JDK install, to be used as
   // the default target javabase and as a fall-back host_javabase. This is not
   // the embedded JDK.
@@ -304,8 +329,9 @@ class StartupOptions {
   // The server javabase as provided on the commandline.
   std::string explicit_server_javabase_;
 
-  // The server javabase to be used (computed lazily).
-  mutable std::string default_server_javabase_;
+  // The default server javabase to be used and its source of truth (computed
+  // lazily). Not guarded by a mutex - StartupOptions is not thread-safe.
+  mutable std::pair<std::string, JavabaseType> default_server_javabase_;
 
   // Startup flags that don't expect a value, e.g. "master_bazelrc".
   // Valid uses are "--master_bazelrc" are "--nomaster_bazelrc".
