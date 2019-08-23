@@ -1460,8 +1460,7 @@ static int GetExitCodeForAbruptExit(const string &output_base) {
   return custom_exit_code;
 }
 
-static void PrintVersionInfo(const string &self_path,
-                             const string &product_name) {
+void PrintVersionInfo(const string &self_path, const string &product_name) {
   string build_label;
   ExtractBuildLabel(self_path, product_name, &build_label);
   printf("%s %s\n", product_name.c_str(), build_label.c_str());
