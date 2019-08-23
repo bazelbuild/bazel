@@ -22,6 +22,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/server_process_info.h"
+#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
 
 namespace blaze {
@@ -177,7 +178,7 @@ int ExecuteDaemon(const std::string& exe,
                   const std::string& daemon_output,
                   const bool daemon_output_append,
                   const std::string& binaries_dir,
-                  const std::string& server_dir,
+                  const blaze_util::Path& server_dir,
                   const StartupOptions &options,
                   BlazeServerStartup** server_startup);
 

@@ -202,7 +202,7 @@ int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
 }
 
 void WriteSystemSpecificProcessIdentifier(
-    const string& server_dir, pid_t server_pid) {
+    const blaze_util::Path &server_dir, pid_t server_pid) {
 }
 
 bool VerifyServerProcess(int pid, const string &output_base) {

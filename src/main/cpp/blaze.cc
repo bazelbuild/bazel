@@ -616,11 +616,11 @@ static string GetArgumentString(const vector<string> &argument_array) {
   return result;
 }
 
-static void EnsureServerDir(const string &server_dir) {
+static void EnsureServerDir(const blaze_util::Path &server_dir) {
   // The server dir has the connection info - don't allow access by other users.
   if (!blaze_util::MakeDirectories(server_dir, 0700)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "server directory '" << server_dir
+        << "server directory '" << server_dir.AsPrintablePath()
         << "' could not be created: " << GetLastErrorString();
   }
 }
@@ -640,6 +640,7 @@ static const void GoToWorkspace(
 static void RunServerMode(
     const string &server_exe,
     const vector<string> &server_exe_args,
+    const blaze_util::Path &server_dir,
     const WorkspaceLayout &workspace_layout,
     const string &workspace,
     const OptionProcessor &option_processor,
@@ -657,15 +658,12 @@ static void RunServerMode(
     server->KillRunningServer();
   }
 
-  const string server_dir =
-      blaze_util::JoinPath(startup_options.output_base, "server");
-
   EnsureServerDir(server_dir);
 
   blaze_util::WriteFile(blaze::GetProcessIdAsString(),
-                        blaze_util::JoinPath(server_dir, "server.pid.txt"));
+                        server_dir.GetRelative("server.pid.txt"));
   blaze_util::WriteFile(GetArgumentString(server_exe_args),
-                        blaze_util::JoinPath(server_dir, "cmdline"));
+                        server_dir.GetRelative("cmdline"));
 
   GoToWorkspace(workspace_layout, workspace);
 
@@ -762,10 +760,10 @@ static void WriteFileToStderrOrDie(const char *file_name) {
 
 // After connecting to the Blaze server, return its PID, or -1 if there was an
 // error.
-static int GetServerPid(const string &server_dir) {
+static int GetServerPid(const blaze_util::Path &server_dir) {
   // Note: there is no race here on startup since the server creates
   // the pid file strictly before it binds the socket.
-  string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
+  blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
   string bufstr;
   int result;
   if (!blaze_util::ReadFile(pid_file, &bufstr, 32) ||
@@ -832,7 +830,7 @@ static void ConnectOrDie(
 // Ensures that any server previously associated with `server_dir` is no longer
 // running.
 static void EnsurePreviousServerProcessTerminated(
-    const string &server_dir, const StartupOptions &startup_options,
+    const blaze_util::Path &server_dir, const StartupOptions &startup_options,
     LoggingInfo *logging_info) {
   int server_pid = GetServerPid(server_dir);
   if (server_pid > 0) {
@@ -854,21 +852,18 @@ static void EnsurePreviousServerProcessTerminated(
 static void StartServerAndConnect(
     const string &server_exe,
     const vector<string> &server_exe_args,
+    const blaze_util::Path& server_dir,
     const WorkspaceLayout &workspace_layout,
     const string &workspace,
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options,
     LoggingInfo *logging_info,
     BlazeServer *server) {
-  const string server_dir =
-      blaze_util::JoinPath(startup_options.output_base, "server");
-
   // Delete the old command_port file if it already exists. Otherwise we might
   // run into the race condition that we read the old command_port file before
   // the new server has written the new file and we try to connect to the old
   // port, run into a timeout and try again.
-  (void)blaze_util::UnlinkPath(
-      blaze_util::JoinPath(server_dir, "command_port"));
+  (void)blaze_util::UnlinkPath(server_dir.GetRelative("command_port"));
 
   EnsureServerDir(server_dir);
 
@@ -880,7 +875,7 @@ static void StartServerAndConnect(
   // cmdline file is used to validate the server running in this server_dir.
   // There's no server running now so we're safe to unconditionally write this.
   blaze_util::WriteFile(GetArgumentString(server_exe_args),
-                        blaze_util::JoinPath(server_dir, "cmdline"));
+                        server_dir.GetRelative("cmdline"));
 
   // Do this here instead of in the daemon so the user can see if it fails.
   GoToWorkspace(workspace_layout, workspace);
@@ -1211,6 +1206,7 @@ static void CancelServer() { blaze_server->Cancel(); }
 static ATTRIBUTE_NORETURN void RunClientServerMode(
     const string &server_exe,
     const vector<string> &server_exe_args,
+    const blaze_util::Path &server_dir,
     const WorkspaceLayout &workspace_layout,
     const string &workspace,
     const OptionProcessor &option_processor,
@@ -1222,6 +1218,7 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
       StartServerAndConnect(
           server_exe,
           server_exe_args,
+          server_dir,
           workspace_layout,
           workspace,
           option_processor,
@@ -1518,10 +1515,13 @@ static int RunLauncher(
 
   const string server_exe = startup_options.GetExe(jvm_path, server_jar_path);
 
+  const blaze_util::Path server_dir =
+      blaze_util::Path(startup_options.output_base).GetRelative("server");
   if ("exec-server" == option_processor.GetCommand()) {
     RunServerMode(
         server_exe,
         server_exe_args,
+        server_dir,
         workspace_layout,
         workspace,
         option_processor,
@@ -1541,6 +1541,7 @@ static int RunLauncher(
     RunClientServerMode(
         server_exe,
         server_exe_args,
+        server_dir,
         workspace_layout,
         workspace,
         option_processor,

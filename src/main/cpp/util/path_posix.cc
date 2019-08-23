@@ -94,4 +94,60 @@ std::string MakeAbsoluteAndResolveEnvvars(const std::string &path) {
   return MakeAbsolute(ResolveEnvvars(path));
 }
 
+static std::string NormalizeAbsPath(const std::string &p) {
+  typedef std::string::size_type index;
+  if (p.empty() || p[0] != '/') {
+    return "";
+  }
+  std::vector<std::pair<index, index> > segments;
+  for (index s = 0; s < p.size(); ) {
+    index e = p.find_first_of('/', s);
+    if (e == std::string::npos) {
+      e = p.size();
+    }
+    if (e > s + 1) {
+      if (p.compare(s, e - s, "..") == 0) {
+        if (!segments.empty()) {
+          segments.pop_back();
+        }
+      } else if (p.compare(s, e - s, ".") != 0) {
+        segments.push_back(std::make_pair(s, e - s));
+      }
+    }
+    s = e + 1;
+  }
+  if (segments.empty()) {
+    return p[0] == '/' ? "/" : "";
+  } else {
+    std::stringstream r;
+    if (p[0] == '/') {
+      r << "/";
+    }
+    r << p.substr(segments[0].first, segments[0].second);
+    for (std::vector<std::pair<index, index> >::size_type i = 1;
+         i < segments.size(); ++i) {
+      r << "/" << p.substr(segments[i].first, segments[i].second);
+    }
+    if (p[p.size() - 1] == '/') {
+      r << "/";
+    }
+    return r.str();
+  }
+}
+
+std::string TestOnly_NormalizeAbsPath(const std::string &s) {
+  return NormalizeAbsPath(s);
+}
+
+Path::Path(const std::string& path)
+    : path_(NormalizeAbsPath(MakeAbsolute(path))) {}
+
+bool Path::IsNull() const { return path_ == "/dev/null"; }
+
+Path Path::GetRelative(const std::string& r) const {
+  return Path(JoinPath(path_, r));
+}
+
+std::string Path::AsPrintablePath() const { return path_; }
+
 }  // namespace blaze_util

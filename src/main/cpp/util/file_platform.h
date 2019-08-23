@@ -23,6 +23,8 @@
 
 namespace blaze_util {
 
+class Path;
+
 class IPipe;
 
 IPipe* CreatePipe();
@@ -91,6 +93,8 @@ int ReadFromHandle(file_handle_type handle, void *data, size_t size,
 // Returns false on error. Can be called from a signal handler.
 bool ReadFile(const std::string &filename, std::string *content,
               int max_size = 0);
+bool ReadFile(const Path &filename, std::string *content,
+              int max_size = 0);
 
 // Reads up to `size` bytes from the file `filename` into `data`.
 // There must be enough memory allocated at `data`.
@@ -100,6 +104,9 @@ bool ReadFile(const std::string &filename, void *data, size_t size);
 // Writes `size` bytes from `data` into file `filename` and chmods it to `perm`.
 // Returns false on failure, sets errno.
 bool WriteFile(const void *data, size_t size, const std::string &filename,
+               unsigned int perm = 0644);
+
+bool WriteFile(const void *data, size_t size, const Path &path,
                unsigned int perm = 0644);
 
 // Result of a `WriteToStdOutErr` operation.
@@ -141,6 +148,7 @@ bool ReadDirectorySymlink(const std::string &symlink, std::string *result);
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
 bool UnlinkPath(const std::string &file_path);
+bool UnlinkPath(const Path &file_path);
 
 // Returns true if this path exists, following symlinks.
 bool PathExists(const std::string& path);
@@ -176,6 +184,7 @@ void SyncFile(const std::string& path);
 // `mode` should be an octal permission mask, e.g. 0755.
 // Returns false on failure, sets errno.
 bool MakeDirectories(const std::string &path, unsigned int mode);
+bool MakeDirectories(const Path &path, unsigned int mode);
 
 // Returns the current working directory.
 // The path is platform-specific (e.g. Windows path of Windows) and absolute.

@@ -18,6 +18,32 @@
 
 namespace blaze_util {
 
+// Platform-native, absolute, normalized path.
+class Path {
+ public:
+  Path() {}
+  Path(const std::string& path);
+  bool IsEmpty() const { return path_.empty(); }
+  bool IsNull() const;
+  Path GetRelative(const std::string& r) const;
+  std::string AsPrintablePath() const;
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+  const std::wstring& AsNativePath() const { return path_; }
+#else
+  const std::string& AsNativePath() const { return path_; }
+#endif
+
+ private:
+#if defined(_WIN32) || defined(__CYGWIN__)
+  Path(const std::wstring wpath) : path_(wpath) {}
+
+  std::wstring path_;
+#else
+  std::string path_;
+#endif
+};
+
 // Convert a path from Bazel internal form to underlying OS form.
 // On Unixes this is an identity operation.
 // On Windows, Bazel internal form is cygwin path, and underlying OS form
@@ -137,6 +163,10 @@ bool AsAbsoluteWindowsPath(const std::wstring &path, std::wstring *result,
 // existing segments and leaving the rest unshortened.
 bool AsShortWindowsPath(const std::string &path, std::string *result,
                         std::string *error);
+
+#else
+
+std::string TestOnly_NormalizeAbsPath(const std::string &s);
 
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 }  // namespace blaze_util

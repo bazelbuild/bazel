@@ -184,4 +184,36 @@ TEST(PathPosixTest, MakeAbsoluteAndResolveEnvvars) {
             JoinPath(GetCwd(), "%PATH%"));
 }
 
+TEST(PathPosixTest, NormalizeAbsPath) {
+  EXPECT_EQ(TestOnly_NormalizeAbsPath(""), "");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("not_absolute"), "");
+
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/."), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/./"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//.//"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/."), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//."), "/");
+
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/../"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//..//"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/.."), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//.."), "/");
+
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo"), "/foo");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo/"), "/foo/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//foo//"), "/foo/");
+
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo/.."), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo/../"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//foo//..//"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//foo//bar//"), "/foo/bar/");
+
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo/./bar/"), "/foo/bar/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo/../bar/"), "/bar/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo/../../bar/"), "/bar/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo/../bar/.."), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo/../bar/../"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/./foo/../bar/../"), "/");
+}
+
 }  // namespace blaze_util

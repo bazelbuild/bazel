@@ -207,6 +207,10 @@ bool ReadFile(const string &filename, string *content, int max_size) {
   return result;
 }
 
+bool ReadFile(const Path &path, std::string *content, int max_size) {
+  return ReadFile(path.AsNativePath(), content, max_size);
+}
+
 bool ReadFile(const string &filename, void *data, size_t size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
@@ -227,6 +231,11 @@ bool WriteFile(const void *data, size_t size, const string &filename,
     return false;  // Can fail on NFS.
   }
   return result == static_cast<int>(size);
+}
+
+bool WriteFile(const void *data, size_t size, const Path &path,
+               unsigned int perm) {
+  return WriteFile(data, size, path.AsNativePath(), perm);
 }
 
 int WriteToStdOutErr(const void *data, size_t size, bool to_stdout) {
@@ -262,6 +271,10 @@ bool ReadDirectorySymlink(const string &name, string *result) {
 
 bool UnlinkPath(const string &file_path) {
   return unlink(file_path.c_str()) == 0;
+}
+
+bool UnlinkPath(const Path &file_path) {
+  return UnlinkPath(file_path.AsNativePath());
 }
 
 bool PathExists(const string& path) {
@@ -397,6 +410,10 @@ IFileMtime *CreateFileMtime() { return new PosixFileMtime(); }
 // On failure, this returns false and sets errno.
 bool MakeDirectories(const string &path, unsigned int mode) {
   return MakeDirectories(path, mode, true);
+}
+
+bool MakeDirectories(const Path &path, unsigned int mode) {
+  return MakeDirectories(path.AsNativePath(), mode);
 }
 
 string GetCwd() {

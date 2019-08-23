@@ -247,23 +247,9 @@ FILETIME WindowsFileMtime::GetFuture(WORD years) {
 
 IFileMtime* CreateFileMtime() { return new WindowsFileMtime(); }
 
-static bool OpenFileForReading(const string& filename, HANDLE* result) {
-  if (filename.empty()) {
-    return false;
-  }
-  // TODO(laszlocsomor): remove the following check; it won't allow opening NUL.
-  if (IsDevNull(filename.c_str())) {
-    return true;
-  }
-  wstring wfilename;
-  string error;
-  if (!AsAbsoluteWindowsPath(filename, &wfilename, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "OpenFileForReading(" << filename
-        << "): AsAbsoluteWindowsPath failed: " << error;
-  }
+static bool OpenFileForReading(const Path &path, HANDLE* result) {
   *result = ::CreateFileW(
-      /* lpFileName */ wfilename.c_str(),
+      /* lpFileName */ path.AsNativePath().c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ kAllShare,
       /* lpSecurityAttributes */ NULL,
@@ -291,8 +277,20 @@ bool ReadFile(const string& filename, string* content, int max_size) {
     content->clear();
     return true;
   }
+  return ReadFile(Path(filename), content, max_size);
+}
+
+bool ReadFile(const Path &path, std::string *content, int max_size) {
+  if (path.IsEmpty()) {
+    return false;
+  }
+  // TODO(laszlocsomor): remove the following check; it won't allow opening NUL.
+  if (path.IsNull()) {
+    return true;
+  }
+
   HANDLE handle;
-  if (!OpenFileForReading(filename, &handle)) {
+  if (!OpenFileForReading(path, &handle)) {
     return false;
   }
 
@@ -305,6 +303,9 @@ bool ReadFile(const string& filename, string* content, int max_size) {
 }
 
 bool ReadFile(const string& filename, void* data, size_t size) {
+  if (filename.empty()) {
+    return false;
+  }
   if (IsDevNull(filename.c_str())) {
     // mimic read(2) behavior: we can always read 0 bytes from /dev/null
     return true;
@@ -326,18 +327,14 @@ bool WriteFile(const void* data, size_t size, const string& filename,
   if (IsDevNull(filename.c_str())) {
     return true;  // mimic write(2) behavior with /dev/null
   }
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(filename, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WriteFile(" << filename
-        << "): AsAbsoluteWindowsPath failed: " << error;
-    return false;
-  }
+  return WriteFile(data, size, Path(filename), perm);
+}
 
-  UnlinkPathW(wpath);  // We don't care about the success of this.
+bool WriteFile(const void* data, size_t size, const Path &path,
+               unsigned int perm) {
+  UnlinkPathW(path.AsNativePath());  // We don't care about the success of this.
   AutoHandle handle(::CreateFileW(
-      /* lpFileName */ wpath.c_str(),
+      /* lpFileName */ path.AsNativePath().c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
@@ -420,16 +417,11 @@ bool UnlinkPath(const string& file_path) {
   if (IsDevNull(file_path.c_str())) {
     return false;
   }
+  return UnlinkPath(Path(file_path));
+}
 
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(file_path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "UnlinkPath(" << file_path
-        << "): AsAbsoluteWindowsPath failed: " << error;
-    return false;
-  }
-  return UnlinkPathW(wpath);
+bool UnlinkPath(const Path &path) {
+  return UnlinkPathW(path.AsNativePath());
 }
 
 static bool RealPath(const WCHAR* path, unique_ptr<WCHAR[]>* result = nullptr) {
@@ -692,6 +684,10 @@ bool MakeDirectories(const string& path, unsigned int mode) {
     return false;
   }
   return MakeDirectoriesW(wpath, mode);
+}
+
+bool MakeDirectories(const Path &path, unsigned int mode) {
+  return MakeDirectoriesW(path.AsNativePath(), mode);
 }
 
 static inline void ToLowerW(WCHAR* p) {
