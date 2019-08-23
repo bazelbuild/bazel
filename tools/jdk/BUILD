@@ -261,7 +261,7 @@ alias(
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:proguard",
         # On different platforms the linux repository can be used because the
         # proguard deploy jar is platform-agnostic.
-        "//conditions:default": "@remote_java_tools_linux//tools/jdk:proguard",
+        "//conditions:default": "@remote_java_tools_linux//:proguard",
     }),
 )
 
