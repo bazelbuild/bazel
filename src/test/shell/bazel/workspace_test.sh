@@ -994,5 +994,65 @@ EOF
 
 }
 
+test_remap_toolchains_from_qualified_load() {
+    cat > WORKSPACE <<'EOF'
+workspace(name = "my_ws")
+
+register_toolchains("@my_ws//toolchains:sample_toolchain")
+EOF
+    mkdir toolchains
+    cat > toolchains/toolchain.bzl <<'EOF'
+def _impl(ctx):
+  return [platform_common.ToolchainInfo()]
+
+mytoolchain = rule(
+  implementation = _impl,
+  attrs = {},
+)
+EOF
+    cat > toolchains/rule.bzl <<'EOF'
+def _impl(ctx):
+  # Ensure the toolchain is available under the requested (non-canonical)
+  # name
+  print("toolchain is %s" %
+        (ctx.toolchains["@my_ws//toolchains:my_toolchain_type"],))
+  pass
+
+testrule = rule(
+  implementation = _impl,
+  attrs = {},
+  toolchains = ["@my_ws//toolchains:my_toolchain_type"],
+)
+EOF
+    cat > toolchains/BUILD <<'EOF'
+load("@my_ws//toolchains:toolchain.bzl", "mytoolchain")
+load("@my_ws//toolchains:rule.bzl", "testrule")
+
+toolchain_type(name = "my_toolchain_type")
+mytoolchain(name = "thetoolchain")
+
+toolchain(
+  name = "sample_toolchain",
+  toolchain = "@my_ws//toolchains:thetoolchain",
+  toolchain_type = "@my_ws//toolchains:my_toolchain_type",
+)
+
+testrule(
+  name = "emptytoolchainconsumer",
+)
+EOF
+
+    bazel build --incompatible_remap_main_repo=true @my_ws//toolchains/... \
+          || fail "expected success"
+
+    # Additionally check, that nothing goes wrong flipping the remapping
+    # off and on again.
+    bazel build --incompatible_remap_main_repo=false @my_ws//toolchains/... \
+          || fail "expected success"
+
+    bazel build --incompatible_remap_main_repo=true @my_ws//toolchains/... \
+          || fail "expected success"
+}
+
 
 run_suite "workspace tests"

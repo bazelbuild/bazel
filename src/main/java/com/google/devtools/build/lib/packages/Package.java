@@ -256,7 +256,16 @@ public class Package {
       throw new UnsupportedOperationException("Can only access the external package repository"
           + "mappings from the //external package");
     }
-    return externalPackageRepositoryMappings.getOrDefault(repository, ImmutableMap.of());
+
+    // We are passed a repository name as seen from the main repository, not necessarily
+    // a canonical repository name. So, we first have to find the canonical name for the
+    // repository in question before we can look up the mapping for it.
+    RepositoryName actualRepositoryName =
+        externalPackageRepositoryMappings
+            .getOrDefault(RepositoryName.MAIN, ImmutableMap.of())
+            .getOrDefault(repository, repository);
+
+    return externalPackageRepositoryMappings.getOrDefault(actualRepositoryName, ImmutableMap.of());
   }
 
   /** Get the repository mapping for this package. */
