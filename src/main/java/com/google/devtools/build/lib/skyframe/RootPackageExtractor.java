@@ -14,13 +14,15 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
+import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.List;
-import java.util.function.Consumer;
 
 /** A streaming interface for recursively searching for all packages under a given set of roots. */
 public interface RootPackageExtractor {
@@ -29,7 +31,7 @@ public interface RootPackageExtractor {
    * Recursively search each of the given roots in a repository for packages (while respecting
    * blacklists and exclusions), calling the {@code results} callback as each package is discovered.
    *
-   * @param results callback invoked once for each package as it is discovered under a root
+   * @param results callback invoked once for groups of packages as they are discovered under a root
    * @param graph skyframe graph used for retrieving the directories under each root
    * @param roots all the filesystem roots to search for packages
    * @param eventHandler receives package-loading errors for any packages loaded by graph queries
@@ -43,7 +45,7 @@ public interface RootPackageExtractor {
    *     searched exhaustively
    */
   void streamPackagesFromRoots(
-      Consumer<PathFragment> results,
+      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,

@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
+import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -25,7 +27,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Map;
-import java.util.function.Consumer;
 
 /**
  * Support for resolving {@code package/...} target patterns.
@@ -47,10 +48,9 @@ public interface RecursivePackageProvider extends PackageProvider {
    * @param blacklistedSubdirectories a set of {@link PathFragment}s specifying transitive
    *     subdirectories that have been blacklisted
    * @param excludedSubdirectories a set of {@link PathFragment}s specifying transitive
-   *     subdirectories to exclude
    */
   void streamPackagesUnderDirectory(
-      Consumer<PackageIdentifier> results,
+      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
@@ -116,7 +116,7 @@ public interface RecursivePackageProvider extends PackageProvider {
 
     @Override
     public void streamPackagesUnderDirectory(
-        Consumer<PackageIdentifier> results,
+        ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
         ExtendedEventHandler eventHandler,
         RepositoryName repository,
         PathFragment directory,

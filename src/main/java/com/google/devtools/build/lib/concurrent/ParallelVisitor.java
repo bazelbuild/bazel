@@ -147,6 +147,12 @@ public abstract class ParallelVisitor<
   protected abstract Iterable<OutputResultT> outputKeysToOutputValues(
       Iterable<OutputKeyT> targetKeys) throws ExceptionT, InterruptedException;
 
+  /**
+   * Suitable exception type to use with {@link ParallelVisitor} when no checked exception is
+   * appropriate.
+   */
+  public static final class UnusedException extends RuntimeException {}
+
   /** An object to hold keys to visit and keys ready for processing. */
   protected final class Visit {
     private final Iterable<OutputKeyT> keysToUseForResult;
