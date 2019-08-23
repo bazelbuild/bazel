@@ -67,7 +67,63 @@ maven_jar(
 EOF
 
   bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  expect_log "Please specify the SHA-256 checksum with: sha256 = \"$sha256\""
+  expect_log "Please specify the SHA-256 checksum with: sha256_src = \"$sha256_src\""
   expect_log "Tra-la!"
+}
+
+function test_maven_jar_with_sha256() {
+  setup_zoo
+  serve_artifact com.example.carnivore carnivore 1.23
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://127.0.0.1:$fileserver_port/',
+    sha256 = '$sha256',
+    sha256_src = '$sha256_src',
+)
+EOF
+
+  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  expect_log "Tra-la!"
+}
+
+function test_maven_jar_with_sha1_and_sha256() {
+  setup_zoo
+  serve_artifact com.example.carnivore carnivore 1.23
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://127.0.0.1:$fileserver_port/',
+    sha1 = '$sha1',
+    sha256 = '$sha256',
+)
+EOF
+
+  bazel build //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
+  expect_log "Attributes 'sha1' and 'sha256' cannot be specified at the same time."
+}
+
+function test_maven_jar_with_sha1_src_and_sha256_src() {
+  setup_zoo
+  serve_artifact com.example.carnivore carnivore 1.23
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://127.0.0.1:$fileserver_port/',
+    sha1_src = '$sha1_src',
+    sha256_src = '$sha256_src',
+)
+EOF
+
+  bazel build //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
+  expect_log "Attributes 'sha1_src' and 'sha256_src' cannot be specified at the same time."
 }
 
 function test_maven_jar_no_sha1_src() {
@@ -84,6 +140,8 @@ maven_jar(
 EOF
 
   bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  expect_log "Please specify the SHA-256 checksum with: sha256 = \"$sha256\""
+  expect_log "Please specify the SHA-256 checksum with: sha256_src = \"$sha256_src\""
   expect_log "Tra-la!"
 }
 
@@ -101,6 +159,8 @@ maven_jar(
 EOF
 
   bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  expect_log "Please specify the SHA-256 checksum with: sha256 = \"$sha256\""
+  expect_log "Please specify the SHA-256 checksum with: sha256_src = \"$sha256_src\""
   expect_log "Tra-la!"
 }
 
@@ -131,8 +191,7 @@ function test_maven_jar_404() {
 
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
-    name = 'endangered',
-    artifact = "com.example.carnivore:carnivore:1.23",
+    name = 'endangered', artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://127.0.0.1:$nc_port/',
 )
 EOF
@@ -159,6 +218,42 @@ EOF
 
   bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
   expect_log "has SHA-1 of $sha1, does not match expected SHA-1 ($wrong_sha1)"
+}
+
+function test_maven_jar_mismatched_sha256() {
+  setup_zoo
+  serve_artifact com.example.carnivore carnivore 1.23
+
+  wrong_sha256="4a3222c0edeee3705e49bee8706ba8e770cfbec3fc82d9ca17440789e0507c1d"
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://127.0.0.1:$fileserver_port/',
+    sha256 = '$wrong_sha256',
+)
+EOF
+
+  bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
+  expect_log "has SHA-256 of $sha256, does not match expected SHA-256 ($wrong_sha256)"
+}
+
+function test_maven_jar_mismatched_sha256_src() {
+  setup_zoo
+  serve_artifact com.example.carnivore carnivore 1.23
+
+  wrong_sha256_src="4a3222c0edeee3705e49bee8706ba8e770cfbec3fc82d9ca17440789e0507c1d"
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://127.0.0.1:$fileserver_port/',
+    sha256_src = '$wrong_sha256_src',
+)
+EOF
+
+  bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
+  expect_log "has SHA-256 of $sha256_src, does not match expected SHA-256 ($wrong_sha256_src)"
 }
 
 function test_default_repository() {

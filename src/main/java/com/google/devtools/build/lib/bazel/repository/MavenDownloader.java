@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyT
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -60,6 +61,7 @@ public class MavenDownloader extends HttpDownloader {
    */
   public JarPaths download(
       String name,
+      Location location,
       WorkspaceAttributeMapper mapper,
       Path outputDirectory,
       MavenServerValue serverValue,
@@ -71,8 +73,22 @@ public class MavenDownloader extends HttpDownloader {
 
     // Initialize maven artifacts
     String artifactCoords = mapper.get("artifact", Type.STRING);
-    String sha1 = retrieveSha1(name, "sha1", mapper);
-    String sha1Src = retrieveSha1(name, "sha1_src", mapper);
+
+    KeyType keyType = KeyType.SHA256;
+    String checksum = retrieveChecksum(name, "sha256", keyType, mapper);
+
+    KeyType srcJarKeyType = KeyType.SHA256;
+    String srcJarChecksum = retrieveChecksum(name, "sha256_src", srcJarKeyType, mapper);
+
+    if (checksum == null) {
+      keyType = KeyType.SHA1;
+      checksum = retrieveChecksum(name, "sha1", keyType, mapper);
+    }
+
+    if (srcJarChecksum == null) {
+      srcJarKeyType = KeyType.SHA1;
+      srcJarChecksum = retrieveChecksum(name, "sha1_src", keyType, mapper);
+    }
 
     Artifact artifact;
     try {
@@ -83,23 +99,24 @@ public class MavenDownloader extends HttpDownloader {
 
     Artifact artifactWithSrcs = srcjarCoords(artifact);
 
-    boolean isCaching = repositoryCache.isEnabled() && KeyType.SHA1.isValid(sha1);
+    boolean isCaching = repositoryCache.isEnabled() && keyType.isValid(checksum);
 
     if (isCaching) {
       Path downloadPath = getDownloadDestination(outputDirectory, artifact);
       try {
-        Path cachedDestination = repositoryCache.get(sha1, downloadPath, KeyType.SHA1);
+        Path cachedDestination = repositoryCache.get(checksum, downloadPath, keyType);
         if (cachedDestination != null) {
           Path cachedDestinationSrc = null;
-          if (sha1Src != null) {
+          if (srcJarChecksum != null) {
             Path downloadPathSrc = getDownloadDestination(outputDirectory, artifactWithSrcs);
-            cachedDestinationSrc = repositoryCache.get(sha1Src, downloadPathSrc, KeyType.SHA1);
+            cachedDestinationSrc =
+                repositoryCache.get(srcJarChecksum, downloadPathSrc, srcJarKeyType);
           }
           return new JarPaths(cachedDestination, Optional.fromNullable(cachedDestinationSrc));
         }
       } catch (IOException e) {
         eventHandler.handle(
-            Event.debug("RepositoryCache entry " + sha1 + " is invalid, replacing it..."));
+            Event.debug("RepositoryCache entry " + checksum + " is invalid, replacing it..."));
         // Ignore error trying to get. We'll just download again.
       }
     }
@@ -130,38 +147,69 @@ public class MavenDownloader extends HttpDownloader {
 
     jarDownload = outputDirectory.getRelative(artifact.getFile().getAbsolutePath());
     // Verify checksum.
-    if (!Strings.isNullOrEmpty(sha1)) {
-      RepositoryCache.assertFileChecksum(sha1, jarDownload, KeyType.SHA1);
+    if (!Strings.isNullOrEmpty(checksum)) {
+      RepositoryCache.assertFileChecksum(checksum, jarDownload, keyType);
     }
 
     Path srcjarDownload = null;
     if (artifactWithSrcs.getFile() != null) {
       srcjarDownload = outputDirectory.getRelative(artifactWithSrcs.getFile().getAbsolutePath());
-      if (!Strings.isNullOrEmpty(sha1Src)) {
-        RepositoryCache.assertFileChecksum(sha1Src, srcjarDownload, KeyType.SHA1);
+      if (!Strings.isNullOrEmpty(srcJarChecksum)) {
+        RepositoryCache.assertFileChecksum(srcJarChecksum, srcjarDownload, srcJarKeyType);
       }
     }
 
     if (isCaching) {
-      repositoryCache.put(sha1, jarDownload, KeyType.SHA1);
-      if (srcjarDownload != null && !Strings.isNullOrEmpty(sha1Src)) {
-        repositoryCache.put(sha1Src, srcjarDownload, KeyType.SHA1);
+      repositoryCache.put(checksum, jarDownload, keyType);
+      if (srcjarDownload != null && !Strings.isNullOrEmpty(srcJarChecksum)) {
+        repositoryCache.put(srcJarChecksum, srcjarDownload, srcJarKeyType);
+      }
+    }
+
+    // The detected keytype is not SHA-256. This is a security risk because missing checksums mean
+    // there's no integrity checking and SHA-1 is cryptographically insecure. Let's be helpful and
+    // print out the computed SHA-256 from the downloaded jar(s).
+    if (keyType != KeyType.SHA256) {
+      String commonMessage =
+          String.format(
+              "maven_jar rule @%s//jar: Not using a checksum to verify the integrity of "
+                  + "the artifact or the usage of SHA-1 is not secure (see https://shattered.io) and "
+                  + "can result in an non-reproducible build.",
+              name);
+
+      String warningMessage =
+          String.format(
+              commonMessage + " Please specify the SHA-256 checksum with: sha256 = \"%s\",",
+              RepositoryCache.getChecksum(KeyType.SHA256, jarDownload));
+
+      eventHandler.handle(Event.warn(location, warningMessage));
+
+      if (srcjarDownload != null && srcJarKeyType != KeyType.SHA256) {
+        warningMessage =
+            String.format(
+                commonMessage + " Please specify the SHA-256 checksum with: sha256_src = \"%s\",",
+                RepositoryCache.getChecksum(KeyType.SHA256, srcjarDownload));
+
+        eventHandler.handle(Event.warn(location, warningMessage));
       }
     }
 
     return new JarPaths(jarDownload, Optional.fromNullable(srcjarDownload));
   }
 
-  private String retrieveSha1(String name, String attribute, WorkspaceAttributeMapper mapper)
+  @Nullable
+  private String retrieveChecksum(
+      String name, String attribute, KeyType keyType, WorkspaceAttributeMapper mapper)
       throws EvalException, IOException {
-    String sha1 =
+    String checksum =
         mapper.isAttributeValueExplicitlySpecified(attribute)
             ? mapper.get(attribute, Type.STRING)
             : null;
-    if (sha1 != null && !KeyType.SHA1.isValid(sha1)) {
-      throw new IOException("Invalid SHA-1 for maven_jar " + name + ": '" + sha1 + "'");
+    if (checksum != null && !keyType.isValid(checksum)) {
+      throw new IOException(
+          "Invalid " + keyType.toString()+ " for maven_jar " + name + ": '" + checksum + "'");
     }
-    return sha1;
+    return checksum;
   }
 
   private Path getDownloadDestination(Path outputDirectory, Artifact artifact) {

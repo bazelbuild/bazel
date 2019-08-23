@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -36,6 +37,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /** Implementation of maven_jar. */
 public class MavenJarFunction extends RepositoryFunction {
@@ -107,6 +109,9 @@ public class MavenJarFunction extends RepositoryFunction {
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
 
+    validateShaAttributes(rule, "sha1", "sha256");
+    validateShaAttributes(rule, "sha1_src", "sha256_src");
+
     // Deprecation in favor of the Starlark rule
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
@@ -133,6 +138,27 @@ public class MavenJarFunction extends RepositoryFunction {
     return createOutputTree(rule, outputDir, serverValue, env.getListener());
   }
 
+  private void validateShaAttributes(Rule rule, String sha1, String sha256) throws RepositoryFunctionException {
+    if (WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified(sha1)
+        && WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified(sha256)) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              rule.getLocation(),
+              String.format(
+                  "Attributes '%s' and '%s' cannot be specified at the same time. Please remove "
+                      + "the '%s' attribute in favor of '%s' as SHA-1 is cryptographically "
+                      + "insecure. See https://shattered.io for more information.",
+                  sha1,
+                  sha256,
+                  sha1,
+                  sha256
+              )
+          ),
+          Transience.PERSISTENT
+      );
+    }
+  }
+
   private void createDirectory(Path path) throws RepositoryFunctionException {
     try {
       FileSystemUtils.createDirectoryAndParents(path);
@@ -155,7 +181,12 @@ public class MavenJarFunction extends RepositoryFunction {
     try {
       repositoryJars =
           mavenDownloader.download(
-              name, WorkspaceAttributeMapper.of(rule), outputDirectory, serverValue, eventHandler);
+              name,
+              rule.getLocation(),
+              WorkspaceAttributeMapper.of(rule),
+              outputDirectory,
+              serverValue,
+              eventHandler);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     } catch (EvalException e) {
