@@ -37,6 +37,9 @@ class FakeStartupOptions : public StartupOptions {
     return blaze_exit_code::SUCCESS;
   }
   void MaybeLogStartupOptionWarnings() const override {}
+
+ protected:
+  std::string GetRcFileBaseName() const override { return ".bazelrc"; }
 };
 
 class StartupOptionsTest : public ::testing::Test {

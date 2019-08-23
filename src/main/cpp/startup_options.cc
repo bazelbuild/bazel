@@ -36,13 +36,33 @@ namespace blaze {
 using std::string;
 using std::vector;
 
-void StartupOptions::RegisterNullaryStartupFlag(const std::string &flag_name) {
-  valid_nullary_startup_flags_.insert(std::string("--") + flag_name);
-  valid_nullary_startup_flags_.insert(std::string("--no") + flag_name);
+void StartupOptions::RegisterNullaryStartupFlag(const std::string &flag_name,
+                                                bool *flag_value) {
+  all_nullary_startup_flags_[std::string("--") + flag_name] = flag_value;
+  all_nullary_startup_flags_[std::string("--no") + flag_name] = flag_value;
+}
+
+void StartupOptions::RegisterNullaryStartupFlagNoRc(
+    const std::string &flag_name, bool *flag_value) {
+  RegisterNullaryStartupFlag(flag_name, flag_value);
+  no_rc_nullary_startup_flags_.insert(std::string("--") + flag_name);
+  no_rc_nullary_startup_flags_.insert(std::string("--no") + flag_name);
+}
+
+void StartupOptions::RegisterSpecialNullaryStartupFlag(
+    const std::string &flag_name, SpecialNullaryFlagHandler handler) {
+  RegisterNullaryStartupFlag(flag_name, nullptr);
+  special_nullary_startup_flags_[std::string("--") + flag_name] = handler;
+  special_nullary_startup_flags_[std::string("--no") + flag_name] = handler;
 }
 
 void StartupOptions::RegisterUnaryStartupFlag(const std::string &flag_name) {
   valid_unary_startup_flags_.insert(std::string("--") + flag_name);
+}
+
+void StartupOptions::OverrideOptionSourcesKey(const std::string &flag_name,
+                                              const std::string &new_name) {
+  option_sources_key_override_[flag_name] = new_name;
 }
 
 StartupOptions::StartupOptions(const string &product_name,
@@ -105,22 +125,27 @@ StartupOptions::StartupOptions(const string &product_name,
   // IMPORTANT: Before modifying the statements below please contact a Bazel
   // core team member that knows the internal procedure for adding/deprecating
   // startup flags.
-  RegisterNullaryStartupFlag("batch");
-  RegisterNullaryStartupFlag("batch_cpu_scheduling");
-  RegisterNullaryStartupFlag("block_for_lock");
-  RegisterNullaryStartupFlag("client_debug");
-  RegisterNullaryStartupFlag("deep_execroot");
-  RegisterNullaryStartupFlag("expand_configs_in_place");
-  RegisterNullaryStartupFlag("experimental_oom_more_eagerly");
-  RegisterNullaryStartupFlag("fatal_event_bus_exceptions");
-  RegisterNullaryStartupFlag("host_jvm_debug");
-  RegisterNullaryStartupFlag("idle_server_tasks");
-  RegisterNullaryStartupFlag("incompatible_enable_execution_transition");
-  RegisterNullaryStartupFlag("shutdown_on_low_sys_mem");
-  RegisterNullaryStartupFlag("ignore_all_rc_files");
-  RegisterNullaryStartupFlag("unlimit_coredumps");
-  RegisterNullaryStartupFlag("watchfs");
-  RegisterNullaryStartupFlag("write_command_log");
+  RegisterNullaryStartupFlag("batch", &batch);
+  RegisterNullaryStartupFlag("batch_cpu_scheduling", &batch_cpu_scheduling);
+  RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
+  RegisterNullaryStartupFlag("client_debug", &client_debug);
+  RegisterNullaryStartupFlag("deep_execroot", &deep_execroot);
+  RegisterNullaryStartupFlag("expand_configs_in_place",
+                             &expand_configs_in_place);
+  RegisterNullaryStartupFlag("experimental_oom_more_eagerly",
+                             &oom_more_eagerly);
+  RegisterNullaryStartupFlag("fatal_event_bus_exceptions",
+                             &fatal_event_bus_exceptions);
+  RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
+  RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
+  RegisterNullaryStartupFlag("incompatible_enable_execution_transition",
+                             &incompatible_enable_execution_transition);
+  RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
+                             &shutdown_on_low_sys_mem);
+  RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
+  RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
+  RegisterNullaryStartupFlag("watchfs", &watchfs);
+  RegisterNullaryStartupFlag("write_command_log", &write_command_log);
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
@@ -160,12 +185,12 @@ bool StartupOptions::IsUnary(const string &arg) const {
 bool StartupOptions::IsNullary(const string &arg) const {
   std::string::size_type i = arg.find_first_of('=');
   if (i == std::string::npos) {
-    return valid_nullary_startup_flags_.find(arg) !=
-           valid_nullary_startup_flags_.end();
+    return all_nullary_startup_flags_.find(arg) !=
+           all_nullary_startup_flags_.end();
   } else {
     std::string f = arg.substr(0, i);
-    if (valid_nullary_startup_flags_.find(f) !=
-        valid_nullary_startup_flags_.end()) {
+    if (all_nullary_startup_flags_.find(f) !=
+        all_nullary_startup_flags_.end()) {
       BAZEL_DIE(blaze_exit_code::BAD_ARGV)
           << "In argument '" << arg << "': option '" << f
           << "' does not take a value.";
@@ -192,6 +217,40 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   const char* next_arg = next_argstr.empty() ? NULL : next_argstr.c_str();
   const char* value = NULL;
 
+  if (IsNullary(argstr)) {
+    // 'enabled' is true if 'argstr' is "--foo", and false if it's "--nofoo".
+    bool enabled = (argstr.compare(0, 4, "--no") != 0);
+    if (no_rc_nullary_startup_flags_.find(argstr) !=
+        no_rc_nullary_startup_flags_.end()) {
+      // no_rc_nullary_startup_flags_ are forbidden in .bazelrc files.
+      if (!rcfile.empty()) {
+        *error = std::string("Can't specify ") + argstr + " in the " +
+                 GetRcFileBaseName() + " file.";
+        return blaze_exit_code::BAD_ARGV;
+      }
+    }
+    if (special_nullary_startup_flags_.find(argstr) !=
+        special_nullary_startup_flags_.end()) {
+      // 'argstr' is either "--foo" or "--nofoo", and the map entry is the
+      // lambda that handles setting the flag's value.
+      special_nullary_startup_flags_[argstr](enabled);
+    } else {
+      // 'argstr' is either "--foo" or "--nofoo", and the map entry is the
+      // pointer to the bool storing the flag's value.
+      *all_nullary_startup_flags_[argstr] = enabled;
+    }
+    // Use the key "foo" for 'argstr' of "--foo" / "--nofoo", unless there's an
+    // overridden name we must use.
+    std::string key = argstr.substr(enabled ? 2 : 4);
+    if (option_sources_key_override_.find(key) !=
+        option_sources_key_override_.end()) {
+      key = option_sources_key_override_[key];
+    }
+    option_sources[key] = rcfile;
+    *is_space_separated = false;
+    return blaze_exit_code::SUCCESS;
+  }
+
   if ((value = GetUnaryOption(arg, next_arg, "--output_base")) != NULL) {
     output_base = blaze::AbsolutePathFromFlag(value);
     option_sources["output_base"] = rcfile;
@@ -207,21 +266,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
                                      "--server_jvm_out")) != NULL) {
     server_jvm_out = blaze::AbsolutePathFromFlag(value);
     option_sources["server_jvm_out"] = rcfile;
-  } else if (GetNullaryOption(arg, "--deep_execroot")) {
-    deep_execroot = true;
-    option_sources["deep_execroot"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nodeep_execroot")) {
-    deep_execroot = false;
-    option_sources["deep_execroot"] = rcfile;
-  } else if (GetNullaryOption(arg, "--block_for_lock")) {
-    block_for_lock = true;
-    option_sources["block_for_lock"] = rcfile;
-  } else if (GetNullaryOption(arg, "--noblock_for_lock")) {
-    block_for_lock = false;
-    option_sources["block_for_lock"] = rcfile;
-  } else if (GetNullaryOption(arg, "--host_jvm_debug")) {
-    host_jvm_debug = true;
-    option_sources["host_jvm_debug"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
              NULL) {
     host_jvm_profile = value;
@@ -236,38 +280,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              NULL) {
     host_jvm_args.push_back(value);
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
-  } else if (GetNullaryOption(arg, "--ignore_all_rc_files")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --ignore_all_rc_files in an rc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    ignore_all_rc_files = true;
-    option_sources["ignore_all_rc_files"] = rcfile;
-  } else if (GetNullaryOption(arg, "--noignore_all_rc_files")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --noignore_all_rc_files in an rc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    ignore_all_rc_files = false;
-    option_sources["ignore_all_rc_files"] = rcfile;
-  } else if (GetNullaryOption(arg, "--batch")) {
-    batch = true;
-    option_sources["batch"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nobatch")) {
-    batch = false;
-    option_sources["batch"] = rcfile;
-  } else if (GetNullaryOption(arg, "--batch_cpu_scheduling")) {
-    batch_cpu_scheduling = true;
-    option_sources["batch_cpu_scheduling"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nobatch_cpu_scheduling")) {
-    batch_cpu_scheduling = false;
-    option_sources["batch_cpu_scheduling"] = rcfile;
-  } else if (GetNullaryOption(arg, "--fatal_event_bus_exceptions")) {
-    fatal_event_bus_exceptions = true;
-    option_sources["fatal_event_bus_exceptions"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nofatal_event_bus_exceptions")) {
-    fatal_event_bus_exceptions = false;
-    option_sources["fatal_event_bus_exceptions"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--io_nice_level")) !=
              NULL) {
     if (!blaze_util::safe_strto32(value, &io_nice_level) ||
@@ -317,18 +329,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["macos_qos_class"] = rcfile;
-  } else if (GetNullaryOption(arg, "--shutdown_on_low_sys_mem")) {
-    shutdown_on_low_sys_mem = true;
-    option_sources["shutdown_on_low_sys_mem"] = rcfile;
-  } else if (GetNullaryOption(arg, "--noshutdown_on_low_sys_mem")) {
-    shutdown_on_low_sys_mem = false;
-    option_sources["shutdown_on_low_sys_mem"] = rcfile;
-  } else if (GetNullaryOption(arg, "--experimental_oom_more_eagerly")) {
-    oom_more_eagerly = true;
-    option_sources["experimental_oom_more_eagerly"] = rcfile;
-  } else if (GetNullaryOption(arg, "--noexperimental_oom_more_eagerly")) {
-    oom_more_eagerly = false;
-    option_sources["experimental_oom_more_eagerly"] = rcfile;
   } else if ((value = GetUnaryOption(
                   arg, next_arg,
                   "--experimental_oom_more_eagerly_threshold")) != NULL) {
@@ -342,36 +342,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["experimental_oom_more_eagerly_threshold"] = rcfile;
-  } else if (GetNullaryOption(arg, "--write_command_log")) {
-    write_command_log = true;
-    option_sources["write_command_log"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nowrite_command_log")) {
-    write_command_log = false;
-    option_sources["write_command_log"] = rcfile;
-  } else if (GetNullaryOption(arg, "--watchfs")) {
-    watchfs = true;
-    option_sources["watchfs"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nowatchfs")) {
-    watchfs = false;
-    option_sources["watchfs"] = rcfile;
-  } else if (GetNullaryOption(arg, "--client_debug")) {
-    client_debug = true;
-    option_sources["client_debug"] = rcfile;
-  } else if (GetNullaryOption(arg, "--noclient_debug")) {
-    client_debug = false;
-    option_sources["client_debug"] = rcfile;
-  } else if (GetNullaryOption(arg, "--expand_configs_in_place")) {
-    expand_configs_in_place = true;
-    option_sources["expand_configs_in_place"] = rcfile;
-  } else if (GetNullaryOption(arg, "--noexpand_configs_in_place")) {
-    expand_configs_in_place = false;
-    option_sources["expand_configs_in_place"] = rcfile;
-  } else if (GetNullaryOption(arg, "--idle_server_tasks")) {
-    idle_server_tasks = true;
-    option_sources["idle_server_tasks"] = rcfile;
-  } else if (GetNullaryOption(arg, "--noidle_server_tasks")) {
-    idle_server_tasks = false;
-    option_sources["idle_server_tasks"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
@@ -409,20 +379,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
           "multiple times.";
       return blaze_exit_code::BAD_ARGV;
     }
-  } else if (GetNullaryOption(arg, "--unlimit_coredumps")) {
-    unlimit_coredumps = true;
-    option_sources["unlimit_coredumps"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nounlimit_coredumps")) {
-    unlimit_coredumps = false;
-    option_sources["unlimit_coredumps"] = rcfile;
-  } else if (GetNullaryOption(arg,
-                              "--incompatible_enable_execution_transition")) {
-    incompatible_enable_execution_transition = true;
-    option_sources["incompatible_enable_execution_transition"] = rcfile;
-  } else if (GetNullaryOption(arg,
-                              "--noincompatible_enable_execution_transition")) {
-    incompatible_enable_execution_transition = false;
-    option_sources["incompatible_enable_execution_transition"] = rcfile;
   } else {
     bool extra_argument_processed;
     blaze_exit_code::ExitCode process_extra_arg_exit_code = ProcessArgExtra(

@@ -34,6 +34,9 @@ class BazelStartupOptions : public StartupOptions {
 
   void MaybeLogStartupOptionWarnings() const override;
 
+ protected:
+  std::string GetRcFileBaseName() const override { return ".bazelrc"; }
+
  private:
   std::string user_bazelrc_;
   bool use_system_rc;

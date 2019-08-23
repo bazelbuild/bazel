@@ -18,8 +18,10 @@
 #include <sys/qos.h>
 #endif
 
+#include <functional>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -300,11 +302,39 @@ class StartupOptions {
       const std::string &server_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
 
+  virtual std::string GetRcFileBaseName() const = 0;
+
   void RegisterUnaryStartupFlag(const std::string& flag_name);
 
-  void RegisterNullaryStartupFlag(const std::string& flag_name);
+  // Register a nullary startup flag.
+  // Both '--flag_name' and '--noflag_name' will be registered as valid nullary
+  // flags. 'value' is the pointer to the boolean that will receive the flag's
+  // value.
+  void RegisterNullaryStartupFlag(const std::string &flag_name, bool *value);
+
+  // Same as RegisterNullaryStartupFlag, but these flags are forbidden in
+  // .bazelrc files.
+  void RegisterNullaryStartupFlagNoRc(const std::string &flag_name,
+                                      bool *value);
+
+  typedef std::function<void(bool)> SpecialNullaryFlagHandler;
+
+  void RegisterSpecialNullaryStartupFlag(const std::string &flag_name,
+                                         SpecialNullaryFlagHandler handler);
+
+  // Override the flag name to use in the 'option_sources' map.
+  void OverrideOptionSourcesKey(const std::string &flag_name,
+                                const std::string &new_name);
 
  private:
+  // Prevent copying and moving the object to avoid invalidating pointers to
+  // members (in all_nullary_startup_flags_ for example).
+  StartupOptions() = delete;
+  StartupOptions(const StartupOptions&) = delete;
+  StartupOptions& operator=(const StartupOptions&) = delete;
+  StartupOptions(StartupOptions&&) = delete;
+  StartupOptions& operator=(StartupOptions&&) = delete;
+
   // Parses a single argument, either from the command line or from the .blazerc
   // "startup" options.
   //
@@ -335,11 +365,32 @@ class StartupOptions {
 
   // Startup flags that don't expect a value, e.g. "master_bazelrc".
   // Valid uses are "--master_bazelrc" are "--nomaster_bazelrc".
-  std::unordered_set<std::string> valid_nullary_startup_flags_;
+  // Keys are positive and negative flag names (e.g. "--master_bazelrc" and
+  // "--nomaster_bazelrc"), values are pointers to the boolean to mutate.
+  std::unordered_map<std::string, bool *> all_nullary_startup_flags_;
+
+  // Subset of 'all_nullary_startup_flags_'.
+  // Contains positive and negative names (e.g. "--master_bazelrc" and
+  // "--nomaster_bazelrc") of flags that must not appear in .bazelrc files.
+  std::unordered_set<std::string> no_rc_nullary_startup_flags_;
+
+  // Subset of 'all_nullary_startup_flags_'.
+  // Contains positive and negative names (e.g. "--master_bazelrc" and
+  // "--nomaster_bazelrc") of flags that have a special handler.
+  // Can be used for tri-state flags where omitting the flag completely means
+  // leaving the tri-state as "auto".
+  std::unordered_map<std::string, SpecialNullaryFlagHandler>
+      special_nullary_startup_flags_;
 
   // Startup flags that expect a value, e.g. "bazelrc".
   // Valid uses are "--bazelrc=foo" and "--bazelrc foo".
+  // Keys are flag names (e.g. "--bazelrc"), values are pointers to the string
+  // to mutate.
   std::unordered_set<std::string> valid_unary_startup_flags_;
+
+  // Startup flags that use an alternative key name in the 'option_sources' map.
+  // For example, "--[no]master_bazelrc" uses "blazerc" as the map key.
+  std::unordered_map<std::string, std::string> option_sources_key_override_;
 };
 
 }  // namespace blaze
