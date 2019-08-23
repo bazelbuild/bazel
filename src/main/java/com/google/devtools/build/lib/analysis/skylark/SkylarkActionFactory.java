@@ -129,13 +129,20 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   }
 
   @Override
-  public Artifact declareFile(String filename, Object sibling) throws EvalException {
+  public Artifact declareFile(String filename, Object sibling, Location loc) throws EvalException {
     context.checkMutable("actions.declare_file");
     if (Runtime.NONE.equals(sibling)) {
       return ruleContext.getPackageRelativeArtifact(filename, newFileRoot());
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
       PathFragment fragment = original.replaceName(filename);
+      if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "the output artifact '%s' is not under package directory '%s' for target '%s'",
+                fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel()));
+      }
       return ruleContext.getDerivedArtifact(fragment, newFileRoot());
     }
   }

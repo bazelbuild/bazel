@@ -73,8 +73,9 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             positional = false,
             named = true,
             defaultValue = "None")
-      })
-  public FileApi declareFile(String filename, Object sibling) throws EvalException;
+      },
+      useLocation = true)
+  public FileApi declareFile(String filename, Object sibling, Location loc) throws EvalException;
 
   @SkylarkCallable(
       name = "declare_directory",

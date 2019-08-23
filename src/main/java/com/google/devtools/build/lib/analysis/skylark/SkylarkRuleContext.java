@@ -758,7 +758,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       String filename =
           assertTypeForNewFile(var1, String.class, loc,
               "expected first param to be of type 'string'");
-      return actionFactory.declareFile(filename, Runtime.NONE);
+      return actionFactory.declareFile(filename, Runtime.NONE, loc);
 
     } else {
       String filename = assertTypeForNewFile(var2, String.class, loc,
@@ -774,7 +774,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             assertTypeForNewFile(var1, Artifact.class, loc,
                 "expected first param to be of type 'File' or 'root'");
 
-        return actionFactory.declareFile(filename, siblingFile);
+        return actionFactory.declareFile(filename, siblingFile, loc);
       }
     }
   }
