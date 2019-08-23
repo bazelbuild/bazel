@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -129,8 +130,33 @@ public class MavenJarFunction extends RepositoryFunction {
       return null;
     }
 
+    validateServerUrl(
+        rule,
+        serverValue.getUrl(),
+        starlarkSemantics.incompatibleDisallowUnverifiedHttpDownloads());
+
     Path outputDir = getExternalRepositoryDirectory(directories).getRelative(rule.getName());
     return createOutputTree(rule, outputDir, serverValue, env.getListener());
+  }
+
+  @VisibleForTesting
+  void validateServerUrl(Rule rule, String serverUrl, boolean disallowUnverifiedHttpDownloads)
+      throws RepositoryFunctionException {
+
+    boolean hasChecksum =
+        WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified("sha1");
+
+    if (disallowUnverifiedHttpDownloads && !hasChecksum && serverUrl.startsWith("http://")) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              null,
+              "Plain HTTP URLs are not allowed without checksums in the maven_jar rule. Please "
+                  + String.format("use HTTPS for the maven_server rule for %s ", serverUrl)
+                  + "or add a sha1 checksum to the maven_jar rule. To "
+                  + "disable this check, pass "
+                  + "--incompatible_disallow_unverified_http_downloads=false to your build"),
+          Transience.PERSISTENT);
+    }
   }
 
   private void createDirectory(Path path) throws RepositoryFunctionException {
