@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -41,4 +42,10 @@ public interface JavaConfigurationApi {
       doc = "The value of the strict_java_deps flag."
   )
   public String getStrictJavaDepsName();
+
+  @SkylarkCallable(
+      name = "plugins",
+      structField = true,
+      doc = "A list containing the labels provided with --plugins, if any.")
+  public ImmutableList<Label> getPlugins();
 }

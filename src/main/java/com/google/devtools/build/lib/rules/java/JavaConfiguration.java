@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaConfigurationApi;
 import com.google.devtools.common.options.TriState;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -412,7 +411,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return isJlplStrictDepsEnforced;
   }
 
-  public List<Label> getPlugins() {
+  @Override
+  public ImmutableList<Label> getPlugins() {
     return pluginList;
   }
 
