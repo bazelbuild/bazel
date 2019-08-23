@@ -138,7 +138,8 @@ public class MavenJarFunction extends RepositoryFunction {
     return createOutputTree(rule, outputDir, serverValue, env.getListener());
   }
 
-  private void validateShaAttributes(Rule rule, String sha1, String sha256) throws RepositoryFunctionException {
+  private static void validateShaAttributes(
+      Rule rule, String sha1, String sha256) throws RepositoryFunctionException {
     if (WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified(sha1)
         && WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified(sha256)) {
       throw new RepositoryFunctionException(

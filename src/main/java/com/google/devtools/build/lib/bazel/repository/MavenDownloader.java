@@ -198,7 +198,7 @@ public class MavenDownloader extends HttpDownloader {
   }
 
   @Nullable
-  private String retrieveChecksum(
+  private static String retrieveChecksum(
       String name, String attribute, KeyType keyType, WorkspaceAttributeMapper mapper)
       throws EvalException, IOException {
     String checksum =
@@ -207,12 +207,12 @@ public class MavenDownloader extends HttpDownloader {
             : null;
     if (checksum != null && !keyType.isValid(checksum)) {
       throw new IOException(
-          "Invalid " + keyType.toString()+ " for maven_jar " + name + ": '" + checksum + "'");
+          "Invalid " + keyType + " for maven_jar " + name + ": '" + checksum + "'");
     }
     return checksum;
   }
 
-  private Path getDownloadDestination(Path outputDirectory, Artifact artifact) {
+  private static Path getDownloadDestination(Path outputDirectory, Artifact artifact) {
     String groupIdPath = artifact.getGroupId().replace('.', '/');
     String artifactId = artifact.getArtifactId();
     String classifier = artifact.getClassifier();
@@ -230,7 +230,7 @@ public class MavenDownloader extends HttpDownloader {
     return outputDirectory.getRelative(joiner.toString());
   }
 
-  private Artifact srcjarCoords(Artifact jar) {
+  private static Artifact srcjarCoords(Artifact jar) {
     return new DefaultArtifact(
         jar.getGroupId(), jar.getArtifactId(), "sources", jar.getExtension(), jar.getVersion());
   }
@@ -238,7 +238,7 @@ public class MavenDownloader extends HttpDownloader {
   /*
    * Set up request for and resolve (retrieve to local repo) artifact
    */
-  private Artifact downloadArtifact(
+  private static Artifact downloadArtifact(
       Artifact artifact,
       RemoteRepository repository,
       RepositorySystemSession session,
