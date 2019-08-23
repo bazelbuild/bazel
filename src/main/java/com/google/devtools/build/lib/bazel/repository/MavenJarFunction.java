@@ -152,8 +152,7 @@ public class MavenJarFunction extends RepositoryFunction {
               null,
               "Plain HTTP URLs are not allowed without checksums in the maven_jar rule. Please "
                   + String.format("use HTTPS for the maven_server rule for %s ", serverUrl)
-                  + "or add a sha1 checksum to the maven_jar rule. To "
-                  + "disable this check, pass "
+                  + "or add a sha1 checksum to the maven_jar rule. To disable this check, pass "
                   + "--incompatible_disallow_unverified_http_downloads=false to your build"),
           Transience.PERSISTENT);
     }
