@@ -152,7 +152,7 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
 
     try {
       jarFunction.validateServerUrl(
-          rule, TEST_SERVER.getUrl(), /*disallowUnverifieDHttpDownloads=*/ true);
+          rule, TEST_SERVER.getUrl(), /*disallowUnverifiedHttpDownloads=*/ true);
     } catch (RepositoryFunctionException expected) {
       assertThat(expected.getMessage())
           .contains("Plain HTTP URLs are not allowed without checksums");
