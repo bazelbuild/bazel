@@ -2,6 +2,10 @@
 
 from __future__ import print_function
 
+import sys
+
+del sys.path[0]
+
 import os
 import re
 import tempfile
