@@ -15,6 +15,7 @@
 package com.google.devtools.build.skydoc.rendering;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
@@ -23,7 +24,9 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Prov
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -100,12 +103,36 @@ public final class MarkdownUtil {
   }
 
   private String summary(String functionName, List<String> paramNames) {
-    List<String> paramLinks = paramNames.stream()
-        .map(param ->
-             String.format("<a href=\"#%s-%s\">%s</a>",
-                 functionName, param, param))
+    Deque<List<String>> paramLines = wrap(functionName, paramNames, 80);
+    List<String> paramLinks = paramLines
+        .stream()
+        .map(params -> params
+            .stream()
+            .map(param -> String.format("<a href=\"#%s-%s\">%s</a>", functionName, param, param))
+            .collect(Collectors.joining(", ")))
         .collect(Collectors.toList());
-    return String.format("%s(%s)", functionName, Joiner.on(", ").join(paramLinks));
+    return String.format(
+        "%s(%s)",
+        functionName,
+        Joiner.on(String.format(",\n%s", Strings.repeat(" ", functionName != null ? functionName.length() + 1 : 0)))
+            .join(paramLinks)
+    );
+  }
+
+  private Deque<List<String>> wrap(String functionName, List<String> paramNames, int maxLineLength) {
+    Deque<List<String>> paramLines = new ArrayDeque<>();
+    paramLines.addLast(new ArrayList<>());
+    int leading = functionName != null ? functionName.length() : 0;
+    int length = leading;
+    for (String paramName : paramNames) {
+      length += paramName.length() + 2;
+      if (length > maxLineLength) {
+        length = leading + paramName.length();
+        paramLines.addLast(new ArrayList<>());
+      }
+      paramLines.getLast().add(paramName);
+    }
+    return paramLines;
   }
 
   /**
