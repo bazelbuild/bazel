@@ -1,4 +1,4 @@
-exports_files(["defs.bzl", "deps.bzl"])
+exports_files(["defs.bzl"])
 
 filegroup(
     name = "srcs",

@@ -720,8 +720,3 @@ new_local_repository(
     build_file = "//third_party/rules_jmh:BUILD",
     workspace_file = "//third_party/rules_jmh:rules_jmh.WORKSPACE",
 )
-
-load("@rules_jmh//:deps.bzl", "rules_jmh_deps")
-rules_jmh_deps()
-load("@rules_jmh//:defs.bzl", "rules_jmh_maven_deps")
-rules_jmh_maven_deps()

@@ -140,6 +140,11 @@ java_import(
 )
 
 java_import(
+    name = "apache_commons_math3",
+    jars = ["apache_commons_math3/commons-math3-3.2.jar"],
+)
+
+java_import(
     name = "apache_commons_compress",
     jars = ["apache_commons_compress/apache-commons-compress-1.9.jar"],
 )
@@ -236,6 +241,26 @@ java_import(
         ":guava",
         "//third_party/aws-sdk-auth-lite",
     ],
+)
+
+java_import(
+    name = "jmh_core",
+    jars = ["jmh_core/jmh-core-1.21.jar"],
+    runtime_deps = [
+        ":apache_commons_math3",
+        ":jopt_simple",
+    ],
+)
+
+java_import(
+    name = "jmh_generator_annprocess",
+    jars = ["jmh_generator_annprocess/jmh-generator-annprocess-1.21.jar"],
+    runtime_deps = [":jmh_core"],
+)
+
+java_import(
+    name = "jopt_simple",
+    jars = ["jopt_simple/jopt-simple-4.6.jar"],
 )
 
 java_plugin(
