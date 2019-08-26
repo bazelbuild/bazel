@@ -22,7 +22,7 @@ namespace blaze_util {
 class Path {
  public:
   Path() {}
-  Path(const std::string& path);
+  explicit Path(const std::string& path);
   bool IsEmpty() const { return path_.empty(); }
   bool IsNull() const;
   Path GetRelative(const std::string& r) const;
@@ -36,8 +36,7 @@ class Path {
 
  private:
 #if defined(_WIN32) || defined(__CYGWIN__)
-  Path(const std::wstring wpath) : path_(wpath) {}
-
+  explicit Path(const std::wstring wpath) : path_(wpath) {}
   std::wstring path_;
 #else
   std::string path_;

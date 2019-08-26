@@ -492,7 +492,7 @@ Path Path::GetRelative(const std::string& r) const {
 bool Path::IsNull() const { return path_ == L"NUL"; }
 
 std::string Path::AsPrintablePath() const {
-  return WstringToCstring(path_.c_str()).get();
+  return WstringToCstring(RemoveUncPrefixMaybe(path_.c_str())).get();
 }
 
 }  // namespace blaze_util
