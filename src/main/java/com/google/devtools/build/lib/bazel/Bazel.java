@@ -46,7 +46,6 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryDebugModule.class,
           com.google.devtools.build.lib.bazel.debug.WorkspaceRuleModule.class,
           com.google.devtools.build.lib.bazel.coverage.BazelCoverageReportModule.class,
-          com.google.devtools.build.lib.collect.nestedset.NestedSetOptionsModule.class,
           com.google.devtools.build.lib.skylarkdebug.module.SkylarkDebuggerModule.class,
           com.google.devtools.build.lib.bazel.repository.RepositoryResolvedModule.class,
           com.google.devtools.build.lib.bazel.repository.CacheHitReportingModule.class,
