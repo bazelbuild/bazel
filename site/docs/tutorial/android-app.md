@@ -105,38 +105,16 @@ If Bazel prints the path of the current directory, you're good to go! If the
 ERROR: The 'info' command is only supported from within a workspace.
 ```
 
-## Integrate with the Bazel Android Rules
-
-Android-specific Bazel rules are defined in a separate repository: https://github.com/bazelbuild/rules_android
-
-Add the following lines to your `WORKSPACE` file:
-
-```python
-RULES_ANDROID_VERSION = "b60d84e5635233d2d8fc905041576bd44cefbb94"
-RULES_ANDROID_SHA = "d7cdd6e6aced08e152ff14074ea6cde98d6329d7fe1c5cd578a1e4edb4b3e4c9"
-
-http_archive(
-    name = "rules_android",
-    urls = [
-        "https://github.com/bazelbuild/rules_android/archive/%s.zip" % RULES_ANDROID_VERSION,
-    ],
-    strip_prefix = "rules_android-%s" % RULES_ANDROID_VERSION,
-    sha256 = RULES_ANDROID_SHA,
-)
-```
-
-This will allow you load Android rules required for the build.
+## Integrate with the Android SDK
 
 Bazel needs to run the Android SDK [build
 tools](https://developer.android.com/tools/revisions/build-tools.html) to build
 the app. This means that you need to add some information to your `WORKSPACE`
 file so that Bazel knows where to find them.
 
-Add the following lines to your `WORKSPACE` file:
+Add the following line to your `WORKSPACE` file:
 
 ```python
-load("@rules_android//android:rules.bzl", "android_sdk_repository")
-
 android_sdk_repository(name = "androidsdk")
 ```
 
@@ -260,8 +238,6 @@ and declare a new `android_library` target:
 `src/main/java/com/example/bazel/BUILD`:
 
 ```python
-load("@rules_android//android:rules.bzl", "android_library")
-
 package(
     default_visibility = ["//src:__subpackages__"],
 )
@@ -293,8 +269,6 @@ and declare a new `android_binary` target:
 `src/main/BUILD`:
 
 ```python
-load("@rules_android//android:rules.bzl", "android_binary")
-
 android_binary(
     name = "app",
     manifest = "AndroidManifest.xml",
@@ -407,7 +381,7 @@ you:
     for the app and a `WORKSPACE` file that identifies the top level of the
     workspace directory.
 *   Updated the `WORKSPACE` file to contain references to the required
-    external dependencies, like the Bazel Android rules and Android SDK.
+    external dependencies, like the Android SDK.
 *   Created a `BUILD` file.
 *   Built the app with Bazel.
 *   Deployed and ran the app on an Android emulator or physical device.
