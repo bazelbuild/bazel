@@ -100,8 +100,8 @@ maven_jar(
 )
 EOF
 
-  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
-  expect_log "Tra-la!"
+  bazel run //zoo:ball-pit >& $TEST_log && fail "Expected run to fail"
+  expect_log "Plain HTTP URLs are not allowed without checksums"
 }
 
 # makes sure both jar and srcjar are downloaded
@@ -114,6 +114,8 @@ maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://127.0.0.1:$fileserver_port/',
+    sha1 = '$sha1',
+    sha1_src = '$sha1_src',
 )
 EOF
 
@@ -129,11 +131,13 @@ function test_maven_jar_404() {
   setup_zoo
   serve_not_found
 
+  some_sha1="0123456789012345678901234567890123456789"
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://127.0.0.1:$nc_port/',
+    sha1 = '$some_sha1',
 )
 EOF
 
@@ -172,6 +176,7 @@ maven_server(
 maven_jar(
     name = "thing_a_ma_bop",
     artifact = "thing:amabop:1.9",
+    sha1 = '$sha1',
 )
 EOF
 
@@ -191,6 +196,7 @@ maven_jar(
     name = "thing_a_ma_bop",
     artifact = "thing:amabop:1.9",
     server = "x",
+    sha1 = '$sha1',
 )
 EOF
 
@@ -250,7 +256,7 @@ EOF
 
 function test_auth() {
   startup_auth_server
-  create_artifact thing amabop 1.9
+  create_artifact com.example.carnivore carnivore 1.23
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 maven_server(
     name = "x",
@@ -259,8 +265,9 @@ maven_server(
 )
 maven_jar(
     name = "good_auth",
-    artifact = "thing:amabop:1.9",
+    artifact = "com.example.carnivore:carnivore:1.23",
     server = "x",
+    sha1 = "$sha1",
 )
 
 maven_server(
@@ -270,8 +277,9 @@ maven_server(
 )
 maven_jar(
     name = "bad_auth",
-    artifact = "thing:amabop:1.9",
+    artifact = "com.example.carnivore:carnivore:1.23",
     server = "y",
+    sha1 = "$sha1",
 )
 EOF
 
@@ -292,11 +300,11 @@ EOF
 </settings>
 EOF
 
-  bazel build @good_auth//jar &> $TEST_log \
+  bazel build --repository_cache="" @good_auth//jar &> $TEST_log \
     || fail "Expected correct password to work"
   expect_log "Target @good_auth//jar:jar up-to-date"
 
-  bazel build @bad_auth//jar &> $TEST_log \
+  bazel build --repository_cache="" @bad_auth//jar &> $TEST_log \
     && fail "Expected incorrect password to fail"
   expect_log "Unauthorized (401)"
 }

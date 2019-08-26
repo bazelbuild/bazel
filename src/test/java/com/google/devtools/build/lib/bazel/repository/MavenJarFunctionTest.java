@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import java.io.IOException;
 import org.apache.maven.settings.Server;
@@ -133,6 +134,28 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
       fail("Expected failure to fetch artifact because of nonexistent server.");
     } catch (IOException expected) {
       assertThat(expected.getMessage()).contains("Failed to fetch Maven dependency:");
+    }
+  }
+
+  @Test
+  public void testValidateHttpServerUrlWithNoChecksum() throws Exception {
+    Rule rule =
+        scratchRule(
+            "external",
+            "foo",
+            "maven_jar(",
+            "    name = 'foo',",
+            "    artifact = 'x:y:z:1.1',",
+            ")");
+    MavenDownloader downloader = new MavenDownloader(Mockito.mock(RepositoryCache.class));
+    MavenJarFunction jarFunction = new MavenJarFunction(downloader);
+
+    try {
+      jarFunction.validateServerUrl(
+          rule, TEST_SERVER.getUrl(), /*disallowUnverifiedHttpDownloads=*/ true);
+    } catch (RepositoryFunctionException expected) {
+      assertThat(expected.getMessage())
+          .contains("Plain HTTP URLs are not allowed without checksums");
     }
   }
 }
