@@ -20,6 +20,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/javascript:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/go:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python:srcs",
