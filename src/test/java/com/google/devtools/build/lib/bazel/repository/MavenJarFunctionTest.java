@@ -58,6 +58,7 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
     try {
       downloader.download(
           "foo",
+          rule.getLocation(),
           WorkspaceAttributeMapper.of(rule),
           scratch.dir("/whatever"),
           TEST_SERVER,
@@ -81,6 +82,7 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
     try {
       downloader.download(
           "foo",
+          rule.getLocation(),
           WorkspaceAttributeMapper.of(rule),
           scratch.dir("/whatever"),
           TEST_SERVER,
@@ -103,6 +105,7 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
     try {
       downloader.download(
           "foo",
+          rule.getLocation(),
           WorkspaceAttributeMapper.of(rule),
           scratch.dir("/whatever"),
           TEST_SERVER,
@@ -127,6 +130,7 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
     try {
       downloader.download(
           "foo",
+          rule.getLocation(),
           WorkspaceAttributeMapper.of(rule),
           scratch.dir("/whatever"),
           TEST_SERVER,
@@ -156,6 +160,60 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
     } catch (RepositoryFunctionException expected) {
       assertThat(expected.getMessage())
           .contains("Plain HTTP URLs are not allowed without checksums");
+    }
+  }
+
+  @Test
+  public void testInvalidSha256() throws Exception {
+    Rule rule =
+        scratchRule(
+            "external",
+            "foo",
+            "maven_jar(",
+            "    name = 'foo',",
+            "    artifact = 'x:y:z:1.1',",
+            "    sha256 = '12345',",
+            ")");
+    MavenDownloader downloader = new MavenDownloader(Mockito.mock(RepositoryCache.class));
+    try {
+      downloader.download(
+          "foo",
+          rule.getLocation(),
+          WorkspaceAttributeMapper.of(rule),
+          scratch.dir("/whatever"),
+          TEST_SERVER,
+          extendedEventHandler);
+      fail("Invalid sha256 should have thrown.");
+    } catch (IOException expected) {
+      assertThat(expected.getMessage()).contains("Invalid SHA-256 for maven_jar foo");
+    }
+  }
+
+  @Test
+  public void testValidSha256() throws Exception {
+    Rule rule =
+        scratchRule(
+            "external",
+            "foo",
+            "maven_jar(",
+            "    name = 'foo',",
+            "    artifact = 'x:y:z:1.1',",
+            "    sha256 = '766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7',",
+            ")");
+    MavenDownloader downloader = new MavenDownloader(Mockito.mock(RepositoryCache.class));
+    try {
+      downloader.download(
+          "foo",
+          rule.getLocation(),
+          WorkspaceAttributeMapper.of(rule),
+          scratch.dir("/whatever"),
+          TEST_SERVER,
+          extendedEventHandler);
+      fail(
+          "Expected failure to fetch artifact because of nonexistent server and not due to "
+              + "the existence of a valid SHA256");
+    } catch (IOException expected) {
+      assertThat(expected.getMessage()).contains("Failed to fetch Maven dependency:");
     }
   }
 }

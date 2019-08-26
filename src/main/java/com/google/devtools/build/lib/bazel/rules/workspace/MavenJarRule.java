@@ -55,6 +55,20 @@ public class MavenJarRule implements RuleDefinition {
         <p>Either this or <code>repository</code> can be specified.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("server", Type.STRING))
+        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(sha256) -->
+        A SHA-256 hash of the desired jar.
+
+        <p>If the downloaded jar does not match this hash, Bazel will error out. It is a security
+        risk to download a file without verifying cryptographic secure hash.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("sha256", Type.STRING))
+        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(sha256_src) -->
+        A SHA-256 hash of the desired jar source file.
+
+        <p>If the downloaded source jar does not match this hash, Bazel will error out. It is a
+        security risk to download a file without verifying cryptographic secure hash.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("sha256_src", Type.STRING))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(sha1) -->
         A SHA-1 hash of the desired jar.
 
@@ -62,14 +76,16 @@ public class MavenJarRule implements RuleDefinition {
         risk to download a file without verifying cryptographic secure hash. <b>Note that SHA-1 is
         no longer considered a secure cryptographic hash function</b>, but specifying the hash is
         still marginally better than no check at all. This attribute is kept here for legacy support
-        purposes. Please migrate to <a href="https://github.com/bazelbuild/rules_jvm_external/">
-        <code>rules_jvm_external</code></a> and pin your Maven artifacts with their SHA-256
-        checksums.</p>
+        purposes. Please either use the 'sha256' attribute or migrate to
+        <a href="https://github.com/bazelbuild/rules_jvm_external/"><code>rules_jvm_external</code>
+        </a> and pin your Maven artifacts with their SHA-256 checksums.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha1", Type.STRING))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(sha1_src) -->
-        A SHA-1 hash of the desired jar source file.
+        A SHA-1 hash of the desired jar source file. Please consider using 'sha256_src' instead.
 
+        <p>If the downloaded source jar does not match this hash, Bazel will error out. It is a
+        security risk to download a file without verifying cryptographic secure hash.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha1_src", Type.STRING))
         .setWorkspaceOnly()

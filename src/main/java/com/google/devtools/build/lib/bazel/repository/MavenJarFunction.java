@@ -108,6 +108,9 @@ public class MavenJarFunction extends RepositoryFunction {
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
 
+    validateShaAttributes(rule, "sha1", "sha256");
+    validateShaAttributes(rule, "sha1_src", "sha256_src");
+
     // Deprecation in favor of the Starlark rule
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
@@ -144,7 +147,8 @@ public class MavenJarFunction extends RepositoryFunction {
       throws RepositoryFunctionException {
 
     boolean hasChecksum =
-        WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified("sha1");
+        WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified("sha1")
+            || WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified("sha256");
 
     if (disallowUnverifiedHttpDownloads && !hasChecksum && serverUrl.startsWith("http://")) {
       throw new RepositoryFunctionException(
@@ -155,6 +159,22 @@ public class MavenJarFunction extends RepositoryFunction {
                   + serverUrl
                   + " or add a sha1 checksum to the maven_jar rule. To disable this check, pass "
                   + "--incompatible_disallow_unverified_http_downloads=false to your build"),
+          Transience.PERSISTENT);
+    }
+  }
+
+  private static void validateShaAttributes(Rule rule, String sha1, String sha256)
+      throws RepositoryFunctionException {
+    if (WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified(sha1)
+        && WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified(sha256)) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              rule.getLocation(),
+              String.format(
+                  "Attributes '%s' and '%s' cannot be specified at the same time. Please remove "
+                      + "the '%s' attribute in favor of '%s' as SHA-1 is cryptographically "
+                      + "insecure. See https://shattered.io for more information.",
+                  sha1, sha256, sha1, sha256)),
           Transience.PERSISTENT);
     }
   }
@@ -181,7 +201,12 @@ public class MavenJarFunction extends RepositoryFunction {
     try {
       repositoryJars =
           mavenDownloader.download(
-              name, WorkspaceAttributeMapper.of(rule), outputDirectory, serverValue, eventHandler);
+              name,
+              rule.getLocation(),
+              WorkspaceAttributeMapper.of(rule),
+              outputDirectory,
+              serverValue,
+              eventHandler);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     } catch (EvalException e) {
