@@ -115,5 +115,165 @@ EOF
   grep 'The properties are: {"key2": "value2", "key": "value"}' $TEST_log || fail "Did not find expected properties"
 }
 
+function test_target_exec_properties_starlark() {
+cat > rules.bzl << 'EOF'
+def _impl(ctx):
+  out_file = ctx.outputs.output
+  ctx.actions.run_shell(inputs = [], outputs = [out_file], arguments=[out_file.path], progress_message = "Saying hello", command = "echo hello > \"$1\"")
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+    "output": attr.output(),
+  }
+)
+EOF
+  cat > BUILD << 'EOF'
+load("//:rules.bzl", "my_rule")
+
+my_rule(
+    name = "a",
+    output = "out.txt",
+    exec_properties = {"key3": "value3", "overridden": "child_value"}
+)
+
+platform(
+    name = "my_platform",
+    exec_properties = {
+        "key2": "value2",
+        "overridden": "parent_value",
+        }
+)
+EOF
+
+  bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  grep "key2" out.txt || fail "Did not find the platform key"
+  grep "key3" out.txt || fail "Did not find the target attribute key"
+  grep "child_value" out.txt || fail "Did not find the overriding value"
+}
+
+
+function test_target_exec_properties_starlark_test() {
+cat > rules.bzl << 'EOF'
+def _impl(ctx):
+  out_file = ctx.actions.declare_file("test_script")
+  ctx.actions.write(out_file, "#!/bin/bash\necho hello\n", is_executable=True)
+  return [DefaultInfo(executable = out_file)]
+
+my_rule_test = rule(
+  implementation = _impl,
+  test = True,
+)
+EOF
+  cat > BUILD << 'EOF'
+load("//:rules.bzl", "my_rule_test")
+
+my_rule_test(
+    name = "a",
+    exec_properties = {"key3": "value3", "overridden": "child_value"}
+)
+
+platform(
+    name = "my_platform",
+    exec_properties = {
+        "key2": "value2",
+        "overridden": "parent_value",
+        }
+)
+EOF
+
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  grep "key2" out.txt || fail "Did not find the platform key"
+  grep "key3" out.txt || fail "Did not find the target attribute key"
+  grep "child_value" out.txt || fail "Did not find the overriding value"
+}
+
+function test_target_exec_properties_native() {
+  cat > a.cc <<'EOF'
+#include <stdio.h>
+int main() {
+  printf("Hello\n");
+}
+EOF
+  cat > BUILD <<'EOF'
+cc_binary(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_properties = {"key3": "value3", "overridden": "child_value"}
+)
+
+platform(
+    name = "my_platform",
+    parents = ["@local_config_platform//:host"],
+    exec_properties = {
+        "key2": "value2",
+        "overridden": "parent_value",
+        }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" --toolchain_resolution_debug :a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  grep "key3" out.txt || fail "Did not find the target attribute key"
+  grep "child_value" out.txt || fail "Did not find the overriding value"
+  grep "key2" out.txt || fail "Did not find the platform key"
+}
+
+function test_target_exec_properties_cc_test() {
+  cat > a.cc <<'EOF'
+#include <stdio.h>
+int main() {
+  printf("Hello\n");
+}
+EOF
+  cat > BUILD <<'EOF'
+
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_properties = {"key3": "value3", "overridden": "child_value"}
+)
+
+platform(
+    name = "my_platform",
+    parents = ["@local_config_platform//:host"],
+    exec_properties = {
+        "key2": "value2",
+        "overridden": "parent_value",
+        }
+)
+EOF
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  grep "key2" out.txt || fail "Did not find the platform key"
+  grep "key3" out.txt || fail "Did not find the target attribute key"
+  grep "child_value" out.txt || fail "Did not find the overriding value"
+}
+
+function test_target_test_properties_sh_test() {
+  cat > a.sh <<'EOF'
+#!/bin/bash
+echo hello
+EOF
+  chmod u+x a.sh
+  cat > BUILD <<'EOF'
+sh_test(
+  name = "a",
+  srcs = ["a.sh"],
+  exec_properties = {"key3": "value3", "overridden": "child_value"}
+)
+
+platform(
+    name = "my_platform",
+    parents = ["@local_config_platform//:host"],
+    exec_properties = {
+        "key2": "value2",
+        "overridden": "parent_value",
+        }
+)
+EOF
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  grep "key2" out.txt || fail "Did not find the platform key"
+  grep "key3" out.txt || fail "Did not find the target attribute key"
+  grep "child_value" out.txt || fail "Did not find the overriding value"
+}
+
 run_suite "platform mapping test"
 

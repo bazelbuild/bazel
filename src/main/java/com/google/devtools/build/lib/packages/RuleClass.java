@@ -136,6 +136,7 @@ public class RuleClass {
   public static final PathFragment THIRD_PARTY_PREFIX = PathFragment.create("third_party");
   public static final PathFragment EXPERIMENTAL_PREFIX = PathFragment.create("experimental");
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
+  public static final String EXEC_PROPERTIES = "exec_properties";
 
   /**
    * A constraint for the package name of the Rule instances.
