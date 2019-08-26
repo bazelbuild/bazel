@@ -16,6 +16,7 @@ package com.google.devtools.build.skydoc.rendering;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
@@ -24,9 +25,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Prov
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,6 +33,8 @@ import java.util.stream.Collectors;
  * Contains a number of utility methods for markdown rendering.
  */
 public final class MarkdownUtil {
+  private final static int MAX_LINE_LENGTH = 80;
+
   /**
    * Return a string that escapes angle brackets for HTML.
    *
@@ -103,35 +104,47 @@ public final class MarkdownUtil {
   }
 
   private String summary(String functionName, List<String> paramNames) {
-    Deque<List<String>> paramLines = wrap(functionName, paramNames, 80);
-    List<String> paramLinks = paramLines
-        .stream()
-        .map(params -> params
+    List<List<String>> paramLines = wrap(functionName, paramNames, MAX_LINE_LENGTH);
+    List<String> paramLinksLines = new ArrayList<>();
+    for (List<String> params : paramLines) {
+        String paramLinksLine = params
             .stream()
             .map(param -> String.format("<a href=\"#%s-%s\">%s</a>", functionName, param, param))
-            .collect(Collectors.joining(", ")))
-        .collect(Collectors.toList());
-    return String.format(
-        "%s(%s)",
-        functionName,
-        Joiner.on(String.format(",\n%s", Strings.repeat(" ", functionName != null ? functionName.length() + 1 : 0)))
-            .join(paramLinks)
-    );
+            .collect(Collectors.joining(", "));
+        paramLinksLines.add(paramLinksLine);
+    }
+    String paramList = Joiner
+        .on(String.format(",\n%s", Strings.repeat(" ", functionName.length() + 1)))
+        .join(paramLinksLines);
+    return String.format("%s(%s)", functionName, paramList);
   }
 
-  private Deque<List<String>> wrap(String functionName, List<String> paramNames, int maxLineLength) {
-    Deque<List<String>> paramLines = new ArrayDeque<>();
-    paramLines.addLast(new ArrayList<>());
-    int leading = functionName != null ? functionName.length() : 0;
+  /**
+   * Wraps the given function parameter names to be able to construct a function summary that
+   * stays within the provided line length limit.
+   *
+   * @param functionName    the function name.
+   * @param paramNames      the function parameter names.
+   * @param maxLineLength   the maximal line length.
+   *
+   * @return  the lines with the wrapped parameter names.
+   */
+  private List<List<String>> wrap(String functionName, List<String> paramNames, int maxLineLength) {
+    List<List<String>> paramLines = new ArrayList<>();
+    ImmutableList.Builder<String> linesBuilder = new ImmutableList.Builder<String>();
+    int leading = functionName.length();
     int length = leading;
+    int punctuation = 2; // cater for left parenthesis/space before and comma after parameter
     for (String paramName : paramNames) {
-      length += paramName.length() + 2;
+      length += paramName.length() + punctuation;
       if (length > maxLineLength) {
+        paramLines.add(linesBuilder.build());
         length = leading + paramName.length();
-        paramLines.addLast(new ArrayList<>());
+        linesBuilder = new ImmutableList.Builder<String>();
       }
-      paramLines.getLast().add(paramName);
+      linesBuilder.add(paramName);
     }
+    paramLines.add(linesBuilder.build());
     return paramLines;
   }
 
