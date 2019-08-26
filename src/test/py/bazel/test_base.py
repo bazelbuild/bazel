@@ -315,12 +315,17 @@ class TestBase(unittest.TestCase):
     """
     self._worker_stdout = tempfile.TemporaryFile(dir=self._test_cwd)
     self._worker_stderr = tempfile.TemporaryFile(dir=self._test_cwd)
-    # Ideally we would use something under TEST_TMPDIR here, but the
-    # worker path must be as short as possible so we don't exceed Windows
-    # path length limits, so we run straight in TEMP. This should ideally
-    # be set to something like C:\temp. On CI this is set to D:\temp.
-    worker_path = TestBase.GetEnv('TEMP')
-    self._cas_path = worker_path + '\\cas'
+    if TestBase.IsWindows():
+      # Ideally we would use something under TEST_TMPDIR here, but the
+      # worker path must be as short as possible so we don't exceed Windows
+      # path length limits, so we run straight in TEMP. This should ideally
+      # be set to something like C:\temp. On CI this is set to D:\temp.
+      worker_path = TestBase.GetEnv('TEMP')
+      worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker.exe')
+    else:
+      worker_path = tempfile.mkdtemp(dir=self._tests_root)
+      worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker')
+    self._cas_path = os.path.join(worker_path, 'cas')
     os.mkdir(self._cas_path)
 
     # Get an open port. Unfortunately this seems to be the best option in
@@ -330,10 +335,16 @@ class TestBase(unittest.TestCase):
     port = s.getsockname()[1]
     s.close()
 
+    env_add = {}
+    try:
+      env['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv('RUNFILES_MANIFEST_FILE')
+    except EnvVarUndefinedError:
+      pass
+
     # Tip: To help debug remote build problems, add the --debug flag below.
     self._worker_proc = subprocess.Popen(
         [
-            self.Rlocation('io_bazel/src/tools/remote/worker.exe'),
+            worker_exe,
             '--listen_port=' + str(port),
             # This path has to be extremely short to avoid Windows path
             # length restrictions.
@@ -343,9 +354,7 @@ class TestBase(unittest.TestCase):
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
         cwd=self._test_cwd,
-        env=self._EnvMap(env_add={
-            'RUNFILES_MANIFEST_FILE': TestBase.GetEnv('RUNFILES_MANIFEST_FILE'),
-        }))
+        env=self._EnvMap(env_add=env_add))
 
     return port
 
