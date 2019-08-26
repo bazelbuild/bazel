@@ -86,16 +86,13 @@ public final class SymlinkTreeHelper {
   }
 
   /**
-   * Creates symlink tree using appropriate method. At this time tree always created using
-   * build-runfiles helper application.
+   * Creates symlink tree using the {@code build-runfiles.cc} helper application.
    *
-   * @param owner action instance that requested symlink tree creation
-   * @param actionExecutionContext Services that are in the scope of the action.
-   * @param enableRunfiles
-   * @return a list of SpawnResults created during symlink creation, if any
+   * @param enableRunfiles If {@code false} only the output manifest is created.
    */
   public void createSymlinks(
-      ActionExecutionContext actionExecutionContext,
+      Path execRoot,
+      OutErr outErr,
       BinTools binTools,
       ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles)
@@ -103,10 +100,10 @@ public final class SymlinkTreeHelper {
     if (enableRunfiles) {
       try {
         createSymlinksUsingCommand(
-            actionExecutionContext.getExecRoot(),
+            execRoot,
             binTools,
             shellEnvironment,
-            actionExecutionContext.getFileOutErr());
+            outErr);
       } catch (CommandException e) {
         throw new UserExecException(CommandUtils.describeCommandFailure(true, e), e);
       }
