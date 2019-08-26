@@ -241,8 +241,8 @@ class BlazeServer final {
       const int connect_timeout_secs,
       const bool batch,
       const bool block_for_lock,
-      const string &output_base,
-      const string &server_jvm_out);
+      const blaze_util::Path &output_base,
+      const blaze_util::Path &server_jvm_out);
 
   // Acquire a lock for the server running in this output base. Returns the
   // number of milliseconds spent waiting for the lock.
@@ -309,7 +309,7 @@ class BlazeServer final {
   const int connect_timeout_secs_;
   const bool batch_;
   const bool block_for_lock_;
-  const string output_base_;
+  const blaze_util::Path output_base_;
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -370,7 +370,7 @@ static vector<string> GetServerExeArgs(
 
   result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
   result.push_back("-XX:HeapDumpPath=" +
-                   blaze_util::PathAsJvmFlag(startup_options.output_base));
+                   startup_options.output_base.AsJvmArgument());
 
   // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
   if (!startup_options.GetEmbeddedJavabase().empty()) {
@@ -470,13 +470,14 @@ static vector<string> GetServerExeArgs(
                    blaze_util::ConvertPath(startup_options.install_base));
   result.push_back("--install_md5=" + install_md5);
   result.push_back("--output_base=" +
-                   blaze_util::ConvertPath(startup_options.output_base));
+                   startup_options.output_base.AsCommandLineArgument());
   result.push_back("--workspace_directory=" +
                    blaze_util::ConvertPath(workspace));
   result.push_back("--default_system_javabase=" + GetSystemJavabase());
 
-  if (!startup_options.server_jvm_out.empty()) {
-    result.push_back("--server_jvm_out=" + startup_options.server_jvm_out);
+  if (!startup_options.server_jvm_out.IsEmpty()) {
+    result.push_back("--server_jvm_out=" +
+                     startup_options.server_jvm_out.AsCommandLineArgument());
   }
 
   if (startup_options.deep_execroot) {
@@ -742,18 +743,23 @@ static void RunBatchMode(
   }
 }
 
-static void WriteFileToStderrOrDie(const char *file_name) {
-  FILE *fp = fopen(file_name, "r");
+static void WriteFileToStderrOrDie(const blaze_util::Path &path) {
+#if defined(_WIN32) || defined(__CYGWIN__)
+  FILE *fp = _wfopen(path.AsNativePath().c_str(), L"r");
+#else
+  FILE *fp = fopen(path.AsNativePath().c_str(), "r");
+#endif
+
   if (fp == NULL) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "opening " << file_name << " failed: " << GetLastErrorString();
+        << "opening " << path.AsPrintablePath() << " failed: " << GetLastErrorString();
   }
   char buffer[255];
   int num_read;
   while ((num_read = fread(buffer, 1, sizeof buffer, fp)) > 0) {
     if (ferror(fp)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to read from '" << file_name
+          << "failed to read from '" << path.AsPrintablePath()
           << "': " << GetLastErrorString();
     }
     fwrite(buffer, 1, num_read, stderr);
@@ -817,11 +823,11 @@ static void ConnectOrDie(
         // Don't dump the log if we were appending - the user should know where
         // to find it, and who knows how much content they may have accumulated.
         BAZEL_LOG(USER) << "Server crashed during startup. See "
-                        << server->ProcessInfo().jvm_log_file_;
+                        << server->ProcessInfo().jvm_log_file_.AsPrintablePath();
       } else {
         BAZEL_LOG(USER) << "Server crashed during startup. Now printing "
-                        << server->ProcessInfo().jvm_log_file_;
-        WriteFileToStderrOrDie(server->ProcessInfo().jvm_log_file_.c_str());
+                        << server->ProcessInfo().jvm_log_file_.AsPrintablePath();
+        WriteFileToStderrOrDie(server->ProcessInfo().jvm_log_file_);
       }
       exit(blaze_exit_code::INTERNAL_ERROR);
     }
@@ -1126,8 +1132,8 @@ static void KillRunningServerIfDifferentStartupOptions(
     return;
   }
 
-  string cmdline_path =
-      blaze_util::JoinPath(startup_options.output_base, "server/cmdline");
+  blaze_util::Path cmdline_path =
+      startup_options.output_base.GetRelative("server/cmdline");
   string old_joined_arguments;
 
   // No, /proc/$PID/cmdline does not work, because it is limited to 4K. Even
@@ -1162,8 +1168,8 @@ static void EnsureCorrectRunningVersion(
   // target dirs don't match, or if the symlink was not present, then kill any
   // running servers. Lastly, symlink to our installation so others know which
   // installation is running.
-  const string installation_path =
-      blaze_util::JoinPath(startup_options.output_base, "install");
+  const blaze_util::Path installation_path =
+      startup_options.output_base.GetRelative("install");
   string prev_installation;
   bool ok =
       blaze_util::ReadDirectorySymlink(installation_path, &prev_installation);
@@ -1180,9 +1186,10 @@ static void EnsureCorrectRunningVersion(
     blaze_util::UnlinkPath(installation_path);
     if (!SymlinkDirectories(startup_options.install_base,
                             installation_path)) {
+      string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to create installation symlink '" << installation_path
-          << "': " << GetLastErrorString();
+          << "failed to create installation symlink '"
+          << installation_path.AsPrintablePath() << "': " << err;
     }
 
     // Update the mtime of the install base so that cleanup tools can
@@ -1310,37 +1317,42 @@ static void UpdateConfiguration(
                                                          install_md5);
   }
 
-  if (startup_options->output_base.empty()) {
-    startup_options->output_base = blaze::GetHashedBaseDir(
-        startup_options->output_user_root, workspace);
+  if (startup_options->output_base.IsEmpty()) {
+    startup_options->output_base = blaze_util::Path(blaze::GetHashedBaseDir(
+        startup_options->output_user_root, workspace));
   }
 
-  const char *output_base = startup_options->output_base.c_str();
   if (!blaze_util::PathExists(startup_options->output_base)) {
     if (!blaze_util::MakeDirectories(startup_options->output_base, 0777)) {
+      string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Output base directory '" << output_base
-          << "' could not be created: " << GetLastErrorString();
+          << "Output base directory '"
+          << startup_options->output_base.AsPrintablePath()
+          << "' could not be created: " << err;
     }
   } else {
     if (!blaze_util::IsDirectory(startup_options->output_base)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Output base directory '" << output_base
+          << "Output base directory '"
+          << startup_options->output_base.AsPrintablePath()
           << "' could not be created. It exists but is not a directory.";
     }
   }
   if (!blaze_util::CanAccessDirectory(startup_options->output_base)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Output base directory '" << output_base
+        << "Output base directory '"
+        << startup_options->output_base.AsPrintablePath()
         << "' must be readable and writable.";
   }
-  ExcludePathFromBackup(output_base);
+  ExcludePathFromBackup(startup_options->output_base);
 
-  startup_options->output_base = blaze_util::MakeCanonical(output_base);
-  if (startup_options->output_base.empty()) {
+  startup_options->output_base = startup_options->output_base.Canonicalize();
+  if (startup_options->output_base.IsEmpty()) {
+    string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "blaze_util::MakeCanonical('" << output_base
-        << "') failed: " << GetLastErrorString();
+        << "blaze_util::MakeCanonical('"
+        << startup_options->output_base.AsPrintablePath()
+        << "') failed: " << err;
   }
 }
 
@@ -1420,10 +1432,10 @@ static string CheckAndGetBinaryPath(const string &cwd, const string &argv0) {
   }
 }
 
-static int GetExitCodeForAbruptExit(const string &output_base) {
+static int GetExitCodeForAbruptExit(const blaze_util::Path &output_base) {
   BAZEL_LOG(INFO) << "Looking for a custom exit-code.";
-  std::string filename = blaze_util::JoinPath(
-      output_base, "exit_code_to_use_on_abrupt_exit");
+  blaze_util::Path filename =
+      output_base.GetRelative("exit_code_to_use_on_abrupt_exit");
   std::string content;
   if (!blaze_util::ReadFile(filename, &content)) {
     BAZEL_LOG(INFO) << "Unable to read the custom exit-code file. "
@@ -1572,7 +1584,8 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
     UnlimitCoredumps();
   }
 
-  blaze::CreateSecureOutputRoot(startup_options->output_user_root);
+  blaze::CreateSecureOutputRoot(
+     blaze_util::Path(startup_options->output_user_root));
 
   // Only start a server when in a workspace because otherwise we won't do more
   // than emit a help message.
@@ -1614,8 +1627,8 @@ BlazeServer::BlazeServer(
     const int connect_timeout_secs,
     const bool batch,
     const bool block_for_lock,
-    const string &output_base,
-    const string &server_jvm_out)
+    const blaze_util::Path &output_base,
+    const blaze_util::Path &server_jvm_out)
   : connected_(false),
     process_info_(output_base, server_jvm_out),
     connect_timeout_secs_(connect_timeout_secs),
@@ -1658,13 +1671,13 @@ bool BlazeServer::TryConnect(
 bool BlazeServer::Connect() {
   assert(!connected_);
 
-  std::string server_dir = blaze_util::JoinPath(output_base_, "server");
+  blaze_util::Path server_dir = output_base_.GetRelative("server");
   std::string port;
   std::string ipv4_prefix = "127.0.0.1:";
   std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
   std::string ipv6_prefix_2 = "[::1]:";
 
-  if (!blaze_util::ReadFile(blaze_util::JoinPath(server_dir, "command_port"),
+  if (!blaze_util::ReadFile(server_dir.GetRelative("command_port"),
                             &port)) {
     return false;
   }
@@ -1676,12 +1689,12 @@ bool BlazeServer::Connect() {
     return false;
   }
 
-  if (!blaze_util::ReadFile(blaze_util::JoinPath(server_dir, "request_cookie"),
+  if (!blaze_util::ReadFile(server_dir.GetRelative("request_cookie"),
                             &request_cookie_)) {
     return false;
   }
 
-  if (!blaze_util::ReadFile(blaze_util::JoinPath(server_dir, "response_cookie"),
+  if (!blaze_util::ReadFile(server_dir.GetRelative("response_cookie"),
                             &response_cookie_)) {
     return false;
   }
@@ -1864,7 +1877,7 @@ void BlazeServer::KillRunningServer() {
           << "Shutdown request failed, server still alive: (error code: "
           << status.error_code() << ", error message: '"
           << status.error_message() << "', log file: '"
-          << process_info_.jvm_log_file_ << "')";
+          << process_info_.jvm_log_file_.AsPrintablePath() << "')";
     }
     KillServerProcess(process_info_.server_pid_, output_base_);
   }
@@ -2002,12 +2015,12 @@ unsigned int BlazeServer::Communicate(
     BAZEL_LOG(USER) << "\nServer terminated abruptly (error code: "
                     << status.error_code() << ", error message: '"
                     << status.error_message() << "', log file: '"
-                    << process_info_.jvm_log_file_ << "')\n";
+                    << process_info_.jvm_log_file_.AsPrintablePath() << "')\n";
     return GetExitCodeForAbruptExit(output_base_);
   } else if (!finished) {
     BAZEL_LOG(USER)
         << "\nServer finished RPC without an explicit exit code (log file: '"
-        << process_info_.jvm_log_file_ << "')\n";
+        << process_info_.jvm_log_file_.AsPrintablePath() << "')\n";
     return GetExitCodeForAbruptExit(output_base_);
   } else if (final_response.has_exec_request()) {
     const command_server::ExecRequest& request = final_response.exec_request();

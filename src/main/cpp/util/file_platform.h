@@ -143,7 +143,7 @@ int RenameDirectory(const std::string &old_name, const std::string &new_name);
 // Reads which directory a symlink points to. Puts the target of the symlink
 // in ``result`` and returns if the operation was successful. Will not work on
 // symlinks that don't point to directories on Windows.
-bool ReadDirectorySymlink(const std::string &symlink, std::string *result);
+bool ReadDirectorySymlink(const blaze_util::Path &symlink, std::string *result);
 
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
@@ -152,6 +152,7 @@ bool UnlinkPath(const Path &file_path);
 
 // Returns true if this path exists, following symlinks.
 bool PathExists(const std::string& path);
+bool PathExists(const Path& path);
 
 // Returns the real, absolute path corresponding to `path`.
 // The method resolves all symlink components of `path`.
@@ -172,9 +173,11 @@ bool CanExecuteFile(const std::string &path);
 // is both readable and writable.
 // Follows symlinks/junctions.
 bool CanAccessDirectory(const std::string &path);
+bool CanAccessDirectory(const Path &path);
 
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);
+bool IsDirectory(const Path& path);
 
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie() if syncing fails.

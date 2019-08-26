@@ -490,10 +490,24 @@ Path Path::GetRelative(const std::string& r) const {
   }
 }
 
+Path Path::Canonicalize() const {
+  return Path(MakeCanonical(WstringToString(path_).c_str()));
+}
+
 bool Path::IsNull() const { return path_ == L"NUL"; }
+
+bool Path::Contains(const char c) const {
+  return path_.find_first_of(c) != std::wstring::npos;
+}
 
 std::string Path::AsPrintablePath() const {
   return WstringToCstring(RemoveUncPrefixMaybe(path_.c_str())).get();
 }
+
+std::string Path::AsJvmArgument() const {
+  return PathAsJvmFlag(AsPrintablePath());
+}
+
+std::string Path::AsCommandLineArgument() const { return AsPrintablePath(); }
 
 }  // namespace blaze_util

@@ -261,9 +261,9 @@ int RenameDirectory(const std::string &old_name, const std::string &new_name) {
   }
 }
 
-bool ReadDirectorySymlink(const string &name, string *result) {
+bool ReadDirectorySymlink(const blaze_util::Path &name, string *result) {
   char buf[PATH_MAX + 1];
-  int len = readlink(name.c_str(), buf, PATH_MAX);
+  int len = readlink(name.AsNativePath().c_str(), buf, PATH_MAX);
   if (len < 0) {
     return false;
   }
@@ -283,6 +283,10 @@ bool UnlinkPath(const Path &file_path) {
 
 bool PathExists(const string& path) {
   return access(path.c_str(), F_OK) == 0;
+}
+
+bool PathExists(const Path& path) {
+  return PathExists(path.AsNativePath());
 }
 
 string MakeCanonical(const char *path) {
@@ -322,9 +326,17 @@ bool CanAccessDirectory(const std::string &path) {
   return IsDirectory(path) && CanAccess(path, true, true, true);
 }
 
+bool CanAccessDirectory(const Path &path) {
+  return CanAccessDirectory(path.AsNativePath());
+}
+
 bool IsDirectory(const string& path) {
   struct stat buf;
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
+}
+
+bool IsDirectory(const Path& path) {
+  return IsDirectory(path.AsNativePath());
 }
 
 void SyncFile(const string& path) {

@@ -18,19 +18,21 @@
 
 namespace blaze {
 
-static std::string GetJvmOutFile(
-    const std::string &output_base, const std::string &server_jvm_out) {
-  if (!server_jvm_out.empty()) {
+static blaze_util::Path GetJvmOutFile(
+    const blaze_util::Path &output_base,
+    const blaze_util::Path &server_jvm_out) {
+  if (!server_jvm_out.IsEmpty()) {
     return server_jvm_out;
   } else {
-    return blaze_util::JoinPath(output_base, "server/jvm.out");
+    return output_base.GetRelative("server/jvm.out");
   }
 }
 
 ServerProcessInfo::ServerProcessInfo(
-    const std::string &output_base, const std::string &server_jvm_out)
+    const blaze_util::Path &output_base,
+    const blaze_util::Path &server_jvm_out)
     : jvm_log_file_(GetJvmOutFile(output_base, server_jvm_out)),
-      jvm_log_file_append_(!server_jvm_out.empty()),
+      jvm_log_file_append_(!server_jvm_out.IsEmpty()),
       // TODO(b/69972303): Formalize the "no server" magic value or rm it.
       server_pid_(-1) {}
 
