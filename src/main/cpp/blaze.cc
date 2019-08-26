@@ -196,19 +196,26 @@ static const char* ReasonString(RestartReason reason) {
   return "unknown";
 }
 
+struct DurationMillis {
+  const uint64_t millis;
+
+  DurationMillis() : millis(kUnknownDuration) {}
+  DurationMillis(const uint64_t ms) : millis(ms) {}
+
+  bool IsKnown() const { return millis == kUnknownDuration; }
+
+ private:
+  // Value representing that a timing event never occurred or is unknown.
+  static constexpr uint64_t kUnknownDuration = 0;
+};
+
 // Encapsulates miscellaneous information reported to the server for logging and
 // profiling purposes.
 struct LoggingInfo {
-  // Value representing that a timing event never occurred or is unknown.
-  static const uint64_t kUnknownDuration = 0;
-
   explicit LoggingInfo(
       const string &binary_path_, const uint64_t start_time_ms_)
       : binary_path(binary_path_),
         start_time_ms(start_time_ms_),
-        client_startup_duration_ms(kUnknownDuration),
-        extract_data_duration_ms(kUnknownDuration),
-        command_wait_duration_ms(kUnknownDuration),
         restart_reason(NO_RESTART) {}
 
   void SetRestartReasonIfNotSet(const RestartReason restart_reason_) {
@@ -223,18 +230,6 @@ struct LoggingInfo {
   // The time in ms the binary started up, measured from approximately the time
   // that "main" was called.
   const uint64_t start_time_ms;
-
-  // The time in ms the launcher spends before sending the request to the blaze
-  // server.
-  uint64_t client_startup_duration_ms;
-
-  // The time in ms spent on extracting the new blaze version.
-  // This is part of startup_time.
-  uint64_t extract_data_duration_ms;
-
-  // The time in ms a command had to wait on a busy Blaze server process.
-  // This is part of startup_time.
-  uint64_t command_wait_duration_ms;
 
   // The reason the server was restarted.
   RestartReason restart_reason;
@@ -265,11 +260,13 @@ class BlazeServer final {
   // and stderr. Returns the desired exit code. Only call this when the server
   // is in connected state.
   unsigned int Communicate(
-      const std::string &command,
-      const std::vector<std::string> &command_args,
+      const std::string &command, const std::vector<std::string> &command_args,
       const std::string &invocation_policy,
       const std::vector<RcStartupFlag> &original_startup_options,
-      const LoggingInfo &logging_info);
+      const LoggingInfo &logging_info,
+      const DurationMillis client_startup_duration,
+      const DurationMillis extract_data_duration,
+      const DurationMillis command_wait_duration_ms);
 
   // Disconnects and kills an existing server. Only call this when this object
   // is in connected state.
@@ -588,18 +585,27 @@ static vector<string> GetServerExeArgs(
 }
 
 // Add common command options for logging to the given argument array.
-static void AddLoggingArgs(
-    const LoggingInfo &logging_info,
-    vector<string> *args) {
-  args->push_back(
-      "--startup_time=" + ToString(logging_info.client_startup_duration_ms));
-  if (logging_info.command_wait_duration_ms != LoggingInfo::kUnknownDuration) {
+static void AddLoggingArgs(const LoggingInfo &logging_info,
+                           const DurationMillis client_startup_duration,
+                           const DurationMillis extract_data_duration,
+                           const DurationMillis command_wait_duration_ms,
+                           vector<string> *args) {
+  // The time in ms the launcher spends before sending the request to the blaze
+  // server.
+  args->push_back("--startup_time=" + ToString(client_startup_duration.millis));
+
+  // The time in ms a command had to wait on a busy Blaze server process.
+  // This is part of startup_time.
+  if (command_wait_duration_ms.IsKnown()) {
     args->push_back("--command_wait_time=" +
-                    ToString(logging_info.command_wait_duration_ms));
+                    ToString(command_wait_duration_ms.millis));
   }
-  if (logging_info.extract_data_duration_ms != LoggingInfo::kUnknownDuration) {
+
+  // The time in ms spent on extracting the new blaze version.
+  // This is part of startup_time.
+  if (extract_data_duration.IsKnown()) {
     args->push_back("--extract_data_time=" +
-                    ToString(logging_info.extract_data_duration_ms));
+                    ToString(extract_data_duration.millis));
   }
   if (logging_info.restart_reason != NO_RESTART) {
     args->push_back(string("--restart_reason=") +
@@ -683,20 +689,18 @@ static void RunServerMode(
 // Replace this process with blaze in standalone/batch mode.
 // The batch mode blaze process handles the command and exits.
 static void RunBatchMode(
-    const string &server_exe,
-    const vector<string> &server_exe_args,
-    const WorkspaceLayout &workspace_layout,
-    const string &workspace,
+    const string &server_exe, const vector<string> &server_exe_args,
+    const WorkspaceLayout &workspace_layout, const string &workspace,
     const OptionProcessor &option_processor,
-    const StartupOptions &startup_options,
-    LoggingInfo *logging_info,
-    BlazeServer *server) {
+    const StartupOptions &startup_options, LoggingInfo *logging_info,
+    const DurationMillis extract_data_duration,
+    const DurationMillis command_wait_duration_ms, BlazeServer *server) {
   if (server->Connected()) {
     server->KillRunningServer();
   }
 
-  logging_info->client_startup_duration_ms =
-      GetMillisecondsMonotonic() - logging_info->start_time_ms;
+  const DurationMillis client_startup_duration(GetMillisecondsMonotonic() -
+                                               logging_info->start_time_ms);
 
   BAZEL_LOG(INFO) << "Starting " << startup_options.product_name
                   << " in batch mode.";
@@ -722,7 +726,9 @@ static void RunBatchMode(
 
   if (!command.empty()) {
     jvm_args_vector.push_back(command);
-    AddLoggingArgs(*logging_info, &jvm_args_vector);
+    AddLoggingArgs(*logging_info, client_startup_duration,
+                   extract_data_duration, command_wait_duration_ms,
+                   &jvm_args_vector);
   }
 
   jvm_args_vector.insert(jvm_args_vector.end(), command_arguments.begin(),
@@ -963,12 +969,11 @@ static void MoveFiles(const string &embedded_binaries) {
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
 // becomes visible automically at the new path.
-static void ExtractData(
-    const string &self_path,
-    const vector<string> &archive_contents,
-    const string &expected_install_md5,
-    const StartupOptions &startup_options,
-    LoggingInfo *logging_info) {
+static DurationMillis ExtractData(const string &self_path,
+                                  const vector<string> &archive_contents,
+                                  const string &expected_install_md5,
+                                  const StartupOptions &startup_options,
+                                  LoggingInfo *logging_info) {
   // If the install dir doesn't exist, create it, if it does, we know it's good.
   if (!blaze_util::PathExists(startup_options.install_base)) {
     uint64_t st = GetMillisecondsMonotonic();
@@ -985,7 +990,7 @@ static void ExtractData(
     MoveFiles(tmp_binaries);
 
     uint64_t et = GetMillisecondsMonotonic();
-    logging_info->extract_data_duration_ms = et - st;
+    const DurationMillis extract_data_duration(et - st);
 
     // Now rename the completed installation to its final name.
     int attempts = 0;
@@ -1015,6 +1020,7 @@ static void ExtractData(
           << "install base directory '" << tmp_install
           << "' could not be renamed into place: " << GetLastErrorString();
     }
+    return extract_data_duration;
   } else {
     if (!blaze_util::IsDirectory(startup_options.install_base)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -1035,6 +1041,7 @@ static void ExtractData(
             << startup_options.install_base << "' and try again.";
       }
     }
+    return DurationMillis();
   }
 }
 
@@ -1209,14 +1216,12 @@ static void CancelServer() { blaze_server->Cancel(); }
 // server's response back to the user. Does not return - exits via exit or
 // signal.
 static ATTRIBUTE_NORETURN void RunClientServerMode(
-    const string &server_exe,
-    const vector<string> &server_exe_args,
-    const WorkspaceLayout &workspace_layout,
-    const string &workspace,
+    const string &server_exe, const vector<string> &server_exe_args,
+    const WorkspaceLayout &workspace_layout, const string &workspace,
     const OptionProcessor &option_processor,
-    const StartupOptions &startup_options,
-    LoggingInfo *logging_info,
-    BlazeServer *server) {
+    const StartupOptions &startup_options, LoggingInfo *logging_info,
+    const DurationMillis extract_data_duration,
+    const DurationMillis command_wait_duration_ms, BlazeServer *server) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(
@@ -1263,21 +1268,20 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
       << "Connected (server pid=" << server->ProcessInfo().server_pid_ << ").";
 
   // Wall clock time since process startup.
-  logging_info->client_startup_duration_ms =
-      GetMillisecondsMonotonic() - logging_info->start_time_ms;
+  const DurationMillis client_startup_duration =
+      (GetMillisecondsMonotonic() - logging_info->start_time_ms);
 
   SignalHandler::Get().Install(
       startup_options.product_name,
       startup_options.output_base,
       &server->ProcessInfo(),
       CancelServer);
-  SignalHandler::Get().PropagateSignalOrExit(
-      server->Communicate(
-          option_processor.GetCommand(),
-          option_processor.GetCommandArguments(),
-          startup_options.invocation_policy,
-          startup_options.original_startup_options_,
-          *logging_info));
+  SignalHandler::Get().PropagateSignalOrExit(server->Communicate(
+      option_processor.GetCommand(), option_processor.GetCommandArguments(),
+      startup_options.invocation_policy,
+      startup_options.original_startup_options_, *logging_info,
+      client_startup_duration, extract_data_duration,
+      command_wait_duration_ms));
 }
 
 // Parse the options.
@@ -1466,27 +1470,25 @@ void PrintVersionInfo(const string &self_path, const string &product_name) {
   printf("%s %s\n", product_name.c_str(), build_label.c_str());
 }
 
-static int RunLauncher(
-    const string &self_path,
-    const vector<string> &archive_contents,
-    const string &install_md5,
-    const StartupOptions &startup_options,
-    const OptionProcessor &option_processor,
-    const WorkspaceLayout &workspace_layout,
-    const string &workspace,
-    LoggingInfo *logging_info) {
+static void RunLauncher(const string &self_path,
+                        const vector<string> &archive_contents,
+                        const string &install_md5,
+                        const StartupOptions &startup_options,
+                        const OptionProcessor &option_processor,
+                        const WorkspaceLayout &workspace_layout,
+                        const string &workspace, LoggingInfo *logging_info) {
   blaze_server = new BlazeServer(
       startup_options.connect_timeout_secs, startup_options.batch,
       startup_options.block_for_lock, startup_options.output_base,
       startup_options.server_jvm_out);
 
-  logging_info->command_wait_duration_ms = blaze_server->AcquireLock();
+  const DurationMillis command_wait_duration_ms(blaze_server->AcquireLock());
   BAZEL_LOG(INFO) << "Acquired the client lock, waited "
-                  << logging_info->command_wait_duration_ms << " milliseconds";
+                  << command_wait_duration_ms.millis << " milliseconds";
 
   WarnFilesystemType(startup_options.output_base);
 
-  ExtractData(
+  const DurationMillis extract_data_duration = ExtractData(
       self_path, archive_contents, install_md5, startup_options, logging_info);
 
   blaze_server->Connect();
@@ -1497,7 +1499,7 @@ static int RunLauncher(
     // TODO(b/134525510): Connected() can return false when the server process
     // is alive but unresponsive, so bailing early here might not always be the
     // right thing to do.
-    return 0;
+    return;
   }
 
   EnsureCorrectRunningVersion(startup_options, logging_info, blaze_server);
@@ -1528,27 +1530,15 @@ static int RunLauncher(
         startup_options,
         blaze_server);
   } else if (startup_options.batch) {
-    RunBatchMode(
-        server_exe,
-        server_exe_args,
-        workspace_layout,
-        workspace,
-        option_processor,
-        startup_options,
-        logging_info,
-        blaze_server);
+    RunBatchMode(server_exe, server_exe_args, workspace_layout, workspace,
+                 option_processor, startup_options, logging_info,
+                 extract_data_duration, command_wait_duration_ms, blaze_server);
   } else {
-    RunClientServerMode(
-        server_exe,
-        server_exe_args,
-        workspace_layout,
-        workspace,
-        option_processor,
-        startup_options,
-        logging_info,
-        blaze_server);
+    RunClientServerMode(server_exe, server_exe_args, workspace_layout,
+                        workspace, option_processor, startup_options,
+                        logging_info, extract_data_duration,
+                        command_wait_duration_ms, blaze_server);
   }
-  return 0;
 }
 
 int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
@@ -1622,15 +1612,9 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
   UpdateConfiguration(install_md5, workspace, startup_options);
 
-  return RunLauncher(
-      self_path,
-      archive_contents,
-      install_md5,
-      *startup_options,
-      *option_processor,
-      *workspace_layout,
-      workspace,
-      &logging_info);
+  RunLauncher(self_path, archive_contents, install_md5, *startup_options,
+              *option_processor, *workspace_layout, workspace, &logging_info);
+  return 0;
 }
 
 static void null_grpc_log_function(gpr_log_func_args *args) {}
@@ -1911,18 +1895,21 @@ void BlazeServer::KillRunningServer() {
 }
 
 unsigned int BlazeServer::Communicate(
-    const string &command,
-    const vector<string> &command_args,
+    const string &command, const vector<string> &command_args,
     const string &invocation_policy,
     const vector<RcStartupFlag> &original_startup_options,
-    const LoggingInfo &logging_info) {
+    const LoggingInfo &logging_info,
+    const DurationMillis client_startup_duration,
+    const DurationMillis extract_data_duration,
+    const DurationMillis command_wait_duration_ms) {
   assert(connected_);
   assert(process_info_.server_pid_ > 0);
 
   vector<string> arg_vector;
   if (!command.empty()) {
     arg_vector.push_back(command);
-    AddLoggingArgs(logging_info, &arg_vector);
+    AddLoggingArgs(logging_info, client_startup_duration, extract_data_duration,
+                   command_wait_duration_ms, &arg_vector);
   }
 
   if (!command_args.empty()) {
