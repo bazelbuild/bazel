@@ -211,6 +211,12 @@ skydoc_test(
 )
 
 skydoc_test(
+    name = "function_wrap_multiple_lines_test",
+    golden_file = "testdata/function_wrap_multiple_lines_test/golden.txt",
+    input_file = "testdata/function_wrap_multiple_lines_test/input.bzl",
+)
+
+skydoc_test(
     name = "namespace_test",
     golden_file = "testdata/namespace_test/golden.txt",
     input_file = "testdata/namespace_test/input.bzl",
