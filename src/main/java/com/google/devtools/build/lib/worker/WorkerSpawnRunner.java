@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * A spawn runner that launches Spawns the first time they are used in a persistent mode and then
@@ -82,6 +84,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final boolean sandboxUsesExpandedTreeArtifactsInRunfiles;
   private final BinTools binTools;
   private final ResourceManager resourceManager;
+  @Nullable
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
 
   public WorkerSpawnRunner(
       Path execRoot,
@@ -92,7 +96,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       LocalEnvProvider localEnvProvider,
       boolean sandboxUsesExpandedTreeArtifactsInRunfiles,
       BinTools binTools,
-      ResourceManager resourceManager) {
+      ResourceManager resourceManager,
+      @Nullable RunfilesTreeUpdater runfilesTreeUpdater) {
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
     this.extraFlags = extraFlags;
@@ -102,6 +107,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.sandboxUsesExpandedTreeArtifactsInRunfiles = sandboxUsesExpandedTreeArtifactsInRunfiles;
     this.binTools = binTools;
     this.resourceManager = resourceManager;
+    this.runfilesTreeUpdater = runfilesTreeUpdater;
   }
 
   @Override
@@ -135,6 +141,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
     if (Iterables.isEmpty(spawn.getToolFiles())) {
       throw new UserExecException(
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()));
+    }
+
+    if (runfilesTreeUpdater != null) {
+      runfilesTreeUpdater.updateRunfilesDirectory(execRoot, spawn.getRunfilesSupplier(),
+          context.getPathResolver(), binTools, spawn.getEnvironment(), context.getFileOutErr());
     }
 
     // We assume that the spawn to be executed always gets at least one @flagfile.txt or

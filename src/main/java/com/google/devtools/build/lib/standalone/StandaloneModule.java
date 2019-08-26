@@ -16,11 +16,14 @@ package com.google.devtools.build.lib.standalone;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy;
@@ -51,13 +54,20 @@ public class StandaloneModule extends BlazeModule {
             env.getBlazeWorkspace().getBinTools(),
             testTmpRoot);
 
+    CoreOptions coreOptions = env.getOptions().getOptions(CoreOptions.class);
+    boolean runfilesEnabled = BuildConfiguration.runfilesEnabled(coreOptions);
+    // True if all runfile trees will be created when building binaries/test. If so, we won't need
+    // the RunfilesTreeUpdater.
+    boolean createRunfilesAtBuild = BuildConfiguration.shouldCreateRunfilesTree(coreOptions);
+
     SpawnRunner localSpawnRunner =
         new LocalSpawnRunner(
             env.getExecRoot(),
             env.getOptions().getOptions(LocalExecutionOptions.class),
             env.getLocalResourceManager(),
             LocalEnvProvider.forCurrentOs(env.getClientEnv()),
-            env.getBlazeWorkspace().getBinTools());
+            env.getBlazeWorkspace().getBinTools(),
+            !createRunfilesAtBuild ? new RunfilesTreeUpdater(runfilesEnabled) : null);
 
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the

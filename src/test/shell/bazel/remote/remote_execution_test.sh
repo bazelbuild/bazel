@@ -1158,6 +1158,42 @@ EOF
   expect_not_log "remote cache hit"
 }
 
+function test_nobuild_runfile_links() {
+  mkdir data && echo "hello" > data/hello && echo "world" > data/world
+    cat > WORKSPACE <<EOF
+workspace(name = "foo")
+EOF
+
+  cat > test.sh <<'EOF'
+#!/bin/bash
+set -e
+[[ -f ${RUNFILES_DIR}/foo/data/hello ]]
+[[ -f ${RUNFILES_DIR}/foo/data/world ]]
+exit 0
+EOF
+  chmod 755 test.sh
+  cat > BUILD <<'EOF'
+filegroup(
+  name = "runfiles",
+  srcs = ["data/hello", "data/world"],
+)
+
+sh_test(
+  name = "test",
+  srcs = ["test.sh"],
+  data = [":runfiles"],
+)
+EOF
+
+  bazel test \
+    --nobuild_runfile_links \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //:test || fail "Testing //:test failed"
+
+  [[ ! -f bazel-bin/test.runfiles/foo/data/hello ]] || fail "expected no runfile data/hello"
+  [[ ! -f bazel-bin/test.runfiles/foo/data/world ]] || fail "expected no runfile data/world"
+  [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
+}
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

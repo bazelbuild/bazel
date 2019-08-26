@@ -25,11 +25,14 @@ import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -421,12 +424,15 @@ public final class SandboxModule extends BlazeModule {
   private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
+    CoreOptions coreOptions = env.getOptions().getOptions(CoreOptions.class);
+    boolean runfilesEnabled = BuildConfiguration.runfilesEnabled(coreOptions);
     return new LocalSpawnRunner(
         env.getExecRoot(),
         localExecutionOptions,
         env.getLocalResourceManager(),
         LocalEnvProvider.forCurrentOs(env.getClientEnv()),
-        env.getBlazeWorkspace().getBinTools());
+        env.getBlazeWorkspace().getBinTools(),
+        new RunfilesTreeUpdater(runfilesEnabled));
   }
 
   private static final class SandboxFallbackSpawnRunner implements SpawnRunner {

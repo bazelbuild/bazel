@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -94,19 +96,14 @@ public class StandaloneTestStrategy extends TestStrategy {
   @Override
   public TestRunnerSpawn createTestRunnerSpawn(
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
+      throws ExecException {
+    if (action.getExecutionSettings().getInputManifest() == null) {
+      throw new TestExecException("cannot run local tests with --nobuild_runfile_manifests");
+    }
     Path execRoot = actionExecutionContext.getExecRoot();
-    Path runfilesDir =
-        getLocalRunfilesDirectory(
-            action,
-            actionExecutionContext,
-            binTools,
-            action.getLocalShellEnvironment(),
-            action.isEnableRunfiles());
-    Path tmpDir =
-        actionExecutionContext
-            .getPathResolver()
-            .convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
+    ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
+    Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
+    Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
     Map<String, String> env = setupEnvironment(
         action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
     if (executionOptions.splitXmlGeneration) {

@@ -23,8 +23,10 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -86,6 +89,9 @@ public class LocalSpawnRunner implements SpawnRunner {
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
 
+  @Nullable
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
+
   // TODO(b/62588075): Move this logic to ProcessWrapperUtil?
   private static Path getProcessWrapper(BinTools binTools, OS localOs) {
     // We expect binTools to be null only under testing.
@@ -106,7 +112,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       boolean useProcessWrapper,
       OS localOs,
       LocalEnvProvider localEnvProvider,
-      BinTools binTools) {
+      BinTools binTools,
+      @Nullable RunfilesTreeUpdater runfilesTreeUpdater) {
     this.execRoot = execRoot;
     this.processWrapper = getProcessWrapper(binTools, localOs);
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
@@ -115,6 +122,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     this.useProcessWrapper = useProcessWrapper;
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
+    this.runfilesTreeUpdater = runfilesTreeUpdater;
   }
 
   public LocalSpawnRunner(
@@ -122,7 +130,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
       LocalEnvProvider localEnvProvider,
-      BinTools binTools) {
+      BinTools binTools,
+      RunfilesTreeUpdater runfilesTreeUpdater) {
     this(
         execRoot,
         localExecutionOptions,
@@ -130,7 +139,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         OS.getCurrent() != OS.WINDOWS && processWrapperExists(binTools),
         OS.getCurrent(),
         localEnvProvider,
-        binTools);
+        binTools,
+        runfilesTreeUpdater);
   }
 
   @Override
@@ -140,7 +150,13 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, ExecException {
+
+    if (runfilesTreeUpdater != null) {
+      runfilesTreeUpdater.updateRunfilesDirectory(execRoot, spawn.getRunfilesSupplier(),
+          context.getPathResolver(), binTools, spawn.getEnvironment(), context.getFileOutErr());
+    }
+
     try (SilentCloseable c =
         Profiler.instance().profile(
             ProfilerTask.LOCAL_EXECUTION, spawn.getResourceOwner().getMnemonic())) {

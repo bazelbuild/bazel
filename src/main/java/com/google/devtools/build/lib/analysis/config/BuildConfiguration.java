@@ -864,6 +864,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.hostCpu;
   }
 
+  public static boolean shouldCreateRunfilesTree(CoreOptions options) {
+    return options.buildRunfilesManifests && options.buildRunfiles;
+  }
+
+  // TODO(buchgr): https://github.com/bazelbuild/bazel/issues/9248
   public static boolean runfilesEnabled(CoreOptions options) {
     switch (options.enableRunfiles) {
       case YES:
@@ -877,6 +882,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean runfilesEnabled() {
     return runfilesEnabled(this.options);
+  }
+
+  public boolean shouldCreateRunfilesTree() {
+    return shouldCreateRunfilesTree(this.options);
   }
 
   /**

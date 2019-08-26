@@ -143,7 +143,8 @@ public class StandaloneSpawnStrategyTest {
                                 resourceManager,
                                 (env, unusedBinTools, unusedFallbackTempDir) -> env,
                                 BinTools.forIntegrationTesting(
-                                    directories, ImmutableList.of())))))),
+                                    directories, ImmutableList.of()),
+                                /* runfilesTreeUpdater= */ null))))),
             ImmutableList.of());
 
     executor.getExecRoot().createDirectoryAndParents();

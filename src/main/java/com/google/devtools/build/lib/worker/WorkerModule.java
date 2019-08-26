@@ -19,12 +19,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
@@ -141,19 +144,25 @@ public class WorkerModule extends BlazeModule {
     ImmutableMultimap<String, String> extraFlags =
         ImmutableMultimap.copyOf(env.getOptions().getOptions(WorkerOptions.class).workerExtraFlags);
     LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
+    CoreOptions coreOptions = env.getOptions().getOptions(CoreOptions.class);
+    boolean runfilesEnabled = BuildConfiguration.runfilesEnabled(coreOptions);
+    // True if all runfile trees will be created when building binaries/test. If so, we won't need
+    // the RunfilesTreeUpdater.
+    boolean createRunfilesAtBuild = BuildConfiguration.shouldCreateRunfilesTree(coreOptions);
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
             env.getExecRoot(),
             workerPool,
             extraFlags,
             env.getReporter(),
-            createFallbackRunner(env, localEnvProvider),
+            createFallbackRunner(env, localEnvProvider, runfilesEnabled),
             localEnvProvider,
             env.getOptions()
                 .getOptions(SandboxOptions.class)
                 .symlinkedSandboxExpandsTreeArtifactsInRunfilesTree,
             env.getBlazeWorkspace().getBinTools(),
-            env.getLocalResourceManager());
+            env.getLocalResourceManager(),
+            !createRunfilesAtBuild ? new RunfilesTreeUpdater(runfilesEnabled) : null);
     builder.addActionContext(new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner));
 
     builder.addStrategyByContext(SpawnActionContext.class, "standalone");
@@ -161,7 +170,7 @@ public class WorkerModule extends BlazeModule {
   }
 
   private static SpawnRunner createFallbackRunner(
-      CommandEnvironment env, LocalEnvProvider localEnvProvider) {
+      CommandEnvironment env, LocalEnvProvider localEnvProvider, boolean runfilesEnabled) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
     return new LocalSpawnRunner(
@@ -169,7 +178,8 @@ public class WorkerModule extends BlazeModule {
         localExecutionOptions,
         env.getLocalResourceManager(),
         localEnvProvider,
-        env.getBlazeWorkspace().getBinTools());
+        env.getBlazeWorkspace().getBinTools(),
+        new RunfilesTreeUpdater(runfilesEnabled));
   }
 
   @Subscribe

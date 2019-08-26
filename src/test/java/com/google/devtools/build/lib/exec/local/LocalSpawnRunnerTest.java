@@ -111,7 +111,8 @@ public class LocalSpawnRunnerTest {
           useProcessWrapper
               ? BinTools.forEmbeddedBin(embeddedBin,
                   ImmutableList.of("process-wrapper" + OsUtils.executableExtension(localOs)))
-              : null);
+              : null,
+          /* runfilesTreeUpdater= */ null);
     }
 
     // Rigged to act on supplied filesystem (e.g. InMemoryFileSystem) for testing purposes
@@ -878,7 +879,8 @@ public class LocalSpawnRunnerTest {
             USE_WRAPPER,
             OS.LINUX,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
-            binTools);
+            binTools,
+            /* runfilesTreeUpdater= */ null);
 
     Spawn spawn =
         new SpawnBuilder(
@@ -941,7 +943,8 @@ public class LocalSpawnRunnerTest {
             USE_WRAPPER,
             OS.LINUX,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
-            binTools);
+            binTools,
+            /* runfilesTreeUpdater= */ null);
 
     Spawn spawn =
         new SpawnBuilder(

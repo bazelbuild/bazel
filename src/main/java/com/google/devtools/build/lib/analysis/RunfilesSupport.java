@@ -73,6 +73,8 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class RunfilesSupport {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
+  private static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
+  private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
 
   private final Runfiles runfiles;
 
@@ -95,7 +97,7 @@ public final class RunfilesSupport {
       RuleContext ruleContext, Artifact executable, Runfiles runfiles, CommandLine args) {
     Artifact owningExecutable = Preconditions.checkNotNull(executable);
     boolean createManifest = ruleContext.getConfiguration().buildRunfilesManifests();
-    boolean createSymlinks = createManifest && ruleContext.getConfiguration().buildRunfiles();
+    boolean createSymlinks = ruleContext.getConfiguration().shouldCreateRunfilesTree();
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
@@ -206,7 +208,7 @@ public final class RunfilesSupport {
         ? owningExecutable.getRootRelativePath()
         : context.getPackageDirectory().getRelative(context.getLabel().getName());
     String basename = relativePath.getBaseName();
-    PathFragment inputManifestPath = relativePath.replaceName(basename + ".runfiles_manifest");
+    PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
     return context.getDerivedArtifact(inputManifestPath,
         context.getConfiguration().getBinDirectory(context.getRule().getRepository()));
   }
@@ -340,7 +342,7 @@ public final class RunfilesSupport {
 
     PathFragment runfilesDir = FileSystemUtils.replaceExtension(inputManifest.getRootRelativePath(),
         RUNFILES_DIR_EXT);
-    PathFragment outputManifestPath = runfilesDir.getRelative("MANIFEST");
+    PathFragment outputManifestPath = runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
 
     BuildConfiguration config = context.getConfiguration();
     Artifact outputManifest = context.getDerivedArtifact(
@@ -443,5 +445,15 @@ public final class RunfilesSupport {
     return CommandLine.concat(
         ruleContext.getExpander().withDataLocations().tokenized("args"),
         additionalArgs);
+  }
+
+  /** Provided the path of the runfiles directory returns the path of the input manifest. */
+  public static Path inputManifestPath(Path runfilesDir) {
+    return FileSystemUtils.replaceExtension(runfilesDir, INPUT_MANIFEST_EXT);
+  }
+
+  /** Provided the path of the runfiles directory returns the path of the output manifest. */
+  public static Path outputManifestPath(Path runfilesDir) {
+    return runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
   }
 }
