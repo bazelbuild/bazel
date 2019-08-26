@@ -505,6 +505,46 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertFileContentContains(def_file, 'hello_B')
     self.AssertFileContentContains(def_file, 'hello_C')
 
+  def testUsingDefFileGeneratedFromCcLibrary(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('lib_A.cc', ['void hello_A() {}'])
+    self.ScratchFile('lib_B.cc', ['void hello_B() {}'])
+    self.ScratchFile('BUILD', [
+        'cc_library(',
+        '  name = "lib_A",',
+        '  srcs = ["lib_A.cc"],',
+        ')',
+        '',
+        'cc_library(',
+        '  name = "lib_B",',
+        '  srcs = ["lib_B.cc"],',
+        '  deps = [":lib_A"]',
+        ')',
+        '',
+        'filegroup(',
+        '  name = "lib_B_symbols",',
+        '  srcs = [":lib_B"],',
+        '  output_group = "def_file",',
+        ')',
+        '',
+        'cc_binary(',
+        '  name = "lib.dll",',
+        '  deps = [":lib_B"],',
+        '  win_def_file = ":lib_B_symbols",',
+        '  linkshared = 1,',
+        ')',
+    ])
+    # Test specifying DEF file in cc_binary
+    bazel_bin = self.getBazelInfo('bazel-bin')
+    exit_code, _, stderr = self.RunBazel(['build', '//:lib.dll', '-s'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    def_file = bazel_bin + '/lib_B.gen.def'
+    self.assertTrue(os.path.exists(def_file))
+    # hello_A should not be exported
+    self.AssertFileContentNotContains(def_file, 'hello_A')
+    # hello_B should be exported
+    self.AssertFileContentContains(def_file, 'hello_B')
+
   def testWinDefFileAttribute(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('lib.cc', ['void hello() {}'])

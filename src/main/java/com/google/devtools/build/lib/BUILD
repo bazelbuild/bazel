@@ -853,7 +853,6 @@ java_library(
         ":build-base",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-module",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:options",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/metrics:metrics_module",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",

@@ -430,7 +430,7 @@ _bazel__to_compreply() {
     COMPREPLY+=("${reply}")
   done < <(echo "${replies}")
   # Null may be set despite there being no completions
-  if [ ${#COMPREPLY[@]} -eq 1] && [ -z ${COMPREPLY[0]} ]; then
+  if [ ${#COMPREPLY[@]} -eq 1 ] && [ -z ${COMPREPLY[0]} ]; then
     COMPREPLY=()
   fi
 }

@@ -161,9 +161,8 @@ int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
   return 0;
 }
 
-void WriteSystemSpecificProcessIdentifier(
-    const string& server_dir, pid_t server_pid) {
-}
+void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
+                                          pid_t server_pid) {}
 
 bool VerifyServerProcess(int pid, const string &output_base) {
   // TODO(lberki): This only checks for the process's existence, not whether

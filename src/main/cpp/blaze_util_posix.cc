@@ -352,23 +352,21 @@ bool SocketBlazeServerStartup::IsStillAlive() {
 int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
                            const StartupOptions &options);
 
-void WriteSystemSpecificProcessIdentifier(
-    const string& server_dir, pid_t server_pid);
+void WriteSystemSpecificProcessIdentifier(const blaze_util::Path& server_dir,
+                                          pid_t server_pid);
 
-int ExecuteDaemon(const string& exe,
-                  const std::vector<string>& args_vector,
+int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
                   const std::map<string, EnvVarValue>& env,
-                  const string& daemon_output,
-                  const bool daemon_output_append,
+                  const string& daemon_output, const bool daemon_output_append,
                   const string& binaries_dir,
-                  const string& server_dir,
-                  const StartupOptions &options,
+                  const blaze_util::Path& server_dir,
+                  const StartupOptions& options,
                   BlazeServerStartup** server_startup) {
-  const string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
+  const blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
   const string daemonize = blaze_util::JoinPath(binaries_dir, "daemonize");
 
-  std::vector<string> daemonize_args =
-      {"daemonize", "-l", daemon_output, "-p", pid_file};
+  std::vector<string> daemonize_args = {"daemonize", "-l", daemon_output, "-p",
+                                        pid_file.AsNativePath()};
   if (daemon_output_append) {
     daemonize_args.push_back("-a");
   }
@@ -427,10 +425,11 @@ int ExecuteDaemon(const string& exe,
         << "daemonize didn't exit cleanly: " << GetLastErrorString();
   }
 
-  std::ifstream pid_reader(pid_file);
+  std::ifstream pid_reader(pid_file.AsNativePath());
   if (!pid_reader) {
+    string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "Failed to open " << pid_file << ": " << GetLastErrorString();
+        << "Failed to open " << pid_file.AsPrintablePath() << ": " << err;
   }
   pid_t server_pid;
   pid_reader >> server_pid;

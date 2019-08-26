@@ -273,16 +273,12 @@ public class GenRuleBaseRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(local) -->
         <p>
-          If set to 1, this option force this <code>genrule</code> to run with the
-          <code>standalone</code> strategy, without sandboxing.
+          If set to 1, this option forces this <code>genrule</code> to run using the "local"
+          strategy, which means no remote execution, no sandboxing, no persistent workers.
         </p>
         <p>
-          This is equivalent to providing 'local' as a tag (<code>tags=["local"]</code>). The
-          local strategy is applied if either one is specified.
+          This is equivalent to providing 'local' as a tag (<code>tags=["local"]</code>).
         </p>
-        <p>
-          The <code>--genrule_strategy</code> option value <code>local</code>
-          overrides this attribute.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("local", BOOLEAN).value(false))
 

@@ -129,8 +129,7 @@ public class SpawnLogContext implements ActionContext {
     }
     builder.setRemotable(Spawns.mayBeExecutedRemotely(spawn));
 
-    Platform execPlatform =
-        PlatformUtils.getPlatformProto(spawn.getExecutionPlatform(), remoteOptions);
+    Platform execPlatform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
     if (execPlatform != null) {
       builder.setPlatform(buildPlatform(execPlatform));
     }
