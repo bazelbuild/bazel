@@ -115,6 +115,8 @@ class TestInitPyFiles(test_base.TestBase):
         os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/a/__init__.py'))
 
 
+@unittest.skipIf(test_base.TestBase.IsWindows(),
+                 "https://github.com/bazelbuild/bazel/issues/5087")
 class PyRemoteTest(test_base.TestBase):
 
   _worker_port = None
