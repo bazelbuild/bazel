@@ -187,6 +187,8 @@ TEST(PathPosixTest, MakeAbsoluteAndResolveEnvvars) {
 TEST(PathPosixTest, NormalizeAbsPath) {
   EXPECT_EQ(TestOnly_NormalizeAbsPath(""), "");
   EXPECT_EQ(TestOnly_NormalizeAbsPath("not_absolute"), "");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("../x/y"), "");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("./"), "");
 
   EXPECT_EQ(TestOnly_NormalizeAbsPath("/."), "/");
   EXPECT_EQ(TestOnly_NormalizeAbsPath("/./"), "/");
