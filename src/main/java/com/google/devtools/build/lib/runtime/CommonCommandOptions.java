@@ -57,6 +57,19 @@ public class CommonCommandOptions extends OptionsBase {
   public Void allIncompatibleChanges;
 
   @Option(
+      name = "enable_platform_specific_config",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "When the value of this flag is true, a host platform specific config section will be "
+              + "enabled if it exists. Bazel recognizes your host platform as linux, osx, windows "
+              + "or freebsd. It's equivalent to add --config=linux on Linux platforms and "
+              + "--config=windows on Windows, etc."
+  )
+  public boolean enablePlatformSpecificConfig;
+
+  @Option(
     name = "config",
     defaultValue = "",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

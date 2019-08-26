@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.runtime.BlazeOptionHandler.RcChunkOfArgs;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -152,6 +153,16 @@ public class BlazeOptionHandlerTest {
     structuredArgs.put("c1:other", new RcChunkOfArgs("rc2", ImmutableList.of("f", "g")));
 
     structuredArgs.put("c0", new RcChunkOfArgs("rc1", ImmutableList.of("h")));
+    return structuredArgs;
+  }
+
+  private ListMultimap<String, RcChunkOfArgs> structuredArgsForDifferentPlatforms() {
+    ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
+    structuredArgs.put("c0:linux", new RcChunkOfArgs("rc1", ImmutableList.of("command_linux")));
+    structuredArgs.put("c0:windows", new RcChunkOfArgs("rc1", ImmutableList.of("command_windows")));
+    structuredArgs.put("c0:osx", new RcChunkOfArgs("rc1", ImmutableList.of("command_osx")));
+    structuredArgs.put("c0:freebsd", new RcChunkOfArgs("rc1", ImmutableList.of("command_freebsd")));
+    structuredArgs.put("c0:platform_config", new RcChunkOfArgs("rc1", ImmutableList.of("--enable_platform_specific_config")));
     return structuredArgs;
   }
 
@@ -295,6 +306,59 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).containsExactly("b");
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly("Found applicable config definition c0:config in file rc1: b");
+  }
+
+  @Test
+  public void testExpandConfigOptions_withPlatformSpecificConfigEnabled() throws Exception {
+    parser.parse("--enable_platform_specific_config");
+    optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
+    switch (OS.getCurrent()) {
+      case LINUX:
+        assertThat(parser.getResidue()).containsExactly("command_linux");
+        break;
+      case DARWIN:
+        assertThat(parser.getResidue()).containsExactly("command_osx");
+        break;
+      case WINDOWS:
+        assertThat(parser.getResidue()).containsExactly("command_windows");
+        break;
+      case FREEBSD:
+        assertThat(parser.getResidue()).containsExactly("command_freebsd");
+        break;
+      default:
+        assertThat(parser.getResidue()).isEmpty();
+    }
+  }
+
+  @Test
+  public void testExpandConfigOptions_withPlatformSpecificConfigEnabledInConfig() throws Exception {
+    parser.parse("--config=platform_config");
+    optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
+    switch (OS.getCurrent()) {
+      case LINUX:
+        assertThat(parser.getResidue()).containsExactly("command_linux");
+        break;
+      case DARWIN:
+        assertThat(parser.getResidue()).containsExactly("command_osx");
+        break;
+      case WINDOWS:
+        assertThat(parser.getResidue()).containsExactly("command_windows");
+        break;
+      case FREEBSD:
+        assertThat(parser.getResidue()).containsExactly("command_freebsd");
+        break;
+      default:
+        assertThat(parser.getResidue()).isEmpty();
+    }
+  }
+
+  @Test
+  public void testExpandConfigOptions_withPlatformSpecificConfigEnabledWhenNothingSpecified()
+      throws Exception {
+    parser.parse("--enable_platform_specific_config");
+    optionHandler.parseRcOptions(eventHandler, ArrayListMultimap.create());
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getResidue()).isEmpty();
   }
 
   @Test
