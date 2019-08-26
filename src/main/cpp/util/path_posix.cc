@@ -105,7 +105,7 @@ static std::string NormalizeAbsPath(const std::string &p) {
     if (e == std::string::npos) {
       e = p.size();
     }
-    if (e > s + 1) {
+    if (e > s) {
       if (p.compare(s, e - s, "..") == 0) {
         if (!segments.empty()) {
           segments.pop_back();

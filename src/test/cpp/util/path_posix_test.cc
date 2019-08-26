@@ -199,6 +199,22 @@ TEST(PathPosixTest, NormalizeAbsPath) {
   EXPECT_EQ(TestOnly_NormalizeAbsPath("/.."), "/");
   EXPECT_EQ(TestOnly_NormalizeAbsPath("//.."), "/");
 
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/x"), "/x");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/x/"), "/x/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//x//"), "/x/");
+
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/x/.."), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/x/../"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//x//..//"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("//x//y//"), "/x/y/");
+
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/x/./y/"), "/x/y/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/x/../y/"), "/y/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/x/../../y/"), "/y/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/x/../y/.."), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/x/../y/../"), "/");
+  EXPECT_EQ(TestOnly_NormalizeAbsPath("/./x/../y/../"), "/");
+
   EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo"), "/foo");
   EXPECT_EQ(TestOnly_NormalizeAbsPath("/foo/"), "/foo/");
   EXPECT_EQ(TestOnly_NormalizeAbsPath("//foo//"), "/foo/");
