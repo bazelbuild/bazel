@@ -336,7 +336,8 @@ class TestBase(unittest.TestCase):
 
     env_add = {}
     try:
-      env['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv('RUNFILES_MANIFEST_FILE')
+      env_add['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv(
+          'RUNFILES_MANIFEST_FILE')
     except EnvVarUndefinedError:
       pass
 
