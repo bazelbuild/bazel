@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import hashlib
 import locale
 import os
 import shutil
@@ -326,15 +325,7 @@ class TestBase(unittest.TestCase):
     else:
       worker_path = tempfile.mkdtemp(dir=self._tests_root)
       worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker')
-    # We would always use 'cas', but on Windows where we create this under
-    # %TEMP%, we need to make sure that different test targets use different
-    # values of this so tests running in parallel don't try to use the same CAS
-    # directory.  We use a truncated hash to keep the name short while
-    # hopefully retaining uniqueness between targets.
-    test_target = TestBase.GetEnv('TEST_TARGET', '')
-    cas_name = 'cas-' + hashlib.sha256(test_target.encode()).hexdigest()[:5]
-    self._cas_path = os.path.join(worker_path, cas_name)
-    os.mkdir(self._cas_path)
+    self._cas_path = tempfile.mkdtemp(prefix='cas', dir=worker_path)
 
     # Get an open port. Unfortunately this seems to be the best option in
     # Python.
