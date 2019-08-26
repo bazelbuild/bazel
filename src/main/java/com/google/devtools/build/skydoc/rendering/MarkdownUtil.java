@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
  * Contains a number of utility methods for markdown rendering.
  */
 public final class MarkdownUtil {
-  private final static int MAX_LINE_LENGTH = 80;
+  private final static int MAX_LINE_LENGTH = 100;
 
   /**
    * Return a string that escapes angle brackets for HTML.
