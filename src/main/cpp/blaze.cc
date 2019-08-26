@@ -1725,7 +1725,7 @@ bool BlazeServer::Connect() {
     return false;
   }
 
-  pid_t server_pid = GetServerPid(server_dir);
+  pid_t server_pid = GetServerPid(blaze_util::Path(server_dir));
   if (server_pid < 0) {
     return false;
   }

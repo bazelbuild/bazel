@@ -36,7 +36,7 @@ class Path {
 
  private:
 #if defined(_WIN32) || defined(__CYGWIN__)
-  explicit Path(const std::wstring wpath) : path_(wpath) {}
+  explicit Path(const std::wstring& wpath) : path_(wpath) {}
   std::wstring path_;
 #else
   std::string path_;
