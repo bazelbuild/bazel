@@ -1646,6 +1646,17 @@ java_binary(
     ],
 )
 
+java_binary(
+    name = "ExampleWorkerMultiplexer",
+    main_class = "com.google.devtools.build.lib.worker.ExampleWorkerMultiplexer",
+    visibility = [
+        "//src/test/shell/integration:__pkg__",
+    ],
+    runtime_deps = [
+        ":ExampleWorker-lib",
+    ],
+)
+
 TEST_SUITES = [
     "ziputils",
     "rules",
