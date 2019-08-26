@@ -52,9 +52,7 @@ import org.apache.maven.settings.building.DefaultSettingsBuildingRequest;
 import org.apache.maven.settings.building.SettingsBuildingException;
 import org.apache.maven.settings.building.SettingsBuildingResult;
 
-/**
- * Implementation of maven_repository.
- */
+/** Implementation of maven_server. */
 public class MavenServerFunction implements SkyFunction {
   public static final SkyFunctionName NAME =
       SkyFunctionName.createHermetic("MAVEN_SERVER_FUNCTION");
