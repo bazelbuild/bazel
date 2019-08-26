@@ -303,15 +303,19 @@ bool ReadFile(const Path &path, std::string *content, int max_size) {
 }
 
 bool ReadFile(const string& filename, void* data, size_t size) {
-  if (filename.empty()) {
+  return ReadFile(Path(filename), data, size);
+}
+
+bool ReadFile(const Path &path, void *data, size_t size) {
+  if (path.IsEmpty()) {
     return false;
   }
-  if (IsDevNull(filename.c_str())) {
+  if (path.IsNull()) {
     // mimic read(2) behavior: we can always read 0 bytes from /dev/null
     return true;
   }
   HANDLE handle;
-  if (!OpenFileForReading(filename, &handle)) {
+  if (!OpenFileForReading(path, &handle)) {
     return false;
   }
 

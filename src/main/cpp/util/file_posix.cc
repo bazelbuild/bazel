@@ -219,6 +219,10 @@ bool ReadFile(const string &filename, void *data, size_t size) {
   return result;
 }
 
+bool ReadFile(const Path &filename, void *data, size_t size) {
+  return ReadFile(filename.AsNativePath(), data, size);
+}
+
 bool WriteFile(const void *data, size_t size, const string &filename,
                unsigned int perm) {
   UnlinkPath(filename);  // We don't care about the success of this.
