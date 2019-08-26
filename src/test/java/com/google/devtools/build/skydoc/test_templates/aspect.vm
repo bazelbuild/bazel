@@ -3,7 +3,7 @@
 #[[##]]# ${aspectName}
 
 <pre>
-${util.aspectSummary(aspectName, $aspectInfo)}
+${util.aspectSummary($aspectName, $aspectInfo)}
 </pre>
 
 $aspectInfo.getDocString()

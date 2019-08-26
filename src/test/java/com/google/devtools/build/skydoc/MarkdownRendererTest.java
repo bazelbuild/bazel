@@ -182,7 +182,7 @@ public final class MarkdownRendererTest {
                 + "## my_aspect\n"
                 + "\n"
                 + "<pre>\n"
-                + "null(<a href=\"#null-first\">first</a>)\n"
+                + "my_aspect(<a href=\"#my_aspect-first\">first</a>)\n"
                 + "</pre>\n"
                 + "\n"
                 + "This aspect does things.\n"
