@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
 import javax.annotation.Nullable;
