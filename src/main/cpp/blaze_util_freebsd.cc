@@ -106,8 +106,10 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   // Stubbed out so we can compile for FreeBSD.
 }
 
-string GetProcessCWD(int pid) {
-  if (kill(pid, 0) < 0) return "";
+blaze_util::Path GetProcessCWD(int pid) {
+  if (kill(pid, 0) < 0) {
+    return blaze_util::Path();
+  }
   auto procstat = procstat_open_sysctl();
   unsigned int n;
   auto p = procstat_getprocs(procstat, KERN_PROC_PID, pid, &n);
@@ -133,7 +135,7 @@ string GetProcessCWD(int pid) {
     procstat_freeprocs(procstat, p);
   }
   procstat_close(procstat);
-  return cwd;
+  return blaze_util::Path(cwd);
 }
 
 bool IsSharedLibrary(const string &filename) {

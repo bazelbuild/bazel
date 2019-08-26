@@ -164,10 +164,12 @@ std::string MakeCanonical(const char *path);
 // Returns true if `path` exists, is a file or symlink to one, and is readable.
 // Follows symlinks.
 bool CanReadFile(const std::string &path);
+bool CanReadFile(const Path &path);
 
 // Returns true if `path` exists, is a file or symlink to one, and is writable.
 // Follows symlinks.
 bool CanExecuteFile(const std::string &path);
+bool CanExecuteFile(const Path &path);
 
 // Returns true if `path` exists, is a directory or symlink/junction to one, and
 // is both readable and writable.

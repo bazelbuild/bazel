@@ -143,11 +143,17 @@ bool Path::Contains(const char c) const {
   return path_.find_first_of(c) != std::string::npos;
 }
 
+bool Path::Contains(const std::string &s) const {
+  return path_.find(s) != std::string::npos;
+}
+
 Path Path::GetRelative(const std::string &r) const {
   return Path(JoinPath(path_, r));
 }
 
 Path Path::Canonicalize() const { return Path(MakeCanonical(path_.c_str())); }
+
+Path Path::GetParent() const { return Path(SplitPath(path_).first); }
 
 std::string Path::AsPrintablePath() const { return path_; }
 

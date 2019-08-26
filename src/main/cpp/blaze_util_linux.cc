@@ -116,15 +116,15 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   }
 }
 
-string GetProcessCWD(int pid) {
+blaze_util::Path GetProcessCWD(int pid) {
   char server_cwd[PATH_MAX] = {};
   if (readlink(
           ("/proc/" + ToString(pid) + "/cwd").c_str(),
           server_cwd, sizeof(server_cwd)) < 0) {
-    return "";
+    return blaze_util::Path();
   }
 
-  return string(server_cwd);
+  return blaze_util::Path(string(server_cwd));
 }
 
 bool IsSharedLibrary(const string &filename) {
