@@ -210,8 +210,8 @@ int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
   return 0;
 }
 
-void WriteSystemSpecificProcessIdentifier(
-    const string& server_dir, pid_t server_pid) {
+void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
+                                          pid_t server_pid) {
   string pid_string = ToString(server_pid);
 
   string start_time;
@@ -221,11 +221,11 @@ void WriteSystemSpecificProcessIdentifier(
         << GetLastErrorString();
   }
 
-  string start_time_file = blaze_util::JoinPath(server_dir, "server.starttime");
+  blaze_util::Path start_time_file = server_dir.GetRelative("server.starttime");
   if (!blaze_util::WriteFile(start_time, start_time_file)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Cannot write start time in server dir " << server_dir << ": "
-        << GetLastErrorString();
+        << "Cannot write start time in server dir "
+        << server_dir.AsPrintablePath() << ": " << GetLastErrorString();
   }
 }
 

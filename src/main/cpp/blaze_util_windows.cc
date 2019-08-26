@@ -537,19 +537,21 @@ static bool GetProcessStartupTime(HANDLE process, uint64_t* result) {
   return true;
 }
 
-static void WriteProcessStartupTime(const string& server_dir, HANDLE process) {
+static void WriteProcessStartupTime(const blaze_util::Path& server_dir,
+                                    HANDLE process) {
   uint64_t start_time = 0;
   if (!GetProcessStartupTime(process, &start_time)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WriteProcessStartupTime(" << server_dir
+        << "WriteProcessStartupTime(" << server_dir.AsPrintablePath()
         << "): GetProcessStartupTime failed: " << GetLastErrorString();
   }
 
-  string start_time_file = blaze_util::JoinPath(server_dir, "server.starttime");
+  blaze_util::Path start_time_file = server_dir.GetRelative("server.starttime");
   if (!blaze_util::WriteFile(ToString(start_time), start_time_file)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WriteProcessStartupTime(" << server_dir << "): WriteFile("
-        << start_time_file << ") failed: " << GetLastErrorString();
+        << "WriteProcessStartupTime(" << server_dir.AsPrintablePath()
+        << "): WriteFile(" << start_time_file.AsPrintablePath()
+        << ") failed: " << GetLastErrorString();
   }
 }
 
@@ -612,14 +614,12 @@ class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
   AutoHandle proc;
 };
 
-int ExecuteDaemon(const string& exe,
-                  const std::vector<string>& args_vector,
+int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
                   const std::map<string, EnvVarValue>& env,
-                  const string& daemon_output,
-                  const bool daemon_out_append,
+                  const string& daemon_output, const bool daemon_out_append,
                   const string& binaries_dir,
-                  const string& server_dir,
-                  const StartupOptions &options,
+                  const blaze_util::Path& server_dir,
+                  const StartupOptions& options,
                   BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
   string error;
@@ -725,10 +725,11 @@ int ExecuteDaemon(const string& exe,
   *server_startup = new ProcessHandleBlazeServerStartup(processInfo.hProcess);
 
   string pid_string = ToString(processInfo.dwProcessId);
-  string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
+  blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
   if (!blaze_util::WriteFile(pid_string, pid_file)) {
     // Not a lot we can do if this fails
-    fprintf(stderr, "Cannot write PID file %s\n", pid_file.c_str());
+    fprintf(stderr, "Cannot write PID file %s\n",
+            pid_file.AsPrintablePath().c_str());
   }
 
   // Don't close processInfo.hProcess here, it's now owned by the

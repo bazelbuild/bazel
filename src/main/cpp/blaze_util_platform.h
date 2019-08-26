@@ -22,6 +22,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/server_process_info.h"
+#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
 
 namespace blaze {
@@ -171,15 +172,12 @@ class BlazeServerStartup {
 // still alive. The PID of the daemon started is written into server_dir,
 // both as a symlink (for legacy reasons) and as a file, and returned to the
 // caller.
-int ExecuteDaemon(const std::string& exe,
-                  const std::vector<std::string>& args_vector,
-                  const std::map<std::string, EnvVarValue>& env,
-                  const std::string& daemon_output,
-                  const bool daemon_output_append,
-                  const std::string& binaries_dir,
-                  const std::string& server_dir,
-                  const StartupOptions &options,
-                  BlazeServerStartup** server_startup);
+int ExecuteDaemon(
+    const std::string& exe, const std::vector<std::string>& args_vector,
+    const std::map<std::string, EnvVarValue>& env,
+    const std::string& daemon_output, const bool daemon_output_append,
+    const std::string& binaries_dir, const blaze_util::Path& server_dir,
+    const StartupOptions& options, BlazeServerStartup** server_startup);
 
 // A character used to separate paths in a list.
 extern const char kListSeparator;

@@ -201,9 +201,8 @@ int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
   return posix_spawnattr_set_qos_class_np(attrp, options.macos_qos_class);
 }
 
-void WriteSystemSpecificProcessIdentifier(
-    const string& server_dir, pid_t server_pid) {
-}
+void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
+                                          pid_t server_pid) {}
 
 bool VerifyServerProcess(int pid, const string &output_base) {
   // TODO(lberki): This only checks for the process's existence, not whether

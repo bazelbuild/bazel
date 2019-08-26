@@ -455,4 +455,45 @@ static char GetCurrentDrive() {
   return 'a' + wdrive - offset;
 }
 
+Path::Path(const std::string& path) {
+  if (path.empty()) {
+    return;
+  } else if (IsDevNull(path.c_str())) {
+    path_ = L"NUL";
+  } else {
+    std::string error;
+    if (!AsAbsoluteWindowsPath(path, &path_, &error)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Path::Path(" << path
+          << "): AsAbsoluteWindowsPath failed: " << error;
+    }
+  }
+}
+
+Path Path::GetRelative(const std::string& r) const {
+  if (r.empty()) {
+    return *this;
+  } else if (IsDevNull(r.c_str())) {
+    return Path(L"NUL");
+  } else if (IsAbsolute(r)) {
+    return Path(r);
+  } else {
+    std::string error;
+    std::wstring new_path;
+    if (!AsAbsoluteWindowsPath(
+            path_ + L"\\" + CstringToWstring(r.c_str()).get(), &new_path,
+            &error)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Path::GetRelative failed: " << error;
+    }
+    return Path(new_path);
+  }
+}
+
+bool Path::IsNull() const { return path_ == L"NUL"; }
+
+std::string Path::AsPrintablePath() const {
+  return WstringToCstring(RemoveUncPrefixMaybe(path_.c_str())).get();
+}
+
 }  // namespace blaze_util
