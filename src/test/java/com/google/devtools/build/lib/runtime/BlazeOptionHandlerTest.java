@@ -332,6 +332,9 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testExpandConfigOptions_withPlatformSpecificConfigEnabledInConfig() throws Exception {
+    // --enable_platform_specific_config itself will affect the selecting of config sections.
+    // Because Bazel expands config sections recursively, we want to make sure it's fine to enable
+    // --enable_platform_specific_config via another config section.
     parser.parse("--config=platform_config");
     optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
     switch (OS.getCurrent()) {

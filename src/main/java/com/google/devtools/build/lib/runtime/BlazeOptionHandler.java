@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -330,10 +329,9 @@ public final class BlazeOptionHandler {
       return false;
     }
 
-    Multiset<String> keys = commandToRcArgs.keys();
     for (String commandName : getCommandNamesToParse(commandAnnotation)) {
       String defaultConfigDef = commandName + ":" + OS.getCurrent().getCanonicalName();
-      if (keys.contains(defaultConfigDef)) {
+      if (commandToRcArgs.containsKey(defaultConfigDef)) {
         return true;
       }
     }
