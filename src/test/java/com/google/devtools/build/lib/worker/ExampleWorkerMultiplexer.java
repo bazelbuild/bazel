@@ -19,7 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.worker.ExampleWorkerOptions.ExampleWorkOptions;
+import com.google.devtools.build.lib.worker.ExampleWorkerMultiplexerOptions.ExampleWorkMultiplexerOptions;
 import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -61,11 +61,11 @@ public class ExampleWorkerMultiplexer {
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
       OptionsParser parser =
           OptionsParser.builder()
-              .optionsClasses(ExampleWorkerOptions.class)
+              .optionsClasses(ExampleWorkerMultiplexerOptions.class)
               .allowResidue(false)
               .build();
       parser.parse(args);
-      ExampleWorkerOptions workerOptions = parser.getOptions(ExampleWorkerOptions.class);
+      ExampleWorkerMultiplexerOptions workerOptions = parser.getOptions(ExampleWorkerMultiplexerOptions.class);
       Preconditions.checkState(workerOptions.persistentWorker);
 
       runPersistentWorker(workerOptions);
@@ -75,7 +75,7 @@ public class ExampleWorkerMultiplexer {
     }
   }
 
-  private static void runPersistentWorker(ExampleWorkerOptions workerOptions) throws IOException {
+  private static void runPersistentWorker(ExampleWorkerMultiplexerOptions workerOptions) throws IOException {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
@@ -162,9 +162,9 @@ public class ExampleWorkerMultiplexer {
     }
 
     OptionsParser parser =
-        OptionsParser.builder().optionsClasses(ExampleWorkOptions.class).allowResidue(true).build();
+        OptionsParser.builder().optionsClasses(ExampleWorkMultiplexerOptions.class).allowResidue(true).build();
     parser.parse(expandedArgs.build());
-    ExampleWorkOptions options = parser.getOptions(ExampleWorkOptions.class);
+    ExampleWorkMultiplexerOptions options = parser.getOptions(ExampleWorkMultiplexerOptions.class);
 
     List<String> outputs = new ArrayList<>();
 

@@ -49,49 +49,6 @@ function set_up() {
     || fail "'bazel build --worker_quit_after_build' during test set_up failed"
 }
 
-function write_hello_library_files() {
-  mkdir -p java/main
-  cat >java/main/BUILD <<EOF
-java_binary(name = 'main',
-    deps = [':hello_library'],
-    srcs = ['Main.java'],
-    main_class = 'main.Main')
-
-java_library(name = 'hello_library',
-             srcs = ['HelloLibrary.java']);
-EOF
-
-  cat >java/main/Main.java <<EOF
-package main;
-import main.HelloLibrary;
-public class Main {
-  public static void main(String[] args) {
-    HelloLibrary.funcHelloLibrary();
-    System.out.println("Hello, World!");
-  }
-}
-EOF
-
-  cat >java/main/HelloLibrary.java <<EOF
-package main;
-public class HelloLibrary {
-  public static void funcHelloLibrary() {
-    System.out.print("Hello, Library!;");
-  }
-}
-EOF
-}
-
-function test_compiles_hello_library_using_persistent_javac() {
-  write_hello_library_files
-
-  bazel build java/main:main &> $TEST_log \
-    || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+)"
-  $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
-    || fail "comparison failed"
-}
-
 function prepare_example_worker() {
   cp ${example_worker} worker_lib.jar
   chmod +w worker_lib.jar
@@ -170,7 +127,7 @@ java_binary(
 EOF
 }
 
-function test_example_worker() {
+function test_example_worker_multiplexer() {
   prepare_example_worker
   cat >>BUILD <<EOF
 work(
