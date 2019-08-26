@@ -1055,4 +1055,75 @@ EOF
 }
 
 
+function test_rename_visibility() {
+    mkdir local_a
+    touch local_a/WORKSPACE
+    cat > local_a/BUILD <<'EOF'
+genrule(
+  name = "x",
+  outs = ["x.txt"],
+  cmd = "echo Hello World > $@",
+  visibility = ["@foo//:__pkg__"],
+)
+EOF
+    mkdir local_b
+    touch local_b/WORKSPACE
+    cat > local_b/BUILD <<'EOF'
+genrule(
+  name = "y",
+  srcs = ["@source//:x"],
+  cmd = "cp $< $@",
+  outs = ["y.txt"],
+)
+EOF
+    mkdir mainrepo
+    cd mainrepo
+    cat > WORKSPACE <<'EOF'
+local_repository(
+  name = "source",
+  path = "../local_a",
+)
+
+local_repository(
+  name = "foo",
+  path = "../local_b",
+)
+EOF
+   echo; echo Without renaming; echo
+   bazel build @foo//:y || fail "Expected success"
+
+   # Now, verify the same with for renamed to bar.
+   cat > WORKSPACE <<'EOF'
+local_repository(
+  name = "source",
+  path = "../local_a",
+  repo_mapping = {"@foo" : "@bar"}
+)
+
+local_repository(
+  name = "bar",
+  path = "../local_b",
+)
+EOF
+   echo; echo WITH renaming; echo
+   bazel build @bar//:y || fail "Expected success"
+
+   # Finally, verify the same with a renaming in the other repository
+   cat > WORKSPACE <<'EOF'
+local_repository(
+  name = "origin",
+  path = "../local_a",
+)
+
+local_repository(
+  name = "foo",
+  path = "../local_b",
+  repo_mapping = {"@source" : "@origin"}
+)
+EOF
+   echo; echo with renaming of the SOURCE; echo
+   bazel build @foo//:y || fail "Expected success"
+}
+
+
 run_suite "workspace tests"
