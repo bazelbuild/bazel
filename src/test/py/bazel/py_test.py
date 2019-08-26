@@ -115,5 +115,80 @@ class TestInitPyFiles(test_base.TestBase):
         os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/a/__init__.py'))
 
 
+class PyRemoteTest(test_base.TestBase):
+
+  _worker_port = None
+
+  def _RunRemoteBazel(self, args):
+    return self.RunBazel(
+        args + [
+            '--spawn_strategy=remote',
+            '--strategy=Javac=remote',
+            '--strategy=Closure=remote',
+            '--genrule_strategy=remote',
+            '--define=EXECUTOR=remote',
+            '--remote_executor=grpc://localhost:' + str(self._worker_port),
+            '--remote_cache=grpc://localhost:' + str(self._worker_port),
+            '--remote_timeout=3600',
+            '--auth_enabled=false',
+            '--remote_accept_cached=false',
+        ])
+
+  def setUp(self):
+    test_base.TestBase.setUp(self)
+    self._worker_port = self.StartRemoteWorker()
+
+  def tearDown(self):
+    test_base.TestBase.tearDown(self)
+    self.StopRemoteWorker()
+
+  def testPyTestRunsRemotely(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'py_test(',
+        '  name = "foo_test",',
+        '  srcs = ["foo_test.py"],',
+        ')',
+    ])
+    self.ScratchFile('foo/foo_test.py', [
+        'print("Test ran")',
+    ])
+
+    # Test.
+    exit_code, stdout, stderr = self._RunRemoteBazel(
+        ['test', '--test_output=all', '//foo:foo_test'])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.assertIn('Test ran', stdout)
+
+  # Regression test for https://github.com/bazelbuild/bazel/issues/9239
+  def testPyTestWithStdlibCollisionRunsRemotely(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'py_library(',
+        '  name = "io",',
+        '  srcs = ["io.py"],',
+        ')',
+        'py_test(',
+        '  name = "io_test",',
+        '  srcs = ["io_test.py"],',
+        '  deps = [":io"],',
+        ')',
+    ])
+    self.ScratchFile('foo/io.py', [
+        'def my_func():',
+        '  print("Test ran")',
+    ])
+    self.ScratchFile('foo/io_test.py', [
+        'from foo import io',
+        'io.my_func()',
+    ])
+
+    # Test.
+    exit_code, stdout, stderr = self._RunRemoteBazel(
+        ['test', '--test_output=all', '//foo:io_test'])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.assertIn('Test ran', stdout)
+
+
 if __name__ == '__main__':
   unittest.main()
