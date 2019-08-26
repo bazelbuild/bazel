@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -544,6 +545,11 @@ public class ResourceManagerTest {
 
     @Override
     public MiddlemanType getActionType() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public ImmutableMap<String, String> getExecProperties() {
       throw new IllegalStateException();
     }
 

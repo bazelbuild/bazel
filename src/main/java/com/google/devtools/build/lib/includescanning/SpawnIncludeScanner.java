@@ -195,6 +195,11 @@ public class SpawnIncludeScanner {
     }
 
     @Override
+    public ImmutableMap<String, String> getExecProperties() {
+      return actionExecutionMetadata.getExecProperties();
+    }
+
+    @Override
     @Nullable
     public PlatformInfo getExecutionPlatform() {
       return actionExecutionMetadata.getExecutionPlatform();

@@ -514,6 +514,14 @@ public final class RuleContext extends TargetContext
       ImmutableList<AspectDescriptor> aspectDescriptors,
       BuildConfiguration configuration,
       @Nullable PlatformInfo executionPlatform) {
+    ImmutableMap<String, String> execProperties;
+    if (executionPlatform != null) {
+      execProperties = executionPlatform.execProperties();
+    } else {
+      execProperties = ImmutableMap.of();
+    }
+    // TODO(agoulti): Insert logic to include per-target execution properties
+
     return ActionOwner.create(
         rule.getLabel(),
         aspectDescriptors,
@@ -523,6 +531,7 @@ public final class RuleContext extends TargetContext
         configuration.checksum(),
         configuration.toBuildEvent(),
         configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null,
+        execProperties,
         executionPlatform);
   }
 
