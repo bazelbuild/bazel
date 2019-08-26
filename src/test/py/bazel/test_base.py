@@ -325,7 +325,8 @@ class TestBase(unittest.TestCase):
     else:
       worker_path = tempfile.mkdtemp(dir=self._tests_root)
       worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker')
-    self._cas_path = tempfile.mkdtemp(prefix='cas', dir=worker_path)
+    self._cas_path = os.path.join(worker_path, 'cas')
+    os.mkdir(self._cas_path)
 
     # Get an open port. Unfortunately this seems to be the best option in
     # Python.
