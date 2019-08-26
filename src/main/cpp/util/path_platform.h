@@ -168,6 +168,8 @@ bool AsAbsoluteWindowsPath(const std::wstring &path, std::wstring *result,
 // existing segments and leaving the rest unshortened.
 bool AsShortWindowsPath(const std::string &path, std::string *result,
                         std::string *error);
+bool AsShortWindowsPath(const std::wstring &path, std::wstring *result,
+                        std::string *error);
 
 #else
 

@@ -278,9 +278,9 @@ class CharPP {
   char** charpp_;
 };
 
-static void ExecuteProgram(const string& exe,
+static void ExecuteProgram(const blaze_util::Path& exe,
                            const vector<string>& args_vector) {
-  BAZEL_LOG(INFO) << "Invoking binary " << exe << " in "
+  BAZEL_LOG(INFO) << "Invoking binary " << exe.AsPrintablePath() << " in "
                   << blaze_util::GetCwd();
 
   // TODO(jmmv): This execution does not respect any settings we might apply
@@ -289,15 +289,15 @@ static void ExecuteProgram(const string& exe,
   // priority of Bazel on macOS from a QoS perspective, this could have
   // adverse scheduling effects on any tools invoked via ExecuteProgram.
   CharPP argv(args_vector);
-  execv(exe.c_str(), argv.get());
+  execv(exe.AsNativePath().c_str(), argv.get());
 }
 
-void ExecuteServerJvm(const string& exe,
+void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args) {
   ExecuteProgram(exe, server_jvm_args);
 }
 
-void ExecuteRunRequest(const string& exe,
+void ExecuteRunRequest(const blaze_util::Path& exe,
                        const std::vector<string>& run_request_args) {
   ExecuteProgram(exe, run_request_args);
 }
@@ -357,7 +357,8 @@ int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
 void WriteSystemSpecificProcessIdentifier(const blaze_util::Path& server_dir,
                                           pid_t server_pid);
 
-int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+int ExecuteDaemon(const blaze_util::Path& exe,
+                  const std::vector<string>& args_vector,
                   const std::map<string, EnvVarValue>& env,
                   const blaze_util::Path& daemon_output,
                   const bool daemon_output_append, const string& binaries_dir,
@@ -374,7 +375,7 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
     daemonize_args.push_back("-a");
   }
   daemonize_args.push_back("--");
-  daemonize_args.push_back(exe);
+  daemonize_args.push_back(exe.AsNativePath());
   std::copy(args_vector.begin(), args_vector.end(),
             std::back_inserter(daemonize_args));
 

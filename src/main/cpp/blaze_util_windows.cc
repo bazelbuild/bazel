@@ -482,17 +482,18 @@ static const int MAX_CMDLINE_LENGTH = 32768;
 struct CmdLine {
   WCHAR cmdline[MAX_CMDLINE_LENGTH];
 };
-static void CreateCommandLine(CmdLine* result, const string& exe,
+static void CreateCommandLine(CmdLine* result, const blaze_util::Path& exe,
                               const std::vector<std::wstring>& wargs_vector) {
   std::wstringstream cmdline;
   string short_exe;
-  if (!exe.empty()) {
+  if (!exe.IsEmpty()) {
     string error;
-    if (!blaze_util::AsShortWindowsPath(exe, &short_exe, &error)) {
+    wstring wshort_exe;
+    if (!blaze_util::AsShortWindowsPath(exe.AsNativePath(), &wshort_exe, &error)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "CreateCommandLine: AsShortWindowsPath(" << exe << "): " << error;
+          << "CreateCommandLine: AsShortWindowsPath(" << exe.AsPrintablePath()
+          << "): " << error;
     }
-    wstring wshort_exe = blaze_util::CstringToWstring(short_exe.c_str()).get();
     cmdline << L'\"' << wshort_exe << L'\"';
   }
 
@@ -615,7 +616,8 @@ class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
   AutoHandle proc;
 };
 
-int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+int ExecuteDaemon(const blaze_util::Path& exe,
+                  const std::vector<string>& args_vector,
                   const std::map<string, EnvVarValue>& env,
                   const blaze_util::Path& daemon_output,
                   const bool daemon_out_append, const string& binaries_dir,
@@ -631,7 +633,7 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   if (!devnull.IsValid()) {
     std::string error = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ExecuteDaemon(" << exe << "): CreateFileA(NUL) failed: " << error;
+        << "ExecuteDaemon(" << exe.AsPrintablePath() << "): CreateFileA(NUL) failed: " << error;
   }
 
   AutoHandle stdout_file(CreateJvmOutputFile(
@@ -639,7 +641,7 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   if (!stdout_file.IsValid()) {
     std::string error = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ExecuteDaemon(" << exe << "): CreateJvmOutputFile("
+        << "ExecuteDaemon(" << exe.AsPrintablePath() << "): CreateJvmOutputFile("
         << daemon_output.AsPrintablePath() << ") failed: " << error;
   }
   HANDLE stderr_handle;
@@ -656,8 +658,7 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
           /* bInheritHandle */ TRUE,
           /* dwOptions */ DUPLICATE_SAME_ACCESS)) {
     std::string error = GetLastErrorString();
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ExecuteDaemon(" << exe << "): DuplicateHandle("
+        << "ExecuteDaemon(" << exe.AsPrintablePath() << "): DuplicateHandle("
         << daemon_output.AsPrintablePath() << ") failed: " << error;
   }
   AutoHandle stderr_file(stderr_handle);
@@ -668,7 +669,7 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   if (!AutoAttributeList::Create(devnull, stdout_file, stderr_handle,
                                  &lpAttributeList, &werror)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ExecuteDaemon(" << exe << "): attribute list creation failed: "
+        << "ExecuteDaemon(" << exe.AsPrintablePath() << "): attribute list creation failed: "
         << blaze_util::WstringToString(werror);
   }
 
@@ -706,9 +707,10 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   }
 
   if (!ok) {
+    string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ExecuteDaemon(" << exe << "): CreateProcess(" << cmdline.cmdline
-        << ") failed: " << GetLastErrorString();
+        << "ExecuteDaemon(" << exe.AsPrintablePath() << "): CreateProcess("
+        << cmdline.cmdline << ") failed: " << err;
   }
 
   WriteProcessStartupTime(server_dir, processInfo.hProcess);
@@ -734,33 +736,32 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
 // Run the given program in the current working directory, using the given
 // argument vector, wait for it to finish, then exit ourselves with the exitcode
 // of that program.
-static void ExecuteProgram(const string& exe,
+static void ExecuteProgram(const blaze_util::Path& exe,
                            const std::vector<std::wstring>& wargs_vector) {
-  std::wstring wexe = blaze_util::CstringToWstring(exe.c_str()).get();
-
   CmdLine cmdline;
-  CreateCommandLine(&cmdline, "", wargs_vector);
+  CreateCommandLine(&cmdline, blaze_util::Path(), wargs_vector);
 
   bazel::windows::WaitableProcess proc;
   std::wstring werror;
-  if (!proc.Create(wexe, cmdline.cmdline, nullptr, L"", &werror) ||
+  if (!proc.Create(exe.AsNativePath(), cmdline.cmdline, nullptr, L"",
+                   &werror) ||
       proc.WaitFor(-1, nullptr, &werror) !=
           bazel::windows::WaitableProcess::kWaitSuccess) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ExecuteProgram(" << exe
+        << "ExecuteProgram(" << exe.AsPrintablePath()
         << ") failed: " << blaze_util::WstringToCstring(werror.c_str()).get();
   }
   werror.clear();
   int x = proc.GetExitCode(&werror);
   if (!werror.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ExecuteProgram(" << exe
+        << "ExecuteProgram(" << exe.AsPrintablePath()
         << ") failed: " << blaze_util::WstringToCstring(werror.c_str()).get();
   }
   exit(x);
 }
 
-void ExecuteServerJvm(const string& exe,
+void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args) {
   std::vector<std::wstring> wargs;
   wargs.reserve(server_jvm_args.size());
@@ -773,7 +774,7 @@ void ExecuteServerJvm(const string& exe,
   ExecuteProgram(exe, wargs);
 }
 
-void ExecuteRunRequest(const string& exe,
+void ExecuteRunRequest(const blaze_util::Path& exe,
                        const std::vector<string>& run_request_args) {
   std::vector<std::wstring> wargs;
   wargs.reserve(run_request_args.size());

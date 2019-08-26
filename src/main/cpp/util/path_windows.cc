@@ -350,8 +350,20 @@ bool AsAbsoluteWindowsPath(const std::wstring& path, std::wstring* result,
 
 bool AsShortWindowsPath(const std::string& path, std::string* result,
                         std::string* error) {
+  std::wstring wresult;
+  if (AsShortWindowsPath(CstringToWstring(path.c_str()).get(), &wresult,
+                         error)) {
+    *result = WstringToString(wresult);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool AsShortWindowsPath(const std::wstring& path, std::wstring* result,
+                        std::string* error) {
   if (IsDevNull(path.c_str())) {
-    result->assign("NUL");
+    *result = L"NUL";
     return true;
   }
 
@@ -401,7 +413,8 @@ bool AsShortWindowsPath(const std::string& path, std::string* result,
       if (error) {
         std::string last_error = GetLastErrorString();
         std::stringstream msg;
-        msg << "AsShortWindowsPath(" << path << "): GetShortPathNameW("
+        msg << "AsShortWindowsPath(" << WstringToString(path)
+            << "): GetShortPathNameW("
             << WstringToString(wpath) << ") failed: " << last_error;
         *error = msg.str();
       }
@@ -411,8 +424,8 @@ bool AsShortWindowsPath(const std::string& path, std::string* result,
     wresult = std::wstring(RemoveUncPrefixMaybe(wshort.get())) + wsuffix;
   }
 
-  result->assign(WstringToCstring(wresult.c_str()).get());
-  ToLower(result);
+  std::transform(wresult.begin(), wresult.end(), wresult.begin(), towlower);
+  *result = wresult;
   return true;
 }
 
