@@ -95,10 +95,10 @@ std::string MakeAbsoluteAndResolveEnvvars(const std::string &path) {
 }
 
 static std::string NormalizeAbsPath(const std::string &p) {
-  typedef std::string::size_type index;
   if (p.empty() || p[0] != '/') {
     return "";
   }
+  typedef std::string::size_type index;
   std::vector<std::pair<index, index> > segments;
   for (index s = 0; s < p.size(); ) {
     index e = p.find_first_of('/', s);
@@ -117,16 +117,11 @@ static std::string NormalizeAbsPath(const std::string &p) {
     s = e + 1;
   }
   if (segments.empty()) {
-    return p[0] == '/' ? "/" : "";
+    return "/";
   } else {
     std::stringstream r;
-    if (p[0] == '/') {
-      r << "/";
-    }
-    r << p.substr(segments[0].first, segments[0].second);
-    for (std::vector<std::pair<index, index> >::size_type i = 1;
-         i < segments.size(); ++i) {
-      r << "/" << p.substr(segments[i].first, segments[i].second);
+    for (const auto &s : segments) {
+      r << "/" << p.substr(s.first, s.second);
     }
     if (p[p.size() - 1] == '/') {
       r << "/";
