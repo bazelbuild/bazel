@@ -1220,6 +1220,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//third_party:mockito"
     ],
 )
 
