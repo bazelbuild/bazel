@@ -87,13 +87,13 @@ void BazelStartupOptions::MaybeLogStartupOptionWarnings() const {
         << "Output user root \"" << output_user_root
         << "\" contains a space. This will probably break the build. "
            "You should set a different --output_user_root.";
-  } else if (output_base.find_first_of(' ') != std::string::npos) {
+  } else if (output_base.Contains(' ')) {
     // output_base is computed from output_user_root by default.
     // If output_user_root was bad, don't check output_base: while output_base
     // may also be bad, we already warned about output_user_root so there's no
     // point in another warning.
     BAZEL_LOG(WARNING)
-        << "Output base \"" << output_base
+        << "Output base \"" << output_base.AsPrintablePath()
         << "\" contains a space. This will probably break the build. "
            "You should not set --output_base and let Bazel use the default, or "
            "set --output_base to a path without space.";

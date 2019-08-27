@@ -175,7 +175,7 @@ void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds) {
             elapsed_seconds, wait_seconds);
 }
 
-bool AwaitServerProcessTermination(int pid, const string& output_base,
+bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
                                    unsigned int wait_seconds) {
   uint64_t st = GetMillisecondsMonotonic();
   const unsigned int first_seconds = 5;
