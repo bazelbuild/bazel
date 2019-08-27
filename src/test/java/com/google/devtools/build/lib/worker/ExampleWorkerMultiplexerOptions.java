@@ -80,6 +80,15 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
       help = "Prints a list of all environment variables."
     )
     public boolean printEnv;
+
+    @Option(
+      name = "delay",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false",
+      help = "Randomly delay the worker response (between 100 to 300 ms)."
+    )
+    public boolean delay;
   }
 
   @Option(

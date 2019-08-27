@@ -49,6 +49,9 @@ public class ExampleWorkerMultiplexer {
   // A UUID that uniquely identifies this running worker process.
   static final UUID workerUuid = UUID.randomUUID();
 
+  // Creating Executor Service with a thread pool of Size 3.
+  static final int concurrentThreadNumber = 3;
+
   // A counter that increases with each work unit processed.
   static int workUnitCounter = 1;
 
@@ -80,8 +83,7 @@ public class ExampleWorkerMultiplexer {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
-    // Creating Executor Service with a thread pool of Size 2.
-    ExecutorService executorService = Executors.newFixedThreadPool(2);
+    ExecutorService executorService = Executors.newFixedThreadPool(concurrentThreadNumber);
 
     while (true) {
       try {
@@ -186,6 +188,12 @@ public class ExampleWorkerMultiplexer {
     ExampleWorkMultiplexerOptions options = parser.getOptions(ExampleWorkMultiplexerOptions.class);
 
     List<String> outputs = new ArrayList<>();
+
+    if (options.delay) {
+      Integer randomDelay = new Random().nextInt(200) + 100;
+      TimeUnit.MILLISECONDS.sleep(randomDelay);
+      outputs.add("DELAY " + randomDelay + " MILLISECONDS");
+    }
 
     if (options.writeUUID) {
       outputs.add("UUID " + workerUuid.toString());
