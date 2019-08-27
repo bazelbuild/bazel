@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -79,6 +80,9 @@ public class ExampleWorkerMultiplexer {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
+    // Creating Executor Service with a thread pool of Size 2.
+    ExecutorService executorService = Executors.newFixedThreadPool(2);
+
     while (true) {
       try {
         WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
@@ -92,9 +96,33 @@ public class ExampleWorkerMultiplexer {
           inputs.put(input.getPath(), input.getDigest().toStringUtf8());
         }
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        int exitCode = 0;
+        executorService.submit(creatTask(originalStdOut, originalStdErr, workerOptions, requestId, request));
 
+        if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
+          return;
+        }
+
+        if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
+          poisoned = true;
+        }
+      } finally {
+        // Be a good worker process and consume less memory when idle.
+        System.gc();
+      }
+    }
+  }
+
+  private static Runnable creatTask(
+      PrintStream originalStdOut,
+      PrintStream originalStdErr,
+      ExampleWorkerMultiplexerOptions workerOptions,
+      Integer requestId,
+      WorkRequest request) {
+    return () -> {
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      int exitCode = 0;
+
+      try {
         try (PrintStream ps = new PrintStream(baos)) {
           System.setOut(ps);
           System.setErr(ps);
@@ -135,19 +163,10 @@ public class ExampleWorkerMultiplexer {
               .writeDelimitedTo(System.out);
         }
         System.out.flush();
-
-        if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
-          return;
-        }
-
-        if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
-          poisoned = true;
-        }
-      } finally {
-        // Be a good worker process and consume less memory when idle.
-        System.gc();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
       }
-    }
+    };
   }
 
   private static void processRequest(List<String> args) throws Exception {

@@ -458,6 +458,7 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib:ExampleWorkerMultiplexer_deploy.jar",
     ],
+    shard_count = 2,
     tags = [
         "no_windows",
     ],
