@@ -488,6 +488,10 @@ Path::Path(const std::string& path) {
 }
 
 Path Path::GetRelative(const std::string& r) const {
+  return GetRelative(CstringToWstring(r.c_str()).get());
+}
+
+Path Path::GetRelative(const std::wstring &r) const {
   if (r.empty()) {
     return *this;
   } else if (IsDevNull(r.c_str())) {
@@ -497,9 +501,7 @@ Path Path::GetRelative(const std::string& r) const {
   } else {
     std::string error;
     std::wstring new_path;
-    if (!AsAbsoluteWindowsPath(
-            path_ + L"\\" + CstringToWstring(r.c_str()).get(), &new_path,
-            &error)) {
+    if (!AsAbsoluteWindowsPath(path_ + L"\\" + r, &new_path, &error)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "Path::GetRelative failed: " << error;
     }

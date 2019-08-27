@@ -79,17 +79,17 @@ class RcFileTest : public ::testing::Test {
     // and other rc-related directories, but it intentionally skips directories.
     // As a consequence, there may be empty directories from test to test.
     // Remove this once blaze_util::DeleteDirectories(path) exists.
-    std::vector<std::string> files;
-    blaze_util::GetAllFilesUnder(workspace_, &files);
-    for (const std::string& file : files) {
+    std::vector<blaze_util::Path> files;
+    blaze_util::GetAllFilesUnder(blaze_util::Path(workspace_), &files);
+    for (const auto& file : files) {
       blaze_util::UnlinkPath(file);
     }
-    blaze_util::GetAllFilesUnder(cwd_, &files);
-    for (const std::string& file : files) {
+    blaze_util::GetAllFilesUnder(blaze_util::Path(cwd_), &files);
+    for (const auto& file : files) {
       blaze_util::UnlinkPath(file);
     }
-    blaze_util::GetAllFilesUnder(binary_dir_, &files);
-    for (const std::string& file : files) {
+    blaze_util::GetAllFilesUnder(blaze_util::Path(binary_dir_), &files);
+    for (const auto& file : files) {
       blaze_util::UnlinkPath(file);
     }
   }

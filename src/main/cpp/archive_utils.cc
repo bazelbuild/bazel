@@ -140,7 +140,7 @@ class NoteAllFilesZipProcessor : public PureZipExtractorProcessor {
 // A PureZipExtractorProcessor to extract the files from the blaze zip.
 class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
  public:
-  explicit ExtractBlazeZipProcessor(const string &output_dir,
+  explicit ExtractBlazeZipProcessor(const blaze_util::Path &output_dir,
                                     blaze::embedded_binaries::Dumper *dumper)
       : output_dir_(output_dir), dumper_(dumper) {}
 
@@ -157,11 +157,11 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
                const devtools_ijar::u4 attr,
                const devtools_ijar::u1 *data,
                const size_t size) override {
-    dumper_->Dump(data, size, blaze_util::JoinPath(output_dir_, filename));
+    dumper_->Dump(data, size, output_dir_.GetRelative(filename));
   }
 
  private:
-  const string output_dir_;
+  const blaze_util::Path output_dir_;
   blaze::embedded_binaries::Dumper *dumper_;
 };
 
@@ -230,7 +230,7 @@ void DetermineArchiveContents(
 void ExtractArchiveOrDie(const string &archive_path,
                          const string &product_name,
                          const string &expected_install_md5,
-                         const string &output_dir) {
+                         const blaze_util::Path &output_dir) {
   std::string install_md5;
   GetInstallKeyFileProcessor install_key_processor(&install_md5);
 
@@ -247,7 +247,7 @@ void ExtractArchiveOrDie(const string &archive_path,
                                   &install_key_processor});
   if (!blaze_util::MakeDirectories(output_dir, 0777)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "couldn't create '" << output_dir
+        << "couldn't create '" << output_dir.AsPrintablePath()
         << "': " << blaze_util::GetLastErrorString();
   }
 

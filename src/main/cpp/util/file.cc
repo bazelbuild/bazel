@@ -95,11 +95,11 @@ bool WriteFile(const std::string &content, const Path &path,
 
 class DirectoryTreeWalker : public DirectoryEntryConsumer {
  public:
-  DirectoryTreeWalker(vector<string> *files,
+  DirectoryTreeWalker(vector<Path> *files,
                       _ForEachDirectoryEntry walk_entries)
       : _files(files), _walk_entries(walk_entries) {}
 
-  void Consume(const string &path, bool follow_directory) override {
+  void Consume(const Path &path, bool follow_directory) override {
     if (follow_directory) {
       Walk(path);
     } else {
@@ -107,19 +107,19 @@ class DirectoryTreeWalker : public DirectoryEntryConsumer {
     }
   }
 
-  void Walk(const string &path) { _walk_entries(path, this); }
+  void Walk(const Path &path) { _walk_entries(path, this); }
 
  private:
-  vector<string> *_files;
+  vector<Path> *_files;
   _ForEachDirectoryEntry _walk_entries;
 };
 
-void GetAllFilesUnder(const string &path, vector<string> *result) {
+void GetAllFilesUnder(const Path &path, vector<Path> *result) {
   _GetAllFilesUnder(path, result, &ForEachDirectoryEntry);
 }
 
-void _GetAllFilesUnder(const string &path,
-                       vector<string> *result,
+void _GetAllFilesUnder(const Path &path,
+                       vector<Path> *result,
                        _ForEachDirectoryEntry walk_entries) {
   DirectoryTreeWalker(result, walk_entries).Walk(path);
 }

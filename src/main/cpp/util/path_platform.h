@@ -55,6 +55,9 @@ class Path {
   std::string AsCommandLineArgument() const;
 
 #if defined(_WIN32) || defined(__CYGWIN__)
+  static Path FromUnchecked(const std::wstring& p);
+  Path GetRelative(const std::wstring &r) const;
+
   // Returns a platform-native, absolute, normalized path.
   // Use this to pass paths to filesystem API functions.
   const std::wstring AsNativePath() const { return path_; }

@@ -438,7 +438,7 @@ static bool RealPath(const WCHAR* path, unique_ptr<WCHAR[]>* result = nullptr) {
   }
 }
 
-bool ReadDirectorySymlink(const blaze_util::Path& name, string* result) {
+bool ReadDirectorySymlink(const Path& name, string* result) {
   unique_ptr<WCHAR[]> result_ptr;
   if (!RealPath(name.AsNativePath().c_str(), &result_ptr)) {
     return false;
@@ -761,44 +761,23 @@ void _GetAllFilesUnderW(const wstring& path, vector<wstring>* result,
   DirectoryTreeWalkerW(result, walk_entries).Walk(path);
 }
 
-void ForEachDirectoryEntry(const string &path,
-                           DirectoryEntryConsumer *consume) {
-  wstring wpath;
-  if (path.empty() || IsDevNull(path.c_str())) {
+void ForEachDirectoryEntry(const Path &path, DirectoryEntryConsumer *consume) {
+  if (path.IsEmpty() || path.IsNull()) {
     return;
   }
-  string error;
-  if (!AsWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ForEachDirectoryEntry(" << path
-        << "): AsWindowsPath failed: " << GetLastErrorString();
-  }
-
-  static const wstring kUncPrefix(L"\\\\?\\");
-  static const wstring kDot(L".");
-  static const wstring kDotDot(L"..");
-  // Always add an UNC prefix to ensure we can work with long paths.
-  if (!HasUncPrefix(wpath.c_str())) {
-    wpath = kUncPrefix + wpath;
-  }
-  // Unconditionally add a trailing backslash. We know `wpath` has no trailing
-  // backslash because it comes from AsWindowsPath whose output is always
-  // normalized (see NormalizeWindowsPath).
-  wpath.append(L"\\");
   WIN32_FIND_DATAW metadata;
-  HANDLE handle = ::FindFirstFileW((wpath + L"*").c_str(), &metadata);
+  HANDLE handle = ::FindFirstFileW((path.AsNativePath() + L"\\*").c_str(),
+                                   &metadata);
   if (handle == INVALID_HANDLE_VALUE) {
     return;  // directory does not exist or is empty
   }
-
   do {
-    if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
-      wstring wname = wpath + metadata.cFileName;
-      string name(WstringToCstring(/* omit prefix */ 4 + wname.c_str()).get());
+    if (wcsncmp(metadata.cFileName, L".", 1) != 0 &&
+        wcsncmp(metadata.cFileName, L"..", 2) != 0) {
       bool is_dir = (metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
       bool is_junc =
           (metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-      consume->Consume(name, is_dir && !is_junc);
+      consume->Consume(path.GetRelative(metadata.cFileName), is_dir && !is_junc);
     }
   } while (::FindNextFileW(handle, &metadata));
   ::FindClose(handle);

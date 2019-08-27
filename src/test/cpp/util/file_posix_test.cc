@@ -48,20 +48,21 @@ static bool CreateEmptyFile(const string& path) {
   return close(fd) == 0;
 }
 
-void MockDirectoryListingFunction(const string& path,
+void MockDirectoryListingFunction(const Path& path,
                                   DirectoryEntryConsumer* consume) {
-  if (path == "root") {
-    consume->Consume("root/file1", false);
-    consume->Consume("root/dir2", true);
-    consume->Consume("root/dir1", true);
-  } else if (path == "root/dir1") {
-    consume->Consume("root/dir1/dir3", true);
-    consume->Consume("root/dir1/file2", false);
-  } else if (path == "root/dir2") {
-    consume->Consume("root/dir2/file3", false);
-  } else if (path == "root/dir1/dir3") {
-    consume->Consume("root/dir1/dir3/file4", false);
-    consume->Consume("root/dir1/dir3/file5", false);
+  static const Path root = Path("/root");
+  if (path == root) {
+    consume->Consume(path.GetRelative("file1"), false);
+    consume->Consume(path.GetRelative("dir2"), true);
+    consume->Consume(path.GetRelative("dir1"), true);
+  } else if (path == root.GetRelative("dir1")) {
+    consume->Consume(path.GetRelative("dir3"), true);
+    consume->Consume(path.GetRelative("file2"), false);
+  } else if (path == root.GetRelative("dir2")) {
+    consume->Consume(path.GetRelative("file3"), false);
+  } else if (path == root.GetRelative("dir1/dir3")) {
+    consume->Consume(path.GetRelative("file4"), false);
+    consume->Consume(path.GetRelative("file5"), false);
   } else {
     // Unexpected path
     GTEST_FAIL();
@@ -69,13 +70,17 @@ void MockDirectoryListingFunction(const string& path,
 }
 
 TEST(FilePosixTest, GetAllFilesUnder) {
-  vector<string> result;
-  _GetAllFilesUnder("root", &result, &MockDirectoryListingFunction);
+  vector<Path> result;
+  _GetAllFilesUnder(Path("/root"), &result,
+                    &MockDirectoryListingFunction);
   std::sort(result.begin(), result.end());
 
-  vector<string> expected({"root/dir1/dir3/file4", "root/dir1/dir3/file5",
-                           "root/dir1/file2", "root/dir2/file3",
-                           "root/file1"});
+  vector<Path> expected({
+      Path("/root/dir1/dir3/file4"),
+      Path("/root/dir1/dir3/file5"),
+      Path("/root/dir1/file2"),
+      Path("/root/dir2/file3"),
+      Path("/root/file1")});
   ASSERT_EQ(expected, result);
 }
 
@@ -227,11 +232,11 @@ TEST(FilePosixTest, ChangeDirectory) {
 
 class MockDirectoryEntryConsumer : public DirectoryEntryConsumer {
  public:
-  void Consume(const std::string& name, bool is_directory) override {
-    entries.push_back(pair<string, bool>(name, is_directory));
+  void Consume(const Path& name, bool is_directory) override {
+    entries.push_back(pair<Path, bool>(name, is_directory));
   }
 
-  vector<pair<string, bool> > entries;
+  vector<pair<Path, bool> > entries;
 };
 
 TEST(FilePosixTest, ForEachDirectoryEntry) {
@@ -245,45 +250,44 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   }
 
   // Create the root directory for the mock directory tree.
-  string root = tempdir + "/FilePosixTest.ForEachDirectoryEntry.root";
-  ASSERT_EQ(0, mkdir(root.c_str(), 0700));
+  Path root = Path(tempdir).GetRelative("FilePosixTest.ForEachDirectoryEntry.root");
+  ASSERT_EQ(0, mkdir(root.AsNativePath().c_str(), 0700));
 
   // Names of mock files and directories.
-  string dir = root + "/dir";
-  string file = root + "/file";
-  string dir_sym = root + "/dir_sym";
-  string file_sym = root + "/file_sym";
-  string subfile = dir + "/subfile";
-  string subfile_through_sym = dir_sym + "/subfile";
+  Path dir = root.GetRelative("dir");
+  Path file = root.GetRelative("file");
+  Path dir_sym = root.GetRelative("dir_sym");
+  Path file_sym = root.GetRelative("file_sym");
+  Path subfile = dir.GetRelative("subfile");
+  Path subfile_through_sym = dir_sym.GetRelative("subfile");
 
   // Create mock directory, file, and symlinks.
-  AutoFd fd(open(file.c_str(), O_CREAT, 0700));
+  AutoFd fd(open(file.AsNativePath().c_str(), O_CREAT, 0700));
   ASSERT_TRUE(fd.IsOpen());
   fd.Close();
-  ASSERT_EQ(0, mkdir(dir.c_str(), 0700));
-  ASSERT_EQ(0, symlink("dir", dir_sym.c_str()));
-  ASSERT_EQ(0, symlink("file", file_sym.c_str()));
-  fd = open(subfile.c_str(), O_CREAT, 0700);
+  ASSERT_EQ(0, mkdir(dir.AsNativePath().c_str(), 0700));
+  ASSERT_EQ(0, symlink("dir", dir_sym.AsNativePath().c_str()));
+  ASSERT_EQ(0, symlink("file", file_sym.AsNativePath().c_str()));
+  fd = open(subfile.AsNativePath().c_str(), O_CREAT, 0700);
   ASSERT_TRUE(fd.IsOpen());
   fd.Close();
 
   // Assert that stat'ing the symlinks (with following them) point to the
   // right filesystem entry types.
   struct stat stat_buf;
-  ASSERT_EQ(0, stat(dir_sym.c_str(), &stat_buf));
+  ASSERT_EQ(0, stat(dir_sym.AsNativePath().c_str(), &stat_buf));
   ASSERT_TRUE(S_ISDIR(stat_buf.st_mode));
-  ASSERT_EQ(0, stat(file_sym.c_str(), &stat_buf));
+  ASSERT_EQ(0, stat(file_sym.AsNativePath().c_str(), &stat_buf));
   ASSERT_FALSE(S_ISDIR(stat_buf.st_mode));
 
   // Actual test: list the directory.
   MockDirectoryEntryConsumer consumer;
-  ForEachDirectoryEntry(root, &consumer);
+  ForEachDirectoryEntry(Path(root), &consumer);
   ASSERT_EQ(size_t(4), consumer.entries.size());
 
   // Sort the collected directory entries.
   struct {
-    bool operator()(const pair<string, bool>& a,
-                    const pair<string, bool>& b) {
+    bool operator()(const pair<Path, bool>& a, const pair<Path, bool>& b) {
       return a.first < b.first;
     }
   } sort_pairs;
@@ -291,21 +295,21 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   std::sort(consumer.entries.begin(), consumer.entries.end(), sort_pairs);
 
   // Assert that the directory entries have the right name and type.
-  pair<string, bool> expected;
-  expected = pair<string, bool>(dir, true);
+  pair<Path, bool> expected;
+  expected = pair<Path, bool>(dir, true);
   ASSERT_EQ(expected, consumer.entries[0]);
-  expected = pair<string, bool>(dir_sym, false);
+  expected = pair<Path, bool>(dir_sym, false);
   ASSERT_EQ(expected, consumer.entries[1]);
-  expected = pair<string, bool>(file, false);
+  expected = pair<Path, bool>(file, false);
   ASSERT_EQ(expected, consumer.entries[2]);
-  expected = pair<string, bool>(file_sym, false);
+  expected = pair<Path, bool>(file_sym, false);
   ASSERT_EQ(expected, consumer.entries[3]);
 
   // Actual test: list a directory symlink.
   consumer.entries.clear();
   ForEachDirectoryEntry(dir_sym, &consumer);
   ASSERT_EQ(size_t(1), consumer.entries.size());
-  expected = pair<string, bool>(subfile_through_sym, false);
+  expected = pair<Path, bool>(subfile_through_sym, false);
   ASSERT_EQ(expected, consumer.entries[0]);
 
   // Actual test: list a path that's actually a file, not a directory.
@@ -314,12 +318,12 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   ASSERT_TRUE(consumer.entries.empty());
 
   // Cleanup: delete mock directory tree.
-  rmdir(subfile.c_str());
-  rmdir(dir.c_str());
-  unlink(dir_sym.c_str());
-  unlink(file.c_str());
-  unlink(file_sym.c_str());
-  rmdir(root.c_str());
+  rmdir(subfile.AsNativePath().c_str());
+  rmdir(dir.AsNativePath().c_str());
+  unlink(dir_sym.AsNativePath().c_str());
+  unlink(file.AsNativePath().c_str());
+  unlink(file_sym.AsNativePath().c_str());
+  rmdir(root.AsNativePath().c_str());
 }
 
 }  // namespace blaze_util

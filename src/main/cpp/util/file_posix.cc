@@ -451,12 +451,12 @@ bool ChangeDirectory(const string& path) {
   return chdir(path.c_str()) == 0;
 }
 
-void ForEachDirectoryEntry(const string &path,
+void ForEachDirectoryEntry(const blaze_util::Path &path,
                            DirectoryEntryConsumer *consume) {
   DIR *dir;
   struct dirent *ent;
 
-  if ((dir = opendir(path.c_str())) == NULL) {
+  if ((dir = opendir(path.AsNativePath().c_str())) == NULL) {
     // This is not a directory or it cannot be opened.
     return;
   }
@@ -466,7 +466,7 @@ void ForEachDirectoryEntry(const string &path,
       continue;
     }
 
-    string filename(blaze_util::JoinPath(path, ent->d_name));
+    blaze_util::Path filename = path.GetRelative(ent->d_name);
     bool is_directory;
 // 'd_type' field isn't part of the POSIX spec.
 #ifdef _DIRENT_HAVE_D_TYPE
@@ -476,9 +476,9 @@ void ForEachDirectoryEntry(const string &path,
 #endif
       {
         struct stat buf;
-        if (lstat(filename.c_str(), &buf) == -1) {
+        if (lstat(filename.AsNativePath().c_str(), &buf) == -1) {
           BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-              << "stat failed for filename '" << filename
+              << "stat failed for filename '" << filename.AsPrintablePath()
               << "': " << GetLastErrorString();
         }
         is_directory = S_ISDIR(buf.st_mode);

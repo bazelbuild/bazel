@@ -69,13 +69,14 @@ class PosixDumper : public Dumper {
  public:
   static PosixDumper* Create(string* error);
   ~PosixDumper() { Finish(nullptr); }
-  void Dump(const void* data, const size_t size, const string& path) override;
+  void Dump(const void* data, const size_t size, const blaze_util::Path& path)
+    override;
   bool Finish(string* error) override;
 
  private:
   PosixDumper() : was_error_(false) {}
 
-  set<string> dir_cache_;
+  set<blaze_util::Path> dir_cache_;
   string error_msg_;
   bool was_error_;
 };
@@ -85,12 +86,12 @@ Dumper* Create(string* error) { return PosixDumper::Create(error); }
 PosixDumper* PosixDumper::Create(string* error) { return new PosixDumper(); }
 
 void PosixDumper::Dump(const void* data, const size_t size,
-                       const string& path) {
+                       const blaze_util::Path& path) {
   if (was_error_) {
     return;
   }
 
-  string dirname = blaze_util::Dirname(path);
+  blaze_util::Path dirname = path.GetParent();
   // Performance optimization: memoize the paths we already created a
   // directory for, to spare a stat in attempting to recreate an already
   // existing directory.
@@ -98,7 +99,8 @@ void PosixDumper::Dump(const void* data, const size_t size,
     if (!blaze_util::MakeDirectories(dirname, 0777)) {
       was_error_ = true;
       string msg = GetLastErrorString();
-      error_msg_ = string("couldn't create '") + path + "': " + msg;
+      error_msg_ = string("couldn't create '") + path.AsPrintablePath() +
+                       "': " + msg;
     }
   }
 
@@ -109,7 +111,8 @@ void PosixDumper::Dump(const void* data, const size_t size,
   if (!blaze_util::WriteFile(data, size, path, 0755)) {
     was_error_ = true;
     string msg = GetLastErrorString();
-    error_msg_ = string("Failed to write zipped file '") + path + "': " + msg;
+    error_msg_ = string("Failed to write zipped file '") +
+                     path.AsPrintablePath() + "': " + msg;
   }
 }
 

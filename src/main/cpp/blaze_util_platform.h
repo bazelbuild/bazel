@@ -44,7 +44,7 @@ class Dumper {
   // If writing fails, this method sets a flag in the `Dumper`, and `Finish`
   // will return false. Subsequent `Dump` calls will have no effect.
   virtual void Dump(const void* data, const size_t size,
-                    const std::string& path) = 0;
+                    const blaze_util::Path& path) = 0;
 
   // Finishes dumping data.
   //

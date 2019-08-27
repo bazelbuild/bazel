@@ -199,9 +199,13 @@ class CollectingDirectoryEntryConsumer : public DirectoryEntryConsumer {
   CollectingDirectoryEntryConsumer(const string& _rootname)
       : rootname(_rootname) {}
 
-  void Consume(const string& name, bool is_directory) override {
+  void Consume(const blaze_util::Path& path, bool is_directory) override {
     // Strip the path prefix up to the `rootname` to ease testing on all
     // platforms.
+    // TODO(laszlocsomor): instead of Path.AsPrintablePath(), implement and use
+    // Path.RelativeTo(Path) here. (That requires adding a PathFragment class
+    // similar to the Bazel server's own PathFragment.)
+    string name = path.AsPrintablePath();
     size_t index = name.rfind(rootname);
     string key = (index == string::npos) ? name : name.substr(index);
     // Replace backslashes with forward slashes (necessary on Windows only).
@@ -214,8 +218,8 @@ class CollectingDirectoryEntryConsumer : public DirectoryEntryConsumer {
 };
 
 TEST(FileTest, ForEachDirectoryEntryTest) {
-  string tmpdir(getenv("TEST_TMPDIR"));
-  EXPECT_FALSE(tmpdir.empty());
+  Path tmpdir(getenv("TEST_TMPDIR"));
+  EXPECT_FALSE(tmpdir.IsEmpty());
   // Create a directory structure:
   //   $TEST_TMPDIR/
   //      foo/
@@ -223,11 +227,11 @@ TEST(FileTest, ForEachDirectoryEntryTest) {
   //          file3.txt
   //        file1.txt
   //        file2.txt
-  string rootdir(JoinPath(tmpdir, "foo"));
-  string file1(JoinPath(rootdir, "file1.txt"));
-  string file2(JoinPath(rootdir, "file2.txt"));
-  string subdir(JoinPath(rootdir, "bar"));
-  string file3(JoinPath(subdir, "file3.txt"));
+  Path rootdir = tmpdir.GetRelative("foo");
+  Path file1 = rootdir.GetRelative("file1.txt");
+  Path file2 = rootdir.GetRelative("file2.txt");
+  Path subdir = rootdir.GetRelative("bar");
+  Path file3 = subdir.GetRelative("file3.txt");
 
   EXPECT_TRUE(MakeDirectories(subdir, 0700));
   EXPECT_TRUE(WriteFile("hello", 5, file1));

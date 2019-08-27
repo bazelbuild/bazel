@@ -43,9 +43,10 @@ class WorkspaceLayoutTest : public ::testing::Test {
     // but it intentionally skips directories. As a consequence, there may be
     // empty directories from test to test. Remove this once
     // blaze_util::DeleteDirectories(path) exists.
-    std::vector<std::string> files_in_workspace;
-    blaze_util::GetAllFilesUnder(build_root_, &files_in_workspace);
-    for (const std::string& file : files_in_workspace) {
+    std::vector<blaze_util::Path> files_in_workspace;
+    blaze_util::GetAllFilesUnder(blaze_util::Path(build_root_),
+                                 &files_in_workspace);
+    for (const auto& file : files_in_workspace) {
       blaze_util::UnlinkPath(file);
     }
   }

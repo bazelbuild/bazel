@@ -143,7 +143,7 @@ int RenameDirectory(const std::string &old_name, const std::string &new_name);
 // Reads which directory a symlink points to. Puts the target of the symlink
 // in ``result`` and returns if the operation was successful. Will not work on
 // symlinks that don't point to directories on Windows.
-bool ReadDirectorySymlink(const blaze_util::Path &symlink, std::string *result);
+bool ReadDirectorySymlink(const Path &symlink, std::string *result);
 
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
@@ -208,7 +208,7 @@ class DirectoryEntryConsumer {
   // `name` is the full path of the entry.
   // `is_directory` is true if this entry is a directory (but false if this is a
   // symlink pointing to a directory).
-  virtual void Consume(const std::string &name, bool is_directory) = 0;
+  virtual void Consume(const Path &name, bool is_directory) = 0;
 };
 
 // Executes a function for each entry in a directory (except "." and "..").
@@ -217,8 +217,7 @@ class DirectoryEntryConsumer {
 // false otherwise.
 //
 // See DirectoryEntryConsumer for more details.
-void ForEachDirectoryEntry(const std::string &path,
-                           DirectoryEntryConsumer *consume);
+void ForEachDirectoryEntry(const Path &path, DirectoryEntryConsumer *consume);
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 std::wstring GetCwdW();
