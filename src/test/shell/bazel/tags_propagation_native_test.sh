@@ -22,6 +22,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+
 # Test a basic native rule which has tags, that should be propagated
 function test_tags_propagated() {
   mkdir -p test
@@ -40,8 +42,12 @@ EOF
 
   bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
-
-  assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
+ 
+  if [[  "${PLATFORM}" = "darwin"  ]]; then
+    assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: '', requires-darwin: ''}" output1
+  else
+    assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
+  fi
 }
 
 function test_tags_propagated_genrule() {
@@ -86,8 +92,6 @@ EOF
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
 }
 
-# TODO How to test LTO? -> Marcel
-
 # Test a native test rule rule which has tags, that should be propagated (independent of flags)
 function test_rules_tags_propagated() {
   mkdir -p test
@@ -106,8 +110,12 @@ EOF
 
   bazel aquery --incompatible_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
-
-  assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
+ 
+ if [[  "${PLATFORM}" = "darwin"  ]]; then
+    assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: '', requires-darwin: ''}" output1
+  else
+    assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
+  fi
 }
 
 # Test a basic native rule which has tags, that should not be propagated
@@ -130,7 +138,12 @@ EOF
   bazel aquery --incompatible_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
-  assert_not_contains "ExecutionInfo: {" output1
+ 
+ if [[  "${PLATFORM}" = "darwin"  ]]; then
+    assert_contains "ExecutionInfo: {requires-darwin: ''}" output1
+  else
+    assert_not_contains "ExecutionInfo: {" output1
+  fi
 }
 
 run_suite "tags propagation: skylark rule tests"
