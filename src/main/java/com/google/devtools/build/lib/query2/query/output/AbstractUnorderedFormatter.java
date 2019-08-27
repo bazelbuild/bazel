@@ -32,11 +32,7 @@ abstract class AbstractUnorderedFormatter extends OutputFormatter implements Str
 
   @Override
   public void output(
-      QueryOptions options,
-      Digraph<Target> result,
-      OutputStream out,
-      AspectResolver aspectResolver,
-      ConditionalEdges conditionalEdges)
+      QueryOptions options, Digraph<Target> result, OutputStream out, AspectResolver aspectResolver)
       throws IOException, InterruptedException {
     setOptions(options, aspectResolver);
     OutputFormatterCallback.processAllTargets(

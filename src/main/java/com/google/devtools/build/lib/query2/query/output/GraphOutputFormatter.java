@@ -58,10 +58,11 @@ class GraphOutputFormatter extends OutputFormatter {
       QueryOptions options,
       Digraph<Target> result,
       OutputStream out,
-      AspectResolver aspectProvider,
-      ConditionalEdges conditionalEdges) {
+      AspectResolver aspectProvider) {
     this.graphNodeStringLimit = options.graphNodeStringLimit;
     this.graphConditionalEdgesLimit = options.graphConditionalEdgesLimit;
+
+    ConditionalEdges conditionalEdges = new ConditionalEdges(result);
 
     boolean sortLabels = options.orderOutput == OrderOutput.FULL;
     if (options.graphFactored) {
