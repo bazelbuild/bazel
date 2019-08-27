@@ -534,26 +534,32 @@ public final class RuleContext extends TargetContext
 
     List<ActionAnalysisMetadata> newList = new ArrayList<>();
     try {
-        for (ActionAnalysisMetadata metadata : action) {
-          if (metadata instanceof ExecutionInfoSpecifier && !(metadata instanceof StarlarkAction)) {
-            ExecutionInfoSpecifier executionInfoSpecifier = (ExecutionInfoSpecifier) metadata;
-            ImmutableMap<String, String> filteredExecutionInfo = TargetUtils.getFilteredExecutionInfo(
-                    executionInfoSpecifier.getExecutionInfo(),
-                    rule,
-                    this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation());
+      if (!this.getAnalysisEnvironment()
+              .getSkylarkSemantics()
+              .experimentalAllowTagsPropagation()) {
+        getAnalysisEnvironment().registerAction(action);
+        return;
+      }
+      for (ActionAnalysisMetadata metadata : action) {
+        if (metadata instanceof ExecutionInfoSpecifier && !(metadata instanceof StarlarkAction)) {
+          ExecutionInfoSpecifier executionInfoSpecifier = (ExecutionInfoSpecifier) metadata;
+          ImmutableMap<String, String> filteredExecutionInfo = TargetUtils.getFilteredExecutionInfo(
+                  executionInfoSpecifier.getExecutionInfo(),
+                  rule,
+                  this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation());
 
-            Map<String, String> executionInfoBuilder = new HashMap<>();
-            // in case something was already in action.executionInfo - we copy it to the final Map
-            executionInfoBuilder.putAll(executionInfoSpecifier.getExecutionInfo());
-            // adding filtered execution requirements to the execution info map
-            executionInfoBuilder.putAll(filteredExecutionInfo);
+          Map<String, String> executionInfoBuilder = new HashMap<>();
+          // in case something was already in action.executionInfo - we copy it to the final Map
+          executionInfoBuilder.putAll(executionInfoSpecifier.getExecutionInfo());
+          // adding filtered execution requirements to the execution info map
+          executionInfoBuilder.putAll(filteredExecutionInfo);
 
-            ActionAnalysisMetadata updatedAction = executionInfoSpecifier.addExecutionInfo(ImmutableMap.copyOf(executionInfoBuilder));
-            newList.add(updatedAction);
-          } else {
-            newList.add(metadata);
-          }
+          ActionAnalysisMetadata updatedAction = executionInfoSpecifier.addExecutionInfo(ImmutableMap.copyOf(executionInfoBuilder));
+          newList.add(updatedAction);
+        } else {
+          newList.add(metadata);
         }
+      }
     } catch (InterruptedException e) {
       // todo: what?
       e.printStackTrace();
