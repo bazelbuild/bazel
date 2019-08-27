@@ -655,9 +655,10 @@ static void RunServerMode(
 
   BAZEL_LOG(INFO) << "Running in server mode.";
 
-  // TODO(b/69972303): Don't allow server mode if there's a server?
   if (server->Connected()) {
-    server->KillRunningServer();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "exec-server failed, please shut down existing server pid="
+        << server->ProcessInfo().server_pid_ << " and retry.";
   }
 
   EnsureServerDir(server_dir);
