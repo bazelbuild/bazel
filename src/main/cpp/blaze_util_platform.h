@@ -82,18 +82,19 @@ class SignalHandler {
     return server_process_info_;
   }
   const std::string& GetProductName() const { return product_name_; }
-  const std::string& GetOutputBase() const { return output_base_; }
+  const blaze_util::Path& GetOutputBase() const { return output_base_; }
   void CancelServer() { cancel_server_(); }
-  void Install(
-      const std::string &product_name, const std::string &output_base,
-      const ServerProcessInfo* server_process_info, Callback cancel_server);
+  void Install(const std::string& product_name,
+               const blaze_util::Path& output_base,
+               const ServerProcessInfo* server_process_info,
+               Callback cancel_server);
   ATTRIBUTE_NORETURN void PropagateSignalOrExit(int exit_code);
 
  private:
   static SignalHandler INSTANCE;
 
   std::string product_name_;
-  std::string output_base_;
+  blaze_util::Path output_base_;
   const ServerProcessInfo* server_process_info_;
   Callback cancel_server_;
 
@@ -117,7 +118,7 @@ std::string GetOutputRoot();
 std::string GetHomeDir();
 
 // Warn about dubious filesystem types, such as NFS, case-insensitive (?).
-void WarnFilesystemType(const std::string& output_base);
+void WarnFilesystemType(const blaze_util::Path& output_base);
 
 // Returns elapsed milliseconds since some unspecified start of time.
 // The results are monotonic, i.e. subsequent calls to this method never return
@@ -175,7 +176,7 @@ class BlazeServerStartup {
 int ExecuteDaemon(
     const std::string& exe, const std::vector<std::string>& args_vector,
     const std::map<std::string, EnvVarValue>& env,
-    const std::string& daemon_output, const bool daemon_output_append,
+    const blaze_util::Path& daemon_output, const bool daemon_output_append,
     const std::string& binaries_dir, const blaze_util::Path& server_dir,
     const StartupOptions& options, BlazeServerStartup** server_startup);
 
@@ -185,7 +186,8 @@ extern const char kListSeparator;
 // Create a symlink to directory ``target`` at location ``link``.
 // Returns true on success, false on failure. The target must be absolute.
 // Implemented via junctions on Windows.
-bool SymlinkDirectories(const std::string& target, const std::string& link);
+bool SymlinkDirectories(const std::string& target,
+                        const blaze_util::Path& link);
 
 struct BlazeLock {
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -198,7 +200,7 @@ struct BlazeLock {
 // Acquires a lock on the output base. Exits if the lock cannot be acquired.
 // Sets ``lock`` to a value that can subsequently be passed to ReleaseLock().
 // Returns the number of milliseconds spent with waiting for the lock.
-uint64_t AcquireLock(const std::string& output_base, bool batch_mode,
+uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
                      bool block, BlazeLock* blaze_lock);
 
 // Releases the lock on the output base. In case of an error, continues as
@@ -206,12 +208,12 @@ uint64_t AcquireLock(const std::string& output_base, bool batch_mode,
 void ReleaseLock(BlazeLock* blaze_lock);
 
 // Verifies whether the server process still exists. Returns true if it does.
-bool VerifyServerProcess(int pid, const std::string& output_base);
+bool VerifyServerProcess(int pid, const blaze_util::Path& output_base);
 
 // Kills a server process based on its PID.
 // Returns true if the server process was found and killed.
 // WARNING! This function can be called from a signal handler!
-bool KillServerProcess(int pid, const std::string& output_base);
+bool KillServerProcess(int pid, const blaze_util::Path& output_base);
 
 // Wait for approximately the specified number of milliseconds. The actual
 // amount of time waited may be more or less because of interrupts or system
@@ -219,7 +221,7 @@ bool KillServerProcess(int pid, const std::string& output_base);
 void TrySleep(unsigned int milliseconds);
 
 // Mark path as being excluded from backups (if supported by operating system).
-void ExcludePathFromBackup(const std::string& path);
+void ExcludePathFromBackup(const blaze_util::Path& path);
 
 // Returns the canonical form of the base dir given a root and a hashable
 // string. The resulting dir is composed of the root + md5(hashable)
@@ -229,7 +231,7 @@ std::string GetHashedBaseDir(const std::string& root,
 // Create a safe installation directory where we keep state, installations etc.
 // This method ensures that the directory is created, is owned by the current
 // user, and not accessible to anyone else.
-void CreateSecureOutputRoot(const std::string& path);
+void CreateSecureOutputRoot(const blaze_util::Path& path);
 
 std::string GetEnv(const std::string& name);
 

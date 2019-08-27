@@ -19,19 +19,25 @@
 namespace blaze_util {
 
 // Platform-native, absolute, normalized path.
+// It can be converted to a printable path (for error messages) or to a native
+// path (for API calls).
 class Path {
  public:
   Path() {}
   explicit Path(const std::string &path);
   bool IsEmpty() const { return path_.empty(); }
   bool IsNull() const;
+  bool Contains(const char c) const;
   Path GetRelative(const std::string &r) const;
+  Path Canonicalize() const;
   std::string AsPrintablePath() const;
+  std::string AsJvmArgument() const;
+  std::string AsCommandLineArgument() const;
 
 #if defined(_WIN32) || defined(__CYGWIN__)
-  const std::wstring &AsNativePath() const { return path_; }
+  const std::wstring AsNativePath() const { return path_; }
 #else
-  const std::string &AsNativePath() const { return path_; }
+  const std::string AsNativePath() const { return path_; }
 #endif
 
  private:
