@@ -181,6 +181,7 @@ EOF
   assert_equals "hello world 3" "$(cat $BINS/hello_world_3.out)"
 }
 
+# We just need to test the build completion, no assertion is needed.
 function test_multiple_target_with_delay() {
   prepare_example_worker
   cat >>BUILD <<EOF
@@ -200,6 +201,33 @@ work(
   name = "hello_world_3",
   worker = ":worker",
   args = ["--delay", "hello world 3"],
+)
+EOF
+
+  bazel build  :hello_world_1 :hello_world_2 :hello_world_3 &> $TEST_log \
+    || fail "build failed"
+}
+
+# We just need to test the build completion, no assertion is needed.
+function test_multiple_target_return_response_in_opposite_order() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world_1",
+  worker = ":worker",
+  args = ["--queue", "hello world 1"],
+)
+
+work(
+  name = "hello_world_2",
+  worker = ":worker",
+  args = ["--queue", "hello world 2"],
+)
+
+work(
+  name = "hello_world_3",
+  worker = ":worker",
+  args = ["--queue", "hello world 3"],
 )
 EOF
 

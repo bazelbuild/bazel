@@ -60,10 +60,19 @@ public class ExampleWorkerMultiplexer {
 
   static Semaphore protectResponse = new Semaphore(1);
 
+  static int refCounter = 0;
+  static int releaseCounter = 0;
+  static Semaphore protectQueue = new Semaphore(1);
+  static ArrayList<Semaphore> sem = new ArrayList<Semaphore>();
+
   // Keep state across multiple builds.
   static final LinkedHashMap<String, String> inputs = new LinkedHashMap<>();
 
   public static void main(String[] args) throws Exception {
+    for (int i = 0; i < concurrentThreadNumber; i++) {
+      sem.add(new Semaphore(0));
+    }
+
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
       OptionsParser parser =
           OptionsParser.builder()
@@ -192,6 +201,24 @@ public class ExampleWorkerMultiplexer {
     ExampleWorkMultiplexerOptions options = parser.getOptions(ExampleWorkMultiplexerOptions.class);
 
     List<String> outputs = new ArrayList<>();
+
+    if (options.queue) {
+      protectQueue.acquire();
+      int queuePos = refCounter;
+      refCounter++;
+      if (refCounter == concurrentThreadNumber) {
+        sem.get(queuePos).release();
+      }
+      protectQueue.release();
+      sem.get(queuePos).acquire();
+      protectQueue.acquire();
+      releaseCounter++;
+      outputs.add("QUEUE request " + Integer.toString(queuePos+1) + " release at " + releaseCounter);
+      if (queuePos > 0) {
+        sem.get(queuePos-1).release();
+      }
+      protectQueue.release();
+    }
 
     if (options.delay) {
       Integer randomDelay = new Random().nextInt(200) + 100;

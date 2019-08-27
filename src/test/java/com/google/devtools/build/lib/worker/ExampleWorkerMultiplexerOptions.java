@@ -89,6 +89,15 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
       help = "Randomly delay the worker response (between 100 to 300 ms)."
     )
     public boolean delay;
+
+    @Option(
+      name = "queue",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false",
+      help = "Queue response and return it in opposite order."
+    )
+    public boolean queue;
   }
 
   @Option(
