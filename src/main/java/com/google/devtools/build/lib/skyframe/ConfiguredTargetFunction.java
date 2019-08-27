@@ -676,15 +676,30 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     ImmutableList<Dependency> configConditionDeps = depsBuilder.build();
 
-    Map<SkyKey, ConfiguredTargetAndData> configValues =
-        resolveConfiguredTargetDependencies(
-            env,
-            ctgValue,
-            configConditionDeps,
-            transitivePackagesForPackageRootResolution,
-            transitiveRootCauses);
-    if (configValues == null) {
-      return null;
+    Map<SkyKey, ConfiguredTargetAndData> configValues;
+    try {
+      configValues =
+          resolveConfiguredTargetDependencies(
+              env,
+              ctgValue,
+              configConditionDeps,
+              transitivePackagesForPackageRootResolution,
+              transitiveRootCauses);
+      if (configValues == null) {
+        return null;
+      }
+    } catch (DependencyEvaluationException e) {
+      // One of the config dependencies doesn't exist, and we need to report that. Unfortunately,
+      // there's not enough information to know which configurable attribute has the problem.
+      env.getListener()
+          .handle(
+              Event.error(
+                  String.format(
+                      "While resolving configuation keys for %s: %s",
+                      target.getLabel(), e.getCause().getMessage())));
+
+      // Re-throw the exception so it is handled by compute().
+      throw e;
     }
 
     Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
