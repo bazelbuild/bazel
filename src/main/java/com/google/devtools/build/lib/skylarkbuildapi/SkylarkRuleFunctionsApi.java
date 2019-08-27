@@ -382,11 +382,12 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             type = BaseFunction.class,
             named = true,
             doc =
-                "the function implementing this aspect. Must have two parameters: "
+                "A function that implements this aspect, with exactly two parameters: "
                     + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
-                    + "applied) and <a href=\"ctx.html\">ctx</a>. Attributes of the target are "
-                    + "available via ctx.rule field. The function is called during the analysis "
-                    + "phase for each application of an aspect to a target."),
+                    + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the target"
+                    + "is created from). Attributes of the target are available via the "
+                    + "<code>ctx.rule</code> field. This function is evaluated during the "
+                    + "analysis phase for each application of an aspect to a target."),
         @Param(
             name = "attr_aspects",
             type = SkylarkList.class,
@@ -394,10 +395,11 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             generic1 = String.class,
             defaultValue = "[]",
             doc =
-                "List of attribute names.  The aspect propagates along dependencies specified by"
-                    + " attributes of a target with this name. The list can also contain a single "
-                    + "string '*': in that case aspect propagates along all dependencies of a"
-                    + " target."),
+                "List of attribute names. The aspect propagates along dependencies specified in "
+                    + " the attributes of a target with these names. Common values here include "
+                    + "<code>deps</code> and <code>exports</code>. The list can also contain a "
+                    + "single string <code>\"*\"</code> to propagate along all dependencies of a "
+                    + "target."),
         @Param(
             name = "attrs",
             type = SkylarkDict.class,
@@ -405,29 +407,42 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             noneable = true,
             defaultValue = "None",
             doc =
-                "dictionary to declare all the attributes of the aspect.  It maps from an"
-                    + " attribute name to an attribute object (see <a href=\"attr.html\">attr</a>"
-                    + " module). Aspect attributes are available to implementation function as"
-                    + " fields of ctx parameter. Implicit attributes starting with <code>_</code>"
-                    + " must have default values, and have type <code>label</code> or"
-                    + " <code>label_list</code>. Explicit attributes must have type"
-                    + " <code>string</code>, and must use the <code>values</code> restriction. If"
-                    + " explicit attributes are present, the aspect can only be used with rules"
-                    + " that have attributes of the same name and type, with valid values."),
+                "A dictionary declaring all the attributes of the aspect. It maps from an "
+                    + "attribute name to an attribute object, like `attr.label` or `attr.string` "
+                    + "(see <a href=\"attr.html\">attr</a> module). Aspect attributes are "
+                    + "available to implementation function as fields of <code>ctx<code> "
+                    + "parameter. "
+                    + ""
+                    + "<p>Implicit attributes starting with <code>_</code> must have default "
+                    + "values, and have type <code>label</code> or <code>label_list</code>. "
+                    + ""
+                    + "<p>Explicit attributes must have type <code>string</code>, and must use "
+                    + "the <code>values</code> restriction. Explicit attributes restrict the "
+                    + "aspect to only be used with rules that have attributes of the same "
+                    + "name, type, and valid values according to the restriction."),
         @Param(
             name = "required_aspect_providers",
             type = SkylarkList.class,
             named = true,
             defaultValue = "[]",
             doc =
-                "Allow the aspect to inspect other aspects. If the aspect propagates along a"
-                    + " dependency, and the underlying rule sends a different aspect along that "
-                    + "dependency, and that aspect provides one of the providers listed here, this"
-                    + " aspect will see the providers provided by that aspect. <p>The value should"
-                    + " be either a list of providers, or a list of lists of providers. This"
-                    + " aspect will 'see'  the underlying aspects that provide  ALL providers from"
-                    + " at least ONE of these lists. A single list of providers will be"
-                    + " automatically converted to a list containing one list of providers."),
+                "This attribute allows this aspect to inspect other aspects. The value must be a"
+                    + "list of providers, or a list of lists of providers. For example, "
+                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]<code> is a"
+                    + "valid value."
+                    + ""
+                    + "<p>A single list of providers will automatically be converted to a list "
+                    + "containing one list of providers. That is, "
+                    + "<code>[FooInfo, BarInfo]</code> will automatically be converted to "
+                    + "<code>[[FooInfo, BarInfo]]</code>. "
+                    + ""
+                    + "<p>To make another aspect (e.g. <code>other_aspect</code>) visible to this "
+                    + "aspect, <code>other_aspect</code> must provide all providers from at least "
+                    + "one of the lists. In the example of "
+                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code>, this aspect can only "
+                    + "see <code>other_aspect</code> if and only if <code>other_aspect<code> "
+                    + "provides <code>FooInfo</code> *or* <code>BarInfo</code> *or* both "
+                    + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
         @Param(
             name = "provides",
             type = SkylarkList.class,
