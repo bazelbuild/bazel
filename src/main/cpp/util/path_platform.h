@@ -27,6 +27,7 @@ class Path {
   explicit Path(const std::string &path);
   bool operator==(const Path& o) const { return path_ == o.path_; }
   bool operator!=(const Path& o) const { return path_ != o.path_; }
+  bool operator<(const Path& o) const { return path_ < o.path_; }
   bool IsEmpty() const { return path_.empty(); }
   bool IsNull() const;
   bool Contains(const char c) const;
@@ -95,6 +96,7 @@ bool IsDevNull(const char *path);
 
 // Returns true if `path` is the root directory or a Windows drive root.
 bool IsRootDirectory(const std::string &path);
+bool IsRootDirectory(const Path &path);
 
 // Returns true if `path` is absolute.
 bool IsAbsolute(const std::string &path);

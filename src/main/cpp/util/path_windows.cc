@@ -449,6 +449,10 @@ bool IsRootDirectory(const std::string& path) {
   return IsRootOrAbsolute(path, true);
 }
 
+bool IsRootDirectory(const Path& path) {
+  return IsRootOrAbsolute(path.AsNativePath(), true);
+}
+
 bool IsAbsolute(const std::string& path) {
   return IsRootOrAbsolute(path, false);
 }

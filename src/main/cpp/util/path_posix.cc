@@ -56,6 +56,10 @@ bool IsRootDirectory(const std::string &path) {
   return path.size() == 1 && path[0] == '/';
 }
 
+bool IsRootDirectory(const Path &path) {
+  return IsRootDirectory(path.AsNativePath());
+}
+
 bool IsAbsolute(const std::string &path) {
   return !path.empty() && path[0] == '/';
 }

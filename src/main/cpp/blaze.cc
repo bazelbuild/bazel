@@ -914,6 +914,8 @@ static void StartServerAndConnect(
 }
 
 static void MoveFiles(const string &embedded_binaries) {
+  blaze_util::Path embedded_binaries_(embedded_binaries);
+
   // Set the timestamps of the extracted files to the future and make sure (or
   // at least as sure as we can...) that the files we have written are actually
   // on the disk.
@@ -924,9 +926,9 @@ static void MoveFiles(const string &embedded_binaries) {
   blaze_util::GetAllFilesUnder(embedded_binaries, &extracted_files);
 
   std::unique_ptr<blaze_util::IFileMtime> mtime(blaze_util::CreateFileMtime());
-  set<string> synced_directories;
-  for (const auto &it : extracted_files) {
-    const char *extracted_path = it.c_str();
+  set<blaze_util::Path> synced_directories;
+  for (const auto &f : extracted_files) {
+    blaze_util::Path it(f);
 
     // Set the time to a distantly futuristic value so we can observe tampering.
     // Note that keeping a static, deterministic timestamp, such as the default
@@ -936,14 +938,15 @@ static void MoveFiles(const string &embedded_binaries) {
     // changed. This is essential for the correctness of actions that use
     // embedded binaries as artifacts.
     if (!mtime->SetToDistantFuture(it)) {
+      string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to set timestamp on '" << extracted_path
-          << "': " << GetLastErrorString();
+          << "failed to set timestamp on '" << it.AsPrintablePath() << "': "
+          << err;
     }
 
     blaze_util::SyncFile(it);
 
-    string directory = blaze_util::Dirname(extracted_path);
+    blaze_util::Path directory = it.GetParent();
 
     // Now walk up until embedded_binaries and sync every directory in between.
     // synced_directories is used to avoid syncing the same directory twice.
@@ -951,16 +954,16 @@ static void MoveFiles(const string &embedded_binaries) {
     // conditions are not strictly needed, but it makes this loop more robust,
     // because otherwise, if due to some glitch, directory was not under
     // embedded_binaries, it would get into an infinite loop.
-    while (directory != embedded_binaries &&
-           synced_directories.count(directory) == 0 && !directory.empty() &&
+    while (directory != embedded_binaries_ &&
+           synced_directories.count(directory) == 0 && !directory.IsEmpty() &&
            !blaze_util::IsRootDirectory(directory)) {
       blaze_util::SyncFile(directory);
       synced_directories.insert(directory);
-      directory = blaze_util::Dirname(directory);
+      directory = directory.GetParent();
     }
   }
 
-  blaze_util::SyncFile(embedded_binaries);
+  blaze_util::SyncFile(embedded_binaries_);
 }
 
 
@@ -981,8 +984,7 @@ static DurationMillis ExtractData(const string &self_path,
     // Work in a temp dir to avoid races.
     string tmp_install = startup_options.install_base + ".tmp." +
                          blaze::GetProcessIdAsString();
-    string tmp_binaries =
-        blaze_util::JoinPath(tmp_install, "_embedded_binaries");
+    string tmp_binaries = GetEmbeddedBinariesRoot(tmp_install);
     ExtractArchiveOrDie(
         self_path,
         startup_options.product_name,
@@ -1031,13 +1033,14 @@ static DurationMillis ExtractData(const string &self_path,
 
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
-    string real_install_dir = blaze_util::JoinPath(
-        startup_options.install_base, "_embedded_binaries");
+    blaze_util::Path real_install_dir =
+        blaze_util::Path(startup_options.install_base)
+            .GetRelative("_embedded_binaries");
     for (const auto &it : archive_contents) {
-      string path = blaze_util::JoinPath(real_install_dir, it);
+      blaze_util::Path path = real_install_dir.GetRelative(it);
       if (!mtime->IsUntampered(path)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "corrupt installation: file '" << path
+            << "corrupt installation: file '" << path.AsPrintablePath()
             << "' is missing or modified.  Please remove '"
             << startup_options.install_base << "' and try again.";
       }
@@ -1203,10 +1206,11 @@ static void EnsureCorrectRunningVersion(
     // find install bases that haven't been used for a long time
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
-    if (!mtime->SetToNow(startup_options.install_base)) {
+    if (!mtime->SetToNow(blaze_util::Path(startup_options.install_base))) {
+      string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to set timestamp on '" << startup_options.install_base
-          << "': " << GetLastErrorString();
+          << "': " << err;
     }
   }
 }
