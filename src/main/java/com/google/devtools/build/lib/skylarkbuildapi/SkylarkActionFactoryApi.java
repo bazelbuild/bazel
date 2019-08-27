@@ -104,7 +104,10 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
   @SkylarkCallable(
       name = "declare_symlink",
       doc =
-          "Declares that the rule or aspect creates a symlink with the given name in the current "
+          "<p><b>Experimental</b>. This parameter is experimental and may change at any "
+              + "time. Please do not depend on it. It may be enabled on an experimental basis by "
+              + "setting <code>--experimental_allow_unresolved_symlinks</code></p> <p>Declares "
+              + "that the rule or aspect creates a symlink with the given name in the current "
               + "package. You must create an action that generates this symlink. Bazel will never "
               + "dereference this symlink and will transfer it verbatim to sandboxes or remote "
               + "executors.",
@@ -159,7 +162,10 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
   @SkylarkCallable(
       name = "symlink",
       doc =
-          "Creates a symlink in the file system. If the output file is a regular file, the "
+          "<p><b>Experimental</b>. This parameter is experimental and may change at any "
+              + "time. Please do not depend on it. It may be enabled on an experimental basis by "
+              + "setting <code>--experimental_allow_unresolved_symlinks</code></p><p>"
+              + "Creates a symlink in the file system. If the output file is a regular file, the "
               + "symlink must point to a file. If the output is an unresolved symlink, a dangling "
               + "symlink is allowed.",
       parameters = {
