@@ -49,6 +49,49 @@ function set_up() {
     || fail "'bazel build --worker_quit_after_build' during test set_up failed"
 }
 
+function write_hello_library_files() {
+  mkdir -p java/main
+  cat >java/main/BUILD <<EOF
+java_binary(name = 'main',
+    deps = [':hello_library'],
+    srcs = ['Main.java'],
+    main_class = 'main.Main')
+
+java_library(name = 'hello_library',
+             srcs = ['HelloLibrary.java']);
+EOF
+
+  cat >java/main/Main.java <<EOF
+package main;
+import main.HelloLibrary;
+public class Main {
+  public static void main(String[] args) {
+    HelloLibrary.funcHelloLibrary();
+    System.out.println("Hello, World!");
+  }
+}
+EOF
+
+  cat >java/main/HelloLibrary.java <<EOF
+package main;
+public class HelloLibrary {
+  public static void funcHelloLibrary() {
+    System.out.print("Hello, Library!;");
+  }
+}
+EOF
+}
+
+# function test_compiles_hello_library_using_persistent_javac() {
+#   write_hello_library_files
+
+#   bazel build java/main:main &> $TEST_log \
+#     || fail "build failed"
+#   expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+)"
+#   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
+#     || fail "comparison failed"
+# }
+
 function prepare_example_worker() {
   cp ${example_worker} worker_lib.jar
   chmod +w worker_lib.jar
@@ -152,6 +195,344 @@ EOF
   assert_equals "HELLO WORLD" "$(cat $BINS/hello_world_uppercase.out)"
 }
 
+function test_multiple_flagfiles() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "multi_hello_world",
+  worker = ":worker",
+  args = ["hello", "world", "nice", "to", "meet", "you"],
+  multiflagfiles = True,
+)
+EOF
+
+  bazel build  :multi_hello_world &> $TEST_log \
+    || fail "build failed"
+  assert_equals "hello world nice to meet you" "$(cat $BINS/multi_hello_world.out)"
+}
+
+function test_workers_quit_after_build() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  args = ["--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build --worker_quit_after_build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+  work_count=$(cat $BINS/hello_world_1.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "1" $work_count
+
+  bazel build --worker_quit_after_build :hello_world_2 &> $TEST_log \
+    || fail "build failed"
+  work_count=$(cat $BINS/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
+  # If the worker hadn't quit as we told it, it would have been reused, causing this to be a "2".
+  assert_equals "1" $work_count
+}
+
+# function test_build_fails_when_worker_exits() {
+#   prepare_example_worker
+#   cat >>BUILD <<'EOF'
+# [work(
+#   name = "hello_world_%s" % idx,
+#   worker = ":worker",
+#   worker_args = ["--exit_after=1"],
+#   args = ["--write_uuid", "--write_counter"],
+# ) for idx in range(10)]
+# EOF
+
+#   bazel build :hello_world_1 &> $TEST_log \
+#     || fail "build failed"
+
+#   bazel build :hello_world_2 &> $TEST_log \
+#     && fail "expected build to failed" || true
+
+#   expect_log "Worker process quit or closed its stdin stream when we tried to send a WorkRequest"
+# }
+
+function test_worker_restarts_when_worker_binary_changes() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  echo "First run" >> $TEST_log
+  bazel build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+  worker_uuid_1=$(cat $BINS/hello_world_1.out | grep UUID | cut -d' ' -f2)
+  work_count=$(cat $BINS/hello_world_1.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "1" $work_count
+
+  echo "Second run" >> $TEST_log
+  bazel build :hello_world_2 &> $TEST_log \
+    || fail "build failed"
+  worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
+  work_count=$(cat $BINS/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "2" $work_count
+
+  # Check that the same worker was used twice.
+  assert_equals "$worker_uuid_1" "$worker_uuid_2"
+
+  # Modify the example worker jar to trigger a rebuild of the worker.
+  tr -cd '[:alnum:]' < /dev/urandom | head -c32 > dummy_file
+  zip worker_lib.jar dummy_file
+  rm dummy_file
+
+  bazel build :hello_world_3 &> $TEST_log \
+    || fail "build failed"
+  worker_uuid_3=$(cat $BINS/hello_world_3.out | grep UUID | cut -d' ' -f2)
+  work_count=$(cat $BINS/hello_world_3.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "1" $work_count
+
+  expect_log "worker .* can no longer be used, because its files have changed on disk"
+  expect_log "worker_lib.jar: .* -> .*"
+
+  # Check that we used a new worker.
+  assert_not_equals "$worker_uuid_2" "$worker_uuid_3"
+}
+
+function test_worker_restarts_when_worker_runfiles_change() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+  worker_uuid_1=$(cat $BINS/hello_world_1.out | grep UUID | cut -d' ' -f2)
+  work_count=$(cat $BINS/hello_world_1.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "1" $work_count
+
+  bazel build :hello_world_2 &> $TEST_log \
+    || fail "build failed"
+  worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
+  work_count=$(cat $BINS/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "2" $work_count
+
+  # Check that the same worker was used twice.
+  assert_equals "$worker_uuid_1" "$worker_uuid_2"
+
+  # "worker_data.txt" is included in the "data" attribute of the example worker.
+  echo "changeddata" > worker_data.txt
+
+  bazel build :hello_world_3 &> $TEST_log \
+    || fail "build failed"
+  worker_uuid_3=$(cat $BINS/hello_world_3.out | grep UUID | cut -d' ' -f2)
+  work_count=$(cat $BINS/hello_world_3.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "1" $work_count
+
+  expect_log "worker .* can no longer be used, because its files have changed on disk"
+  expect_log "worker_data.txt: .* -> .*"
+
+  # Check that we used a new worker.
+  assert_not_equals "$worker_uuid_2" "$worker_uuid_3"
+}
+
+# When a worker does not conform to the protocol and returns a response that is not a parseable
+# protobuf, it must be killed and a helpful error message should be printed.
+# function test_build_fails_when_worker_returns_junk() {
+#   prepare_example_worker
+#   cat >>BUILD <<'EOF'
+# [work(
+#   name = "hello_world_%s" % idx,
+#   worker = ":worker",
+#   worker_args = ["--poison_after=1"],
+#   args = ["--write_uuid", "--write_counter"],
+# ) for idx in range(10)]
+# EOF
+
+#   bazel build :hello_world_1 &> $TEST_log \
+#     || fail "build failed"
+
+#   # A failing worker should cause the build to fail.
+#   bazel build :hello_world_2 &> $TEST_log \
+#     && fail "expected build to fail" || true
+
+#   # Check that a helpful error message was printed.
+#   expect_log "Worker process returned an unparseable WorkResponse!"
+#   expect_log "Did you try to print something to stdout"
+#   expect_log "I'm a poisoned worker and this is not a protobuf."
+# }
+
+function test_input_digests() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  args = ["--write_uuid", "--print_inputs"],
+  srcs = [":input.txt"],
+) for idx in range(10)]
+EOF
+
+  echo "hello world" > input.txt
+  bazel build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+  worker_uuid_1=$(cat $BINS/hello_world_1.out | grep UUID | cut -d' ' -f2)
+  hash1=$(egrep "INPUT .*/input.txt " $BINS/hello_world_1.out | cut -d' ' -f3)
+
+  bazel build :hello_world_2 >> $TEST_log 2>&1 \
+    || fail "build failed"
+  worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
+  hash2=$(egrep "INPUT .*/input.txt " $BINS/hello_world_2.out | cut -d' ' -f3)
+
+  assert_equals "$worker_uuid_1" "$worker_uuid_2"
+  assert_equals "$hash1" "$hash2"
+
+  echo "changeddata" > input.txt
+
+  bazel build :hello_world_3 >> $TEST_log 2>&1 \
+    || fail "build failed"
+  worker_uuid_3=$(cat $BINS/hello_world_3.out | grep UUID | cut -d' ' -f2)
+  hash3=$(egrep "INPUT .*/input.txt " $BINS/hello_world_3.out | cut -d' ' -f3)
+
+  assert_equals "$worker_uuid_2" "$worker_uuid_3"
+  assert_not_equals "$hash2" "$hash3"
+}
+
+function test_worker_verbose() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build --worker_quit_after_build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  expect_log "Destroying Work worker (id [0-9]\+)"
+  expect_log "Build completed, shutting down worker pool..."
+}
+
+function test_logs_are_deleted_on_server_restart() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build --worker_quit_after_build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+
+  worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
+
+  [ -e "$worker_log" ] \
+    || fail "Worker log was not found"
+
+  # Running a build after a server shutdown should trigger the removal of old worker log files.
+  bazel shutdown &> $TEST_log
+  bazel build &> $TEST_log
+
+  [ ! -e "$worker_log" ] \
+    || fail "Worker log was not deleted"
+}
+
+function test_missing_execution_requirements_fallback_to_standalone() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+work(
+  name = "hello_world",
+  worker = ":worker",
+  args = ["--write_uuid", "--write_counter"],
+)
+EOF
+
+  sed -i.bak '/execution_requirements/d' work.bzl
+  rm -f work.bzl.bak
+
+  bazel build --worker_quit_after_build :hello_world &> $TEST_log \
+    || fail "build failed"
+
+  expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  expect_not_log "Destroying Work worker (id [0-9]\+)"
+
+  # WorkerSpawnStrategy falls back to standalone strategy, so we still expect the output to be generated.
+  [ -e "$BINS/hello_world.out" ] \
+    || fail "Worker did not produce output"
+}
+
+function test_environment_is_clean() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+work(
+  name = "hello_world",
+  worker = ":worker",
+  args = ["--print_env"],
+)
+EOF
+
+  bazel shutdown &> $TEST_log \
+    || fail "shutdown failed"
+  CAKE=LIE bazel build --worker_quit_after_build :hello_world &> $TEST_log \
+    || fail "build failed"
+
+  fgrep CAKE=LIE $BINS/hello_world.out \
+    && fail "environment variable leaked into worker env" || true
+}
+
+function test_workers_quit_on_clean() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_clean",
+  worker = ":worker",
+  args = ["hello clean"],
+)
+EOF
+
+  bazel build :hello_clean &> $TEST_log \
+    || fail "build failed"
+  assert_equals "hello clean" "$(cat $BINS/hello_clean.out)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+
+  bazel clean &> $TEST_log \
+    || fail "clean failed"
+  expect_log "Clean command is running, shutting down worker pool..."
+  expect_log "Destroying Work worker (id [0-9]\+)"
+}
+
+# function test_crashed_worker_causes_log_dump() {
+#   prepare_example_worker
+#   cat >>BUILD <<'EOF'
+# [work(
+#   name = "hello_world_%s" % idx,
+#   worker = ":worker",
+#   worker_args = ["--poison_after=1", "--hard_poison"],
+#   args = ["--write_uuid", "--write_counter"],
+# ) for idx in range(10)]
+# EOF
+
+#   bazel build :hello_world_1 &> $TEST_log \
+#     || fail "build failed"
+
+#   bazel build :hello_world_2 &> $TEST_log \
+#     && fail "expected build to fail" || true
+
+#   expect_log "^---8<---8<--- Start of log, file at /"
+#   expect_log "Worker process did not return a WorkResponse:"
+#   expect_log "I'm a very poisoned worker and will just crash."
+#   expect_log "^---8<---8<--- End of log ---8<---8<---"
+# }
+
 function test_multiple_target_without_delay() {
   prepare_example_worker
   cat >>BUILD <<EOF
@@ -209,29 +590,29 @@ EOF
 }
 
 # We just need to test the build completion, no assertion is needed.
-function test_multiple_target_return_response_in_opposite_order() {
-  prepare_example_worker
-  cat >>BUILD <<EOF
-work(
-  name = "hello_world_1",
-  worker = ":worker",
-  args = ["--queue", "hello world 1"],
-)
+# function test_multiple_target_return_response_in_opposite_order() {
+#   prepare_example_worker
+#   cat >>BUILD <<EOF
+# work(
+#   name = "hello_world_1",
+#   worker = ":worker",
+#   args = ["--queue", "hello world 1"],
+# )
 
-work(
-  name = "hello_world_2",
-  worker = ":worker",
-  args = ["--queue", "hello world 2"],
-)
+# work(
+#   name = "hello_world_2",
+#   worker = ":worker",
+#   args = ["--queue", "hello world 2"],
+# )
 
-work(
-  name = "hello_world_3",
-  worker = ":worker",
-  args = ["--queue", "hello world 3"],
-)
-EOF
+# work(
+#   name = "hello_world_3",
+#   worker = ":worker",
+#   args = ["--queue", "hello world 3"],
+# )
+# EOF
 
-  bazel build  :hello_world_1 :hello_world_2 :hello_world_3 &> $TEST_log \
-    || fail "build failed"
-}
+#   bazel build  :hello_world_1 :hello_world_2 :hello_world_3 &> $TEST_log \
+#     || fail "build failed"
+# }
 run_suite "Worker multiplexer integration tests"
