@@ -58,6 +58,8 @@ public class ExampleWorkerMultiplexer {
   // If true, returns corrupt responses instead of correct protobufs.
   static boolean poisoned = false;
 
+  static Semaphore protectResponse = new Semaphore(1);
+
   // Keep state across multiple builds.
   static final LinkedHashMap<String, String> inputs = new LinkedHashMap<>();
 
@@ -157,15 +159,17 @@ public class ExampleWorkerMultiplexer {
         if (poisoned) {
           baos.writeTo(System.out);
         } else {
+          protectResponse.acquire();
           WorkResponse.newBuilder()
               .setRequestId(requestId)
               .setOutput(baos.toString())
               .setExitCode(exitCode)
               .build()
               .writeDelimitedTo(System.out);
+          protectResponse.release();
         }
         System.out.flush();
-      } catch (IOException e) {
+      } catch (IOException | InterruptedException e) {
         throw new RuntimeException(e);
       }
     };
