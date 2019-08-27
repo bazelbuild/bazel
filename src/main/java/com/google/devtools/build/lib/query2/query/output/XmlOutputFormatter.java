@@ -81,7 +81,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
     super.setOptions(options, aspectResolver);
     this.aspectResolver = aspectResolver;
-    this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
+    this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.relativeLocations = options.relativeLocations;
 
     Preconditions.checkArgument(options instanceof QueryOptions);
@@ -155,8 +155,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
-        PossibleAttributeValues values = getPossibleAttributeValues(rule, attr);
-        if (values.source == AttributeValueSource.RULE || queryOptions.xmlShowDefaultValues) {
+        PossibleAttributeValues values = PossibleAttributeValues.forRuleAndAttribute(rule, attr);
+        if (values.getSource() == AttributeValueSource.RULE || queryOptions.xmlShowDefaultValues) {
           Element attrElem = createValueElement(doc, attr.getType(), values);
           attrElem.setAttribute("name", attr.getName());
           elem.appendChild(attrElem);
@@ -238,7 +238,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     elem.setAttribute("name", target.getLabel().toString());
-    String location = getLocation(target, relativeLocations);
+    String location = FormatUtils.getLocation(target, relativeLocations);
     if (!queryOptions.xmlLineNumbers) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {

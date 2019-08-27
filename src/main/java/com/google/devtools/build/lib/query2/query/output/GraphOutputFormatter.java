@@ -107,11 +107,11 @@ class GraphOutputFormatter extends OutputFormatter {
             }
           }
         },
-        sortLabels ? new TargetOrdering() : null);
+        sortLabels ? new FormatUtils.TargetOrdering() : null);
   }
 
   private static final Ordering<Node<Target>> NODE_COMPARATOR =
-      Ordering.from(new TargetOrdering()).onResultOf(EXTRACT_NODE_LABEL);
+      Ordering.from(new FormatUtils.TargetOrdering()).onResultOf(Node::getLabel);
 
   private static final Comparator<Iterable<Node<Target>>> ITERABLE_COMPARATOR =
       NODE_COMPARATOR.lexicographical();

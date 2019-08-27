@@ -47,7 +47,7 @@ abstract class AbstractUnorderedFormatter extends OutputFormatter implements Str
     Iterable<Node<Target>> orderedResult =
         options.orderOutput == OrderOutput.DEPS
             ? result.getTopologicalOrder()
-            : result.getTopologicalOrder(new TargetOrdering());
-    return Iterables.transform(orderedResult, EXTRACT_NODE_LABEL);
+            : result.getTopologicalOrder(new FormatUtils.TargetOrdering());
+    return Iterables.transform(orderedResult, Node::getLabel);
   }
 }
