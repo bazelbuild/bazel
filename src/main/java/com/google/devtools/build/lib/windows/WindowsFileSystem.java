@@ -36,9 +36,10 @@ import java.nio.file.attribute.DosFileAttributes;
 public class WindowsFileSystem extends JavaIoFileSystem {
 
   public static final LinkOption[] NO_OPTIONS = new LinkOption[0];
-  public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
+  public static final LinkOption[] NO_FOLLOW = new LinkOption[] { LinkOption.NOFOLLOW_LINKS };
 
-  public WindowsFileSystem() throws DefaultHashFunctionNotSetException {}
+  public WindowsFileSystem() throws DefaultHashFunctionNotSetException {
+  }
 
   public WindowsFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
@@ -46,8 +47,10 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public String getFileSystemType(Path path) {
-    // TODO(laszlocsomor): implement this properly, i.e. actually query this information from
-    // somewhere (java.nio.Filesystem? System.getProperty? implement JNI method and use WinAPI?).
+    // TODO(laszlocsomor): implement this properly, i.e. actually query this
+    // information from
+    // somewhere (java.nio.Filesystem? System.getProperty? implement JNI method and
+    // use WinAPI?).
     return "ntfs";
   }
 
@@ -67,10 +70,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
-    Path targetPath =
-        targetFragment.isAbsolute()
-            ? getPath(targetFragment)
-            : linkPath.getParentDirectory().getRelative(targetFragment);
+    Path targetPath = targetFragment.isAbsolute() ? getPath(targetFragment)
+        : linkPath.getParentDirectory().getRelative(targetFragment);
     try {
       java.nio.file.Path link = getIoFile(linkPath).toPath();
       java.nio.file.Path target = getIoFile(targetPath).toPath();
@@ -92,7 +93,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   protected PathFragment readSymbolicLink(Path path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    return PathFragment.create(WindowsFileOperations.readSymlinkOrJunction(nioPath.toString()));
+    try {
+      return PathFragment.create(WindowsFileOperations.readSymlinkOrJunction(nioPath.toString()));
+    } catch (IOException e) {
+      throw e.getMessage().endsWith("path is not a link") ? new NotASymlinkException(path) : e;
+    }
   }
 
   @Override
@@ -132,50 +137,49 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     }
 
     final boolean isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
-    FileStatus status =
-        new FileStatus() {
-          @Override
-          public boolean isFile() {
-            return attributes.isRegularFile() || (isSpecialFile() && !isDirectory());
-          }
+    FileStatus status = new FileStatus() {
+      @Override
+      public boolean isFile() {
+        return attributes.isRegularFile() || (isSpecialFile() && !isDirectory());
+      }
 
-          @Override
-          public boolean isSpecialFile() {
-            return attributes.isOther();
-          }
+      @Override
+      public boolean isSpecialFile() {
+        return attributes.isOther();
+      }
 
-          @Override
-          public boolean isDirectory() {
-            return attributes.isDirectory();
-          }
+      @Override
+      public boolean isDirectory() {
+        return attributes.isDirectory();
+      }
 
-          @Override
-          public boolean isSymbolicLink() {
-            return isSymbolicLink;
-          }
+      @Override
+      public boolean isSymbolicLink() {
+        return isSymbolicLink;
+      }
 
-          @Override
-          public long getSize() throws IOException {
-            return attributes.size();
-          }
+      @Override
+      public long getSize() throws IOException {
+        return attributes.size();
+      }
 
-          @Override
-          public long getLastModifiedTime() throws IOException {
-            return attributes.lastModifiedTime().toMillis();
-          }
+      @Override
+      public long getLastModifiedTime() throws IOException {
+        return attributes.lastModifiedTime().toMillis();
+      }
 
-          @Override
-          public long getLastChangeTime() {
-            // This is the best we can do with Java NIO...
-            return attributes.lastModifiedTime().toMillis();
-          }
+      @Override
+      public long getLastChangeTime() {
+        // This is the best we can do with Java NIO...
+        return attributes.lastModifiedTime().toMillis();
+      }
 
-          @Override
-          public long getNodeId() {
-            // TODO(bazel-team): Consider making use of attributes.fileKey().
-            return -1;
-          }
-        };
+      @Override
+      public long getNodeId() {
+        // TODO(bazel-team): Consider making use of attributes.fileKey().
+        return -1;
+      }
+    };
 
     return status;
   }
@@ -195,32 +199,36 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   /**
-   * Returns true if the path refers to a directory junction, directory symlink, or regular symlink.
+   * Returns true if the path refers to a directory junction, directory symlink,
+   * or regular symlink.
    *
-   * <p>Directory junctions are symbolic links created with "mklink /J" where the target is a
-   * directory or another directory junction. Directory junctions can be created without any user
-   * privileges.
+   * <p>
+   * Directory junctions are symbolic links created with "mklink /J" where the
+   * target is a directory or another directory junction. Directory junctions can
+   * be created without any user privileges.
    *
-   * <p>Directory symlinks are symbolic links created with "mklink /D" where the target is a
-   * directory or another directory symlink. Note that directory symlinks can only be created by
-   * Administrators.
+   * <p>
+   * Directory symlinks are symbolic links created with "mklink /D" where the
+   * target is a directory or another directory symlink. Note that directory
+   * symlinks can only be created by Administrators.
    *
-   * <p>Normal symlinks are symbolic links created with "mklink". Normal symlinks should not point
-   * at directories, because even though "mklink" can create the link, it will not be a functional
-   * one (the linked directory's contents cannot be listed). Only Administrators may create regular
-   * symlinks.
+   * <p>
+   * Normal symlinks are symbolic links created with "mklink". Normal symlinks
+   * should not point at directories, because even though "mklink" can create the
+   * link, it will not be a functional one (the linked directory's contents cannot
+   * be listed). Only Administrators may create regular symlinks.
    *
-   * <p>This method returns true for all three types as long as their target is a directory (even if
-   * they are dangling), though only directory junctions and directory symlinks are useful.
+   * <p>
+   * This method returns true for all three types as long as their target is a
+   * directory (even if they are dangling), though only directory junctions and
+   * directory symlinks are useful.
    */
   @VisibleForTesting
   static boolean isSymlinkOrJunction(File file) throws IOException {
     return WindowsFileOperations.isSymlinkOrJunction(file.getPath());
   }
 
-  private static DosFileAttributes getAttribs(File file, boolean followSymlinks)
-      throws IOException {
-    return Files.readAttributes(
-        file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
+  private static DosFileAttributes getAttribs(File file, boolean followSymlinks) throws IOException {
+    return Files.readAttributes(file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
   }
 }
