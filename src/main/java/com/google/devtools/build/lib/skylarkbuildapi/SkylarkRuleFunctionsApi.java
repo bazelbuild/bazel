@@ -428,22 +428,21 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             doc =
                 "This attribute allows this aspect to inspect other aspects. The value must be a"
                     + "list of providers, or a list of lists of providers. For example, "
-                    + "<code>[\"FooInfo\", \"BarInfo\", [\"BazInfo\", \"QuxInfo\"]]<code> is a"
+                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]<code> is a"
                     + "valid value."
                     + ""
                     + "<p>A single list of providers will automatically be converted to a list "
                     + "containing one list of providers. That is, "
-                    + "<code>[\"FooInfo\", \"BarInfo\"]</code> will automatically be converted to "
-                    + "<code>[[\"FooInfo\", \"BarInfo\"]]</code>. "
+                    + "<code>[FooInfo, BarInfo]</code> will automatically be converted to "
+                    + "<code>[[FooInfo, BarInfo]]</code>. "
                     + ""
                     + "<p>To make another aspect (e.g. <code>other_aspect</code>) visible to this "
                     + "aspect, <code>other_aspect</code> must provide all providers from at least "
                     + "one of the lists. In the example of "
-                    + "<code>[\"FooInfo\", \"BarInfo\", [\"BazInfo\", \"QuxInfo\"]]</code>, "
-                    + "this aspect can only see <code>other_aspect</code> if and only if "
-                    + "<code>other_aspect<code> provides <code>FooInfo</code>, "
-                    + "<code>BarInfo</code>, or both <code>BazInfo</code> and "
-                    + "<code>QuxInfo</code> together."),
+                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code>, this aspect can only "
+                    + "see <code>other_aspect</code> if and only if <code>other_aspect<code> "
+                    + "provides <code>FooInfo</code> *or* <code>BarInfo</code> *or* both "
+                    + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
         @Param(
             name = "provides",
             type = SkylarkList.class,
