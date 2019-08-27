@@ -217,25 +217,25 @@ http_archive(
 
 http_archive(
     name = "remote_java_tools_linux",
-    sha256 = "96e223094a12c842a66db0bb7bb6866e88e26e678f045842911f9bd6b47161f5",
+    sha256 = "b644b1eb3743376ce3aeb0cc6a15374ca5676bf872cc653c3633751c8226e060",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_linux-v4.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v5.0/java_tools_javac11_linux-v5.0-rc1.zip",
     ],
 )
 
 http_archive(
     name = "remote_java_tools_windows",
-    sha256 = "a1de51447b2ba2eab923d589ba6c72c289c16e6091e6a3bb3e67a05ef4ad200c",
+    sha256 = "116fef8a385873bfda5fa76e831959aa0ad0b12ca9a880bd0fc7252413ed7c1f",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_windows-v4.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v5.0/java_tools_javac11_windows-v5.0-rc1.zip",
     ],
 )
 
 http_archive(
     name = "remote_java_tools_darwin",
-    sha256 = "fbf5bf22e9aab9c622e4c8c59314a1eef5ea09eafc5672b4f3250dc0b971bbcc",
+    sha256 = "dfa0e6b6320325eb28023ed754022d985d462b4db468394be305a82f55e7dafa",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_darwin-v4.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v5.0/java_tools_javac11_darwin-v5.0-rc1.zip",
     ],
 )
 
