@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.query2.engine;
+package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryTest;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -77,7 +77,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
   protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
     return getHelper()
         .getSkyframeExecutor()
-        .getConfiguration(getHelper().reporter, ct.getConfigurationKey());
+        .getConfiguration(getHelper().getReporter(), ct.getConfigurationKey());
   }
 
   @Test

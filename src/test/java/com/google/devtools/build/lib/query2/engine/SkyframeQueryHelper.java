@@ -195,7 +195,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         universeScope,
         /*loadingPhaseThreads=*/ 1,
         /*labelFilter=*/ ALL_LABELS,
-        reporter,
+        getReporter(),
         this.settings,
         getExtraQueryFunctions(),
         pkgManager.getPackagePath(),
@@ -272,10 +272,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     packageCacheOptions.packagePath = ImmutableList.of(rootDirectory.getPathString());
     PathPackageLocator packageLocator =
         skyframeExecutor.createPackageLocator(
-            reporter, packageCacheOptions.packagePath, rootDirectory);
+            getReporter(), packageCacheOptions.packagePath, rootDirectory);
     try {
       skyframeExecutor.sync(
-          reporter,
+          getReporter(),
           packageCacheOptions,
           packageLocator,
           Options.getDefaults(StarlarkSemanticsOptions.class),
