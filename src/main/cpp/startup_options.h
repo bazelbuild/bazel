@@ -27,7 +27,6 @@
 #include <vector>
 
 #include "src/main/cpp/util/exit_code.h"
-#include "src/main/cpp/util/path.h"
 
 namespace blaze {
 
@@ -121,11 +120,11 @@ class StartupOptions {
 
   // If supplied, alternate location to write the blaze server's jvm's stdout.
   // Otherwise a default path in the output base is used.
-  blaze_util::Path server_jvm_out;
+  std::string server_jvm_out;
 
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.
-  blaze_util::Path output_base;
+  std::string output_base;
 
   // Installation base for a specific release installation.
   std::string install_base;

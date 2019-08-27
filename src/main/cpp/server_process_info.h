@@ -16,11 +16,9 @@
 #define BAZEL_SRC_MAIN_CPP_SERVER_PROCESS_INFO_H_
 
 #include <sys/types.h>
-
 #include <string>
 #include <vector>
 
-#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"  // pid_t on Windows/MSVC
 
 namespace blaze {
@@ -29,12 +27,12 @@ namespace blaze {
 // configuration.
 class ServerProcessInfo final {
  public:
-  ServerProcessInfo(const blaze_util::Path &output_base,
-                    const blaze_util::Path &server_jvm_out);
+  ServerProcessInfo(
+      const std::string &output_base, const std::string &server_jvm_out);
 
   // When running as a daemon, where the deamonized server's stdout and stderr
   // should be written.
-  const blaze_util::Path jvm_log_file_;
+  const std::string jvm_log_file_;
 
   // Whether or not the jvm_log_file should be opened with O_APPEND.
   const bool jvm_log_file_append_;

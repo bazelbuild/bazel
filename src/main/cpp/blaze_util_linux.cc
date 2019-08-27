@@ -66,17 +66,16 @@ string GetOutputRoot() {
   return "/tmp";
 }
 
-void WarnFilesystemType(const blaze_util::Path &output_base) {
+void WarnFilesystemType(const string& output_base) {
   struct statfs buf = {};
-  if (statfs(output_base.AsNativePath().c_str(), &buf) < 0) {
+  if (statfs(output_base.c_str(), &buf) < 0) {
     BAZEL_LOG(WARNING) << "couldn't get file system type information for '"
-                       << output_base.AsPrintablePath()
-                       << "': " << strerror(errno);
+                       << output_base << "': " << strerror(errno);
     return;
   }
 
   if (buf.f_type == NFS_SUPER_MAGIC) {
-    BAZEL_LOG(WARNING) << "Output base '" << output_base.AsPrintablePath()
+    BAZEL_LOG(WARNING) << "Output base '" << output_base
                        << "' is on NFS. This may lead to surprising failures "
                           "and undetermined behavior.";
   }
@@ -233,7 +232,7 @@ void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
 // On Linux we use a combination of PID and start time to identify the server
 // process. That is supposed to be unique unless one can start more processes
 // than there are PIDs available within a single jiffy.
-bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
+bool VerifyServerProcess(int pid, const string& output_base) {
   string start_time;
   if (!GetStartTime(ToString(pid), &start_time)) {
     // Cannot read PID file from /proc . Process died meantime, all is good. No
@@ -243,7 +242,8 @@ bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
 
   string recorded_start_time;
   bool file_present = blaze_util::ReadFile(
-      output_base.GetRelative("server/server.starttime"), &recorded_start_time);
+      blaze_util::JoinPath(output_base, "server/server.starttime"),
+      &recorded_start_time);
 
   // If start time file got deleted, but PID file didn't, assume that this is an
   // old Blaze process that doesn't know how to write start time files yet.
@@ -251,7 +251,8 @@ bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
 }
 
 // Not supported.
-void ExcludePathFromBackup(const blaze_util::Path &path) {}
+void ExcludePathFromBackup(const string &path) {
+}
 
 int32_t GetExplicitSystemLimit(const int resource) {
   return -1;

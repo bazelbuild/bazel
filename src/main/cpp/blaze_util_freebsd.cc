@@ -56,17 +56,16 @@ string GetOutputRoot() {
   }
 }
 
-void WarnFilesystemType(const blaze_util::Path &output_base) {
+void WarnFilesystemType(const string &output_base) {
   struct statfs buf = {};
-  if (statfs(output_base.AsNativePath().c_str(), &buf) < 0) {
+  if (statfs(output_base.c_str(), &buf) < 0) {
     BAZEL_LOG(WARNING) << "couldn't get file system type information for '"
-                       << output_base.AsPrintablePath()
-                       << "': " << strerror(errno);
+                       << output_base << "': " << strerror(errno);
     return;
   }
 
   if (strcmp(buf.f_fstypename, "nfs") == 0) {
-    BAZEL_LOG(WARNING) << "Output base '" << output_base.AsPrintablePath()
+    BAZEL_LOG(WARNING) << "Output base '" << output_base
                        << "' is on NFS. This may lead to surprising failures "
                           "and undetermined behavior.";
   }
@@ -165,7 +164,7 @@ int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
 void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
                                           pid_t server_pid) {}
 
-bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
+bool VerifyServerProcess(int pid, const string &output_base) {
   // TODO(lberki): This only checks for the process's existence, not whether
   // its start time matches. Therefore this might accidentally kill an
   // unrelated process if the server died and the PID got reused.
@@ -173,7 +172,8 @@ bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
 }
 
 // Not supported.
-void ExcludePathFromBackup(const blaze_util::Path &path) {}
+void ExcludePathFromBackup(const string &path) {
+}
 
 int32_t GetExplicitSystemLimit(const int resource) {
   return -1;

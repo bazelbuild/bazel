@@ -252,7 +252,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   }
 
   if ((value = GetUnaryOption(arg, next_arg, "--output_base")) != NULL) {
-    output_base = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    output_base = blaze::AbsolutePathFromFlag(value);
     option_sources["output_base"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--install_base")) != NULL) {
@@ -264,7 +264,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     option_sources["output_user_root"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--server_jvm_out")) != NULL) {
-    server_jvm_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    server_jvm_out = blaze::AbsolutePathFromFlag(value);
     option_sources["server_jvm_out"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
              NULL) {
@@ -594,13 +594,12 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
 }
 
 static std::string GetSimpleLogHandlerProps(
-    const blaze_util::Path &java_log,
-    const std::string &java_logging_formatter) {
+    const std::string &java_log, const std::string &java_logging_formatter) {
   return "handlers=com.google.devtools.build.lib.util.SimpleLogHandler\n"
          ".level=INFO\n"
          "com.google.devtools.build.lib.util.SimpleLogHandler.level=INFO\n"
          "com.google.devtools.build.lib.util.SimpleLogHandler.prefix=" +
-         java_log.AsJvmArgument() +
+         java_log +
          "\n"
          "com.google.devtools.build.lib.util.SimpleLogHandler.limit=1024000\n"
          "com.google.devtools.build.lib.util.SimpleLogHandler.total_limit="
@@ -611,18 +610,17 @@ static std::string GetSimpleLogHandlerProps(
 
 void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
   // Configure logging
-  const blaze_util::Path propFile =
-      output_base.GetRelative("javalog.properties");
-  const blaze_util::Path java_log = output_base.GetRelative("java.log");
+  const string propFile = blaze_util::PathAsJvmFlag(
+      blaze_util::JoinPath(output_base, "javalog.properties"));
+  const string java_log(
+      blaze_util::PathAsJvmFlag(blaze_util::JoinPath(output_base, "java.log")));
   const std::string loggingProps =
       GetSimpleLogHandlerProps(java_log, java_logging_formatter);
 
   if (!blaze_util::WriteFile(loggingProps, propFile)) {
-    perror(
-        ("Couldn't write logging file " + propFile.AsPrintablePath()).c_str());
+    perror(("Couldn't write logging file " + propFile).c_str());
   } else {
-    result->push_back("-Djava.util.logging.config.file=" +
-                      propFile.AsJvmArgument());
+    result->push_back("-Djava.util.logging.config.file=" + propFile);
     result->push_back(
         "-Dcom.google.devtools.build.lib.util.LogHandlerQuerier.class="
         "com.google.devtools.build.lib.util.SimpleLogHandler$HandlerQuerier");

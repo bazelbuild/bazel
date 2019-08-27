@@ -26,8 +26,6 @@
 #include <string>
 #include <vector>
 
-#include "src/main/cpp/util/path.h"
-
 namespace blaze {
 
 extern const char kServerPidFile[];
@@ -76,7 +74,7 @@ std::string AbsolutePathFromFlag(const std::string& value);
 // wait_seconds elapses or the server process terminates. Returns true if a
 // check sees that the server process terminated. Logs to stderr after 5, 10,
 // and 30 seconds if the wait lasts that long.
-bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
+bool AwaitServerProcessTermination(int pid, const std::string& output_base,
                                    unsigned int wait_seconds);
 
 // The number of seconds the client will wait for the server process to
