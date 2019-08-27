@@ -35,7 +35,6 @@ public interface ExecutionInfoSpecifier {
   Map<String, String> getExecutionInfo();
 
   /**
-   * TODO(ishikhman) remove 'default' ?
    * Returns an action with given execution info.
    * Note: new action might be created here, because action is immutable by design.
    *
@@ -43,6 +42,6 @@ public interface ExecutionInfoSpecifier {
    * @return an action with given execution info
    */
   default ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo){
-    return (ActionAnalysisMetadata)this;
+    throw new UnsupportedOperationException();
   }
 }
