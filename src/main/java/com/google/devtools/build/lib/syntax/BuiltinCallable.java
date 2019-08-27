@@ -16,16 +16,18 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A function-object abstraction on object methods exposed to skylark using {@link SkylarkCallable}.
+ * A BuiltinCallable is a callable Starlark value that reflectively invokes a method of a Java
+ * object.
  */
-public class BuiltinCallable implements StarlarkFunction {
+// TODO(adonovan): make this private. Most users would be content with StarlarkCallable; the rest
+// need only a means of querying the function's parameters.
+public final class BuiltinCallable implements StarlarkCallable {
 
   private final Object obj;
   private final String methodName;

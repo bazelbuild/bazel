@@ -54,7 +54,7 @@ import javax.annotation.Nullable;
 // Provide optimized argument frobbing depending of FunctionSignature and CallerSignature
 // (that FuncallExpression must supply), optimizing for the all-positional and all-keyword cases.
 // Also, use better pure maps to minimize map O(n) re-creation events when processing keyword maps.
-public abstract class BaseFunction implements StarlarkFunction {
+public abstract class BaseFunction implements StarlarkCallable {
 
   /**
    * The name of the function.

@@ -203,8 +203,8 @@ public class MethodLibrary {
       } catch (EvalUtils.ComparisonException e) {
         throw new EvalException(loc, e);
       }
-    } else if (key instanceof StarlarkFunction) {
-      final StarlarkFunction keyfn = (StarlarkFunction) key;
+    } else if (key instanceof StarlarkCallable) {
+      final StarlarkCallable keyfn = (StarlarkCallable) key;
       final FuncallExpression ast = new FuncallExpression(Identifier.of(""), ImmutableList.of());
 
       class KeyComparator implements Comparator<Object> {

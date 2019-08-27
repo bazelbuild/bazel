@@ -978,27 +978,22 @@ public final class FuncallExpression extends Expression {
         StringModule.INSTANCE, javaArguments, getLocation(), env);
   }
 
-  /**
-   * Calls a callable object {@code funcValue}.
-   *
-   * @throws EvalException if funcValue is not a callable object or if invalid arguments are
-   *     given
-   */
-  private Object callFunction(Object funcValue,
-      ArrayList<Object> posargs, Map<String, Object> kwargs, Environment env)
+  private Object callFunction(
+      Object fn, ArrayList<Object> posargs, Map<String, Object> kwargs, Environment env)
       throws EvalException, InterruptedException {
 
-    if (funcValue instanceof StarlarkFunction) {
-      StarlarkFunction function = (StarlarkFunction) funcValue;
-      return function.call(posargs, ImmutableMap.copyOf(kwargs), this, env);
-    } else if (hasSelfCallMethod(env.getSemantics(), funcValue.getClass())) {
-      MethodDescriptor descriptor = getSelfCallMethodDescriptor(env.getSemantics(), funcValue);
-      Object[] javaArguments = convertStarlarkArgumentsToJavaMethodArguments(
-          descriptor, funcValue.getClass(), posargs, kwargs, env);
-      return descriptor.call(funcValue, javaArguments, getLocation(), env);
+    if (fn instanceof StarlarkCallable) {
+      StarlarkCallable callable = (StarlarkCallable) fn;
+      return callable.call(posargs, ImmutableMap.copyOf(kwargs), this, env);
+    } else if (hasSelfCallMethod(env.getSemantics(), fn.getClass())) {
+      MethodDescriptor descriptor = getSelfCallMethodDescriptor(env.getSemantics(), fn);
+      Object[] javaArguments =
+          convertStarlarkArgumentsToJavaMethodArguments(
+              descriptor, fn.getClass(), posargs, kwargs, env);
+      return descriptor.call(fn, javaArguments, getLocation(), env);
     } else {
       throw new EvalException(
-          getLocation(), "'" + EvalUtils.getDataTypeName(funcValue) + "' object is not callable");
+          getLocation(), "'" + EvalUtils.getDataTypeName(fn) + "' object is not callable");
     }
   }
 
