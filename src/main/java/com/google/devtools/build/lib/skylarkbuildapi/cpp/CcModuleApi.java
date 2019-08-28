@@ -590,21 +590,21 @@ public interface CcModuleApi<
         @Param(
             name = "dynamic_library_symlink_path",
             doc =
-                "Override the default path of the dynamic library link in the solib directory.",
+                "Override the default path of the dynamic library link in the solib directory. "
+                     + "Empty string to use the default.",
             positional = false,
             named = true,
-            noneable = true,
             type = String.class,
-            defaultValue = "None"),
+            defaultValue = "\"\""),
         @Param(
             name = "interface_library_symlink_path",
             doc =
-                "Override the default path of the interface library link in the solib directory.",
+                "Override the default path of the interface library link in the solib directory. "
+                    + "Empty string to use the default.",
             positional = false,
             named = true,
-            noneable = true,
             type = String.class,
-            defaultValue = "None"),
+            defaultValue = "\"\""),
       })
   LibraryToLinkT createLibraryLinkerInput(
       Object actions,
@@ -615,8 +615,8 @@ public interface CcModuleApi<
       Object dynamicLibrary,
       Object interfaceLibrary,
       boolean alwayslink,
-      Object dynamicLibraryPath,
-      Object interfaceLibraryPath,
+      String dynamicLibraryPath,
+      String interfaceLibraryPath,
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
