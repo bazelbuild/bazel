@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -222,6 +223,7 @@ public final class CcCompilationHelper {
 
   private final CppSemantics semantics;
   private final BuildConfiguration configuration;
+  private RuleContext ruleContext;
   private final CppConfiguration cppConfiguration;
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
@@ -276,16 +278,17 @@ public final class CcCompilationHelper {
 
   /** Creates a CcCompilationHelper that outputs artifacts in a given configuration. */
   public CcCompilationHelper(
-      ActionRegistry actionRegistry,
-      ActionConstructionContext actionConstructionContext,
-      Label label,
-      @Nullable Artifact grepIncludes,
-      CppSemantics semantics,
-      FeatureConfiguration featureConfiguration,
-      SourceCategory sourceCategory,
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      BuildConfiguration buildConfiguration) {
+          ActionRegistry actionRegistry,
+          ActionConstructionContext actionConstructionContext,
+          Label label,
+          @Nullable Artifact grepIncludes,
+          CppSemantics semantics,
+          FeatureConfiguration featureConfiguration,
+          SourceCategory sourceCategory,
+          CcToolchainProvider ccToolchain,
+          FdoContext fdoContext,
+          BuildConfiguration buildConfiguration,
+          RuleContext ruleContext) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCategory);
@@ -293,6 +296,7 @@ public final class CcCompilationHelper {
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
     this.actionConstructionContext = Preconditions.checkNotNull(actionConstructionContext);
     this.configuration = buildConfiguration;
+    this.ruleContext = ruleContext;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     setGenerateNoPicAction(
         !ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
@@ -304,18 +308,20 @@ public final class CcCompilationHelper {
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
     this.label = Preconditions.checkNotNull(label);
     this.grepIncludes = grepIncludes;
+    this.ruleContext = ruleContext;
   }
 
   /** Creates a CcCompilationHelper for cpp source files. */
   public CcCompilationHelper(
-      ActionRegistry actionRegistry,
-      ActionConstructionContext actionConstructionContext,
-      Label label,
-      @Nullable Artifact grepIncludes,
-      CppSemantics semantics,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext) {
+          ActionRegistry actionRegistry,
+          ActionConstructionContext actionConstructionContext,
+          Label label,
+          @Nullable Artifact grepIncludes,
+          CppSemantics semantics,
+          FeatureConfiguration featureConfiguration,
+          CcToolchainProvider ccToolchain,
+          FdoContext fdoContext,
+          RuleContext ruleContext) {
     this(
         actionRegistry,
         actionConstructionContext,
@@ -326,7 +332,8 @@ public final class CcCompilationHelper {
         SourceCategory.CC,
         ccToolchain,
         fdoContext,
-        actionConstructionContext.getConfiguration());
+        actionConstructionContext.getConfiguration(),
+            ruleContext);
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -1548,6 +1555,7 @@ public final class CcCompilationHelper {
     builder.setCcCompilationContext(ccCompilationContext);
     builder.setCoptsFilter(coptsFilter);
     builder.setFeatureConfiguration(featureConfiguration);
+    builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule()));
     return builder;
   }
 

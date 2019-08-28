@@ -160,7 +160,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
                 semantics,
                 featureConfiguration,
                 ccToolchain,
-                ccToolchain.getFdoContext())
+                ccToolchain.getFdoContext(), ruleContext)
             .addPublicHeaders(common.getHeaders())
             .setHeadersCheckingMode(HeadersCheckingMode.STRICT)
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))

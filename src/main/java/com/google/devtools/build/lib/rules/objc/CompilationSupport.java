@@ -304,7 +304,8 @@ public class CompilationSupport {
                 CcCompilationHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
                 fdoContext,
-                buildConfiguration)
+                buildConfiguration,
+                ruleContext)
             .addSources(sources)
             .addPrivateHeaders(privateHdrs)
             .addDefines(objcProvider.get(DEFINE))

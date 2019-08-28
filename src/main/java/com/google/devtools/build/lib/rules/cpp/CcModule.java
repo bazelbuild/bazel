@@ -1572,7 +1572,7 @@ public abstract class CcModule
                 getSemantics(),
                 featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
-                fdoContext)
+                fdoContext, null)
             .addPublicHeaders(publicHeaders)
             .addPrivateHeaders(privateHeaders)
             .addSources(sources)

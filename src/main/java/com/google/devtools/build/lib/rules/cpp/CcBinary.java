@@ -352,7 +352,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 semantics,
                 featureConfiguration,
                 ccToolchain,
-                fdoContext)
+                fdoContext, ruleContext)
             .fromCommon(common, /* additionalCopts= */ ImmutableList.of())
             .addPrivateHeaders(common.getPrivateHeaders())
             .addSources(common.getSources())

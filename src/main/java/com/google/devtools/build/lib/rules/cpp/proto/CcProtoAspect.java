@@ -311,7 +311,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   cppSemantics,
                   featureConfiguration,
                   toolchain,
-                  toolchain.getFdoContext())
+                  toolchain.getFdoContext(), ruleContext)
               .addCcCompilationContexts(CppHelper.getCompilationContextsFromDeps(deps))
               .addCcCompilationContexts(
                   ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)));
