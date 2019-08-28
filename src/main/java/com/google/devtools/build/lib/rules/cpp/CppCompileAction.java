@@ -13,45 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static java.util.Collections.unmodifiableSet;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
-import com.google.devtools.build.lib.actions.ActionEnvironment;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.ActionResult;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.ArtifactResolver;
-import com.google.devtools.build.lib.actions.CommandAction;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.*;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.SimpleSpawn;
-import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -75,29 +45,20 @@ import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.*;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
-import javax.annotation.Nullable;
+
+import static java.util.Collections.unmodifiableSet;
 
 /** Action that represents some kind of C++ compilation step. */
 @ThreadCompatible
@@ -148,6 +109,8 @@ public class CppCompileAction extends AbstractAction
   private final ImmutableMap<String, String> executionInfo;
   private final String actionName;
 
+  private String newField;
+
   private final FeatureConfiguration featureConfiguration;
 
   /**
@@ -191,65 +154,40 @@ public class CppCompileAction extends AbstractAction
   private ParamFileActionInput paramFileActionInput;
   private PathFragment paramFilePath;
 
-  private CppCompileAction(ActionOwner owner,
-      Iterable<Artifact> inputs,
-      Iterable<Artifact> outputs, ActionEnvironment env,
-      Artifact outputFile, Artifact sourceFile,
-      CppConfiguration cppConfiguration,
-      NestedSet<Artifact> mandatoryInputs,
-      Iterable<Artifact> inputsForInvalidation,
-      NestedSet<Artifact> additionalPrunableHeaders,
-      @Nullable Artifact grepIncludes, boolean shareable, boolean shouldScanIncludes,
-      boolean shouldPruneModules, boolean usePic, boolean useHeaderModules,
-      boolean needsDotdInputPruning, boolean needsIncludeValidation,
-      IncludeProcessing includeProcessing,
-      CcCompilationContext ccCompilationContext,
-      ImmutableList<Artifact> builtinIncludeFiles,
-      ImmutableList<Artifact> additionalIncludeScanningRoots,
-      CompileCommandLine compileCommandLine, byte[] commandLineKey,
-      ImmutableMap<String, String> executionInfo, String actionName,
-      FeatureConfiguration featureConfiguration, UUID actionClassId,
-      ImmutableList<PathFragment> builtInIncludeDirectories,
-      Iterable<Artifact> additionalInputs,
-      Collection<DerivedArtifact> usedModules,
-      NestedSet<Artifact> discoveredModules,
-      NestedSet<Artifact> topLevelModules,
-      CcToolchainVariables overwrittenVariables,
-      ParamFileActionInput paramFileActionInput,
-      PathFragment paramFilePath) {
-    super(owner, inputs, outputs, env);
-    this.outputFile = outputFile;
-    this.sourceFile = sourceFile;
-    this.cppConfiguration = cppConfiguration;
-    this.mandatoryInputs = mandatoryInputs;
-    this.inputsForInvalidation = inputsForInvalidation;
-    this.additionalPrunableHeaders = additionalPrunableHeaders;
-    this.grepIncludes = grepIncludes;
-    this.shareable = shareable;
-    this.shouldScanIncludes = shouldScanIncludes;
-    this.shouldPruneModules = shouldPruneModules;
-    this.usePic = usePic;
-    this.useHeaderModules = useHeaderModules;
-    this.needsDotdInputPruning = needsDotdInputPruning;
-    this.needsIncludeValidation = needsIncludeValidation;
-    this.includeProcessing = includeProcessing;
-    this.ccCompilationContext = ccCompilationContext;
-    this.builtinIncludeFiles = builtinIncludeFiles;
-    this.additionalIncludeScanningRoots = additionalIncludeScanningRoots;
-    this.compileCommandLine = compileCommandLine;
-    this.commandLineKey = commandLineKey;
+  private CppCompileAction(CppCompileAction other, ImmutableMap<String, String> executionInfo) {
+    super(other.owner, other.getInputs(), other.outputs, other.env);
+    this.outputFile = other.outputFile;
+    this.sourceFile = other.sourceFile;
+    this.cppConfiguration = other.cppConfiguration;
+    this.mandatoryInputs = other.mandatoryInputs;
+    this.inputsForInvalidation = other.inputsForInvalidation;
+    this.additionalPrunableHeaders = other.additionalPrunableHeaders;
+    this.grepIncludes = other.grepIncludes;
+    this.shareable = other.shareable;
+    this.shouldScanIncludes = other.shouldScanIncludes;
+    this.shouldPruneModules = other.shouldPruneModules;
+    this.usePic = other.usePic;
+    this.useHeaderModules = other.useHeaderModules;
+    this.needsDotdInputPruning = other.needsDotdInputPruning;
+    this.needsIncludeValidation = other.needsIncludeValidation;
+    this.includeProcessing = other.includeProcessing;
+    this.ccCompilationContext = other.ccCompilationContext;
+    this.builtinIncludeFiles = other.builtinIncludeFiles;
+    this.additionalIncludeScanningRoots = other.additionalIncludeScanningRoots;
+    this.compileCommandLine = other.compileCommandLine;
+    this.commandLineKey = other.commandLineKey;
     this.executionInfo = executionInfo;
-    this.actionName = actionName;
-    this.featureConfiguration = featureConfiguration;
-    this.actionClassId = actionClassId;
-    this.builtInIncludeDirectories = builtInIncludeDirectories;
-    this.additionalInputs = additionalInputs;
-    this.usedModules = usedModules;
-    this.discoveredModules = discoveredModules;
-    this.topLevelModules = topLevelModules;
-    this.overwrittenVariables = overwrittenVariables;
-    this.paramFileActionInput = paramFileActionInput;
-    this.paramFilePath = paramFilePath;
+    this.actionName = other.actionName;
+    this.featureConfiguration = other.featureConfiguration;
+    this.actionClassId = other.actionClassId;
+    this.builtInIncludeDirectories = other.builtInIncludeDirectories;
+    this.additionalInputs = other.additionalInputs;
+    this.usedModules = other.usedModules;
+    this.discoveredModules = other.discoveredModules;
+    this.topLevelModules = other.topLevelModules;
+    this.overwrittenVariables = other.overwrittenVariables;
+    this.paramFileActionInput = other.paramFileActionInput;
+    this.paramFilePath = other.paramFilePath;
   }
 
   /**
@@ -358,6 +296,7 @@ public class CppCompileAction extends AbstractAction
               .getParentDirectory()
               .getChild(outputFile.getFilename() + ".params");
     }
+    this.newField = "lololo";
   }
 
   static CompileCommandLine buildCommandLine(
@@ -886,44 +825,28 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public ActionAnalysisMetadata addExecutionInfo(ImmutableMap<String, String> executionInfo) {
-    return new CppCompileAction(
-        this.owner,
-        this.getInputs(),
-        this.outputs,
-        this.env,
-        this.outputFile,
-        this.sourceFile,
-        this.cppConfiguration,
-        this.mandatoryInputs,
-        this.inputsForInvalidation,
-        this.additionalPrunableHeaders,
-        this.grepIncludes,
-        this.shareable,
-        this.shouldScanIncludes,
-        this.shouldPruneModules,
-        this.usePic,
-        this.useHeaderModules,
-        this.needsDotdInputPruning,
-        this.needsIncludeValidation,
-        this.includeProcessing,
-        this.ccCompilationContext,
-        this.builtinIncludeFiles,
-        this.additionalIncludeScanningRoots,
-        this.compileCommandLine,
-        this.commandLineKey,
-        executionInfo,
-        this.actionName,
-        this.featureConfiguration,
-        this.actionClassId,
-        this.builtInIncludeDirectories,
-        this.additionalInputs,
-        this.usedModules,
-        this.discoveredModules,
-        this.topLevelModules,
-        this.overwrittenVariables,
-        this.paramFileActionInput,
-        this.paramFilePath
-    );
+    return new CppCompileAction(this, executionInfo);
+  }
+
+  boolean deepEquals(CppCompileAction other) throws IllegalAccessException, NoSuchFieldException {
+    if (Objects.equals(other, this)) return true;
+
+    Field[] fields = this.getClass().getDeclaredFields();
+    boolean equal = true;
+    for (Field f : fields) {
+      if ("executionInfo".equals(f.getName())) continue;
+//      try {
+        equal &= Objects.equals(f, other.getClass().getDeclaredField(f.getName()))
+                && Objects.equals(f.get(this), f.get(other));
+        if (!equal) throw new RuntimeException(f.getName());
+//      } catch (NoSuchFieldException e) {
+//        return false;
+//        Assert.fail(String.format("It seems that you've added a new field %s to the action %s. " +
+//                "This field is not set properly in the constructor used for addExecutionInfo method. " +
+//                "Please add it there", f.getName(), this.getClass()));
+//      }
+    }
+    return equal;
   }
 
   /**
