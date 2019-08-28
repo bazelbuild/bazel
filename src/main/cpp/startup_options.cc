@@ -559,8 +559,9 @@ blaze_exit_code::ExitCode StartupOptions::SanityCheckJavabase(
   return BadServerJavabaseError(javabase_type, option_sources);
 }
 
-string StartupOptions::GetExe(const string &jvm, const string &jar_path) const {
-  return jvm;
+blaze_util::Path StartupOptions::GetExe(const string &jvm,
+                                        const string &jar_path) const {
+  return blaze_util::Path(jvm);
 }
 
 void StartupOptions::AddJVMArgumentPrefix(const string &javabase,
