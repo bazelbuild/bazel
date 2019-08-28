@@ -640,6 +640,10 @@ static const void GoToWorkspace(
   }
 }
 
+static const bool IsServerMode(const string &command) {
+  return "exec-server" == command;
+}
+
 // Replace this process with the blaze server. Does not exit.
 static void RunServerMode(
     const string &server_exe, const vector<string> &server_exe_args,
@@ -1306,11 +1310,16 @@ static string GetCanonicalCwd() {
 static void UpdateConfiguration(
     const string &install_md5,
     const string &workspace,
+    const bool server_mode,
     StartupOptions *startup_options) {
   // The default install_base is <output_user_root>/install/<md5(blaze)>
   // but if an install_base is specified on the command line, we use that as
   // the base instead.
   if (startup_options->install_base.empty()) {
+    if (server_mode) {
+      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+          << "exec-server requires --install_base";
+    }
     string install_user_root =
         blaze_util::JoinPath(startup_options->output_user_root, "install");
     startup_options->install_base = blaze_util::JoinPath(install_user_root,
@@ -1318,6 +1327,10 @@ static void UpdateConfiguration(
   }
 
   if (startup_options->output_base.IsEmpty()) {
+    if (server_mode) {
+      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+          << "exec-server requires --output_base";
+    }
     startup_options->output_base = blaze_util::Path(
         blaze::GetHashedBaseDir(startup_options->output_user_root, workspace));
   }
@@ -1516,7 +1529,7 @@ static void RunLauncher(const string &self_path,
 
   const blaze_util::Path server_dir =
       blaze_util::Path(startup_options.output_base).GetRelative("server");
-  if ("exec-server" == option_processor.GetCommand()) {
+  if (IsServerMode(option_processor.GetCommand())) {
     RunServerMode(server_exe, server_exe_args, server_dir, workspace_layout,
                   workspace, option_processor, startup_options, blaze_server);
   } else if (startup_options.batch) {
@@ -1601,7 +1614,9 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
       &archive_contents,
       &install_md5);
 
-  UpdateConfiguration(install_md5, workspace, startup_options);
+  UpdateConfiguration(
+      install_md5, workspace, IsServerMode(option_processor->GetCommand()),
+      startup_options);
 
   RunLauncher(self_path, archive_contents, install_md5, *startup_options,
               *option_processor, *workspace_layout, workspace, &logging_info);
