@@ -424,4 +424,33 @@ EOF
   expect_not_log "IllegalArgumentException"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/9176
+function test_windows_only__glob_with_junction() {
+  if ! $is_windows; then
+    echo "Skipping $FUNCNAME because execution platform is not Windows"
+    return
+  fi
+
+  mkdir -p foo/bar foo2
+  touch foo/bar/x.txt
+  touch foo/a.txt
+  touch foo2/b.txt
+  cat >BUILD <<eof
+filegroup(name = 'x', srcs = glob(["foo/**"]))
+filegroup(name = 'y', srcs = glob(["foo2/**"]))
+eof
+  # Create junction foo2/bar2 -> foo/bar
+  cmd.exe /C mklink /J foo2\\bar2 foo\\bar >NUL
+
+  bazel query 'deps(//:x)' >& "$TEST_log"
+  expect_log "//:x"
+  expect_log "//:foo/a.txt"
+  expect_log "//:foo/bar/x.txt"
+
+  bazel query 'deps(//:y)' >& "$TEST_log"
+  expect_log "//:y"
+  expect_log "//:foo2/b.txt"
+  expect_log "//:foo2/bar2/x.txt"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."
