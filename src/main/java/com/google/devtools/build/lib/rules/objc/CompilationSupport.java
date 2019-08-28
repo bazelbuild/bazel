@@ -425,7 +425,7 @@ public class CompilationSupport {
                 fdoContext,
                 buildConfiguration,
                 ruleContext.getFragment(CppConfiguration.class),
-                ruleContext.getSymbolGenerator())
+                ruleContext.getSymbolGenerator(), ruleContext)
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())

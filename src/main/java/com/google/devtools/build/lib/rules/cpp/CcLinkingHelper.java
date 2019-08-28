@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -124,6 +125,7 @@ public final class CcLinkingHelper {
   private final ActionRegistry actionRegistry;
   private final RuleErrorConsumer ruleErrorConsumer;
   private final SymbolGenerator<?> symbolGenerator;
+  private RuleContext ruleContext;
 
   private Artifact grepIncludes;
   private boolean isStampingEnabled;
@@ -131,8 +133,7 @@ public final class CcLinkingHelper {
 
   /**
    * Creates a CcLinkingHelper that outputs artifacts in a given configuration.
-   *
-   * @param ruleErrorConsumer the RuleErrorConsumer
+   *  @param ruleErrorConsumer the RuleErrorConsumer
    * @param label the Label of the rule being built
    * @param actionRegistry the ActionRegistry of the rule being built
    * @param actionConstructionContext the ActionConstructionContext of the rule being built
@@ -141,19 +142,21 @@ public final class CcLinkingHelper {
    * @param ccToolchain the C++ toolchain provider for the build
    * @param fdoContext the C++ FDO optimization support provider for the build
    * @param configuration the configuration that gives the directory of output artifacts
+   * @param ruleContext
    */
   public CcLinkingHelper(
-      RuleErrorConsumer ruleErrorConsumer,
-      Label label,
-      ActionRegistry actionRegistry,
-      ActionConstructionContext actionConstructionContext,
-      CppSemantics semantics,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      BuildConfiguration configuration,
-      CppConfiguration cppConfiguration,
-      SymbolGenerator<?> symbolGenerator) {
+          RuleErrorConsumer ruleErrorConsumer,
+          Label label,
+          ActionRegistry actionRegistry,
+          ActionConstructionContext actionConstructionContext,
+          CppSemantics semantics,
+          FeatureConfiguration featureConfiguration,
+          CcToolchainProvider ccToolchain,
+          FdoContext fdoContext,
+          BuildConfiguration configuration,
+          CppConfiguration cppConfiguration,
+          SymbolGenerator<?> symbolGenerator,
+          RuleContext ruleContext) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
@@ -165,6 +168,7 @@ public final class CcLinkingHelper {
     this.actionRegistry = actionRegistry;
     this.actionConstructionContext = actionConstructionContext;
     this.symbolGenerator = symbolGenerator;
+    this.ruleContext = ruleContext;
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -837,7 +841,8 @@ public final class CcLinkingHelper {
                 ? ccToolchain.getArFiles()
                 : ccToolchain.getLinkerFiles())
         .setLinkArtifactFactory(linkArtifactFactory)
-        .setUseTestOnlyFlags(useTestOnlyFlags);
+        .setUseTestOnlyFlags(useTestOnlyFlags)
+        .addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule()));
   }
 
   /**
