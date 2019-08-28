@@ -40,7 +40,7 @@ EOF
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   if [[  "${PLATFORM}" = "darwin"  ]]; then
@@ -66,7 +66,7 @@ EOF
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   if [[  "${PLATFORM}" = "darwin"  ]]; then
@@ -88,7 +88,7 @@ genrule(
 )
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
@@ -110,7 +110,7 @@ EOF
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
  if [[  "${PLATFORM}" = "darwin"  ]]; then
@@ -121,7 +121,7 @@ EOF
 }
 
 # Test a basic native rule which has tags, that should not be propagated
-# as --incompatible_allow_tags_propagation flag set to false
+# as --experimental_allow_tags_propagation flag set to false
 function test_cc_library_tags_not_propagated_when_incompatible_flag_off() {
   mkdir -p test
   cat > test/BUILD <<EOF
@@ -137,7 +137,7 @@ EOF
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
 
@@ -148,7 +148,7 @@ EOF
   fi
 }
 
-function test_cc_binary_tags_not_propagated() {
+function test_cc_binary_tags_not_propagated_when_incompatible_flag_off() {
 
  mkdir -p test
   cat > test/BUILD <<EOF
@@ -164,7 +164,7 @@ EOF
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   if [[  "${PLATFORM}" = "darwin"  ]]; then
