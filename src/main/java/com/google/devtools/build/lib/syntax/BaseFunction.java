@@ -403,16 +403,6 @@ public abstract class BaseFunction implements StarlarkCallable {
   }
 
   /**
-   * Returns the environment for the scope of this function.
-   *
-   * <p>Since this is a BaseFunction, we don't create a new environment.
-   */
-  @SuppressWarnings("unused") // For the exception
-  protected Environment getOrCreateChildEnvironment(Environment parent) throws EvalException {
-    return parent;
-  }
-
-  /**
    * The outer calling convention to a BaseFunction.
    *
    * @param args a list of all positional arguments (as in *starArg)
