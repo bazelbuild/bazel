@@ -22,7 +22,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Func
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -87,11 +87,10 @@ public final class MarkdownUtil {
   /**
    * Return a string representing the summary for the given user-defined function.
    *
-   * For example: 'my_func(foo, bar)'.
-   * The summary will contain hyperlinks for each parameter.
+   * <p>For example: 'my_func(foo, bar)'. The summary will contain hyperlinks for each parameter.
    */
   @SuppressWarnings("unused") // Used by markdown template.
-  public String funcSummary(UserDefinedFunctionInfo funcInfo) {
+  public String funcSummary(StarlarkFunctionInfo funcInfo) {
     List<String> paramNames =
         funcInfo.getParameterList().stream()
             .map(param -> param.getName())

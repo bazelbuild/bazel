@@ -49,10 +49,10 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -130,11 +130,11 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
     Object defaultValue = arguments.get(DEFAULT_ARG);
     if (!EvalUtils.isNullOrNone(defaultValue)) {
-      if (defaultValue instanceof UserDefinedFunction) {
+      if (defaultValue instanceof StarlarkFunction) {
         // Computed attribute. Non label type attributes already caused a type check error.
         SkylarkCallbackFunction callback =
             new SkylarkCallbackFunction(
-                (UserDefinedFunction) defaultValue, ast, env.getSemantics(), context);
+                (StarlarkFunction) defaultValue, ast, env.getSemantics(), context);
         // SkylarkComputedDefaultTemplate needs to know the names of all attributes that it depends
         // on. However, this method does not know anything about other attributes.
         // We solve this problem by asking the SkylarkCallbackFunction for the parameter names used

@@ -126,10 +126,10 @@ public final class Environment implements Freezable, Debuggable {
    *
    * <p>Any non-frozen {@link Frame} must have the same {@link Mutability} as the current {@link
    * Environment}, to avoid interference from other evaluation contexts. For example, a {@link
-   * UserDefinedFunction} will close over the global frame of the {@link Environment} in which it
-   * was defined. When the function is called from other {@link Environment}s (possibly
-   * simultaneously), that global frame must already be frozen; a new local {@link Frame} is created
-   * to represent the lexical scope of the function.
+   * StarlarkFunction} will close over the global frame of the {@link Environment} in which it was
+   * defined. When the function is called from other {@link Environment}s (possibly simultaneously),
+   * that global frame must already be frozen; a new local {@link Frame} is created to represent the
+   * lexical scope of the function.
    *
    * <p>A {@link Frame} can have an associated "parent" {@link Frame}, which is used in {@link #get}
    * and {@link #getTransitiveBindings()}
@@ -885,7 +885,7 @@ public final class Environment implements Freezable, Debuggable {
    * Returns if calling the supplied function would be a recursive call, or in other words if the
    * supplied function is already on the stack.
    */
-  boolean isRecursiveCall(UserDefinedFunction function) {
+  boolean isRecursiveCall(StarlarkFunction function) {
     for (Continuation k = continuation; k != null; k = k.continuation) {
       // TODO(adonovan): compare code, not closure values, otherwise
       // one can defeat this check by writing the Y combinator.

@@ -25,7 +25,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Modu
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -131,8 +131,8 @@ public final class MarkdownRendererTest {
             .setDocString("the first parameter")
             .setDefaultValue("32")
             .build();
-    UserDefinedFunctionInfo funcInfo =
-        UserDefinedFunctionInfo.newBuilder()
+    StarlarkFunctionInfo funcInfo =
+        StarlarkFunctionInfo.newBuilder()
             .setFunctionName("my_function")
             .setDocString("This function does something.")
             .addParameter(paramInfo)

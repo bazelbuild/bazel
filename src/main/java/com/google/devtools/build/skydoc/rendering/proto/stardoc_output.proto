@@ -31,7 +31,7 @@ message ModuleInfo {
 
   repeated ProviderInfo provider_info = 2;
 
-  repeated UserDefinedFunctionInfo func_info = 3;
+  repeated StarlarkFunctionInfo func_info = 3;
 
   repeated AspectInfo aspect_info = 4;
 
@@ -110,7 +110,7 @@ message ProviderNameGroup {
 }
 
 // Representation of Starlark function definition.
-message UserDefinedFunctionInfo {
+message StarlarkFunctionInfo {
   // The name of the function.
   string function_name = 1;
 

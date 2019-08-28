@@ -23,8 +23,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
@@ -36,7 +36,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -395,7 +395,7 @@ public final class SkydocTest extends SkylarkTestCase {
         "    \"\"\"",
         "    pass");
 
-    ImmutableMap.Builder<String, UserDefinedFunction> functionInfoBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, StarlarkFunction> functionInfoBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
         StarlarkSemantics.DEFAULT_SEMANTICS,
@@ -406,7 +406,7 @@ public final class SkydocTest extends SkylarkTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    UserDefinedFunction checkSourcesFn = functionInfoBuilder.build().get("check_sources");
+    StarlarkFunction checkSourcesFn = functionInfoBuilder.build().get("check_sources");
     DocstringParseException expected =
         assertThrows(
             DocstringParseException.class,
@@ -439,7 +439,7 @@ public final class SkydocTest extends SkylarkTestCase {
         "\"\"\"",
         "pass");
 
-    ImmutableMap.Builder<String, UserDefinedFunction> funcInfoMap = ImmutableMap.builder();
+    ImmutableMap.Builder<String, StarlarkFunction> funcInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
         StarlarkSemantics.DEFAULT_SEMANTICS,
@@ -450,17 +450,17 @@ public final class SkydocTest extends SkylarkTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    Map<String, UserDefinedFunction> functions = funcInfoMap.build();
+    Map<String, StarlarkFunction> functions = funcInfoMap.build();
     assertThat(functions).hasSize(1);
 
     ModuleInfo moduleInfo =
-        new ProtoRenderer().appendUserDefinedFunctionInfos(functions).getModuleInfo().build();
-    UserDefinedFunctionInfo funcInfo = moduleInfo.getFuncInfo(0);
+        new ProtoRenderer().appendStarlarkFunctionInfos(functions).getModuleInfo().build();
+    StarlarkFunctionInfo funcInfo = moduleInfo.getFuncInfo(0);
     assertThat(funcInfo.getFunctionName()).isEqualTo("check_function");
     assertThat(getParamNames(funcInfo)).containsExactly("foo", "bar", "baz").inOrder();
   }
 
-  private static Iterable<String> getParamNames(UserDefinedFunctionInfo funcInfo) {
+  private static Iterable<String> getParamNames(StarlarkFunctionInfo funcInfo) {
     return funcInfo.getParameterList().stream()
         .map(param -> param.getName())
         .collect(Collectors.toList());

@@ -19,7 +19,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Aspe
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.FileInputStream;
@@ -77,7 +77,7 @@ public class RendererMain {
       printWriter.println(renderer.renderMarkdownHeader(moduleInfo));
       printRuleInfos(printWriter, renderer, moduleInfo.getRuleInfoList());
       printProviderInfos(printWriter, renderer, moduleInfo.getProviderInfoList());
-      printUserDefinedFunctions(printWriter, renderer, moduleInfo.getFuncInfoList());
+      printStarlarkFunctions(printWriter, renderer, moduleInfo.getFuncInfoList());
       printAspectInfos(printWriter, renderer, moduleInfo.getAspectInfoList());
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalArgumentException("Input file is not a valid ModuleInfo proto.", e);
@@ -102,12 +102,12 @@ public class RendererMain {
     }
   }
 
-  private static void printUserDefinedFunctions(
+  private static void printStarlarkFunctions(
       PrintWriter printWriter,
       MarkdownRenderer renderer,
-      List<UserDefinedFunctionInfo> userDefinedFunctions)
+      List<StarlarkFunctionInfo> userDefinedFunctions)
       throws IOException {
-    for (UserDefinedFunctionInfo funcProto : userDefinedFunctions) {
+    for (StarlarkFunctionInfo funcProto : userDefinedFunctions) {
       printWriter.println(renderer.render(funcProto));
       printWriter.println();
     }

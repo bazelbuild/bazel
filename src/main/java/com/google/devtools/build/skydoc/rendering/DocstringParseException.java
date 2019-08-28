@@ -15,12 +15,12 @@
 package com.google.devtools.build.skydoc.rendering;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.devtools.skylark.common.DocstringUtils.DocstringParseError;
 import java.util.List;
 
 /**
- * An exception that may be thrown during construction of {@link UserDefinedFunctionInfo} if the
+ * An exception that may be thrown during construction of {@link StarlarkFunctionInfo} if the
  * function's docstring is malformed.
  */
 public class DocstringParseException extends Exception {
