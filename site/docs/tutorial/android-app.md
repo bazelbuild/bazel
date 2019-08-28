@@ -400,7 +400,7 @@ other pages to check out:
 * Integrating C and C++ code into your Android app with the [NDK](../android-ndk.md)
 * See more Bazel example projects of:
   * [a Kotlin app](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app)
-  * [Robolectric testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app)
+  * [Robolectric testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_local_test)
   * [Espresso testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_instrumentation_test)
 
 Happy building!
