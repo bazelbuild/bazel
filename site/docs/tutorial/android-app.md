@@ -392,7 +392,15 @@ You now know the basics of building an Android project with Bazel. Here are some
 other pages to check out:
 
 * More information on [mobile-install](../mobile-install.md)
+* Integrate external dependencies like AppCompat, Guava and JUnit from Maven
+  repositories using [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external)
+* Run Robolectric tests with the [robolectric-bazel](https://github.com/robolectric/robolectric-bazel)
+  integration.
 * Testing your app with [Android instrumentation tests](../android-instrumentation-test.md)
 * Integrating C and C++ code into your Android app with the [NDK](../android-ndk.md)
+* See more Bazel example projects of:
+  * [a Kotlin app](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app)
+  * [Robolectric testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app)
+  * [Espresso testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_instrumentation_test)
 
 Happy building!
