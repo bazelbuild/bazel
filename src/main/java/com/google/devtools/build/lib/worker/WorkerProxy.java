@@ -38,6 +38,7 @@ final class WorkerProxy extends Worker {
   private ByteArrayOutputStream request;
   private WorkerMultiplexer workerMultiplexer;
   private Thread shutdownHook;
+  private String recordingStreamMessage;
 
   WorkerProxy(WorkerKey workerKey, int workerId, Path workDir, Path logFile, WorkerMultiplexer workerMultiplexer) {
     super(workerKey, workerId, workDir, logFile);
@@ -98,8 +99,11 @@ final class WorkerProxy extends Worker {
   @Override
   WorkResponse getResponse() throws IOException {
     try {
-      recordingStream = new RecordingInputStream(workerMultiplexer.getResponse(workerId));
-      recordingStream.startRecording(4096);
+      return WorkResponse.parseDelimitedFrom(workerMultiplexer.getResponse(workerId));
+    } catch (IOException e) {
+      recordingStreamMessage = e.toString();
+      throw new IOException("IOException was caught while waiting for worker response. "
+            + "It could because the worker returned unparseable response.");
     } catch (InterruptedException e) {
       /**
        * We can't throw InterruptedException to WorkerSpawnRunner because of the principle of override.
@@ -111,6 +115,11 @@ final class WorkerProxy extends Worker {
     }
     // response can be null when the worker has already closed stdout at this point and thus
     // the InputStream is at EOF.
-    return WorkResponse.parseDelimitedFrom(recordingStream);
+    return null;
+  }
+
+  @Override
+  String getRecordingStreamMessage() {
+    return recordingStreamMessage;
   }
 }

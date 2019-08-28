@@ -341,29 +341,29 @@ EOF
 
 # When a worker does not conform to the protocol and returns a response that is not a parseable
 # protobuf, it must be killed and a helpful error message should be printed.
-# function test_build_fails_when_worker_returns_junk() {
-#   prepare_example_worker
-#   cat >>BUILD <<'EOF'
-# [work(
-#   name = "hello_world_%s" % idx,
-#   worker = ":worker",
-#   worker_args = ["--poison_after=1"],
-#   args = ["--write_uuid", "--write_counter"],
-# ) for idx in range(10)]
-# EOF
+function test_build_fails_when_worker_returns_junk() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--poison_after=1"],
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
 
-#   bazel build :hello_world_1 &> $TEST_log \
-#     || fail "build failed"
+  bazel build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
 
-#   # A failing worker should cause the build to fail.
-#   bazel build :hello_world_2 &> $TEST_log \
-#     && fail "expected build to fail" || true
+  # A failing worker should cause the build to fail.
+  bazel build :hello_world_2 &> $TEST_log \
+    && fail "expected build to fail" || true
 
-#   # Check that a helpful error message was printed.
-#   expect_log "Worker process returned an unparseable WorkResponse!"
-#   expect_log "Did you try to print something to stdout"
-#   expect_log "I'm a poisoned worker and this is not a protobuf."
-# }
+  # Check that a helpful error message was printed.
+  expect_log "Worker process returned an unparseable WorkResponse!"
+  expect_log "Did you try to print something to stdout"
+  expect_log "I'm a poisoned worker and this is not a protobuf."
+}
 
 function test_input_digests() {
   prepare_example_worker

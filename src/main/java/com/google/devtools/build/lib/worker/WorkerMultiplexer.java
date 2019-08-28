@@ -54,12 +54,20 @@ public class WorkerMultiplexer extends Thread {
   private Semaphore semResponseChecker;
   /** The worker process that this WorkerMultiplexer should be talking to. */
   private Subprocess process;
+  /**
+   *  If one of the worker processes returns unparseable response,
+   *  discard all the responses from other worker processes.
+   */
+  private boolean isUnparseable;
+  /** InputStream from worker process. */
+  private RecordingInputStream recordingStream;
 
   WorkerMultiplexer() {
     semWorkerProcessResponse = new Semaphore(1);
     semResponseChecker = new Semaphore(1);
     responseChecker = new HashMap<>();
     workerProcessResponse = new HashMap<>();
+    isUnparseable = false;
 
     final WorkerMultiplexer self = this;
   }
@@ -122,13 +130,18 @@ public class WorkerMultiplexer extends Thread {
   }
 
   /** Wait on a semaphore for the WorkResponse returned from worker process. */
-  public InputStream getResponse(Integer workerId) throws InterruptedException {
+  public InputStream getResponse(Integer workerId) throws IOException, InterruptedException {
     semResponseChecker.acquire();
     Semaphore waitForResponse = responseChecker.get(workerId);
     semResponseChecker.release();
 
     // The semaphore will throw InterruptedException when the multiplexer is terminated.
     waitForResponse.acquire();
+
+    if (isUnparseable) {
+      recordingStream.readRemaining();
+      throw new IOException(recordingStream.getRecordedDataAsString());
+    }
 
     semWorkerProcessResponse.acquire();
     InputStream response = workerProcessResponse.get(workerId);
@@ -148,7 +161,9 @@ public class WorkerMultiplexer extends Thread {
    * workerProcessResponse and signal responseChecker.
    */
   private void waitResponse() throws InterruptedException, IOException {
-    WorkResponse parsedResponse = WorkResponse.parseDelimitedFrom(process.getInputStream());
+    recordingStream = new RecordingInputStream(process.getInputStream());
+    recordingStream.startRecording(4096);
+    WorkResponse parsedResponse = WorkResponse.parseDelimitedFrom(recordingStream);
 
     if (parsedResponse == null) return;
 
@@ -171,6 +186,17 @@ public class WorkerMultiplexer extends Thread {
       try {
         waitResponse();
       } catch (IOException e) {
+        isUnparseable = true;
+        try {
+          semResponseChecker.acquire();
+          for (Integer workerId: responseChecker.keySet()) {
+            responseChecker.get(workerId).release();
+          }
+        } catch (InterruptedException ee) {
+          // Do nothing
+        } finally {
+          semResponseChecker.release();
+        }
         logger.warning("IOException was caught while waiting for worker response. "
             + "It could because the worker returned unparseable response.");
       } catch (InterruptedException e) {

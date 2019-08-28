@@ -172,8 +172,9 @@ class Worker {
     return WorkResponse.parseDelimitedFrom(recordingStream);
   }
 
-  RecordingInputStream getRecordingStream() {
-    return recordingStream;
+  String getRecordingStreamMessage() {
+    recordingStream.readRemaining();
+    return recordingStream.getRecordedDataAsString();
   }
 
   public void prepareExecution(

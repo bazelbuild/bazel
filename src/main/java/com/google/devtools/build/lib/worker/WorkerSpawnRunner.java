@@ -367,8 +367,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
           // to stdout - it's probably a stack trace or some kind of error message that will help
           // the user figure out why the compiler is failing.
-          RecordingInputStream recordingStream = worker.getRecordingStream();
-          recordingStream.readRemaining();
+          String recordingStreamMessage = worker.getRecordingStreamMessage();
           throw new UserExecException(
               ErrorMessage.builder()
                   .message(
@@ -376,7 +375,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                           + "Did you try to print something to stdout? Workers aren't allowed to "
                           + "do this, as it breaks the protocol between Bazel and the worker "
                           + "process.")
-                  .logText(recordingStream.getRecordedDataAsString())
+                  .logText(recordingStreamMessage)
                   .exception(e)
                   .build()
                   .toString());
