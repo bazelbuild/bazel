@@ -125,6 +125,15 @@ import javax.annotation.Nullable;
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
 
+  public boolean isAllowTagsPropagation() {
+    try {
+      return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
+    } catch (InterruptedException e) {
+      // fallback to false if value of experimentalAllowTagsPropagation cannot be fetched
+      return false;
+    }
+  }
+
   /**
    * The configured version of FilesetEntry.
    */
@@ -550,6 +559,40 @@ public final class RuleContext extends TargetContext
 
   @Override
   public void registerAction(ActionAnalysisMetadata... action) {
+//List<ActionAnalysisMetadata> newList = new ArrayList<>();
+//    try {
+//        if (this.getAnalysisEnvironment() == null
+//                || this.getAnalysisEnvironment().getSkylarkSemantics() == null
+//                || !this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation()) {
+//            getAnalysisEnvironment().registerAction(action);
+//            return;
+//      }
+//      for (ActionAnalysisMetadata metadata : action) {
+//        if (metadata instanceof ExecutionInfoSpecifier && !(metadata instanceof StarlarkAction)) {
+//          ExecutionInfoSpecifier executionInfoSpecifier = (ExecutionInfoSpecifier) metadata;
+//          ImmutableMap<String, String> filteredExecutionInfo = TargetUtils.getFilteredExecutionInfo(
+//                  executionInfoSpecifier.getExecutionInfo(),
+//                  rule,
+//                  this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation());
+//
+//          Map<String, String> executionInfoBuilder = new HashMap<>();
+//          // in case something was already in action.executionInfo - we copy it to the final Map
+//          executionInfoBuilder.putAll(executionInfoSpecifier.getExecutionInfo());
+//          // adding filtered execution requirements to the execution info map
+//          executionInfoBuilder.putAll(filteredExecutionInfo);
+//
+//          ActionAnalysisMetadata updatedAction = executionInfoSpecifier.addExecutionInfo(ImmutableMap.copyOf(executionInfoBuilder));
+//          newList.add(updatedAction);
+//        } else {
+//          newList.add(metadata);
+//        }
+//      }
+//    } catch (InterruptedException e) {
+//      // todo: what?
+//      e.printStackTrace();
+//      throw new RuntimeException("Something horrible happened!");
+//    }
+//    getAnalysisEnvironment().registerAction(newList.toArray(new ActionAnalysisMetadata[0]));
     getAnalysisEnvironment().registerAction(action);
   }
 

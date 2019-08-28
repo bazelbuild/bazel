@@ -28,11 +28,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
 import javax.annotation.Nullable;
 
 /**
@@ -232,6 +229,21 @@ public final class TargetUtils {
       }
     }
     return ImmutableMap.copyOf(map);
+  }
+
+  /**
+   * TODO(ishikhman) : update doc
+   * Returns the execution info from the tags declared on the target. These include only some tags
+   * {@link #legalExecInfoKeys} as keys with empty values.
+   * @param rule
+   * @param allowTagsPropagation
+   */
+  public static Map<String, String> getExecutionInfo(Rule rule, boolean allowTagsPropagation) {
+    if (allowTagsPropagation){
+      return getExecutionInfo(rule);
+    } else {
+      return Collections.emptyMap();
+    }
   }
 
   /**

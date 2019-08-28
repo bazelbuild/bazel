@@ -842,7 +842,7 @@ public final class CcLinkingHelper {
                 : ccToolchain.getLinkerFiles())
         .setLinkArtifactFactory(linkArtifactFactory)
         .setUseTestOnlyFlags(useTestOnlyFlags)
-        .addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule()));
+        .addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
   }
 
   /**

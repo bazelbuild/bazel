@@ -146,7 +146,7 @@ EOF
 
 # Test a basic native rule which has tags, that should not be propagated
 # as --incompatible_allow_tags_propagation flag set to false
-function test_tags_not_propagated_when_incompatible_flag_off() {
+function test_cc_library_tags_not_propagated_when_incompatible_flag_off() {
   mkdir -p test
   cat > test/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -166,6 +166,32 @@ EOF
 
 
  if [[  "${PLATFORM}" = "darwin"  ]]; then
+    assert_contains "ExecutionInfo: {requires-darwin: ''}" output1
+  else
+    assert_not_contains "ExecutionInfo: {" output1
+  fi
+}
+
+function test_cc_binary_tags_not_propagated() {
+
+ mkdir -p test
+  cat > test/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+  name = "test",
+  srcs = ["test.cc"],
+  tags = ["no-cache", "no-remote", "local"]
+)
+EOF
+  cat > test/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello test!" << std::endl; return 0; }
+EOF
+
+  bazel aquery --incompatible_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
+      || fail "should have generated output successfully"
+
+  if [[  "${PLATFORM}" = "darwin"  ]]; then
     assert_contains "ExecutionInfo: {requires-darwin: ''}" output1
   else
     assert_not_contains "ExecutionInfo: {" output1

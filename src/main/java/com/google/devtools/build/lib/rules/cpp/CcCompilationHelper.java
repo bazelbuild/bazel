@@ -296,7 +296,6 @@ public final class CcCompilationHelper {
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
     this.actionConstructionContext = Preconditions.checkNotNull(actionConstructionContext);
     this.configuration = buildConfiguration;
-    this.ruleContext = ruleContext;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     setGenerateNoPicAction(
         !ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
@@ -1555,7 +1554,7 @@ public final class CcCompilationHelper {
     builder.setCcCompilationContext(ccCompilationContext);
     builder.setCoptsFilter(coptsFilter);
     builder.setFeatureConfiguration(featureConfiguration);
-    builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule()));
+    builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
     return builder;
   }
 
