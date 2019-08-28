@@ -658,6 +658,7 @@ int ExecuteDaemon(const blaze_util::Path& exe,
           /* bInheritHandle */ TRUE,
           /* dwOptions */ DUPLICATE_SAME_ACCESS)) {
     std::string error = GetLastErrorString();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteDaemon(" << exe.AsPrintablePath() << "): DuplicateHandle("
         << daemon_output.AsPrintablePath() << ") failed: " << error;
   }
