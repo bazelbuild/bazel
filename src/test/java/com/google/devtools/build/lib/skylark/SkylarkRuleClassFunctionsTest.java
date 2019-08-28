@@ -1216,16 +1216,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testGetattr() throws Exception {
-    eval(
-        "s = struct(a='val')",
-        "x = getattr(s, 'a')",
-        "y = getattr(s, 'b', 'def')",
-        "z = getattr(s, 'b', default = 'def')",
-        "w = getattr(s, 'a', default='ignored')");
+    eval("s = struct(a='val')", "x = getattr(s, 'a')", "y = getattr(s, 'b', 'def')");
     assertThat(lookup("x")).isEqualTo("val");
     assertThat(lookup("y")).isEqualTo("def");
-    assertThat(lookup("z")).isEqualTo("def");
-    assertThat(lookup("w")).isEqualTo("val");
   }
 
   @Test
