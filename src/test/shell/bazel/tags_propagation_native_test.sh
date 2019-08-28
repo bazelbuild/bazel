@@ -94,30 +94,6 @@ EOF
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
 }
 
-function test_java_tags_propagated() {
-  mkdir -p test
-  cat > test/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-java_library(
-  name = 'test',
-  srcs = [ 'Hello.java' ],
-  tags = ["no-cache", "no-remote", "local"]
-)
-EOF
-  cat > test/Hello.java <<EOF
-public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello there");
-    }
-}
-EOF
-
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
-      || fail "should have generated output successfully"
-
-  assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
-}
-
 # Test a native test rule rule which has tags, that should be propagated (independent of flags)
 function test_test_rules_tags_propagated() {
   mkdir -p test

@@ -47,9 +47,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * A class to create C/C++ link actions in a way that is consistent with cc_library. Rules that
@@ -125,7 +126,7 @@ public final class CcLinkingHelper {
   private final ActionRegistry actionRegistry;
   private final RuleErrorConsumer ruleErrorConsumer;
   private final SymbolGenerator<?> symbolGenerator;
-  private RuleContext ruleContext;
+  @Nullable private final RuleContext ruleContext;
 
   private Artifact grepIncludes;
   private boolean isStampingEnabled;
@@ -156,7 +157,7 @@ public final class CcLinkingHelper {
           BuildConfiguration configuration,
           CppConfiguration cppConfiguration,
           SymbolGenerator<?> symbolGenerator,
-          RuleContext ruleContext) {
+          @Nullable RuleContext ruleContext) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
@@ -821,7 +822,7 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(
       Artifact outputArtifact, LinkTargetType linkType) {
-    return new CppLinkActionBuilder(
+    CppLinkActionBuilder builder = new CppLinkActionBuilder(
             ruleErrorConsumer,
             actionConstructionContext,
             label,
@@ -831,18 +832,21 @@ public final class CcLinkingHelper {
             fdoContext,
             featureConfiguration,
             semantics)
-        .setGrepIncludes(grepIncludes)
-        .setIsStampingEnabled(isStampingEnabled)
-        .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
-        .setLinkType(linkType)
-        .setLinkerFiles(
-            (cppConfiguration.useSpecificToolFiles()
-                    && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
-                ? ccToolchain.getArFiles()
-                : ccToolchain.getLinkerFiles())
-        .setLinkArtifactFactory(linkArtifactFactory)
-        .setUseTestOnlyFlags(useTestOnlyFlags)
-        .addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+            .setGrepIncludes(grepIncludes)
+            .setIsStampingEnabled(isStampingEnabled)
+            .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
+            .setLinkType(linkType)
+            .setLinkerFiles(
+                    (cppConfiguration.useSpecificToolFiles()
+                            && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
+                            ? ccToolchain.getArFiles()
+                            : ccToolchain.getLinkerFiles())
+            .setLinkArtifactFactory(linkArtifactFactory)
+            .setUseTestOnlyFlags(useTestOnlyFlags);
+    if (ruleContext != null) {
+      builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+    }
+    return builder;
   }
 
   /**
