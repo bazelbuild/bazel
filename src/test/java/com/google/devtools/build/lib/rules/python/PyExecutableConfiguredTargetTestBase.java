@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import org.junit.Test;
 
 /** Tests that are common to {@code py_binary} and {@code py_test}. */
@@ -505,5 +506,32 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "    name = 'foo',",
         "    srcs = [':foo.py'],",
         "    srcs_version = 'PY3ONLY')");
+  }
+
+  @Test
+  public void incompatibleRemoveLegacyCreateInitPy_removesFile() throws Exception {
+    scratch.file( //
+        "pkg/BUILD", //
+        join(ruleName + "(", //
+        "    name = 'foo',", //
+        "    srcs = ['foo.py'],", //
+        ")"
+    ));
+    useConfiguration("--incompatible_remove_legacy_create_init_py=true");
+    assertThat(getDefaultRunfiles(getOkPyTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
+  }
+
+  @Test
+  public void noIncompatibleRemoveLegacyCreateInitPy_leavesFile() throws Exception {
+    scratch.file( //
+        "pkg/BUILD", //
+        join(ruleName + "(", //
+        "    name = 'foo',", //
+        "    srcs = ['foo.py'],", //
+        ")"
+    ));
+    useConfiguration("--incompatible_remove_legacy_create_init_py=false");
+    assertThat(getDefaultRunfiles(getOkPyTarget("//pkg:foo")).getEmptyFilenames())
+        .containsExactly("pkg/__init__.py");
   }
 }
