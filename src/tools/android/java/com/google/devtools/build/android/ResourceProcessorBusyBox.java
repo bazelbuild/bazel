@@ -144,6 +144,12 @@ public class ResourceProcessorBusyBox {
         Aapt2ResourceShrinkingAction.main(args);
       }
     },
+    AAPT2_OPTIMIZE() {
+      @Override
+      void call(String[] args) throws Exception {
+        Aapt2OptimizeAction.main(args);
+      }
+    },
     MERGE_ASSETS() {
       @Override
       void call(String[] args) throws Exception {
