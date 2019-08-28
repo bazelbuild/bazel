@@ -67,8 +67,7 @@ public class WorkspaceFactory {
           "workspace",
           "__embedded_dir__", // serializable so optional
           "__workspace_dir__", // serializable so optional
-          "DEFAULT_SYSTEM_JAVABASE", // serializable so optional
-          PackageFactory.PKG_CONTEXT);
+          "DEFAULT_SYSTEM_JAVABASE"); // serializable so optional
 
   private final Package.Builder builder;
 
@@ -368,8 +367,8 @@ public class WorkspaceFactory {
       for (EnvironmentExtension extension : environmentExtensions) {
         extension.updateWorkspace(workspaceEnv);
       }
-      workspaceEnv.setupDynamic(
-          PackageFactory.PKG_CONTEXT,
+      workspaceEnv.setThreadLocal(
+          PackageFactory.PackageContext.class,
           new PackageFactory.PackageContext(builder, null, localReporter, AttributeContainer::new));
     } catch (EvalException e) {
       throw new AssertionError(e);

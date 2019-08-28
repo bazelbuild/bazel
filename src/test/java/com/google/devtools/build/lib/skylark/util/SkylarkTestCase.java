@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
@@ -74,6 +72,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                 TestConstants.TOOLS_REPOSITORY,
                 /*repoMapping=*/ ImmutableMap.of(),
                 new SymbolGenerator<>(new Object()));
+        // This Environment has no PackageContext, so attempts to create a rule will fail.
+        // Rule creation is tested by SkylarkIntegrationTest.
         Environment env =
             Environment.builder(mutability)
                 .setSemantics(semantics)
@@ -83,12 +83,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                         .withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                 .setStarlarkContext(context)
-                .build()
-                .setupDynamic(
-                    PackageFactory.PKG_CONTEXT,
-                    // This dummy pkgContext works because no Skylark unit test attempts to actually
-                    // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
-                    new PackageContext(null, null, getEventHandler(), null));
+                .build();
         SkylarkUtils.setPhase(env, Phase.LOADING);
         return env;
       }
