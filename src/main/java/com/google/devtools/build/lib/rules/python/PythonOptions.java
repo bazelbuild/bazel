@@ -259,6 +259,7 @@ public class PythonOptions extends FragmentOptions {
               + "https://github.com/bazelbuild/bazel/issues/9006.")
   public boolean loadPythonRulesFromBzl;
 
+
   @Option(
       name = "experimental_build_transitive_python_runfiles",
       defaultValue = "true",
@@ -268,6 +269,21 @@ public class PythonOptions extends FragmentOptions {
           "Build the runfiles trees of py_binary targets that appear in the transitive "
               + "data runfiles of another binary.")
   public boolean buildTransitiveRunfilesTrees;
+
+  @Option(
+      name = "incompatible_remove_legacy_create_init_py",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, empty __init__.py files will not be created automatically by bazel for py_binary "
+              + "and py_test targets. This is equivalent to setting legacy_create_init to false on all such "
+              + "targets.")
+  public boolean incompatibleRemoveLegacyCreateInitPy;
 
   @Override
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {

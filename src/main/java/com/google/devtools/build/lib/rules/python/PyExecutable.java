@@ -131,8 +131,9 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
     semantics.collectDefaultRunfiles(ruleContext, builder);
     builder.add(ruleContext, PythonRunfilesProvider.TO_RUNFILES);
 
-    if (!ruleContext.attributes().has("legacy_create_init", Type.BOOLEAN)
-        || ruleContext.attributes().get("legacy_create_init", Type.BOOLEAN)) {
+    if (!ruleContext.getFragment(PythonConfiguration.class).removeLegacyCreateInitPy() && 
+            (!ruleContext.attributes().has("legacy_create_init", Type.BOOLEAN) 
+             || ruleContext.attributes().get("legacy_create_init", Type.BOOLEAN))) {
       builder.setEmptyFilesSupplier(PythonUtils.GET_INIT_PY_FILES);
     }
     semantics.collectRunfilesForBinary(ruleContext, builder, common, ccInfo);
