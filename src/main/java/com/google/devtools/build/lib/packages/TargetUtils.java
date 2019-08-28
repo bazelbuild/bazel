@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
@@ -29,8 +26,11 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 
-import java.util.*;
 import javax.annotation.Nullable;
+import java.util.*;
+
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 /**
  * Utility functions over Targets that don't really belong in the base {@link
@@ -232,11 +232,13 @@ public final class TargetUtils {
   }
 
   /**
-   * TODO(ishikhman) : update doc
    * Returns the execution info from the tags declared on the target. These include only some tags
    * {@link #legalExecInfoKeys} as keys with empty values.
-   * @param rule
-   * @param allowTagsPropagation
+   *
+   * @param rule a rule instance to get tags from
+   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
+   *        actions' execution requirements, for more details {@see
+   *        SkylarkSematicOptions#experimentalAllowTagsPropagation}
    */
   public static Map<String, String> getExecutionInfo(Rule rule, boolean allowTagsPropagation) {
     if (allowTagsPropagation){
