@@ -30,6 +30,8 @@ import java.util.Arrays;
  * <p>The annotation metadata is duplicated in this class to avoid usage of Java dynamic proxies
  * which are ~7X slower.
  */
+// TODO(adonovan): make this private. All external uses either want parameter types, or want to
+// "invoke" a struct field, both of which need better abstractions.
 public final class MethodDescriptor {
   private final Method method;
   private final SkylarkCallable annotation;

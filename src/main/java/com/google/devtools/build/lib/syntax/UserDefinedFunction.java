@@ -22,10 +22,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
 
-/**
- * The actual function registered in the environment. This function is defined in the parsed code
- * using {@link FunctionDefStatement}.
- */
+/** A UserDefinedFunction is the function value created by a Starlark {@code def} statement. */
+// TODO(adonovan): rename to StarlarkFunction.
 public class UserDefinedFunction extends BaseFunction {
 
   private final ImmutableList<Statement> statements;

@@ -20,25 +20,33 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A base interface for function-like objects that are callable in Starlark, whether builtin or
- * user-defined.
+ * The StarlarkCallable interface is implemented by all Starlark values that may be called from
+ * Starlark like a function, including built-in functions and methods, Starlark functions, and
+ * application-defined objects (such as rules, aspects, and providers in Bazel).
  */
-public interface StarlarkFunction extends SkylarkValue {
+public interface StarlarkCallable extends SkylarkValue {
 
   /**
    * Call this function with the given arguments.
    *
-   * @param args a list of all positional arguments (as in *starArg)
-   * @param kwargs a map for key arguments (as in **kwArgs)
-   * @param ast the expression for this function's definition
+   * Neither the callee nor the caller may modify the args List or kwargs Map.
+   *
+   * @param args the list of positional arguments
+   * @param kwargs the mapping of named arguments
+   * @param call the syntax tree of the function call
    * @param env the Environment in which the function is called
-   * @return the value resulting from evaluating the function with the given arguments
+   * @return the result of the call
    * @throws EvalException if there was an error invoking this function
    */
+  // TODO(adonovan):
+  // - rename Environment to StarlarkThread and make it the first parameter.
+  // - eliminate the FuncallExpression parameter (which can be accessed through env).
   public Object call(
       List<Object> args,
       @Nullable Map<String, Object> kwargs,
-      @Nullable FuncallExpression ast,
+      @Nullable FuncallExpression call,
       Environment env)
       throws EvalException, InterruptedException;
+
+  // TODO(adonovan): add a getName method that defines how this callable appears in a stack trace.
 }
