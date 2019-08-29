@@ -306,7 +306,7 @@ public class ObjcRuleClasses {
   /**
    * Header files, which are not compiled directly, but may be included/imported from source files.
    */
-  static final FileType HEADERS = FileType.of(".h", ".inc");
+  static final FileType HEADERS = FileType.of(".h", ".inc", ".hpp");
 
   /**
    * Files allowed in the srcs attribute. This includes private headers.
