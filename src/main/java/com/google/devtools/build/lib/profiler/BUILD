@@ -12,6 +12,9 @@ java_library(
     name = "profiler",
     srcs = glob([
         "*.java",
+    ], exclude = [
+        # Not used anywhere, but adds dependency to flogger
+        "GoogleAutoProfilerUtils.java",
     ]),
     visibility = ["//visibility:public"],
     deps = [
@@ -20,7 +23,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
