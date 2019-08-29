@@ -320,9 +320,11 @@ nav: docs
             var ghDocsBazeURL = 'https://github.com/bazelbuild/bazel/tree/master/site/docs/';
             var editButton = document.getElementById('gh-edit');
             // if there is an edit button and we are not in the Build Encyclopedia
+            // or other generated files.
             if (editButton
                 && window.location.pathname.match(versionDocsURLRegex)
                 && window.location.pathname.lastIndexOf('/be/') == -1
+                && window.location.pathname.lastIndexOf('/repo/') == -1
                 && window.location.pathname.lastIndexOf('/skylark/lib/') == -1) {
               var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
               // some pages are not using markdown :(
