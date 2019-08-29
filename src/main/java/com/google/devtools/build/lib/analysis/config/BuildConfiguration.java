@@ -864,6 +864,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.hostCpu;
   }
 
+  // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
   public static boolean runfilesEnabled(CoreOptions options) {
     switch (options.enableRunfiles) {
       case YES:
@@ -877,6 +878,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean runfilesEnabled() {
     return runfilesEnabled(this.options);
+  }
+
+  public boolean buildRunfileLinks() {
+    return options.buildRunfilesManifests && options.buildRunfiles;
   }
 
   /**

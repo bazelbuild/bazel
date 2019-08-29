@@ -72,7 +72,7 @@ public final class TestTargetExecutionSettings {
 
     this.testFilter = testConfig.getTestFilter();
     this.executable = executable;
-    this.runfilesSymlinksCreated = runfilesSupport.getCreateSymlinks();
+    this.runfilesSymlinksCreated = runfilesSupport.isBuildRunfileLinks();
     this.runfilesDir = runfilesSupport.getRunfilesDirectory();
     this.runfiles = runfilesSupport.getRunfiles();
     this.runfilesInputManifest = runfilesSupport.getRunfilesInputManifest();

@@ -73,6 +73,8 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class RunfilesSupport {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
+  private static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
+  private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
 
   private final Runfiles runfiles;
 
@@ -81,7 +83,7 @@ public final class RunfilesSupport {
   private final Artifact runfilesMiddleman;
   private final Artifact sourcesManifest;
   private final Artifact owningExecutable;
-  private final boolean createSymlinks;
+  private final boolean buildRunfileLinks;
   private final CommandLine args;
 
   /**
@@ -95,7 +97,7 @@ public final class RunfilesSupport {
       RuleContext ruleContext, Artifact executable, Runfiles runfiles, CommandLine args) {
     Artifact owningExecutable = Preconditions.checkNotNull(executable);
     boolean createManifest = ruleContext.getConfiguration().buildRunfilesManifests();
-    boolean createSymlinks = createManifest && ruleContext.getConfiguration().buildRunfiles();
+    boolean buildRunfileLinks = ruleContext.getConfiguration().buildRunfileLinks();
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
@@ -117,7 +119,7 @@ public final class RunfilesSupport {
     if (createManifest) {
       runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext, owningExecutable);
       runfilesManifest =
-          createRunfilesAction(ruleContext, runfiles, createSymlinks, runfilesInputManifest);
+          createRunfilesAction(ruleContext, runfiles, buildRunfileLinks, runfilesInputManifest);
     } else {
       runfilesInputManifest = null;
       runfilesManifest = null;
@@ -126,6 +128,8 @@ public final class RunfilesSupport {
         createRunfilesMiddleman(ruleContext, owningExecutable, runfiles, runfilesManifest);
     Artifact sourcesManifest = createSourceManifest(ruleContext, runfiles, owningExecutable);
 
+    boolean runfilesEnabled = ruleContext.getConfiguration().runfilesEnabled();
+
     return new RunfilesSupport(
         runfiles,
         runfilesInputManifest,
@@ -133,7 +137,7 @@ public final class RunfilesSupport {
         runfilesMiddleman,
         sourcesManifest,
         owningExecutable,
-        createSymlinks,
+        buildRunfileLinks,
         args);
   }
 
@@ -146,7 +150,7 @@ public final class RunfilesSupport {
       Artifact runfilesMiddleman,
       Artifact sourcesManifest,
       Artifact owningExecutable,
-      boolean createSymlinks,
+      boolean buildRunfileLinks,
       CommandLine args) {
     this.runfiles = runfiles;
     this.runfilesInputManifest = runfilesInputManifest;
@@ -154,7 +158,7 @@ public final class RunfilesSupport {
     this.runfilesMiddleman = runfilesMiddleman;
     this.sourcesManifest = sourcesManifest;
     this.owningExecutable = owningExecutable;
-    this.createSymlinks = createSymlinks;
+    this.buildRunfileLinks = buildRunfileLinks;
     this.args = args;
   }
 
@@ -176,11 +180,14 @@ public final class RunfilesSupport {
         executablePath.getBaseName() + RUNFILES_DIR_EXT);
   }
 
-  /** @return whether or not runfiles symlinks should be created */
-  public boolean getCreateSymlinks() {
-    return createSymlinks;
+  /**
+   * Returns {@code true} if runfile symlinks should be materialized when building an executable.
+   */
+  public boolean isBuildRunfileLinks() {
+    return buildRunfileLinks;
   }
 
+  
   public Runfiles getRunfiles() {
     return runfiles;
   }
@@ -206,7 +213,7 @@ public final class RunfilesSupport {
         ? owningExecutable.getRootRelativePath()
         : context.getPackageDirectory().getRelative(context.getLabel().getName());
     String basename = relativePath.getBaseName();
-    PathFragment inputManifestPath = relativePath.replaceName(basename + ".runfiles_manifest");
+    PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
     return context.getDerivedArtifact(inputManifestPath,
         context.getConfiguration().getBinDirectory(context.getRule().getRepository()));
   }
@@ -340,7 +347,7 @@ public final class RunfilesSupport {
 
     PathFragment runfilesDir = FileSystemUtils.replaceExtension(inputManifest.getRootRelativePath(),
         RUNFILES_DIR_EXT);
-    PathFragment outputManifestPath = runfilesDir.getRelative("MANIFEST");
+    PathFragment outputManifestPath = runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
 
     BuildConfiguration config = context.getConfiguration();
     Artifact outputManifest = context.getDerivedArtifact(
