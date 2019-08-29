@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
+import com.google.devtools.build.buildjar.javac.JavacOptions.JavacOptionNormalizer;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
 import com.google.turbine.options.TurbineOptions;
@@ -44,6 +45,8 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
@@ -223,13 +226,27 @@ public class JavacTurbine implements AutoCloseable {
     this.turbineOptions = turbineOptions;
   }
 
+  /** Throw away all doclint options to leave it disabled, since we don't care about javadoc. */
+  public static final class DoclintOptionNormalizer implements JavacOptionNormalizer {
+
+    @Override
+    public boolean processOption(String option, Iterator<String> remaining) {
+      return option.startsWith("-Xdoclint");
+    }
+
+    @Override
+    public void normalize(List<String> normalized) {}
+  }
+
   /** Creates the compilation javacopts from {@link TurbineOptions}. */
   @VisibleForTesting
   static ImmutableList<String> processJavacopts(TurbineOptions turbineOptions) {
     ImmutableList<String> javacopts =
         JavacOptions.removeBazelSpecificFlags(
             JavacOptions.normalizeOptionsWithNormalizers(
-                turbineOptions.javacOpts(), new JavacOptions.ReleaseOptionNormalizer()));
+                turbineOptions.javacOpts(),
+                new DoclintOptionNormalizer(),
+                new JavacOptions.ReleaseOptionNormalizer()));
 
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     builder.addAll(javacopts);

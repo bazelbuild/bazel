@@ -1054,7 +1054,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
   }
 
   @Test
-  public void processorReadsNonexistantFile() throws Exception {
+  public void processorReadsNonexistentFile() throws Exception {
     addSourceLines("Hello.java", "@Deprecated class Hello {}");
     optionsBuilder.addProcessors(ImmutableList.of(NoSuchFileProcessor.class.getName()));
     optionsBuilder.addProcessorPathEntries(HOST_CLASSPATH);
@@ -1446,6 +1446,29 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
   }
 
   @Test
+  public void noDoclint() throws Exception {
+    addSourceLines(
+        "A.java", //
+        "/** {@link Invalid} **/",
+        "public class A {",
+        "}");
+
+    optionsBuilder.addAllJavacOpts(
+        ImmutableList.of("-source", "8", "-target", "8", "-Xdoclint:reference"));
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
+
+    StringWriter output = new StringWriter();
+    Result result;
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(output, true), optionsBuilder.build())) {
+      result = turbine.compile();
+    }
+
+    assertThat(output.toString()).isEmpty();
+    assertThat(result).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
+  }
+
+  @Test
   public void processJavacopts_useSourceByDefault() {
     TurbineOptions options = TurbineOptions.builder().setOutput("/out").setTempDir("/tmp").build();
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
@@ -1476,6 +1499,19 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
     assertThat(javacopts).contains("--release");
     assertThat(javacopts).containsNoneOf("-source", "-target");
+  }
+
+  @Test
+  public void processJavacopts_filtersDoclint() {
+    TurbineOptions options =
+        TurbineOptions.builder()
+            .setOutput("/out")
+            .setTempDir("/tmp")
+            .addAllJavacOpts(ImmutableList.of("-Xmyopt", "-Xdoclint:reference"))
+            .build();
+    ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
+    assertThat(javacopts).contains("-Xmyopt");
+    assertThat(javacopts).doesNotContain("-Xdoclint:reference");
   }
 
   @Test
