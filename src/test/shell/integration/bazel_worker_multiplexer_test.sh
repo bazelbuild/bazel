@@ -510,28 +510,28 @@ EOF
   expect_log "Destroying Work worker (id [0-9]\+)"
 }
 
-# function test_crashed_worker_causes_log_dump() {
-#   prepare_example_worker
-#   cat >>BUILD <<'EOF'
-# [work(
-#   name = "hello_world_%s" % idx,
-#   worker = ":worker",
-#   worker_args = ["--poison_after=1", "--hard_poison"],
-#   args = ["--write_uuid", "--write_counter"],
-# ) for idx in range(10)]
-# EOF
+function test_crashed_worker_causes_log_dump() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--poison_after=1", "--hard_poison"],
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
 
-#   bazel build :hello_world_1 &> $TEST_log \
-#     || fail "build failed"
+  bazel build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
 
-#   bazel build :hello_world_2 &> $TEST_log \
-#     && fail "expected build to fail" || true
+  bazel build :hello_world_2 &> $TEST_log \
+    && fail "expected build to fail" || true
 
-#   expect_log "^---8<---8<--- Start of log, file at /"
-#   expect_log "Worker process did not return a WorkResponse:"
-#   expect_log "I'm a very poisoned worker and will just crash."
-#   expect_log "^---8<---8<--- End of log ---8<---8<---"
-# }
+  expect_log "^---8<---8<--- Start of log, file at /"
+  expect_log "Worker process did not return a WorkResponse:"
+  expect_log "I'm a very poisoned worker and will just crash."
+  expect_log "^---8<---8<--- End of log ---8<---8<---"
+}
 
 function test_multiple_target_without_delay() {
   prepare_example_worker
@@ -588,31 +588,4 @@ EOF
   bazel build  :hello_world_1 :hello_world_2 :hello_world_3 &> $TEST_log \
     || fail "build failed"
 }
-
-# We just need to test the build completion, no assertion is needed.
-# function test_multiple_target_return_response_in_opposite_order() {
-#   prepare_example_worker
-#   cat >>BUILD <<EOF
-# work(
-#   name = "hello_world_1",
-#   worker = ":worker",
-#   args = ["--queue", "hello world 1"],
-# )
-
-# work(
-#   name = "hello_world_2",
-#   worker = ":worker",
-#   args = ["--queue", "hello world 2"],
-# )
-
-# work(
-#   name = "hello_world_3",
-#   worker = ":worker",
-#   args = ["--queue", "hello world 3"],
-# )
-# EOF
-
-#   bazel build  :hello_world_1 :hello_world_2 :hello_world_3 &> $TEST_log \
-#     || fail "build failed"
-# }
 run_suite "Worker multiplexer integration tests"

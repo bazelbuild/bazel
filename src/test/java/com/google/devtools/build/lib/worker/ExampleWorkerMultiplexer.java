@@ -55,24 +55,14 @@ public class ExampleWorkerMultiplexer {
   // A counter that increases with each work unit processed.
   static int workUnitCounter = 1;
 
-  // If true, returns corrupt responses instead of correct protobufs.
-  static boolean poisoned = false;
+  static int counterOutput = workUnitCounter;
 
   static Semaphore protectResponse = new Semaphore(1);
-
-  static int refCounter = 0;
-  static int releaseCounter = 0;
-  static Semaphore protectQueue = new Semaphore(1);
-  static ArrayList<Semaphore> sem = new ArrayList<Semaphore>();
 
   // Keep state across multiple builds.
   static final LinkedHashMap<String, String> inputs = new LinkedHashMap<>();
 
   public static void main(String[] args) throws Exception {
-    for (int i = 0; i < concurrentThreadNumber; i++) {
-      sem.add(new Semaphore(0));
-    }
-
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
       OptionsParser parser =
           OptionsParser.builder()
@@ -86,7 +76,7 @@ public class ExampleWorkerMultiplexer {
       runPersistentWorker(workerOptions);
     } else {
       // This is a single invocation of the example that exits after it processed the request.
-      processRequest(ImmutableList.copyOf(args));
+      processRequest(parserHelper(ImmutableList.copyOf(args)));
     }
   }
 
@@ -109,14 +99,38 @@ public class ExampleWorkerMultiplexer {
           inputs.put(input.getPath(), input.getDigest().toStringUtf8());
         }
 
-        executorService.submit(creatTask(originalStdOut, originalStdErr, workerOptions, requestId, request));
+        // If true, returns corrupt responses instead of correct protobufs.
+        boolean poisoned = false;
+        if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
+          poisoned = true;
+        }
+
+        if (poisoned && workerOptions.hardPoison) {
+          System.err.println("I'm a very poisoned worker and will just crash.");
+          System.exit(1);
+        } else {
+          int exitCode = 0;
+          try {
+            OptionsParser parser = parserHelper(request.getArgumentsList());
+            ExampleWorkMultiplexerOptions options = parser.getOptions(ExampleWorkMultiplexerOptions.class);
+            if (options.writeCounter) {
+              counterOutput = workUnitCounter++;
+            }
+            executorService.submit(createTask(originalStdOut, originalStdErr, workerOptions, requestId, parser, poisoned));
+          } catch (Exception e) {
+            e.printStackTrace();
+            exitCode = 1;
+            WorkResponse.newBuilder()
+                .setRequestId(requestId)
+                .setOutput((new ByteArrayOutputStream()).toString())
+                .setExitCode(exitCode)
+                .build()
+                .writeDelimitedTo(System.out);
+          }
+        }
 
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           return;
-        }
-
-        if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
-          poisoned = true;
         }
       } finally {
         // Be a good worker process and consume less memory when idle.
@@ -125,12 +139,31 @@ public class ExampleWorkerMultiplexer {
     }
   }
 
-  private static Runnable creatTask(
+  private static OptionsParser parserHelper(List<String> args) throws Exception {
+    ImmutableList.Builder<String> expandedArgs = ImmutableList.builder();
+    for (String arg : args) {
+      Matcher flagFileMatcher = FLAG_FILE_PATTERN.matcher(arg);
+      if (flagFileMatcher.matches()) {
+        expandedArgs.addAll(Files.readAllLines(Paths.get(flagFileMatcher.group(1)), UTF_8));
+      } else {
+        expandedArgs.add(arg);
+      }
+    }
+
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(ExampleWorkMultiplexerOptions.class).allowResidue(true).build();
+    parser.parse(expandedArgs.build());
+
+    return parser;
+  } 
+
+  private static Runnable createTask(
       PrintStream originalStdOut,
       PrintStream originalStdErr,
       ExampleWorkerMultiplexerOptions workerOptions,
       Integer requestId,
-      WorkRequest request) {
+      OptionsParser parser,
+      boolean poisoned) {
     return () -> {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       int exitCode = 0;
@@ -141,9 +174,6 @@ public class ExampleWorkerMultiplexer {
           System.setErr(ps);
 
           if (poisoned) {
-            if (workerOptions.hardPoison) {
-              throw new IllegalStateException("I'm a very poisoned worker and will just crash.");
-            }
             System.out.println("I'm a poisoned worker and this is not a protobuf.");
             System.out.println("Here's a fake stack trace for you:");
             System.out.println("    at com.example.Something(Something.java:83)");
@@ -154,7 +184,7 @@ public class ExampleWorkerMultiplexer {
             System.out.write(b);
           } else {
             try {
-              processRequest(request.getArgumentsList());
+              processRequest(parser);
             } catch (Exception e) {
               e.printStackTrace();
               exitCode = 1;
@@ -184,41 +214,10 @@ public class ExampleWorkerMultiplexer {
     };
   }
 
-  private static void processRequest(List<String> args) throws Exception {
-    ImmutableList.Builder<String> expandedArgs = ImmutableList.builder();
-    for (String arg : args) {
-      Matcher flagFileMatcher = FLAG_FILE_PATTERN.matcher(arg);
-      if (flagFileMatcher.matches()) {
-        expandedArgs.addAll(Files.readAllLines(Paths.get(flagFileMatcher.group(1)), UTF_8));
-      } else {
-        expandedArgs.add(arg);
-      }
-    }
-
-    OptionsParser parser =
-        OptionsParser.builder().optionsClasses(ExampleWorkMultiplexerOptions.class).allowResidue(true).build();
-    parser.parse(expandedArgs.build());
+  private static void processRequest(OptionsParser parser) throws Exception {
     ExampleWorkMultiplexerOptions options = parser.getOptions(ExampleWorkMultiplexerOptions.class);
 
     List<String> outputs = new ArrayList<>();
-
-    if (options.queue) {
-      protectQueue.acquire();
-      int queuePos = refCounter;
-      refCounter++;
-      if (refCounter == concurrentThreadNumber) {
-        sem.get(queuePos).release();
-      }
-      protectQueue.release();
-      sem.get(queuePos).acquire();
-      protectQueue.acquire();
-      releaseCounter++;
-      outputs.add("QUEUE request " + Integer.toString(queuePos+1) + " release at " + releaseCounter);
-      if (queuePos > 0) {
-        sem.get(queuePos-1).release();
-      }
-      protectQueue.release();
-    }
 
     if (options.delay) {
       Integer randomDelay = new Random().nextInt(200) + 100;
@@ -231,7 +230,7 @@ public class ExampleWorkerMultiplexer {
     }
 
     if (options.writeCounter) {
-      outputs.add("COUNTER " + workUnitCounter++);
+      outputs.add("COUNTER " + counterOutput);
     }
 
     String residueStr = Joiner.on(' ').join(parser.getResidue());

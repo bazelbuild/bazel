@@ -61,6 +61,7 @@ public class WorkerMultiplexer extends Thread {
   private boolean isUnparseable;
   /** InputStream from worker process. */
   private RecordingInputStream recordingStream;
+  private boolean isNull;
 
   WorkerMultiplexer() {
     semWorkerProcessResponse = new Semaphore(1);
@@ -68,6 +69,7 @@ public class WorkerMultiplexer extends Thread {
     responseChecker = new HashMap<>();
     workerProcessResponse = new HashMap<>();
     isUnparseable = false;
+    isNull = false;
 
     final WorkerMultiplexer self = this;
   }
@@ -138,6 +140,10 @@ public class WorkerMultiplexer extends Thread {
     // The semaphore will throw InterruptedException when the multiplexer is terminated.
     waitForResponse.acquire();
 
+    if (isNull) {
+      return null;
+    }
+
     if (isUnparseable) {
       recordingStream.readRemaining();
       throw new IOException(recordingStream.getRecordedDataAsString());
@@ -165,7 +171,20 @@ public class WorkerMultiplexer extends Thread {
     recordingStream.startRecording(4096);
     WorkResponse parsedResponse = WorkResponse.parseDelimitedFrom(recordingStream);
 
-    if (parsedResponse == null) return;
+    if (parsedResponse == null) {
+      isNull = true;
+      try {
+        semResponseChecker.acquire();
+        for (Integer workerId: responseChecker.keySet()) {
+          responseChecker.get(workerId).release();
+        }
+      } catch (InterruptedException ee) {
+        // Do nothing
+      } finally {
+        semResponseChecker.release();
+      }
+      return;
+    }
 
     Integer workerId = parsedResponse.getRequestId();
     ByteArrayOutputStream tempOs = new ByteArrayOutputStream();

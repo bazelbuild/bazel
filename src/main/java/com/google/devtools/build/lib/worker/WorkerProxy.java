@@ -99,7 +99,11 @@ final class WorkerProxy extends Worker {
   @Override
   WorkResponse getResponse() throws IOException {
     try {
-      return WorkResponse.parseDelimitedFrom(workerMultiplexer.getResponse(workerId));
+      InputStream inputStream = workerMultiplexer.getResponse(workerId);
+      if (inputStream == null) {
+        return null;
+      }
+      return WorkResponse.parseDelimitedFrom(inputStream);
     } catch (IOException e) {
       recordingStreamMessage = e.toString();
       throw new IOException("IOException was caught while waiting for worker response. "
