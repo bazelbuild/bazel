@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -65,6 +66,8 @@ public class CriticalPathComponent {
 
   /** Spawn metrics for this action. */
   private SpawnMetrics spawnMetrics = SpawnMetrics.EMPTY;
+  /** Name of the runner used for the spawn. */
+  @Nullable private String spawnRunnerName;
   /** An unique identifier of the component for one build execution */
   private final int id;
 
@@ -104,6 +107,7 @@ public class CriticalPathComponent {
     }
   }
 
+  @SuppressWarnings("ReferenceEquality")
   boolean isPrimaryOutput(Artifact possiblePrimaryOutput) {
     // We know that the keys in the CriticalPathComputer are exactly the values returned from
     // action.getPrimaryOutput(), so pointer equality is safe here.
@@ -147,9 +151,10 @@ public class CriticalPathComponent {
    * are run in parallel we should keep the maximum), we keep the maximum. This is better than just
    * keeping the latest one.
    */
-  void addSpawnMetrics(SpawnMetrics spawnMetrics) {
-    if (spawnMetrics.totalTime().compareTo(this.spawnMetrics.totalTime()) > 0) {
-      this.spawnMetrics = spawnMetrics;
+  void addSpawnResult(SpawnResult spawnResult) {
+    if (spawnResult.getMetrics().totalTime().compareTo(spawnMetrics.totalTime()) > 0) {
+      this.spawnMetrics = spawnResult.getMetrics();
+      this.spawnRunnerName = spawnResult.getRunnerName();
     }
   }
 
@@ -159,8 +164,17 @@ public class CriticalPathComponent {
   }
 
   /**
-   * Add statistics for one dependency of this action. Caller should ensure {@code dep} not
-   * running.
+   * Returns name of the runner used for the finished spawn which took most time (see {@link
+   * #addSpawnResult(SpawnResult)}), null if no spawns have finished for this action (either there
+   * are no spawns or we asked before any have finished).
+   */
+  @Nullable
+  public String getSpawnRunnerName() {
+    return spawnRunnerName;
+  }
+
+  /**
+   * Add statistics for one dependency of this action. Caller should ensure {@code dep} not running.
    */
   synchronized void addDepInfo(CriticalPathComponent dep) {
     long childAggregatedWallTime = dep.getAggregatedElapsedTimeNanos();
