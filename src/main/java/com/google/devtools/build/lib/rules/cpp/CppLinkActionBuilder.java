@@ -148,7 +148,7 @@ public class CppLinkActionBuilder {
   //  of them.
   private boolean isTestOrTestOnlyTarget;
   private boolean isStampingEnabled;
-  private Map<String, String> executionInfo = new LinkedHashMap<>();
+  private final Map<String, String> executionInfo = new LinkedHashMap<>();
 
   /**
    * Creates a builder that builds {@link CppLinkAction}s.
@@ -1023,7 +1023,6 @@ public class CppLinkActionBuilder {
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
     // from there, otherwise, use no execution info.
     // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
-//    Map<String, String> executionRequirements = new LinkedHashMap<>();
 
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       for (String req : featureConfiguration.getToolRequirementsForAction(getActionName())) {

@@ -143,7 +143,7 @@ public final class CcLinkingHelper {
    * @param ccToolchain the C++ toolchain provider for the build
    * @param fdoContext the C++ FDO optimization support provider for the build
    * @param configuration the configuration that gives the directory of output artifacts
-   * @param ruleContext
+   * @param ruleContext the data available during the analysis of a rule
    */
   public CcLinkingHelper(
           RuleErrorConsumer ruleErrorConsumer,
@@ -821,7 +821,7 @@ public final class CcLinkingHelper {
   }
 
   private CppLinkActionBuilder newLinkActionBuilder(
-      Artifact outputArtifact, LinkTargetType linkType) {
+      Artifact outputArtifact, LinkTargetType linkType) throws InterruptedException {
     CppLinkActionBuilder builder = new CppLinkActionBuilder(
             ruleErrorConsumer,
             actionConstructionContext,
@@ -843,8 +843,8 @@ public final class CcLinkingHelper {
                             : ccToolchain.getLinkerFiles())
             .setLinkArtifactFactory(linkArtifactFactory)
             .setUseTestOnlyFlags(useTestOnlyFlags);
-    if (ruleContext != null) {
-      builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+    if (ruleContext != null && ruleContext.isAllowTagsPropagation()) {
+      builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule()));
     }
     return builder;
   }

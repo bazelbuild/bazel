@@ -699,7 +699,7 @@ public final class CcCompilationHelper {
    *
    * @throws RuleErrorException
    */
-  public CompilationInfo compile() throws RuleErrorException {
+  public CompilationInfo compile() throws RuleErrorException, InterruptedException {
 
     if (!generatePicAction && !generateNoPicAction) {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
@@ -1239,7 +1239,7 @@ public final class CcCompilationHelper {
    * file. It takes into account fake-ness, coverage, and PIC, in addition to using the settings
    * specified on the current object. This method should only be called once.
    */
-  private CcCompilationOutputs createCcCompileActions() throws RuleErrorException {
+  private CcCompilationOutputs createCcCompileActions() throws RuleErrorException, InterruptedException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
@@ -1546,7 +1546,7 @@ public final class CcCompilationHelper {
    * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
    * initialized.
    */
-  private CppCompileActionBuilder initializeCompileAction(Artifact sourceArtifact) {
+  private CppCompileActionBuilder initializeCompileAction(Artifact sourceArtifact) throws InterruptedException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
             actionConstructionContext, grepIncludes, ccToolchain, configuration);
@@ -1554,15 +1554,15 @@ public final class CcCompilationHelper {
     builder.setCcCompilationContext(ccCompilationContext);
     builder.setCoptsFilter(coptsFilter);
     builder.setFeatureConfiguration(featureConfiguration);
-    if (ruleContext != null) {
-      builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+    if (ruleContext != null && ruleContext.isAllowTagsPropagation()) {
+      builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule()));
     }
     return builder;
   }
 
   private void createModuleCodegenAction(
       CcCompilationOutputs.Builder result, Label sourceLabel, Artifact module)
-      throws RuleErrorException {
+          throws RuleErrorException, InterruptedException {
     if (fake) {
       // We can't currently foresee a situation where we'd want nocompile tests for module codegen.
       // If we find one, support needs to be added here.
@@ -1678,7 +1678,7 @@ public final class CcCompilationHelper {
   }
 
   private Collection<Artifact> createModuleAction(
-      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap) throws RuleErrorException {
+      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap) throws RuleErrorException, InterruptedException {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
 

@@ -1432,7 +1432,8 @@ public abstract class CcModule
                     .getActionConstructionContext()
                     .getConfiguration()
                     .getFragment(CppConfiguration.class),
-                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(), null)
+                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(),
+                /* ruleContext= */ null)
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .addNonCodeLinkerInputs(additionalInputs)
             .setShouldCreateStaticLibraries(!disallowStaticLibraries)
@@ -1680,7 +1681,8 @@ public abstract class CcModule
                 fdoContext,
                 actions.getActionConstructionContext().getConfiguration(),
                 cppConfiguration,
-                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(), null)
+                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(),
+                /* ruleContext= */ null)
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .addNonCodeLinkerInputs(additionalInputs)

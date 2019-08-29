@@ -27,7 +27,12 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
@@ -229,23 +234,6 @@ public final class TargetUtils {
       }
     }
     return ImmutableMap.copyOf(map);
-  }
-
-  /**
-   * Returns the execution info from the tags declared on the target. These include only some tags
-   * {@link #legalExecInfoKeys} as keys with empty values.
-   *
-   * @param rule a rule instance to get tags from
-   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
-   *        actions' execution requirements, for more details {@see
-   *        SkylarkSematicOptions#experimentalAllowTagsPropagation}
-   */
-  public static Map<String, String> getExecutionInfo(Rule rule, boolean allowTagsPropagation) {
-    if (allowTagsPropagation){
-      return getExecutionInfo(rule);
-    } else {
-      return Collections.emptyMap();
-    }
   }
 
   /**

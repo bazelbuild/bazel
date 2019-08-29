@@ -102,6 +102,8 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -110,7 +112,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /**
  * The totality of data available during the analysis of a rule.
@@ -125,14 +126,9 @@ import javax.annotation.Nullable;
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
 
-  public boolean isAllowTagsPropagation() {
-    try {
-      return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
-    } catch (InterruptedException e) {
-      // fallback to false if value of experimentalAllowTagsPropagation cannot be fetched
-      return false;
+    public boolean isAllowTagsPropagation() throws InterruptedException {
+        return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
     }
-  }
 
   /**
    * The configured version of FilesetEntry.
