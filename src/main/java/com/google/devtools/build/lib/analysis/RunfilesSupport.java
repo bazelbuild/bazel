@@ -128,8 +128,6 @@ public final class RunfilesSupport {
         createRunfilesMiddleman(ruleContext, owningExecutable, runfiles, runfilesManifest);
     Artifact sourcesManifest = createSourceManifest(ruleContext, runfiles, owningExecutable);
 
-    boolean runfilesEnabled = ruleContext.getConfiguration().runfilesEnabled();
-
     return new RunfilesSupport(
         runfiles,
         runfilesInputManifest,

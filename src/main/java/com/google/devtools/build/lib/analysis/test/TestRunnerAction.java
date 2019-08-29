@@ -165,13 +165,13 @@ public class TestRunnerAction extends AbstractAction
       int runNumber,
       BuildConfiguration configuration,
       String workspaceName,
-      @Nullable PathFragment shExecutable) {
+      @Nullable PathFragment shExecutable,
+      PathFragment runfilesExecPath) {
     super(
         owner,
         /*tools=*/ ImmutableList.of(),
         inputs,
-        // Note that this action only cares about the runfiles, not the mapping.
-        new RunfilesSupplierImpl(PathFragment.create("runfiles"), executionSettings.getRunfiles()),
+        new RunfilesSupplierImpl(runfilesExecPath, executionSettings.getRunfiles()),
         list(testLog, cacheStatus, coverageArtifact),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
@@ -268,8 +268,7 @@ public class TestRunnerAction extends AbstractAction
       builder.add(Pair.of(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog())));
     }
     if (getCoverageData() != null && resolver.toPath(getCoverageData()).exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE,
-          resolver.toPath(getCoverageData())));
+      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, resolver.toPath(getCoverageData())));
     }
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
@@ -363,9 +362,8 @@ public class TestRunnerAction extends AbstractAction
   }
 
   /** Saves cache status to disk. */
-  public void saveCacheStatus(
-      ActionExecutionContext actionExecutionContext,
-      TestResultData data) throws IOException {
+  public void saveCacheStatus(ActionExecutionContext actionExecutionContext, TestResultData data)
+      throws IOException {
     try (OutputStream out = actionExecutionContext.getInputPath(cacheStatus).getOutputStream()) {
       data.writeTo(out);
     }

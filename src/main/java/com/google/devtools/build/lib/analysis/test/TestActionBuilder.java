@@ -388,7 +388,8 @@ public final class TestActionBuilder {
                 (!isUsingTestWrapperInsteadOfTestSetupScript
                         || executionSettings.needsShell(isExecutedOnWindows))
                     ? ShToolchain.getPathOrError(ruleContext)
-                    : null);
+                    : null,
+                runfilesSupport.getRunfilesDirectoryExecPath());
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestResult;
@@ -133,8 +132,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             getArgs(action),
             ImmutableMap.copyOf(env),
             ImmutableMap.copyOf(executionInfo),
-            new RunfilesSupplierImpl(
-                runfilesDir.relativeTo(execRoot), action.getExecutionSettings().getRunfiles()),
+            action.getRunfilesSupplier(),
             ImmutableMap.of(),
             /*inputs=*/ ImmutableList.copyOf(action.getInputs()),
             /*tools=*/ ImmutableList.<Artifact>of(),
