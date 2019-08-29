@@ -1133,18 +1133,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     // Assert that the ProGuard executable set in the android_sdk rule appeared in the command-line
     // of the SpawnAction that generated the _proguard.jar.
-    assertThat(
-            Iterables.any(
-                args,
-                new Predicate<String>() {
-                  @Override
-                  public boolean apply(String s) {
-                    return s.endsWith("ProGuard");
-                  }
-                }))
-        .isTrue();
     assertThat(args)
         .containsAtLeast(
+            getProguardBinary().getExecPathString(),
             "-injars",
             execPathEndingWith(action.getInputs(), "b_deploy.jar"),
             "-printseeds",
