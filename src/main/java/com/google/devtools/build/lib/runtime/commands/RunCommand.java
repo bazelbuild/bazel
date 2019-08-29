@@ -135,7 +135,7 @@ public class RunCommand implements BlazeCommand  {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
         },
-        defaultValue = "false",
+        defaultValue = "true",
         help =
             "On Windows: if true, the \"run\" command runs the binary directly instead of running "
                 + "through Bash; when false, then the binary is ran through Bash. On other "
