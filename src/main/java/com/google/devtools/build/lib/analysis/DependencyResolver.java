@@ -250,6 +250,7 @@ public abstract class DependencyResolver {
     BuildConfiguration config = node.getConfiguration();
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
 
+    // TODO(bazel-team): Figure out a way to implement the below using LabelVisitationUtils.
     if (target instanceof OutputFile) {
       Preconditions.checkNotNull(config);
       visitTargetVisibility(node, outgoingLabels);

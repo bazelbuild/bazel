@@ -66,15 +66,25 @@ public abstract class DependencyFilter
     }
   };
   /**
-   * Checks to see if the attribute has the isDirectCompileTimeInput property.
+   * Dependency predicate that excludes those edges that are not present in the loading phase target
+   * dependency graph but *does* include edges from the `visibility` attribute.
    */
+  public static final DependencyFilter NO_NODEP_ATTRIBUTES_EXCEPT_VISIBILITY =
+      new DependencyFilter() {
+        @Override
+        public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
+          return NO_NODEP_ATTRIBUTES.apply(infoProvider, attribute)
+              || attribute.getName().equals("visibility");
+        }
+      };
+  /** Checks to see if the attribute has the isDirectCompileTimeInput property. */
   public static final DependencyFilter DIRECT_COMPILE_TIME_INPUT =
       new DependencyFilter() {
-    @Override
-    public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
-      return attribute.isDirectCompileTimeInput();
-    }
-  };
+        @Override
+        public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
+          return attribute.isDirectCompileTimeInput();
+        }
+      };
 
   /**
    * Returns true if a given attribute should be processed.
