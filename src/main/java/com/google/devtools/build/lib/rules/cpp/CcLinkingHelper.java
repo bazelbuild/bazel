@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,10 +33,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -48,10 +47,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A class to create C/C++ link actions in a way that is consistent with cc_library. Rules that
@@ -127,7 +125,7 @@ public final class CcLinkingHelper {
   private final ActionRegistry actionRegistry;
   private final RuleErrorConsumer ruleErrorConsumer;
   private final SymbolGenerator<?> symbolGenerator;
-  private final Rule rule;
+  private final ImmutableMap<String, String> executionInfo;
 
   private Artifact grepIncludes;
   private boolean isStampingEnabled;
@@ -135,7 +133,8 @@ public final class CcLinkingHelper {
 
   /**
    * Creates a CcLinkingHelper that outputs artifacts in a given configuration.
-   *  @param ruleErrorConsumer the RuleErrorConsumer
+   *
+   * @param ruleErrorConsumer the RuleErrorConsumer
    * @param label the Label of the rule being built
    * @param actionRegistry the ActionRegistry of the rule being built
    * @param actionConstructionContext the ActionConstructionContext of the rule being built
@@ -144,7 +143,7 @@ public final class CcLinkingHelper {
    * @param ccToolchain the C++ toolchain provider for the build
    * @param fdoContext the C++ FDO optimization support provider for the build
    * @param configuration the configuration that gives the directory of output artifacts
-   * @param rule the data associated with a rule
+   * @param executionInfo the execution info data associated with a rule
    */
   public CcLinkingHelper(
           RuleErrorConsumer ruleErrorConsumer,
@@ -158,7 +157,7 @@ public final class CcLinkingHelper {
           BuildConfiguration configuration,
           CppConfiguration cppConfiguration,
           SymbolGenerator<?> symbolGenerator,
-          Rule rule) {
+          ImmutableMap<String, String> executionInfo) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
@@ -170,7 +169,7 @@ public final class CcLinkingHelper {
     this.actionRegistry = actionRegistry;
     this.actionConstructionContext = actionConstructionContext;
     this.symbolGenerator = symbolGenerator;
-    this.rule = rule;
+    this.executionInfo = executionInfo;
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -822,8 +821,8 @@ public final class CcLinkingHelper {
   }
 
   private CppLinkActionBuilder newLinkActionBuilder(
-      Artifact outputArtifact, LinkTargetType linkType) throws InterruptedException {
-    CppLinkActionBuilder builder = new CppLinkActionBuilder(
+      Artifact outputArtifact, LinkTargetType linkType) {
+    return new CppLinkActionBuilder(
             ruleErrorConsumer,
             actionConstructionContext,
             label,
@@ -833,21 +832,18 @@ public final class CcLinkingHelper {
             fdoContext,
             featureConfiguration,
             semantics)
-            .setGrepIncludes(grepIncludes)
-            .setIsStampingEnabled(isStampingEnabled)
-            .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
-            .setLinkType(linkType)
-            .setLinkerFiles(
-                    (cppConfiguration.useSpecificToolFiles()
-                            && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
-                            ? ccToolchain.getArFiles()
-                            : ccToolchain.getLinkerFiles())
-            .setLinkArtifactFactory(linkArtifactFactory)
-            .setUseTestOnlyFlags(useTestOnlyFlags);
-    if (actionConstructionContext.isAllowTagsPropagation()) {
-      builder.addExecutionInfo(TargetUtils.getExecutionInfo(rule));
-    }
-    return builder;
+        .setGrepIncludes(grepIncludes)
+        .setIsStampingEnabled(isStampingEnabled)
+        .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
+        .setLinkType(linkType)
+        .setLinkerFiles(
+            (cppConfiguration.useSpecificToolFiles()
+                    && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
+                ? ccToolchain.getArFiles()
+                : ccToolchain.getLinkerFiles())
+        .setLinkArtifactFactory(linkArtifactFactory)
+        .setUseTestOnlyFlags(useTestOnlyFlags)
+        .addExecutionInfo(executionInfo);
   }
 
   /**

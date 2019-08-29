@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -248,7 +249,7 @@ public abstract class NativeDepsHelper {
             configuration,
             ruleContext.getFragment(CppConfiguration.class),
             ruleContext.getSymbolGenerator(),
-            ruleContext.getRule())
+            TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
         .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
         .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
         .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())

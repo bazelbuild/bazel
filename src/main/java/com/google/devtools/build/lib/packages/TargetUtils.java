@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
@@ -25,17 +28,12 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
-
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import javax.annotation.Nullable;
 
 /**
  * Utility functions over Targets that don't really belong in the base {@link
@@ -234,6 +232,18 @@ public final class TargetUtils {
       }
     }
     return ImmutableMap.copyOf(map);
+  }
+
+  /**
+   * Returns the execution info from the tags declared on the target if tags propagation is allowed.
+   * These include only some tags {@link #legalExecInfoKeys} as keys with empty values.
+   */
+  public static ImmutableMap<String, String> getExecutionInfo(Rule rule, boolean allowTagsPropagation) {
+    if (allowTagsPropagation) {
+      return ImmutableMap.copyOf(getExecutionInfo(rule));
+    } else {
+      return ImmutableMap.of();
+    }
   }
 
   /**

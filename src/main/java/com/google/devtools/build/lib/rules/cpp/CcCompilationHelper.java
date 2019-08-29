@@ -42,10 +42,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -224,7 +222,7 @@ public final class CcCompilationHelper {
 
   private final CppSemantics semantics;
   private final BuildConfiguration configuration;
-  private final Rule rule;
+  private final ImmutableMap<String, String> executionInfo;
   private final CppConfiguration cppConfiguration;
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
@@ -289,7 +287,7 @@ public final class CcCompilationHelper {
           CcToolchainProvider ccToolchain,
           FdoContext fdoContext,
           BuildConfiguration buildConfiguration,
-          Rule rule) {
+          ImmutableMap<String, String> executionInfo) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCategory);
@@ -308,7 +306,7 @@ public final class CcCompilationHelper {
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
     this.label = Preconditions.checkNotNull(label);
     this.grepIncludes = grepIncludes;
-    this.rule = rule;
+    this.executionInfo = executionInfo;
   }
 
   /** Creates a CcCompilationHelper for cpp source files. */
@@ -321,7 +319,7 @@ public final class CcCompilationHelper {
           FeatureConfiguration featureConfiguration,
           CcToolchainProvider ccToolchain,
           FdoContext fdoContext,
-          Rule rule) {
+          ImmutableMap<String, String> executionInfo) {
     this(
         actionRegistry,
         actionConstructionContext,
@@ -333,7 +331,7 @@ public final class CcCompilationHelper {
         ccToolchain,
         fdoContext,
         actionConstructionContext.getConfiguration(),
-            rule);
+            executionInfo);
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -700,7 +698,7 @@ public final class CcCompilationHelper {
    *
    * @throws RuleErrorException
    */
-  public CompilationInfo compile() throws RuleErrorException, InterruptedException {
+  public CompilationInfo compile() throws RuleErrorException {
 
     if (!generatePicAction && !generateNoPicAction) {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
@@ -1240,7 +1238,7 @@ public final class CcCompilationHelper {
    * file. It takes into account fake-ness, coverage, and PIC, in addition to using the settings
    * specified on the current object. This method should only be called once.
    */
-  private CcCompilationOutputs createCcCompileActions() throws RuleErrorException, InterruptedException {
+  private CcCompilationOutputs createCcCompileActions() throws RuleErrorException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
@@ -1547,7 +1545,7 @@ public final class CcCompilationHelper {
    * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
    * initialized.
    */
-  private CppCompileActionBuilder initializeCompileAction(Artifact sourceArtifact) throws InterruptedException {
+  private CppCompileActionBuilder initializeCompileAction(Artifact sourceArtifact) {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
             actionConstructionContext, grepIncludes, ccToolchain, configuration);
@@ -1555,15 +1553,13 @@ public final class CcCompilationHelper {
     builder.setCcCompilationContext(ccCompilationContext);
     builder.setCoptsFilter(coptsFilter);
     builder.setFeatureConfiguration(featureConfiguration);
-    if (actionConstructionContext.isAllowTagsPropagation()) {
-      builder.addExecutionInfo(TargetUtils.getExecutionInfo(rule));
-    }
+    builder.addExecutionInfo(executionInfo);
     return builder;
   }
 
   private void createModuleCodegenAction(
       CcCompilationOutputs.Builder result, Label sourceLabel, Artifact module)
-          throws RuleErrorException, InterruptedException {
+      throws RuleErrorException {
     if (fake) {
       // We can't currently foresee a situation where we'd want nocompile tests for module codegen.
       // If we find one, support needs to be added here.
@@ -1679,7 +1675,7 @@ public final class CcCompilationHelper {
   }
 
   private Collection<Artifact> createModuleAction(
-      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap) throws RuleErrorException, InterruptedException {
+      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap) throws RuleErrorException {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
 
