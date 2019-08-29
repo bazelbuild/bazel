@@ -316,8 +316,16 @@ bool CanReadFile(const std::string &path) {
   return !IsDirectory(path) && CanAccess(path, true, false, false);
 }
 
+bool CanReadFile(const Path &path) {
+  return CanReadFile(path.AsNativePath());
+}
+
 bool CanExecuteFile(const std::string &path) {
   return !IsDirectory(path) && CanAccess(path, false, false, true);
+}
+
+bool CanExecuteFile(const Path &path) {
+  return CanExecuteFile(path.AsNativePath());
 }
 
 bool CanAccessDirectory(const std::string &path) {

@@ -347,14 +347,13 @@ string GetEmbeddedBinariesRoot(const string &install_base) {
 }
 
 // Returns the JVM command argument array.
-static vector<string> GetServerExeArgs(
-    const string &jvm_path,
-    const string &server_jar_path,
-    const vector<string> &archive_contents,
-    const string &install_md5,
-    const WorkspaceLayout &workspace_layout,
-    const string &workspace,
-    const StartupOptions &startup_options) {
+static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
+                                       const string &server_jar_path,
+                                       const vector<string> &archive_contents,
+                                       const string &install_md5,
+                                       const WorkspaceLayout &workspace_layout,
+                                       const string &workspace,
+                                       const StartupOptions &startup_options) {
   vector<string> result;
 
   // e.g. A Blaze server process running in ~/src/build_root (where there's a
@@ -362,15 +361,15 @@ static vector<string> GetServerExeArgs(
   result.push_back(
       startup_options.GetLowercaseProductName() +
       "(" + workspace_layout.GetPrettyWorkspaceName(workspace) + ")");
-  startup_options.AddJVMArgumentPrefix(
-      blaze_util::Dirname(blaze_util::Dirname(jvm_path)), &result);
+  startup_options.AddJVMArgumentPrefix(jvm_path.GetParent().GetParent(),
+                                       &result);
 
   result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
   result.push_back("-XX:HeapDumpPath=" +
                    startup_options.output_base.AsJvmArgument());
 
   // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
-  if (!startup_options.GetEmbeddedJavabase().empty()) {
+  if (!startup_options.GetEmbeddedJavabase().IsEmpty()) {
     // quiet warnings from com.google.protobuf.UnsafeUtil,
     // see: https://github.com/google/protobuf/issues/3781
     result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
@@ -399,14 +398,14 @@ static vector<string> GetServerExeArgs(
   set<string> java_library_paths;
   std::stringstream java_library_path;
   java_library_path << "-Djava.library.path=";
-  string real_install_dir =
-      GetEmbeddedBinariesRoot(startup_options.install_base);
+  blaze_util::Path real_install_dir =
+      blaze_util::Path(GetEmbeddedBinariesRoot(startup_options.install_base));
 
   bool first = true;
   for (const auto &it : archive_contents) {
     if (IsSharedLibrary(it)) {
-      string libpath(blaze_util::PathAsJvmFlag(
-          blaze_util::JoinPath(real_install_dir, blaze_util::Dirname(it))));
+      string libpath(real_install_dir.GetRelative(blaze_util::Dirname(it))
+                         .AsJvmArgument());
       // Only add the library path if it's not added yet.
       if (java_library_paths.find(libpath) == java_library_paths.end()) {
         java_library_paths.insert(libpath);
@@ -537,9 +536,10 @@ static vector<string> GetServerExeArgs(
   // These flags are passed to the java process only for Blaze reporting
   // purposes; the real interpretation of the jvm flags occurs when we set up
   // the java command line.
-  if (!startup_options.GetExplicitServerJavabase().empty()) {
-    result.push_back("--server_javabase=" +
-                     startup_options.GetExplicitServerJavabase());
+  if (!startup_options.GetExplicitServerJavabase().IsEmpty()) {
+    result.push_back(
+        "--server_javabase=" +
+        startup_options.GetExplicitServerJavabase().AsCommandLineArgument());
   }
   if (startup_options.host_jvm_debug) {
     result.push_back("--host_jvm_debug");
@@ -1233,7 +1233,8 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     // Check for the case when the workspace directory deleted and then gets
     // recreated while the server is running
 
-    string server_cwd = GetProcessCWD(server->ProcessInfo().server_pid_);
+    blaze_util::Path server_cwd =
+        GetProcessCWD(server->ProcessInfo().server_pid_);
     // If server_cwd is empty, GetProcessCWD failed. This notably occurs when
     // running under Docker because then readlink(/proc/[pid]/cwd) returns
     // EPERM.
@@ -1245,14 +1246,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     // cases, it's better to assume that everything is alright if we can't get
     // the cwd.
 
-    if (!server_cwd.empty() &&
-        (server_cwd != workspace ||                         // changed
-         server_cwd.find(" (deleted)") != string::npos)) {  // deleted.
+    if (!server_cwd.IsEmpty() &&
+        (server_cwd != blaze_util::Path(workspace) ||  // changed
+         server_cwd.Contains(" (deleted)"))) {         // deleted.
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
       // tables.
-      BAZEL_LOG(INFO) << "Server's cwd moved or deleted (" << server_cwd
-                      << ").";
+      BAZEL_LOG(INFO) << "Server's cwd moved or deleted ("
+                      << server_cwd.AsPrintablePath() << ").";
       server->KillRunningServer();
     } else {
       break;
@@ -1513,7 +1514,7 @@ static void RunLauncher(const string &self_path,
 
   EnsureCorrectRunningVersion(startup_options, logging_info, blaze_server);
 
-  const string jvm_path = startup_options.GetJvm();
+  const blaze_util::Path jvm_path = startup_options.GetJvm();
   const string server_jar_path = GetServerJarPath(archive_contents);
   const vector<string> server_exe_args = GetServerExeArgs(
       jvm_path,

@@ -520,30 +520,25 @@ static bool CanReadFileW(const wstring& path) {
 }
 
 bool CanReadFile(const std::string& path) {
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "CanReadFile(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
-    return false;
-  }
-  return CanReadFileW(wpath);
+  return CanReadFile(Path(path));
+}
+
+bool CanReadFile(const Path& path) {
+  return CanReadFileW(path.AsNativePath());
 }
 
 bool CanExecuteFile(const std::string& path) {
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "CanExecuteFile(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
+  return CanExecuteFile(Path(path));
+}
+
+bool CanExecuteFile(const Path& path) {
+  std::wstring p = path.AsNativePath();
+  if (p.size() < 4) {
     return false;
   }
-  return CanReadFileW(wpath) && (ends_with(wpath, wstring(L".exe")) ||
-                                 ends_with(wpath, wstring(L".com")) ||
-                                 ends_with(wpath, wstring(L".cmd")) ||
-                                 ends_with(wpath, wstring(L".bat")));
+  std::wstring ext = p.substr(p.size() - 4);
+  return CanReadFileW(p) &&
+         (ext == L".exe" || ext == L".com" || ext == L".cmd" || ext == L".bat");
 }
 
 bool CanAccessDirectory(const std::string& path) {

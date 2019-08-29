@@ -507,10 +507,16 @@ Path Path::Canonicalize() const {
   return Path(MakeCanonical(WstringToString(path_).c_str()));
 }
 
+Path Path::GetParent() const { return Path(SplitPathW(path_).first); }
+
 bool Path::IsNull() const { return path_ == L"NUL"; }
 
 bool Path::Contains(const char c) const {
   return path_.find_first_of(c) != std::wstring::npos;
+}
+
+bool Path::Contains(const std::string& s) const {
+  return path_.find(CstringToWstring(s.c_str()).get()) != std::wstring::npos;
 }
 
 std::string Path::AsPrintablePath() const {
