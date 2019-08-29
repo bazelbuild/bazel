@@ -352,7 +352,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 semantics,
                 featureConfiguration,
                 ccToolchain,
-                fdoContext, ruleContext)
+                fdoContext,
+                ruleContext.getRule())
             .fromCommon(common, /* additionalCopts= */ ImmutableList.of())
             .addPrivateHeaders(common.getPrivateHeaders())
             .addSources(common.getSources())
@@ -409,7 +410,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                   ruleContext.getConfiguration(),
                   cppConfiguration,
                   ruleContext.getSymbolGenerator(),
-                  ruleContext)
+                  ruleContext.getRule())
               .fromCommon(ruleContext, common)
               .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
               .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
@@ -715,7 +716,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 fdoContext,
                 ruleContext.getConfiguration(),
                 cppConfiguration,
-                ruleContext.getSymbolGenerator(), ruleContext)
+                ruleContext.getSymbolGenerator(),
+                ruleContext.getRule())
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())

@@ -158,7 +158,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 featureConfiguration,
                 ccToolchain,
                 fdoContext,
-                ruleContext)
+                ruleContext.getRule())
             .fromCommon(common, additionalCopts)
             .addSources(common.getSources())
             .addPrivateHeaders(common.getPrivateHeaders())
@@ -184,7 +184,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 fdoContext,
                 ruleContext.getConfiguration(),
                 ruleContext.getFragment(CppConfiguration.class),
-                ruleContext.getSymbolGenerator(), ruleContext)
+                ruleContext.getSymbolGenerator(),
+                ruleContext.getRule())
             .fromCommon(ruleContext, common)
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget())

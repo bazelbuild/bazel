@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -126,7 +127,7 @@ public final class CcLinkingHelper {
   private final ActionRegistry actionRegistry;
   private final RuleErrorConsumer ruleErrorConsumer;
   private final SymbolGenerator<?> symbolGenerator;
-  @Nullable private final RuleContext ruleContext;
+  private final Rule rule;
 
   private Artifact grepIncludes;
   private boolean isStampingEnabled;
@@ -143,7 +144,7 @@ public final class CcLinkingHelper {
    * @param ccToolchain the C++ toolchain provider for the build
    * @param fdoContext the C++ FDO optimization support provider for the build
    * @param configuration the configuration that gives the directory of output artifacts
-   * @param ruleContext the data available during the analysis of a rule
+   * @param rule the data associated with a rule
    */
   public CcLinkingHelper(
           RuleErrorConsumer ruleErrorConsumer,
@@ -157,7 +158,7 @@ public final class CcLinkingHelper {
           BuildConfiguration configuration,
           CppConfiguration cppConfiguration,
           SymbolGenerator<?> symbolGenerator,
-          @Nullable RuleContext ruleContext) {
+          Rule rule) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
@@ -169,7 +170,7 @@ public final class CcLinkingHelper {
     this.actionRegistry = actionRegistry;
     this.actionConstructionContext = actionConstructionContext;
     this.symbolGenerator = symbolGenerator;
-    this.ruleContext = ruleContext;
+    this.rule = rule;
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -843,8 +844,8 @@ public final class CcLinkingHelper {
                             : ccToolchain.getLinkerFiles())
             .setLinkArtifactFactory(linkArtifactFactory)
             .setUseTestOnlyFlags(useTestOnlyFlags);
-    if (ruleContext != null && ruleContext.isAllowTagsPropagation()) {
-      builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule()));
+    if (actionConstructionContext.isAllowTagsPropagation()) {
+      builder.addExecutionInfo(TargetUtils.getExecutionInfo(rule));
     }
     return builder;
   }

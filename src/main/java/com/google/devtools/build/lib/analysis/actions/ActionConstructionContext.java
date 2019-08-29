@@ -36,6 +36,8 @@ import javax.annotation.Nullable;
  */
 public interface ActionConstructionContext {
 
+  boolean isAllowTagsPropagation() throws InterruptedException;
+
   /** Returns the bin directory for constructed actions. */
   ArtifactRoot getBinDirectory();
 

@@ -292,7 +292,7 @@ public class CompilationSupport {
       ObjcCppSemantics semantics,
       String purpose,
       boolean generateModuleMap)
-      throws RuleErrorException {
+          throws RuleErrorException, InterruptedException {
     CcCompilationHelper result =
         new CcCompilationHelper(
                 ruleContext,
@@ -305,7 +305,7 @@ public class CompilationSupport {
                 ccToolchain,
                 fdoContext,
                 buildConfiguration,
-                ruleContext)
+                ruleContext.getRule())
             .addSources(sources)
             .addPrivateHeaders(privateHdrs)
             .addDefines(objcProvider.get(DEFINE))
@@ -425,7 +425,8 @@ public class CompilationSupport {
                 fdoContext,
                 buildConfiguration,
                 ruleContext.getFragment(CppConfiguration.class),
-                ruleContext.getSymbolGenerator(), ruleContext)
+                ruleContext.getSymbolGenerator(),
+                ruleContext.getRule())
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())

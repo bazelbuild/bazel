@@ -1433,7 +1433,7 @@ public abstract class CcModule
                     .getConfiguration()
                     .getFragment(CppConfiguration.class),
                 ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(),
-                /* ruleContext= */ null)
+                actions.getRuleContext().getRule())
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .addNonCodeLinkerInputs(additionalInputs)
             .setShouldCreateStaticLibraries(!disallowStaticLibraries)
@@ -1528,7 +1528,7 @@ public abstract class CcModule
       SkylarkList<Artifact> headersForClifDoNotUseThisParam,
       Location location,
       @Nullable Environment environment)
-      throws EvalException {
+          throws EvalException, InterruptedException {
     if (environment != null) {
       CcCommon.checkLocationWhitelisted(
           environment.getSemantics(),
@@ -1573,7 +1573,8 @@ public abstract class CcModule
                 getSemantics(),
                 featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
-                fdoContext, null)
+                fdoContext,
+                actions.getRuleContext().getRule())
             .addPublicHeaders(publicHeaders)
             .addPrivateHeaders(privateHeaders)
             .addSources(sources)
@@ -1682,7 +1683,7 @@ public abstract class CcModule
                 actions.getActionConstructionContext().getConfiguration(),
                 cppConfiguration,
                 ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(),
-                /* ruleContext= */ null)
+                actions.getRuleContext().getRule())
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .addNonCodeLinkerInputs(additionalInputs)

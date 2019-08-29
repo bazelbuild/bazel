@@ -247,7 +247,8 @@ public abstract class NativeDepsHelper {
             fdoContext,
             configuration,
             ruleContext.getFragment(CppConfiguration.class),
-            ruleContext.getSymbolGenerator(), ruleContext)
+            ruleContext.getSymbolGenerator(),
+            ruleContext.getRule())
         .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
         .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
         .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())

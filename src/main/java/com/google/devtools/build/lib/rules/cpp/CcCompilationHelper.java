@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -223,7 +224,7 @@ public final class CcCompilationHelper {
 
   private final CppSemantics semantics;
   private final BuildConfiguration configuration;
-  @Nullable private final RuleContext ruleContext;
+  private final Rule rule;
   private final CppConfiguration cppConfiguration;
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
@@ -288,7 +289,7 @@ public final class CcCompilationHelper {
           CcToolchainProvider ccToolchain,
           FdoContext fdoContext,
           BuildConfiguration buildConfiguration,
-          @Nullable RuleContext ruleContext) {
+          Rule rule) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCategory);
@@ -307,7 +308,7 @@ public final class CcCompilationHelper {
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
     this.label = Preconditions.checkNotNull(label);
     this.grepIncludes = grepIncludes;
-    this.ruleContext = ruleContext;
+    this.rule = rule;
   }
 
   /** Creates a CcCompilationHelper for cpp source files. */
@@ -320,7 +321,7 @@ public final class CcCompilationHelper {
           FeatureConfiguration featureConfiguration,
           CcToolchainProvider ccToolchain,
           FdoContext fdoContext,
-          RuleContext ruleContext) {
+          Rule rule) {
     this(
         actionRegistry,
         actionConstructionContext,
@@ -332,7 +333,7 @@ public final class CcCompilationHelper {
         ccToolchain,
         fdoContext,
         actionConstructionContext.getConfiguration(),
-            ruleContext);
+            rule);
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -1554,8 +1555,8 @@ public final class CcCompilationHelper {
     builder.setCcCompilationContext(ccCompilationContext);
     builder.setCoptsFilter(coptsFilter);
     builder.setFeatureConfiguration(featureConfiguration);
-    if (ruleContext != null && ruleContext.isAllowTagsPropagation()) {
-      builder.addExecutionInfo(TargetUtils.getExecutionInfo(ruleContext.getRule()));
+    if (actionConstructionContext.isAllowTagsPropagation()) {
+      builder.addExecutionInfo(TargetUtils.getExecutionInfo(rule));
     }
     return builder;
   }

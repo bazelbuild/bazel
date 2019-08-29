@@ -311,7 +311,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   cppSemantics,
                   featureConfiguration,
                   toolchain,
-                  toolchain.getFdoContext(), ruleContext)
+                  toolchain.getFdoContext(),
+                  ruleContext.getRule())
               .addCcCompilationContexts(CppHelper.getCompilationContextsFromDeps(deps))
               .addCcCompilationContexts(
                   ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)));
@@ -358,7 +359,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   toolchain.getFdoContext(),
                   ruleContext.getConfiguration(),
                   ruleContext.getFragment(CppConfiguration.class),
-                  ruleContext.getSymbolGenerator(), ruleContext)
+                  ruleContext.getSymbolGenerator(),
+                  ruleContext.getRule())
               .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
               .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget());
       helper.addCcLinkingContexts(CppHelper.getLinkingContextsFromDeps(deps));

@@ -126,9 +126,10 @@ import java.util.stream.Collectors;
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
 
-    public boolean isAllowTagsPropagation() throws InterruptedException {
-        return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
-    }
+  @Override
+  public boolean isAllowTagsPropagation() throws InterruptedException {
+    return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
+  }
 
   /**
    * The configured version of FilesetEntry.
