@@ -14,15 +14,17 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
 /** Exception indicating that a cycle was found in the filesystem. */
-class FileSymlinkCycleException extends FileSymlinkException {
+@VisibleForSerialization
+public class FileSymlinkCycleException extends FileSymlinkException {
   private final ImmutableList<RootedPath> pathToCycle;
   private final ImmutableList<RootedPath> cycle;
 
-  FileSymlinkCycleException(ImmutableList<RootedPath> pathToCycle,
-      ImmutableList<RootedPath> cycle) {
+  public FileSymlinkCycleException(
+      ImmutableList<RootedPath> pathToCycle, ImmutableList<RootedPath> cycle) {
     // The cycle itself has already been reported by FileSymlinkCycleUniquenessValue, but we still
     // want to have a readable #getMessage.
     super("Symlink cycle");
@@ -34,15 +36,16 @@ class FileSymlinkCycleException extends FileSymlinkException {
    * The symlink path to the symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'.
    * The path to the cycle is 'a', 'b'.
    */
-  ImmutableList<RootedPath> getPathToCycle() {
+  @VisibleForSerialization
+  public ImmutableList<RootedPath> getPathToCycle() {
     return pathToCycle;
   }
 
   /**
-   * The symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'.
-   * The cycle is 'c', 'd'.
+   * The symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'. The cycle is 'c', 'd'.
    */
-  ImmutableList<RootedPath> getCycle() {
+  @VisibleForSerialization
+  public ImmutableList<RootedPath> getCycle() {
     return cycle;
   }
 }
