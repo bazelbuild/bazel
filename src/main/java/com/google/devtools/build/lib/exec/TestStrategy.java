@@ -488,7 +488,8 @@ public abstract class TestStrategy implements TestActionContext {
             shellEnvironment,
             enableRunfiles);
 
-    actionExecutionContext.getEventHandler()
+    actionExecutionContext
+        .getEventHandler()
         .handle(Event.progress(testAction.getProgressMessage()));
   }
 

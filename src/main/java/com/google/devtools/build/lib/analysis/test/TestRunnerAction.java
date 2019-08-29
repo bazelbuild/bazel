@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
-import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
@@ -151,6 +151,7 @@ public class TestRunnerAction extends AbstractAction
   TestRunnerAction(
       ActionOwner owner,
       Iterable<Artifact> inputs,
+      RunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
       boolean useTestWrapperInsteadOfTestSetupSh,
       Artifact testXmlGeneratorScript, // Must be in inputs
@@ -165,13 +166,12 @@ public class TestRunnerAction extends AbstractAction
       int runNumber,
       BuildConfiguration configuration,
       String workspaceName,
-      @Nullable PathFragment shExecutable,
-      PathFragment runfilesExecPath) {
+      @Nullable PathFragment shExecutable) {
     super(
         owner,
         /*tools=*/ ImmutableList.of(),
         inputs,
-        new RunfilesSupplierImpl(runfilesExecPath, executionSettings.getRunfiles()),
+        runfilesSupplier,
         list(testLog, cacheStatus, coverageArtifact),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));

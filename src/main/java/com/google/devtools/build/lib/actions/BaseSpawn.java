@@ -51,11 +51,6 @@ public class BaseSpawn implements Spawn {
     this.localResources = localResources;
   }
 
-
-  public static PathFragment runfilesForFragment(PathFragment pathFragment) {
-    return pathFragment.getParentDirectory().getChild(pathFragment.getBaseName() + ".runfiles");
-  }
-
   @Override
   public final ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
