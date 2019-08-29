@@ -1161,29 +1161,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkApiProviderReexported() throws Exception {
-    scratch.file(
-        "java/test/extension.bzl",
-        "def impl(ctx):",
-        "   dep_java = ctx.attr.dep.java",
-        "   return struct(java = dep_java)",
-        "my_rule = rule(impl, attrs = { ",
-        "  'dep' : attr.label(), ",
-        "})");
-    scratch.file(
-        "java/test/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'jl', srcs = ['Jl.java'])",
-        "my_rule(name = 'my', dep = ':jl')");
-    // Now, get that information and ensure it is equal to what the jl java_library
-    // was presenting
-    ConfiguredTarget myConfiguredTarget = getConfiguredTarget("//java/test:my");
-    ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
-
-    assertThat(myConfiguredTarget.get("java")).isSameInstanceAs(javaLibraryTarget.get("java"));
-  }
-
-  @Test
   public void javaProviderExposedOnJavaLibrary() throws Exception {
     scratch.file(
         "foo/extension.bzl",
@@ -2018,31 +1995,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     OutputJar output = outputs.getOutputJars().get(0);
     assertThat(output.getClassJar().getFilename()).isEqualTo("libc.jar");
     assertThat(output.getIJar()).isNull();
-  }
-
-  @Test
-  public void testDisallowLegacyJavaProvider() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_java_provider");
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.attr.java_lib.java.source_jars",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'java_lib': attr.label(),",
-        "   },",
-        ")");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_library(name = 'java_lib', srcs = ['java/A.java'])",
-        "java_custom_library(name = 'custom_lib', java_lib = ':java_lib')");
-    checkError(
-        "//foo:custom_lib",
-        "The .java provider is deprecated and cannot be used "
-            + "when --incompatible_disallow_legacy_java_provider is set.");
   }
 
   @Test

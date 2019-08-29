@@ -109,7 +109,6 @@ java_library(
         "JavaRunfilesProvider.java",
         "JavaRuntimeInfo.java",
         "JavaSemantics.java",
-        "JavaSkylarkApiProvider.java",
         "JavaSkylarkCommon.java",
         "JavaSourceInfoProvider.java",
         "JavaSourceJarsProvider.java",
