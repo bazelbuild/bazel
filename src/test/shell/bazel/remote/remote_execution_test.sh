@@ -1181,6 +1181,44 @@ EOF
 }
 
 
+function test_downloads_minimal_stable_status() {
+  # Regression test for #8385
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+cat > status.sh << 'EOF'
+#!/bin/sh
+echo "STABLE_FOO 1"
+EOF
+chmod +x status.sh
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_download_minimal \
+    --workspace_status_command=status.sh \
+    //a:foo || "Failed to build //a:foo"
+
+cat > status.sh << 'EOF'
+#!/bin/sh
+echo "STABLE_FOO 2"
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_download_minimal \
+    --workspace_status_command=status.sh \
+    //a:foo || "Failed to build //a:foo"
+}
+
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
