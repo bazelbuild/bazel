@@ -355,7 +355,7 @@ public final class Mutability implements AutoCloseable {
       throw new MutabilityException("trying to mutate a frozen object");
     }
 
-    // Consider an {@link Environment} e1, in which is created {@link UserDefinedFunction} f1, that
+    // Consider an {@link Environment} e1, in which is created {@link StarlarkFunction} f1, that
     // closes over some variable v1 bound to list l1. If somehow, via the magic of callbacks, f1 or
     // l1 is passed as an argument to some function f2 evaluated in {@link Environment} e2 while e1
     // is still mutable, then e2, being a different {@link Environment}, should not be allowed to

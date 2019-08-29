@@ -22,16 +22,15 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
 
-/** A UserDefinedFunction is the function value created by a Starlark {@code def} statement. */
-// TODO(adonovan): rename to StarlarkFunction.
-public class UserDefinedFunction extends BaseFunction {
+/** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */
+public class StarlarkFunction extends BaseFunction {
 
   private final ImmutableList<Statement> statements;
 
   // we close over the globals at the time of definition
   private final Environment.GlobalFrame definitionGlobals;
 
-  public UserDefinedFunction(
+  public StarlarkFunction(
       String name,
       Location location,
       FunctionSignature.WithValues<Object, SkylarkType> signature,

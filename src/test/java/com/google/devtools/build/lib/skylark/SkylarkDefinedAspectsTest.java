@@ -378,6 +378,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule = rule(implementation = _rule_impl,",
         "   attrs = { 'dep' : attr.label(aspects = [MyAspect]) },",
         ")");
+    useConfiguration("--incompatible_no_target_output_group=false");
     SkylarkKey providerKey = new SkylarkKey(Label.parseAbsoluteUnchecked("//test:aspect.bzl"), "p");
     scratch.file(
         "test/BUILD",
@@ -414,6 +415,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file(
         "test/BUILD", "java_library(", "     name = 'xxx',", "     srcs = ['A.java'],", ")");
+    useConfiguration("--incompatible_no_target_output_group=false");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -444,6 +446,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/BUILD", "java_library(", "     name = 'xxx',", "     srcs = ['A.java'],", ")");
 
+    useConfiguration("--incompatible_no_target_output_group=false");
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
@@ -501,6 +504,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file(
         "test/BUILD", "java_library(", "     name = 'xxx',", "     srcs = ['A.java'],", ")");
+
+    useConfiguration("--incompatible_no_target_output_group=false");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");

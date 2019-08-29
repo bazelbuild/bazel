@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Provider;
@@ -306,7 +305,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
     ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes =
-        attrObjectToAttributesList(attrs, ast.getLocation(), funcallEnv);
+        attrObjectToAttributesList(attrs, ast.getLocation());
 
     if (skylarkTestable) {
       builder.setSkylarkTestable();
@@ -425,7 +424,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   }
 
   private static ImmutableList<Pair<String, Descriptor>> attrObjectToAttributesList(
-      Object attrs, Location loc, Environment env) throws EvalException {
+      Object attrs, Location loc) throws EvalException {
     ImmutableList.Builder<Pair<String, Descriptor>> attributes = ImmutableList.builder();
 
     if (attrs != Runtime.NONE) {
@@ -526,7 +525,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     ImmutableList<Pair<String, SkylarkAttr.Descriptor>> descriptors =
-        attrObjectToAttributesList(attrs, ast.getLocation(), funcallEnv);
+        attrObjectToAttributesList(attrs, ast.getLocation());
     ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
     ImmutableSet.Builder<String> requiredParams = ImmutableSet.builder();
     for (Pair<String, Descriptor> nameDescriptorPair : descriptors) {
@@ -641,8 +640,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     @Override
-    @SuppressWarnings("unchecked") // the magic hidden $pkg_context variable is guaranteed
-    // to be a PackageContext
     public Object call(Object[] args, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException, ConversionException {
       SkylarkUtils.checkLoadingPhase(env, getName(), ast.getLocation());
@@ -671,11 +668,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
       try {
-        PackageContext pkgContext = (PackageContext) env.dynamicLookup(PackageFactory.PKG_CONTEXT);
+        PackageContext pkgContext = env.getThreadLocal(PackageContext.class);
         if (pkgContext == null) {
-          throw new EvalException(ast.getLocation(),
-              "Cannot instantiate a rule when loading a .bzl file. Rules can only be called from "
-                  + "a BUILD file (possibly via a macro).");
+          throw new EvalException(
+              ast.getLocation(),
+              "Cannot instantiate a rule when loading a .bzl file. "
+                  + "Rules may be instantiated only in a BUILD thread.");
         }
         RuleFactory.createAndAddRule(
             pkgContext,

@@ -705,7 +705,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   // keyword, or may be None, even in places where it does not quite make sense.
   @Test
   public void testLegacyNamed() throws Exception {
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_restrict_named_params=false")
         // Parameters which may be specified by keyword but are not explicitly 'named'.
         .testStatement("all(elements=[True, True])", Boolean.TRUE)
         .testStatement("any(elements=[True, False])", Boolean.TRUE)

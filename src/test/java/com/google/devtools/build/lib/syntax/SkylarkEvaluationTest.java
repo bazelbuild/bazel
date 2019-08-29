@@ -1103,31 +1103,27 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testLegacyNamed() throws Exception {
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_restrict_named_params=false")
         .update("mock", new Mock())
-        .setUp(
-            "b = mock.legacy_method(True, legacyNamed=True, named=True)")
+        .setUp("b = mock.legacy_method(True, legacyNamed=True, named=True)")
         .testLookup("b", "legacy_method(true, true, true)");
 
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_restrict_named_params=false")
         .update("mock", new Mock())
-        .setUp(
-            "b = mock.legacy_method(True, True, named=True)")
+        .setUp("b = mock.legacy_method(True, True, named=True)")
         .testLookup("b", "legacy_method(true, true, true)");
 
     // Verify legacyNamed also works with proxy method objects.
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_restrict_named_params=false")
         .update("mock", new Mock())
         .setUp(
             "m = mock.proxy_methods_object()",
             "b = m.legacy_method(True, legacyNamed=True, named=True)")
         .testLookup("b", "legacy_method(true, true, true)");
 
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_restrict_named_params=false")
         .update("mock", new Mock())
-        .setUp(
-            "m = mock.proxy_methods_object()",
-            "b = m.legacy_method(True, True, named=True)")
+        .setUp("m = mock.proxy_methods_object()", "b = m.legacy_method(True, True, named=True)")
         .testLookup("b", "legacy_method(true, true, true)");
   }
 

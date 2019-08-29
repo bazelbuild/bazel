@@ -19,8 +19,6 @@ import com.google.devtools.build.lib.events.Location;
 /** This class contains Bazel-specific functions to extend or interoperate with Skylark. */
 public final class SkylarkUtils {
 
-  private static final String PHASE_KEY = "$phase";
-
   /** A phase for enabling or disabling certain builtin functions */
   public enum Phase {
     WORKSPACE,
@@ -29,11 +27,11 @@ public final class SkylarkUtils {
   }
 
   public static void setPhase(Environment env, Phase phase) {
-    env.setupDynamic(PHASE_KEY, phase);
+    env.setThreadLocal(Phase.class, phase);
   }
 
   private static Phase getPhase(Environment env) {
-    Phase phase = (Phase) env.dynamicLookup(PHASE_KEY);
+    Phase phase = env.getThreadLocal(Phase.class);
     return phase == null ? Phase.ANALYSIS : phase;
   }
 

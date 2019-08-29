@@ -193,7 +193,7 @@ public abstract class FunctionSignature {
    *
    * <p>The lists can be null, which is an optimized path for specifying all null values.
    *
-   * <p>Note that if some values can be null (for BuiltinFunction, not for UserDefinedFunction), you
+   * <p>Note that if some values can be null (for BuiltinFunction, not for StarlarkFunction), you
    * should use an ArrayList; otherwise, we recommend an ImmutableList.
    *
    * <p>V is the class of defaultValues and T is the class of types. When parsing a function
