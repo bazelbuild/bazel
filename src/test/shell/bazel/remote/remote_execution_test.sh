@@ -61,6 +61,23 @@ function tear_down() {
   rm -rf "${cas_path}"
 }
 
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+  declare -r EXE_EXT=".exe"
+else
+  declare -r EXE_EXT=""
+fi
+
 function test_remote_grpc_cache_with_protocol() {
   # Test that if 'grpc' is provided as a scheme for --remote_cache flag, remote cache works.
   mkdir -p a
@@ -1040,6 +1057,78 @@ EOF
 
   [[ -f bazel-bin/a/foobar.txt ]] \
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
+}
+
+function test_downloads_toplevel_runfiles() {
+  # Test that --experimental_remote_download_outputs=toplevel downloads the top level binary
+  # and generated runfiles.
+  mkdir -p a
+
+  cat > a/create_bar.tmpl <<'EOF'
+#!/bin/sh
+echo "bar runfiles"
+exit 0
+EOF
+
+  cat > a/foo.cc <<'EOF'
+#include <iostream>
+int main() { std::cout << "foo" << std::endl; return 0; }
+EOF
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "bar",
+  srcs = ["create_bar.tmpl"],
+  outs = ["create_bar.sh"],
+  cmd = "cat $(location create_bar.tmpl) > \"$@\"",
+)
+
+cc_binary(
+  name = "foo",
+  srcs = ["foo.cc"],
+  data = [":bar"],
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_download_toplevel \
+    //a:foo || fail "Failed to build //a:foobar"
+
+  [[ -f bazel-bin/a/foo${EXE_EXT} ]] \
+  || fail "Expected toplevel output bazel-bin/a/foo${EXE_EXT} to be downloaded"
+
+  [[ -f bazel-bin/a/create_bar.sh ]] \
+  || fail "Expected runfile bazel-bin/a/create_bar.sh to be downloaded"
+}
+
+function test_downloads_toplevel_src_runfiles() {
+  # Test that using --experimental_remote_download_outputs=toplevel with a non-generated (source)
+  # runfile dependency works.
+  mkdir -p a
+  cat > a/create_foo.sh <<'EOF'
+#!/bin/sh
+echo "foo runfiles"
+exit 0
+EOF
+  chmod +x a/create_foo.sh
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  tools = ["create_foo.sh"],
+  outs = ["foo.txt"],
+  cmd = "./$(location create_foo.sh) > \"$@\"",
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_download_toplevel \
+    //a:foo || fail "Failed to build //a:foobar"
+
+  [[ -f bazel-bin/a/foo.txt ]] \
+  || fail "Expected toplevel output bazel-bin/a/foo.txt to be downloaded"
 }
 
 function test_download_toplevel_test_rule() {

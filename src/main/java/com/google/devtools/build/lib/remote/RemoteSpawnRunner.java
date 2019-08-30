@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
-import static com.google.devtools.build.lib.remote.util.Utils.hasTopLevelOutputs;
+import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
 
 import build.bazel.remote.execution.v2.Action;
@@ -107,12 +107,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final Path logDir;
 
   /**
-   * Set of artifacts that are top level outputs
-   *
-   * <p>This set is empty unless {@link RemoteOutputsMode#TOPLEVEL} is specified. If so, this set is
-   * used to decide whether to download an output.
+   * If {@link RemoteOutputsMode#TOPLEVEL} is specified it contains the artifacts that should be
+   * downloaded.
    */
-  private final ImmutableSet<ActionInput> topLevelOutputs;
+  private final ImmutableSet<ActionInput> filesToDownload;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -131,7 +129,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,
       Path logDir,
-      ImmutableSet<ActionInput> topLevelOutputs) {
+      ImmutableSet<ActionInput> filesToDownload) {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
@@ -145,7 +143,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.retrier = retrier;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
-    this.topLevelOutputs = Preconditions.checkNotNull(topLevelOutputs, "topLevelOutputs");
+    this.filesToDownload = Preconditions.checkNotNull(filesToDownload, "filesToDownload");
   }
 
   @Override
@@ -300,7 +298,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         shouldDownloadAllSpawnOutputs(
             remoteOutputsMode,
             /* exitCode = */ actionResult.getExitCode(),
-            hasTopLevelOutputs(spawn.getOutputFiles(), topLevelOutputs));
+            hasFilesToDownload(spawn.getOutputFiles(), filesToDownload));
     InMemoryOutput inMemoryOutput = null;
     if (downloadOutputs) {
       try (SilentCloseable c = Profiler.instance().profile(REMOTE_DOWNLOAD, "download outputs")) {
