@@ -358,15 +358,17 @@ void SyncFile(const string& path) {
   close(fd);
 }
 
+void SyncFile(const Path &path) { SyncFile(path.AsNativePath()); }
+
 class PosixFileMtime : public IFileMtime {
  public:
   PosixFileMtime()
       : near_future_(GetFuture(9)),
         distant_future_({GetFuture(10), GetFuture(10)}) {}
 
-  bool IsUntampered(const string &path) override;
-  bool SetToNow(const string &path) override;
-  bool SetToDistantFuture(const string &path) override;
+  bool IsUntampered(const Path &path) override;
+  bool SetToNow(const Path &path) override;
+  bool SetToDistantFuture(const Path &path) override;
 
  private:
   // 9 years in the future.
@@ -374,14 +376,14 @@ class PosixFileMtime : public IFileMtime {
   // 10 years in the future.
   const struct utimbuf distant_future_;
 
-  static bool Set(const string &path, const struct utimbuf &mtime);
+  static bool Set(const Path &path, const struct utimbuf &mtime);
   static time_t GetNow();
   static time_t GetFuture(unsigned int years);
 };
 
-bool PosixFileMtime::IsUntampered(const string &path) {
+bool PosixFileMtime::IsUntampered(const Path &path) {
   struct stat buf;
-  if (stat(path.c_str(), &buf)) {
+  if (stat(path.AsNativePath().c_str(), &buf)) {
     return false;
   }
 
@@ -393,18 +395,18 @@ bool PosixFileMtime::IsUntampered(const string &path) {
   return S_ISDIR(buf.st_mode) || (buf.st_mtime > near_future_);
 }
 
-bool PosixFileMtime::SetToNow(const string &path) {
+bool PosixFileMtime::SetToNow(const Path &path) {
   time_t now(GetNow());
   struct utimbuf times = {now, now};
   return Set(path, times);
 }
 
-bool PosixFileMtime::SetToDistantFuture(const string &path) {
+bool PosixFileMtime::SetToDistantFuture(const Path &path) {
   return Set(path, distant_future_);
 }
 
-bool PosixFileMtime::Set(const string &path, const struct utimbuf &mtime) {
-  return utime(path.c_str(), &mtime) == 0;
+bool PosixFileMtime::Set(const Path &path, const struct utimbuf &mtime) {
+  return utime(path.AsNativePath().c_str(), &mtime) == 0;
 }
 
 time_t PosixFileMtime::GetNow() {

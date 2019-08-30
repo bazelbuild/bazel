@@ -42,17 +42,17 @@ class IFileMtime {
   // TODO(laszlocsomor): move this function, and with it the whole IFileMtime
   // class into blaze_util_<platform>.cc, because it is Bazel-specific logic,
   // not generic file-handling logic.
-  virtual bool IsUntampered(const std::string &path) = 0;
+  virtual bool IsUntampered(const Path &path) = 0;
 
   // Sets the mtime of file under `path` to the current time.
   // Returns true if the mtime was changed successfully.
-  virtual bool SetToNow(const std::string &path) = 0;
+  virtual bool SetToNow(const Path &path) = 0;
 
   // Sets the mtime of file under `path` to the distant future.
   // "Distant future" should be on the order of some years into the future, like
   // a decade.
   // Returns true if the mtime was changed successfully.
-  virtual bool SetToDistantFuture(const std::string &path) = 0;
+  virtual bool SetToDistantFuture(const Path &path) = 0;
 };
 
 // Creates a platform-specific implementation of `IFileMtime`.
@@ -184,6 +184,7 @@ bool IsDirectory(const Path &path);
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie() if syncing fails.
 void SyncFile(const std::string& path);
+void SyncFile(const Path &path);
 
 // mkdir -p path. All newly created directories use the given mode.
 // `mode` should be an octal permission mask, e.g. 0755.
