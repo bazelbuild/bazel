@@ -27,14 +27,18 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
-import com.google.devtools.build.lib.packages.LabelVisitationUtils;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
@@ -331,6 +335,50 @@ final class LabelVisitor {
       };
     }
 
+    private void visitTargetVisibility(Target target, int depth, int count) {
+      Attribute attribute = null;
+      if (target instanceof Rule) {
+        Rule rule = (Rule) target;
+        RuleClass ruleClass = rule.getRuleClassObject();
+        if (!ruleClass.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)) {
+          return;
+        }
+        attribute = ruleClass.getAttributeByName("visibility");
+        if (!edgeFilter.apply(rule, attribute)) {
+          return;
+        }
+      }
+
+      for (Label label : target.getVisibility().getDependencyLabels()) {
+        enqueueTarget(target, attribute, label, depth, count);
+      }
+    }
+
+    /**
+     * Visit all the labels in a given rule.
+     *
+     * <p>Called in a worker thread if CONCURRENT.
+     *
+     * @param rule the rule to visit
+     */
+    @ThreadSafe
+    private void visitRule(final Rule rule, final int depth, final int count)
+        throws InterruptedException {
+      // Follow all labels defined by this rule:
+      AggregatingAttributeMapper.of(rule).visitLabels().stream()
+          .filter(depEdge -> edgeFilter.apply(rule, depEdge.getAttribute()))
+          .forEach(
+              depEdge ->
+                  enqueueTarget(rule, depEdge.getAttribute(), depEdge.getLabel(), depth, count));
+    }
+
+    @ThreadSafe
+    private void visitPackageGroup(PackageGroup packageGroup, int depth, int count) {
+      for (final Label include : packageGroup.getIncludes()) {
+        enqueueTarget(packageGroup, null, include, depth, count);
+      }
+    }
+
     /**
      * Visits the target and its package.
      *
@@ -409,19 +457,20 @@ final class LabelVisitor {
       }
 
       observeNode(target);
-
-      LabelVisitationUtils.visitTargetExceptionally(
-          target,
-          edgeFilter,
-          (fromTarget, attribute, toLabel) -> {
-            if (target instanceof OutputFile) {
-              Rule rule = ((OutputFile) target).getGeneratingRule();
-              observeEdge(target, null, rule);
-              visit(null, null, rule, depth + 1, count + 1);
-            } else {
-              enqueueTarget(target, attribute, toLabel, depth, count);
-            }
-          });
+      if (target instanceof OutputFile) {
+        Rule rule = ((OutputFile) target).getGeneratingRule();
+        observeEdge(target, null, rule);
+        // This is the only recursive call to visit which doesn't pass through enqueueTarget().
+        visit(null, null, rule, depth + 1, count + 1);
+        visitTargetVisibility(target, depth, count);
+      } else if (target instanceof InputFile) {
+        visitTargetVisibility(target, depth, count);
+      } else if (target instanceof Rule) {
+        visitTargetVisibility(target, depth, count);
+        visitRule((Rule) target, depth, count);
+      } else if (target instanceof PackageGroup) {
+        visitPackageGroup((PackageGroup) target, depth, count);
+      }
     }
 
     private void observeEdge(Target from, Attribute attribute, Target to) {

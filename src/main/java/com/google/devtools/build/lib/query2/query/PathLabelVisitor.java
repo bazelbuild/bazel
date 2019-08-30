@@ -22,13 +22,19 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
-import com.google.devtools.build.lib.packages.LabelVisitationUtils;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import java.util.ArrayDeque;
@@ -262,8 +268,57 @@ final class PathLabelVisitor {
         return;
       }
 
-      LabelVisitationUtils.<InterruptedException, NoSuchThingException>visitTargetExceptionally(
-          target, edgeFilter, this::visit);
+      if (target instanceof OutputFile) {
+        Rule rule = ((OutputFile) target).getGeneratingRule();
+        visit(target, null, rule);
+        visitTargetVisibility(target);
+      } else if (target instanceof InputFile) {
+        visitTargetVisibility(target);
+      } else if (target instanceof Rule) {
+        visitTargetVisibility(target);
+        visitRule((Rule) target);
+      } else if (target instanceof PackageGroup) {
+        visitPackageGroup((PackageGroup) target);
+      } else {
+        // TODO(ulfjack): Throw an exception in this case.
+      }
+    }
+
+    private void visitTargetVisibility(Target target)
+        throws InterruptedException, NoSuchThingException {
+      Attribute attribute = null;
+      if (target instanceof Rule) {
+        Rule rule = (Rule) target;
+        RuleClass ruleClass = rule.getRuleClassObject();
+        if (!ruleClass.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)) {
+          return;
+        }
+        attribute = ruleClass.getAttributeByName("visibility");
+        if (!edgeFilter.apply(rule, attribute)) {
+          return;
+        }
+      }
+
+      for (Label label : target.getVisibility().getDependencyLabels()) {
+        visit(target, attribute, label);
+      }
+    }
+
+    /** Visit all the labels in a given rule. */
+    private void visitRule(Rule rule) throws InterruptedException, NoSuchThingException {
+      // Follow all labels defined by this rule:
+      for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
+        if (edgeFilter.apply(rule, depEdge.getAttribute())) {
+          visit(rule, depEdge.getAttribute(), depEdge.getLabel());
+        }
+      }
+    }
+
+    private void visitPackageGroup(PackageGroup packageGroup)
+        throws InterruptedException, NoSuchThingException {
+      for (final Label include : packageGroup.getIncludes()) {
+        visit(packageGroup, null, include);
+      }
     }
 
     private void visitAspectsIfRequired(Target from, Attribute attribute, final Target to)
