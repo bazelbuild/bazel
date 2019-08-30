@@ -28,6 +28,21 @@ filegroup(
     srcs = [],
 )
 
+filegroup(
+    name = "mingw_tools",
+    srcs = [":builtin_include_directory_paths_mingw"]
+)
+
+filegroup(
+    name = "clangcl_tools",
+    srcs = [":builtin_include_directory_paths_clangcl"]
+)
+
+filegroup(
+    name = "msvc_tools",
+    srcs = [":builtin_include_directory_paths_msvc"]
+)
+
 # Hardcoded toolchain, legacy behaviour.
 cc_toolchain_suite(
     name = "toolchain",
@@ -49,8 +64,8 @@ cc_toolchain(
     toolchain_config = ":msys_x64",
     all_files = ":empty",
     ar_files = ":empty",
-    as_files = ":empty",
-    compiler_files = ":empty",
+    as_files = ":mingw_tools",
+    compiler_files = ":mingw_tools",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -95,8 +110,8 @@ cc_toolchain(
     toolchain_config = ":msys_x64_mingw",
     all_files = ":empty",
     ar_files = ":empty",
-    as_files = ":empty",
-    compiler_files = ":empty",
+    as_files = ":mingw_tools",
+    compiler_files = ":mingw_tools",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -141,8 +156,8 @@ cc_toolchain(
     toolchain_config = ":msvc_x64",
     all_files = ":empty",
     ar_files = ":empty",
-    as_files = ":empty",
-    compiler_files = ":empty",
+    as_files = ":msvc_tools",
+    compiler_files = ":msvc_tools",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",
@@ -206,8 +221,8 @@ cc_toolchain(
     toolchain_config = ":clang_cl_x64",
     all_files = ":empty",
     ar_files = ":empty",
-    as_files = ":empty",
-    compiler_files = ":empty",
+    as_files = ":clang_cl_tools",
+    compiler_files = ":clang_cl_tools",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",

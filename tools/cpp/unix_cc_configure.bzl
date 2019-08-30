@@ -24,6 +24,7 @@ load(
     "get_starlark_list",
     "resolve_labels",
     "split_escaped",
+    "write_builtin_include_directory_paths",
     "which",
 )
 
@@ -388,7 +389,24 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         bin_search_flag = []
 
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
+    builtin_include_directories = _uniq(
+        get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
+        get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++", cxx_opts) +
+        get_escaped_cxx_inc_directories(
+            repository_ctx,
+            cc,
+            "-xc",
+            _get_no_canonical_prefixes_opt(repository_ctx, cc),
+        ) +
+        get_escaped_cxx_inc_directories(
+            repository_ctx,
+            cc,
+            "-xc++",
+            cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
+        ),
+    )
 
+    write_builtin_include_directory_paths(repository_ctx, cc, builtin_include_directories)
     repository_ctx.template(
         "BUILD",
         paths["@bazel_tools//tools/cpp:BUILD.tpl"],
@@ -396,7 +414,9 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{cc_toolchain_identifier}": cc_toolchain_identifier,
             "%{name}": cpu_value,
             "%{supports_param_files}": "0" if darwin else "1",
-            "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
+            "%{cc_compiler_deps}": (
+                get_starlark_list([":cc_wrapper", ":builtin_include_directory_paths"]) if darwin else ":builtin_include_directory_paths"
+            ),
             "%{compiler}": escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_COMPILER",
@@ -442,24 +462,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{tool_paths}": ",\n        ".join(
                 ['"%s": "%s"' % (k, v) for k, v in tool_paths.items()],
             ),
-            "%{cxx_builtin_include_directories}": get_starlark_list(
-                _uniq(
-                    get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
-                    get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++", cxx_opts) +
-                    get_escaped_cxx_inc_directories(
-                        repository_ctx,
-                        cc,
-                        "-xc",
-                        _get_no_canonical_prefixes_opt(repository_ctx, cc),
-                    ) +
-                    get_escaped_cxx_inc_directories(
-                        repository_ctx,
-                        cc,
-                        "-xc++",
-                        cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
-                    ),
-                ),
-            ),
+            "%{cxx_builtin_include_directories}": get_starlark_list(builtin_include_directories),
             "%{compile_flags}": get_starlark_list(
                 [
                     # Security hardening requires optimization.
