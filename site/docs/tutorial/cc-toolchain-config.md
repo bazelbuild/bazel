@@ -139,7 +139,7 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
 4.  Run the build again. Bazel throws the following error:
 
     ```
-    Rule '//toolchain:asmjs_toolchain' does not exist
+    Rule '//toolchain:asmjs_toolchain_config' does not exist
     ```
 
     Now you need to define `cc_toolchain` targets for every value in the
@@ -410,7 +410,6 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
        toolchain_config = ":asmjs_toolchain_config",
        all_files = ":all",
        compiler_files = ":all",
-       cpu = "asmjs",
        dwp_files = ":empty",
        linker_files = ":all",
        objcopy_files = ":empty",
