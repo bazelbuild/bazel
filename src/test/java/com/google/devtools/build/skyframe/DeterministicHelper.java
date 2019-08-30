@@ -156,10 +156,11 @@ public class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> markClean() throws InterruptedException {
+    public NodeValueAndRdepsToSignal markClean() throws InterruptedException {
       TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
-      result.addAll(super.markClean());
-      return result;
+      NodeValueAndRdepsToSignal nodeValueAndRdepsToSignal = super.markClean();
+      result.addAll(nodeValueAndRdepsToSignal.getRdepsToSignal());
+      return new NodeValueAndRdepsToSignal(nodeValueAndRdepsToSignal.getValue(), result);
     }
   }
 }

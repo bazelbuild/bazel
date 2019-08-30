@@ -1637,6 +1637,7 @@ public class MemoizingEvaluatorTest {
     assertThatEvaluationResult(result3).hasNoError();
   }
 
+  @SuppressWarnings("PreferJavaTimeOverload")
   @Test
   public void limitEvaluatorThreads() throws Exception {
     initializeTester();
@@ -1650,21 +1651,24 @@ public class MemoizingEvaluatorTest {
     TestFunction topLevelBuilder = tester.getOrCreate(topLevel);
     for (int i = 0; i < numKeys; i++) {
       topLevelBuilder.addDependency("subKey" + i);
-      tester.getOrCreate("subKey" + i).setComputedValue(new ValueComputer() {
-        @Override
-        public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
-          int val = inProgressCount.incrementAndGet();
-          synchronized (lock) {
-            if (val > maxValue[0]) {
-              maxValue[0] = val;
-            }
-          }
-          Uninterruptibles.sleepUninterruptibly(5, TimeUnit.SECONDS);
+      tester
+          .getOrCreate("subKey" + i)
+          .setComputedValue(
+              new ValueComputer() {
+                @Override
+                public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
+                  int val = inProgressCount.incrementAndGet();
+                  synchronized (lock) {
+                    if (val > maxValue[0]) {
+                      maxValue[0] = val;
+                    }
+                  }
+                  Uninterruptibles.sleepUninterruptibly(5, TimeUnit.SECONDS);
 
-          inProgressCount.decrementAndGet();
-          return new StringValue("abc");
-        }
-      });
+                  inProgressCount.decrementAndGet();
+                  return new StringValue("abc");
+                }
+              });
     }
     topLevelBuilder.setConstantValue(new StringValue("xyz"));
 
@@ -4034,6 +4038,78 @@ public class MemoizingEvaluatorTest {
     assertThat(tester.evalAndGet( /*keepGoing=*/false, parent)).isEqualTo(parentVal);
     assertThatEvents(eventCollector).containsExactly("bloop");
     assertThat(parentEvaluated.getCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void changePruningWithIntermittentEvent() throws Exception {
+    String parentEvent = "parent_event";
+    String waitEvent = "wait_event";
+    String childEvent = "child_event";
+    SkyKey wait = GraphTester.toSkyKey("wait_key");
+    SkyKey parent = GraphTester.toSkyKey("parent_key");
+    SkyKey child = GraphTester.nonHermeticKey("child_key");
+    StringValue parentStringValue = new StringValue("parent_value");
+    StringValue waitStringValue = new StringValue("wait_value");
+    CountDownLatch parentEvaluated = new CountDownLatch(2);
+
+    reporter =
+        new DelegatingEventHandler(reporter) {
+          @Override
+          public void handle(Event e) {
+            super.handle(e);
+            // Release the CountDownLatch every time the parent node fires the event
+            if (e.getMessage().equals(parentEvent)) {
+              parentEvaluated.countDown();
+            }
+          }
+        };
+
+    tester
+        .getOrCreate(wait)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                // Wait for the parent and child actions to complete before computing wait node
+                parentEvaluated.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                assertThatEvents(eventCollector).containsExactly(childEvent, parentEvent);
+
+                env.getListener().handle(Event.progress(waitEvent));
+                return waitStringValue;
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    tester
+        .getOrCreate(child)
+        .setConstantValue(new StringValue("child_value"))
+        .setWarning(childEvent);
+    tester
+        .getOrCreate(parent)
+        .addDependency(child)
+        .setConstantValue(parentStringValue)
+        .setWarning(parentEvent);
+
+    assertThat(tester.evalAndGet(/*keepGoing=*/ false, parent)).isEqualTo(parentStringValue);
+    assertThatEvents(eventCollector).containsExactly(childEvent, parentEvent);
+    assertThat(parentEvaluated.getCount()).isEqualTo(1);
+
+    // Reset the event collector and mark the child as modified without actually changing values
+    eventCollector.clear();
+    tester.resetPlayedEvents();
+    tester.getOrCreate(child, /*markAsModified=*/ true);
+    tester.invalidate();
+
+    EvaluationResult<StringValue> result = tester.eval(false, parent, wait);
+    assertThat(result.values()).containsExactly(parentStringValue, waitStringValue);
+
+    // These assertions are to check that all events fired at the end of evaluation.
+    assertThat(parentEvaluated.getCount()).isEqualTo(0);
+    assertThatEvents(eventCollector).containsExactly(childEvent, parentEvent, waitEvent);
   }
 
   @Test

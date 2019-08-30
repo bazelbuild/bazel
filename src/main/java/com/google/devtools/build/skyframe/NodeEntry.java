@@ -261,10 +261,33 @@ public interface NodeEntry extends ThinNodeEntry {
   /**
    * Marks this entry as up-to-date at this version.
    *
-   * @return {@link Set} of reverse dependencies to signal that this node is done.
+   * @return {@link NodeValueAndRdepsToSignal} containing the SkyValue and reverse deps to signal.
    */
   @ThreadSafe
-  Set<SkyKey> markClean() throws InterruptedException;
+  NodeValueAndRdepsToSignal markClean() throws InterruptedException;
+
+  /**
+   * Returned by {@link #markClean} after making a node as clean. This is an aggregate object that
+   * contains the NodeEntry's SkyValue and its reverse dependencies that signal this node is done (a
+   * subset of all of the node's reverse dependencies).
+   */
+  final class NodeValueAndRdepsToSignal {
+    private final SkyValue value;
+    private final Set<SkyKey> rDepsToSignal;
+
+    public NodeValueAndRdepsToSignal(SkyValue value, Set<SkyKey> rDepsToSignal) {
+      this.value = value;
+      this.rDepsToSignal = rDepsToSignal;
+    }
+
+    SkyValue getValue() {
+      return this.value;
+    }
+
+    Set<SkyKey> getRdepsToSignal() {
+      return this.rDepsToSignal;
+    }
+  }
 
   /**
    * Forces this node to be re-evaluated, even if none of its dependencies are known to have
