@@ -125,6 +125,10 @@ import javax.annotation.Nullable;
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
 
+  public boolean isAllowTagsPropagation() throws InterruptedException {
+    return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
+  }
+
   /**
    * The configured version of FilesetEntry.
    */

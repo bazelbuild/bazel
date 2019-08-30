@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
@@ -1432,7 +1433,10 @@ public abstract class CcModule
                     .getActionConstructionContext()
                     .getConfiguration()
                     .getFragment(CppConfiguration.class),
-                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator())
+                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(),
+                TargetUtils.getExecutionInfo(
+                    actions.getRuleContext().getRule(),
+                    actions.getRuleContext().isAllowTagsPropagation()))
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .addNonCodeLinkerInputs(additionalInputs)
             .setShouldCreateStaticLibraries(!disallowStaticLibraries)
@@ -1527,7 +1531,7 @@ public abstract class CcModule
       SkylarkList<Artifact> headersForClifDoNotUseThisParam,
       Location location,
       @Nullable Environment environment)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     if (environment != null) {
       CcCommon.checkLocationWhitelisted(
           environment.getSemantics(),
@@ -1572,7 +1576,10 @@ public abstract class CcModule
                 getSemantics(),
                 featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
-                fdoContext)
+                fdoContext,
+                TargetUtils.getExecutionInfo(
+                    actions.getRuleContext().getRule(),
+                    actions.getRuleContext().isAllowTagsPropagation()))
             .addPublicHeaders(publicHeaders)
             .addPrivateHeaders(privateHeaders)
             .addSources(sources)
@@ -1680,7 +1687,10 @@ public abstract class CcModule
                 fdoContext,
                 actions.getActionConstructionContext().getConfiguration(),
                 cppConfiguration,
-                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator())
+                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(),
+                TargetUtils.getExecutionInfo(
+                    actions.getRuleContext().getRule(),
+                    actions.getRuleContext().isAllowTagsPropagation()))
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .addNonCodeLinkerInputs(additionalInputs)
