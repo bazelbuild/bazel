@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -426,7 +427,9 @@ public final class SandboxModule extends BlazeModule {
         localExecutionOptions,
         env.getLocalResourceManager(),
         LocalEnvProvider.forCurrentOs(env.getClientEnv()),
-        env.getBlazeWorkspace().getBinTools());
+        env.getBlazeWorkspace().getBinTools(),
+        // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+        RunfilesTreeUpdater.INSTANCE);
   }
 
   private static final class SandboxFallbackSpawnRunner implements SpawnRunner {

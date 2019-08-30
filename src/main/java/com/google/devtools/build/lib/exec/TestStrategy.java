@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
@@ -38,8 +36,6 @@ import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileWatcher;
@@ -54,7 +50,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -390,107 +385,6 @@ public abstract class TestStrategy implements TestActionContext {
       }
     }
     return result;
-  }
-
-  /**
-   * Returns the runfiles directory associated with the test executable, creating/updating it if
-   * necessary and --build_runfile_links is specified.
-   */
-  protected static Path getLocalRunfilesDirectory(
-      TestRunnerAction testAction,
-      ActionExecutionContext actionExecutionContext,
-      BinTools binTools,
-      ImmutableMap<String, String> shellEnvironment,
-      boolean enableRunfiles)
-      throws ExecException, InterruptedException {
-    TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
-
-    if (execSettings.getInputManifest() == null) {
-      throw new TestExecException("cannot run local tests with --nobuild_runfile_manifests");
-    }
-
-    Path runfilesDir =
-        actionExecutionContext.getPathResolver().convertPath(execSettings.getRunfilesDir());
-
-    // If the symlink farm is already created then return the existing directory. If not we
-    // need to explicitly build it. This can happen when --nobuild_runfile_links is supplied
-    // as a flag to the build.
-    if (execSettings.getRunfilesSymlinksCreated()) {
-      return runfilesDir;
-    }
-
-    // Synchronize runfiles tree generation on the runfiles manifest artifact.
-    // This is necessary, because we might end up with multiple test runner actions
-    // trying to generate same runfiles tree in case of --runs_per_test > 1 or
-    // local test sharding.
-    long startTime = Profiler.nanoTimeMaybe();
-    synchronized (execSettings.getInputManifest()) {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, testAction.describe());
-      updateLocalRunfilesDirectory(
-          testAction,
-          runfilesDir,
-          actionExecutionContext,
-          binTools,
-          shellEnvironment,
-          enableRunfiles);
-    }
-
-    return runfilesDir;
-  }
-
-  /**
-   * Ensure the runfiles tree exists and is consistent with the TestAction's manifest
-   * ($0.runfiles_manifest), bringing it into consistency if not. The contents of the output file
-   * $0.runfiles/MANIFEST, if it exists, are used a proxy for the set of existing symlinks, to avoid
-   * the need for recursion.
-   */
-  private static void updateLocalRunfilesDirectory(
-      TestRunnerAction testAction,
-      Path runfilesDir,
-      ActionExecutionContext actionExecutionContext,
-      BinTools binTools,
-      ImmutableMap<String, String> shellEnvironment,
-      boolean enableRunfiles)
-      throws ExecException, InterruptedException {
-    TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
-    Path outputManifest = runfilesDir.getRelative("MANIFEST");
-    try {
-      // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
-      // implying the symlinks exist and are already up to date. If the output manifest is a
-      // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
-      // an up-to-date check.
-      if (!outputManifest.isSymbolicLink()
-          && Arrays.equals(
-              outputManifest.getDigest(),
-              actionExecutionContext.getInputPath(execSettings.getInputManifest()).getDigest())) {
-        return;
-      }
-    } catch (IOException e1) {
-      // Ignore it - we will just try to create runfiles directory.
-    }
-
-    actionExecutionContext
-        .getEventHandler()
-        .handle(
-            Event.progress(
-                "Building runfiles directory for '"
-                    + execSettings.getExecutable().prettyPrint()
-                    + "'."));
-
-    new SymlinkTreeHelper(
-            actionExecutionContext.getInputPath(execSettings.getInputManifest()),
-            runfilesDir,
-            false)
-        .createSymlinks(
-            actionExecutionContext.getExecRoot(),
-            actionExecutionContext.getFileOutErr(),
-            binTools,
-            shellEnvironment,
-            enableRunfiles);
-
-    actionExecutionContext
-        .getEventHandler()
-        .handle(Event.progress(testAction.getProgressMessage()));
   }
 
   protected static void closeSuppressed(Throwable e, @Nullable Closeable c) {
