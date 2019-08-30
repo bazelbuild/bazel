@@ -333,7 +333,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_skip_genfiles_symlink",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
