@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
@@ -53,7 +54,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -215,7 +218,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Builds and registers the action for a header compilation. */
-  public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase) {
+  public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase) throws InterruptedException {
     checkNotNull(outputDepsProto, "outputDepsProto must not be null");
     checkNotNull(sourceFiles, "sourceFiles must not be null");
     checkNotNull(sourceJars, "sourceJars must not be null");
@@ -369,9 +372,7 @@ public class JavaHeaderCompileActionBuilder {
               /* commandLineLimits= */ ruleContext.getConfiguration().getCommandLineLimits(),
               /* isShellCommand= */ false,
               /* env= */ actionEnvironment,
-              /* executionInfo= */ ruleContext
-                  .getConfiguration()
-                  .modifiedExecutionInfo(executionInfo, "Turbine"),
+              /* executionInfo= */ getExecutionInfo(executionInfo),
               /* progressMessage= */ progressMessage,
               /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
               /* mnemonic= */ "Turbine",
@@ -417,7 +418,7 @@ public class JavaHeaderCompileActionBuilder {
               /* transitiveInputs= */ classpathEntries,
               /* directJars= */ directJars,
               /* outputs= */ outputs,
-              /* executionInfo= */ executionInfo,
+              /* executionInfo= */ addTags(executionInfo),
               /* extraActionInfoSupplier= */ null,
               /* executableLine= */ executableLine,
               /* flagLine= */ commandLine.build(),
@@ -454,15 +455,28 @@ public class JavaHeaderCompileActionBuilder {
             /* commandLineLimits= */ ruleContext.getConfiguration().getCommandLineLimits(),
             /* isShellCommand= */ false,
             /* env= */ actionEnvironment,
-            /* executionInfo= */ ruleContext
-                .getConfiguration()
-                .modifiedExecutionInfo(executionInfo, "JavacTurbine"),
+            /* executionInfo= */ getExecutionInfo(executionInfo),
             /* progressMessage= */ progressMessage,
             /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
             /* mnemonic= */ "JavacTurbine",
             /* executeUnconditionally= */ false,
             /* extraActionInfoSupplier= */ null,
             /* resultConsumer= */ resultConsumer));
+  }
+
+  private ImmutableMap<String, String> addTags(ImmutableMap<String, String> executionInfo) throws InterruptedException {
+    Map<String, String> executionInfoBuilder = new LinkedHashMap<>();
+
+    executionInfoBuilder.putAll(executionInfo);
+    executionInfoBuilder.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+
+    return ImmutableMap.copyOf(executionInfoBuilder);
+  }
+
+  private ImmutableMap<String, String> getExecutionInfo(ImmutableMap<String, String> execInfo) throws InterruptedException {
+    return addTags(ruleContext.getConfiguration()
+            .modifiedExecutionInfo(execInfo, "JavacTurbine"));
+
   }
 
   /**

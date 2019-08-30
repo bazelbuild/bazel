@@ -98,6 +98,119 @@ EOF
   assert_contains "no-remote:" output1
 }
 
+function test_java_library_tags_propagated() {
+  mkdir -p test
+  cat > test/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+java_library(
+  name = 'test',
+  srcs = [ 'Hello.java' ],
+  tags = ["no-cache", "no-remote", "local"]
+)
+EOF
+
+	cat > test/Hello.java <<EOF
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello there");
+  }
+}
+EOF
+
+  bazel aquery --experimental_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+      || fail "should have generated output successfully"
+
+  assert_contains "ExecutionInfo: {" output1
+  assert_contains "local:" output1
+  assert_contains "no-cache:" output1
+  assert_contains "no-remote:" output1
+}
+
+function test_java_binary_tags_propagated() {
+  mkdir -p test
+  cat > test/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+java_binary(
+  name = 'test',
+  srcs = [ 'Hello.java' ],
+  main_class = 'main.Hello',
+  tags = ["no-cache", "no-remote", "local"]
+)
+EOF
+
+	cat > test/Hello.java <<EOF
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello there");
+  }
+}
+EOF
+
+  bazel aquery --experimental_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+      || fail "should have generated output successfully"
+
+  assert_contains "ExecutionInfo: {" output1
+  assert_contains "local:" output1
+  assert_contains "no-cache:" output1
+  assert_contains "no-remote:" output1
+}
+
+function write_hello_library_files() {
+  local -r pkg="$1"
+  mkdir -p $pkg/java/main || fail "mkdir"
+  cat >$pkg/java/main/BUILD <<EOF
+java_binary(
+    name = 'main',
+    deps = ['//$pkg/java/hello_library'],
+    srcs = ['Main.java'],
+    main_class = 'main.Main',
+    tags = ["no-cache", "no-remote", "local"],
+    deploy_manifest_lines = ['k1: v1', 'k2: v2'])
+EOF
+
+  cat >$pkg/java/main/Main.java <<EOF
+package main;
+import hello_library.HelloLibrary;
+public class Main {
+  public static void main(String[] args) {
+    HelloLibrary.funcHelloLibrary();
+    System.out.println("Hello, World!");
+  }
+}
+EOF
+
+  mkdir -p $pkg/java/hello_library || fail "mkdir"
+  cat >$pkg/java/hello_library/BUILD <<EOF
+package(default_visibility=['//visibility:public'])
+java_library(name = 'hello_library',
+             srcs = ['HelloLibrary.java']);
+EOF
+
+  cat >$pkg/java/hello_library/HelloLibrary.java <<EOF
+package hello_library;
+public class HelloLibrary {
+  public static void funcHelloLibrary() {
+    System.out.print("Hello, Library!;");
+  }
+}
+EOF
+}
+
+function test_java_header_tags_propagated() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir "$pkg" || fail "mkdir $pkg"
+  write_hello_library_files "$pkg"
+
+  bazel aquery --experimental_allow_tags_propagation --java_header_compilation=true //$pkg/java/main:main > output1 2> $TEST_log \
+      || fail "should have generated output successfully"
+
+  assert_contains "ExecutionInfo: {" output1
+  assert_contains "local:" output1
+  assert_contains "no-cache:" output1
+  assert_contains "no-remote:" output1
+
+}
+
 function test_genrule_tags_propagated() {
   mkdir -p test
   cat > test/BUILD <<EOF
@@ -193,4 +306,31 @@ EOF
   assert_not_contains "no-remote:" output1
 }
 
-run_suite "tags propagation: skylark rule tests"
+function test_java_tags_not_propagated_when_incompatible_flag_off() {
+  mkdir -p test
+  cat > test/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+java_library(
+  name = 'test',
+  srcs = [ 'Hello.java' ],
+  tags = ["no-cache", "no-remote", "local"]
+)
+EOF
+
+	cat > test/Hello.java <<EOF
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello there");
+  }
+}
+EOF
+
+  bazel aquery --experimental_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
+      || fail "should have generated output successfully"
+
+  assert_not_contains "local:" output1
+  assert_not_contains "no-cache:" output1
+  assert_not_contains "no-remote:" output1
+}
+
+run_suite "tags propagation: native rule tests"
