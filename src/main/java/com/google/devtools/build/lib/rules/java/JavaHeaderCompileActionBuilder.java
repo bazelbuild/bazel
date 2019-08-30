@@ -372,7 +372,9 @@ public class JavaHeaderCompileActionBuilder {
               /* commandLineLimits= */ ruleContext.getConfiguration().getCommandLineLimits(),
               /* isShellCommand= */ false,
               /* env= */ actionEnvironment,
-              /* executionInfo= */ getExecutionInfo(executionInfo),
+              /* executionInfo= */ addTags(ruleContext
+                  .getConfiguration()
+                  .modifiedExecutionInfo(executionInfo, "Turbine")),
               /* progressMessage= */ progressMessage,
               /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
               /* mnemonic= */ "Turbine",
@@ -455,7 +457,9 @@ public class JavaHeaderCompileActionBuilder {
             /* commandLineLimits= */ ruleContext.getConfiguration().getCommandLineLimits(),
             /* isShellCommand= */ false,
             /* env= */ actionEnvironment,
-            /* executionInfo= */ getExecutionInfo(executionInfo),
+            /* executionInfo= */ addTags(ruleContext
+                .getConfiguration()
+                .modifiedExecutionInfo(executionInfo, "JavacTurbine")),
             /* progressMessage= */ progressMessage,
             /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
             /* mnemonic= */ "JavacTurbine",
@@ -471,12 +475,6 @@ public class JavaHeaderCompileActionBuilder {
     executionInfoBuilder.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
     return ImmutableMap.copyOf(executionInfoBuilder);
-  }
-
-  private ImmutableMap<String, String> getExecutionInfo(ImmutableMap<String, String> execInfo) throws InterruptedException {
-    return addTags(ruleContext.getConfiguration()
-            .modifiedExecutionInfo(execInfo, "JavacTurbine"));
-
   }
 
   /**
