@@ -1097,6 +1097,7 @@ public class MethodLibrary {
     // Non-legacy behavior: either 'transitive' or 'direct' were specified.
     Iterable<Object> directElements;
     if (direct != Runtime.NONE) {
+      SkylarkType.checkType(direct, SkylarkList.class, "direct");
       directElements = ((SkylarkList<?>) direct).getContents(Object.class, "direct");
     } else {
       SkylarkType.checkType(items, SkylarkList.class, "items");

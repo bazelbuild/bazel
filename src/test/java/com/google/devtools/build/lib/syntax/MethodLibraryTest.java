@@ -773,6 +773,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testDepsetDirectInvalidType() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains(
+            "expected type 'sequence' for direct but got type 'string' instead",
+            "depset(direct='hello')");
+  }
+
+  @Test
   public void testDisableDepsetItems() throws Exception {
     new SkylarkTest("--incompatible_disable_depset_items")
         .setUp("x = depset([0])", "y = depset(direct = [1])")
