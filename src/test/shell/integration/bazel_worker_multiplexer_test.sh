@@ -233,25 +233,25 @@ EOF
   assert_equals "1" $work_count
 }
 
-# function test_build_fails_when_worker_exits() {
-#   prepare_example_worker
-#   cat >>BUILD <<'EOF'
-# [work(
-#   name = "hello_world_%s" % idx,
-#   worker = ":worker",
-#   worker_args = ["--exit_after=1"],
-#   args = ["--write_uuid", "--write_counter"],
-# ) for idx in range(10)]
-# EOF
+function test_build_fails_when_worker_exits() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--exit_after=1"],
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
 
-#   bazel build :hello_world_1 &> $TEST_log \
-#     || fail "build failed"
+  bazel build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
 
-#   bazel build :hello_world_2 &> $TEST_log \
-#     && fail "expected build to failed" || true
+  bazel build :hello_world_2 &> $TEST_log \
+    && fail "expected build to failed" || true
 
-#   expect_log "Worker process quit or closed its stdin stream when we tried to send a WorkRequest"
-# }
+  expect_log "Worker process quit or closed its stdin stream when we tried to send a WorkRequest"
+}
 
 function test_worker_restarts_when_worker_binary_changes() {
   prepare_example_worker

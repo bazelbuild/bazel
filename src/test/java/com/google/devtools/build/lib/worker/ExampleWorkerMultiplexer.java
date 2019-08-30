@@ -130,7 +130,7 @@ public class ExampleWorkerMultiplexer {
         }
 
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
-          return;
+          System.in.close();
         }
       } finally {
         // Be a good worker process and consume less memory when idle.
