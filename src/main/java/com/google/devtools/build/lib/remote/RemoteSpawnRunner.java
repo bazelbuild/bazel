@@ -245,17 +245,13 @@ public class RemoteSpawnRunner implements SpawnRunner {
             () -> {
               ExecuteRequest request = requestBuilder.build();
 
-              // Upload the command and all the inputs into the remote cache, if remote caching
-              // is enabled and not disabled using tags, {@see Spawns#mayBeCachedRemotely}
-              if (spawnCacheableRemotely) {
-                try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
-                  Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
-                  additionalInputs.put(actionKey.getDigest(), action);
-                  additionalInputs.put(commandHash, command);
-                  remoteCache.ensureInputsPresent(merkleTree, additionalInputs, execRoot);
-                }
+              // Upload the command and all the inputs into the remote cache.
+              try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
+                Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
+                additionalInputs.put(actionKey.getDigest(), action);
+                additionalInputs.put(commandHash, command);
+                remoteCache.ensureInputsPresent(merkleTree, additionalInputs, execRoot);
               }
-
               ExecuteResponse reply;
               try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
                 reply = remoteExecutor.executeRemotely(request);
