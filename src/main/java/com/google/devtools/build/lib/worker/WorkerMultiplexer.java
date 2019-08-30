@@ -61,6 +61,7 @@ public class WorkerMultiplexer extends Thread {
   private boolean isUnparseable;
   /** InputStream from worker process. */
   private RecordingInputStream recordingStream;
+  /** If worker process returns null, return null to WorkerProxy and discard all the responses. */
   private boolean isNull;
 
   WorkerMultiplexer() {
@@ -173,16 +174,7 @@ public class WorkerMultiplexer extends Thread {
 
     if (parsedResponse == null) {
       isNull = true;
-      try {
-        semResponseChecker.acquire();
-        for (Integer workerId: responseChecker.keySet()) {
-          responseChecker.get(workerId).release();
-        }
-      } catch (InterruptedException ee) {
-        // Do nothing
-      } finally {
-        semResponseChecker.release();
-      }
+      releaseAllSemaphores();
       return;
     }
 
@@ -206,16 +198,7 @@ public class WorkerMultiplexer extends Thread {
         waitResponse();
       } catch (IOException e) {
         isUnparseable = true;
-        try {
-          semResponseChecker.acquire();
-          for (Integer workerId: responseChecker.keySet()) {
-            responseChecker.get(workerId).release();
-          }
-        } catch (InterruptedException ee) {
-          // Do nothing
-        } finally {
-          semResponseChecker.release();
-        }
+        releaseAllSemaphores();
         logger.warning("IOException was caught while waiting for worker response. "
             + "It could because the worker returned unparseable response.");
       } catch (InterruptedException e) {
@@ -225,5 +208,19 @@ public class WorkerMultiplexer extends Thread {
     }
     logger.warning("Multiplexer thread has been terminated. It could because the memory is running low on your machine. "
         + "There may be other reasons.");
+  }
+
+  /** Release all the semaphores */
+  private void releaseAllSemaphores() {
+    try {
+      semResponseChecker.acquire();
+      for (Integer workerId: responseChecker.keySet()) {
+        responseChecker.get(workerId).release();
+      }
+    } catch (InterruptedException e) {
+      // Do nothing
+    } finally {
+      semResponseChecker.release();
+    }
   }
 }

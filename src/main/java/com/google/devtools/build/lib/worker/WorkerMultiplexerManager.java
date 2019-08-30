@@ -107,6 +107,7 @@ public class WorkerMultiplexerManager {
   }
 }
 
+/** Contains the WorkerMultiplexer instance and reference count */
 class InstanceInfo {
   private WorkerMultiplexer workerMultiplexer;
   private Integer refCount;
