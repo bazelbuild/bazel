@@ -82,15 +82,15 @@ public class HelloLibrary {
 EOF
 }
 
-# function test_compiles_hello_library_using_persistent_javac() {
-#   write_hello_library_files
+function test_compiles_hello_library_using_persistent_javac() {
+  write_hello_library_files
 
-#   bazel build java/main:main &> $TEST_log \
-#     || fail "build failed"
-#   expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+)"
-#   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
-#     || fail "comparison failed"
-# }
+  bazel build java/main:main &> $TEST_log \
+    || fail "build failed"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+)"
+  $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
+    || fail "comparison failed"
+}
 
 function prepare_example_worker() {
   cp ${example_worker} worker_lib.jar
