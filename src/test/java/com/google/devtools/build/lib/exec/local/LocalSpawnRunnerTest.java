@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -86,7 +85,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 /** Unit tests for {@link LocalSpawnRunner}. */
 @RunWith(JUnit4.class)
@@ -111,11 +109,9 @@ public class LocalSpawnRunnerTest {
           localOs,
           localEnvProvider,
           useProcessWrapper
-              ? BinTools.forEmbeddedBin(
-                  embeddedBin,
+              ? BinTools.forEmbeddedBin(embeddedBin,
                   ImmutableList.of("process-wrapper" + OsUtils.executableExtension(localOs)))
-              : null,
-          Mockito.mock(RunfilesTreeUpdater.class));
+              : null);
     }
 
     // Rigged to act on supplied filesystem (e.g. InMemoryFileSystem) for testing purposes
@@ -882,8 +878,7 @@ public class LocalSpawnRunnerTest {
             USE_WRAPPER,
             OS.LINUX,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
-            binTools,
-            Mockito.mock(RunfilesTreeUpdater.class));
+            binTools);
 
     Spawn spawn =
         new SpawnBuilder(
@@ -946,8 +941,7 @@ public class LocalSpawnRunnerTest {
             USE_WRAPPER,
             OS.LINUX,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
-            binTools,
-            Mockito.mock(RunfilesTreeUpdater.class));
+            binTools);
 
     Spawn spawn =
         new SpawnBuilder(

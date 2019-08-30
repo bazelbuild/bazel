@@ -469,14 +469,4 @@ public final class RunfilesSupport {
     return CommandLine.concat(
         ruleContext.getExpander().withDataLocations().tokenized("args"), additionalArgs);
   }
-
-  /** Returns the path of the input manifest of {@code runfilesDir}. */
-  public static Path inputManifestPath(Path runfilesDir) {
-    return FileSystemUtils.replaceExtension(runfilesDir, INPUT_MANIFEST_EXT);
-  }
-
-  /** Returns the path of the output manifest of {@code runfilesDir}. */
-  public static Path outputManifestPath(Path runfilesDir) {
-    return runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
-  }
 }
