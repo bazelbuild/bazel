@@ -18,6 +18,11 @@
 #include <string>
 #include <vector>
 
+namespace blaze_util {
+// Forward-declare Path without including the full header file.
+class Path;
+}
+
 namespace blaze {
 
 // Determines the contents of the archive, storing the names of the contained
